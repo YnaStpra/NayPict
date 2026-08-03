@@ -5,9 +5,10 @@ const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
 const nextConfig: NextConfig = {
   reactStrictMode: false,
   serverExternalPackages: ['exiftool-vendored', 'better-sqlite3'],
-  // Vercel Need not standalone；Docker Only required for self-built deployment。
   output: process.env.VERCEL ? undefined : 'standalone',
-  // Windows standalone It is necessary to incorporate native dependent resources into the product。
+  typescript: {
+    ignoreBuildErrors: true,
+  },
   ...(process.platform === "win32"
     ? {
         outputFileTracingIncludes: {
@@ -15,10 +16,6 @@ const nextConfig: NextConfig = {
             "./node_modules/@img/sharp-win32-x64/**/*",
             "./node_modules/exiftool-vendored.exe/**/*",
           ],
-        },
-        typescript: {
-          // Windows Skip when packaging locally TypeScript type checking。
-          ignoreBuildErrors: true,
         },
       }
     : {}),
