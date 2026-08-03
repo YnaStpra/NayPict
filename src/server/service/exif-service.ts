@@ -18,7 +18,7 @@ const exifService = {
       .from(exifTab)
       .where(inArray(exifTab.photoId, photoIds));
 
-    return new Map(rows.map((row) => [row.photoId, row]));
+    return new Map(rows.map((row: any) => [row.photoId, row]));
   },
 
   // save photo exif JSON and location information。

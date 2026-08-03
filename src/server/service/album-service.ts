@@ -55,15 +55,15 @@ const albumService = {
       photoStatList.map((stat: any) => stat.photoId).filter(Boolean) as string[]
     );
 
-    const list = albumList.map((album) => {
+    const list = albumList.map((album: any) => {
       const photoStat = photoStatList.find((stat: any) => stat.albumId === album.albumId);
-      const fileStorage = fileStorageList.list.find((item) => item.storageId === photoStat?.storageId);
+      const fileStorage = fileStorageList.list.find((item: any) => item.storageId === photoStat?.storageId);
       const domain = formatHttpUrl(fileStorage?.domain);
 
       let thumbnail: string | null = null;
 
       if (photoStat?.photoId) {
-        const file = (fileMap.get(photoStat.photoId) ?? []).find((item) => item.type === FileTypeEnum.THUMBNAIL);
+        const file = (fileMap.get(photoStat.photoId) ?? []).find((item: any) => item.type === FileTypeEnum.THUMBNAIL);
         thumbnail = file?.key ?? null;
       }
 
@@ -134,7 +134,7 @@ const albumService = {
         eq(photoTab.userId, userId),
         inArray(photoTab.photoId, params.photoIds)
       ));
-    const photoIds = Array.from(new Set(photos.map((photo) => photo.photoId)));
+    const photoIds = Array.from(new Set(photos.map((photo: any) => photo.photoId))) as string[];
 
     if (!photoIds.length) {
       return;
@@ -150,11 +150,11 @@ const albumService = {
         inArray(albumPhotoTab.albumId, params.albumIds),
         inArray(albumPhotoTab.photoId, photoIds)
       ));
-    const existsKeys = new Set(existsRows.map((row) => `${row.albumId}:${row.photoId}`));
-    const rows = params.albumIds.flatMap((albumId) => (
+    const existsKeys = new Set(existsRows.map((row: any) => `${row.albumId}:${row.photoId}`));
+    const rows = params.albumIds.flatMap((albumId: any) => (
       photoIds
-        .filter((photoId) => !existsKeys.has(`${albumId}:${photoId}`))
-        .map((photoId) => ({
+        .filter((photoId: any) => !existsKeys.has(`${albumId}:${photoId}`))
+        .map((photoId: any) => ({
           id: createId(),
           photoId,
           albumId
@@ -255,7 +255,7 @@ const albumService = {
       .from(albumTab)
       .where(eq(albumTab.userId, userId));
 
-    const albumIds = albumList.map((album) => album.albumId);
+    const albumIds = albumList.map((album: any) => album.albumId);
 
     for (let index = 0; index < albumIds.length; index += 95) {
 
@@ -280,7 +280,7 @@ const albumService = {
       ))
       .orderBy(desc(photoTab.recycleTime))
     const coverPhoto = photoList[0];
-    const fileStorage = fileStorageList.list.find((item) => item.storageId === coverPhoto?.storageId);
+    const fileStorage = fileStorageList.list.find((item: any) => item.storageId === coverPhoto?.storageId);
     const domain = formatHttpUrl(fileStorage?.domain);
 
     const fileMap = coverPhoto
@@ -288,7 +288,7 @@ const albumService = {
       : new Map<string, File[]>();
 
     const thumbnail = coverPhoto
-      ? (fileMap.get(coverPhoto.photoId) ?? []).find((file) => file.type === FileTypeEnum.THUMBNAIL)?.key ?? null
+      ? (fileMap.get(coverPhoto.photoId) ?? []).find((file: any) => file.type === FileTypeEnum.THUMBNAIL)?.key ?? null
       : null;
 
     const now = new Date().toISOString();

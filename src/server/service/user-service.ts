@@ -157,7 +157,7 @@ const userService = {
       return { list: [], total: 0 };
     }
 
-    const userIds = userList.map((user) => user.userId);
+    const userIds = userList.map((user: any) => user.userId);
 
     const photoStatList = await orm
       .select({
@@ -169,8 +169,8 @@ const userService = {
       .where(inArray(photoTab.userId, userIds))
       .groupBy(photoTab.userId);
 
-    const list = userList.map((user) => {
-      const photoStat = photoStatList.find((stat) => stat.userId === user.userId);
+    const list = userList.map((user: any) => {
+      const photoStat = photoStatList.find((stat: any) => stat.userId === user.userId);
       const { password: _password, salt: _salt, ...safeUser } = user;
 
       return {

@@ -99,14 +99,14 @@ const photoService = {
         .limit(size);
 
     const fileStorageList = await storageService.getStorageList();
-    const photoIds = list.map((photo) => photo.photoId);
+    const photoIds = list.map((photo: any) => photo.photoId);
     const [exifMap, fileMap] = await Promise.all([
       exifService.listByPhotoIds(photoIds),
       fileService.listByPhotoIds(photoIds),
     ]);
 
-    const result = list.map((photo) => {
-      const fileStorage = fileStorageList.find((item) => item.storageId === photo.storageId);
+    const result = list.map((photo: any) => {
+      const fileStorage = fileStorageList.find((item: any) => item.storageId === photo.storageId);
       const domain = formatHttpUrl(fileStorage?.domain);
 
       return this.toPhotoVo(photo, fileMap.get(photo.photoId) ?? [], fileStorage, domain, exifMap.get(photo.photoId) ?? null);
@@ -157,7 +157,7 @@ const photoService = {
         .groupBy(takenDate)
         .orderBy(asc(takenDate));
 
-    return list.map((item) => ({
+    return list.map((item: any) => ({
       date: item.date,
       count: Number(item.count),
     }));
@@ -231,7 +231,7 @@ const photoService = {
     }
 
     const fileStorageList = await storageService.getStorageList();
-    const fileStorage = fileStorageList.find((item) => item.storageId === storageId);
+    const fileStorage = fileStorageList.find((item: any) => item.storageId === storageId);
 
     if (!fileStorage) {
       throw new BizError('storage.notFound');
@@ -413,7 +413,7 @@ const photoService = {
         eq(photoTab.userId, userId),
         inArray(photoTab.photoId, params.photoIds)
       ));
-    const photoIds = photos.map((photo) => photo.photoId);
+    const photoIds = photos.map((photo: any) => photo.photoId);
 
     if (!photoIds.length) {
       return;
@@ -421,10 +421,10 @@ const photoService = {
 
     const fileMap = await fileService.listByPhotoIds(photoIds);
 
-    for (const fileStorage of fileStorageList.list) {
+    for (const fileStorage of fileStorageList.list as any[]) {
       const keys = photos
-        .filter((photo) => photo.storageId === fileStorage.storageId)
-        .flatMap((photo) => (fileMap.get(photo.photoId) ?? []).map((item) => item.key));
+        .filter((photo: any) => photo.storageId === fileStorage.storageId)
+        .flatMap((photo: any) => (fileMap.get(photo.photoId) ?? []).map((item: any) => item.key));
 
       await storage.delete(keys, fileStorage.storageId);
     }
@@ -494,15 +494,15 @@ const photoService = {
         return;
       }
 
-      const photoIds = photos.map((photo) => photo.photoId);
+      const photoIds = photos.map((photo: any) => photo.photoId);
       const fileMap = await fileService.listByPhotoIds(photoIds);
 
       if (fileStorageList) {
-        for (const fileStorage of fileStorageList.list) {
+        for (const fileStorage of fileStorageList.list as any[]) {
 
           const keys = photos
-            .filter((photo) => photo.storageId === fileStorage.storageId)
-            .flatMap((photo) => (fileMap.get(photo.photoId) ?? []).map((item) => item.key));
+            .filter((photo: any) => photo.storageId === fileStorage.storageId)
+            .flatMap((photo: any) => (fileMap.get(photo.photoId) ?? []).map((item: any) => item.key));
           await storage.delete(keys, fileStorage.storageId);
 
         }
@@ -523,7 +523,7 @@ const photoService = {
 
   // Get the specified type of storage from the file list key。
   getFileKey(files: PhotoFile[], type: number): string | null {
-    return files.find((file) => file.type === type)?.key ?? null;
+    return files.find((file: any) => file.type === type)?.key ?? null;
   },
 
   // Store information and files key Merge into photo return object。
@@ -543,7 +543,7 @@ const photoService = {
       thumbnail: toMediaUrl(thumbnail, domain) ?? null,
       storageName: fileStorage?.name ?? null,
       storageTypeDesc: fileStorage
-        ? StorageTypeOptions.find((item) => item.value === fileStorage.type)?.label ?? null
+        ? StorageTypeOptions.find((item: any) => item.value === fileStorage.type)?.label ?? null
         : null
     };
   },

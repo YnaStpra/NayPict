@@ -40,7 +40,7 @@ const storageService = {
       return { list: [], total: 0 };
     }
 
-    const storageIds = storageList.map((storage) => storage.storageId);
+    const storageIds = storageList.map((storage: any) => storage.storageId).filter(Boolean) as string[];
 
     const photoStatList = await orm
       .select({
@@ -52,8 +52,8 @@ const storageService = {
       .where(inArray(photoTab.storageId, storageIds))
       .groupBy(photoTab.storageId);
 
-    const list = storageList.map((storage) => {
-      const photoStat = photoStatList.find((stat) => stat.storageId === storage.storageId);
+    const list = storageList.map((storage: any) => {
+      const photoStat = photoStatList.find((stat: any) => stat.storageId === storage.storageId);
 
       return {
         ...storage,
@@ -203,10 +203,10 @@ const storageService = {
         .from(storageTab)
         .orderBy(desc(storageTab.sort));
 
-      await cache.set(STORAGE_LIST_CACHE_KEY, storageList);
+      await cache.set(STORAGE_LIST_CACHE_KEY, storageList as any);
     }
 
-    return storageList;
+    return (storageList ?? []) as Storage[];
   },
 
   // Flush storage configuration cache。
@@ -216,7 +216,7 @@ const storageService = {
       .from(storageTab)
       .orderBy(desc(storageTab.sort));
 
-    await cache.set(STORAGE_LIST_CACHE_KEY, storageList);
+    await cache.set(STORAGE_LIST_CACHE_KEY, storageList as any);
   }
 }
 
