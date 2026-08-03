@@ -1,15 +1,25 @@
-// This module is from the original image Exif Read shooting metadata。
+// This module is from the original image Exif Read shooting metadata.
 
 import { mkdtemp, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { ExifDateTime, ExifTool, type Tags } from "exiftool-vendored"
 
-// Enable time zone inference exiftool Example。
-const exiftool = new ExifTool({
-  backfillTimezones: true,
-  inferTimezoneFromDatestamps: true,
-})
+let exiftoolInstance: any = null
+
+function getExifTool() {
+  if (!exiftoolInstance) {
+    try {
+      const { ExifTool } = require("exiftool-vendored")
+      exiftoolInstance = new ExifTool({
+        backfillTimezones: true,
+        inferTimezoneFromDatestamps: true,
+      })
+    } catch {
+      exiftoolInstance = null
+    }
+  }
+  return exiftoolInstance
+}
 
 const exifPickKeys = [
   "DateTimeOriginal",
@@ -38,16 +48,13 @@ const readArgs = [
   "-GPSAltitudeRef",
 ]
 
-// Bundle exiftool The field value can be converted to JSON serialized value。
 function tagValueToJson(value: unknown) {
-  if (value instanceof ExifDateTime) {
-    return value.toString() ?? value.toExifString()
+  if (value && typeof value === "object" && "toString" in value) {
+    return String(value)
   }
-
   return value
 }
 
-// Bundle UTC Offset minutes formatted as +08:00。
 function formatTzOffset(minutes: number) {
   const sign = minutes >= 0 ? "+" : "-"
   const abs = Math.abs(minutes)
@@ -57,12 +64,11 @@ function formatTzOffset(minutes: number) {
   return `${sign}${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`
 }
 
-// Extract time zone name and offset from shooting time field。
-function getTimezoneInfo(tags: Tags) {
+function getTimezoneInfo(tags: any) {
   const candidates = [tags.DateTimeOriginal, tags.CreateDate]
 
   for (const value of candidates) {
-    if (!(value instanceof ExifDateTime) || !value.hasZone) {
+    if (!value || typeof value !== "object") {
       continue
     }
 
@@ -90,8 +96,7 @@ function getTimezoneInfo(tags: Tags) {
   return null
 }
 
-// from exiftool The result is extracted from the shooting time and converted into ISO UTC。
-function getTakenTime(tags: Tags) {
+function getTakenTime(tags: any) {
   const candidates = [tags.DateTimeOriginal, tags.CreateDate]
 
   for (const value of candidates) {
@@ -99,7 +104,7 @@ function getTakenTime(tags: Tags) {
       continue
     }
 
-    if (value instanceof ExifDateTime) {
+    if (typeof value === "object" && typeof value.toISOString === "function") {
       const iso = value.toISOString()
       if (iso) {
         return iso
@@ -108,9 +113,14 @@ function getTakenTime(tags: Tags) {
     }
 
     if (typeof value === "string") {
-      const iso = ExifDateTime.fromEXIF(value)?.toISOString()
-      if (iso) {
-        return iso
+      try {
+        const { ExifDateTime } = require("exiftool-vendored")
+        const iso = ExifDateTime.fromEXIF(value)?.toISOString()
+        if (iso) {
+          return iso
+        }
+      } catch {
+        // Fallback
       }
     }
   }
@@ -118,7 +128,6 @@ function getTakenTime(tags: Tags) {
   return null
 }
 
-// Bundle GPS Coordinate fields parse into decimal degrees。
 function getCoordinate(value: unknown) {
   if (value === undefined || value === null || value === "") {
     return null
@@ -132,8 +141,7 @@ function getCoordinate(value: unknown) {
   return Number.isNaN(num) ? null : num
 }
 
-// from GPS Altitude field parses altitude（rice）。
-function getAltitude(tags: Tags) {
+function getAltitude(tags: any) {
   const num = getCoordinate(tags.GPSAltitude)
   if (num === null) {
     return null
@@ -147,8 +155,7 @@ function getAltitude(tags: Tags) {
   return num
 }
 
-// Bundle exiftool Convert the specified field to JSON string。
-function buildExifJson(tags: Tags) {
+function buildExifJson(tags: any) {
   const data: Record<string, unknown> = {}
   const record = tags as Record<string, unknown>
 
@@ -170,7 +177,6 @@ function buildExifJson(tags: Tags) {
   if (timezone) {
     Object.assign(data, timezone)
 
-    // The original image was not written OffsetTime* hour，Complete commonly used offset fields with inferred results。
     if (timezone.TimeZoneOffset && !data.OffsetTimeOriginal) {
       data.OffsetTimeOriginal = timezone.TimeZoneOffset
     }
@@ -179,15 +185,25 @@ function buildExifJson(tags: Tags) {
   return Object.keys(data).length ? JSON.stringify(data) : null
 }
 
-// From the original picture Exif Read shooting time、latitude and longitude with exif JSON string。
 export async function readPhotoExifFromBuffer(input: ArrayBuffer | Buffer) {
+  const tool = getExifTool()
+  if (!tool) {
+    return {
+      takenTime: null,
+      latitude: null,
+      longitude: null,
+      altitude: null,
+      exif: null,
+    }
+  }
+
   const source = input instanceof Buffer ? input : Buffer.from(input)
   const dir = await mkdtemp(join(tmpdir(), "album-exif-"))
   const filePath = join(dir, "photo")
 
   try {
     await writeFile(filePath, source)
-    const tags = await exiftool.read(filePath, { readArgs })
+    const tags = await tool.read(filePath, { readArgs })
 
     return {
       takenTime: getTakenTime(tags),

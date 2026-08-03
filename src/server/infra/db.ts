@@ -1,5 +1,3 @@
-import Database from 'better-sqlite3'
-import { drizzle as drizzleSqlite } from 'drizzle-orm/better-sqlite3'
 import { neon } from '@neondatabase/serverless'
 import { drizzle as drizzleNeon } from 'drizzle-orm/neon-http'
 import fs from 'node:fs'
@@ -21,6 +19,9 @@ if (dbUrl && (dbUrl.startsWith('postgres://') || dbUrl.startsWith('postgresql://
   }
   ormInstance = drizzleNeon(sql, { schema: schema as any })
 } else {
+  // Dynamically require better-sqlite3 only when running locally without Neon PostgreSQL
+  const Database = require('better-sqlite3')
+  const { drizzle: drizzleSqlite } = require('drizzle-orm/better-sqlite3')
   const dataDir = path.join(process.cwd(), 'data')
   fs.mkdirSync(dataDir, { recursive: true })
   const sqlite = new Database(path.join(dataDir, 'pixtale.sqlite'))
