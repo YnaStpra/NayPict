@@ -1,14 +1,20 @@
-import { sqliteTable, text } from 'drizzle-orm/sqlite-core';
+import { sqliteTable, text as sqliteText } from 'drizzle-orm/sqlite-core';
+import { pgTable, text as pgText } from 'drizzle-orm/pg-core';
 
-// System settings，The entire configuration starts with JSON exist value middle。
+const isPg = Boolean(process.env.DATABASE_URL || process.env.POSTGRES_URL);
 
-export const settingTab = sqliteTable('setting', {
-  key: text('key').primaryKey(), // configuration key
-  value: text('value').notNull() // Configuration JSON
-});
+export const settingTab: any = isPg
+  ? pgTable('setting', {
+      key: pgText('key').primaryKey(),
+      value: pgText('value').notNull()
+    })
+  : sqliteTable('setting', {
+      key: sqliteText('key').primaryKey(),
+      value: sqliteText('value').notNull()
+    });
 
 export type Setting = {
-  syncDelete: number; // Synchronous deletion 1turn on 2closure
-  clearLast: number; // How many days will it take for photos in the recycle bin to be automatically cleared?
-  photoDedup: number; // Remove duplicate photos 1turn on 2closure
+  syncDelete: number;
+  clearLast: number;
+  photoDedup: number;
 };
