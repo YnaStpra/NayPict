@@ -5,20 +5,20 @@ import { createContext, useContext } from "react"
 import { type UserVo } from "@/server/entity/vo/user"
 
 interface UserContextValue {
-  // initialUserList 保存服务端查询到的用户列表。
+  // initialUserList Save the user list queried by the server。
   initialUserList: UserVo[]
 }
 
 interface UserProviderProps {
-  // children 是 /user 路由下的页面内容。
+  // children yes /user Page content under routing。
   children: React.ReactNode
-  // initialUserList 保存服务端查询到的用户列表。
+  // initialUserList Save the user list queried by the server。
   initialUserList: UserVo[]
 }
 
 const UserContext = createContext<UserContextValue | null>(null)
 
-// 读取 /user 路由下服务端预取的用户列表。
+// read /user User list prefetched by the server under routing。
 function useUserContext() {
   const context = useContext(UserContext)
 
@@ -29,7 +29,7 @@ function useUserContext() {
   return context
 }
 
-// 给 /user 路由下的客户端组件提供服务端预取用户列表。
+// Give /user The client component under routing provides server-side prefetching of the user list。
 function UserProvider({ children, initialUserList }: UserProviderProps) {
   return (
     <UserContext.Provider value={{ initialUserList }}>

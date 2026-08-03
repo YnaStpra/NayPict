@@ -11,11 +11,11 @@ import { STORAGE_LIST_CACHE_KEY } from '@/server/const/cache';
 import { cache } from '@/server/infra/cache';
 import { orm } from '@/server/infra/db';
 
-// 这个模块处理存储配置的数据查询和写入业务。
+// This module handles the data query and writing business of storage configuration。
 
 const storageService = {
 
-  // 查询全部正常存储配置，返回下拉选择需要的字段。
+  // Query all normal storage configurations，Return to the drop-down and select the required fields。
   async select(): Promise<StorageSelectVo[]> {
     return orm
       .select({
@@ -28,7 +28,7 @@ const storageService = {
       .orderBy(desc(storageTab.sort));
   },
 
-  // 查询全部存储配置，并统计每个存储下的照片数量和已用容量。
+  // Query all storage configurations，And count the number of photos and used capacity under each storage。
   async list(): Promise<PageVo<StorageVo>> {
 
     const storageList = await orm
@@ -65,7 +65,7 @@ const storageService = {
     return { list, total: list.length };
   },
 
-  // 添加当前用户的存储配置，并阻止创建重复名称。
+  // Add the current user's storage configuration，and prevent duplicate names from being created。
   async add(params: StorageInto, userId: string): Promise<void> {
     const name = params.name?.trim();
 
@@ -98,7 +98,7 @@ const storageService = {
     await this.refreshStorageCache();
   },
 
-  // 把指定存储配置置顶。
+  // Pin the specified storage configuration to the top。
   async setTop(params: StorageSetTopBo): Promise<void> {
     if (!params.storageId) {
       throw new BizError('storage.selectRequired');
@@ -113,7 +113,7 @@ const storageService = {
     await this.refreshStorageCache();
   },
 
-  // 切换指定存储配置的启用状态。
+  // Toggles the enabled state of a specified storage configuration。
   async toggleStatus(params: StorageToggleStatusBo): Promise<void> {
     if (!params.storageId) {
       throw new BizError('storage.selectRequired');
@@ -142,7 +142,7 @@ const storageService = {
     await this.refreshStorageCache();
   },
 
-  // 修改指定存储配置。
+  // Modify the specified storage configuration。
   async set(params: Storage): Promise<void> {
     const name = params.name?.trim();
 
@@ -175,7 +175,7 @@ const storageService = {
     await this.refreshStorageCache();
   },
 
-  // 删除指定存储配置，并把全部关联照片的存储标记置空。
+  // Delete the specified storage configuration，And leave the storage tags of all associated photos blank.。
   async delete(storageId: string): Promise<void> {
     if (!storageId) {
       throw new BizError('storage.selectRequired');
@@ -193,7 +193,7 @@ const storageService = {
     await this.refreshStorageCache();
   },
 
-  // 查询全部存储配置，优先读缓存。
+  // Query all storage configurations，Read-first cache。
   async getStorageList(): Promise<Storage[]> {
     let storageList = await cache.get<Storage[]>(STORAGE_LIST_CACHE_KEY);
 
@@ -209,7 +209,7 @@ const storageService = {
     return storageList;
   },
 
-  // 刷新存储配置缓存。
+  // Flush storage configuration cache。
   async refreshStorageCache(): Promise<void> {
     const storageList = await orm
       .select()

@@ -4,9 +4,9 @@ import { type Setting } from '@/server/entity/setting';
 import result from '@/server/model/result';
 import { settingService } from '@/server/service/setting-service';
 
-// 这个模块注册系统设置相关接口。
+// This module registers system settings related interfaces。
 
-// 覆盖写入整份系统设置。
+// Overwrite the entire system settings。
 app.post('/setting/set', async (c: Context) => {
   const body = await c.req.json<Setting>();
   await settingService.set(body);

@@ -3,44 +3,44 @@ import { type Album } from "@/server/entity/album";
 import { type AlbumAddBo, type AlbumAddPhotoBo, type AlbumDeleteBo, type AlbumRemovePhotoBo, type AlbumSetNameBo, type AlbumSetTopBo } from "@/server/entity/bo/album";
 import { type AlbumVo } from "@/server/entity/vo/album";
 
-// 这个模块封装相册相关接口请求。
+// This module encapsulates album related interface requests。
 
-// 查询全部相册列表。
+// Query the list of all albums。
 export function albumList() {
   return http.post<AlbumVo[]>('/album/list');
 }
 
-// 添加相册。
+// Add album。
 export function albumAdd(params: AlbumAddBo) {
   return http.post<Album>('/album/add', params);
 }
 
-// 给相册添加照片。
+// Add photos to album。
 export function albumAddPhoto(params: AlbumAddPhotoBo) {
   return http.post<void>('/album/addPhoto', params);
 }
 
-// 移除相册中的照片。
+// Remove photos from album。
 export function albumRemovePhoto(params: AlbumRemovePhotoBo) {
   return http.post<void>('/album/removePhoto', params);
 }
 
-// 删除相册。
+// Delete album。
 export function albumDelete(params: AlbumDeleteBo) {
   return http.post<void>('/album/delete', params);
 }
 
-// 修改相册名称。
+// Modify album name。
 export function albumSetName(params: AlbumSetNameBo) {
   return http.post<void>('/album/setName', params);
 }
 
-// 置顶相册。
+// Pinned photo album。
 export function albumSetTop(params: AlbumSetTopBo) {
   return http.post<void>('/album/setTop', params);
 }
 
-// 查询回收站虚拟相册。
+// Query the virtual photo album in the recycle bin。
 export function albumTrash() {
   return http.post<AlbumVo>('/album/trash');
 }

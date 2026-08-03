@@ -1,4 +1,4 @@
-// 这个模块定义照片接口返回对象。
+// This module defines the photo interface return object。
 
 import { type Photo } from '@/server/entity/photo';
 

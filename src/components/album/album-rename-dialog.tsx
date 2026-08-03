@@ -13,13 +13,13 @@ interface AlbumRenameDialogProps {
   onNameConfirm: (name: string) => void
 }
 
-// 渲染修改相册名字弹窗。
+// Rendering the pop-up window for modifying album name。
 export function AlbumRenameDialog({ open, name, onOpenChange, onNameConfirm }: AlbumRenameDialogProps) {
   const t = useTranslations("albums")
-  // inputName 保存弹框输入框中的相册名称。
+  // inputName Save the album name in the pop-up input box。
   const [inputName, setInputName] = useState(name)
 
-  // 提交修改后的相册名称。
+  // Submit the modified album name。
   function submitName() {
     const value = inputName.trim()
 
@@ -30,7 +30,7 @@ export function AlbumRenameDialog({ open, name, onOpenChange, onNameConfirm }: A
     onNameConfirm(value)
   }
 
-  // 处理输入框回车确认。
+  // Process input box and press Enter to confirm。
   function handleInputKeyDown(event: KeyboardEvent<HTMLInputElement>) {
     if (event.key === "Enter") {
       submitName()

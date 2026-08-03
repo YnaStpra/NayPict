@@ -6,11 +6,11 @@ import { StorageTypeEnum } from '@/server/enums/storage-enum';
 import BizError from '@/server/error/biz-error';
 import { formatHttpUrl } from '@/lib/url';
 
-// 这个模块实现 S3 存储策略。
+// This module implements S3 storage strategy。
 
 class S3StorageStrategy implements StorageStrategy {
 
-  // 根据存储配置创建 S3 客户端。
+  // Created based on storage configuration S3 client。
   private createClient(storage: Storage) {
     const region = storage.region?.trim() || 'auto';
     const endpoint = formatHttpUrl(storage.endpoint);
@@ -32,7 +32,7 @@ class S3StorageStrategy implements StorageStrategy {
     });
   }
 
-  // 把自定义元数据项转成 S3 PutObject 参数。
+  // Convert custom metadata items to S3 PutObject parameter。
   private buildPutOptions(metadata: string[][]) {
     const options: Partial<PutObjectCommandInput> = {};
 
@@ -61,7 +61,7 @@ class S3StorageStrategy implements StorageStrategy {
     return options;
   }
 
-  // 保存多个文件到 S3。
+  // Save multiple files to S3。
   async put(files: StorageUploadObject[], storage: Storage): Promise<void> {
     const client = this.createClient(storage);
     const bucket = storage.bucket?.trim();
@@ -83,7 +83,7 @@ class S3StorageStrategy implements StorageStrategy {
     }
   }
 
-  // 从 S3 读取文件并转成响应 body。
+  // from S3 Read the file and convert it into a response body。
   async get(key: string, storage: Storage): Promise<StorageObject> {
     const client = this.createClient(storage);
     const bucket = storage.bucket?.trim();
@@ -108,7 +108,7 @@ class S3StorageStrategy implements StorageStrategy {
     };
   }
 
-  // 从 S3 删除一个或多个文件。
+  // from S3 Delete one or more files。
   async delete(key: string | string[], storage: Storage): Promise<void> {
     const keys = Array.isArray(key) ? key : [key];
 

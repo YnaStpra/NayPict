@@ -1,11 +1,11 @@
 import sharp from "sharp"
 import { rgbaToThumbHash } from "thumbhash"
 
-// 这个模块负责服务端照片压缩和 thumbHash 生成。
+// This module is responsible for server-side photo compression and thumbHash generate。
 
-// 用 sharp 生成 preview、thumbnail、thumbHash 和宽高。
+// use sharp generate preview、thumbnail、thumbHash and width and height。
 export async function processPhotoImages(buffer: Buffer) {
-  // 先按 EXIF Orientation 摆正像素，避免 preview/thumbnail 方向错误。
+  // Press first EXIF Orientation straighten pixels，avoid preview/thumbnail Wrong direction。
   const orientedBuffer = await sharp(buffer).autoOrient().toBuffer()
   const metadata = await sharp(orientedBuffer).metadata()
   const width = metadata.width ?? 0

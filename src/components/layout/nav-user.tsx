@@ -39,12 +39,12 @@ const UpdatePassword = dynamic(
   { ssr: false }
 )
 
-// 获取头像占位文字，取用户名第一个字符。
+// Get avatar placeholder text，Get the first character of username。
 function getAvatarFallback(name: string) {
   return Array.from(name.trim()).slice(0, 1).join("").toUpperCase()
 }
 
-// 渲染当前用户菜单。
+// Render current user menu。
 export function NavUser({
   user,
 }: {
@@ -59,15 +59,15 @@ export function NavUser({
   const router = useRouter()
   const { setUserInfo } = useApp()
   const fallback = getAvatarFallback(user.name)
-  // fileInputRef 用于先选择头像图片，再打开裁剪弹框。
+  // fileInputRef Used to select the avatar picture first，Open the cropping pop-up again。
   const fileInputRef = useRef<HTMLInputElement | null>(null)
-  // objectUrlRef 保存当前待裁剪图片地址，便于释放内存。
+  // objectUrlRef Save the current address of the image to be cropped，Easy to free up memory。
   const objectUrlRef = useRef<string | null>(null)
-  // image 保存当前传给头像裁剪弹框的图片地址。
+  // image Save the image address currently passed to the avatar cropping pop-up frame。
   const [image, setImage] = useState("")
-  // avatarOpen 控制头像上传弹框打开状态。
+  // avatarOpen Control the opening status of the avatar upload pop-up box。
   const [avatarOpen, setAvatarOpen] = useState(false)
-  // passwordOpen 控制修改密码弹框打开状态。
+  // passwordOpen Control the opening status of the password change popup box。
   const [passwordOpen, setPasswordOpen] = useState(false)
 
   useEffect(() => {
@@ -78,7 +78,7 @@ export function NavUser({
     }
   }, [])
 
-  // 退出登录并跳转回登录页。
+  // Log out and jump back to login page。
   function logoutUser() {
     logout().then(() => {
       router.replace("/login")
@@ -86,12 +86,12 @@ export function NavUser({
     })
   }
 
-  // 打开头像图片选择器。
+  // Open the avatar picture selector。
   function openAvatarUpload() {
     fileInputRef.current?.click()
   }
 
-  // 选择头像图片后打开裁剪弹框。
+  // After selecting the avatar picture, open the cropping pop-up box。
   function changeAvatarFile(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0]
     event.target.value = ""
@@ -109,12 +109,12 @@ export function NavUser({
     setAvatarOpen(true)
   }
 
-  // 保存头像 key 后更新全局用户信息，展示地址由 props 计算。
+  // save avatar key Update global user information later，The display address is given by props calculate。
   function updateAvatar(avatarKey: string) {
     setUserInfo((prev) => prev ? { ...prev, avatar: avatarKey } : prev)
   }
 
-  // 打开修改密码弹框。
+  // Open the change password pop-up box。
   function openUpdatePassword() {
     setPasswordOpen(true)
   }

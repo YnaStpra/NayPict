@@ -5,20 +5,20 @@ import { createContext, useContext } from "react"
 import { type StorageVo } from "@/server/entity/vo/storage"
 
 interface StorageContextValue {
-  // initialStorageList 保存服务端查询到的存储配置列表。
+  // initialStorageList Save the storage configuration list queried by the server。
   initialStorageList: StorageVo[]
 }
 
 interface StorageProviderProps {
-  // children 是 /storage 路由下的页面内容。
+  // children yes /storage Page content under routing。
   children: React.ReactNode
-  // initialStorageList 保存服务端查询到的存储配置列表。
+  // initialStorageList Save the storage configuration list queried by the server。
   initialStorageList: StorageVo[]
 }
 
 const StorageContext = createContext<StorageContextValue | null>(null)
 
-// 读取 /storage 路由下服务端预取的存储配置列表。
+// read /storage Storage configuration list for server-side prefetching under routing。
 function useStorageContext() {
   const context = useContext(StorageContext)
 
@@ -29,7 +29,7 @@ function useStorageContext() {
   return context
 }
 
-// 给 /storage 路由下的客户端组件提供服务端预取存储配置。
+// Give /storage The client component under routing provides server-side prefetching storage configuration。
 function StorageProvider({ children, initialStorageList }: StorageProviderProps) {
   return (
     <StorageContext.Provider value={{ initialStorageList }}>

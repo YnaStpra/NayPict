@@ -16,7 +16,7 @@ interface AvatarUploadProps {
   onAvatarChange: (avatarKey: string) => void
 }
 
-// 加载图片，供 canvas 根据裁剪区域生成头像。
+// Load images，for canvas Generate avatar based on cropped area。
 function loadImage(src: string) {
   return new Promise<HTMLImageElement>((resolve, reject) => {
     const image = new Image()
@@ -28,7 +28,7 @@ function loadImage(src: string) {
   })
 }
 
-// 根据裁剪区域生成固定尺寸头像。
+// Generate a fixed-size avatar based on the cropped area。
 async function getCroppedAvatar(src: string, crop: Area) {
   const image = await loadImage(src)
   const canvas = document.createElement("canvas")
@@ -56,17 +56,17 @@ async function getCroppedAvatar(src: string, crop: Area) {
   return canvas.toDataURL("image/webp", 0.9)
 }
 
-// 渲染头像上传和裁剪弹框。
+// Render avatar upload and crop pop-up frame。
 export function AvatarUpload({ open, image, onOpenChange, onAvatarChange }: AvatarUploadProps) {
   const t = useTranslations("layout.avatar")
 
-  // cropperImage 延迟绑定给 Cropper，避免弹框布局未稳定时提前测量。
+  // cropperImage Delay binding to Cropper，Avoid measuring in advance when the pop-up layout is not stable。
   const [cropperImage, setCropperImage] = useState("")
-  // crop 保存图片在裁剪窗口中的拖动位置。
+  // crop Save the dragged position of the image in the crop window。
   const [crop, setCrop] = useState<Point>({ x: 0, y: 0 })
-  // zoom 保存图片在裁剪窗口中的缩放比例。
+  // zoom Save the zoom ratio of the image in the crop window。
   const [zoom, setZoom] = useState(1)
-  // croppedAreaPixels 保存当前裁剪窗口对应的原图像素区域。
+  // croppedAreaPixels Save the original image pixel area corresponding to the current cropping window。
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null)
 
   useEffect(() => {
@@ -79,12 +79,12 @@ export function AvatarUpload({ open, image, onOpenChange, onAvatarChange }: Avat
     }
   }, [image])
 
-  // 保存当前裁剪区域，供点击保存时生成头像。
+  // Save current cropping area，Generate avatar when click to save。
   function completeCrop(_: Area, nextAreaPixels: Area) {
     setCroppedAreaPixels(nextAreaPixels)
   }
 
-  // 保存裁剪后的头像，并把结果交给父组件。
+  // Save the cropped avatar，and pass the result to the parent component。
   async function saveAvatar() {
 
     if (!croppedAreaPixels) {

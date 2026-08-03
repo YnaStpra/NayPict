@@ -7,7 +7,7 @@ import { security } from '../security/security';
 import { i18nMiddleware, t } from '@/server/i18n';
 import type { HonoEnv } from './type';
 
-// 这个模块创建 Hono 应用并注册通用中间件与错误处理。
+// This module creates Hono Apply and register common middleware and error handling。
 
 const app = new Hono<HonoEnv>().basePath('/api');
 
@@ -16,7 +16,7 @@ app.use('*', contextStorage());
 app.use('*', i18nMiddleware);
 app.use('*', security);
 
-// 统一处理接口异常并返回约定的响应结构。
+// Uniformly handle interface exceptions and return the agreed response structure。
 app.onError((err, c) => {
 
   if (err instanceof BizError) {

@@ -5,20 +5,20 @@ import { createContext, useContext } from "react"
 import { type AlbumVo } from "@/server/entity/vo/album"
 
 interface TrashContextValue {
-  // initialAlbum 保存服务端查询到的回收站虚拟相册。
+  // initialAlbum Save the recycle bin virtual album queried by the server。
   initialAlbum: AlbumVo
 }
 
 interface TrashProviderProps {
-  // children 是 /trash 路由下的页面内容。
+  // children yes /trash Page content under routing。
   children: React.ReactNode
-  // initialAlbum 保存服务端查询到的回收站虚拟相册。
+  // initialAlbum Save the recycle bin virtual album queried by the server。
   initialAlbum: AlbumVo
 }
 
 const TrashContext = createContext<TrashContextValue | null>(null)
 
-// 读取 /trash 路由下服务端预取的回收站相册。
+// read /trash The recycle bin album prefetched by the server under routing。
 function useTrashContext() {
   const context = useContext(TrashContext)
 
@@ -29,7 +29,7 @@ function useTrashContext() {
   return context
 }
 
-// 给 /trash 路由下的客户端组件提供服务端预取回收站相册。
+// Give /trash The client component under routing provides server-side prefetching of the recycle bin album.。
 function TrashProvider({ children, initialAlbum }: TrashProviderProps) {
   return (
     <TrashContext.Provider value={{ initialAlbum }}>

@@ -32,51 +32,51 @@ export default function Page() {
   const t = useTranslations("storage")
   const { initialStorageList } = useStorageContext()
   const { sidebarOpen, setSidebarOpen, refreshStorages } = useApp()
-  // data 保存当前表格展示的存储配置列表。
+  // data Save the storage configuration list displayed in the current table。
   const [data, setData] = useState<StorageVo[]>(initialStorageList)
-  // addOpen 控制新增存储弹框的打开状态。
+  // addOpen Control the opening state of the new storage pop-up box。
   const [addOpen, setAddOpen] = useState(false)
-  // editOpen 控制修改存储弹框的打开状态。
+  // editOpen Control the open state of the modified storage pop-up box。
   const [editOpen, setEditOpen] = useState(false)
-  // editingStorage 保存当前正在修改的存储配置。
+  // editingStorage Save the storage configuration currently being modified。
   const [editingStorage, setEditingStorage] = useState<StorageVo | null>(null)
-  // deleteOpen 控制删除确认弹框的打开状态。
+  // deleteOpen Control the opening state of the delete confirmation pop-up box。
   const [deleteOpen, setDeleteOpen] = useState(false)
-  // deletingStorage 保存当前等待删除确认的存储配置。
+  // deletingStorage Save the storage configuration currently awaiting deletion confirmation。
   const [deletingStorage, setDeletingStorage] = useState<StorageVo | null>(null)
 
-  // 查询存储列表并绑定到表格数据。
+  // Query a stored list and bind to tabular data。
   async function getStorageList() {
     const res = await storageList()
 
     setData(res.list)
   }
 
-  // 重新查询表格和全局存储下拉选项。
+  // Requery table and global storage dropdown options。
   async function refreshStorageData() {
     await getStorageList()
     await refreshStorages()
   }
 
-  // 打开新增存储弹框。
+  // Open the new storage pop-up box。
   function openAddStorage() {
     setAddOpen(true)
   }
 
-  // 添加存储配置。
+  // Add storage configuration。
   function addStorage(storage: StorageInto) {
     storageAdd(storage).then(() => {
       void refreshStorageData()
     })
   }
 
-  // 打开删除确认弹框。
+  // Open the delete confirmation popup。
   function openDeleteStorage(storage: StorageVo) {
     setDeletingStorage(storage)
     setDeleteOpen(true)
   }
 
-  // 确认删除存储配置后重新查询列表。
+  // Confirm to delete the storage configuration and query the list again.。
   function confirmDeleteStorage() {
     const storage = deletingStorage
 
@@ -94,13 +94,13 @@ export default function Page() {
     })
   }
 
-  // 打开修改存储弹框。
+  // Open the modify storage pop-up box。
   function openEditStorage(storage: StorageVo) {
     setEditingStorage(storage)
     setEditOpen(true)
   }
 
-  // 提交修改存储配置，成功后刷新列表。
+  // Submit modified storage configuration，Refresh list after success。
   function editStorage(storage: StorageInto) {
     if (!editingStorage) {
       return
@@ -127,21 +127,21 @@ export default function Page() {
     })
   }
 
-  // 置顶存储配置后刷新列表。
+  // Refresh the list after the top storage configuration。
   function setTopStorage(storageId: string) {
     storageSetTop({ storageId }).then(() => {
       void refreshStorageData()
     })
   }
 
-  // 切换存储启用状态后刷新列表。
+  // Refresh the list after switching storage enabled status。
   function toggleStorageStatus(storageId: string) {
     storageToggleStatus({ storageId }).then(() => {
       void refreshStorageData()
     })
   }
 
-  // 处理修改存储弹框打开状态。
+  // Processing and modifying the open state of the storage pop-up box。
   function handleEditOpenChange(open: boolean) {
     setEditOpen(open)
 
@@ -150,7 +150,7 @@ export default function Page() {
     }
   }
 
-  // 处理删除确认弹框打开状态。
+  // Handling the open state of the deletion confirmation pop-up box。
   function handleDeleteOpenChange(open: boolean) {
     setDeleteOpen(open)
 

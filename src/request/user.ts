@@ -3,44 +3,44 @@ import { type UserAddBo, type UserDeleteBo, type UserSetAvatarBo, type UserSetBo
 import { type PageVo } from "@/server/entity/vo/common";
 import { type UserInfoVo, type UserVo } from "@/server/entity/vo/user";
 
-// 这个模块封装用户相关接口请求。
+// This module encapsulates user-related interface requests。
 
-// 查询当前登录用户信息。
+// Query the currently logged in user information。
 export function userInfo() {
   return http.post<UserInfoVo | null>('/user/info');
 }
 
-// 查询全部用户列表。
+// Query all user list。
 export function userList() {
   return http.post<PageVo<UserVo>>('/user/list');
 }
 
-// 添加用户。
+// Add user。
 export function userAdd(params: UserAddBo) {
   return http.post<void>('/user/add', params);
 }
 
-// 修改用户信息。
+// Modify user information。
 export function userSet(params: UserSetBo) {
   return http.post<void>('/user/set', params);
 }
 
-// 修改当前登录用户密码。
+// Modify the current login user password。
 export function userSetUserPassword(params: UserPasswordBo) {
   return http.post<void>('/user/setUserPassword', params);
 }
 
-// 设置当前用户头像。
+// Set current user avatar。
 export function userSetAvatar(params: UserSetAvatarBo) {
   return http.post<string>('/user/setAvatar', params);
 }
 
-// 切换用户启用状态。
+// Toggle user enabled status。
 export function userToggleStatus(params: UserToggleStatusBo) {
   return http.post<void>('/user/toggleStatus', params);
 }
 
-// 删除用户。
+// Delete user。
 export function userDelete(userId: string) {
   return http.post<void>('/user/delete', { userId } satisfies UserDeleteBo);
 }

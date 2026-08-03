@@ -25,7 +25,7 @@ type PhotoCardProps = RenderComponentProps<PhotoVo> & {
   touchHoverCloseRef?: TouchHoverCloseRef
 }
 
-// 格式化照片文件大小。
+// Format photo file size。
 function formatPhotoSize(size: number) {
   if (size < 1024) {
     return `${size}B`
@@ -38,14 +38,14 @@ function formatPhotoSize(size: number) {
   return `${(size / 1024 / 1024).toFixed(1)}MB`
 }
 
-// 格式化照片展示名称，去掉文件后缀名。
+// Format photo display name，Remove file extension。
 function formatPhotoName(name: string) {
   const index = name.lastIndexOf('.')
 
   return index > 0 ? name.slice(0, index) : name
 }
 
-// 渲染瀑布流中的单张照片卡片。
+// Rendering a single photo card in a waterfall flow。
 export function PhotoCard({
   data,
   index,
@@ -62,24 +62,24 @@ export function PhotoCard({
   const src = data.thumbnail || data.preview || data.key
   const ratio = data.width && data.height ? data.height / data.width : 1
   const placeholder = useMemo(() => getThumbHashUrl(data.thumbHash), [data.thumbHash])
-  // showTouchHover 记录移动端长按后是否展示悬浮信息。
+  // showTouchHover Record whether floating information is displayed after long pressing on the mobile terminal。
   const [showTouchHover, setShowTouchHover] = useState(false)
-  // holdHover 点击打开查看器时短暂锁定悬浮信息，避免放大动画瞬间缩回。
+  // holdHover Momentarily lock hover information when clicking to open viewer，Avoid instant retraction of zoom animation。
   const [holdHover, setHoldHover] = useState(false)
-  // imageError 记录当前照片缩略图是否加载失败。
+  // imageError Record whether the current photo thumbnail failed to load。
   const [imageError, setImageError] = useState(false)
-  // favorite 记录当前照片收藏状态，只刷新当前卡片。
+  // favorite Record current photo collection status，Only refresh the current card。
   const [favorite, setFavorite] = useState(data.favorite === PhotoFavoriteEnum.YES)
-  // isMobile 判断当前是否为移动端视口。
+  // isMobile Determine whether the current viewport is the mobile terminal。
   const isMobile = useIsMobile()
   const showHover = showTouchHover || holdHover
 
-  // 切换当前照片的选择状态。
+  // Toggle the selection status of the current photo。
   function changeSelected(checked: boolean) {
     onSelectedChange?.(data.photoId, checked)
   }
 
-  // 点击照片时按当前模式执行打开或选择。
+  // Open or select according to current mode when clicking on photo。
   function handlePhotoClick(event: MouseEvent<HTMLDivElement>) {
     if (showTouchHover) {
       event.stopPropagation()
@@ -95,7 +95,7 @@ export function PhotoCard({
       return
     }
 
-    // 移动端没有 hover 放大，不需要锁定悬浮信息。
+    // Not available on mobile hover enlarge，No need to lock floating information。
     if (!isMobile) {
       setHoldHover(true)
       setTimeout(() => setHoldHover(false), 200)
@@ -104,7 +104,7 @@ export function PhotoCard({
     onOpen?.()
   }
 
-  // 长按照片时阻止系统菜单，并显示原本 hover 才出现的信息。
+  // Block system menu when long pressing photo，and display the original hover Information that just appeared。
   function handlePhotoContextMenu(event: MouseEvent<HTMLDivElement>) {
     if (window.innerWidth >= 1024) {
       return
@@ -130,7 +130,7 @@ export function PhotoCard({
     }
   }
 
-  // 把当前照片位置交给页面切换收藏状态。
+  // Leave the current photo location to the page to switch the collection status。
   function handleFavoriteClick(event: MouseEvent<HTMLButtonElement>) {
     event.stopPropagation()
     onFavoriteChange?.(index, setFavorite)

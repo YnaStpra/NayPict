@@ -1,15 +1,15 @@
 import { type ReactNode } from "react"
 
 interface SettingItemProps {
-  // title 是设置项左侧显示的标题。
+  // title Is the title displayed on the left side of the setting item。
   title: string
-  // description 是设置项标题下方的说明。
+  // description is the description below the title of the setting item。
   description?: string
-  // children 是设置项右侧的自定义内容。
+  // children It is the custom content on the right side of the setting item。
   children: ReactNode
 }
 
-// 渲染系统设置页面里的单个设置项。
+// Render a single setting item in the system settings page。
 export function SettingItem({ title, description, children }: SettingItemProps) {
   return (
     <div>

@@ -1,14 +1,14 @@
 import { sqliteTable, text } from 'drizzle-orm/sqlite-core';
 
-// 系统设置，整份配置以 JSON 存在 value 中。
+// System settings，The entire configuration starts with JSON exist value middle。
 
 export const settingTab = sqliteTable('setting', {
-  key: text('key').primaryKey(), // 配置键
-  value: text('value').notNull() // 配置 JSON
+  key: text('key').primaryKey(), // configuration key
+  value: text('value').notNull() // Configuration JSON
 });
 
 export type Setting = {
-  syncDelete: number; // 同步删除 1开启 2关闭
-  clearLast: number; // 回收站照片多少天后自动清理
-  photoDedup: number; // 照片去重 1开启 2关闭
+  syncDelete: number; // Synchronous deletion 1turn on 2closure
+  clearLast: number; // How many days will it take for photos in the recycle bin to be automatically cleared?
+  photoDedup: number; // Remove duplicate photos 1turn on 2closure
 };

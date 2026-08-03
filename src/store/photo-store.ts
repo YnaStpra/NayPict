@@ -4,10 +4,10 @@ import { create } from "zustand"
 import { persist } from "zustand/middleware"
 import { type PhotoVo } from "@/server/entity/vo/photo"
 
-// 这个模块管理照片上传弹窗状态、信息侧栏开关和上传成功照片队列。
+// This module manages the photo upload pop-up window status、Information sidebar switch and successfully uploaded photo queue。
 
 interface UploadedPhoto extends PhotoVo {
-  // uploadAlbumId 记录这张新上传照片被加入的相册 id。
+  // uploadAlbumId Record the album to which this newly uploaded photo has been added id。
   uploadAlbumId: string | null
 }
 
@@ -27,7 +27,7 @@ interface PhotoState {
   setPhotoCache: (photoId: string, src: string) => void
 }
 
-// 读取和更新照片上传相关全局状态，infoOpen 通过 persist 写入本地存储。
+// Read and update global status related to photo upload，infoOpen pass persist Write to local storage。
 const usePhotoStore = create<PhotoState>()(persist((set, get) => ({
   uploadOpen: false,
   uploadAlbumId: null,
@@ -35,22 +35,22 @@ const usePhotoStore = create<PhotoState>()(persist((set, get) => ({
   uploadedPhotos: [],
   photoCache: new Map(),
 
-  // 打开上传弹窗，并记录本次添加新照片时使用的相册 id。
+  // Open the upload pop-up window，And record the album used when adding new photos this time id。
   openUpload: (albumId) => set({
     uploadOpen: true,
     uploadAlbumId: albumId,
   }),
 
-  // 关闭上传弹窗，保留上传列表里的本地状态。
+  // Close upload pop-up window，Keep local status in upload list。
   closeUpload: () => set({ uploadOpen: false }),
 
-  // 设置信息侧栏展开状态。
+  // Set the expansion state of the information sidebar。
   setInfoOpen: (open) => set({ infoOpen: open }),
 
-  // 切换信息侧栏展开状态。
+  // Toggle the expanded state of the information sidebar。
   toggleInfoOpen: () => set({ infoOpen: !get().infoOpen }),
 
-  // 记录上传成功后返回的照片，等待照片列表页面消费。
+  // Record the photos returned after successful upload，Waiting for photo list page consumption。
   addUploadedPhoto: (photo, albumId) => set((state) => ({
     uploadedPhotos: [...state.uploadedPhotos, {
       ...photo,
@@ -58,7 +58,7 @@ const usePhotoStore = create<PhotoState>()(persist((set, get) => ({
     }],
   })),
 
-  // 取出上传成功照片队列，并同步清空队列。
+  // Remove successfully uploaded photos from the queue，And clear the queue synchronously。
   takeUploadedPhotos: () => {
     const photos = get().uploadedPhotos
 
@@ -66,10 +66,10 @@ const usePhotoStore = create<PhotoState>()(persist((set, get) => ({
     return photos
   },
 
-  // 读取已经完成加载的照片缓存。
+  // Read the loaded photo cache。
   getPhotoCache: (photoId) => get().photoCache.get(photoId),
 
-  // 保存已经完成加载的照片缓存。
+  // Save the loaded photo cache。
   setPhotoCache: (photoId, src) => set((state) => {
     const photoCache = new Map(state.photoCache)
 
@@ -78,7 +78,7 @@ const usePhotoStore = create<PhotoState>()(persist((set, get) => ({
   }),
 }), {
   name: "photo-store",
-  // 只持久化信息侧栏开关，上传队列和缓存不写入本地。
+  // Only persist the information sidebar switch，Upload queue and cache are not written locally。
   partialize: (state) => ({ infoOpen: state.infoOpen }),
 }))
 

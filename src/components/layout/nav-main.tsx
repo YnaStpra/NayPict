@@ -21,7 +21,7 @@ export function NavMain({
 }) {
   const pathname = usePathname()
 
-  // 判断当前浏览器路径是否命中菜单 URL。
+  // Determine whether the current browser path hits the menu URL。
   function isUrlMatched(url: string) {
     return pathname === url || pathname.startsWith(`${url}/`)
   }

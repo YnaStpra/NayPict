@@ -36,11 +36,11 @@ import { type File as PhotoFile, fileTab } from '@/server/entity/file';
 import { fileService } from '@/server/service/file-service';
 import { FileTypeEnum } from '@/server/enums/file-enum';
 
-// 这个模块处理照片数据查询相关业务。
+// This module handles business related to photo data query。
 
 const photoService = {
 
-  // 分页查询当前用户照片，并按传入条件和拍摄时间排序。
+  // Query the current user’s photos by page，and sorted by incoming conditions and shooting time。
   async list(params: PhotoListBo, userId: string): Promise<PageVo<PhotoVo>> {
 
     const size = params.size && params.size > 0 ? params.size : PHOTO_LIST_PAGE_SIZE;
@@ -118,7 +118,7 @@ const photoService = {
     };
   },
 
-  // 按天统计当前用户未删除且有拍摄时间的照片。
+  // Statistics by day of photos that the current user has not deleted and have shooting time。
   async takenDateList(params: PhotoTakenDateListBo, userId: string): Promise<PhotoTakenDateVo[]> {
 
     const whereList = [
@@ -132,7 +132,7 @@ const photoService = {
     }
 
     const tzModifier = params.tzOffset >= 0 ? `+${params.tzOffset} minutes` : `${params.tzOffset} minutes`;
-    // 按前端传入时区的自然日分组，与列表展示和筛选边界一致。
+    // Group by calendar day in the time zone passed in from the front end，Consistent with list display and filter boundaries。
     const takenDate = sql<string>`date(${photoTab.takenTime}, ${tzModifier})`;
     const selectColumns = {
       date: takenDate,
@@ -163,7 +163,7 @@ const photoService = {
     }));
   },
 
-  // 根据原文件名生成存储 key，若 key 已存在则在扩展名前追加时间戳。
+  // Generate storage based on original file name key，like key If it already exists, append a timestamp before the extension.。
   async resolvePhotoKey(userId: string, name: string) {
 
     const trimmedName = name.trim();
@@ -187,7 +187,7 @@ const photoService = {
     return key;
   },
 
-  // 根据去重设置和 SHA-1 判断当前用户是否已有相同文件。
+  // According to the deduplication settings and SHA-1 Determine whether the current user already has the same file。
   async exists(params: PhotoExistsBo, userId: string): Promise<PhotoExistsVo> {
     const checksum = params.checksum?.trim();
     const name = params.name?.trim();
@@ -214,7 +214,7 @@ const photoService = {
     return { duplicate: Boolean(duplicatePhoto) };
   },
 
-  // 上传单张照片，后端生成 preview、thumbnail 和元信息。
+  // Upload a single photo，Backend generation preview、thumbnail and meta information。
   async add(form: FormData, userId: string): Promise<PhotoAddResultVo> {
 
     const file = form.get('file') as File;
@@ -333,7 +333,7 @@ const photoService = {
     };
   },
 
-  // 把当前用户的指定照片移动到回收站，并记录回收时间。
+  // Move the specified photos of the current user to the trash，And record the recycling time。
   async recycle(params: PhotoRecycleBo, userId: string): Promise<void> {
     if (!params.photoIds?.length) {
       throw new BizError('photo.selectRequired');
@@ -350,7 +350,7 @@ const photoService = {
       ));
   },
 
-  // 把指定用户的全部照片移动到回收站，并记录回收时间。
+  // Move all photos of the specified user to the trash，And record the recycling time。
   async recycleByUserId(userId: string): Promise<void> {
 
     await orm.update(photoTab)
@@ -361,7 +361,7 @@ const photoService = {
       .where(eq(photoTab.userId, userId));
   },
 
-  // 设置当前用户指定照片的收藏状态。
+  // Set the collection status of photos specified by the current user。
   async favorite(params: PhotoFavoriteBo, userId: string): Promise<void> {
     if (!params.photoIds?.length) {
       throw new BizError('photo.selectRequired');
@@ -381,7 +381,7 @@ const photoService = {
       ));
   },
 
-  // 恢复当前用户回收站中的指定照片。
+  // Restore the specified photos in the current user's recycle bin。
   async restore(params: PhotoRestoreBo, userId: string): Promise<void> {
     if (!params.photoIds?.length) {
       throw new BizError('photo.selectRequired');
@@ -398,7 +398,7 @@ const photoService = {
       ));
   },
 
-  // 彻底删除当前用户的指定照片文件和数据库记录。
+  // Completely delete the specified photo files and database records of the current user。
   async delete(params: PhotoDeleteBo, userId: string): Promise<void> {
     if (!params.photoIds?.length) {
       throw new BizError('photo.selectRequired');
@@ -441,7 +441,7 @@ const photoService = {
       ));
   },
 
-  // 清理当前用户回收站中的照片文件和数据库记录。
+  // Clean the photo files and database records in the current user's Recycle Bin。
   async clear(userId: string): Promise<void> {
 
     const setting = await settingService.get();
@@ -455,7 +455,7 @@ const photoService = {
     });
   },
 
-  // 定时清理超过设置保留天数的回收站照片文件和数据库记录。
+  // Regularly clean up photo files and database records in the Recycle Bin that exceed the set retention days。
   async clearExpired(): Promise<void> {
 
     const setting = await settingService.get();
@@ -469,7 +469,7 @@ const photoService = {
     });
   },
 
-  // 按传入值循环清理回收站照片文件和数据库记录。
+  // Cycle through the recycle bin photo files and database records by the passed in value。
   async clearDeletedPhotos(params: { userId?: string, recycleTime: string, syncDelete: boolean }): Promise<void> {
     const fileStorageList = params.syncDelete ? await storageService.list() : null;
 
@@ -483,7 +483,7 @@ const photoService = {
         whereList.push(eq(photoTab.userId, params.userId));
       }
 
-      // 每次只取 100 条，避免一次清理太多照片导致存储删除请求过大。
+      // Only take each time 100 strip，Avoid clearing too many photos at once resulting in large storage deletion requests。
       const photos = await orm
         .select()
         .from(photoTab)
@@ -521,12 +521,12 @@ const photoService = {
     }
   },
 
-  // 从文件列表取指定类型的存储 key。
+  // Get the specified type of storage from the file list key。
   getFileKey(files: PhotoFile[], type: number): string | null {
     return files.find((file) => file.type === type)?.key ?? null;
   },
 
-  // 把存储信息和文件 key 合并进照片返回对象。
+  // Store information and files key Merge into photo return object。
   toPhotoVo(photo: Photo, files: PhotoFile[], fileStorage?: Storage, domain?: string, exifRow: Exif | null = null): PhotoVo {
     const key = this.getFileKey(files, FileTypeEnum.ORIGINAL) ?? '';
     const preview = this.getFileKey(files, FileTypeEnum.PREVIEW) ?? '';
@@ -548,7 +548,7 @@ const photoService = {
     };
   },
 
-  // 从上传文件读取照片 buffer 及名称、大小、类型。
+  // Read photos from uploaded files buffer and name、size、type。
   async readPhotoUpload(file: File): Promise<{ buffer: Buffer; name: string; size: number; type: string }> {
     return {
       buffer: Buffer.from(await file.arrayBuffer()),

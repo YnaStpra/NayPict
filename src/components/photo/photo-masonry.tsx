@@ -26,7 +26,7 @@ interface PhotoMasonryProps {
   onAlbumRemove?: (photoIds: string[]) => void
 }
 
-// 把 rem 单位转换为当前根字号下的 px。
+// Bundle rem The unit is converted to the current root font size px。
 function remToPx(rem: number) {
   const rootFontSize = parseFloat(
     getComputedStyle(document.documentElement).fontSize
@@ -35,7 +35,7 @@ function remToPx(rem: number) {
   return rem * rootFontSize
 }
 
-// 根据侧边栏状态计算瀑布流初始化宽度。
+// Calculate waterfall initialization width based on sidebar status。
 function getInitialWrapWidth(sidebarOpen: boolean) {
   const width = window.innerWidth
 
@@ -46,14 +46,14 @@ function getInitialWrapWidth(sidebarOpen: boolean) {
   return width - remToPx(sidebarOpen ? 14.25 : 3.25)
 }
 
-// 计算照片在当前列宽下的真实高度。
+// Calculate the true height of the photo at the current column width。
 function getPhotoHeight(photo: PhotoVo, columnWidth: number) {
   const ratio = photo.width && photo.height ? photo.height / photo.width : 1
 
   return Math.max(1, Math.round(columnWidth * ratio))
 }
 
-// 同步每张照片高度到 masonic positioner。
+// Sync the height of each photo to masonic positioner。
 function syncPhotoPositioner(items: PhotoVo[], columnWidth: number, positioner: Positioner) {
   const updates: number[] = []
 
@@ -73,7 +73,7 @@ function syncPhotoPositioner(items: PhotoVo[], columnWidth: number, positioner: 
   }
 }
 
-// 渲染照片瀑布流，并在窗口触底时通知父组件加载更多。
+// Render photo waterfall，And notify the parent component to load more when the window bottoms out。
 const PhotoMasonry = memo(function PhotoMasonry({
   photos,
   resetKey = 0,
@@ -86,19 +86,19 @@ const PhotoMasonry = memo(function PhotoMasonry({
   onAlbumRemove,
 }: PhotoMasonryProps) {
   const { sidebarOpen } = useApp()
-  // isMobile 判断当前是否为移动端视口。
+  // isMobile Determine whether the current viewport is the mobile terminal。
   const isMobile = useIsMobile()
-  // wrapRef 用于监听瀑布流外层真实可视宽度。
+  // wrapRef Used to monitor the real visual width of the outer layer of waterfall flow。
   const wrapRef = useRef<HTMLDivElement | null>(null)
-  // onReachBottomRef 用于保存最新的触底回调。
+  // onReachBottomRef Used to save the latest bottoming callback。
   const onReachBottomRef = useRef(onReachBottom)
-  // windowHeight 用于告诉 masonic 当前虚拟滚动可视高度。
+  // windowHeight used to tell masonic Current virtual scroll visible height。
   const [windowHeight, setWindowHeight] = useState(() => window.innerHeight)
-  // wrapPosition 记录瀑布流外层容器的页面位置和布局宽度。
+  // wrapPosition Record the page position and layout width of the outer container of the waterfall flow。
   const [wrapPosition, setWrapPosition] = useState({ offset: 0, width: getInitialWrapWidth(sidebarOpen) })
-  // selectedPhotoIds 记录当前选中的照片 id。
+  // selectedPhotoIds Record the currently selected photo id。
   const [selectedPhotoIds, setSelectedPhotoIds] = useState<string[]>([])
-  // touchHoverCloseRef 记录当前展示悬浮信息照片的关闭方法。
+  // touchHoverCloseRef Record the closing method of the currently displayed floating information photo。
   const touchHoverCloseRef = useRef<(() => void) | null>(null)
   const width = wrapPosition.width
   const columnWidth = innerWidth < 768 ? (width - 4) / 2 : 240
@@ -117,12 +117,12 @@ const PhotoMasonry = memo(function PhotoMasonry({
 
 
   useEffect(() => {
-    // 保持触底回调为父组件传入的最新方法。
+    // Keep the bottoming callback as the latest method passed in by the parent component。
     onReachBottomRef.current = onReachBottom
   }, [onReachBottom])
 
   useEffect(() => {
-    // 更新窗口高度，供 masonic 计算可视区域。
+    // Update window height，for masonic Calculate visible area。
     function handleResize() {
       setWindowHeight(window.innerHeight)
     }
@@ -135,7 +135,7 @@ const PhotoMasonry = memo(function PhotoMasonry({
   }, [])
 
   useLayoutEffect(() => {
-    // 监听瀑布流外层可视容器宽度变化。
+    // Monitor the width changes of the outer visual container of the waterfall flow。
     const container = wrapRef.current
 
     if (!container) {
@@ -145,7 +145,7 @@ const PhotoMasonry = memo(function PhotoMasonry({
     const containerEl = container
     let timerId: number | null = null
 
-    // 计算瀑布流外层距离页面顶部的位置。
+    // Calculate the distance between the outer layer of the waterfall and the top of the page。
     function getOffset() {
       let offset = 0
       let el: HTMLElement | null = containerEl
@@ -158,7 +158,7 @@ const PhotoMasonry = memo(function PhotoMasonry({
       return offset
     }
 
-    // 获取瀑布流外层当前的位置和宽度。
+    // Get the current position and width of the outer layer of the waterfall flow。
     function getWrapPosition() {
       return {
         offset: getOffset(),
@@ -166,13 +166,13 @@ const PhotoMasonry = memo(function PhotoMasonry({
       }
     }
 
-    // 强制同步瀑布流外层的位置和宽度。
+    // Force synchronization of the position and width of the outer layer of the waterfall flow。
     function syncWrapPosition() {
       console.log(wrapPosition.width);
       setWrapPosition(getWrapPosition())
     }
 
-    // 测量瀑布流外层的位置和宽度，首次同步完成后再强制读取一次。
+    // Measure the position and width of the outer layer of the waterfall，After the first synchronization is completed, force reading again.。
     function measureWrapPosition() {
       const nextPosition = getWrapPosition()
       let needSync = false
@@ -196,7 +196,7 @@ const PhotoMasonry = memo(function PhotoMasonry({
       }
     }
 
-    // 把 ResizeObserver 的通知防抖到停止变化 300ms 后处理。
+    // Bundle ResizeObserver Notifications shake to stop changing 300ms Post-processing。
     function updateWrapPosition() {
       if (timerId !== null) {
         window.clearTimeout(timerId)
@@ -224,7 +224,7 @@ const PhotoMasonry = memo(function PhotoMasonry({
   }, [])
 
   useEffect(() => {
-    // 处理窗口触底，通知父组件请求下一页照片。
+    // Processing window bottoms out，Notify the parent component to request the next page of photos。
     function handleWindowScroll() {
       if (touchHoverCloseRef.current) {
         touchHoverCloseRef.current()
@@ -250,7 +250,7 @@ const PhotoMasonry = memo(function PhotoMasonry({
     }
   }, [isMobile, photos.length])
 
-  // 切换照片选择数组中的 photoId。
+  // Toggle photo selection in array photoId。
   function changePhotoSelected(photoId: string, selected: boolean) {
     setSelectedPhotoIds((prev) => {
       if (selected) {
@@ -261,12 +261,12 @@ const PhotoMasonry = memo(function PhotoMasonry({
     })
   }
 
-  // 清空当前照片列表中的选中项。
+  // Clear the selections in the current photo list。
   function clearSelectedPhotos() {
     setSelectedPhotoIds([])
   }
 
-  // 从列表前面开始补选照片，最多选中 100 张。
+  // Start by selecting photos from the front of the list，Most selected 100 open。
   function selectFirstPhotos() {
     setSelectedPhotoIds((prev) => {
       const visibleIds = prev.filter((photoId) => photos.some((photo) => photo.photoId === photoId))
@@ -292,26 +292,26 @@ const PhotoMasonry = memo(function PhotoMasonry({
     })
   }
 
-  // 清空选中状态后把当前选中的照片 id 传给页面删除。
+  // After clearing the selection status, the currently selected photo id Pass to page for deletion。
   function deleteSelectedPhotos() {
     const photoIds = visibleSelectedPhotoIds
     clearSelectedPhotos()
     onPhotoDelete?.(photoIds)
   }
 
-  // 把当前选中的照片 id 传给页面恢复。
+  // Change the currently selected photo id Pass to page recovery。
   function restoreSelectedPhotos() {
     onPhotoRestore?.(visibleSelectedPhotoIds)
     clearSelectedPhotos()
   }
 
-  // 把当前选中的照片 id 传给页面打开相册选择。
+  // Change the currently selected photo id Pass to page to open album selection。
   function openAlbumDialog() {
     onAlbumOpen?.(visibleSelectedPhotoIds)
     clearSelectedPhotos()
   }
 
-  // 清空选中状态后把当前选中的照片 id 传给页面移出相册。
+  // After clearing the selection status, the currently selected photo id Pass to pageMove from album。
   function removeAlbumPhotos() {
     const photoIds = visibleSelectedPhotoIds
     clearSelectedPhotos()

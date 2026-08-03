@@ -2,17 +2,17 @@ import { and, eq, isNotNull, lte } from 'drizzle-orm'
 import { cacheTab } from '@/server/entity/cache'
 import { orm } from '@/server/infra/db'
 
-// 这个模块封装缓存读写，当前由 dbCache 写入 SQLite cache 表。
+// This module encapsulates cache reading and writing，Currently provided by dbCache write SQLite cache surface。
 
 type CacheSetOptions = {
-  // ttl 缓存过期时间，单位秒。
+  // ttl Cache expiration time，Unit second。
   ttl?: number
 }
 
-// SQLite 缓存实现。
+// SQLite Cache implementation。
 const dbCache = {
 
-  // 写入缓存，同 key 则覆盖。
+  // write cache，same key then cover。
   async set(key: string, data: object, options?: CacheSetOptions): Promise<void> {
     const value = JSON.stringify(data)
     const expireTime = options?.ttl
@@ -32,7 +32,7 @@ const dbCache = {
     })
   },
 
-  // 读取缓存，过期则删除并返回 null。
+  // read cache，Delete and return when expired null。
   async get<T>(key: string): Promise<T | null> {
     const [row] = await orm
       .select()
@@ -52,12 +52,12 @@ const dbCache = {
     return JSON.parse(row.value) as T
   },
 
-  // 删除缓存。
+  // Delete cache。
   async delete(key: string): Promise<void> {
     await orm.delete(cacheTab).where(eq(cacheTab.key, key))
   },
 
-  // 删除所有已过期的缓存。
+  // Delete all expired caches。
   async clearExpired(): Promise<void> {
     const now = Math.floor(Date.now() / 1000)
 
@@ -69,22 +69,22 @@ const dbCache = {
 }
 
 const cache = {
-  // 写入缓存。
+  // write cache。
   async set(key: string, data: object, options?: CacheSetOptions): Promise<void> {
     return dbCache.set(key, data, options)
   },
 
-  // 读取缓存。
+  // read cache。
   async get<T>(key: string): Promise<T | null> {
     return dbCache.get<T>(key)
   },
 
-  // 删除缓存。
+  // Delete cache。
   async delete(key: string): Promise<void> {
     return dbCache.delete(key)
   },
 
-  // 删除所有已过期的缓存。
+  // Delete all expired caches。
   async clearExpired(): Promise<void> {
     return dbCache.clearExpired()
   },

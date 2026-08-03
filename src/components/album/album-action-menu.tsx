@@ -13,17 +13,17 @@ import {
 } from "@/components/ui/dropdown-menu"
 
 interface AlbumActionMenuProps {
-  // 当前按钮图标是否显示阴影。
+  // Whether the current button icon displays a shadow。
   shadow?: boolean
   onRename: () => void
   onTop: () => void
   onDelete: () => void
 }
 
-// 渲染相册卡片右上角的更多操作菜单。
+// Render the more operations menu in the upper right corner of the album card。
 export function AlbumActionMenu({ shadow = true, onRename, onTop, onDelete }: AlbumActionMenuProps) {
   const t = useTranslations("albums")
-  // open 记录当前下拉菜单是否打开，用于打开时隐藏图标阴影。
+  // open Record whether the current drop-down menu is open，Used to hide icon shadow when open。
   const [open, setOpen] = useState(false)
   const showShadow = shadow && !open
 

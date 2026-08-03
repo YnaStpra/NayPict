@@ -9,7 +9,7 @@ import { cache } from '@/server/infra/cache';
 import { type AuthInfo } from '@/server/entity/vo/auth';
 import { UserTypeEnum } from '@/server/enums/user-enum';
 
-// 这个模块提供全局接口鉴权中间件。
+// This module provides global interface authentication middleware。
 
 const SYSTEM_PATHS = [
   '/setting',
@@ -26,24 +26,24 @@ const SYSTEM_PATHS = [
   '/storage/delete'
 ];
 
-// 判断当前路径是否命中指定接口或其子路径。
+// Determine whether the current path hits the specified interface or its subpath。
 function isPathMatched(path: string, target: string) {
   return path === target || path.startsWith(`${target}/`);
 }
 
-// 判断当前接口是否属于系统管理接口。
+// Determine whether the current interface belongs to the system management interface。
 function isSystemPath(path: string) {
   return SYSTEM_PATHS.some((target) => isPathMatched(path, target));
 }
 
-// 清除登录相关 Cookie。
+// Clear login related Cookie。
 function clearLoginCookies(c: Context) {
   deleteCookie(c, TOKEN_COOKIE_NAME, {
     path: '/',
   });
 }
 
-// 校验登录信息与会话 uuid，通过后写入上下文；公开路径直接放行。
+// Verify login information and session uuid，Write context after passing；Direct release via public path。
 async function security(c: Context, next: Next) {
 
   const path = c.req.path.replace(/^\/api/, '');
@@ -59,7 +59,7 @@ async function security(c: Context, next: Next) {
     throw new BizError('auth.failed', 401);
   }
 
-  // 从缓存读取登录信息，并确认当前 uuid 仍有效。
+  // Read login information from cache，and confirm the current uuid still valid。
   const authInfo = await cache.get<AuthInfo>(AUTH_CACHE_KEY + userId);
 
   if (!authInfo || !authInfo.uuidList.includes(uuid)) {

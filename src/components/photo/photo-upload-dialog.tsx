@@ -45,13 +45,13 @@ interface UploadPreview {
   status: UploadStatus
 }
 
-// 在浏览器中计算待上传文件的 SHA-1 校验和。
+// Calculate the size of the file to be uploaded in the browser SHA-1 Checksum。
 async function getFileChecksum(file: File) {
   const buffer = await file.arrayBuffer()
   return sha1(new Uint8Array(buffer))
 }
 
-// 从上传接口响应中提取错误提示，XML 优先读取 Message 标签。
+// Extract error message from upload interface response，XML Read first Message Label。
 function getUploadErrorText(text: string) {
   const value = text.trim()
 
@@ -59,7 +59,7 @@ function getUploadErrorText(text: string) {
     const data = JSON.parse(value) as { message?: string }
     return data.message || value
   } catch {
-    // 非 JSON 错误继续按普通文本或 XML 处理。
+    // No JSON Error continues by pressing normal text or XML deal with。
   }
 
   if (!value.startsWith("<") || !value.endsWith(">")) {
@@ -72,7 +72,7 @@ function getUploadErrorText(text: string) {
   return message || value
 }
 
-// 使用 XMLHttpRequest 上传照片到 /photo/add。
+// use XMLHttpRequest Upload photos to /photo/add。
 function uploadPhotoAdd(
   formData: FormData,
   onProgress?: (progress: number) => void,
@@ -114,25 +114,25 @@ function uploadPhotoAdd(
   })
 }
 
-// 渲染照片上传弹窗。
+// Render photo upload pop-up window。
 export function PhotoUploadDialog() {
   const t = useTranslations("photos.upload")
-  const fileInputRef = useRef<HTMLInputElement>(null) // 文件选择 input，用于触发系统文件选择器。
-  const previewsRef = useRef<UploadPreview[]>([]) // 保存照片预览和上传状态列表。
-  const uploadQueueRef = useRef<UploadPreview[]>([]) // 保存待上传照片队列，支持上传中继续追加照片。
-  const uploadingRef = useRef(false) // 标记当前是否有上传任务正在运行。
-  const activeCountRef = useRef(0) // 记录当前正在上传的照片数量，用于限制并发数。
-  const abortMapRef = useRef<Map<string, () => void>>(new Map()) // 保存每张照片对应的停止上传方法。
-  const pausedRef = useRef(false) // 标记是否已暂停，防止 abort 收尾时重新启动上传。
-  const uploadStorageIdRef = useRef<string | null>(null) // 开始后锁定的存储配置 id。
-  const [uploading, setUploading] = useState(false) // 标记当前是否正在上传，用于切换开始/暂停按钮。
-  const [storageId, setStorageId] = useState<string | null>(null) // 当前手动选择的存储配置 id。
-  const [, setPreviewTick] = useState(0) // 预览列表变更时递增，用于触发界面刷新。
-  const storages = useStorageStore((state) => state.storages) // 全局可选存储配置列表。
-  const open = usePhotoStore((state) => state.uploadOpen) // 上传弹窗是否打开。
-  const uploadAlbumId = usePhotoStore((state) => state.uploadAlbumId) // 当前上传目标相册 id。
-  const closeUpload = usePhotoStore((state) => state.closeUpload) // 关闭上传弹窗的方法。
-  const addUploadedPhoto = usePhotoStore((state) => state.addUploadedPhoto) // 上传成功后写入照片列表的方法。
+  const fileInputRef = useRef<HTMLInputElement>(null) // File selection input，Used to trigger the system file selector。
+  const previewsRef = useRef<UploadPreview[]>([]) // Save photo preview and upload status list。
+  const uploadQueueRef = useRef<UploadPreview[]>([]) // Save the photo queue to be uploaded，Supports adding photos while uploading。
+  const uploadingRef = useRef(false) // Mark whether there is currently an upload task running。
+  const activeCountRef = useRef(0) // Record the number of photos currently being uploaded，Used to limit the number of concurrencies。
+  const abortMapRef = useRef<Map<string, () => void>>(new Map()) // Save the stop upload method corresponding to each photo。
+  const pausedRef = useRef(false) // Whether the tag is paused，prevent abort Restart upload at the end。
+  const uploadStorageIdRef = useRef<string | null>(null) // Storage configuration locked after start id。
+  const [uploading, setUploading] = useState(false) // Flag whether uploading is currently in progress，for switching start/pause button。
+  const [storageId, setStorageId] = useState<string | null>(null) // Current manually selected storage configuration id。
+  const [, setPreviewTick] = useState(0) // Increments when preview list changes，Used to trigger interface refresh。
+  const storages = useStorageStore((state) => state.storages) // Global optional storage configuration list。
+  const open = usePhotoStore((state) => state.uploadOpen) // Is the upload pop-up window open?。
+  const uploadAlbumId = usePhotoStore((state) => state.uploadAlbumId) // Currently uploading target album id。
+  const closeUpload = usePhotoStore((state) => state.closeUpload) // How to close the upload pop-up window。
+  const addUploadedPhoto = usePhotoStore((state) => state.addUploadedPhoto) // How to write a photo list after successful upload。
   const selectedStorageId = storageId ?? storages[0]?.storageId ?? null
 
   useEffect(() => {
@@ -141,18 +141,18 @@ export function PhotoUploadDialog() {
     }
   }, [])
 
-  // 更新预览列表并触发界面刷新。
+  // Update the preview list and trigger an interface refresh。
   function setPreviews(next: UploadPreview[]) {
     previewsRef.current = next
     setPreviewTick((tick) => tick + 1)
   }
 
-  // 打开系统文件选择器。
+  // Open the system file selector。
   function openFilePicker() {
     fileInputRef.current?.click()
   }
 
-  // 清空弹窗内已生成的预览。
+  // Clear the generated preview in the pop-up window。
   function resetUpload() {
     previewsRef.current.forEach((preview) => URL.revokeObjectURL(preview.cover))
     uploadQueueRef.current = []
@@ -161,14 +161,14 @@ export function PhotoUploadDialog() {
     setPreviews([])
   }
 
-  // 处理弹窗打开状态变化。
+  // Handle pop-up window opening status changes。
   function handleOpenChange(nextOpen: boolean) {
     if (!nextOpen) {
       closeUpload()
     }
   }
 
-  // 生成封面后再加入预览列表。
+  // After generating the cover, add it to the preview list。
   async function addPhoto(file: File) {
     const cover = await createPhotoCover(file)
     const item: UploadPreview = {
@@ -183,7 +183,7 @@ export function PhotoUploadDialog() {
     setPreviews([...previewsRef.current, item])
   }
 
-  // 暂停上传，仅中断 xhr，并重置排队/正在上传的照片。
+  // Pause upload，Interrupt only xhr，and reset the queue/Photos being uploaded。
   function pauseUpload() {
     pausedRef.current = true
     const abortingIds = new Set(abortMapRef.current.keys())
@@ -206,7 +206,7 @@ export function PhotoUploadDialog() {
     setUploading(false)
   }
 
-  // 处理选择照片后的每张新增照片。
+  // Process each new photo after selecting it。
   async function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
     const files = Array.from(event.target.files ?? [])
     event.target.value = ""
@@ -235,7 +235,7 @@ export function PhotoUploadDialog() {
     )
   }
 
-  // 把当前符合条件的照片加入上传队列。
+  // Add currently eligible photos to the upload queue。
   function enqueueUploadItems() {
     const uploadList = previewsRef.current.filter((preview) => (
       preview.status === "new" || preview.status === "failed"
@@ -260,7 +260,7 @@ export function PhotoUploadDialog() {
     return uploadList.length
   }
 
-  // 上传单张照片，并按结果刷新当前照片状态。
+  // Upload a single photo，And press the result to refresh the current photo status。
   async function uploadPhoto(preview: UploadPreview) {
     const currentStorageId = uploadStorageIdRef.current!
 
@@ -344,7 +344,7 @@ export function PhotoUploadDialog() {
     }
   }
 
-  // 每次请求结束后马上补下一个，并发数由上传设置决定。
+  // After each request is completed, the next one will be added immediately.，The number of concurrencies is determined by the upload settings。
   function runNext() {
     if (pausedRef.current) {
       return
@@ -375,7 +375,7 @@ export function PhotoUploadDialog() {
     }
   }
 
-  // 上传弹窗内待处理的照片，成功后通知父页面。
+  // Upload photos to be processed in the pop-up window，Notify parent page after success。
   function startUpload() {
     if (process.env.NEXT_PUBLIC_DEMO_USERNAME && previewsRef.current.length > 0) {
       toast.error("The application is running in read-only mode.")
@@ -398,7 +398,7 @@ export function PhotoUploadDialog() {
     runNext()
   }
 
-  // 切换开始或暂停上传。
+  // Toggle start or pause upload。
   function handleUploadAction() {
     if (uploading) {
       pauseUpload()

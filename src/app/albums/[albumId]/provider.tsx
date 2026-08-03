@@ -5,20 +5,20 @@ import { createContext, useContext } from "react"
 import { type PhotoVo } from "@/server/entity/vo/photo"
 
 interface AlbumPhotoContextValue {
-  // initialPhotos 保存服务端查询到的相册照片第一页。
+  // initialPhotos Save the first page of the album photos queried by the server。
   initialPhotos: PhotoVo[]
 }
 
 interface AlbumPhotoProviderProps {
-  // children 是相册照片页内容。
+  // children It is the content of the photo page of the album。
   children: React.ReactNode
-  // initialPhotos 保存服务端查询到的相册照片第一页。
+  // initialPhotos Save the first page of the album photos queried by the server。
   initialPhotos: PhotoVo[]
 }
 
 const AlbumPhotoContext = createContext<AlbumPhotoContextValue | null>(null)
 
-// 读取相册照片页服务端预取的照片数据。
+// Read the photo data prefetched by the server on the album photo page。
 function useAlbumPhotoContext() {
   const context = useContext(AlbumPhotoContext)
 
@@ -29,7 +29,7 @@ function useAlbumPhotoContext() {
   return context
 }
 
-// 给相册照片页客户端组件提供服务端预取照片。
+// Provide server-side prefetched photos for the album photo page client component。
 function AlbumPhotoProvider({ children, initialPhotos }: AlbumPhotoProviderProps) {
   return (
     <AlbumPhotoContext.Provider value={{ initialPhotos }}>

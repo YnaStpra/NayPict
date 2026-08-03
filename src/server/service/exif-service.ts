@@ -3,11 +3,11 @@ import { type ExifSaveBo } from '@/server/entity/bo/exif';
 import { type Exif, exifTab } from '@/server/entity/exif';
 import { orm } from '@/server/infra/db';
 
-// 这个模块处理照片 Exif 的读写。
+// This module processes photos Exif reading and writing。
 
 const exifService = {
 
-  // 按多个照片 id 批量查询 exif 记录。
+  // Press multiple photos id Batch query exif Record。
   async listByPhotoIds(photoIds: string[]): Promise<Map<string, Exif>> {
     if (!photoIds.length) {
       return new Map();
@@ -21,7 +21,7 @@ const exifService = {
     return new Map(rows.map((row) => [row.photoId, row]));
   },
 
-  // 保存照片 exif JSON 与位置信息。
+  // save photo exif JSON and location information。
   async save(photoId: string, params: ExifSaveBo): Promise<void> {
     const { exif, latitude, longitude, altitude } = params;
 

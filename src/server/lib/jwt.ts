@@ -2,14 +2,14 @@ import { sign, verify } from 'hono/jwt';
 import { type JWTPayload } from 'hono/utils/jwt/types';
 import BizError from "@/server/error/biz-error";
 
-// 这个模块负责登录 JWT 的生成与校验。
+// This module is responsible for logging in JWT Generation and verification of。
 
 interface LoginTokenPayload extends JWTPayload {
   userId: string;
   uuid: string;
 }
 
-// 生成登录成功后返回给前端的 JWT。
+// Generate and return to the front end after successful login JWT。
 async function createLoginToken(userId: string, uuid: string): Promise<string> {
   const secret = process.env.JWT_SECRET;
 
@@ -28,7 +28,7 @@ async function createLoginToken(userId: string, uuid: string): Promise<string> {
   return sign(payload, secret);
 }
 
-// 校验登录 JWT，验证失败时返回空。
+// Verify login JWT，Returns empty if verification fails。
 async function verifyLoginToken(token: string | undefined): Promise<LoginTokenPayload | null> {
   const secret = process.env.JWT_SECRET;
 

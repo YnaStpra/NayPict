@@ -1,4 +1,4 @@
-// 这个模块定义登录接口返回对象。
+// This module defines the login interface return object。
 
 interface LoginVo {
   token: string;

@@ -4,20 +4,20 @@ import { createContext, useContext } from "react"
 import { type PhotoVo } from "@/server/entity/vo/photo"
 
 interface PhotoContextValue {
-  // initialPhotos 保存服务端查询到的照片第一页。
+  // initialPhotos Save the first page of photos queried by the server。
   initialPhotos: PhotoVo[]
 }
 
 interface PhotoProviderProps {
-  // children 是 /photo 路由下的页面内容。
+  // children yes /photo Page content under routing。
   children: React.ReactNode
-  // initialPhotos 保存服务端查询到的照片第一页。
+  // initialPhotos Save the first page of photos queried by the server。
   initialPhotos: PhotoVo[]
 }
 
 const PhotoContext = createContext<PhotoContextValue | null>(null)
 
-// 读取 /photo 路由下服务端预取的照片数据。
+// read /photo Photo data prefetched by the server under routing。
 function usePhotoContext() {
   const context = useContext(PhotoContext)
 
@@ -28,7 +28,7 @@ function usePhotoContext() {
   return context
 }
 
-// 给 /photo 路由下的客户端组件提供服务端预取照片。
+// Give /photo The client component under routing provides server-side prefetching of photos。
 function PhotoProvider({ children, initialPhotos }: PhotoProviderProps) {
   return (
     <PhotoContext.Provider value={{ initialPhotos }}>

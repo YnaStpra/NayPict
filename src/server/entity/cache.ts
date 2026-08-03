@@ -1,11 +1,11 @@
 import { integer, sqliteTable, text } from 'drizzle-orm/sqlite-core';
 
-// 通用缓存表，value 存 JSON，expire_time 为过期时间戳（秒），空表示不过期。
+// general cache table，value live JSON，expire_time is the expiration timestamp（Second），Empty means no expiration。
 
 export const cacheTab = sqliteTable('cache', {
-  key: text('key').primaryKey(), // 缓存键
-  value: text('value').notNull(), // 缓存值 JSON
-  expireTime: integer('expire_time'), // 过期时间 unix 秒，null 不过期
+  key: text('key').primaryKey(), // cache key
+  value: text('value').notNull(), // cache value JSON
+  expireTime: integer('expire_time'), // Expiration time unix Second，null Not expired
 });
 
 export type Cache = typeof cacheTab.$inferSelect;

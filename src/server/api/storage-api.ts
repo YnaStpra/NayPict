@@ -6,49 +6,49 @@ import result from '@/server/model/result';
 import { getUserId } from '@/server/security/context';
 import { storageService } from '@/server/service/storage-service';
 
-// 这个模块注册存储配置相关接口。
+// This module registers storage configuration related interfaces。
 
-// 查询全部正常存储配置选项。
+// Query all normal storage configuration options。
 app.post('/storage/select', async (c: Context) => {
   const data = await storageService.select();
   return c.json(result.ok(data));
 });
 
-// 查询全部存储配置列表。
+// Query the list of all storage configurations。
 app.post('/storage/list', async (c: Context) => {
   const data = await storageService.list();
   return c.json(result.ok(data));
 });
 
-// 添加当前用户的存储配置。
+// Add the current user's storage configuration。
 app.post('/storage/add', async (c: Context) => {
   const body = await c.req.json<StorageInto>();
   await storageService.add(body, getUserId());
   return c.json(result.ok());
 });
 
-// 修改当前用户的存储配置，不返回业务数据。
+// Modify the storage configuration of the current user，Does not return business data。
 app.post('/storage/set', async (c: Context) => {
   const body = await c.req.json<Storage>();
   await storageService.set(body);
   return c.json(result.ok());
 });
 
-// 把指定存储配置置顶，不返回业务数据。
+// Pin the specified storage configuration to the top，Does not return business data。
 app.post('/storage/setTop', async (c: Context) => {
   const body = await c.req.json<StorageSetTopBo>();
   await storageService.setTop(body);
   return c.json(result.ok());
 });
 
-// 切换指定存储配置的启用状态，不返回业务数据。
+// Toggles the enabled state of a specified storage configuration，Does not return business data。
 app.post('/storage/toggleStatus', async (c: Context) => {
   const body = await c.req.json<StorageToggleStatusBo>();
   await storageService.toggleStatus(body);
   return c.json(result.ok());
 });
 
-// 删除当前用户的指定存储配置，不返回业务数据。
+// Delete the specified storage configuration of the current user，Does not return business data。
 app.post('/storage/delete', async (c: Context) => {
   const body = await c.req.json<StorageDeleteBo>();
   await storageService.delete(body.storageId);

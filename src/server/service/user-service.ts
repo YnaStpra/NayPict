@@ -17,11 +17,11 @@ import { albumService } from '@/server/service/album-service';
 import { photoService } from '@/server/service/photo-service';
 import { storage } from '@/server/storage/storage';
 
-// 这个模块处理用户数据查询和写入相关业务。
+// This module handles user data query and writing related services。
 
 const userService = {
 
-  // 根据环境变量 ADMIN、PASSWORD 初始化管理员，不存在则创建，已存在则跳过。
+  // According to environment variables ADMIN、PASSWORD Initialize administrator，Create if it does not exist，If it already exists, skip it。
   async init(): Promise<void> {
     const username = process.env.ADMIN?.trim();
     const password = process.env.PASSWORD?.trim();
@@ -51,7 +51,7 @@ const userService = {
     });
   },
 
-  // 根据用户 id 查询用户基础信息。
+  // According to user id Query user basic information。
   async getById(userId: string): Promise<UserInfoVo | null> {
     const [user] = await orm
       .select({
@@ -67,7 +67,7 @@ const userService = {
     return user ?? null;
   },
 
-  // 根据用户名查询用户基础信息。
+  // Query user basic information based on user name。
   async getByName(username: string): Promise<UserInfoVo> {
     const name = username?.trim();
 
@@ -90,7 +90,7 @@ const userService = {
     return user;
   },
 
-  // 设置当前用户头像，并返回最新用户基础信息。
+  // Set current user avatar，And return the latest user basic information。
   async setAvatar(params: UserSetAvatarBo, userId: string): Promise<UserInfoVo> {
 
     const [user] = await orm
@@ -133,7 +133,7 @@ const userService = {
     };
   },
 
-  // 根据头像 key 从存储读取头像文件。
+  // According to avatar key Read avatar file from storage。
   async getAvatar(key?: string) {
 
     if (!key) {
@@ -147,7 +147,7 @@ const userService = {
     }
   },
 
-  // 查询全部用户，并统计每个用户的照片数量和已用容量。
+  // Query all users，And count the number of photos and used capacity of each user。
   async list(): Promise<PageVo<UserVo>> {
     const userList = await orm
       .select()
@@ -183,7 +183,7 @@ const userService = {
     return { list, total: list.length };
   },
 
-  // 添加用户，并把明文密码转换为带盐哈希后保存。
+  // Add user，And convert the plain text password into a salted hash and save it。
   async add(params: UserAddBo): Promise<void> {
     const username = params.username?.trim();
 
@@ -216,7 +216,7 @@ const userService = {
 
   },
 
-  // 修改用户信息。
+  // Modify user information。
   async set(params: UserSetBo): Promise<void> {
     const userId = params.userId?.trim();
     const username = params.username?.trim();
@@ -278,7 +278,7 @@ const userService = {
       .set(updateData)
       .where(eq(userTab.userId, userId));
 
-    // 若存在登录缓存，同步更新其中的用户类型。
+    // If there is a login cache，Synchronously update the user types in it。
     const authInfo = await cache.get<AuthInfo>(AUTH_CACHE_KEY + userId);
 
     if (authInfo) {
@@ -289,7 +289,7 @@ const userService = {
     }
   },
 
-  // 修改当前登录用户密码，并重新生成盐和密码哈希。
+  // Modify the current login user password，and regenerate salt and password hashes。
   async setUserPassword(params: UserPasswordBo, userId: string): Promise<void> {
 
     if (!params.password?.trim()) {
@@ -306,7 +306,7 @@ const userService = {
       .where(eq(userTab.userId, userId));
   },
 
-  // 切换指定用户的启用状态。
+  // Toggle the enabled status of a specified user。
   async toggleStatus(params: UserToggleStatusBo): Promise<void> {
     if (!params.userId) {
       throw new BizError('user.selectRequired');
@@ -332,11 +332,11 @@ const userService = {
       })
       .where(eq(userTab.userId, params.userId));
 
-    // 切换状态后清除登录缓存。
+    // Clear login cache after switching status。
     await cache.delete(AUTH_CACHE_KEY + params.userId);
   },
 
-  // 删除指定用户及其关联相册，并把照片移入回收站。
+  // Delete the specified user and their associated albums，and move the photo to the recycle bin。
   async delete(deleteUserId: string): Promise<void> {
 
     const [user] = await orm
@@ -357,7 +357,7 @@ const userService = {
     await orm.delete(userTab)
       .where(eq(userTab.userId, deleteUserId));
 
-    // 删除用户后清除登录缓存。
+    // Clear login cache after deleting user。
     await cache.delete(AUTH_CACHE_KEY + deleteUserId);
   },
 }

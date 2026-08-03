@@ -8,9 +8,9 @@ import { type LoginVo } from "@/server/entity/vo/login";
 import { getLoginInfo } from "@/lib/cookie";
 import { loginService } from "@/server/service/login-service";
 
-// 这个模块注册登录相关接口。
+// This module registers and logs in related interfaces。
 
-// 用户登录，成功后返回 JWT。
+// User login，Return after success JWT。
 app.post('/login', async (c: Context) => {
   const params = await c.req.json<LoginBo>();
   const token = await loginService.login(params);
@@ -26,7 +26,7 @@ app.post('/login', async (c: Context) => {
   return c.json(result.ok(data));
 })
 
-// 用户退出登录，清除当前会话并删除 Cookie。
+// User logs out，Clear current session and delete Cookie。
 app.post('/logout', async (c: Context) => {
 
   const { userId, uuid } = await getLoginInfo(c.req.header('cookie'));

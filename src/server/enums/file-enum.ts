@@ -1,6 +1,6 @@
-// 这个模块定义文件相关枚举值。
+// This module defines file-related enumeration values。
 
-// 文件类型：原图 / 高清图 / 缩图
+// File type：Original picture / HD pictures / Thumbnail
 const FileTypeEnum = {
   ORIGINAL: 1,
   PREVIEW: 2,

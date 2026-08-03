@@ -3,11 +3,11 @@ import { SETTING_KEY } from '@/server/const/global';
 import { settingTab, type Setting } from '@/server/entity/setting';
 import { orm } from '@/server/infra/db';
 
-// 这个模块处理系统设置的数据查询业务。
+// This module handles the data query business set by the system。
 
 const settingService = {
 
-  // 读取系统配置，数据在建表时已写入，必定存在。
+  // Read system configuration，Data has been written when creating the table，must exist。
   async get(): Promise<Setting> {
     const [row] = await orm
       .select()
@@ -18,7 +18,7 @@ const settingService = {
     return JSON.parse(row.value) as Setting;
   },
 
-  // 覆盖写入整份系统配置。
+  // Overwrite the entire system configuration。
   async set(params: Setting): Promise<void> {
     await orm
       .update(settingTab)

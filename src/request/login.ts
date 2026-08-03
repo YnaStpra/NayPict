@@ -2,14 +2,14 @@ import { http } from "@/request/request";
 import { type LoginBo } from "@/server/entity/bo/login";
 import { type LoginVo } from "@/server/entity/vo/login";
 
-// 这个模块封装登录相关接口请求。
+// This module encapsulates login-related interface requests。
 
-// 使用用户名和密码登录。
+// Log in using username and password。
 export function login(params: LoginBo) {
   return http.post<LoginVo>('/login', params);
 }
 
-// 退出登录并清除服务端 Cookie。
+// Log out and clear the server Cookie。
 export function logout() {
   return http.post<void>('/logout');
 }

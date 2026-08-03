@@ -6,12 +6,12 @@ import { UserTypeEnum } from '@/server/enums/user-enum';
 import { type AuthInfo } from '@/server/entity/vo/auth';
 import { cache } from '@/server/infra/cache';
 
-// 这个模块代理页面路由，未登录时跳转登录页。
+// This module proxy page routing，Jump to login page when not logged in。
 
 const SYSTEM_PATHS = ['/users', '/settings', '/storage'];
 const PUBLIC_FILE_REG = /\.(?:png|jpg|jpeg|gif|webp|svg|ico)$/i;
 
-// 判断当前路径是否允许未登录访问。
+// Determine whether the current path allows unlogged access。
 function isPublicPath(pathname: string) {
   return pathname.startsWith('/login')
     || pathname.startsWith('/api')
@@ -22,17 +22,17 @@ function isPublicPath(pathname: string) {
     || PUBLIC_FILE_REG.test(pathname);
 }
 
-// 判断当前路径是否命中指定页面或其子页面。
+// Determine whether the current path hits the specified page or its subpages。
 function isPathMatched(pathname: string, path: string) {
   return pathname === path || pathname.startsWith(`${path}/`);
 }
 
-// 判断当前路径是否属于系统设置页面。
+// Determine whether the current path belongs to the system settings page。
 function isSystemPath(pathname: string) {
   return SYSTEM_PATHS.some((path) => isPathMatched(pathname, path));
 }
 
-// 清除登录相关 Cookie，并返回传入响应。
+// Clear login related Cookie，and return the incoming response。
 function clearLoginCookies(response: NextResponse) {
   response.cookies.set(TOKEN_COOKIE_NAME, '', {
     path: '/',
@@ -42,7 +42,7 @@ function clearLoginCookies(response: NextResponse) {
   return response;
 }
 
-// 代理未登录页面访问，API 和媒体资源交给各自后端处理。
+// Agent is not logged in to access the page，API and media resources are handed over to their respective backends for processing.。
 export async function proxy(req: NextRequest) {
 
   const { pathname } = req.nextUrl;
@@ -59,7 +59,7 @@ export async function proxy(req: NextRequest) {
     return clearLoginCookies(NextResponse.redirect(loginUrl));
   }
 
-  // 从缓存确认当前会话 uuid 仍有效。
+  // Confirm current session from cache uuid still valid。
   const authInfo = await cache.get<AuthInfo>(AUTH_CACHE_KEY + userId);
 
   if (!authInfo || !authInfo.uuidList.includes(uuid)) {

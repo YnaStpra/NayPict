@@ -1,4 +1,4 @@
-// 这个模块在 Next.js 服务启动时注册服务端定时任务。
+// This module is in Next.js Register server-side scheduled tasks when the service starts。
 
 export async function register() {
 

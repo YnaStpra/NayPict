@@ -12,11 +12,11 @@ import { cache } from '@/server/infra/cache';
 import { AUTH_CACHE_TTL } from '@/server/const/global';
 import { AUTH_CACHE_KEY } from '@/server/const/cache';
 
-// 这个模块处理登录认证相关业务。
+// This module handles login authentication related services。
 
 const loginService = {
 
-  // 把用户信息写入登录缓存，并返回本次会话 uuid。
+  // Write user information to login cache，and return to this session uuid。
   async saveAuthInfo(user: { userId: string, username: string, avatar: string, type: number }): Promise<string> {
     const uuid = createId()
     const oldAuthInfo = await cache.get<AuthInfo>(AUTH_CACHE_KEY + user.userId)
@@ -33,7 +33,7 @@ const loginService = {
     return uuid
   },
 
-  // 校验用户名和密码，登录成功后生成 JWT。
+  // Verify username and password，Generated after successful login JWT。
   async login(params: LoginBo): Promise<string> {
 
     if (!params.username?.trim() || !params.password?.trim()) {
@@ -64,7 +64,7 @@ const loginService = {
     return createLoginToken(user.userId, uuid);
   },
 
-  // 退出登录时从缓存移除当前会话 uuid。
+  // Remove current session from cache when logging out uuid。
   async logout(userId: string | null, uuid: string | null): Promise<void> {
 
     if (!userId || !uuid) {

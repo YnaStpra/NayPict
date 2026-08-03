@@ -1,6 +1,6 @@
-// 这个模块负责照片查看器侧栏信息列的回显格式化。
+// This module is responsible for the echo formatting of the information column in the sidebar of the photo viewer.。
 
-// 解析照片 exif JSON 字符串。
+// Analyze photos exif JSON string。
 function parsePhotoExifJson(exif: string | null | undefined) {
   if (!exif) {
     return null
@@ -18,7 +18,7 @@ const colorSpaceLabels: Record<number, string> = {
   2: "Adobe RGB",
 }
 
-// 把 Exif 色彩空间字段格式化成可读文本。
+// Bundle Exif Color space fields formatted into readable text。
 function formatColorSpace(exif: Record<string, unknown> | null | undefined, uncalibrated: string) {
   if (!exif) {
     return null
@@ -41,7 +41,7 @@ function formatColorSpace(exif: Record<string, unknown> | null | undefined, unca
   return String(colorSpace)
 }
 
-// 从照片 exif JSON 字符串读取色彩空间。
+// from photos exif JSON String reading color space。
 export function getPhotoColorSpace(exif: string | null | undefined, uncalibrated = "Uncalibrated") {
   return formatColorSpace(parsePhotoExifJson(exif), uncalibrated)
 }
@@ -52,7 +52,7 @@ type ViewerField = {
   wrap?: boolean
 }
 
-// 把 Exif 文本字段转成非空字符串。
+// Bundle Exif Convert text field to non-empty string。
 function exifText(value: unknown) {
   if (value === undefined || value === null || value === "") {
     return null
@@ -62,7 +62,7 @@ function exifText(value: unknown) {
   return text || null
 }
 
-// 格式化 Exif 快门速度。
+// format Exif shutter speed。
 function formatExposureTime(value: unknown) {
   const text = exifText(value)
   if (!text) {
@@ -85,7 +85,7 @@ function formatExposureTime(value: unknown) {
   return `1/${Math.round(1 / seconds)}s`
 }
 
-// 格式化 Exif 光圈值。
+// format Exif Aperture value。
 function formatFNumber(value: unknown) {
   const text = exifText(value)
   if (!text) {
@@ -104,7 +104,7 @@ function formatFNumber(value: unknown) {
   return `f/${Number.isInteger(num) ? num : num.toFixed(1)}`
 }
 
-// 格式化 Exif 焦距。
+// format Exif focal length。
 function formatFocalLength(value: unknown) {
   const text = exifText(value)
   if (!text) {
@@ -123,7 +123,7 @@ function formatFocalLength(value: unknown) {
   return `${Number.isInteger(num) ? num : num.toFixed(1)}mm`
 }
 
-// 从照片 exif JSON 字符串读取设备信息列表。
+// from photos exif JSON String reading device information list。
 export function getPhotoDeviceParams(exif: string | null | undefined): ViewerField[] {
   const data = parsePhotoExifJson(exif)
   if (!data) {
@@ -145,7 +145,7 @@ export function getPhotoDeviceParams(exif: string | null | undefined): ViewerFie
   return items
 }
 
-// 从照片 exif JSON 字符串读取拍摄参数列表。
+// from photos exif JSON String reading shooting parameter list。
 export function getPhotoShootingParams(exif: string | null | undefined): ViewerField[] {
   const data = parsePhotoExifJson(exif)
   if (!data) {
@@ -177,7 +177,7 @@ export function getPhotoShootingParams(exif: string | null | undefined): ViewerF
   return items
 }
 
-// 把 EXIF 偏移格式化成 UTC +8 / UTC +5:30。
+// Bundle EXIF The offset is formatted as UTC +8 / UTC +5:30。
 function formatUtcOffset(offset: string) {
   const match = offset.trim().match(/^([+-])(\d{1,2})(?::(\d{2}))?$/)
   if (!match) {
@@ -195,7 +195,7 @@ function formatUtcOffset(offset: string) {
   return `UTC ${sign}${hour}:${String(minute).padStart(2, "0")}`
 }
 
-// 从照片 exif JSON 字符串读取时区展示文本，只显示统一的 UTC 偏移。
+// from photos exif JSON String reading time zone display text，Show only unified UTC offset。
 export function getPhotoTimezone(exif: string | null | undefined) {
   const data = parsePhotoExifJson(exif)
 
@@ -206,12 +206,12 @@ export function getPhotoTimezone(exif: string | null | undefined) {
   return offset ? formatUtcOffset(offset) : null
 }
 
-// 从照片 exif JSON 字符串读取软件信息。
+// from photos exif JSON String reading software information。
 export function getPhotoSoftware(exif: string | null | undefined) {
   return exifText(parsePhotoExifJson(exif)?.Software)
 }
 
-// 把经纬度和海拔格式化成位置文本，例如 52.5187°N 13.3763°E 46 m。
+// Format latitude, longitude and altitude into location text，For example 52.5187°N 13.3763°E 46 m。
 export function formatPhotoLocation(
   latitude: number | null | undefined,
   longitude: number | null | undefined,

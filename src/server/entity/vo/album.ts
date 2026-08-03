@@ -1,6 +1,6 @@
 import { type Album } from '@/server/entity/album';
 
-// 这个模块定义相册接口返回对象。
+// This module defines the album interface return object。
 
 interface AlbumVo extends Album {
   thumbnail: string | null;

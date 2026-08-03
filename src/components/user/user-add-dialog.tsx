@@ -27,7 +27,7 @@ interface UserAddDialogProps {
   onUserConfirm: (user: UserAddBo | UserSetBo) => void
 }
 
-// 创建用户表单初始值。
+// Create user form initial value。
 function createUserForm(user?: UserVo | null): UserForm {
   if (user) {
     return {
@@ -44,18 +44,18 @@ function createUserForm(user?: UserVo | null): UserForm {
   }
 }
 
-// 渲染新增或编辑用户弹窗，并在确认后把用户信息交给父组件保存。
+// Render a new or edit user pop-up window，And after confirmation, the user information is handed over to the parent component for storage.。
 export function UserAddDialog({ title, open, user, onOpenChange, onUserConfirm }: UserAddDialogProps) {
   const t = useTranslations("users")
   const userTypeOptions = UserTypeOptions.map((option) => ({
     ...option,
     label: option.value === UserTypeEnum.ADMIN ? t("admin") : t("user"),
   }))
-  // resetTimerRef 保存关闭动画结束后重置表单的定时器。
+  // resetTimerRef Reset the form's timer after the save-close animation ends。
   const resetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  // form 保存当前弹框内的用户表单数据。
+  // form Save the user form data in the current pop-up box。
   const [form, setForm] = useState<UserForm>(() => createUserForm(user))
-  // errors 保存当前表单字段校验错误。
+  // errors Save current form field validation errors。
   const [errors, setErrors] = useState<UserFormErrors>({})
 
   useEffect(() => {
@@ -73,7 +73,7 @@ export function UserAddDialog({ title, open, user, onOpenChange, onUserConfirm }
     }
   }, [open, user])
 
-  // 更新文本输入字段。
+  // Update text input field。
   function updateField(field: "username" | "password", value: string) {
     setForm((prev) => ({
       ...prev,
@@ -85,7 +85,7 @@ export function UserAddDialog({ title, open, user, onOpenChange, onUserConfirm }
     }))
   }
 
-  // 更新用户类型。
+  // Update user type。
   function updateType(value: string) {
     setForm((prev) => ({
       ...prev,
@@ -97,13 +97,13 @@ export function UserAddDialog({ title, open, user, onOpenChange, onUserConfirm }
     }))
   }
 
-  // 重置用户表单。
+  // Reset userform。
   function resetForm() {
     setForm(createUserForm())
     setErrors({})
   }
 
-  // 延迟重置表单，避免关闭动画期间内容先变回默认值。
+  // Delay reset form，Avoid changing the content back to the default value during the closing animation。
   function resetFormAfterClose() {
     if (resetTimerRef.current) {
       clearTimeout(resetTimerRef.current)
@@ -115,7 +115,7 @@ export function UserAddDialog({ title, open, user, onOpenChange, onUserConfirm }
     }, 300)
   }
 
-  // 校验用户表单必填项。
+  // Verify required fields of user form。
   function validateForm() {
     const nextErrors: UserFormErrors = {}
 
@@ -136,7 +136,7 @@ export function UserAddDialog({ title, open, user, onOpenChange, onUserConfirm }
     return Object.keys(nextErrors).length === 0
   }
 
-  // 提交用户信息给父组件。
+  // Submit user information to parent component。
   function submitUser() {
     if (!validateForm()) {
       return
@@ -162,7 +162,7 @@ export function UserAddDialog({ title, open, user, onOpenChange, onUserConfirm }
     handleOpenChange(false)
   }
 
-  // 处理弹窗打开状态变化。
+  // Handle pop-up window opening status changes。
   function handleOpenChange(nextOpen: boolean) {
     if (nextOpen && resetTimerRef.current) {
       clearTimeout(resetTimerRef.current)

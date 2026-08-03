@@ -27,7 +27,7 @@ interface StorageAddDialogProps {
   onStorageConfirm: (storage: StorageInto) => void
 }
 
-// 创建存储表单初始值。
+// Create storage form initial value。
 function createStorageForm(storage?: StorageVo | null): StorageAddForm {
   if (storage) {
     return {
@@ -55,22 +55,22 @@ function createStorageForm(storage?: StorageVo | null): StorageAddForm {
   }
 }
 
-// 渲染存储弹窗，并在确认后把存储配置交给父组件保存。
+// Render storage pop-up window，And after confirmation, hand the storage configuration to the parent component for storage.。
 export function StorageAddDialog({ title, open, storage, onOpenChange, onStorageConfirm }: StorageAddDialogProps) {
   const t = useTranslations("storage")
   const storageTypeOptions = [
     { label: t("local"), value: StorageTypeEnum.LOCAL, disabled: true },
     { label: t("objectStorage"), value: StorageTypeEnum.S3, disabled: false },
   ]
-  // resetTimerRef 保存关闭动画结束后重置表单的定时器。
+  // resetTimerRef Reset the form's timer after the save-close animation ends。
   const resetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  // form 保存当前弹框内的存储表单数据。
+  // form Save the stored form data in the current pop-up box。
   const [form, setForm] = useState<StorageAddForm>(() => createStorageForm(storage))
-  // errors 保存当前表单字段校验错误。
+  // errors Save current form field validation errors。
   const [errors, setErrors] = useState<StorageAddFormErrors>({})
 
   const isS3 = form.type === StorageTypeEnum.S3
-  // 编辑本地存储时不允许修改类型。
+  // Modification of types is not allowed when editing local storage。
   const typeLocked = Boolean(storage && storage.type === StorageTypeEnum.LOCAL)
 
   useEffect(() => {
@@ -81,7 +81,7 @@ export function StorageAddDialog({ title, open, storage, onOpenChange, onStorage
     }
   }, [])
 
-  // 更新文本输入字段。
+  // Update text input field。
   function updateField(field: keyof StorageAddForm, value: string) {
     setForm((prev) => ({
       ...prev,
@@ -93,7 +93,7 @@ export function StorageAddDialog({ title, open, storage, onOpenChange, onStorage
     }))
   }
 
-  // 更新存储类型。
+  // Update storage type。
   function updateType(value: string) {
     setForm((prev) => ({
       ...prev,
@@ -105,13 +105,13 @@ export function StorageAddDialog({ title, open, storage, onOpenChange, onStorage
     }))
   }
 
-  // 重置新增存储表单。
+  // Reset new storage form。
   function resetForm() {
     setForm(createStorageForm())
     setErrors({})
   }
 
-  // 延迟重置表单，避免关闭动画期间内容先变回默认类型。
+  // Delay reset form，Avoid changing the content back to the default type during the closing animation。
   function resetFormAfterClose() {
     if (resetTimerRef.current) {
       clearTimeout(resetTimerRef.current)
@@ -123,7 +123,7 @@ export function StorageAddDialog({ title, open, storage, onOpenChange, onStorage
     }, 300)
   }
 
-  // 校验新增存储表单必填项。
+  // Verify the required fields in the new storage form。
   function validateForm() {
     const nextErrors: StorageAddFormErrors = {}
 
@@ -158,7 +158,7 @@ export function StorageAddDialog({ title, open, storage, onOpenChange, onStorage
     return Object.keys(nextErrors).length === 0
   }
 
-  // 提交存储配置给父组件。
+  // Submit storage configuration to parent component。
   function submitStorage() {
     const name = form.name.trim()
 
@@ -180,7 +180,7 @@ export function StorageAddDialog({ title, open, storage, onOpenChange, onStorage
     handleOpenChange(false)
   }
 
-  // 处理弹窗打开状态变化。
+  // Handle pop-up window opening status changes。
   function handleOpenChange(nextOpen: boolean) {
     if (nextOpen && resetTimerRef.current) {
       clearTimeout(resetTimerRef.current)

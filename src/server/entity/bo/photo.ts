@@ -1,9 +1,9 @@
-// 这个模块定义照片业务入参对象。
+// This module defines the photo business input parameter object。
 
 interface PhotoTakenDateListBo {
   favorite?: number | null;
   albumId?: string | null;
-  // tzOffset 为相对 UTC 的偏移分钟数，东八区为 480。
+  // tzOffset for relative UTC offset minutes，East Eighth District is 480。
   tzOffset: number;
 
 }

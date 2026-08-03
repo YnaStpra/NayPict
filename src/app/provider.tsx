@@ -47,7 +47,7 @@ type AppContextValue = {
 
 const AppContext = React.createContext<AppContextValue | null>(null)
 
-// 读取应用级全局状态，供布局内的客户端组件复用。
+// Read application-level global state，For reuse by client components within the layout。
 function useApp() {
   const context = React.useContext(AppContext)
 
@@ -58,19 +58,19 @@ function useApp() {
   return context
 }
 
-// 承载应用级 Provider。
+// Host application level Provider。
 function Provider({ children, defaultTheme, defaultSidebarOpen, initialUserInfo, title }: ProviderProps) {
   const [theme, setThemeState] = React.useState<Theme>(defaultTheme)
-  // userInfo 保存当前登录用户信息，登录后可立即更新布局展示。
+  // userInfo Save current logged in user information，You can immediately update the layout display after logging in。
   const [userInfo, setUserInfo] = React.useState<UserInfoVo | null>(initialUserInfo)
-  // sidebarOpen 保存侧边栏当前展开状态，供页面切换后继续复用。
+  // sidebarOpen Save the current expanded state of the sidebar，For continued reuse after page switching。
   const [sidebarOpen, setSidebarOpen] = React.useState(defaultSidebarOpen)
   const setAlbums = useAlbumStore((state) => state.setAlbums)
   const setStorages = useStorageStore((state) => state.setStorages)
   const setInfoOpen = usePhotoStore((state) => state.setInfoOpen)
-  // isMobile 判断当前是否为移动端视口。
+  // isMobile Determine whether the current viewport is the mobile terminal。
   const isMobile = useIsMobile()
-  // pathname 用于在登录页跳过相册和存储等鉴权接口请求。
+  // pathname Used to skip authentication interface requests such as albums and storage on the login page。
   const pathname = usePathname()
   const isLogin = pathname === "/login"
 
@@ -78,7 +78,7 @@ function Provider({ children, defaultTheme, defaultSidebarOpen, initialUserInfo,
     setUserInfo(initialUserInfo)
   }, [initialUserInfo])
 
-  // 查询正常存储配置并写入全局存储选项。
+  // Query normal storage configuration and write global storage options。
   useEffect(() => {
     if (isLogin) {
       return
@@ -89,7 +89,7 @@ function Provider({ children, defaultTheme, defaultSidebarOpen, initialUserInfo,
     })
   }, [isLogin, setStorages])
 
-  // 查询相册列表并写入全局相册选项。
+  // Query the album list and write global album options。
   useEffect(() => {
     if (isLogin) {
       return
@@ -100,26 +100,26 @@ function Provider({ children, defaultTheme, defaultSidebarOpen, initialUserInfo,
     })
   }, [isLogin, setAlbums])
 
-  // 移动端默认收起照片信息侧栏。
+  // The mobile side collapses the photo information sidebar by default。
   useEffect(() => {
     if (isMobile) {
       setInfoOpen(false)
     }
   }, [isMobile, setInfoOpen])
 
-  // 更新主题 class 和 cookie，让下次服务端渲染能恢复当前主题。
+  // Update theme class and cookie，Let the current theme be restored next time server-side rendering。
   const setTheme = React.useCallback((theme: Theme) => {
     setThemeState(theme)
     document.documentElement.classList.toggle("dark", theme === "dark")
     document.cookie = `${THEME_COOKIE_NAME}=${theme}; path=/; max-age=${TOKEN_COOKIE_MAX_AGE}`
   }, [])
 
-  // 在亮色和暗色主题之间切换。
+  // Switch between light and dark themes。
   const toggleTheme = React.useCallback(() => {
     setTheme(theme === "dark" ? "light" : "dark")
   }, [setTheme, theme])
 
-  // 重新查询正常存储配置并写入全局存储选项，登录页不发请求。
+  // Requery normal storage configuration and write global storage options，The login page does not send a request。
   const refreshStorages = React.useCallback(() => {
     if (isLogin) {
       return Promise.resolve()
@@ -130,7 +130,7 @@ function Provider({ children, defaultTheme, defaultSidebarOpen, initialUserInfo,
     })
   }, [isLogin, setStorages])
 
-  // 重新查询相册列表并写入全局相册选项，登录页不发请求。
+  // Query the album list again and write global album options，The login page does not send a request。
   const refreshAlbums = React.useCallback(() => {
     if (isLogin) {
       return Promise.resolve()

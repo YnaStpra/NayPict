@@ -50,7 +50,7 @@ export default function Page() {
   const { sidebarOpen, setSidebarOpen, refreshAlbums } = useApp()
   const currentAlbumName = useAlbumStore((state) => state.currentAlbumName)
   const albumIdRef = useRef(albumId)
-  // isBrowser 标记当前是否在浏览器环境，SSR 阶段显示骨架屏。
+  // isBrowser Mark whether you are currently in the browser environment，SSR Stage display skeleton screen。
   const [isBrowser, setIsBrowser] = useState(false)
   const {
     photos,
@@ -62,9 +62,9 @@ export default function Page() {
   } = usePhotoList({ albumId }, PHOTO_LIST_PAGE_SIZE, initialPhotos)
   const [modelPhotoIndex, setModelPhotoIndex] = useState(0)
   const [showPhotoViewer, setShowPhotoViewer] = useState(false)
-  // albumDialogOpen 控制加入相册弹框的打开状态。
+  // albumDialogOpen Control the opening status of the add album pop-up box。
   const [albumDialogOpen, setAlbumDialogOpen] = useState(false)
-  // albumPhotoIds 保存本次要加入其他相册的照片 id。
+  // albumPhotoIds Save this photo to be added to other albums id。
   const [albumPhotoIds, setAlbumPhotoIds] = useState<string[]>([])
   const openUpload = usePhotoStore((state) => state.openUpload)
   const uploadedPhotos = usePhotoStore((state) => state.uploadedPhotos)
@@ -74,7 +74,7 @@ export default function Page() {
   }, [])
 
   useEffect(() => {
-    // 刷新相册照片页时禁用浏览器滚动恢复，并回到照片列表顶部。
+    // Disable browser scroll recovery when refreshing album photo page，and go back to the top of the photo list。
     const previousScrollRestoration = window.history.scrollRestoration
 
     window.history.scrollRestoration = 'manual'
@@ -86,12 +86,12 @@ export default function Page() {
   }, [])
 
   useEffect(() => {
-    // 同步当前相册 id，供上传成功队列消费时过滤。
+    // Sync current album id，For filtering when the upload is successful and consumed by the queue。
     albumIdRef.current = albumId
   }, [albumId])
 
   useEffect(() => {
-    // 消费上传成功队列，把当前相册内的新照片按 taken_time 插入列表对应位置。
+    // Consumption upload success queue，Click on the new photo in the current album taken_time Insert the corresponding position in the list。
     if (!uploadedPhotos.length) {
       return
     }
@@ -108,18 +108,18 @@ export default function Page() {
     })
   }, [prependPhotos, uploadedPhotos])
 
-  // 打开当前相册照片详情 model。
+  // Open photo details of current album model。
   const openPhoto = useCallback((index: number) => {
     setModelPhotoIndex(index)
     setShowPhotoViewer(true)
   }, [])
 
-  // 关闭照片详情 model。
+  // Close photo details model。
   function closePhoto() {
     setShowPhotoViewer(false)
   }
 
-  // 根据照片下标切换单张照片收藏状态。
+  // Switch the collection status of a single photo based on the photo subscript。
   const changePhotoFavorite = useCallback((index: number, setFavorite: (favorite: boolean) => void) => {
     const photo = photos[index]
     const favorite = photo.favorite === PhotoFavoriteEnum.YES
@@ -132,14 +132,14 @@ export default function Page() {
     })
   }, [photos])
 
-  // 批量回收当前相册选中的照片。
+  // Recycle selected photos in the current album in batches。
   const recyclePhotos = useCallback((photoIds: string[]) => {
     photoRecycle({ photoIds }).then(() => {
       removePhotos(photoIds)
     })
   }, [removePhotos])
 
-  // 批量把当前相册选中的照片移出相册。
+  // Move selected photos from the current album to the album in batches。
   const removeAlbumPhotos = useCallback((photoIds: string[]) => {
     albumRemovePhoto({ albumId, photoIds }).then(() => {
       removePhotos(photoIds)
@@ -147,13 +147,13 @@ export default function Page() {
     })
   }, [albumId, removePhotos, refreshAlbums])
 
-  // 打开当前相册照片批量加入相册弹框。
+  // Open the pop-up box for adding photos in the current album to the album in batches。
   const openAlbumDialog = useCallback((photoIds: string[]) => {
     setAlbumPhotoIds(photoIds)
     setAlbumDialogOpen(true)
   }, [])
 
-  // 选中相册后把当前相册照片加入其他相册。
+  // After selecting the album, add the photos in the current album to other albums。
   function changePhotoAlbum(albumIds: string[]) {
     const targetAlbumIds = albumIds.filter((targetAlbumId) => targetAlbumId !== albumId)
 
@@ -166,7 +166,7 @@ export default function Page() {
     })
   }
 
-  // 保存当前选择的相册照片时间范围，并触发列表按拍摄时间筛选。
+  // Save the currently selected album photo time range，And filter the trigger list by shooting time。
   function changePhotoTime(range: { startDate: Date, endDate: Date }) {
     refreshPhotoList({
       albumId,

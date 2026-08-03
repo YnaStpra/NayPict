@@ -15,7 +15,7 @@ import BizError from '@/server/error/biz-error';
 import { i18nMiddleware, t } from '@/server/i18n';
 import type { HonoEnv } from './type';
 
-// 这个模块处理照片媒体读取接口，路径为 /media/{key}。
+// This module handles the photo media reading interface，The path is /media/{key}。
 
 const media = new Hono<HonoEnv>();
 media.use('*', cors());
@@ -30,7 +30,7 @@ media.onError((err, c) => {
   return c.text(err.message, 500);
 });
 
-// 根据文件 key 和当前用户 id 查询对应的文件和照片信息。
+// According to the document key and current user id Query corresponding file and photo information。
 async function getPhotoFile(key: string) {
 
   const userId = getUserId();

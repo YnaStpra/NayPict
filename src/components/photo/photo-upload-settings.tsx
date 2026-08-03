@@ -18,12 +18,12 @@ const defaultSettings: PhotoUploadSettingsValue = {
   retryOnFail: false,
 }
 
-// 把并发数限制在 1 到 5 之间。
+// Limit the number of concurrencies to 1 arrive 5 between。
 function clampConcurrency(value: number) {
   return Math.min(5, Math.max(1, Math.round(value)))
 }
 
-// 从本地存储读取照片上传设置，读取失败时返回默认值。
+// Read photo upload settings from local storage，Returns default value when read fails。
 export function readPhotoUploadSettings() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
@@ -43,7 +43,7 @@ export function readPhotoUploadSettings() {
   }
 }
 
-// 把照片上传设置写入本地存储。
+// Write photo upload settings to local storage。
 function savePhotoUploadSettings(settings: PhotoUploadSettingsValue) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify({
     concurrency: clampConcurrency(settings.concurrency),
@@ -51,12 +51,12 @@ function savePhotoUploadSettings(settings: PhotoUploadSettingsValue) {
   }))
 }
 
-// 渲染照片上传 Popover 内的设置项。
+// Render photo upload Popover settings within。
 export function PhotoUploadSettings({ onChange }: { onChange?: () => void }) {
   const t = useTranslations("photos.upload")
-  const [settings, setSettings] = useState<PhotoUploadSettingsValue>(() => readPhotoUploadSettings()) // 从本地存储读取的当前设置。
+  const [settings, setSettings] = useState<PhotoUploadSettingsValue>(() => readPhotoUploadSettings()) // Current settings read from local storage。
 
-  // 合并更新设置并写入本地存储。
+  // Merge updated settings and write to local storage。
   function updateSettings(patch: Partial<PhotoUploadSettingsValue>) {
     setSettings((prev) => {
       const next = { ...prev, ...patch }

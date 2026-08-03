@@ -1,6 +1,6 @@
-// 这个模块负责上传对话框中的照片封面预览生成。
+// This module is responsible for generating the photo cover preview in the upload dialog box.。
 
-// 生成仅用于界面展示的封面图，不修改上传原图。
+// Generate a cover image only for interface display，Upload the original image without modification。
 export async function createPhotoCover(file: File) {
   const bitmap = await createImageBitmap(file)
   const size = 400
@@ -22,7 +22,7 @@ export async function createPhotoCover(file: File) {
         return
       }
 
-      reject(new Error("封面生成失败"))
+      reject(new Error("Cover generation failed"))
     }, "image/webp", 0.9)
   })
 

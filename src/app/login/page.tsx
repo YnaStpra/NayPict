@@ -10,7 +10,7 @@ import { useApp } from "@/app/provider"
 
 export default function LoginPage() {
   const { refreshAlbums, refreshStorages, setUserInfo, theme, setTheme } = useApp()
-  // loading 标记登录请求是否正在提交。
+  // loading Flag whether the login request is being submitted。
   const [loading, setLoading] = useState(false)
   const router = useRouter()
 
@@ -22,7 +22,7 @@ export default function LoginPage() {
     />
   ))
 
-  // 进入登录页强制亮色，离开时恢复用户保存的默认主题。
+  // Enter login page to force bright color，Restore the user's saved default theme when leaving。
   useLayoutEffect(() => {
     document.documentElement.classList.remove("dark")
     document.documentElement.style.colorScheme = "light"
@@ -31,7 +31,7 @@ export default function LoginPage() {
     }
   }, [])
 
-  // 请求登录接口，成功后拉取当前用户信息并跳转照片页面。
+  // Request login interface，After success, pull the current user information and jump to the photo page。
   function handleLogin(params: LoginBo) {
     setLoading(true)
 

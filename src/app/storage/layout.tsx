@@ -7,7 +7,7 @@ interface StorageLayoutProps {
   children: React.ReactNode
 }
 
-// 服务端查询存储配置列表，并提供给 /storage 页面初始化表格。
+// Server query storage configuration list，and provided to /storage Page initialization form。
 export default async function StorageLayout({ children }: StorageLayoutProps) {
   const cookieStore = await cookies()
   const { userId } = await getLoginInfo(cookieStore.toString())

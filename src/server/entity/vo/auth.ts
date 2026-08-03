@@ -1,11 +1,11 @@
-// 这个模块定义登录鉴权缓存对象。
+// This module defines the login authentication cache object。
 
 interface AuthInfo {
   userId: string
   username: string
   avatar: string
   type: number
-  // 当前未过期的登录会话 uuid 列表。
+  // Current unexpired login session uuid list。
   uuidList: string[]
 }
 

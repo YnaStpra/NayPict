@@ -1,8 +1,8 @@
 import { v7 as uuidv7 } from 'uuid';
 
-// 这个模块提供业务 ID 生成方法。
+// This module provides services ID Generate method。
 
-// 生成按时间排序的 UUID v7 业务 ID。
+// Generate time-ordered UUID v7 business ID。
 function createId(): string {
   return uuidv7();
 }

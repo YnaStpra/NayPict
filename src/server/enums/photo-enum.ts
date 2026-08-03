@@ -1,4 +1,4 @@
-// 这个模块定义照片相关枚举值。
+// This module defines photo-related enumeration values。
 
 const PhotoStatusEnum = {
   NORMAL: 1,

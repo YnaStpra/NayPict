@@ -14,11 +14,11 @@ import { fileService } from '@/server/service/file-service';
 import { FileTypeEnum } from '@/server/enums/file-enum';
 import { type File } from '@/server/entity/file';
 
-// 这个模块处理相册数据写入相关业务。
+// This module handles album data writing related services。
 
 const albumService = {
 
-  // 查询当前用户的全部相册列表。
+  // Query the list of all photo albums of the current user。
   async list(userId: string): Promise<AlbumVo[]> {
 
     const albumList = await orm
@@ -78,7 +78,7 @@ const albumService = {
     return list;
   },
 
-  // 添加当前用户的相册，并阻止同一用户创建重复名称的相册。
+  // Add the current user's photo album，and prevent the same user from creating albums with duplicate names。
   async add(params: AlbumAddBo, userId: string): Promise<Album> {
 
     const name = params.name?.trim();
@@ -114,7 +114,7 @@ const albumService = {
     return album;
   },
 
-  // 给当前用户指定相册新增照片关联，并跳过已经存在的关联。
+  // Add a new photo association to the current user's designated album，and skip existing associations。
   async addPhoto(params: AlbumAddPhotoBo, userId: string): Promise<void> {
 
     if (!params.photoIds?.length) {
@@ -166,7 +166,7 @@ const albumService = {
     }
   },
 
-  // 把当前用户指定相册中的照片关联移除。
+  // Remove photo associations from the current user's specified album。
   async removePhoto(params: AlbumRemovePhotoBo, userId: string): Promise<void> {
 
     if (!params.albumId) {
@@ -199,7 +199,7 @@ const albumService = {
       ));
   },
 
-  // 修改当前用户指定相册的名称。
+  // Modify the name of the current user-specified album。
   async setName(params: AlbumSetNameBo, userId: string): Promise<void> {
     const name = params.name?.trim();
 
@@ -218,7 +218,7 @@ const albumService = {
       ));
   },
 
-  // 把当前用户指定相册置顶。
+  // Pin the album specified by the current user to the top。
   async setTop(params: AlbumSetTopBo, userId: string): Promise<void> {
     await orm.update(albumTab)
       .set({
@@ -231,7 +231,7 @@ const albumService = {
       ));
   },
 
-  // 删除当前用户指定相册，并清理相册照片关联。
+  // Delete the album specified by the current user，And clean up the album photo associations。
   async delete(params: AlbumDeleteBo, userId: string): Promise<void> {
 
     await orm.delete(albumPhotoTab)
@@ -245,7 +245,7 @@ const albumService = {
 
   },
 
-  // 删除指定用户的全部相册，并清理这些相册的照片关联。
+  // Delete all albums of specified user，And clean up the photo associations of these albums。
   async deleteByUserId(userId: string): Promise<void> {
 
     const albumList = await orm
@@ -268,7 +268,7 @@ const albumService = {
       .where(eq(albumTab.userId, userId));
   },
 
-  // 查询当前用户回收站虚拟相册，并统计已回收照片数量和最新回收封面。
+  // Query the current user's virtual photo album in the recycle bin，And statistics on the number of recycled photos and the latest recycled covers。
   async trash(userId: string): Promise<AlbumVo> {
     const fileStorageList = await storageService.list();
     const photoList = await orm

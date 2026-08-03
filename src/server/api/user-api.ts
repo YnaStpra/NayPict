@@ -5,49 +5,49 @@ import { type UserAddBo, type UserDeleteBo, type UserSetAvatarBo, type UserSetBo
 import { getUserId } from '@/server/security/context';
 import { userService } from '@/server/service/user-service';
 
-// 这个模块注册用户相关接口。
+// This module registers user-related interfaces。
 
-// 查询当前登录用户信息。
+// Query the currently logged in user information。
 app.post('/user/info', async (c: Context) => {
   const data = await userService.getById(getUserId());
   return c.json(result.ok(data));
 });
 
-// 查询全部用户列表。
+// Query all user list。
 app.post('/user/list', async (c: Context) => {
   const data = await userService.list();
   return c.json(result.ok(data));
 });
 
-// 添加用户。
+// Add user。
 app.post('/user/add', async (c: Context) => {
   const params = await c.req.json<UserAddBo>();
   await userService.add(params);
   return c.json(result.ok());
 });
 
-// 修改用户信息。
+// Modify user information。
 app.post('/user/set', async (c: Context) => {
   const params = await c.req.json<UserSetBo>();
   await userService.set(params);
   return c.json(result.ok());
 });
 
-// 修改当前登录用户密码。
+// Modify the current login user password。
 app.post('/user/setUserPassword', async (c: Context) => {
   const params = await c.req.json<UserPasswordBo>();
   await userService.setUserPassword(params, getUserId());
   return c.json(result.ok());
 });
 
-// 设置当前用户头像。
+// Set current user avatar。
 app.post('/user/setAvatar', async (c: Context) => {
   const params = await c.req.json<UserSetAvatarBo>();
   const user = await userService.setAvatar(params, getUserId());
   return c.json(result.ok(user.avatar));
 });
 
-// 根据头像 key 从存储读取头像图片，浏览器 img 标签直接加载。
+// According to avatar key Read avatar image from storage，Browser img Tags are loaded directly。
 app.get('/user/avatar/:key', async (c: Context) => {
 
   const key = c.req.param('key');
@@ -64,14 +64,14 @@ app.get('/user/avatar/:key', async (c: Context) => {
   });
 });
 
-// 切换指定用户启用状态。
+// Switch the specified user's enabled status。
 app.post('/user/toggleStatus', async (c: Context) => {
   const params = await c.req.json<UserToggleStatusBo>();
   await userService.toggleStatus(params);
   return c.json(result.ok());
 });
 
-// 删除指定用户及其关联数据。
+// Delete the specified user and its associated data。
 app.post('/user/delete', async (c: Context) => {
   const params = await c.req.json<UserDeleteBo>();
   await userService.delete(params.userId);

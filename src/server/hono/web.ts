@@ -7,6 +7,6 @@ import '../api/user-api'
 import '../api/login-api'
 import '../api/setting-api'
 
-// 这个模块汇总注册 Web 接口所需的中间件和 API 路由。
+// This module summarizes registration Web The middleware required for the interface and API routing。
 
 export { app } from './hono';

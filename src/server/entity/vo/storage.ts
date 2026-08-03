@@ -1,6 +1,6 @@
 import { type Storage } from '@/server/entity/storage';
 
-// 这个模块定义存储配置接口返回对象。
+// This module defines the storage configuration interface return object。
 
 interface StorageVo extends Storage {
   photoTotal: number;

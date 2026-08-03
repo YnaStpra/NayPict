@@ -1,6 +1,6 @@
 import { toast } from "sonner";
 
-// 这个模块封装前端 HTTP 请求。
+// This module encapsulates the front end HTTP ask。
 
 interface ApiResponse<T = unknown> {
   code: number;
@@ -12,26 +12,26 @@ type RequestParams = object | FormData | null;
 
 const MOCK_REQUEST_DELAY = 0;
 
-// 等待指定毫秒数，用于模拟线上接口耗时。
+// Wait for specified number of milliseconds，Used to simulate online interface time consumption。
 function sleep(ms: number) {
   return new Promise((resolve) => {
     setTimeout(resolve, ms);
   });
 }
 
-// 拼接接口基础地址。
+// Splicing interface base address。
 function buildUrl(url: string) {
   return url.startsWith('/api') ? url : `/api${url.startsWith('/') ? url : `/${url}`}`;
 }
 
-// 处理身份失效并跳转登录页。
+// Handle identity failure and jump to login page。
 function handleUnauthorized() {
   if (window.location.pathname !== '/login') {
     window.location.replace('/login');
   }
 }
 
-// 发送 POST 请求并返回接口 data。
+// send POST Request and return interface data。
 async function post<T = unknown>(url: string, params: RequestParams = null) {
   const headers = new Headers();
   let body: BodyInit | null = null;
@@ -54,7 +54,7 @@ async function post<T = unknown>(url: string, params: RequestParams = null) {
   const json = await res.json() as ApiResponse<T>;
 
   if (!res.ok || json.code !== 200) {
-    const message = json.message || '请求失败';
+    const message = json.message || 'Request failed';
     toast.error(message);
 
     if (res.status === 401 || json.code === 401) {
@@ -68,7 +68,7 @@ async function post<T = unknown>(url: string, params: RequestParams = null) {
 }
 
 const http = {
-  // 发送 POST 请求。
+  // send POST ask。
   post<T = unknown>(url: string, params: RequestParams = null) {
     return post<T>(url, params);
   }

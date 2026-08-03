@@ -1,4 +1,4 @@
-// 这个模块定义通用接口返回对象。
+// This module defines a common interface that returns objects。
 
 interface PageVo<T> {
   list: T[];

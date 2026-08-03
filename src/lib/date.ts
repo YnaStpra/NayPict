@@ -1,6 +1,6 @@
-// 这个模块提供时间解析与展示格式化方法。
+// This module provides time parsing and display formatting methods。
 
-// 把 ISO 或数据库时间字符串解析成 Date。
+// Bundle ISO Or the database time string is parsed into Date。
 function parseTime(value: string) {
   const date = new Date(value)
 
@@ -11,7 +11,7 @@ function parseTime(value: string) {
   return date
 }
 
-// 把 ISO UTC 字符串解析成时间戳，兼容无 Z 的旧格式。
+// Bundle ISO UTC String parsed into timestamp，Compatible with none Z old format。
 function parseUtcTime(value: string) {
   const text = value.trim()
   const hasTimezone = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(text)
@@ -25,7 +25,7 @@ function parseUtcTime(value: string) {
   return time
 }
 
-// 格式化照片拍摄时间为本地日期，用于列表展示。
+// Format photo shooting time as local date，for list display。
 function formatPhotoTakenDate(takenTime: string | null | undefined, locale = "zh") {
   if (!takenTime) {
     return null
@@ -44,7 +44,7 @@ function formatPhotoTakenDate(takenTime: string | null | undefined, locale = "zh
   }).format(date)
 }
 
-// 格式化照片拍摄时间为本地日期时间，用于详情展示。
+// Format photo shooting time as local date and time，for detailed display。
 function formatPhotoTakenDateTime(takenTime: string | null | undefined, locale = "zh") {
   if (!takenTime) {
     return null
@@ -66,7 +66,7 @@ function formatPhotoTakenDateTime(takenTime: string | null | undefined, locale =
   }).format(date)
 }
 
-// 格式化回收时间为相对描述。
+// Format recycling time as relative description。
 function formatRecycleTime(recycleTime?: string | null, locale = "zh") {
   if (!recycleTime) {
     return ""
@@ -82,7 +82,7 @@ function formatRecycleTime(recycleTime?: string | null, locale = "zh") {
   const day = 24 * hour
 
   if (diff < hour) {
-    return locale === "zh" ? "1 小时内" : "Within 1 hour"
+    return locale === "zh" ? "1 within hours" : "Within 1 hour"
   }
 
   if (diff < day) {
@@ -92,7 +92,7 @@ function formatRecycleTime(recycleTime?: string | null, locale = "zh") {
   return new Intl.RelativeTimeFormat(locale, { numeric: "always" }).format(-Math.floor(diff / day), "day")
 }
 
-// 读取当前浏览器相对 UTC 的偏移分钟数，东八区为 480。
+// Read the current browser relative UTC offset minutes，East Eighth District is 480。
 function getLocalTzOffsetMin() {
   return -new Date().getTimezoneOffset()
 }

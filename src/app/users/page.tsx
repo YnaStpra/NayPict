@@ -32,45 +32,45 @@ export default function Page() {
   const t = useTranslations("users")
   const { initialUserList } = useUserContext()
   const { sidebarOpen, setSidebarOpen } = useApp()
-  // data 保存当前表格展示的用户列表。
+  // data Save the user list displayed in the current table。
   const [data, setData] = useState<UserVo[]>(initialUserList)
-  // addOpen 控制新增用户弹框的打开状态。
+  // addOpen Control the opening status of the new user pop-up box。
   const [addOpen, setAddOpen] = useState(false)
-  // editOpen 控制编辑用户弹框的打开状态。
+  // editOpen Control the opening state of the edit user pop-up box。
   const [editOpen, setEditOpen] = useState(false)
-  // editingUser 保存当前正在编辑的用户。
+  // editingUser Save the user currently editing。
   const [editingUser, setEditingUser] = useState<UserVo | null>(null)
-  // deleteOpen 控制删除确认弹框的打开状态。
+  // deleteOpen Control the opening state of the delete confirmation pop-up box。
   const [deleteOpen, setDeleteOpen] = useState(false)
-  // deletingUser 保存当前等待删除确认的用户。
+  // deletingUser Save users currently awaiting deletion confirmation。
   const [deletingUser, setDeletingUser] = useState<UserVo | null>(null)
 
-  // 打开新增用户弹框。
+  // Open the add user pop-up box。
   function openAddUser() {
     setAddOpen(true)
   }
 
-  // 查询用户列表并绑定到表格数据。
+  // Query user list and bind to table data。
   function getUserList() {
     userList().then((res) => {
       setData(res.list)
     })
   }
 
-  // 添加用户。
+  // Add user。
   function addUser(user: UserAddBo) {
     userAdd(user).then(() => {
       getUserList()
     })
   }
 
-  // 打开编辑用户弹框。
+  // Open the edit user popup box。
   function openEditUser(user: UserVo) {
     setEditingUser(user)
     setEditOpen(true)
   }
 
-  // 提交修改用户信息。
+  // Submit modified user information。
   function editUser(user: UserSetBo) {
     userSet(user).then(() => {
       toast.success(t("updated"))
@@ -78,20 +78,20 @@ export default function Page() {
     })
   }
 
-  // 切换用户启用状态后刷新列表。
+  // Refresh the list after switching user enabled status。
   function toggleUserStatus(userId: string) {
     userToggleStatus({ userId }).then(() => {
       getUserList()
     })
   }
 
-  // 打开删除确认弹框。
+  // Open the delete confirmation popup。
   function openDeleteUser(user: UserVo) {
     setDeletingUser(user)
     setDeleteOpen(true)
   }
 
-  // 确认删除用户后刷新列表。
+  // Refresh the list after confirming the deletion of the user。
   function confirmDeleteUser() {
     const user = deletingUser
 
@@ -109,7 +109,7 @@ export default function Page() {
     })
   }
 
-  // 处理编辑用户弹框打开状态。
+  // Handle the open state of the edit user pop-up box。
   function handleEditOpenChange(open: boolean) {
     setEditOpen(open)
 
@@ -120,7 +120,7 @@ export default function Page() {
     }
   }
 
-  // 处理删除确认弹框打开状态。
+  // Handling the open state of the deletion confirmation pop-up box。
   function handleDeleteOpenChange(open: boolean) {
     setDeleteOpen(open)
 

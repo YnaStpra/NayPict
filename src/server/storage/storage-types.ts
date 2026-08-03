@@ -1,7 +1,7 @@
 import { type Readable } from 'node:stream';
 import { type Storage } from '@/server/entity/storage';
 
-// 这个模块定义存储策略相关类型。
+// This module defines storage policy related types。
 
 interface StorageStrategy {
   put(files: StorageUploadObject[], storage: Storage): Promise<void>;

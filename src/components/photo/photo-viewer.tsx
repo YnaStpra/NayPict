@@ -17,74 +17,74 @@ import { usePhotoStore } from "@/store/photo-store"
 import { useTranslations } from "next-intl"
 
 interface PhotoViewerProps {
-  // 控制查看器是否显示。
+  // Controls whether the viewer displays。
   open: boolean
-  // 当前打开的照片索引。
+  // Currently open photo index。
   index: number
-  // 父组件传入的照片列表。
+  // Photo list passed in by parent component。
   photos: PhotoVo[]
-  // 关闭查看器时执行。
+  // Executed when the viewer is closed。
   onBack: () => void
-  // 浏览器返回关闭查看器时执行。
+  // Executed when the browser returns to closing the viewer。
   onBrowserBack: () => void
 }
 
 type PhotoSlide = SlideImage & {
-  // 当前照片 id。
+  // Current photo id。
   photoId: string
-  // 当前照片原图。
+  // Current photo original。
   key: string
-  // 当前照片原图大小。
+  // Current photo original size。
   originalSize: number
-  // 当前照片预览图。
+  // Current photo preview。
   preview: string
-  // 缩图地址。
+  // Thumbnail address。
   thumbnail: string
-  // thumbHash 转换后的模糊色背景。
+  // thumbHash Converted blurred background。
   thumbHashUrl?: string
 }
 
 type FullscreenButtonProps = {
-  // 当前是否处于全屏状态。
+  // Whether it is currently in full screen state。
   fullscreen: boolean
-  // 进入全屏。
+  // Go to full screen。
   enter: () => void
 }
 
 type OriginalPhoto = {
-  // 当前已经加载完成的原图 key。
+  // The original image that has been loaded currently key。
   key: string
 }
 
 type OriginalProgress = {
-  // 当前已加载字节数。
+  // Number of bytes currently loaded。
   loaded: number
-  // 当前原图总字节数。
+  // The total number of bytes of the current original image。
   total: number
 }
 
 type PreviewRequestMap = Map<string, () => void>
 
 type LoadOriginalImageParams = {
-  // 当前照片 id。
+  // Current photo id。
   photoId: string
-  // 原图请求地址。
+  // Original image request address。
   src: string
-  // 原图文件大小，用于没有返回 total 时兜底显示进度。
+  // Original image file size，for no return total Show progress at the bottom of the pocket。
   totalSize: number
-  // 保存已经加载完成的原图。
+  // Save the original image that has been loaded。
   setOriginalPhoto: (photo: OriginalPhoto | null) => void
-  // 保存原图加载进度。
+  // Save original image loading progress。
   setOriginalProgress: (progress: OriginalProgress | null) => void
-  // 控制原图加载进度是否显示。
+  // Control whether the original image loading progress is displayed。
   setShowOriginalProgress: (show: boolean) => void
-  // 保存当前原图加载是否异常。
+  // Save the current original image to check whether the loading is abnormal.。
   setOriginalError: (error: boolean) => void
-  // 保存当前原图请求的取消方法。
+  // Cancel method of saving current original image request。
   abortOriginalRef: { current: (() => void) | null }
-  // 原图加载进度延迟隐藏定时器。
+  // Original image loading progress delay hidden timer。
   hideTimerRef: { current: ReturnType<typeof setTimeout> | null }
-  // 保存已经完成加载的照片缓存。
+  // Save the loaded photo cache。
   setPhotoCache: (photoId: string, src: string) => void
 }
 
@@ -92,17 +92,17 @@ const photoViewerPortalStyle: CSSProperties & { "--yarl__portal_zindex": number 
   "--yarl__portal_zindex": 40,
 }
 
-// 根据操作按钮显示状态生成淡入淡出样式。
+// Generate fade-in and fade-out styles based on the display state of the action button。
 function getActionVisibleClass(showActions: boolean) {
   return showActions ? "opacity-100" : "pointer-events-none opacity-0"
 }
 
-// 把字节数格式化成 MB。
+// Format the number of bytes into MB。
 function formatMB(size: number) {
   return `${(size / 1024 / 1024).toFixed(1)}MB`
 }
 
-// 关闭所有预览图请求，并清空当前请求 Map。
+// Close all preview image requests，and clear the current request Map。
 function closePreviewRequests(requests: PreviewRequestMap) {
   const aborts = Array.from(requests.values())
 
@@ -112,7 +112,7 @@ function closePreviewRequests(requests: PreviewRequestMap) {
   })
 }
 
-// 加载原图并直接更新查看器原图相关状态。
+// Load the original image and directly update the status related to the original image in the viewer。
 function loadOriginalImage({
   photoId,
   src,
@@ -131,7 +131,7 @@ function loadOriginalImage({
     xhr.abort()
   }
 
-  // 请求结束后清理当前请求引用，避免后续切换误取消已完成请求。
+  // Clean up the current request reference after the request ends，Avoid subsequent switching from accidentally canceling completed requests。
   function clearCurrentRequest() {
     if (abortOriginalRef.current === abortOriginal) {
       abortOriginalRef.current = null
@@ -191,7 +191,7 @@ function loadOriginalImage({
   return abortOriginal
 }
 
-// 静默加载预览图，请求完成后替换当前显示图。
+// Silently load preview，Replace the current display image after the request is completed。
 function loadPreviewImage(
   src: string,
   photoId: string,
@@ -223,7 +223,7 @@ function loadPreviewImage(
 
   previewRequestsRef.current.set(photoId, abortPreview)
 
-  // 请求结束后只清理自己的记录，避免旧请求删掉新请求。
+  // After the request is completed, only clean up your own records，Prevent old requests from deleting new requests。
   function clearCurrentRequest() {
     if (previewRequestsRef.current.get(photoId) === abortPreview) {
       previewRequestsRef.current.delete(photoId)
@@ -254,7 +254,7 @@ function loadPreviewImage(
   xhr.send()
 }
 
-// 渲染原图加载进度。
+// Render original image loading progress。
 function OriginalProgressButton({ progress, error }: { progress: OriginalProgress | null, error: boolean }) {
   const t = useTranslations("photos.viewer")
   if (!progress) {
@@ -289,7 +289,7 @@ function OriginalProgressButton({ progress, error }: { progress: OriginalProgres
   )
 }
 
-// 渲染上一张按钮。
+// Render the previous button。
 function PrevButton({ showActions }: { showActions: boolean }) {
   const { prev } = useController()
 
@@ -311,7 +311,7 @@ function PrevButton({ showActions }: { showActions: boolean }) {
   )
 }
 
-// 渲染下一张按钮。
+// Render next button。
 function NextButton({ showActions }: { showActions: boolean }) {
   const { next } = useController()
 
@@ -333,7 +333,7 @@ function NextButton({ showActions }: { showActions: boolean }) {
   )
 }
 
-// 渲染全屏按钮。
+// Render full screen button。
 function FullscreenButton({
   fullscreen,
   enter,
@@ -347,7 +347,7 @@ function FullscreenButton({
     return null
   }
 
-  // 进入全屏状态后隐藏查看器操作按钮。
+  // Hide viewer action buttons after entering full screen state。
   function openFullscreen() {
     enter()
     onHideActions()
@@ -372,7 +372,7 @@ function FullscreenButton({
   )
 }
 
-// 渲染照片信息按钮，点击切换右侧信息侧栏。
+// Render photo information button，Click to switch the information sidebar on the right。
 function InfoButton({
   showActions,
   open,
@@ -405,12 +405,12 @@ function InfoButton({
   )
 }
 
-// 渲染旋转按钮。
+// Render spin button。
 function RotateButton({ showActions, onRotate }: { showActions: boolean, onRotate: (photoId: string) => void }) {
   const { currentSlide } = useLightboxState()
   const photoSlide = currentSlide && isImageSlide(currentSlide) ? currentSlide as PhotoSlide : null
 
-  // 把当前照片 id 交给父组件更新旋转角度。
+  // put current photo id Leave it to the parent component to update the rotation angle。
   function rotatePhoto() {
     if (!photoSlide) {
       return
@@ -438,7 +438,7 @@ function RotateButton({ showActions, onRotate }: { showActions: boolean, onRotat
   )
 }
 
-// 渲染原图加载按钮。
+// Render original image load button。
 function LoadOriginalButton({
   showActions,
   originalPhoto,
@@ -455,10 +455,10 @@ function LoadOriginalButton({
   const cacheSrc = photoSlide ? getPhotoCache(photoSlide.photoId) : undefined
   const originalLoaded = Boolean(photoSlide && (originalPhoto?.key === photoSlide.key || cacheSrc?.includes("photo/")))
 
-  // 把当前 slide 交给父组件加载原图。
+  // put the current slide Leave it to the parent component to load the original image。
   function loadOriginal() {
 
-    //图片不存在，或已经加载完成就终止
+    //Picture does not exist，Or terminate after loading is complete
     if (!photoSlide || originalLoaded) {
       return
     }
@@ -485,7 +485,7 @@ function LoadOriginalButton({
   )
 }
 
-// 渲染关闭按钮。
+// Render close button。
 function CloseButton({ showActions }: { showActions: boolean }) {
   const { close } = useController()
   const tap = useTapAction(() => close())
@@ -507,20 +507,20 @@ function CloseButton({ showActions }: { showActions: boolean }) {
   )
 }
 
-// 渲染单张照片，通过原图 key ref 判断显示封面还是原图。
+// Render a single photo，via original image key ref Determine whether to display the cover or the original image。
 function PhotoSlideImage({
   slide,
   originalPhoto,
   rotate,
   fullscreenOpen,
 }: {
-  // 当前照片 slide。
+  // Current photo slide。
   slide: PhotoSlide
-  // 当前已加载完成的原图。
+  // The currently loaded original image。
   originalPhoto: OriginalPhoto | null
-  // 当前照片 CSS 旋转角度。
+  // Current photo CSS rotation angle。
   rotate: number
-  // 当前是否处于全屏状态。
+  // Whether it is currently in full screen state。
   fullscreenOpen: boolean
 }) {
   const normalizedRotate = rotate % 360
@@ -547,54 +547,54 @@ function PhotoSlideImage({
   )
 }
 
-// 渲染照片详情查看器，父组件负责传入当前照片和列表数据。
+// Render photo detail viewer，The parent component is responsible for passing in the current photo and list data。
 export function PhotoViewer({ open, index, photos, onBack, onBrowserBack }: PhotoViewerProps) {
-  // 当前 lightbox 查看的照片索引。
+  // current lightbox Viewed photo index。
   const [viewIndex, setViewIndex] = useState(index)
-  // infoOpen 控制右侧照片信息侧栏是否展开。
+  // infoOpen Control whether the photo information sidebar on the right is expanded。
   const infoOpen = usePhotoStore((state) => state.infoOpen)
-  // setInfoOpen 更新信息侧栏展开状态。
+  // setInfoOpen Update information sidebar expansion status。
   const setInfoOpen = usePhotoStore((state) => state.setInfoOpen)
-  // toggleInfoOpen 切换信息侧栏展开状态。
+  // toggleInfoOpen Toggle the expanded state of the information sidebar。
   const toggleInfoOpen = usePhotoStore((state) => state.toggleInfoOpen)
-  // 当前已经加载完成的原图。
+  // The original image that has been loaded currently。
   const [originalPhoto, setOriginalPhoto] = useState<OriginalPhoto | null>(null)
-  // 当前原图加载进度。
+  // Current original image loading progress。
   const [originalProgress, setOriginalProgress] = useState<OriginalProgress | null>(null)
-  // showOriginalProgress 控制原图加载进度是否显示。
+  // showOriginalProgress Control whether the original image loading progress is displayed。
   const [showOriginalProgress, setShowOriginalProgress] = useState(false)
-  // originalError 记录当前原图加载是否异常。
+  // originalError Record whether the current original image loading is abnormal。
   const [originalError, setOriginalError] = useState(false)
-  // 当前是否显示查看器操作按钮，单击图片区域可切换，放大时仍强制隐藏。
+  // Whether the viewer action buttons are currently displayed，Click the picture area to switch，Still forced to hide when zooming in。
   const [showActions, setShowActions] = useState(true)
-  // 当前照片缩放倍数。
+  // Current photo zoom factor。
   const [zoomLevel, setZoomLevel] = useState(1)
-  // 当前是否处于全屏状态。
+  // Whether it is currently in full screen state。
   const [fullscreenOpen, setFullscreenOpen] = useState(false)
-  // 每张照片当前的旋转角度。
+  // The current rotation angle of each photo。
   const [photoRotates, setPhotoRotates] = useState<Record<string, number>>({})
-  // getPhotoCache 从全局照片缓存中读取已加载的照片。
+  // getPhotoCache Read loaded photos from global photo cache。
   const getPhotoCache = usePhotoStore((state) => state.getPhotoCache)
-  // setPhotoCache 把已经加载完成的照片写入全局照片缓存。
+  // setPhotoCache Write the loaded photos into the global photo cache。
   const setPhotoCache = usePhotoStore((state) => state.setPhotoCache)
-  // 当前原图请求的取消方法。
+  // Cancellation method of current original image request。
   const abortOriginalRef = useRef<(() => void) | null>(null)
-  // previewRequestsRef 保存正在请求的预览图 id 和取消方法。
+  // previewRequestsRef Save the requested preview id and cancellation method。
   const previewRequestsRef = useRef<PreviewRequestMap>(new Map())
-  // currentPhotoIdRef 保存当前查看的照片 id，用于静默预览图请求防乱序。
+  // currentPhotoIdRef Save currently viewed photo id，Used for silent preview request to prevent disorder。
   const currentPhotoIdRef = useRef<string | null>(photos[index]?.photoId ?? null)
-  // openScrollYRef 保存打开查看器前的页面滚动位置，关闭后还原照片列表。
+  // openScrollYRef Save the page scroll position before opening the viewer，Restore photo list after closing。
   const openScrollYRef = useRef(typeof window === "undefined" ? 0 : window.scrollY)
-  // historyPushedRef 记录查看器是否已经写入浏览器历史。
+  // historyPushedRef Records whether the viewer has been written to the browser history。
   const historyPushedRef = useRef(false)
-  // onBrowserBackRef 保存最新的浏览器返回回调。
+  // onBrowserBackRef Save the latest browser return callback。
   const onBrowserBackRef = useRef(onBrowserBack)
-  // originalProgressHideTimerRef 保存延迟隐藏原图加载进度的定时器。
+  // originalProgressHideTimerRef Save the timer that delays and hides the original image loading progress。
   const originalProgressHideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  // slidePointerStartRef 记录 slide 上 pointerdown 坐标，用于区分点击与拖动切换。
+  // slidePointerStartRef Record slide superior pointerdown coordinate，Used to distinguish click and drag switching。
   const slidePointerStartRef = useRef<{ x: number; y: number } | null>(null)
 
-  // lightbox 需要的图片列表。
+  // lightbox Required picture list。
   const slides = useMemo<PhotoSlide[]>(() => (
     photos.map((photo) => ({
       photoId: photo.photoId,
@@ -612,7 +612,7 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack }: Phot
   const actionsVisible = showActions && zoomLevel <= 1
 
   useEffect(() => {
-    // 保持浏览器返回回调为父组件传入的最新方法。
+    // Keep the browser's return callback as the latest method passed in by the parent component。
     onBrowserBackRef.current = onBrowserBack
   }, [onBrowserBack])
 
@@ -623,7 +623,7 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack }: Phot
 
     openScrollYRef.current = window.scrollY
 
-    // 打开查看器时压入一条历史，浏览器返回时先关闭查看器而不是离开页面。
+    // Push a history when opening the viewer，Close the viewer instead of leaving the page when the browser returns。
     function handlePopState() {
 
       if (innerWidth < 768) {
@@ -659,7 +659,7 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack }: Phot
       return
     }
 
-    // 关闭查看器时中断未完成的原图请求，并把列表滚动位置还原到打开前。
+    // Interrupt outstanding original image requests when closing the viewer，And restore the list scroll position to before opening。
     return () => {
       if (originalProgressHideTimerRef.current) {
         clearTimeout(originalProgressHideTimerRef.current)
@@ -670,7 +670,7 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack }: Phot
     }
   }, [open])
 
-  // 处理照片切换后的原图加载。
+  // Process the original image loading after photo switching。
   function handleView(nextIndex: number) {
     setViewIndex(nextIndex)
 
@@ -692,7 +692,7 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack }: Phot
       return
     }
 
-    // 当前照片加载完成后，再静默预热前后两张。
+    // After the current photo is loaded，Then silently warm up the two pictures before and after。
     loadPreviewImage(preview, photo.photoId, currentPhotoIdRef, setOriginalPhoto, previewRequestsRef, getPhotoCache, setPhotoCache, () => {
       if (photos.length < 2) {
         return
@@ -715,7 +715,7 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack }: Phot
     })
   }
 
-  // 手动加载当前照片原图。
+  // Manually load the current photo original image。
   function loadOriginalPhoto(slide: PhotoSlide) {
     if (!slide.key) {
       return
@@ -736,22 +736,22 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack }: Phot
     })
   }
 
-  // 隐藏查看器操作按钮。
+  // Hide viewer action buttons。
   function hideActions() {
     setShowActions(false)
   }
 
-  // 显示查看器操作按钮。
+  // Show viewer action buttons。
   function showActionButtons() {
     setShowActions(true)
   }
 
-  // 记录 slide 上按下时的坐标。
+  // Record slide Coordinates when pressed。
   function handleSlidePointerDown(event: React.PointerEvent<HTMLDivElement>) {
     slidePointerStartRef.current = { x: event.clientX, y: event.clientY }
   }
 
-  // 抬起时若位移很小则视为点击，切换操作按钮；拖动切换照片时不处理。
+  // If the displacement is very small when lifting, it will be regarded as a click.，Toggle action button；Not processed when dragging to switch photos。
   function handleSlidePointerUp(event: React.PointerEvent<HTMLDivElement>) {
     if (zoomLevel > 1) {
       slidePointerStartRef.current = null
@@ -773,12 +773,12 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack }: Phot
     setShowActions((prev) => !prev)
   }
 
-  // 取消 pointer 时清掉起始坐标。
+  // Cancel pointer clear the starting coordinates。
   function handleSlidePointerCancel() {
     slidePointerStartRef.current = null
   }
 
-  // 根据照片 id 把对应照片顺时针旋转 90 度。
+  // based on photos id Rotate the corresponding photo clockwise 90 Spend。
   function rotatePhoto(photoId: string) {
     setPhotoRotates((prev) => ({
       ...prev,
@@ -786,12 +786,12 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack }: Phot
     }))
   }
 
-  // 把页面滚动位置恢复到打开查看器前，抵消 lightbox 关闭时的焦点滚动。
+  // Restore the page scroll position to before opening the viewer，offset lightbox Focus scrolling when closed。
   function restoreListScroll() {
     window.scrollTo(0, openScrollYRef.current)
   }
 
-  // 关闭查看器并同步清理查看器写入的浏览器历史。
+  // Close the viewer and sync clear the browser history written by the viewer。
   function closeViewer() {
 
     if (historyPushedRef.current) {
@@ -802,17 +802,17 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack }: Phot
     onBack()
   }
 
-  // 侧栏展开时收窄 lightbox 宽度，为右侧信息面板留出空间。
+  // Sidebar narrows when expanded lightbox width，Leave space for the information panel on the right。
   const lightboxClassName = infoOpen && !fullscreenOpen ? "w-0 md:w-[calc(100%-(0.25rem*80))]" : "w-full"
 
-  // 渲染 yet-another-react-lightbox 最简预览。
+  // rendering yet-another-react-lightbox Minimal preview。
   return (
     <Lightbox
       className={lightboxClassName}
       open={open}
       close={() => {
         closeViewer()
-        // 关闭时重置缩放
+        // Reset zoom on close
         setZoomLevel(1)
       }}
       index={index}

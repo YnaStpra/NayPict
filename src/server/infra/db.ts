@@ -4,7 +4,7 @@ import fs from 'node:fs'
 import path from 'path'
 import { schema } from '@/server/infra/schema'
 
-// 这个模块负责 SQLite 数据库连接，orm 用于 Drizzle 查询，db 用于原始 SQL。
+// This module is responsible for SQLite Database connection，orm used for Drizzle Query，db for original SQL。
 
 const dataDir = path.join(process.cwd(), 'data')
 fs.mkdirSync(dataDir, { recursive: true })

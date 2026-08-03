@@ -1,4 +1,4 @@
-// 这个模块定义缓存 key 常量。
+// This module defines cache key constant。
 
 const STORAGE_LIST_CACHE_KEY = 'storage-list:'
 const AUTH_CACHE_KEY = 'auth:'

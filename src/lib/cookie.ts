@@ -1,13 +1,13 @@
 import { TOKEN_COOKIE_NAME } from "@/server/const/global"
 
-// 这个模块封装浏览器 Cookie 读取和业务 Cookie 解析。
+// This module encapsulates the browser Cookie Read and business Cookie parse。
 
 type LoginCookie = {
   userId: string | null
   uuid: string | null
 }
 
-// 从浏览器 Cookie 中读取指定名称的值。
+// from browser Cookie Read the value of the specified name in。
 function getCookieValue(name: string) {
   const item = document.cookie
     .split("; ")
@@ -16,7 +16,7 @@ function getCookieValue(name: string) {
   return item?.slice(name.length + 1)
 }
 
-// 从传入的 Cookie 字符串中读取指定名称的值。
+// from incoming Cookie Read the value of the specified name from the string。
 function getCookieValueFromString(cookie: string | null | undefined, name: string) {
   if (!cookie) {
     return undefined
@@ -29,7 +29,7 @@ function getCookieValueFromString(cookie: string | null | undefined, name: strin
   return item?.slice(name.length + 1)
 }
 
-// 从传入的 Cookie 字符串中验证登录 token，并返回用户 id 与会话 uuid。
+// from incoming Cookie Verify login in string token，and returns the user id with session uuid。
 async function getLoginInfo(cookie: string | null = null): Promise<LoginCookie> {
   const token = getCookieValueFromString(cookie, TOKEN_COOKIE_NAME)
   const { verifyLoginToken } = await import("@/server/lib/jwt")

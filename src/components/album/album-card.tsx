@@ -17,28 +17,28 @@ type AlbumCardProps = Partial<RenderComponentProps<AlbumVo>> & {
   onDelete?: (album: AlbumVo) => void
 }
 
-// 渲染虚拟列表中的单个相册卡片。
+// Render a single album card in a virtual list。
 export function AlbumCard({ data, width, href, onRename, onTop, onDelete }: AlbumCardProps) {
   const setCurrentAlbumName = useAlbumStore((state) => state.setCurrentAlbumName)
   const thumbnailSrc = data.thumbnail
   const placeholder = useMemo(() => getThumbHashUrl(data.thumbHash), [data.thumbHash])
 
-  // 点击进入相册前记录当前相册名称，供照片页面包屑展示。
+  // Record the current album name before clicking to enter the album，For photo page display。
   function saveCurrentAlbumName() {
     setCurrentAlbumName(data.name)
   }
 
-  // 把重命名操作和当前相册交给上层页面。
+  // Hand over the renaming operation and current album to the upper page。
   function renameAlbum() {
     onRename?.(data)
   }
 
-  // 把置顶操作和当前相册交给上层页面。
+  // Hand over the pin operation and current album to the upper page。
   function topAlbum() {
     onTop?.(data)
   }
 
-  // 把删除操作和当前相册交给上层页面。
+  // Hand over the deletion operation and current album to the upper page。
   function deleteAlbum() {
     onDelete?.(data)
   }

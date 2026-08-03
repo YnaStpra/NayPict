@@ -5,20 +5,20 @@ import { createContext, useContext } from "react"
 import { type Setting } from "@/server/entity/setting"
 
 interface SettingContextValue {
-  // initialSetting 保存服务端查询到的系统设置。
+  // initialSetting Save the system settings queried by the server。
   initialSetting: Setting
 }
 
 interface SettingProviderProps {
-  // children 是 /settings 路由下的页面内容。
+  // children yes /settings Page content under routing。
   children: React.ReactNode
-  // initialSetting 保存服务端查询到的系统设置。
+  // initialSetting Save the system settings queried by the server。
   initialSetting: Setting
 }
 
 const SettingContext = createContext<SettingContextValue | null>(null)
 
-// 读取 /settings 路由下服务端预取的系统设置。
+// read /settings System settings for server-side prefetching under routing。
 function useSettingContext() {
   const context = useContext(SettingContext)
 
@@ -29,7 +29,7 @@ function useSettingContext() {
   return context
 }
 
-// 给 /settings 路由下的客户端组件提供服务端预取系统设置。
+// Give /settings The client component under routing provides server-side prefetching system settings。
 function SettingProvider({ children, initialSetting }: SettingProviderProps) {
   return (
     <SettingContext.Provider value={{ initialSetting }}>

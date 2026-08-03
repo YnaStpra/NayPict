@@ -13,13 +13,13 @@ interface AlbumAddDialogProps {
   onNameConfirm: (name: string) => void
 }
 
-// 渲染新增相册弹窗，并在确认后把相册名交给父组件。
+// Render a new album pop-up window，And after confirmation, hand the album name to the parent component。
 export function AlbumAddDialog({ title, onNameConfirm }: AlbumAddDialogProps) {
   const t = useTranslations("albums")
   const [open, setOpen] = useState(false)
   const [name, setName] = useState("")
 
-  // 提交输入的相册名称。
+  // Submit the entered album name。
   function submitName() {
     const value = name.trim()
 
@@ -32,14 +32,14 @@ export function AlbumAddDialog({ title, onNameConfirm }: AlbumAddDialogProps) {
     setOpen(false)
   }
 
-  // 处理输入框回车确认。
+  // Process input box and press Enter to confirm。
   function handleInputKeyDown(event: KeyboardEvent<HTMLInputElement>) {
     if (event.key === "Enter") {
       submitName()
     }
   }
 
-  // 处理弹窗打开状态变化。
+  // Handle pop-up window opening status changes。
   function handleOpenChange(nextOpen: boolean) {
     setOpen(nextOpen)
 

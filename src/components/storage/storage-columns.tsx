@@ -28,7 +28,7 @@ interface StorageColumnsOptions {
   onDelete: (storage: StorageVo) => void
 }
 
-// 渲染带固定排序图标的表头按钮。
+// Render header button with fixed sort icon。
 function SortableHeader({ label, column }: SortableHeaderProps) {
   return (
     <Button
@@ -43,7 +43,7 @@ function SortableHeader({ label, column }: SortableHeaderProps) {
   )
 }
 
-// 格式化存储容量为易读文本。
+// Format storage capacity as readable text。
 function formatCapacity(size: number) {
   if (!size) {
     return "0 B"
@@ -56,7 +56,7 @@ function formatCapacity(size: number) {
   return `${value.toFixed(value >= 10 || index === 0 ? 0 : 1)} ${units[index]}`
 }
 
-// 渲染存储状态徽标。
+// Render storage status logo。
 function StorageStatusBadge({ status }: { status: number }) {
   const t = useTranslations("storage")
   const disabled = status === 1
@@ -71,7 +71,7 @@ function StorageStatusBadge({ status }: { status: number }) {
   )
 }
 
-// 创建带国际化文案的存储列表列配置。
+// Create a storage list column configuration with internationalized copy。
 export function useStorageColumns({ onEdit, onSetTop, onToggleStatus, onDelete }: StorageColumnsOptions): ColumnDef<StorageVo>[] {
   const t = useTranslations("storage")
 

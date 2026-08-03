@@ -27,7 +27,7 @@ export default function Page() {
   const t = useTranslations()
   const { initialAlbum } = useTrashContext()
   const { sidebarOpen, setSidebarOpen } = useApp()
-  // album 保存带页面跳转地址的回收站入口相册。
+  // album Save the recycle bin entrance photo album with page jump address。
   const album = {
     ...initialAlbum,
     albumId: "../trash/photos",

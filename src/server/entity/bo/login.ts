@@ -1,4 +1,4 @@
-// 这个模块定义登录接口入参对象。
+// This module defines the login interface input parameter object。
 
 interface LoginBo {
   username: string;

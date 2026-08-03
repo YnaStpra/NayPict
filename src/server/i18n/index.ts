@@ -5,17 +5,17 @@ import type { Context, Next } from "hono"
 import type { HonoEnv } from "@/server/hono/type"
 import { resolveLocale } from "@/lib/locale"
 
-// 这个模块根据消息键和请求语言返回后端国际化文案。
+// This module returns the backend internationalized copy based on the message key and request language.。
 
 type MessageKey = keyof typeof zhMessages
 
-// 根据请求头解析语言并写入当前 Hono 请求上下文。
+// Parse the language according to the request header and write the current Hono request context。
 async function i18nMiddleware(c: Context<HonoEnv>, next: Next): Promise<void> {
   c.set("locale", resolveLocale(c.req.header("accept-language")))
   await next()
 }
 
-// 根据当前请求语言翻译消息，未配置的消息保持原文。
+// Translate message based on current request language，Unconfigured messages remain original。
 function t(message: string): string {
   const locale = getContext<HonoEnv>().get("locale") ?? "en"
   const messages: Record<MessageKey, string> = locale === "zh" ? zhMessages : enMessages

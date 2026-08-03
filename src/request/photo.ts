@@ -2,49 +2,49 @@ import { http } from "@/request/request";
 import { type PhotoDeleteBo, type PhotoExistsBo, type PhotoFavoriteBo, type PhotoListBo, type PhotoRecycleBo, type PhotoRestoreBo, type PhotoTakenDateListBo } from "@/server/entity/bo/photo";
 import { type PageVo } from "@/server/entity/vo/common";
 import { type PhotoAddResultVo, type PhotoExistsVo, type PhotoTakenDateVo, type PhotoVo } from "@/server/entity/vo/photo";
-// 这个模块封装照片相关接口请求。
+// This module encapsulates photo-related interface requests。
 
-// 分页按条件查询照片列表。
+// Query the photo list by pagination and conditions。
 export function photoList(params: PhotoListBo) {
   return http.post<PageVo<PhotoVo>>('/photo/list', params);
 }
 
-// 按天查询存在照片的拍摄日期及照片数量。
+// Query the shooting date and number of existing photos by day。
 export function photoTakenDateList(params: PhotoTakenDateListBo) {
   return http.post<PhotoTakenDateVo[]>('/photo/takenDateList', params);
 }
 
-// 上传单张照片。
+// Upload a single photo。
 export function photoAdd(params: FormData) {
   return http.post<PhotoAddResultVo>('/photo/add', params);
 }
 
-// 上传前检查文件是否已经存在。
+// Check if the file already exists before uploading。
 export function photoExists(params: PhotoExistsBo) {
   return http.post<PhotoExistsVo>('/photo/exists', params);
 }
 
-// 把照片移动到回收站。
+// Move photos to recycle bin。
 export function photoRecycle(params: PhotoRecycleBo) {
   return http.post<void>('/photo/recycle', params);
 }
 
-// 设置照片收藏状态。
+// Set photo collection status。
 export function photoFavorite(params: PhotoFavoriteBo) {
   return http.post<void>('/photo/favorite', params);
 }
 
-// 恢复回收站照片。
+// Recover Recycle Bin Photos。
 export function photoRestore(params: PhotoRestoreBo) {
   return http.post<void>('/photo/restore', params);
 }
 
-// 彻底删除回收站照片。
+// Completely delete photos from Recycle Bin。
 export function photoDelete(params: PhotoDeleteBo) {
   return http.post<void>('/photo/delete', params);
 }
 
-// 清空回收站照片。
+// Empty Recycle Bin Photos。
 export function photoClear() {
   return http.post<void>('/photo/clear');
 }

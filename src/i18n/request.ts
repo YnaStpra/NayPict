@@ -2,9 +2,9 @@ import { headers } from "next/headers"
 import { getRequestConfig } from "next-intl/server"
 import { resolveLocale } from "@/lib/locale"
 
-// 这个模块根据浏览器语言为当前请求加载翻译消息。
+// This module loads translation messages for the current request based on the browser language。
 
-// 把语言文件中的点分隔扁平键转换为 next-intl 使用的嵌套消息。
+// Convert dot-separated flat keys in a language file to next-intl Nested messages used。
 function nestMessages(messages: Record<string, string>): Record<string, unknown> {
   const result: Record<string, unknown> = {}
 
@@ -23,7 +23,7 @@ function nestMessages(messages: Record<string, string>): Record<string, unknown>
   return result
 }
 
-// 读取浏览器语言并返回对应翻译消息。
+// Read the browser language and return the corresponding translation message。
 export default getRequestConfig(async () => {
   const requestHeaders = await headers()
   const locale = resolveLocale(requestHeaders.get("accept-language"))

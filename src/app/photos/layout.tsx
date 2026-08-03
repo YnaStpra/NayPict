@@ -8,7 +8,7 @@ interface PhotoLayoutProps {
   children: React.ReactNode
 }
 
-// 服务端查询照片第一页，并提供给 /photo 页面初始化列表。
+// Query the first page of photos on the server side，and provided to /photo Page initialization list。
 export default async function PhotoLayout({ children }: PhotoLayoutProps) {
   const cookieStore = await cookies()
   const { userId } = await getLoginInfo(cookieStore.toString())

@@ -7,7 +7,7 @@ interface AlbumLayoutProps {
   children: React.ReactNode
 }
 
-// 服务端查询全部相册，并提供给 /album 页面初始化列表。
+// Query all photo albums on the server，and provided to /album Page initialization list。
 export default async function AlbumLayout({ children }: AlbumLayoutProps) {
   const cookieStore = await cookies()
   const { userId } = await getLoginInfo(cookieStore.toString())

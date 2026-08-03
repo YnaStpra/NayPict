@@ -4,39 +4,39 @@ import { type StorageDeleteBo, type StorageSetTopBo, type StorageToggleStatusBo 
 import { type PageVo } from "@/server/entity/vo/common";
 import { type StorageSelectVo, type StorageVo } from "@/server/entity/vo/storage";
 
-// 这个模块封装存储配置相关接口请求。
+// This module encapsulates storage configuration related interface requests。
 
-// 查询全部存储配置列表。
+// Query the list of all storage configurations。
 export function storageList() {
   return http.post<PageVo<StorageVo>>('/storage/list');
 }
 
-// 查询正常存储配置选项。
+// Query normal storage configuration options。
 export function storageSelect() {
   return http.post<StorageSelectVo[]>('/storage/select');
 }
 
-// 添加存储配置。
+// Add storage configuration。
 export function storageAdd(params: StorageInto) {
   return http.post<void>('/storage/add', params);
 }
 
-// 修改存储配置。
+// Modify storage configuration。
 export function storageSet(params: Storage) {
   return http.post<void>('/storage/set', params);
 }
 
-// 置顶存储配置。
+// Top storage configuration。
 export function storageSetTop(params: StorageSetTopBo) {
   return http.post<void>('/storage/setTop', params);
 }
 
-// 切换存储启用状态。
+// Toggle storage enabled state。
 export function storageToggleStatus(params: StorageToggleStatusBo) {
   return http.post<void>('/storage/toggleStatus', params);
 }
 
-// 删除存储配置。
+// Delete storage configuration。
 export function storageDelete(storageId: string) {
   return http.post<void>('/storage/delete', { storageId } satisfies StorageDeleteBo);
 }

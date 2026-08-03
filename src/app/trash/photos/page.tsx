@@ -34,13 +34,13 @@ export default function Page() {
   const router = useRouter()
   const { initialPhotos } = useTrashPhotoContext()
   const { sidebarOpen, setSidebarOpen } = useApp()
-  // isBrowser 标记当前是否在浏览器环境，SSR 阶段显示骨架屏。
+  // isBrowser Mark whether you are currently in the browser environment，SSR Stage display skeleton screen。
   const [isBrowser, setIsBrowser] = useState(false)
-  // deleteOpen 控制彻底删除确认弹框的打开状态。
+  // deleteOpen Control the open state of the complete deletion confirmation pop-up box。
   const [deleteOpen, setDeleteOpen] = useState(false)
-  // deletingPhotoIds 保存当前等待彻底删除确认的照片 id。
+  // deletingPhotoIds Save photos currently awaiting confirmation of complete deletion id。
   const [deletingPhotoIds, setDeletingPhotoIds] = useState<string[]>([])
-  // clearOpen 控制清空回收站确认弹框的打开状态。
+  // clearOpen Control the opening status of the empty recycle bin confirmation pop-up box。
   const [clearOpen, setClearOpen] = useState(false)
   const {
     photos,
@@ -56,7 +56,7 @@ export default function Page() {
   }, [])
 
   useEffect(() => {
-    // 刷新回收站照片页时禁用浏览器滚动恢复，并回到照片列表顶部。
+    // Disable browser scroll recovery when refreshing recycle bin photo page，and go back to the top of the photo list。
     const previousScrollRestoration = window.history.scrollRestoration
 
     window.history.scrollRestoration = 'manual'
@@ -67,13 +67,13 @@ export default function Page() {
     }
   }, [])
 
-  // 打开批量彻底删除确认弹框。
+  // Open the batch complete deletion confirmation pop-up box。
   const openDeletePhotos = useCallback((photoIds: string[]) => {
     setDeletingPhotoIds(photoIds)
     setDeleteOpen(true)
   }, [])
 
-  // 打开清空回收站确认弹框。
+  // Open the empty recycle bin confirmation popup。
   function openClearPhotos() {
     if (!photos.length) {
       return
@@ -82,7 +82,7 @@ export default function Page() {
     setClearOpen(true)
   }
 
-  // 批量彻底删除回收站选中的照片。
+  // Completely delete selected photos in the Recycle Bin in batches。
   function deletePhotos() {
     const photoIds = deletingPhotoIds
 
@@ -96,7 +96,7 @@ export default function Page() {
     })
   }
 
-  // 清空当前用户回收站照片，期间在顶部提示加载与成功状态。
+  // Empty the current user's recycle bin photos，During the period, the loading and success status are prompted at the top.。
   function clearPhotos() {
     setClearOpen(false)
 
@@ -112,14 +112,14 @@ export default function Page() {
     )
   }
 
-  // 恢复回收站选中的照片，并从当前回收站列表移除。
+  // Restore selected photos from Recycle Bin，and remove it from the current recycle bin list。
   const restorePhotos = useCallback((photoIds: string[]) => {
     photoRestore({ photoIds }).then(() => {
       removePhotos(photoIds)
     })
   }, [removePhotos])
 
-  // 处理彻底删除确认弹框打开状态。
+  // Handle complete deletion confirmation dialog box open state。
   function handleDeleteOpenChange(open: boolean) {
     setDeleteOpen(open)
 
@@ -130,7 +130,7 @@ export default function Page() {
     }
   }
 
-  // 处理清空回收站确认弹框打开状态。
+  // Handling the open status of the empty recycle bin confirmation pop-up box。
   function handleClearOpenChange(open: boolean) {
     setClearOpen(open)
   }

@@ -41,7 +41,7 @@ export default function Page() {
   const t = useTranslations("favorites")
   const { initialPhotos } = useFavoriteContext()
   const { sidebarOpen, setSidebarOpen, refreshAlbums } = useApp()
-  // isBrowser 标记当前是否在浏览器环境，SSR 阶段显示骨架屏。
+  // isBrowser Mark whether you are currently in the browser environment，SSR Stage display skeleton screen。
   const [isBrowser, setIsBrowser] = useState(false)
   const {
     photos,
@@ -52,9 +52,9 @@ export default function Page() {
   } = usePhotoList({ favorite: PhotoFavoriteEnum.YES }, PHOTO_LIST_PAGE_SIZE, initialPhotos)
   const [modelPhotoIndex, setModelPhotoIndex] = useState(0)
   const [showPhotoViewer, setShowPhotoViewer] = useState(false)
-  // albumDialogOpen 控制加入相册弹框的打开状态。
+  // albumDialogOpen Control the opening status of the add album pop-up box。
   const [albumDialogOpen, setAlbumDialogOpen] = useState(false)
-  // albumPhotoIds 保存本次要加入相册的照片 id。
+  // albumPhotoIds Save the photos to be added to the album this time id。
   const [albumPhotoIds, setAlbumPhotoIds] = useState<string[]>([])
 
   useLayoutEffect(() => {
@@ -62,7 +62,7 @@ export default function Page() {
   }, [])
 
   useEffect(() => {
-    // 刷新收藏页时禁用浏览器滚动恢复，并回到照片列表顶部。
+    // Disable browser scroll recovery when refreshing favorites，and go back to the top of the photo list。
     const previousScrollRestoration = window.history.scrollRestoration
 
     window.history.scrollRestoration = 'manual'
@@ -73,18 +73,18 @@ export default function Page() {
     }
   }, [])
 
-  // 打开收藏照片详情 model。
+  // Open favorite photo details model。
   const openPhoto = useCallback((index: number) => {
     setModelPhotoIndex(index)
     setShowPhotoViewer(true)
   }, [])
 
-  // 关闭照片详情 model。
+  // Close photo details model。
   function closePhoto() {
     setShowPhotoViewer(false)
   }
 
-  // 根据照片下标切换单张照片收藏状态。
+  // Switch the collection status of a single photo based on the photo subscript。
   const changePhotoFavorite = useCallback((index: number, setFavorite: (favorite: boolean) => void) => {
     const photo = photos[index]
     const favorite = photo.favorite === PhotoFavoriteEnum.YES
@@ -97,27 +97,27 @@ export default function Page() {
     })
   }, [photos])
 
-  // 批量回收选中的收藏照片。
+  // Recycle selected collection photos in batches。
   const recyclePhotos = useCallback((photoIds: string[]) => {
     photoRecycle({ photoIds }).then(() => {
       removePhotos(photoIds)
     })
   }, [removePhotos])
 
-  // 打开收藏照片批量加入相册弹框。
+  // Open the pop-up box for adding collected photos to albums in batches。
   const openAlbumDialog = useCallback((photoIds: string[]) => {
     setAlbumPhotoIds(photoIds)
     setAlbumDialogOpen(true)
   }, [])
 
-  // 选中相册后把收藏照片加入相册。
+  // After selecting the album, add the favorite photos to the album。
   function changePhotoAlbum(albumIds: string[]) {
     albumAddPhoto({ albumIds, photoIds: albumPhotoIds }).then(() => {
       void refreshAlbums()
     })
   }
 
-  // 保存当前选择的收藏照片时间范围，并触发列表按拍摄时间筛选。
+  // Save the currently selected time range of favorite photos，And filter the trigger list by shooting time。
   function changePhotoTime(range: { startDate: Date, endDate: Date }) {
     refreshPhotoList({
       favorite: PhotoFavoriteEnum.YES,

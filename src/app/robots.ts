@@ -1,6 +1,6 @@
 import type { MetadataRoute } from "next"
 
-// 仅禁止爬虫抓取登录页。
+// Only prohibit crawlers from crawling the login page。
 export default function robots(): MetadataRoute.Robots {
   return {
     rules: {

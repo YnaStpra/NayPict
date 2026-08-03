@@ -43,7 +43,7 @@ type ColumnLabelMeta = {
   className?: string
 }
 
-// 读取表格列的显示名称。
+// Read the display name of a table column。
 function getColumnLabel<TData, TValue>(column: ColumnDef<TData, TValue>) {
   const meta = column.meta as ColumnLabelMeta | undefined
 
@@ -58,7 +58,7 @@ function getColumnLabel<TData, TValue>(column: ColumnDef<TData, TValue>) {
   return column.id ?? ""
 }
 
-// 读取表格列传入的样式类名。
+// Read the style class name passed in the table column。
 function getColumnClassName<TData, TValue>(column: ColumnDef<TData, TValue>) {
   const meta = column.meta as ColumnLabelMeta | undefined
 

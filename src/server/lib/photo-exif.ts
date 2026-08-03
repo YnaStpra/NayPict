@@ -1,11 +1,11 @@
-// 这个模块从原图 Exif 读取拍摄元数据。
+// This module is from the original image Exif Read shooting metadata。
 
 import { mkdtemp, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { ExifDateTime, ExifTool, type Tags } from "exiftool-vendored"
 
-// 启用时区推断的 exiftool 实例。
+// Enable time zone inference exiftool Example。
 const exiftool = new ExifTool({
   backfillTimezones: true,
   inferTimezoneFromDatestamps: true,
@@ -38,7 +38,7 @@ const readArgs = [
   "-GPSAltitudeRef",
 ]
 
-// 把 exiftool 字段值转成可 JSON 序列化的值。
+// Bundle exiftool The field value can be converted to JSON serialized value。
 function tagValueToJson(value: unknown) {
   if (value instanceof ExifDateTime) {
     return value.toString() ?? value.toExifString()
@@ -47,7 +47,7 @@ function tagValueToJson(value: unknown) {
   return value
 }
 
-// 把 UTC 偏移分钟数格式化成 +08:00。
+// Bundle UTC Offset minutes formatted as +08:00。
 function formatTzOffset(minutes: number) {
   const sign = minutes >= 0 ? "+" : "-"
   const abs = Math.abs(minutes)
@@ -57,7 +57,7 @@ function formatTzOffset(minutes: number) {
   return `${sign}${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`
 }
 
-// 从拍摄时间字段提取时区名称与偏移。
+// Extract time zone name and offset from shooting time field。
 function getTimezoneInfo(tags: Tags) {
   const candidates = [tags.DateTimeOriginal, tags.CreateDate]
 
@@ -90,7 +90,7 @@ function getTimezoneInfo(tags: Tags) {
   return null
 }
 
-// 从 exiftool 结果提取拍摄时间并转成 ISO UTC。
+// from exiftool The result is extracted from the shooting time and converted into ISO UTC。
 function getTakenTime(tags: Tags) {
   const candidates = [tags.DateTimeOriginal, tags.CreateDate]
 
@@ -118,7 +118,7 @@ function getTakenTime(tags: Tags) {
   return null
 }
 
-// 把 GPS 坐标字段解析成十进制度数。
+// Bundle GPS Coordinate fields parse into decimal degrees。
 function getCoordinate(value: unknown) {
   if (value === undefined || value === null || value === "") {
     return null
@@ -132,7 +132,7 @@ function getCoordinate(value: unknown) {
   return Number.isNaN(num) ? null : num
 }
 
-// 从 GPS 海拔字段解析海拔（米）。
+// from GPS Altitude field parses altitude（rice）。
 function getAltitude(tags: Tags) {
   const num = getCoordinate(tags.GPSAltitude)
   if (num === null) {
@@ -147,7 +147,7 @@ function getAltitude(tags: Tags) {
   return num
 }
 
-// 把 exiftool 指定字段转成 JSON 字符串。
+// Bundle exiftool Convert the specified field to JSON string。
 function buildExifJson(tags: Tags) {
   const data: Record<string, unknown> = {}
   const record = tags as Record<string, unknown>
@@ -170,7 +170,7 @@ function buildExifJson(tags: Tags) {
   if (timezone) {
     Object.assign(data, timezone)
 
-    // 原图未写入 OffsetTime* 时，用推断结果补全常用偏移字段。
+    // The original image was not written OffsetTime* hour，Complete commonly used offset fields with inferred results。
     if (timezone.TimeZoneOffset && !data.OffsetTimeOriginal) {
       data.OffsetTimeOriginal = timezone.TimeZoneOffset
     }
@@ -179,7 +179,7 @@ function buildExifJson(tags: Tags) {
   return Object.keys(data).length ? JSON.stringify(data) : null
 }
 
-// 从原图 Exif 读取拍摄时间、经纬度与 exif JSON 字符串。
+// From the original picture Exif Read shooting time、latitude and longitude with exif JSON string。
 export async function readPhotoExifFromBuffer(input: ArrayBuffer | Buffer) {
   const source = input instanceof Buffer ? input : Buffer.from(input)
   const dir = await mkdtemp(join(tmpdir(), "album-exif-"))

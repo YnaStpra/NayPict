@@ -38,10 +38,10 @@ export default function Page() {
   const t = useTranslations("settings")
   const { sidebarOpen, setSidebarOpen } = useApp()
   const { initialSetting } = useSettingContext()
-  // setting 保存当前页面正在编辑的系统设置。
+  // setting Save the system settings being edited on the current page。
   const [setting, setSetting] = useState<Setting>(initialSetting)
 
-  // 修改同步删除开关值。
+  // Modify sync delete switch value。
   function changeSyncDelete(syncDelete: string) {
     setSetting((prev) => ({
       ...prev,
@@ -49,7 +49,7 @@ export default function Page() {
     }))
   }
 
-  // 修改照片去重开关值。
+  // Modify photo deduplication switch value。
   function changePhotoDedup(checked: boolean) {
     setSetting((prev) => ({
       ...prev,
@@ -57,7 +57,7 @@ export default function Page() {
     }))
   }
 
-  // 修改回收站自动清理天数。
+  // Modify the number of days for automatic cleaning of the Recycle Bin。
   function changeClearLast(event: ChangeEvent<HTMLInputElement>) {
     setSetting((prev) => ({
       ...prev,
@@ -65,7 +65,7 @@ export default function Page() {
     }))
   }
 
-  // 保存当前系统设置。
+  // Save current system settings。
   function saveSetting() {
     settingSet(setting).then(() => {
       toast.success(t("saved"))

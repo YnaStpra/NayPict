@@ -32,13 +32,13 @@ export function LoginForm({
 }: LoginFormProps) {
   const t = useTranslations("login")
   const { title } = useApp()
-  // form 保存登录表单的用户名和密码。
+  // form Save username and password for login form。
   const [form, setForm] = useState<LoginBo>({
     username: "",
     password: "",
   })
 
-  // 若配置了演示账号，则预填到登录表单。
+  // If a demo account is configured，then pre-populate the login form。
   useEffect(() => {
     const username = process.env.NEXT_PUBLIC_DEMO_USERNAME
     const password = process.env.NEXT_PUBLIC_DEMO_PASSWORD
@@ -53,7 +53,7 @@ export function LoginForm({
     }))
   }, [])
 
-  // 更新登录表单字段。
+  // Update login form fields。
   function updateField(field: keyof LoginBo, value: string) {
     setForm((prev) => ({
       ...prev,
@@ -61,7 +61,7 @@ export function LoginForm({
     }))
   }
 
-  // 提交登录表单，把用户名和密码传给登录页面。
+  // Submit login form，Pass the username and password to the login page。
   function submitLogin(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
 

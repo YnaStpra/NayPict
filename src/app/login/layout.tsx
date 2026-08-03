@@ -1,7 +1,7 @@
 import { type Metadata } from "next"
 import { getTranslations } from "next-intl/server"
 
-// 根据当前语言生成登录页元数据。
+// Generate landing page metadata based on current language。
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("login")
   const appName = process.env.TITLE || "Pixtale"
@@ -20,7 +20,7 @@ interface LoginLayoutProps {
   children: React.ReactNode
 }
 
-// 登录页布局，仅透传子节点并提供页面元数据。
+// Login page layout，Only pass through child nodes and provide page metadata。
 export default function LoginLayout({ children }: LoginLayoutProps) {
   return children
 }

@@ -1,13 +1,13 @@
 import { real, sqliteTable, text } from 'drizzle-orm/sqlite-core';
 
-// 照片 Exif，与 photo 一对一。
+// photo Exif，and photo One to one。
 
 export const exifTab = sqliteTable('exif', {
-  photoId: text('photo_id').primaryKey().notNull(), // 照片 id
-  exif: text('exif'), // Exif JSON 字符串
-  latitude: real('latitude'), // 纬度
-  longitude: real('longitude'), // 经度
-  altitude: real('altitude') // 海拔（米）
+  photoId: text('photo_id').primaryKey().notNull(), // photo id
+  exif: text('exif'), // Exif JSON string
+  latitude: real('latitude'), // latitude
+  longitude: real('longitude'), // longitude
+  altitude: real('altitude') // altitude（rice）
 });
 
 export type Exif = typeof exifTab.$inferSelect;

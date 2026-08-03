@@ -10,7 +10,7 @@ import { type PhotoVo } from "@/server/entity/vo/photo"
 
 type PhotoSortField = "takenTime" | "recycleTime"
 
-// 按照片列表排序规则比较两张照片，顺序与后端 desc(time), desc(photoId) 一致。
+// Compare two photos by photo list sorting rules，Sequence and backend desc(time), desc(photoId) consistent。
 function comparePhotos(a: PhotoVo, b: PhotoVo, sortField: PhotoSortField) {
   const timeA = a[sortField] ?? ""
   const timeB = b[sortField] ?? ""
@@ -22,28 +22,28 @@ function comparePhotos(a: PhotoVo, b: PhotoVo, sortField: PhotoSortField) {
   return b.photoId.localeCompare(a.photoId)
 }
 
-// 在已排序列表中找到新照片应插入的位置。
+// Find where in the sorted list the new photo should be inserted。
 function findPhotoInsertIndex(list: PhotoVo[], photo: PhotoVo, sortField: PhotoSortField) {
   const index = list.findIndex((item) => comparePhotos(photo, item, sortField) < 0)
 
   return index === -1 ? list.length : index
 }
 
-// 管理照片分页列表、触底加载和瀑布流刷新标记。
+// Manage photo paged list、Bottom loading and waterfall refresh markers。
 function usePhotoList(params: Partial<PhotoListBo> = {}, pageSize = PHOTO_LIST_PAGE_SIZE, initialPhotos?: PhotoVo[]) {
   const paramsKey = JSON.stringify(params)
   const initialParams = useMemo<Partial<PhotoListBo>>(() => JSON.parse(paramsKey) as Partial<PhotoListBo>, [paramsKey])
-  const paramsRef = useRef<Partial<PhotoListBo>>(initialParams) // 保存当前列表请求参数，由显式刷新方法更新。
+  const paramsRef = useRef<Partial<PhotoListBo>>(initialParams) // Save current list request parameters，Updated by explicit refresh method。
   const sortField: PhotoSortField = paramsRef.current.status === PhotoStatusEnum.DELETE ? "recycleTime" : "takenTime"
-  const initialUsedRef = useRef(false) // 标记服务端首屏数据是否已经用于初始化列表。
-  const loadingRef = useRef(false) // 标记当前是否正在加载照片列表。
-  const photosRef = useRef<PhotoVo[]>(initialPhotos ?? []) // 保存最新照片列表，供游标分页读取最后一张。
-  const hasMoreRef = useRef(initialPhotos ? initialPhotos.length === pageSize : true) // 标记当前查询条件下是否还有下一页。
-  const [photos, setPhotos] = useState<PhotoVo[]>(initialPhotos ?? []) // 存储当前页面展示的照片列表。
-  const [masonryKey, setMasonryKey] = useState(0) // 控制瀑布流在列表结构变化后重新计算布局。
+  const initialUsedRef = useRef(false) // Mark whether the first screen data of the server has been used for the initialization list。
+  const loadingRef = useRef(false) // Flag whether the photo list is currently loading。
+  const photosRef = useRef<PhotoVo[]>(initialPhotos ?? []) // Save latest photo list，For the cursor to read the last page in pages。
+  const hasMoreRef = useRef(initialPhotos ? initialPhotos.length === pageSize : true) // Mark whether there is a next page under the current query conditions。
+  const [photos, setPhotos] = useState<PhotoVo[]>(initialPhotos ?? []) // Store the list of photos displayed on the current page。
+  const [masonryKey, setMasonryKey] = useState(0) // Control waterfall flow to recalculate layout after list structure changes。
 
   useEffect(() => {
-    // 有服务端第一页数据时跳过浏览器第一页请求。
+    // Skip the browser's first page request when there is data on the first page of the server。
     if (!initialUsedRef.current) {
       initialUsedRef.current = true
       photosRef.current = initialPhotos ?? []
@@ -53,12 +53,12 @@ function usePhotoList(params: Partial<PhotoListBo> = {}, pageSize = PHOTO_LIST_P
 
   }, [initialPhotos, pageSize])
 
-  // 刷新瀑布流布局计算。
+  // Refresh waterfall layout calculations。
   const refreshMasonry = useCallback(() => {
     setMasonryKey((prev) => prev + 1)
   }, [])
 
-  // 加载照片列表，并按当前最后一张照片生成下一页游标。
+  // Load photo list，And generate the next page cursor based on the current last photo。
   const loadPhotoList = useCallback((append: boolean) => {
     if ((append && loadingRef.current) || (!hasMoreRef.current && append)) {
       return
@@ -96,7 +96,7 @@ function usePhotoList(params: Partial<PhotoListBo> = {}, pageSize = PHOTO_LIST_P
       })
   }, [pageSize, refreshMasonry])
 
-  // 按传入参数显式刷新第一页列表。
+  // Explicitly refresh the first page of the list by passing in parameters。
   const refreshPhotoList = useCallback((nextParams?: Partial<PhotoListBo>) => {
     if (nextParams) {
       paramsRef.current = nextParams
@@ -107,12 +107,12 @@ function usePhotoList(params: Partial<PhotoListBo> = {}, pageSize = PHOTO_LIST_P
     loadPhotoList(false)
   }, [loadPhotoList])
 
-  // 处理照片列表触底后的下一页请求。
+  // Handle next page request after photo list bottoms out。
   const loadMorePhotos = useCallback(() => {
     loadPhotoList(true)
   }, [loadPhotoList])
 
-  // 把新照片按 taken_time 顺序插入列表对应位置，并过滤掉已经存在的照片。
+  // press new photo taken_time Insert the corresponding positions in the list sequentially，and filter out photos that already exist。
   const prependPhotos = useCallback((photosToAdd: PhotoVo[]) => {
     setPhotos((prev) => {
       const photoIds = new Set(prev.map((photo) => photo.photoId))
@@ -136,7 +136,7 @@ function usePhotoList(params: Partial<PhotoListBo> = {}, pageSize = PHOTO_LIST_P
     refreshMasonry()
   }, [refreshMasonry, sortField])
 
-  // 从照片列表移除指定照片，列表不足 95 张时继续加载下一页。
+  // Remove specified photo from photo list，Not enough list 95 Zhang Shi continues to load the next page。
   const removePhotos = useCallback((photoIds: string[]) => {
     const photoIdSet = new Set(photoIds)
     const nextPhotos = photosRef.current.filter((photo) => !photoIdSet.has(photo.photoId))

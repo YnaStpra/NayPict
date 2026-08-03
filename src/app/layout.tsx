@@ -32,7 +32,7 @@ interface RootLayoutProps {
   children: React.ReactNode
 }
 
-// 渲染应用根布局，并在页面绘制前恢复保存的主题。
+// Render application root layout，and restore the saved theme before the page is painted。
 export default async function RootLayout({ children }: RootLayoutProps) {
 
   const cookieStore = await cookies()

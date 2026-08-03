@@ -1,12 +1,12 @@
 import { sqliteTable, text } from 'drizzle-orm/sqlite-core';
 
-// 这个模块定义相册和照片的关联表结构。
+// This module defines the association table structure of albums and photos。
 
-// 相册照片关联
+// Album photo association
 export const albumPhotoTab = sqliteTable('album_photo', {
-  id: text('id').primaryKey().notNull(), // 关联id
-  photoId: text('photo_id').notNull(), // 照片id
-  albumId: text('album_id').notNull() // 相册id
+  id: text('id').primaryKey().notNull(), // associationid
+  photoId: text('photo_id').notNull(), // photoid
+  albumId: text('album_id').notNull() // photo albumid
 });
 
 export type AlbumPhoto = typeof albumPhotoTab.$inferSelect;

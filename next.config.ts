@@ -5,9 +5,9 @@ const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
 const nextConfig: NextConfig = {
   reactStrictMode: false,
   serverExternalPackages: ['exiftool-vendored', 'better-sqlite3'],
-  // Vercel 不用 standalone；Docker 自建部署才需要。
+  // Vercel Need not standalone；Docker Only required for self-built deployment。
   output: process.env.VERCEL ? undefined : 'standalone',
-  // Windows standalone 需要把原生依赖资源一并打进产物。
+  // Windows standalone It is necessary to incorporate native dependent resources into the product。
   ...(process.platform === "win32"
     ? {
         outputFileTracingIncludes: {
@@ -17,7 +17,7 @@ const nextConfig: NextConfig = {
           ],
         },
         typescript: {
-          // Windows 本地打包时跳过 TypeScript 类型检查。
+          // Windows Skip when packaging locally TypeScript type checking。
           ignoreBuildErrors: true,
         },
       }

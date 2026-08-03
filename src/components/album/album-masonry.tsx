@@ -20,7 +20,7 @@ interface AlbumMasonryProps {
   onAlbumDelete?: (album: AlbumVo) => void
 }
 
-// 把 rem 单位转换为当前根字号下的 px。
+// Bundle rem The unit is converted to the current root font size px。
 function remToPx(rem: number) {
   const rootFontSize = parseFloat(
     getComputedStyle(document.documentElement).fontSize
@@ -29,7 +29,7 @@ function remToPx(rem: number) {
   return rem * rootFontSize
 }
 
-// 根据侧边栏状态计算相册列表初始化宽度。
+// Calculate the initial width of the album list based on the sidebar status。
 function getInitialWrapWidth(sidebarOpen: boolean) {
   const width = window.innerWidth
 
@@ -40,12 +40,12 @@ function getInitialWrapWidth(sidebarOpen: boolean) {
   return width - remToPx(sidebarOpen ? 15.25 : 4.25)
 }
 
-// 计算相册卡片在当前列宽下的固定高度。
+// Calculate the fixed height of the album card under the current column width。
 function getAlbumHeight(columnWidth: number) {
   return Math.max(1, Math.round(columnWidth))
 }
 
-// 同步每个相册卡片高度到 masonic positioner。
+// Synchronize the height of each album card to masonic positioner。
 function syncAlbumPositioner(items: AlbumVo[], columnWidth: number, positioner: Positioner) {
   const height = getAlbumHeight(columnWidth)
   const updates: number[] = []
@@ -65,14 +65,14 @@ function syncAlbumPositioner(items: AlbumVo[], columnWidth: number, positioner: 
   }
 }
 
-// 渲染相册虚拟滚动列表。
+// Rendering a virtual scrolling list of photo albums。
 export function AlbumMasonry({ albums, resetKey = 0, onAlbumRename, onAlbumTop, onAlbumDelete }: AlbumMasonryProps) {
   const { sidebarOpen } = useApp()
-  // wrapRef 用于监听相册列表外层真实可视宽度。
+  // wrapRef Used to monitor the real visual width of the outer layer of the album list。
   const wrapRef = useRef<HTMLDivElement | null>(null)
-  // windowHeight 用于告诉 masonic 当前虚拟滚动可视高度。
+  // windowHeight used to tell masonic Current virtual scroll visible height。
   const [windowHeight, setWindowHeight] = useState(() => window.innerHeight)
-  // wrapPosition 记录相册列表外层容器的页面位置和布局宽度。
+  // wrapPosition Record the page position and layout width of the outer container of the album list。
   const [wrapPosition, setWrapPosition] = useState({ offset: 0, width: getInitialWrapWidth(sidebarOpen) })
 
   const width = wrapPosition.width
@@ -90,7 +90,7 @@ export function AlbumMasonry({ albums, resetKey = 0, onAlbumRename, onAlbumTop, 
   syncAlbumPositioner(albums, positioner.columnWidth, positioner)
 
   useEffect(() => {
-    // 更新窗口高度，供 masonic 计算可视区域。
+    // Update window height，for masonic Calculate visible area。
     function handleResize() {
       setWindowHeight(window.innerHeight)
     }
@@ -103,7 +103,7 @@ export function AlbumMasonry({ albums, resetKey = 0, onAlbumRename, onAlbumTop, 
   }, [])
 
   useLayoutEffect(() => {
-    // 监听相册列表外层可视容器宽度变化。
+    // Monitor the width change of the outer visual container of the album list。
     const container = wrapRef.current
 
     if (!container) {
@@ -113,7 +113,7 @@ export function AlbumMasonry({ albums, resetKey = 0, onAlbumRename, onAlbumTop, 
     const containerEl = container
     let timerId: number | null = null
 
-    // 计算相册列表外层距离页面顶部的位置。
+    // Calculate the distance between the outer layer of the album list and the top of the page。
     function getOffset() {
       let offset = 0
       let el: HTMLElement | null = containerEl
@@ -126,7 +126,7 @@ export function AlbumMasonry({ albums, resetKey = 0, onAlbumRename, onAlbumTop, 
       return offset
     }
 
-    // 获取相册列表外层当前的位置和宽度。
+    // Get the current position and width of the outer layer of the album list。
     function getWrapPosition() {
       return {
         offset: getOffset(),
@@ -134,13 +134,13 @@ export function AlbumMasonry({ albums, resetKey = 0, onAlbumRename, onAlbumTop, 
       }
     }
 
-    // 强制同步相册列表外层的位置和宽度。
+    // Force synchronization of the position and width of the outer layer of the album list。
     function syncWrapPosition() {
       console.log(wrapPosition.width)
       setWrapPosition(getWrapPosition())
     }
 
-    // 测量相册列表外层的位置和宽度，首次同步完成后再强制读取一次。
+    // Measure the position and width of the outer layer of the album list，After the first synchronization is completed, force reading again.。
     function measureWrapPosition() {
       const nextPosition = getWrapPosition()
       let needSync = false
@@ -164,7 +164,7 @@ export function AlbumMasonry({ albums, resetKey = 0, onAlbumRename, onAlbumTop, 
       }
     }
 
-    // 把 ResizeObserver 的通知防抖到停止变化 300ms 后处理。
+    // Bundle ResizeObserver Notifications shake to stop changing 300ms Post-processing。
     function updateWrapPosition() {
       if (timerId !== null) {
         window.clearTimeout(timerId)

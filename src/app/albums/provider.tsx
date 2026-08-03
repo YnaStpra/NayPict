@@ -5,20 +5,20 @@ import { createContext, useContext } from "react"
 import { type AlbumVo } from "@/server/entity/vo/album"
 
 interface AlbumContextValue {
-  // initialAlbums 保存服务端查询到的全部相册。
+  // initialAlbums Save all photo albums queried by the server。
   initialAlbums: AlbumVo[]
 }
 
 interface AlbumProviderProps {
-  // children 是 /album 路由下的页面内容。
+  // children yes /album Page content under routing。
   children: React.ReactNode
-  // initialAlbums 保存服务端查询到的全部相册。
+  // initialAlbums Save all photo albums queried by the server。
   initialAlbums: AlbumVo[]
 }
 
 const AlbumContext = createContext<AlbumContextValue | null>(null)
 
-// 读取 /album 路由下服务端预取的相册数据。
+// read /album Album data prefetched by the server under routing。
 function useAlbumContext() {
   const context = useContext(AlbumContext)
 
@@ -29,7 +29,7 @@ function useAlbumContext() {
   return context
 }
 
-// 给 /album 路由下的客户端组件提供服务端预取相册。
+// Give /album The client component under routing provides server-side prefetching of photo albums。
 function AlbumProvider({ children, initialAlbums }: AlbumProviderProps) {
   return (
     <AlbumContext.Provider value={{ initialAlbums }}>

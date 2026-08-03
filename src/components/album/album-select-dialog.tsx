@@ -21,21 +21,21 @@ interface AlbumSelectDialogProps {
   onAlbumSelect: (albumIds: string[]) => void
 }
 
-// 渲染加入相册时使用的相册选择弹框。
+// Render the album selection popup used when adding to an album。
 export function AlbumSelectDialog({ open, onOpenChange, onAlbumSelect }: AlbumSelectDialogProps) {
   const t = useTranslations("albums")
   const albums = useAlbumStore((state) => state.albums)
-  // selectedAlbumIds 保存当前选中的相册 id 列表。
+  // selectedAlbumIds Save the currently selected album id list。
   const [selectedAlbumIds, setSelectedAlbumIds] = useState<string[]>([])
 
-  // 关闭弹框后清空已选相册。
+  // Clear the selected album after closing the pop-up box。
   useEffect(() => {
     if (!open) {
       setSelectedAlbumIds([])
     }
   }, [open])
 
-  // 切换当前多选相册。
+  // Switch the current multi-selected album。
   function changeAlbum(albumId: string) {
     setSelectedAlbumIds((prev) => (
       prev.includes(albumId)
@@ -44,13 +44,13 @@ export function AlbumSelectDialog({ open, onOpenChange, onAlbumSelect }: AlbumSe
     ))
   }
 
-  // 选中相册后把相册 id 列表交给父组件，并关闭弹框。
+  // After selecting the album, select the album id The list is passed to the parent component，and close the pop-up box。
   function selectAlbum(albumIds: string[]) {
     onAlbumSelect(albumIds)
     onOpenChange(false)
   }
 
-  // 保存当前选择，没有选择时直接关闭弹框。
+  // Save current selection，Close the popup directly when there is no selection。
   function saveAlbum() {
     if (!selectedAlbumIds.length) {
       onOpenChange(false)

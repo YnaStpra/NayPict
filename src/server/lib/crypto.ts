@@ -5,21 +5,21 @@ interface HashResult {
   hash: string;
 }
 
-// 生成密码哈希使用的随机盐。
+// Random salt used to generate password hashes。
 export function generateSalt(length: number = 16): string {
   const array = new Uint8Array(length);
   crypto.getRandomValues(array);
   return btoa(String.fromCharCode(...array));
 }
 
-// 生成带盐密码哈希。
+// Generate salted password hash。
 export async function hashPassword(password: string): Promise<HashResult> {
   const salt = generateSalt();
   const hash = await genHashPassword(password, salt);
   return { salt, hash };
 }
 
-// 根据密码和盐生成 SHA-256 哈希。
+// Generated based on password and salt SHA-256 Hash。
 export async function genHashPassword(password: string, salt: string): Promise<string> {
   const data = encoder.encode(salt + password);
   const hashBuffer = await crypto.subtle.digest('SHA-256', data);
@@ -27,20 +27,20 @@ export async function genHashPassword(password: string, salt: string): Promise<s
   return btoa(String.fromCharCode(...hashArray));
 }
 
-// 把哈希二进制转成 hex 字符串。
+// Convert hash binary to hex string。
 function hashToHex(buffer: ArrayBuffer) {
   return Array.from(new Uint8Array(buffer))
     .map((byte) => byte.toString(16).padStart(2, '0'))
     .join('');
 }
 
-// 计算文件 SHA-1 校验和。
+// calculation file SHA-1 Checksum。
 export async function fileChecksum(file: Blob) {
   const hashBuffer = await crypto.subtle.digest('SHA-1', await file.arrayBuffer());
   return hashToHex(hashBuffer);
 }
 
-// 校验输入密码是否匹配保存的哈希。
+// Verify that the entered password matches the saved hash。
 export async function verifyPassword(inputPassword: string, salt: string, storedHash: string): Promise<boolean> {
   const hash = await genHashPassword(inputPassword, salt);
   return hash === storedHash;

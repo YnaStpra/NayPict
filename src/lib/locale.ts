@@ -1,6 +1,6 @@
-// 这个模块解析浏览器语言。
+// This module parses the browser language。
 
-// 根据 Accept-Language 中优先级最高的浏览器语言选择中文或英语。
+// according to Accept-Language Select Chinese or English as the browser language with the highest priority。
 function resolveLocale(acceptLanguage: string | null | undefined) {
   const languages = (acceptLanguage ?? "")
     .split(",")

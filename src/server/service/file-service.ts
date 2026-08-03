@@ -2,11 +2,11 @@ import { inArray } from 'drizzle-orm';
 import { type File, type FileInto, fileTab } from '@/server/entity/file';
 import { orm } from '@/server/infra/db';
 
-// 这个模块处理照片文件数据查询与写入。
+// This module handles photo file data query and writing。
 
 const fileService = {
 
-  // 按多个照片 id 查询文件记录，按 photoId 分组。
+  // Press multiple photos id Query file records，according to photoId Group。
   async listByPhotoIds(photoIds: string[]): Promise<Map<string, File[]>> {
 
     const map = new Map<string, File[]>();
@@ -33,7 +33,7 @@ const fileService = {
     return map;
   },
 
-  // 批量写入照片文件记录。
+  // Write photo file records in batches。
   async save(files: FileInto[]): Promise<File[]> {
     if (!files.length) {
       return [];
@@ -42,7 +42,7 @@ const fileService = {
     return orm.insert(fileTab).values(files).returning();
   },
 
-  // 按照片 id 列表删除文件记录。
+  // press photo id Delete file records from list。
   async deleteByPhotoIds(photoIds: string[]): Promise<void> {
     if (!photoIds.length) {
       return;

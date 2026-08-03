@@ -1,4 +1,4 @@
-// 这个模块定义相册业务入参对象。
+// This module defines the photo album business input parameter object。
 
 interface AlbumAddBo {
   name: string;

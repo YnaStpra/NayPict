@@ -3,9 +3,9 @@ import { type Setting } from '@/server/entity/setting';
 import { SettingPhotoDedupEnum, SettingSyncDeleteEnum } from '@/server/enums/setting-enum';
 import { db } from '@/server/infra/db';
 
-// 这个模块负责数据库表结构初始化。
+// This module is responsible for initializing the database table structure。
 
-// 系统设置默认值，仅用于建表种子数据。
+// System settings default value，Only used for table creation seed data。
 const settingDefaults: Setting = {
   syncDelete: SettingSyncDeleteEnum.ENABLE,
   clearLast: 7,
@@ -97,7 +97,7 @@ const createTableSqlList = [
         status INTEGER DEFAULT 0
     )`,
   `INSERT OR IGNORE INTO storage (storage_id, name, type, sort, status)
-        VALUES ('local', '本地存储', 1, 0, 0)`,
+        VALUES ('local', 'local storage', 1, 0, 0)`,
 
   `CREATE TABLE IF NOT EXISTS setting (
         key TEXT PRIMARY KEY,
@@ -113,7 +113,7 @@ const createTableSqlList = [
     )`,
 ];
 
-// 执行全部建表语句，已存在的表会自动跳过。
+// Execute all table creation statements，Existing tables will be automatically skipped。
 async function migrate(): Promise<void> {
   const runBatch = db.transaction(() => {
     for (const sql of createTableSqlList) {

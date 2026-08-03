@@ -17,41 +17,41 @@ import { type PhotoTakenDateVo } from "@/server/entity/vo/photo"
 import { useTranslations } from "next-intl"
 
 interface PhotoDateDrawerProps {
-  // albumId 传入时按相册筛选时间范围。
+  // albumId Filter time range by album when incoming。
   albumId?: string | null
-  // favorite 传入时按收藏状态筛选时间范围。
+  // favorite Filter time range by favorite status when incoming。
   favorite?: number | null
-  // onRangeChange 在时间范围确认变更后传给页面。
+  // onRangeChange Confirm the change in the time range and then pass it to the page。
   onRangeChange?: (range: { startDate: Date, endDate: Date }) => void
 }
 
-// 把接口返回的日期字符串解析为本地日期。
+// Parse the date string returned by the interface into a local date。
 function parseDate(date: string) {
   return new Date(`${date}T00:00:00`)
 }
 
-// 把日期归一到当天最后一毫秒，用于结束时间筛选。
+// Round the date to the last millisecond of the day，Used for end time filtering。
 function toDayEnd(date: Date) {
   const end = new Date(date)
   end.setHours(23, 59, 59, 999)
   return end
 }
 
-// 把日期格式化成页面展示文案，固定显示年月日。
+// Format date into page display copy，Fixed display of year, month and day。
 function formatDate(date: Date) {
   return `${date.getFullYear()}/${date.getMonth() + 1}/${date.getDate()}`
 }
 
-// 渲染照片页按天选择时间范围的右侧抽屉。
+// Render the right drawer of the photo page to select the time range by day。
 function PhotoDateDrawer({ albumId, favorite, onRangeChange }: PhotoDateDrawerProps) {
   const t = useTranslations("photos")
-  const [dateList, setDateList] = useState<PhotoTakenDateVo[]>([]) // dateList 保存存在照片的日期及照片数量。
-  const [open, setOpen] = useState(false) // open 控制时间选择抽屉是否打开。
-  const [savedDateRange, setSavedDateRange] = useState([0, 0]) // savedDateRange 保存上次确认的日期索引范围。
-  const [dateRange, setDateRange] = useState([0, 0]) // dateRange 保存当前选中的开始和结束日期索引。
-  const saveCloseRef = useRef(false) // saveCloseRef 记录本次关闭是否由点击遮罩保存触发。
+  const [dateList, setDateList] = useState<PhotoTakenDateVo[]>([]) // dateList Save the date and number of existing photos。
+  const [open, setOpen] = useState(false) // open Control the time to choose whether the drawer is opened。
+  const [savedDateRange, setSavedDateRange] = useState([0, 0]) // savedDateRange Save the last confirmed date index range。
+  const [dateRange, setDateRange] = useState([0, 0]) // dateRange Save the currently selected start and end date index。
+  const saveCloseRef = useRef(false) // saveCloseRef Record whether this shutdown is triggered by clicking on the mask save。
 
-  // 根据相册和收藏条件查询存在照片的日期，并初始化滑块区间。
+  // Query the date of existing photos based on album and collection conditions，and initialize the slider range。
   useEffect(() => {
     photoTakenDateList({
       albumId,
@@ -66,7 +66,7 @@ function PhotoDateDrawer({ albumId, favorite, onRangeChange }: PhotoDateDrawerPr
     })
   }, [albumId, favorite])
 
-  // 切换抽屉打开状态，非保存关闭时恢复到上次确认的时间范围。
+  // Toggle drawer open state，Revert to the last confirmed time range when closing without saving。
   function changeOpen(nextOpen: boolean) {
     setOpen(nextOpen)
 
@@ -81,7 +81,7 @@ function PhotoDateDrawer({ albumId, favorite, onRangeChange }: PhotoDateDrawerPr
     saveCloseRef.current = false
   }
 
-  // 点击遮罩关闭时，仅在时间范围发生变化时回调给页面。
+  // When the mask is clicked to close，Only call back to the page when the time range changes。
   function saveRange() {
     saveCloseRef.current = true
 
@@ -103,7 +103,7 @@ function PhotoDateDrawer({ albumId, favorite, onRangeChange }: PhotoDateDrawerPr
   const yearMarks = useMemo(() => {
     const marks: { year: string, position: number }[] = []
 
-    // 日期已经按升序排列，每个年份第一次出现的位置就是该年的起始刻度。
+    // Dates have been sorted in ascending order，The first occurrence of each year is the starting tick of that year.。
     for (const [index, item] of dateList.entries()) {
       const year = item.date.slice(0, 4)
 

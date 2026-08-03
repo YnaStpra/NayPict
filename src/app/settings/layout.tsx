@@ -7,7 +7,7 @@ interface SettingLayoutProps {
   children: React.ReactNode
 }
 
-// 服务端查询系统设置，并提供给 /setting 页面初始化展示。
+// Server query system settings，and provided to /setting Page initialization display。
 export default async function SettingLayout({ children }: SettingLayoutProps) {
   const cookieStore = await cookies()
   const { userId } = await getLoginInfo(cookieStore.toString())

@@ -15,14 +15,14 @@ interface PhotoSelectionDrawerProps {
   onAlbumRemove?: () => void
 }
 
-// 渲染照片多选状态下的顶部操作抽屉。
+// Render the top action drawer in photo multi-select state。
 export function PhotoSelectionDrawer({ open, onClose, onDelete, onSelectAll, onRestore, onAlbumOpen, onAlbumRemove }: PhotoSelectionDrawerProps) {
   useEffect(() => {
     if (!open) {
       return
     }
 
-    // 按下 Esc 时关闭选择抽屉，并清空照片选择。
+    // press Esc Close the selection drawer，and clear photo selection。
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") {
         onClose()
@@ -36,12 +36,12 @@ export function PhotoSelectionDrawer({ open, onClose, onDelete, onSelectAll, onR
     }
   }, [open, onClose])
 
-  // 通知上层打开相册选择弹框。
+  // Notify the upper layer to open the album selection pop-up box。
   function openAlbumDialog() {
     onAlbumOpen?.()
   }
 
-  // 通知上层把选中照片移出当前相册。
+  // Notify the upper layer to move the selected photo out of the current album。
   function removeAlbumPhotos() {
     onAlbumRemove?.()
   }

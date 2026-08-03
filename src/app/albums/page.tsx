@@ -33,21 +33,21 @@ export default function Page() {
   const t = useTranslations("albums")
   const { initialAlbums } = useAlbumContext()
   const { sidebarOpen, setSidebarOpen, refreshAlbums } = useApp()
-  // albums 保存当前页面展示的相册列表。
+  // albums Save the album list displayed on the current page。
   const [albums, setAlbums] = useState<AlbumVo[]>(initialAlbums)
-  // albumListKey 用于强制刷新相册瀑布流布局。
+  // albumListKey Used to force refresh the album waterfall flow layout。
   const [albumListKey, setAlbumListKey] = useState(0)
-  // renameOpen 控制修改名字弹框的打开状态。
+  // renameOpen Control the opening state of the name modification dialog box。
   const [renameOpen, setRenameOpen] = useState(false)
-  // renamingAlbum 保存当前正在修改名字的相册。
+  // renamingAlbum Save the album whose name is currently being modified。
   const [renamingAlbum, setRenamingAlbum] = useState<AlbumVo | null>(null)
-  // deleteOpen 控制删除确认弹框的打开状态。
+  // deleteOpen Control the opening state of the delete confirmation pop-up box。
   const [deleteOpen, setDeleteOpen] = useState(false)
-  // deletingAlbum 保存当前等待删除确认的相册。
+  // deletingAlbum Save the album currently awaiting deletion confirmation。
   const [deletingAlbum, setDeletingAlbum] = useState<AlbumVo | null>(null)
 
   useEffect(() => {
-    // 刷新相册页时禁用浏览器滚动恢复，并回到列表顶部。
+    // Disable browser scroll recovery when refreshing album page，and go back to the top of the list。
     const previousScrollRestoration = window.history.scrollRestoration
 
     window.history.scrollRestoration = "manual"
@@ -58,7 +58,7 @@ export default function Page() {
     }
   }, [])
 
-  // 加载全部相册数据。
+  // Load all album data。
   async function getAlbumList() {
     const data = await albumList()
 
@@ -66,26 +66,26 @@ export default function Page() {
     setAlbumListKey((prev) => prev + 1)
   }
 
-  // 重新查询相册页面列表和全局相册选择列表。
+  // Re-query the album page list and global album selection list。
   async function refreshAlbumData() {
     await getAlbumList()
     await refreshAlbums()
   }
 
-  // 添加相册，并把新相册展示到列表顶部。
+  // Add album，and move the new album to the top of the list。
   function addAlbum(name: string) {
     albumAdd({ name }).then(() => {
       void refreshAlbumData()
     })
   }
 
-  // 打开修改相册名字弹框。
+  // Open the modify album name pop-up box。
   function renameAlbum(album: AlbumVo) {
     setRenamingAlbum(album)
     setRenameOpen(true)
   }
 
-  // 处理相册置顶操作。
+  // Handle photo album pinning operation。
   function topAlbum(album: AlbumVo) {
     albumSetTop({
       albumId: album.albumId,
@@ -94,7 +94,7 @@ export default function Page() {
     })
   }
 
-  // 打开删除确认弹框。
+  // Open the delete confirmation popup。
   function openDeleteAlbum(album: AlbumVo) {
     if (album.photoTotal === 0) {
       deleteAlbum(album)
@@ -105,7 +105,7 @@ export default function Page() {
     setDeleteOpen(true)
   }
 
-  // 删除相册后更新当前列表。
+  // Update current list after deleting album。
   function deleteAlbum(album: AlbumVo) {
     albumDelete({
       albumId: album.albumId,
@@ -114,7 +114,7 @@ export default function Page() {
     })
   }
 
-  // 确认删除相册后更新当前列表。
+  // Update current list after confirming deletion of album。
   function confirmDeleteAlbum() {
     const album = deletingAlbum
 
@@ -130,7 +130,7 @@ export default function Page() {
     deleteAlbum(album)
   }
 
-  // 提交相册新名称，成功后更新当前列表中的相册名称。
+  // Submit new album name，Update the album name in the current list after success。
   function renameAlbumName(name: string) {
     const album = renamingAlbum
 
@@ -151,7 +151,7 @@ export default function Page() {
     })
   }
 
-  // 处理修改名字弹框打开状态。
+  // Handle the open state of the name modification pop-up box。
   function handleRenameOpenChange(open: boolean) {
     setRenameOpen(open)
 
@@ -160,7 +160,7 @@ export default function Page() {
     }
   }
 
-  // 处理删除确认弹框打开状态。
+  // Handling the open state of the deletion confirmation pop-up box。
   function handleDeleteOpenChange(open: boolean) {
     setDeleteOpen(open)
 

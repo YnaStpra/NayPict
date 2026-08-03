@@ -9,7 +9,7 @@ interface FavoriteLayoutProps {
   children: React.ReactNode
 }
 
-// 服务端查询收藏照片第一页，并提供给收藏页初始化列表。
+// Query the first page of collected photos on the server side，And provide it to the collection page initialization list。
 export default async function FavoriteLayout({ children }: FavoriteLayoutProps) {
   const cookieStore = await cookies()
   const { userId } = await getLoginInfo(cookieStore.toString())

@@ -6,11 +6,11 @@ import { registerStorageStrategy } from '@/server/storage/storage-registry';
 import { type Storage } from '@/server/entity/storage';
 import { StorageTypeEnum } from '@/server/enums/storage-enum';
 
-// 这个模块实现本地存储策略。
+// This module implements the local storage strategy。
 
 class LocalStorageStrategy implements StorageStrategy {
 
-  // 生成本地文件绝对路径。
+  // Generate absolute path to local file。
   private getLocalPath(key: string) {
     const root = path.resolve(process.cwd(), 'data');
     const normalizedKey = key.replace(/^\/+/, '');
@@ -18,13 +18,13 @@ class LocalStorageStrategy implements StorageStrategy {
     const relativePath = path.relative(root, filePath);
 
     if (relativePath.startsWith('..') || path.isAbsolute(relativePath)) {
-      throw new Error('文件路径无效');
+      throw new Error('Invalid file path');
     }
 
     return filePath;
   }
 
-  // 保存多个文件到本地。
+  // Save multiple files locally。
   async put(files: StorageUploadObject[], storage: Storage): Promise<void> {
 
     void storage;
@@ -36,7 +36,7 @@ class LocalStorageStrategy implements StorageStrategy {
     }));
   }
 
-  // 从本地读取文件并以流的方式返回。
+  // Read files from local and return as stream。
   async get(key: string, storage: Storage): Promise<StorageObject> {
     void storage;
     const filePath = this.getLocalPath(key);
@@ -49,7 +49,7 @@ class LocalStorageStrategy implements StorageStrategy {
     };
   }
 
-  // 从本地删除一个或多个文件。
+  // Delete one or more files from local。
   async delete(key: string | string[], storage: Storage) {
     void storage;
     const keys = Array.isArray(key) ? key : [key];

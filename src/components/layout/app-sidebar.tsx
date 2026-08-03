@@ -18,17 +18,17 @@ import {
 } from "@/components/ui/sidebar"
 import { Library, MonitorCog, Image, Heart, Trash2, FolderOpen, Database, User, Settings } from "lucide-react"
 
-// 判断当前浏览器路径是否命中菜单 URL。
+// Determine whether the current browser path hits the menu URL。
 function isUrlMatched(pathname: string, url: string) {
   return pathname === url || pathname.startsWith(`${url}/`)
 }
 
-// 根据头像 key 生成头像图片访问地址。
+// According to avatar key Generate avatar picture access address。
 function getAvatarUrl(avatar: string | undefined, fallbackAvatar: string) {
   return avatar ? `/api/user/avatar/${avatar}` : fallbackAvatar
 }
 
-// 渲染应用侧栏，并根据当前语言生成导航文案。
+// Rendering the app sidebar，And generate navigation copy based on the current language。
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const t = useTranslations("layout")
   const pathname = usePathname()
@@ -77,7 +77,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     avatar: getAvatarUrl(userInfo?.avatar, data.user.avatar),
   }
 
-  // 切换 team 时进入对应 team 的默认页面，让刷新后也能通过 URL 判断当前 team。
+  // switch team Enter the corresponding team default page，Allow it to pass even after refreshing URL Determine current team。
   function changeTeam(team: { name: string; logo: React.ReactNode }) {
     const targetUrl = team.name === data.teams[1].name ? data.sysMain[0].url : data.navMain[0].url
 

@@ -11,7 +11,7 @@ interface AlbumPhotoLayoutProps {
   }>
 }
 
-// 服务端查询当前相册照片第一页，并提供给相册照片页初始化列表。
+// The server queries the first page of photos in the current album，And provide it to the album photo page initialization list。
 export default async function AlbumPhotoLayout({ children, params }: AlbumPhotoLayoutProps) {
   const { albumId } = await params
   const cookieStore = await cookies()

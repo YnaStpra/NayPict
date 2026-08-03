@@ -1,4 +1,4 @@
-// 这个模块定义存储配置相关枚举值。
+// This module defines storage configuration related enumeration values。
 
 const StorageStatusEnum = {
   NORMAL: 0,

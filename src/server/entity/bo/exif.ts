@@ -1,4 +1,4 @@
-// 保存照片 Exif 入参。
+// save photo Exif Add ginseng。
 
 export type ExifSaveBo = {
   exif: string | null;

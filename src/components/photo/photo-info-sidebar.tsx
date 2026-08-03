@@ -11,18 +11,18 @@ import { type PhotoVo } from "@/server/entity/vo/photo"
 import { useLocale, useTranslations } from "next-intl"
 
 type PhotoInfoSidebarProps = {
-  // 当前查看的照片。
+  // Currently viewing photos。
   photo: PhotoVo | null
-  // 关闭侧栏。
+  // Close sidebar。
   onClose?: () => void
 }
 
 type PhotoViewerBlurBackgroundProps = {
-  // 当前照片的 thumbHash。
+  // of current photo thumbHash。
   thumbHash?: string | null
 }
 
-// 格式化存储位置：存储名(翻译后的类型)。
+// Format storage location：storage name(Translated type)。
 function formatStorageLocation(photo: PhotoVo, t: (key: string) => string) {
   if (!photo.storageName && !photo.storageTypeDesc) {
     return null
@@ -33,19 +33,19 @@ function formatStorageLocation(photo: PhotoVo, t: (key: string) => string) {
   return `${photo.storageName ?? "-"} (${type})`
 }
 
-// 格式化照片名称，去掉文件后缀。
+// Format photo name，Remove file suffix。
 function formatPhotoName(name: string) {
   const index = name.lastIndexOf(".")
 
   return index > 0 ? name.slice(0, index) : name
 }
 
-// 把字节数格式化成 MB。
+// Format the number of bytes into MB。
 function formatFileSize(size: number) {
   return `${(size / 1024 / 1024).toFixed(1)}MB`
 }
 
-// 格式化照片分辨率。
+// Format photo resolution。
 function formatResolution(width: number | null, height: number | null) {
   if (!width || !height) {
     return null
@@ -54,7 +54,7 @@ function formatResolution(width: number | null, height: number | null) {
   return `${width} × ${height}`
 }
 
-// 格式化照片像素（百万像素）。
+// Format photo pixels（megapixels）。
 function formatMegapixels(width: number | null, height: number | null) {
   if (!width || !height) {
     return null
@@ -63,7 +63,7 @@ function formatMegapixels(width: number | null, height: number | null) {
   return `${(width * height / 1_000_000).toFixed(1)} MP`
 }
 
-// 渲染单行照片信息，label 在左，value 在右；无值时不显示。
+// Rendering a single line of photo information，label on the left，value on the right；Do not display if there is no value。
 function PhotoInfoRow({
   label,
   value,
@@ -92,7 +92,7 @@ function PhotoInfoRow({
   )
 }
 
-// 渲染全屏模糊背景，叠在详情与信息侧栏之下。
+// Render full screen blurred background，Stacked under the Details & Information sidebar。
 export function PhotoViewerBlurBackground({ thumbHash }: PhotoViewerBlurBackgroundProps) {
   const thumbHashUrl = getThumbHashUrl(thumbHash)
 
@@ -113,7 +113,7 @@ export function PhotoViewerBlurBackground({ thumbHash }: PhotoViewerBlurBackgrou
   )
 }
 
-// 渲染侧栏关闭按钮（移动端 md 以下显示）。
+// Render sidebar close button（Mobile terminal md The following shows）。
 function SidebarCloseButton({ onClose }: { onClose: () => void }) {
   const tap = useTapAction(onClose)
 
@@ -131,7 +131,7 @@ function SidebarCloseButton({ onClose }: { onClose: () => void }) {
   )
 }
 
-// 渲染照片信息侧栏，固定在 Lightbox 右侧。
+// Render photo information sidebar，fixed at Lightbox right side。
 export function PhotoInfoSidebar({ photo, onClose }: PhotoInfoSidebarProps) {
   const t = useTranslations("photos.info")
   const storageT = useTranslations("storage")

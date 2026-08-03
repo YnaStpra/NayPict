@@ -1,4 +1,4 @@
-// 这个模块定义用户接口入参对象。
+// This module defines the user interface input parameter object。
 
 interface UserAddBo {
   username: string;

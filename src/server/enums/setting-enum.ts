@@ -1,4 +1,4 @@
-// 这个模块定义系统设置相关枚举值。
+// This module defines system settings related enumeration values。
 
 const SettingSyncDeleteEnum = {
   ENABLE: 1,

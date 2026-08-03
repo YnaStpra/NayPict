@@ -1,4 +1,4 @@
-// 这个模块存放全局常量。
+// This module stores global constants。
 
 const TOKEN_COOKIE_NAME = "token"
 const TOKEN_COOKIE_MAX_AGE = 60 * 60 * 24 * 30

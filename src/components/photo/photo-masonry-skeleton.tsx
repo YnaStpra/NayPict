@@ -4,11 +4,11 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { type PhotoVo } from "@/server/entity/vo/photo"
 
 interface PhotoMasonrySkeletonProps {
-  // photos 是用于生成骨架高度的照片初始数据。
+  // photos is the initial data of the photo used to generate the height of the skeleton.。
   photos: PhotoVo[]
 }
 
-// 渲染照片瀑布流加载骨架屏，照片少于 20 张时不显示。
+// Render photo waterfall flow loading skeleton screen，Photos less than 20 Not displayed when opening。
 export function PhotoMasonrySkeleton({ photos }: PhotoMasonrySkeletonProps) {
   if (photos.length < 20) {
     return null

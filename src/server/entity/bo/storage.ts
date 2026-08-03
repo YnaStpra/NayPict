@@ -1,4 +1,4 @@
-// 这个模块定义存储配置接口入参对象。
+// This module defines the storage configuration interface input parameter object。
 
 interface StorageSetTopBo {
   storageId: string;
