@@ -17,37 +17,37 @@ import { usePhotoStore } from "@/store/photo-store"
 import { useTranslations } from "next-intl"
 
 interface PhotoViewerProps {
-  // Controls whether the viewer displays。
+  // Controls viewer visibility.
   open: boolean
-  // Currently open photo index。
+  // Currently opened photo index.
   index: number
-  // Photo list passed in by parent component。
+  // Photo list passed from parent.
   photos: PhotoVo[]
-  // Executed when the viewer is closed。
+  // Executed on viewer close.
   onBack: () => void
-  // Executed when the browser returns to closing the viewer。
+  // Executed on browser back button close.
   onBrowserBack: () => void
 }
 
 type PhotoSlide = SlideImage & {
-  // Current photo id。
+  // Current photo ID.
   photoId: string
-  // Current photo original。
+  // Current photo original key.
   key: string
-  // Current photo original size。
+  // Current photo original size.
   originalSize: number
-  // Current photo preview。
+  // Current photo preview URL.
   preview: string
-  // Thumbnail address。
+  // Thumbnail URL.
   thumbnail: string
-  // thumbHash Converted blurred background。
+  // ThumbHash blurred background URL.
   thumbHashUrl?: string
 }
 
 type FullscreenButtonProps = {
-  // Whether it is currently in full screen state。
+  // Whether currently in fullscreen mode.
   fullscreen: boolean
-  // Go to full screen。
+  // Enter fullscreen.
   enter: () => void
 }
 

@@ -52,11 +52,11 @@ const albumService = {
       .orderBy(desc(photoTab.takenTime), desc(photoTab.photoId));
 
     const fileMap = await fileService.listByPhotoIds(
-      photoStatList.map((stat) => stat.photoId).filter(Boolean)
+      photoStatList.map((stat: any) => stat.photoId).filter(Boolean) as string[]
     );
 
     const list = albumList.map((album) => {
-      const photoStat = photoStatList.find((stat) => stat.albumId === album.albumId);
+      const photoStat = photoStatList.find((stat: any) => stat.albumId === album.albumId);
       const fileStorage = fileStorageList.list.find((item) => item.storageId === photoStat?.storageId);
       const domain = formatHttpUrl(fileStorage?.domain);
 
