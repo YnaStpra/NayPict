@@ -59,8 +59,13 @@ export async function proxy(req: NextRequest) {
     return clearLoginCookies(NextResponse.redirect(loginUrl));
   }
 
-  // Confirm current session from cache uuid still valid。
-  const authInfo = await cache.get<AuthInfo>(AUTH_CACHE_KEY + userId);
+  // Confirm current session from cache uuid still valid.
+  let authInfo: AuthInfo | null = null;
+  try {
+    authInfo = await cache.get<AuthInfo>(AUTH_CACHE_KEY + userId);
+  } catch (err) {
+    console.error('Proxy cache get error:', err);
+  }
 
   if (!authInfo || !authInfo.uuidList.includes(uuid)) {
     if (isPublicPath(pathname)) {
