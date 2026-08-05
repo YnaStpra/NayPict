@@ -3,7 +3,7 @@ import { type Setting } from '@/server/entity/setting';
 import { SettingPhotoDedupEnum, SettingSyncDeleteEnum } from '@/server/enums/setting-enum';
 import { db } from '@/server/infra/db';
 
-// This module is responsible for initializing database table structures for both Neon PostgreSQL and SQLite.
+// This module initializes the local SQLite database table structures.
 
 const settingDefaults: Setting = {
   syncDelete: SettingSyncDeleteEnum.ENABLE,
@@ -100,104 +100,9 @@ const createTableSqlListSqlite = [
     )`
 ];
 
-const createTableSqlListPostgres = [
-  `CREATE TABLE IF NOT EXISTS "user" (
-        user_id TEXT PRIMARY KEY,
-        username TEXT NOT NULL UNIQUE,
-        password TEXT NOT NULL,
-        salt TEXT NOT NULL,
-        avatar TEXT NOT NULL DEFAULT '',
-        type INTEGER NOT NULL DEFAULT 2,
-        status INTEGER NOT NULL DEFAULT 0,
-        create_time TEXT NOT NULL DEFAULT to_char(now() at time zone 'utc', 'YYYY-MM-DD"T"HH24:MI:SS"Z"')
-    )`,
-  `CREATE TABLE IF NOT EXISTS album (
-        album_id TEXT PRIMARY KEY,
-        name TEXT NOT NULL,
-        description TEXT NOT NULL DEFAULT '',
-        sort INTEGER NOT NULL DEFAULT 0,
-        create_time TEXT NOT NULL DEFAULT to_char(now() at time zone 'utc', 'YYYY-MM-DD"T"HH24:MI:SS"Z"'),
-        update_time TEXT NOT NULL DEFAULT to_char(now() at time zone 'utc', 'YYYY-MM-DD"T"HH24:MI:SS"Z"'),
-        user_id TEXT NOT NULL
-    )`,
-  `CREATE TABLE IF NOT EXISTS photo (
-        photo_id TEXT PRIMARY KEY NOT NULL,
-        name TEXT NOT NULL,
-        thumb_hash TEXT,
-        checksum TEXT,
-        type TEXT NOT NULL,
-        type_desc TEXT NOT NULL,
-        size INTEGER NOT NULL,
-        width INTEGER,
-        height INTEGER,
-        taken_time TEXT,
-        create_time TEXT NOT NULL DEFAULT to_char(now() at time zone 'utc', 'YYYY-MM-DD"T"HH24:MI:SS"Z"'),
-        recycle_time TEXT,
-        user_id TEXT NOT NULL,
-        status INTEGER NOT NULL DEFAULT 1,
-        favorite INTEGER NOT NULL DEFAULT 1,
-        storage_id TEXT
-    )`,
-  `CREATE INDEX IF NOT EXISTS idx_photo_user_status_taken_time ON photo (user_id, status, taken_time)`,
-  `CREATE INDEX IF NOT EXISTS idx_photo_status_recycle_time ON photo (status, recycle_time)`,
-  `CREATE TABLE IF NOT EXISTS file (
-        file_id TEXT PRIMARY KEY NOT NULL,
-        photo_id TEXT NOT NULL,
-        key TEXT NOT NULL,
-        type INTEGER NOT NULL,
-        file_type TEXT NOT NULL,
-        size INTEGER NOT NULL
-    )`,
-  `CREATE INDEX IF NOT EXISTS idx_file_photo_id ON file (photo_id)`,
-  `CREATE UNIQUE INDEX IF NOT EXISTS idx_file_key ON file (key)`,
-  `CREATE TABLE IF NOT EXISTS exif (
-        photo_id TEXT PRIMARY KEY NOT NULL REFERENCES photo(photo_id) ON DELETE CASCADE,
-        exif TEXT,
-        latitude DOUBLE PRECISION,
-        longitude DOUBLE PRECISION,
-        altitude DOUBLE PRECISION
-    )`,
-  `CREATE TABLE IF NOT EXISTS album_photo (
-        id TEXT PRIMARY KEY NOT NULL,
-        photo_id TEXT NOT NULL,
-        album_id TEXT NOT NULL
-    )`,
-  `CREATE TABLE IF NOT EXISTS storage (
-        storage_id TEXT PRIMARY KEY,
-        name TEXT NOT NULL,
-        type INTEGER NOT NULL,
-        domain TEXT,
-        bucket TEXT,
-        region TEXT,
-        endpoint TEXT,
-        access_key TEXT,
-        secret_key TEXT,
-        user_id TEXT,
-        sort INTEGER NOT NULL DEFAULT 0,
-        status INTEGER DEFAULT 0
-    )`,
-  `INSERT INTO storage (storage_id, name, type, sort, status) VALUES ('local', 'local storage', 1, 0, 0) ON CONFLICT DO NOTHING`,
-  `CREATE TABLE IF NOT EXISTS setting (
-        key TEXT PRIMARY KEY,
-        value TEXT NOT NULL
-    )`,
-  `INSERT INTO setting (key, value) VALUES ('${SETTING_KEY}', '${JSON.stringify(settingDefaults)}') ON CONFLICT DO NOTHING`,
-  `CREATE TABLE IF NOT EXISTS cache (
-        key TEXT PRIMARY KEY,
-        value TEXT NOT NULL,
-        expire_time BIGINT
-    )`
-];
-
 async function migrate(): Promise<void> {
-  const dbUrl = process.env.DATABASE_URL || process.env.POSTGRES_URL
-  const isPostgres = Boolean(dbUrl && (dbUrl.startsWith('postgres://') || dbUrl.startsWith('postgresql://')))
-  const sqlList = isPostgres ? createTableSqlListPostgres : createTableSqlListSqlite
-
-  for (const sql of sqlList) {
-    if (typeof db.exec === 'function') {
-      await db.exec(sql)
-    }
+  for (const sql of createTableSqlListSqlite) {
+    db.exec(sql);
   }
 }
 
