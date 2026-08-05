@@ -7,35 +7,35 @@ import { security } from '../security/security';
 import { i18nMiddleware, t } from '@/server/i18n';
 import type { HonoEnv } from './type';
 
-// This module creates Hono Apply and register common middleware and error handling。
+// This module creates Hono App and registers common middleware and error handling.
 
-const app = new Hono<HonoEnv>().basePath('/api');
+function createHonoApp() {
+  const instance = new Hono<HonoEnv>().basePath('/api');
 
-app.use('*', cors());
-app.use('*', contextStorage());
-app.use('*', i18nMiddleware);
-app.use('*', security);
+  instance.use('*', cors());
+  instance.use('*', contextStorage());
+  instance.use('*', i18nMiddleware);
+  instance.use('*', security);
 
-// Uniformly handle interface exceptions and return the agreed response structure。
-app.onError((err, c) => {
-
-  if (err instanceof BizError) {
-
-    const message = t(err.message);
-
-    if (err.code === 401 || err.code === 403) {
-      return c.json(result.fail(message, err.code), err.code);
+  instance.onError((err, c) => {
+    if (err instanceof BizError) {
+      const message = t(err.message);
+      if (err.code === 401 || err.code === 403) {
+        return c.json(result.fail(message, err.code), err.code);
+      }
+      return c.json(result.fail(message, err.code));
     }
 
-    return c.json(result.fail(message, err.code));
-  }
+    if (err.message?.includes('readonly database')) {
+      return c.json(result.fail(t('system.readonly')));
+    }
 
-  if (err.message.includes('readonly database')) {
-    return c.json(result.fail(t('system.readonly')));
-  }
+    console.error(err);
+    return c.json(result.fail(err.message));
+  });
 
-  console.error(err);
-  return c.json(result.fail(err.message));
-});
+  return instance;
+}
 
-export { app };
+const globalForHono = globalThis as unknown as { honoApp?: Hono<HonoEnv> };
+export const app = globalForHono.honoApp ?? (globalForHono.honoApp = createHonoApp());

@@ -44,7 +44,7 @@ const PhotoViewer = dynamic(
 export default function Page() {
   const t = useTranslations("photos")
   const { initialPhotos } = usePhotoContext()
-  const { sidebarOpen, setSidebarOpen, refreshAlbums } = useApp()
+  const { userInfo, sidebarOpen, setSidebarOpen, refreshAlbums } = useApp()
   // isBrowser Mark whether you are currently in the browser environment，SSR Stage display skeleton screen。
   const [isBrowser, setIsBrowser] = useState(false)
   const {
