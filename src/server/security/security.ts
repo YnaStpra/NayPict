@@ -26,35 +26,48 @@ const SYSTEM_PATHS = [
   '/storage/delete'
 ];
 
-// Determine whether the current path hits the specified interface or its subpath。
+const PUBLIC_API_PATHS = [
+  '/login',
+  '/logout',
+  '/photo/list',
+  '/photo/takenDateList',
+  '/album/list',
+  '/storage/select'
+];
+
+// Determine whether the current path hits the specified interface or its subpath.
 function isPathMatched(path: string, target: string) {
   return path === target || path.startsWith(`${target}/`);
 }
 
-// Determine whether the current interface belongs to the system management interface。
+// Determine whether the current interface belongs to the public browsing interface.
+function isPublicApiPath(path: string) {
+  return PUBLIC_API_PATHS.some((target) => isPathMatched(path, target));
+}
+
+// Determine whether the current interface belongs to the system management interface.
 function isSystemPath(path: string) {
   return SYSTEM_PATHS.some((target) => isPathMatched(path, target));
 }
 
-// Clear login related Cookie。
+// Clear login related Cookie.
 function clearLoginCookies(c: Context) {
   deleteCookie(c, TOKEN_COOKIE_NAME, {
     path: '/',
   });
 }
 
-// Verify login information and session uuid，Write context after passing；Direct release via public path。
+// Verify login information and session uuid, Write context after passing; Direct release via public path.
 async function security(c: Context, next: Next) {
 
   const path = c.req.path.replace(/^\/api/, '');
 
-  if (path.startsWith('/login') || path.startsWith('/logout')) {
-    return next();
-  }
-
   const { userId, uuid } = await getLoginInfo(c.req.header('cookie') ?? null);
 
   if (!userId || !uuid) {
+    if (isPublicApiPath(path)) {
+      return next();
+    }
     clearLoginCookies(c);
     throw new BizError('auth.failed', 401);
   }
