@@ -51,14 +51,22 @@ async function post<T = unknown>(url: string, params: RequestParams = null) {
     body,
     credentials: 'include'
   });
-  const json = await res.json() as ApiResponse<T>;
 
-  if (!res.ok || json.code !== 200) {
-    const message = json.message || 'Request failed';
-    toast.error(message);
+  const text = await res.text();
+  let json: ApiResponse<T> | null = null;
+  try {
+    json = text ? (JSON.parse(text) as ApiResponse<T>) : null;
+  } catch {
+    json = null;
+  }
 
-    if (res.status === 401 || json.code === 401) {
+  if (!res.ok || !json || json.code !== 200) {
+    const message = json?.message || (res.status === 401 ? 'Unauthorized' : 'Request failed');
+
+    if (res.status === 401 || json?.code === 401) {
       handleUnauthorized();
+    } else {
+      toast.error(message);
     }
 
     throw new Error(message);
