@@ -18,13 +18,15 @@ import { type File } from '@/server/entity/file';
 
 const albumService = {
 
-  // Query the list of all photo albums of the current user。
-  async list(userId: string): Promise<AlbumVo[]> {
+  // Query the list of photo albums (publicly for guests or user-specific for logged-in admin).
+  async list(userId?: string): Promise<AlbumVo[]> {
+
+    const whereAlbum = userId ? eq(albumTab.userId, userId) : undefined;
 
     const albumList = await orm
       .select()
       .from(albumTab)
-      .where(eq(albumTab.userId, userId))
+      .where(whereAlbum)
       .orderBy(desc(albumTab.sort));
 
     if (!albumList.length) {
@@ -32,6 +34,13 @@ const albumService = {
     }
 
     const fileStorageList = await storageService.list();
+
+    const wherePhotoList = [
+      eq(photoTab.status, PhotoStatusEnum.NORMAL)
+    ];
+    if (userId) {
+      wherePhotoList.push(eq(photoTab.userId, userId));
+    }
 
     const photoStatList = await orm
       .select({
@@ -44,10 +53,7 @@ const albumService = {
       })
       .from(albumPhotoTab)
       .innerJoin(photoTab, eq(albumPhotoTab.photoId, photoTab.photoId))
-      .where(and(
-        eq(photoTab.status, PhotoStatusEnum.NORMAL),
-        eq(photoTab.userId, userId)
-      ))
+      .where(and(...wherePhotoList))
       .groupBy(albumPhotoTab.albumId)
       .orderBy(desc(photoTab.takenTime), desc(photoTab.photoId));
 

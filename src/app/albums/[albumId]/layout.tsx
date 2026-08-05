@@ -11,15 +11,11 @@ interface AlbumPhotoLayoutProps {
   }>
 }
 
-// The server queries the first page of photos in the current album，And provide it to the album photo page initialization list。
+// The server queries photos in the current album (publicly for guests or user-specific for logged-in admin).
 export default async function AlbumPhotoLayout({ children, params }: AlbumPhotoLayoutProps) {
   const { albumId } = await params
   const cookieStore = await cookies()
   const { userId } = await getLoginInfo(cookieStore.toString())
-
-  if (!userId) {
-    return null
-  }
 
   const data = await photoService.list({
     size: PHOTO_LIST_PAGE_SIZE,
@@ -28,7 +24,7 @@ export default async function AlbumPhotoLayout({ children, params }: AlbumPhotoL
     favorite: null,
     status: null,
     albumId,
-  }, userId)
+  }, userId || undefined)
 
   return (
     <AlbumPhotoProvider initialPhotos={data.list}>

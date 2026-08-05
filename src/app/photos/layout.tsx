@@ -8,14 +8,10 @@ interface PhotoLayoutProps {
   children: React.ReactNode
 }
 
-// Query the first page of photos on the server side，and provided to /photo Page initialization list。
+// Query the photo list on the server side (publicly for guests or user-specific for logged-in admin).
 export default async function PhotoLayout({ children }: PhotoLayoutProps) {
   const cookieStore = await cookies()
   const { userId } = await getLoginInfo(cookieStore.toString())
-
-  if (!userId) {
-    return null
-  }
 
   const data = await photoService.list({
     size: PHOTO_LIST_PAGE_SIZE,
@@ -24,7 +20,7 @@ export default async function PhotoLayout({ children }: PhotoLayoutProps) {
     favorite: null,
     status: null,
     albumId: null,
-  }, userId)
+  }, userId || undefined)
 
   return (
     <PhotoProvider initialPhotos={data.list}>

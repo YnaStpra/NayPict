@@ -40,8 +40,8 @@ import { FileTypeEnum } from '@/server/enums/file-enum';
 
 const photoService = {
 
-  // Query the current user’s photos by page，and sorted by incoming conditions and shooting time。
-  async list(params: PhotoListBo, userId: string): Promise<PageVo<PhotoVo>> {
+  // Query photos by page (publicly for guests or user-specific for logged-in admin).
+  async list(params: PhotoListBo, userId?: string): Promise<PageVo<PhotoVo>> {
 
     const size = params.size && params.size > 0 ? params.size : PHOTO_LIST_PAGE_SIZE;
     const status = params.status ?? PhotoStatusEnum.NORMAL;
@@ -50,9 +50,12 @@ const photoService = {
       : photoTab.takenTime;
 
     const whereList = [
-      eq(photoTab.status, status),
-      eq(photoTab.userId, userId)
+      eq(photoTab.status, status)
     ];
+
+    if (userId) {
+      whereList.push(eq(photoTab.userId, userId));
+    }
 
     if (params.favorite) {
       whereList.push(eq(photoTab.favorite, params.favorite));
@@ -118,14 +121,17 @@ const photoService = {
     };
   },
 
-  // Statistics by day of photos that the current user has not deleted and have shooting time。
-  async takenDateList(params: PhotoTakenDateListBo, userId: string): Promise<PhotoTakenDateVo[]> {
+  // Statistics by day of photos that have shooting time (publicly for guests or user-specific for logged-in admin).
+  async takenDateList(params: PhotoTakenDateListBo, userId?: string): Promise<PhotoTakenDateVo[]> {
 
     const whereList = [
       eq(photoTab.status, PhotoStatusEnum.NORMAL),
-      eq(photoTab.userId, userId),
       isNotNull(photoTab.takenTime),
     ];
+
+    if (userId) {
+      whereList.push(eq(photoTab.userId, userId));
+    }
 
     if (params.favorite) {
       whereList.push(eq(photoTab.favorite, params.favorite));

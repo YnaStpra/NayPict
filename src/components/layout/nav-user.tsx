@@ -25,7 +25,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar"
 import { ThemeSwitcher } from "@/components/layout/theme-switcher"
-import { ChevronsUpDownIcon, UserRound, Key, BookOpen, LogOutIcon } from "lucide-react"
+import { ChevronsUpDownIcon, UserRound, Key, BookOpen, LogOutIcon, LogIn } from "lucide-react"
 import { logout } from "@/request/login"
 import { useApp } from "@/app/provider"
 import { useTranslations } from "next-intl"
@@ -57,7 +57,24 @@ export function NavUser({
   const t = useTranslations("layout.userMenu")
   const { isMobile } = useSidebar()
   const router = useRouter()
-  const { setUserInfo } = useApp()
+  const { userInfo, setUserInfo } = useApp()
+
+  if (!userInfo) {
+    return (
+      <SidebarMenu>
+        <SidebarMenuItem>
+          <SidebarMenuButton
+            size="lg"
+            onClick={() => router.push("/login")}
+            className="bg-primary/10 hover:bg-primary/20 text-primary font-medium flex items-center justify-center gap-2 rounded-lg w-full cursor-pointer"
+          >
+            <LogIn className="size-4" />
+            <span>Admin Login</span>
+          </SidebarMenuButton>
+        </SidebarMenuItem>
+      </SidebarMenu>
+    )
+  }
   const fallback = getAvatarFallback(user.name)
   // fileInputRef Used to select the avatar picture first，Open the cropping pop-up again。
   const fileInputRef = useRef<HTMLInputElement | null>(null)

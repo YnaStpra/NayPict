@@ -11,9 +11,12 @@ import { cache } from '@/server/infra/cache';
 const SYSTEM_PATHS = ['/users', '/settings', '/storage'];
 const PUBLIC_FILE_REG = /\.(?:png|jpg|jpeg|gif|webp|svg|ico)$/i;
 
-// Determine whether the current path allows unlogged access。
+// Determine whether the current path allows unlogged access.
 function isPublicPath(pathname: string) {
-  return pathname.startsWith('/login')
+  return pathname === '/'
+    || pathname.startsWith('/photos')
+    || pathname.startsWith('/albums')
+    || pathname.startsWith('/login')
     || pathname.startsWith('/api')
     || pathname.startsWith('/media')
     || pathname.startsWith('/_next')
