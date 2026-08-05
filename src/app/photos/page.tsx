@@ -64,7 +64,7 @@ export default function Page() {
   const openUpload = usePhotoStore((state) => state.openUpload)
   const uploadedPhotos = usePhotoStore((state) => state.uploadedPhotos)
 
-  useLayoutEffect(() => {
+  useEffect(() => {
     setIsBrowser(true)
   }, [])
 
@@ -174,14 +174,16 @@ export default function Page() {
             </div>
             <div className="fixed left-[calc(100vw-5.75rem)]  md:left-[calc(100vw-6.25rem)] top-0 flex h-12 items-center gap-1 px-4">
               <PhotoDateDrawer onRangeChange={changePhotoTime} />
-              <Button
-                type="button"
-                size="icon"
-                variant="ghost"
-                onClick={() => openUpload(null)}
-              >
-                <Plus />
-              </Button>
+              {userInfo && (
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="ghost"
+                  onClick={() => openUpload(null)}
+                >
+                  <Plus />
+                </Button>
+              )}
             </div>
           </header>
           <div className="px-1 md:pl-1 md:pr-0">

@@ -49,6 +49,13 @@ function clearLoginCookies(response: NextResponse) {
 export async function proxy(req: NextRequest) {
 
   const { pathname } = req.nextUrl;
+
+  if (pathname === '/') {
+    const url = req.nextUrl.clone();
+    url.pathname = '/photos';
+    return NextResponse.redirect(url);
+  }
+
   const cookie = req.headers.get('cookie');
   const { userId, uuid } = await getLoginInfo(cookie);
 
@@ -78,12 +85,6 @@ export async function proxy(req: NextRequest) {
     const loginUrl = req.nextUrl.clone();
     loginUrl.pathname = '/login';
     return clearLoginCookies(NextResponse.redirect(loginUrl));
-  }
-
-  if (pathname === '/') {
-    const url = req.nextUrl.clone();
-    url.pathname = '/photos';
-    return NextResponse.redirect(url);
   }
 
   if (pathname.startsWith('/login')) {
