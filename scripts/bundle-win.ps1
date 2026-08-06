@@ -1,8 +1,8 @@
-# 复制 Next.js standalone 产物到 D:\pixtale\pixtale，并带上外层 node.exe。
+# 复制 Next.js standalone 产物到 D:\pictale\pictale，并带上外层 node.exe。
 
 $Root = Split-Path -Parent $PSScriptRoot
-$Base = "D:\pixtale"
-$Out = Join-Path $Base "pixtale"
+$Base = "D:\pictale"
+$Out = Join-Path $Base "pictale"
 
 if (-not (Test-Path (Join-Path $Root ".next\standalone\server.js"))) {
   throw "Missing .next/standalone/server.js. Run npm run build first."

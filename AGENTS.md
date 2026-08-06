@@ -27,6 +27,6 @@ A web-based photo gallery application.
 
 # Database Location
 
-`data/pixtale.sqlite`
+`data/pictale.sqlite`
 
 <!-- END:nextjs-agent-rules -->

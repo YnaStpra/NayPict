@@ -1,6 +1,6 @@
 <p align="center">
     <img src="docs/images/logo.png" width="96px" />
-    <h1 align="center">Pixtale</h1>
+    <h1 align="center">Pictale</h1>
     <p align="center"><strong>A masonry-style web photo gallery application built with Next.js</strong></p>
 </p>
 
@@ -58,7 +58,7 @@
 
 2. Configure environment variables in `.env`:
    ```env
-   TITLE=Pixtale
+   TITLE=Pictale
    JWT_SECRET=your_jwt_secret
    ADMIN=admin
    PASSWORD=your_password
@@ -79,8 +79,8 @@
 | `ADMIN` | ✅ | None | Administrator username |
 | `PASSWORD` | ✅ | None | Administrator password |
 | `JWT_SECRET` | ✅ | None | Secret key for signing JWT tokens |
-| `TITLE` | ❌ | Pixtale | Website title |
+| `TITLE` | ❌ | Pictale | Website title |
 
 ## License
 
-`Pixtale` is open-source software licensed under the [AGPL-3.0](LICENSE).
+`Pictale` is open-source software licensed under the [AGPL-3.0](LICENSE).

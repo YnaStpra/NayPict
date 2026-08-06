@@ -9,7 +9,7 @@ import { schema } from '@/server/infra/schema'
 const dataDir = path.join(process.cwd(), 'data')
 fs.mkdirSync(dataDir, { recursive: true })
 
-const sqlite = new Database(path.join(dataDir, 'pixtale.sqlite'))
+const sqlite = new Database(path.join(dataDir, 'pictale.sqlite'))
 
 export const db = sqlite
 export const orm = drizzle(sqlite, { schema: schema as any })
