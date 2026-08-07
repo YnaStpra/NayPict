@@ -39,11 +39,10 @@ interface PhotoRestoreBo {
 
 }
 
-interface PhotoDeleteBo {
+interface PhotoSetAllowDownloadBo {
   photoIds: string[];
+  allowDownload: boolean;
 }
 
-
-
-export type { PhotoDeleteBo, PhotoExistsBo, PhotoFavoriteBo, PhotoListBo, PhotoRecycleBo, PhotoRestoreBo, PhotoTakenDateListBo };
+export type { PhotoDeleteBo, PhotoExistsBo, PhotoFavoriteBo, PhotoListBo, PhotoRecycleBo, PhotoRestoreBo, PhotoSetAllowDownloadBo, PhotoTakenDateListBo };
 

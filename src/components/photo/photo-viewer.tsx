@@ -6,7 +6,8 @@ import { isImageSlide, type SlideImage, useController, useLightboxState } from "
 import Fullscreen from "yet-another-react-lightbox/plugins/fullscreen"
 import Thumbnails from "yet-another-react-lightbox/plugins/thumbnails"
 import Zoom from "yet-another-react-lightbox/plugins/zoom"
-import { ArrowLeftIcon, ChevronLeftIcon, ChevronRightIcon, CircleAlertIcon, CircleIcon, Menu, LoaderCircleIcon, MaximizeIcon, PanelRightClose, PanelRightOpen, RotateCcwSquare } from "lucide-react"
+import { ArrowLeftIcon, ChevronLeftIcon, ChevronRightIcon, CircleAlertIcon, CircleIcon, LockIcon, Menu, LoaderCircleIcon, MaximizeIcon, PanelRightClose, PanelRightOpen, RotateCcwSquare } from "lucide-react"
+import { toast } from "sonner"
 
 import { PhotoInfoSidebar, PhotoViewerBlurBackground } from "@/components/photo/photo-info-sidebar"
 import { useTapAction } from "@/hooks/use-tap-action"
@@ -455,10 +456,25 @@ function LoadOriginalButton({
   const cacheSrc = photoSlide ? getPhotoCache(photoSlide.photoId) : undefined
   const originalLoaded = Boolean(photoSlide && (originalPhoto?.key === photoSlide.key || cacheSrc?.includes("photo/")))
 
-  // put the current slide Leave it to the parent component to load the original image。
+  if (photoSlide && !photoSlide.key) {
+    return (
+      <div
+        className={[
+          "absolute top-2 right-21 md:right-23.25 md:top-3 z-40 flex cursor-pointer items-center gap-1.5 rounded-full bg-black/60 px-3 py-1 text-xs text-white/90 transition-opacity duration-200 hover:bg-black/80",
+          getActionVisibleClass(showActions),
+        ].join(" ")}
+        onClick={() => toast.info("Download is disabled for this photo.")}
+      >
+        <LockIcon className="size-3.5 text-white/80" />
+        <span className="font-medium text-xs">Protected</span>
+      </div>
+    )
+  }
+
+  // put the current slide Leave it to the parent component to load the original image.
   function loadOriginal() {
 
-    //Picture does not exist，Or terminate after loading is complete
+    //Picture does not exist, Or terminate after loading is complete
     if (!photoSlide || originalLoaded) {
       return
     }

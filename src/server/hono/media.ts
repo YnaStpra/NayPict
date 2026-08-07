@@ -4,18 +4,19 @@ import { storage } from '@/server/storage/storage';
 import { orm } from '@/server/infra/db';
 import { photoTab } from '@/server/entity/photo';
 import { fileTab } from '@/server/entity/file';
-import { eq, and } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import { contextStorage } from 'hono/context-storage';
 import { security } from '../security/security';
 import { getUserId } from '@/server/security/context';
 import { cors } from 'hono/cors';
 import { buildContentDisposition } from '@/server/lib/file';
 import { FileTypeEnum } from '@/server/enums/file-enum';
+import { PhotoStatusEnum } from '@/server/enums/photo-enum';
 import BizError from '@/server/error/biz-error';
 import { i18nMiddleware, t } from '@/server/i18n';
 import type { HonoEnv } from './type';
 
-// This module handles the photo media reading interface，The path is /media/{key}。
+// This module handles the photo media reading interface, the path is /media/{key}.
 
 const media = new Hono<HonoEnv>();
 media.use('*', cors());
@@ -30,15 +31,8 @@ media.onError((err, c) => {
   return c.text(err.message, 500);
 });
 
-// According to the document key and current user id Query corresponding file and photo information。
+// Query file and photo information by document key.
 async function getPhotoFile(key: string) {
-
-  const userId = getUserId();
-
-  if (!userId) {
-    return null;
-  }
-
   const [row] = await orm
     .select({
       key: fileTab.key,
@@ -46,11 +40,13 @@ async function getPhotoFile(key: string) {
       fileType: fileTab.fileType,
       name: photoTab.name,
       photoId: photoTab.photoId,
-      storageId: photoTab.storageId
+      storageId: photoTab.storageId,
+      allowDownload: photoTab.allowDownload,
+      status: photoTab.status
     })
     .from(fileTab)
     .innerJoin(photoTab, eq(fileTab.photoId, photoTab.photoId))
-    .where(and(eq(fileTab.key, key), eq(photoTab.userId, userId)))
+    .where(eq(fileTab.key, key))
     .limit(1);
 
   return row;
@@ -66,15 +62,31 @@ media.get('*', async (c: Context, next: Next) => {
 
   const photoFile = await getPhotoFile(key);
 
-  if (!photoFile?.key || !photoFile?.storageId) {
+  if (!photoFile?.key || !photoFile?.storageId || photoFile.status !== PhotoStatusEnum.NORMAL) {
     return next();
+  }
+
+  // Server-side Download Protection for ORIGINAL file requests
+  if (photoFile.type === FileTypeEnum.ORIGINAL) {
+    const userId = getUserId();
+    const isAllowed = photoFile.allowDownload === 1 || Boolean(userId);
+
+    if (!isAllowed) {
+      return c.json({
+        code: 403,
+        error: "DOWNLOAD_PROTECTED",
+        message: "This photo is protected from download."
+      }, 403, {
+        'Cache-Control': 'no-store, private'
+      });
+    }
   }
 
   const obj = await storage.get(photoFile.key, photoFile.storageId);
   const disposition = photoFile.type === FileTypeEnum.ORIGINAL ? buildContentDisposition(photoFile.name) : null;
   const headers: Record<string, string> = {
     'Content-Type': photoFile.fileType,
-    'Cache-Control': 'private, max-age=604800',
+    'Cache-Control': photoFile.type === FileTypeEnum.ORIGINAL ? 'no-cache, private' : 'public, max-age=604800',
     'Content-Length': String(obj.size)
   };
 
@@ -83,6 +95,6 @@ media.get('*', async (c: Context, next: Next) => {
   }
 
   return c.body(obj.body, 200, headers);
-})
+});
 
 export { media };

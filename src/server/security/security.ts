@@ -31,6 +31,7 @@ const PUBLIC_API_PATHS = [
   '/logout',
   '/photo/list',
   '/photo/takenDateList',
+  '/photo/download',
   '/album/list',
   '/storage/select'
 ];

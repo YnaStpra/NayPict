@@ -47,7 +47,8 @@ const createTableSqlListSqlite = [
         user_id TEXT NOT NULL,
         status INTEGER NOT NULL DEFAULT 1,
         favorite INTEGER NOT NULL DEFAULT 1,
-        storage_id TEXT
+        storage_id TEXT,
+        allow_download INTEGER NOT NULL DEFAULT 0
     )`,
   `CREATE INDEX IF NOT EXISTS idx_photo_user_status_taken_time ON photo (user_id, status, taken_time)`,
   `CREATE INDEX IF NOT EXISTS idx_photo_status_recycle_time ON photo (status, recycle_time)`,
@@ -103,6 +104,11 @@ const createTableSqlListSqlite = [
 async function migrate(): Promise<void> {
   for (const sql of createTableSqlListSqlite) {
     db.exec(sql);
+  }
+  try {
+    db.exec(`ALTER TABLE photo ADD COLUMN allow_download INTEGER NOT NULL DEFAULT 0`);
+  } catch {
+    // Column allow_download already exists
   }
 }
 

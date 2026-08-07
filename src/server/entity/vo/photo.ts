@@ -3,7 +3,7 @@
 import { type Photo } from '@/server/entity/photo';
 
 type PhotoVo = Photo & {
-  key: string;
+  key: string | null;
   preview: string;
   thumbnail: string;
   exif: string | null;
