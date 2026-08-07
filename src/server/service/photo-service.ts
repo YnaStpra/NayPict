@@ -12,6 +12,7 @@ import {
   type PhotoListBo,
   type PhotoRecycleBo,
   type PhotoRestoreBo,
+  type PhotoSetAllowDownloadBo,
   type PhotoTakenDateListBo,
 } from '@/server/entity/bo/photo';
 import { PHOTO_LIST_PAGE_SIZE } from '@/server/const/global';
@@ -112,7 +113,7 @@ const photoService = {
       const fileStorage = fileStorageList.find((item: any) => item.storageId === photo.storageId);
       const domain = formatHttpUrl(fileStorage?.domain);
 
-      return this.toPhotoVo(photo, fileMap.get(photo.photoId) ?? [], fileStorage, domain, exifMap.get(photo.photoId) ?? null);
+      return this.toPhotoVo(photo, fileMap.get(photo.photoId) ?? [], fileStorage, domain, exifMap.get(photo.photoId) ?? null, userId);
     });
 
     return {
@@ -227,6 +228,8 @@ const photoService = {
     const storageId = String(form.get('storageId') ?? '');
     const albumId = String(form.get('albumId') ?? '');
     const lastModified = Number(form.get('lastModified') ?? 0);
+    const allowDownloadRaw = form.get('allowDownload');
+    const allowDownload = allowDownloadRaw === 'true' || allowDownloadRaw === '1';
 
     if (!file) {
       throw new BizError('photo.selectRequired');
@@ -302,7 +305,8 @@ const photoService = {
       userId,
       status: PhotoStatusEnum.NORMAL,
       favorite: PhotoFavoriteEnum.NO,
-      storageId
+      storageId,
+      allowDownload: allowDownload ? 1 : 0
     }).returning();
 
     const files = await fileService.save([
@@ -527,16 +531,59 @@ const photoService = {
     }
   },
 
-  // Get the specified type of storage from the file list key。
+  // Query single photo by ID.
+  async getById(photoId: string, currentUserId?: string): Promise<PhotoVo | null> {
+    const [photo] = await orm
+      .select()
+      .from(photoTab)
+      .where(eq(photoTab.photoId, photoId))
+      .limit(1);
+
+    if (!photo) {
+      return null;
+    }
+
+    const fileStorageList = await storageService.getStorageList();
+    const fileStorage = fileStorageList.find((item: any) => item.storageId === photo.storageId);
+    const domain = formatHttpUrl(fileStorage?.domain);
+    const [exifRow, files] = await Promise.all([
+      exifService.getByPhotoId(photoId),
+      fileService.listByPhotoId(photoId),
+    ]);
+
+    return this.toPhotoVo(photo, files, fileStorage, domain, exifRow, currentUserId);
+  },
+
+  // Batch update photo download protection status.
+  async setAllowDownload(params: PhotoSetAllowDownloadBo, userId: string): Promise<void> {
+    if (!params.photoIds || !params.photoIds.length) {
+      return;
+    }
+
+    await orm
+      .update(photoTab)
+      .set({ allowDownload: params.allowDownload ? 1 : 0 })
+      .where(and(
+        inArray(photoTab.photoId, params.photoIds),
+        eq(photoTab.userId, userId)
+      ));
+  },
+
+  // Get the specified type of storage from the file list key.
   getFileKey(files: PhotoFile[], type: number): string | null {
     return files.find((file: any) => file.type === type)?.key ?? null;
   },
 
-  // Store information and files key Merge into photo return object。
-  toPhotoVo(photo: Photo, files: PhotoFile[], fileStorage?: Storage, domain?: string, exifRow: Exif | null = null): PhotoVo {
-    const key = this.getFileKey(files, FileTypeEnum.ORIGINAL) ?? '';
+  // Store information and files key Merge into photo return object.
+  toPhotoVo(photo: Photo, files: PhotoFile[], fileStorage?: Storage, domain?: string, exifRow: Exif | null = null, currentUserId?: string): PhotoVo {
+    const rawKey = this.getFileKey(files, FileTypeEnum.ORIGINAL) ?? '';
     const preview = this.getFileKey(files, FileTypeEnum.PREVIEW) ?? '';
     const thumbnail = this.getFileKey(files, FileTypeEnum.THUMBNAIL) ?? '';
+
+    // If allowDownload === 0 (Protected) and requester is not authenticated Admin (currentUserId is empty/falsy),
+    // mask key as null so the original file URL is NEVER leaked to public clients.
+    const isAllowed = photo.allowDownload === 1 || Boolean(currentUserId);
+    const key = isAllowed && rawKey ? toMediaUrl(rawKey, domain) : null;
 
     return {
       ...photo,
@@ -544,9 +591,9 @@ const photoService = {
       latitude: exifRow?.latitude ?? null,
       longitude: exifRow?.longitude ?? null,
       altitude: exifRow?.altitude ?? null,
-      key: toMediaUrl(key, domain) ?? null,
-      preview: toMediaUrl(preview, domain) ?? null,
-      thumbnail: toMediaUrl(thumbnail, domain) ?? null,
+      key,
+      preview: toMediaUrl(preview, domain) ?? '',
+      thumbnail: toMediaUrl(thumbnail, domain) ?? '',
       storageName: fileStorage?.name ?? null,
       storageTypeDesc: fileStorage
         ? StorageTypeOptions.find((item: any) => item.value === fileStorage.type)?.label ?? null

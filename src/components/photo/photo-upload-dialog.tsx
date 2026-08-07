@@ -292,6 +292,7 @@ export function PhotoUploadDialog() {
       formData.set("storageId", currentStorageId)
       formData.set("file", item.file)
       formData.set("lastModified", String(item.file.lastModified))
+      formData.set("allowDownload", String(readPhotoUploadSettings().allowDownload))
       if (item.albumId) {
         formData.set("albumId", item.albumId)
       }

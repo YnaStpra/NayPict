@@ -161,6 +161,7 @@ export function PhotoInfoSidebar({ photo, onClose }: PhotoInfoSidebarProps) {
             />
             <PhotoInfoRow label={t("software")} value={getPhotoSoftware(photo.exif)} wrap />
             <PhotoInfoRow label={t("storage")} value={formatStorageLocation(photo, storageT)} />
+            <PhotoInfoRow label="Download" value={photo.allowDownload === 1 ? "↓ Downloadable" : "🔒 Protected"} />
           </div>
           {shootingParams.length > 0 && (
             <>

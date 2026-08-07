@@ -19,7 +19,8 @@ export const photoTab = sqliteTable('photo', {
   userId: text('user_id').notNull(),
   status: integer('status').default(PhotoStatusEnum.NORMAL).notNull(),
   favorite: integer('favorite').default(PhotoFavoriteEnum.NO).notNull(),
-  storageId: text('storage_id')
+  storageId: text('storage_id'),
+  allowDownload: integer('allow_download').default(0).notNull()
 });
 
 export type Photo = typeof photoTab.$inferSelect;
