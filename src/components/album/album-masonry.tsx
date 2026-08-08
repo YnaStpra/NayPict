@@ -18,9 +18,10 @@ interface AlbumMasonryProps {
   onAlbumRename?: (album: AlbumVo) => void
   onAlbumTop?: (album: AlbumVo) => void
   onAlbumDelete?: (album: AlbumVo) => void
+  onAlbumChangeCover?: (album: AlbumVo) => void
 }
 
-// Bundle rem The unit is converted to the current root font size px。
+// Bundle rem The unit is converted to the current root font size px.
 function remToPx(rem: number) {
   const rootFontSize = parseFloat(
     getComputedStyle(document.documentElement).fontSize
@@ -29,7 +30,7 @@ function remToPx(rem: number) {
   return rem * rootFontSize
 }
 
-// Calculate the initial width of the album list based on the sidebar status。
+// Calculate the initial width of the album list based on the sidebar status.
 function getInitialWrapWidth(sidebarOpen: boolean) {
   const width = window.innerWidth
 
@@ -40,12 +41,12 @@ function getInitialWrapWidth(sidebarOpen: boolean) {
   return width - remToPx(sidebarOpen ? 15.25 : 4.25)
 }
 
-// Calculate the fixed height of the album card under the current column width。
+// Calculate the fixed height of the album card under the current column width.
 function getAlbumHeight(columnWidth: number) {
   return Math.max(1, Math.round(columnWidth))
 }
 
-// Synchronize the height of each album card to masonic positioner。
+// Synchronize the height of each album card to masonic positioner.
 function syncAlbumPositioner(items: AlbumVo[], columnWidth: number, positioner: Positioner) {
   const height = getAlbumHeight(columnWidth)
   const updates: number[] = []
@@ -65,14 +66,14 @@ function syncAlbumPositioner(items: AlbumVo[], columnWidth: number, positioner: 
   }
 }
 
-// Rendering a virtual scrolling list of photo albums。
-export function AlbumMasonry({ albums, resetKey = 0, onAlbumRename, onAlbumTop, onAlbumDelete }: AlbumMasonryProps) {
+// Rendering a virtual scrolling list of photo albums.
+export function AlbumMasonry({ albums, resetKey = 0, onAlbumRename, onAlbumTop, onAlbumDelete, onAlbumChangeCover }: AlbumMasonryProps) {
   const { sidebarOpen } = useApp()
-  // wrapRef Used to monitor the real visual width of the outer layer of the album list。
+  // wrapRef Used to monitor the real visual width of the outer layer of the album list.
   const wrapRef = useRef<HTMLDivElement | null>(null)
-  // windowHeight used to tell masonic Current virtual scroll visible height。
+  // windowHeight used to tell masonic Current virtual scroll visible height.
   const [windowHeight, setWindowHeight] = useState(() => window.innerHeight)
-  // wrapPosition Record the page position and layout width of the outer container of the album list。
+  // wrapPosition Record the page position and layout width of the outer container of the album list.
   const [wrapPosition, setWrapPosition] = useState({ offset: 0, width: getInitialWrapWidth(sidebarOpen) })
 
   const width = wrapPosition.width
@@ -90,7 +91,7 @@ export function AlbumMasonry({ albums, resetKey = 0, onAlbumRename, onAlbumTop, 
   syncAlbumPositioner(albums, positioner.columnWidth, positioner)
 
   useEffect(() => {
-    // Update window height，for masonic Calculate visible area。
+    // Update window height, for masonic Calculate visible area.
     function handleResize() {
       setWindowHeight(window.innerHeight)
     }
@@ -103,7 +104,7 @@ export function AlbumMasonry({ albums, resetKey = 0, onAlbumRename, onAlbumTop, 
   }, [])
 
   useLayoutEffect(() => {
-    // Monitor the width change of the outer visual container of the album list。
+    // Monitor the width change of the outer visual container of the album list.
     const container = wrapRef.current
 
     if (!container) {
@@ -113,7 +114,7 @@ export function AlbumMasonry({ albums, resetKey = 0, onAlbumRename, onAlbumTop, 
     const containerEl = container
     let timerId: number | null = null
 
-    // Calculate the distance between the outer layer of the album list and the top of the page。
+    // Calculate the distance between the outer layer of the album list and the top of the page.
     function getOffset() {
       let offset = 0
       let el: HTMLElement | null = containerEl
@@ -126,7 +127,7 @@ export function AlbumMasonry({ albums, resetKey = 0, onAlbumRename, onAlbumTop, 
       return offset
     }
 
-    // Get the current position and width of the outer layer of the album list。
+    // Get the current position and width of the outer layer of the album list.
     function getWrapPosition() {
       return {
         offset: getOffset(),
@@ -134,13 +135,13 @@ export function AlbumMasonry({ albums, resetKey = 0, onAlbumRename, onAlbumTop, 
       }
     }
 
-    // Force synchronization of the position and width of the outer layer of the album list。
+    // Force synchronization of the position and width of the outer layer of the album list.
     function syncWrapPosition() {
       console.log(wrapPosition.width)
       setWrapPosition(getWrapPosition())
     }
 
-    // Measure the position and width of the outer layer of the album list，After the first synchronization is completed, force reading again.。
+    // Measure the position and width of the outer layer of the album list, After the first synchronization is completed, force reading again..
     function measureWrapPosition() {
       const nextPosition = getWrapPosition()
       let needSync = false
@@ -164,7 +165,7 @@ export function AlbumMasonry({ albums, resetKey = 0, onAlbumRename, onAlbumTop, 
       }
     }
 
-    // Bundle ResizeObserver Notifications shake to stop changing 300ms Post-processing。
+    // Bundle ResizeObserver Notifications shake to stop changing 300ms Post-processing.
     function updateWrapPosition() {
       if (timerId !== null) {
         window.clearTimeout(timerId)
@@ -205,6 +206,7 @@ export function AlbumMasonry({ albums, resetKey = 0, onAlbumRename, onAlbumTop, 
             onRename={onAlbumRename}
             onTop={onAlbumTop}
             onDelete={onAlbumDelete}
+            onChangeCover={onAlbumChangeCover}
           />
         )}
       />

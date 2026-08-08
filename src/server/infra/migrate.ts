@@ -29,7 +29,9 @@ const createTableSqlListSqlite = [
         sort INTEGER NOT NULL DEFAULT 0,
         create_time TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
         update_time TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
-        user_id TEXT NOT NULL
+        user_id TEXT NOT NULL,
+        cover_photo_id TEXT,
+        is_manual_cover INTEGER NOT NULL DEFAULT 0
     )`,
   `CREATE TABLE IF NOT EXISTS photo (
         photo_id TEXT PRIMARY KEY NOT NULL,
@@ -109,6 +111,16 @@ async function migrate(): Promise<void> {
     db.exec(`ALTER TABLE photo ADD COLUMN allow_download INTEGER NOT NULL DEFAULT 0`);
   } catch {
     // Column allow_download already exists
+  }
+  try {
+    db.exec(`ALTER TABLE album ADD COLUMN cover_photo_id TEXT`);
+  } catch {
+    // Column cover_photo_id already exists
+  }
+  try {
+    db.exec(`ALTER TABLE album ADD COLUMN is_manual_cover INTEGER NOT NULL DEFAULT 0`);
+  } catch {
+    // Column is_manual_cover already exists
   }
 }
 

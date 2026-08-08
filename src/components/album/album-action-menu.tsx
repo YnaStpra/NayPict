@@ -13,17 +13,18 @@ import {
 } from "@/components/ui/dropdown-menu"
 
 interface AlbumActionMenuProps {
-  // Whether the current button icon displays a shadow。
+  // Whether the current button icon displays a shadow.
   shadow?: boolean
   onRename: () => void
   onTop: () => void
   onDelete: () => void
+  onChangeCover?: () => void
 }
 
-// Render the more operations menu in the upper right corner of the album card。
-export function AlbumActionMenu({ shadow = true, onRename, onTop, onDelete }: AlbumActionMenuProps) {
+// Render the more operations menu in the upper right corner of the album card.
+export function AlbumActionMenu({ shadow = true, onRename, onTop, onDelete, onChangeCover }: AlbumActionMenuProps) {
   const t = useTranslations("albums")
-  // open Record whether the current drop-down menu is open，Used to hide icon shadow when open。
+  // open Record whether the current drop-down menu is open, Used to hide icon shadow when open.
   const [open, setOpen] = useState(false)
   const showShadow = shadow && !open
 
@@ -44,7 +45,12 @@ export function AlbumActionMenu({ shadow = true, onRename, onTop, onDelete }: Al
           />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-24 min-w-24">
+      <DropdownMenuContent align="end" className="w-32 min-w-32">
+        {onChangeCover && (
+          <DropdownMenuItem onSelect={onChangeCover}>
+            Change Cover
+          </DropdownMenuItem>
+        )}
         <DropdownMenuItem onSelect={onRename}>
           {t("actions.rename")}
         </DropdownMenuItem>
