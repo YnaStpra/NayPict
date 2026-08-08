@@ -23,8 +23,10 @@ interface AlbumSetNameBo {
   name: string;
 }
 
-interface AlbumSetTopBo {
+interface AlbumSetCoverBo {
   albumId: string;
+  photoId?: string | null;
+  autoSelect?: boolean;
 }
 
-export type { AlbumAddBo, AlbumAddPhotoBo, AlbumDeleteBo, AlbumRemovePhotoBo, AlbumSetNameBo, AlbumSetTopBo };
+export type { AlbumAddBo, AlbumAddPhotoBo, AlbumDeleteBo, AlbumRemovePhotoBo, AlbumSetCoverBo, AlbumSetNameBo, AlbumSetTopBo };

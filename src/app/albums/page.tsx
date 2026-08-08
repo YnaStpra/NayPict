@@ -29,25 +29,25 @@ const AlbumMasonry = dynamic(
   { ssr: false },
 )
 
+const AlbumCoverDialog = dynamic(
+  () => import("@/components/album/album-cover-dialog").then((mod) => mod.AlbumCoverDialog),
+  { ssr: false },
+)
+
 export default function Page() {
   const t = useTranslations("albums")
   const { initialAlbums } = useAlbumContext()
   const { sidebarOpen, setSidebarOpen, refreshAlbums } = useApp()
-  // albums Save the album list displayed on the current page。
   const [albums, setAlbums] = useState<AlbumVo[]>(initialAlbums)
-  // albumListKey Used to force refresh the album waterfall flow layout。
   const [albumListKey, setAlbumListKey] = useState(0)
-  // renameOpen Control the opening state of the name modification dialog box。
   const [renameOpen, setRenameOpen] = useState(false)
-  // renamingAlbum Save the album whose name is currently being modified。
   const [renamingAlbum, setRenamingAlbum] = useState<AlbumVo | null>(null)
-  // deleteOpen Control the opening state of the delete confirmation pop-up box。
   const [deleteOpen, setDeleteOpen] = useState(false)
-  // deletingAlbum Save the album currently awaiting deletion confirmation。
   const [deletingAlbum, setDeletingAlbum] = useState<AlbumVo | null>(null)
+  const [coverDialogOpen, setCoverDialogOpen] = useState(false)
+  const [coverAlbum, setCoverAlbum] = useState<AlbumVo | null>(null)
 
   useEffect(() => {
-    // Disable browser scroll recovery when refreshing album page，and go back to the top of the list。
     const previousScrollRestoration = window.history.scrollRestoration
 
     window.history.scrollRestoration = "manual"
@@ -58,7 +58,6 @@ export default function Page() {
     }
   }, [])
 
-  // Load all album data。
   async function getAlbumList() {
     const data = await albumList()
 
@@ -66,26 +65,22 @@ export default function Page() {
     setAlbumListKey((prev) => prev + 1)
   }
 
-  // Re-query the album page list and global album selection list。
   async function refreshAlbumData() {
     await getAlbumList()
     await refreshAlbums()
   }
 
-  // Add album，and move the new album to the top of the list。
   function addAlbum(name: string) {
     albumAdd({ name }).then(() => {
       void refreshAlbumData()
     })
   }
 
-  // Open the modify album name pop-up box。
   function renameAlbum(album: AlbumVo) {
     setRenamingAlbum(album)
     setRenameOpen(true)
   }
 
-  // Handle photo album pinning operation。
   function topAlbum(album: AlbumVo) {
     albumSetTop({
       albumId: album.albumId,
@@ -94,7 +89,6 @@ export default function Page() {
     })
   }
 
-  // Open the delete confirmation popup。
   function openDeleteAlbum(album: AlbumVo) {
     if (album.photoTotal === 0) {
       deleteAlbum(album)
@@ -105,7 +99,6 @@ export default function Page() {
     setDeleteOpen(true)
   }
 
-  // Update current list after deleting album。
   function deleteAlbum(album: AlbumVo) {
     albumDelete({
       albumId: album.albumId,
@@ -114,7 +107,6 @@ export default function Page() {
     })
   }
 
-  // Update current list after confirming deletion of album。
   function confirmDeleteAlbum() {
     const album = deletingAlbum
 
@@ -130,7 +122,6 @@ export default function Page() {
     deleteAlbum(album)
   }
 
-  // Submit new album name，Update the album name in the current list after success。
   function renameAlbumName(name: string) {
     const album = renamingAlbum
 
@@ -151,7 +142,6 @@ export default function Page() {
     })
   }
 
-  // Handle the open state of the name modification pop-up box。
   function handleRenameOpenChange(open: boolean) {
     setRenameOpen(open)
 
@@ -160,13 +150,26 @@ export default function Page() {
     }
   }
 
-  // Handling the open state of the deletion confirmation pop-up box。
   function handleDeleteOpenChange(open: boolean) {
     setDeleteOpen(open)
 
     if (!open) {
       setTimeout(() => {
         setDeletingAlbum(null)
+      }, 300)
+    }
+  }
+
+  function openChangeCover(album: AlbumVo) {
+    setCoverAlbum(album)
+    setCoverDialogOpen(true)
+  }
+
+  function handleCoverOpenChange(open: boolean) {
+    setCoverDialogOpen(open)
+    if (!open) {
+      setTimeout(() => {
+        setCoverAlbum(null)
       }, 300)
     }
   }
@@ -192,7 +195,7 @@ export default function Page() {
                 </BreadcrumbList>
               </Breadcrumb>
             </div>
-            <div className="fixed left-[calc(100vw-3.5rem)]  md:left-[calc(100vw-4rem)] top-0 flex h-12 items-center gap-3 px-4">
+            <div className="fixed left-[calc(100vw-3.5rem)] md:left-[calc(100vw-4rem)] top-0 flex h-12 items-center gap-3 px-4">
               <AlbumAddDialog title={t("addTitle")} onNameConfirm={addAlbum} />
             </div>
           </header>
@@ -203,6 +206,7 @@ export default function Page() {
               onAlbumRename={renameAlbum}
               onAlbumTop={topAlbum}
               onAlbumDelete={openDeleteAlbum}
+              onAlbumChangeCover={openChangeCover}
             />
           </div>
         </SidebarInset>
@@ -215,6 +219,12 @@ export default function Page() {
           onNameConfirm={renameAlbumName}
         />
       )}
+      <AlbumCoverDialog
+        open={coverDialogOpen}
+        album={coverAlbum}
+        onOpenChange={handleCoverOpenChange}
+        onSuccess={refreshAlbumData}
+      />
       <AlertDialogDestructive
         open={deleteOpen}
         onOpenChange={handleDeleteOpenChange}

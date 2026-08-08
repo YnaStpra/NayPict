@@ -15,32 +15,38 @@ type AlbumCardProps = Partial<RenderComponentProps<AlbumVo>> & {
   onRename?: (album: AlbumVo) => void
   onTop?: (album: AlbumVo) => void
   onDelete?: (album: AlbumVo) => void
+  onChangeCover?: (album: AlbumVo) => void
 }
 
-// Render a single album card in a virtual list。
-export function AlbumCard({ data, width, href, onRename, onTop, onDelete }: AlbumCardProps) {
+// Render a single album card in a virtual list.
+export function AlbumCard({ data, width, href, onRename, onTop, onDelete, onChangeCover }: AlbumCardProps) {
   const setCurrentAlbumName = useAlbumStore((state) => state.setCurrentAlbumName)
   const thumbnailSrc = data.thumbnail
   const placeholder = useMemo(() => getThumbHashUrl(data.thumbHash), [data.thumbHash])
 
-  // Record the current album name before clicking to enter the album，For photo page display。
+  // Record the current album name before clicking to enter the album, For photo page display.
   function saveCurrentAlbumName() {
     setCurrentAlbumName(data.name)
   }
 
-  // Hand over the renaming operation and current album to the upper page。
+  // Hand over the renaming operation and current album to the upper page.
   function renameAlbum() {
     onRename?.(data)
   }
 
-  // Hand over the pin operation and current album to the upper page。
+  // Hand over the pin operation and current album to the upper page.
   function topAlbum() {
     onTop?.(data)
   }
 
-  // Hand over the deletion operation and current album to the upper page。
+  // Hand over the deletion operation and current album to the upper page.
   function deleteAlbum() {
     onDelete?.(data)
+  }
+
+  // Hand over the cover change operation and current album to the upper page.
+  function changeCoverAlbum() {
+    onChangeCover?.(data)
   }
 
   return (
@@ -96,6 +102,7 @@ export function AlbumCard({ data, width, href, onRename, onTop, onDelete }: Albu
             onRename={renameAlbum}
             onTop={topAlbum}
             onDelete={deleteAlbum}
+            onChangeCover={onChangeCover ? changeCoverAlbum : undefined}
           />
         </div>
       )}

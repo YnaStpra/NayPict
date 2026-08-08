@@ -5,8 +5,8 @@ import { albumPhotoTab } from '@/server/entity/album-photo';
 import { photoTab } from '@/server/entity/photo';
 import { orm } from '@/server/infra/db';
 import BizError from '@/server/error/biz-error';
-import { type AlbumAddBo, type AlbumAddPhotoBo, type AlbumDeleteBo, type AlbumRemovePhotoBo, type AlbumSetNameBo, type AlbumSetTopBo } from '@/server/entity/bo/album';
-import { PhotoStatusEnum } from '@/server/enums/photo-enum';
+import { type AlbumAddBo, type AlbumAddPhotoBo, type AlbumDeleteBo, type AlbumRemovePhotoBo, type AlbumSetCoverBo, type AlbumSetNameBo, type AlbumSetTopBo } from '@/server/entity/bo/album';
+import { PhotoFavoriteEnum, PhotoStatusEnum } from '@/server/enums/photo-enum';
 import { type AlbumVo } from '@/server/entity/vo/album';
 import { storageService } from '@/server/service/storage-service';
 import { formatHttpUrl, toMediaUrl } from '@/lib/url';
@@ -14,11 +14,65 @@ import { fileService } from '@/server/service/file-service';
 import { FileTypeEnum } from '@/server/enums/file-enum';
 import { type File } from '@/server/entity/file';
 
-// This module handles album data writing related services。
+// Calculate cover score for a photo based on metadata.
+function calculateAlbumCoverScore(photo: {
+  width: number | null;
+  height: number | null;
+  size: number;
+  favorite?: number | null;
+  thumbHash?: string | null;
+}): number {
+  let score = 0;
+  const width = photo.width ?? 0;
+  const height = photo.height ?? 0;
+
+  // 1. Orientation score (Landscape preference)
+  if (width > 0 && height > 0) {
+    if (width > height) {
+      score += 30; // Landscape preferred!
+    } else if (width === height) {
+      score += 15; // Square
+    } else {
+      score += 5;  // Portrait
+    }
+
+    // 2. Aspect Ratio score (16:9, 3:2, 4:3 preferred)
+    const ratio = width / height;
+    if (ratio >= 1.3 && ratio <= 1.8) {
+      score += 20; // Ideal aspect ratio for cover!
+    } else if (ratio >= 1.2 && ratio <= 2.0) {
+      score += 10;
+    }
+
+    // 3. Resolution & Dimensions score
+    const pixels = width * height;
+    if (pixels >= 8_000_000) {
+      score += 20;
+    } else if (pixels >= 2_000_000) {
+      score += 10;
+    }
+
+    if (width >= 1920 || height >= 1080) {
+      score += 15;
+    }
+  }
+
+  // 4. Favorite bonus
+  if (photo.favorite === PhotoFavoriteEnum.YES) {
+    score += 15;
+  }
+
+  // 5. Valid thumbnail hash
+  if (photo.thumbHash) {
+    score += 5;
+  }
+
+  return score;
+}
 
 const albumService = {
 
-  // Query the list of photo albums (publicly for guests or user-specific for logged-in admin).
+  // Query the list of photo albums with automatic cover resolution.
   async list(userId?: string): Promise<AlbumVo[]> {
 
     const whereAlbum = userId ? eq(albumTab.userId, userId) : undefined;
@@ -42,49 +96,75 @@ const albumService = {
       wherePhotoList.push(eq(photoTab.userId, userId));
     }
 
-    const photoStatList = await orm
+    const allAlbumPhotos = await orm
       .select({
         albumId: albumPhotoTab.albumId,
         photoId: photoTab.photoId,
+        name: photoTab.name,
+        width: photoTab.width,
+        height: photoTab.height,
+        size: photoTab.size,
+        favorite: photoTab.favorite,
         thumbHash: photoTab.thumbHash,
         storageId: photoTab.storageId,
-        photoTotal: count(photoTab.photoId),
-        takenTime: max(photoTab.takenTime)
+        takenTime: photoTab.takenTime
       })
       .from(albumPhotoTab)
       .innerJoin(photoTab, eq(albumPhotoTab.photoId, photoTab.photoId))
-      .where(and(...wherePhotoList))
-      .groupBy(albumPhotoTab.albumId)
-      .orderBy(desc(photoTab.takenTime), desc(photoTab.photoId));
+      .where(and(...wherePhotoList));
 
-    const fileMap = await fileService.listByPhotoIds(
-      photoStatList.map((stat: any) => stat.photoId).filter(Boolean) as string[]
-    );
+    const photosByAlbum = new Map<string, typeof allAlbumPhotos>();
+    for (const row of allAlbumPhotos) {
+      const existing = photosByAlbum.get(row.albumId) ?? [];
+      existing.push(row);
+      photosByAlbum.set(row.albumId, existing);
+    }
 
-    const list = albumList.map((album: any) => {
-      const photoStat = photoStatList.find((stat: any) => stat.albumId === album.albumId);
-      const fileStorage = fileStorageList.list.find((item: any) => item.storageId === photoStat?.storageId);
+    const referencedPhotoIds = Array.from(new Set(allAlbumPhotos.map((p) => p.photoId)));
+    const fileMap = referencedPhotoIds.length
+      ? await fileService.listByPhotoIds(referencedPhotoIds)
+      : new Map<string, File[]>();
+
+    const list = albumList.map((album) => {
+      const albumPhotos = photosByAlbum.get(album.albumId) ?? [];
+
+      let suggestedCoverPhoto: (typeof albumPhotos)[0] | null = null;
+      if (albumPhotos.length) {
+        const sorted = albumPhotos.slice().sort((a, b) => calculateAlbumCoverScore(b) - calculateAlbumCoverScore(a));
+        suggestedCoverPhoto = sorted[0] ?? null;
+      }
+
+      let selectedCoverPhoto: (typeof albumPhotos)[0] | null = null;
+      if (album.isManualCover === 1 && album.coverPhotoId) {
+        selectedCoverPhoto = albumPhotos.find((p) => p.photoId === album.coverPhotoId) ?? suggestedCoverPhoto;
+      } else {
+        selectedCoverPhoto = suggestedCoverPhoto;
+      }
+
+      const fileStorage = fileStorageList.list.find((item: any) => item.storageId === selectedCoverPhoto?.storageId);
       const domain = formatHttpUrl(fileStorage?.domain);
 
       let thumbnail: string | null = null;
-
-      if (photoStat?.photoId) {
-        const file = (fileMap.get(photoStat.photoId) ?? []).find((item: any) => item.type === FileTypeEnum.THUMBNAIL);
+      if (selectedCoverPhoto?.photoId) {
+        const file = (fileMap.get(selectedCoverPhoto.photoId) ?? []).find((item: any) => item.type === FileTypeEnum.THUMBNAIL);
         thumbnail = file?.key ?? null;
       }
 
       return {
         ...album,
         thumbnail: thumbnail ? toMediaUrl(thumbnail, domain) : null,
-        thumbHash: photoStat?.thumbHash ?? null,
-        photoTotal: Number(photoStat?.photoTotal ?? 0)
+        thumbHash: selectedCoverPhoto?.thumbHash ?? null,
+        photoTotal: albumPhotos.length,
+        coverPhotoId: selectedCoverPhoto?.photoId ?? null,
+        suggestedCoverPhotoId: suggestedCoverPhoto?.photoId ?? null,
+        isManualCover: album.isManualCover === 1
       };
     });
 
     return list;
   },
 
-  // Add the current user's photo album，and prevent the same user from creating albums with duplicate names。
+  // Add the current user's photo album.
   async add(params: AlbumAddBo, userId: string): Promise<Album> {
 
     const name = params.name?.trim();
@@ -120,7 +200,118 @@ const albumService = {
     return album;
   },
 
-  // Add a new photo association to the current user's designated album，and skip existing associations。
+  // Set or auto-select album cover.
+  async setCover(params: AlbumSetCoverBo, userId: string): Promise<void> {
+    if (!params.albumId) {
+      throw new BizError('album.selectRequired');
+    }
+
+    const [album] = await orm
+      .select()
+      .from(albumTab)
+      .where(and(
+        eq(albumTab.albumId, params.albumId),
+        eq(albumTab.userId, userId)
+      ))
+      .limit(1);
+
+    if (!album) {
+      throw new BizError('album.notFound');
+    }
+
+    if (params.autoSelect) {
+      const albumPhotos = await orm
+        .select({
+          photoId: photoTab.photoId,
+          width: photoTab.width,
+          height: photoTab.height,
+          size: photoTab.size,
+          favorite: photoTab.favorite,
+          thumbHash: photoTab.thumbHash
+        })
+        .from(albumPhotoTab)
+        .innerJoin(photoTab, eq(albumPhotoTab.photoId, photoTab.photoId))
+        .where(and(
+          eq(albumPhotoTab.albumId, params.albumId),
+          eq(photoTab.status, PhotoStatusEnum.NORMAL)
+        ));
+
+      const sorted = albumPhotos.slice().sort((a, b) => calculateAlbumCoverScore(b) - calculateAlbumCoverScore(a));
+      const best = sorted[0] ?? null;
+
+      await orm
+        .update(albumTab)
+        .set({
+          coverPhotoId: best?.photoId ?? null,
+          isManualCover: 0,
+          updateTime: new Date().toISOString()
+        })
+        .where(eq(albumTab.albumId, params.albumId));
+      return;
+    }
+
+    if (params.photoId !== undefined) {
+      await orm
+        .update(albumTab)
+        .set({
+          coverPhotoId: params.photoId,
+          isManualCover: 1,
+          updateTime: new Date().toISOString()
+        })
+        .where(eq(albumTab.albumId, params.albumId));
+    }
+  },
+
+  // Get photo candidates in album sorted by cover score.
+  async getCoverCandidates(albumId: string, userId?: string) {
+    const wherePhotoList = [
+      eq(albumPhotoTab.albumId, albumId),
+      eq(photoTab.status, PhotoStatusEnum.NORMAL)
+    ];
+    if (userId) {
+      wherePhotoList.push(eq(photoTab.userId, userId));
+    }
+
+    const albumPhotos = await orm
+      .select({
+        photoId: photoTab.photoId,
+        name: photoTab.name,
+        width: photoTab.width,
+        height: photoTab.height,
+        size: photoTab.size,
+        favorite: photoTab.favorite,
+        thumbHash: photoTab.thumbHash,
+        storageId: photoTab.storageId
+      })
+      .from(albumPhotoTab)
+      .innerJoin(photoTab, eq(albumPhotoTab.photoId, photoTab.photoId))
+      .where(and(...wherePhotoList));
+
+    const photoIds = albumPhotos.map((p) => p.photoId);
+    const fileStorageList = await storageService.list();
+    const fileMap = photoIds.length
+      ? await fileService.listByPhotoIds(photoIds)
+      : new Map<string, File[]>();
+
+    const scored = albumPhotos.map((photo) => {
+      const score = calculateAlbumCoverScore(photo);
+      const fileStorage = fileStorageList.list.find((item: any) => item.storageId === photo.storageId);
+      const domain = formatHttpUrl(fileStorage?.domain);
+      const thumbnailFile = (fileMap.get(photo.photoId) ?? []).find((item: any) => item.type === FileTypeEnum.THUMBNAIL);
+      const previewFile = (fileMap.get(photo.photoId) ?? []).find((item: any) => item.type === FileTypeEnum.PREVIEW);
+
+      return {
+        ...photo,
+        score,
+        thumbnail: thumbnailFile?.key ? toMediaUrl(thumbnailFile.key, domain) : null,
+        preview: previewFile?.key ? toMediaUrl(previewFile.key, domain) : null,
+      };
+    }).sort((a, b) => b.score - a.score);
+
+    return scored;
+  },
+
+  // Add photo associations.
   async addPhoto(params: AlbumAddPhotoBo, userId: string): Promise<void> {
 
     if (!params.photoIds?.length) {
@@ -172,7 +363,7 @@ const albumService = {
     }
   },
 
-  // Remove photo associations from the current user's specified album。
+  // Remove photo associations.
   async removePhoto(params: AlbumRemovePhotoBo, userId: string): Promise<void> {
 
     if (!params.albumId) {
@@ -205,7 +396,7 @@ const albumService = {
       ));
   },
 
-  // Modify the name of the current user-specified album。
+  // Modify album name.
   async setName(params: AlbumSetNameBo, userId: string): Promise<void> {
     const name = params.name?.trim();
 
@@ -224,7 +415,7 @@ const albumService = {
       ));
   },
 
-  // Pin the album specified by the current user to the top。
+  // Pin album to top.
   async setTop(params: AlbumSetTopBo, userId: string): Promise<void> {
     await orm.update(albumTab)
       .set({
@@ -237,7 +428,7 @@ const albumService = {
       ));
   },
 
-  // Delete the album specified by the current user，And clean up the album photo associations。
+  // Delete album.
   async delete(params: AlbumDeleteBo, userId: string): Promise<void> {
 
     await orm.delete(albumPhotoTab)
@@ -251,7 +442,7 @@ const albumService = {
 
   },
 
-  // Delete all albums of specified user，And clean up the photo associations of these albums。
+  // Delete all albums by user ID.
   async deleteByUserId(userId: string): Promise<void> {
 
     const albumList = await orm
@@ -274,7 +465,7 @@ const albumService = {
       .where(eq(albumTab.userId, userId));
   },
 
-  // Query the current user's virtual photo album in the recycle bin，And statistics on the number of recycled photos and the latest recycled covers。
+  // Virtual trash album.
   async trash(userId: string): Promise<AlbumVo> {
     const fileStorageList = await storageService.list();
     const photoList = await orm
@@ -309,7 +500,10 @@ const albumService = {
       userId,
       thumbnail: thumbnail ? toMediaUrl(thumbnail, domain) : null,
       thumbHash: coverPhoto?.thumbHash ?? null,
-      photoTotal: photoList.length
+      photoTotal: photoList.length,
+      coverPhotoId: coverPhoto?.photoId ?? null,
+      suggestedCoverPhotoId: coverPhoto?.photoId ?? null,
+      isManualCover: false
     };
   }
 }

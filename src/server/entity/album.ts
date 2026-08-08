@@ -9,7 +9,9 @@ export const albumTab = sqliteTable('album', {
   sort: integer('sort').default(0).notNull(),
   createTime: text('create_time').default(sql`(strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))`).notNull(),
   updateTime: text('update_time').default(sql`(strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))`).notNull(),
-  userId: text('user_id').notNull()
+  userId: text('user_id').notNull(),
+  coverPhotoId: text('cover_photo_id'),
+  isManualCover: integer('is_manual_cover').default(0).notNull()
 });
 
 export type Album = typeof albumTab.$inferSelect;
