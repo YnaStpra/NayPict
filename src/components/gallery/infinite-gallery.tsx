@@ -135,7 +135,7 @@ const COMPONENT_DEFAULTS = {
   width: "100%",
   height: "100%",
   className: "",
-  density: 5,
+  density: 10,
   imageWidth: 160,
   imageHeight: 160,
   rounded: 4,

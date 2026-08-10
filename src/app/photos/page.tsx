@@ -209,7 +209,7 @@ export default function Page() {
                   <InfiniteGallery
                     photos={photos}
                     onPhotoClick={(index) => openPhoto(index)}
-                    density={5}
+                    density={10}
                     imageWidth={180}
                     imageHeight={180}
                     rounded={6}
