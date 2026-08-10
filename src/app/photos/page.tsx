@@ -209,7 +209,6 @@ export default function Page() {
                   <InfiniteGallery
                     photos={photos}
                     onPhotoClick={(index) => openPhoto(index)}
-                    onPhotoFavorite={changePhotoFavorite}
                     density={5}
                     imageWidth={180}
                     imageHeight={180}
