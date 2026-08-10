@@ -2,7 +2,10 @@
 
 import * as React from "react"
 import { useEffect, useMemo, useRef } from "react"
+import { useLocale } from "next-intl"
 import { type PhotoVo } from "@/server/entity/vo/photo"
+import { formatPhotoTakenDate } from "@/lib/date"
+import { PhotoFavoriteEnum } from "@/server/enums/photo-enum"
 
 function createMotionValue(initial: number) {
   let val = initial
@@ -24,6 +27,18 @@ function useMotionValue(initial: number) {
 
 const useIsStaticRenderer = () => false
 
+function formatPhotoName(name: string) {
+  const index = name.lastIndexOf(".")
+  return index > 0 ? name.slice(0, index) : name
+}
+
+function formatPhotoSize(size?: number) {
+  if (!size) return ""
+  if (size < 1024) return `${size}B`
+  if (size < 1024 * 1024) return `${Math.round(size / 1024)}KB`
+  return `${(size / 1024 / 1024).toFixed(1)}MB`
+}
+
 export type GalleryImage = {
   src: string
   srcSet?: string
@@ -39,6 +54,7 @@ export interface InfiniteGalleryProps {
   images?: GalleryImage[]
   photos?: PhotoVo[]
   onPhotoClick?: (index: number, photo?: PhotoVo) => void
+  onPhotoFavorite?: (index: number, setFavorite: (favorite: boolean) => void) => void
   density?: number
   imageWidth?: number
   imageHeight?: number
@@ -136,8 +152,8 @@ const COMPONENT_DEFAULTS = {
   height: "100%",
   className: "",
   density: 5,
-  imageWidth: 160,
-  imageHeight: 160,
+  imageWidth: 180,
+  imageHeight: 180,
   rounded: 4,
   dragSpeed: 20,
   driftAmount: 20,
@@ -146,6 +162,7 @@ const COMPONENT_DEFAULTS = {
 }
 
 export function InfiniteGallery(props: InfiniteGalleryProps) {
+  const locale = useLocale()
   const mergedProps = { ...COMPONENT_DEFAULTS, ...props }
   const {
     width,
@@ -154,6 +171,7 @@ export function InfiniteGallery(props: InfiniteGalleryProps) {
     images,
     photos,
     onPhotoClick,
+    onPhotoFavorite,
     density,
     imageWidth,
     imageHeight,
@@ -172,7 +190,7 @@ export function InfiniteGallery(props: InfiniteGalleryProps) {
   const safeImages: GalleryImage[] = useMemo(() => {
     if (photos && photos.length > 0) {
       return photos.map((photo, idx) => ({
-        src: photo.preview || photo.thumbnail || photo.key || "",
+        src: photo.thumbnail || photo.preview || photo.key || "",
         alt: photo.name || `Photo ${idx + 1}`,
         photoId: photo.photoId,
         photoIndex: idx,
@@ -185,8 +203,8 @@ export function InfiniteGallery(props: InfiniteGalleryProps) {
   }, [photos, images])
 
   const safeDensity = Math.max(1, Math.min(15, Math.floor(density || 5)))
-  const safeImageWidth = Math.max(8, Math.min(4000, imageWidth || 160))
-  const safeImageHeight = Math.max(8, Math.min(4000, imageHeight || 160))
+  const safeImageWidth = Math.max(8, Math.min(4000, imageWidth || 180))
+  const safeImageHeight = Math.max(8, Math.min(4000, imageHeight || 180))
   const safeRounded = Math.max(0, Math.min(20, rounded ?? 4))
   const safeDragSpeed = Math.max(0.1, Math.min(5, (dragSpeed || 20) / 20))
   const safeDriftAmount = Math.max(0, Math.min(20, driftAmount ?? 8))
@@ -344,6 +362,10 @@ export function InfiniteGallery(props: InfiniteGalleryProps) {
       const key = `${t.cx},${t.cy},${t.slot}`
       let el = pool.tileEls.get(key)
       if (!el) {
+        const imageItem = safeImages[t.imgIdx]
+        const realIndex = imageItem?.photoIndex ?? t.imgIdx
+        const photoVo = photos ? photos[realIndex] : undefined
+
         el = document.createElement("div")
         el.style.position = "absolute"
         el.style.left = "50%"
@@ -352,13 +374,14 @@ export function InfiniteGallery(props: InfiniteGalleryProps) {
         el.style.willChange = "transform, opacity"
         el.style.pointerEvents = "auto"
         el.style.cursor = "pointer"
+        el.style.overflow = "hidden"
+        el.className = "group rounded-xl shadow-md transition-all duration-300 hover:shadow-2xl"
         el.dataset.tileKey = key
 
         const img = document.createElement("img")
-        const src = safeImages[t.imgIdx]
-        img.src = src?.src || ""
-        if (src?.srcSet) img.srcset = src.srcSet
-        img.alt = src?.alt || ""
+        img.src = imageItem?.src || ""
+        if (imageItem?.srcSet) img.srcset = imageItem.srcSet
+        img.alt = imageItem?.alt || ""
         img.draggable = false
         img.style.width = "100%"
         img.style.height = "100%"
@@ -366,8 +389,46 @@ export function InfiniteGallery(props: InfiniteGalleryProps) {
         img.style.display = "block"
         img.style.pointerEvents = "none"
         img.style.userSelect = "none"
-        img.style.transition = "transform 0.2s ease, box-shadow 0.2s ease"
+        img.style.transition = "transform 0.3s ease"
+        img.className = "group-hover:scale-105"
         el.appendChild(img)
+
+        // Photo Information Overlay (Shown on Hover / Tap)
+        if (photoVo) {
+          const overlay = document.createElement("div")
+          overlay.className = "pointer-events-none absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100 flex flex-col justify-end p-2.5 text-white"
+
+          const nameEl = document.createElement("div")
+          nameEl.className = "truncate text-xs font-semibold leading-snug drop-shadow"
+          nameEl.textContent = formatPhotoName(photoVo.name)
+          overlay.appendChild(nameEl)
+
+          const dateStr = formatPhotoTakenDate(photoVo.takenTime, locale)
+          if (dateStr) {
+            const dateEl = document.createElement("div")
+            dateEl.className = "text-[10px] text-white/80"
+            dateEl.textContent = dateStr
+            overlay.appendChild(dateEl)
+          }
+
+          if (photoVo.width && photoVo.height) {
+            const detailsEl = document.createElement("div")
+            detailsEl.className = "text-[9px] text-white/70 mt-0.5 flex items-center gap-1"
+            const sizeStr = formatPhotoSize(photoVo.size)
+            detailsEl.textContent = `${photoVo.typeDesc ? `${photoVo.typeDesc.toUpperCase()} • ` : ""}${photoVo.width}×${photoVo.height}${sizeStr ? ` • ${sizeStr}` : ""}`
+            overlay.appendChild(detailsEl)
+          }
+
+          // Favorite Badge if favorited
+          if (photoVo.favorite === PhotoFavoriteEnum.YES) {
+            const favBadge = document.createElement("div")
+            favBadge.className = "absolute top-2 right-2 flex size-5 items-center justify-center rounded-full bg-pink-500/80 text-white"
+            favBadge.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>`
+            el.appendChild(favBadge)
+          }
+
+          el.appendChild(overlay)
+        }
 
         // Click handler with drag distinction
         let pointerStartX = 0
@@ -381,21 +442,8 @@ export function InfiniteGallery(props: InfiniteGalleryProps) {
           const dy = Math.abs(e.clientY - pointerStartY)
           if (dx < 8 && dy < 8) {
             e.stopPropagation()
-            const imageItem = safeImages[t.imgIdx]
-            const realIndex = imageItem?.photoIndex ?? t.imgIdx
-            const realPhoto = photos ? photos[realIndex] : undefined
-            onPhotoClick?.(realIndex, realPhoto)
+            onPhotoClick?.(realIndex, photoVo)
           }
-        })
-
-        // Hover animation
-        el.addEventListener("pointerenter", () => {
-          img.style.transform = "scale(1.06)"
-          img.style.boxShadow = "0 12px 24px -6px rgba(0,0,0,0.4)"
-        })
-        el.addEventListener("pointerleave", () => {
-          img.style.transform = "scale(1)"
-          img.style.boxShadow = "none"
         })
 
         scene.appendChild(el)
@@ -574,6 +622,8 @@ export function InfiniteGallery(props: InfiniteGalleryProps) {
     safeImages,
     photos,
     onPhotoClick,
+    onPhotoFavorite,
+    locale,
     isStatic,
     camX,
     camY,
