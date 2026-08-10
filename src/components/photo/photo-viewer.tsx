@@ -1,17 +1,18 @@
 "use client"
 
-import { type CSSProperties, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
+import { type CSSProperties, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import Lightbox from "yet-another-react-lightbox"
 import { isImageSlide, type SlideImage, useController, useLightboxState } from "yet-another-react-lightbox"
 import Fullscreen from "yet-another-react-lightbox/plugins/fullscreen"
 import Thumbnails from "yet-another-react-lightbox/plugins/thumbnails"
 import Zoom from "yet-another-react-lightbox/plugins/zoom"
-import { ArrowLeftIcon, ChevronLeftIcon, ChevronRightIcon, CircleAlertIcon, CircleIcon, LockIcon, Menu, LoaderCircleIcon, MaximizeIcon, PanelRightClose, PanelRightOpen, RotateCcwSquare } from "lucide-react"
+import { ArrowLeftIcon, ChevronLeftIcon, ChevronRightIcon, CircleAlertIcon, CircleIcon, LockIcon, Menu, LoaderCircleIcon, MaximizeIcon, MinimizeIcon, PanelRightClose, PanelRightOpen, RotateCcwSquare } from "lucide-react"
 import { toast } from "sonner"
 
 import { PhotoInfoSidebar, PhotoViewerBlurBackground } from "@/components/photo/photo-info-sidebar"
 import { useTapAction } from "@/hooks/use-tap-action"
 import { Button } from "@/components/ui/button"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { getThumbHashUrl } from "@/lib/thumb-hash"
 import { type PhotoVo } from "@/server/entity/vo/photo"
 import { usePhotoStore } from "@/store/photo-store"
@@ -373,7 +374,47 @@ function FullscreenButton({
   )
 }
 
-// Render photo information button，Click to switch the information sidebar on the right。
+// Render Cinematic Mode toggle button.
+function CinematicButton({
+  showActions,
+  isCinematicMode,
+  onToggle,
+}: {
+  showActions: boolean
+  isCinematicMode: boolean
+  onToggle: () => void
+}) {
+  const tap = useTapAction(onToggle)
+
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            type="button"
+            size="icon"
+            variant="secondary"
+            className={[
+              "absolute top-2 right-2 md:top-3 md:right-3 z-40 rounded-full text-white transition-opacity duration-200",
+              isCinematicMode ? "bg-black/60 hover:bg-black/70" : "bg-black/40 hover:bg-black/50",
+              getActionVisibleClass(showActions),
+            ].join(" ")}
+            aria-label={isCinematicMode ? "Exit cinematic mode" : "Enter cinematic mode"}
+            {...tap}
+          >
+            {isCinematicMode ? <MinimizeIcon /> : <MaximizeIcon />}
+            <span className="sr-only">{isCinematicMode ? "Exit cinematic mode" : "Enter cinematic mode"}</span>
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom">
+          <p>{isCinematicMode ? "Exit Cinematic Mode (F)" : "Cinematic Mode (F)"}</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  )
+}
+
+// Render photo information button, Click to switch the information sidebar on the right.
 function InfoButton({
   showActions,
   open,
@@ -391,7 +432,7 @@ function InfoButton({
       size="icon"
       variant="secondary"
       className={[
-        "absolute top-2 right-2 md:top-3 md:right-3 z-40 rounded-full text-white transition-opacity duration-200",
+        "absolute top-2 right-11.5 md:right-13 md:top-3 z-40 rounded-full text-white transition-opacity duration-200",
         open ? "bg-black/50 hover:bg-black/50" : "bg-black/40 hover:bg-black/50",
         getActionVisibleClass(showActions),
       ].join(" ")}
@@ -406,12 +447,12 @@ function InfoButton({
   )
 }
 
-// Render spin button。
+// Render spin button.
 function RotateButton({ showActions, onRotate }: { showActions: boolean, onRotate: (photoId: string) => void }) {
   const { currentSlide } = useLightboxState()
   const photoSlide = currentSlide && isImageSlide(currentSlide) ? currentSlide as PhotoSlide : null
 
-  // put current photo id Leave it to the parent component to update the rotation angle。
+  // put current photo id Leave it to the parent component to update the rotation angle.
   function rotatePhoto() {
     if (!photoSlide) {
       return
@@ -428,7 +469,7 @@ function RotateButton({ showActions, onRotate }: { showActions: boolean, onRotat
       size="icon"
       variant="secondary"
       className={[
-        "absolute top-2 right-11.5 md:right-13 md:top-3 z-40 rounded-full bg-black/40 text-white transition-opacity duration-200 hover:bg-black/50",
+        "absolute top-2 right-21 md:right-23.25 md:top-3 z-40 rounded-full bg-black/40 text-white transition-opacity duration-200 hover:bg-black/50",
         getActionVisibleClass(showActions),
       ].join(" ")}
       {...tap}
@@ -439,7 +480,7 @@ function RotateButton({ showActions, onRotate }: { showActions: boolean, onRotat
   )
 }
 
-// Render original image load button。
+// Render original image load button.
 function LoadOriginalButton({
   showActions,
   originalPhoto,
@@ -460,7 +501,7 @@ function LoadOriginalButton({
     return (
       <div
         className={[
-          "absolute top-2 right-21 md:right-23.25 md:top-3 z-40 flex cursor-pointer items-center gap-1.5 rounded-full bg-black/60 px-3 py-1 text-xs text-white/90 transition-opacity duration-200 hover:bg-black/80",
+          "absolute top-2 right-30.5 md:right-[8.35rem] md:top-3 z-40 flex cursor-pointer items-center gap-1.5 rounded-full bg-black/60 px-3 py-1 text-xs text-white/90 transition-opacity duration-200 hover:bg-black/80",
           getActionVisibleClass(showActions),
         ].join(" ")}
         onClick={() => toast.info("Download is disabled for this photo.")}
@@ -490,7 +531,7 @@ function LoadOriginalButton({
       size="icon"
       variant="secondary"
       className={[
-        "absolute top-2 right-21 md:right-23.25 md:top-3 z-40 rounded-full bg-black/40 text-white transition-opacity duration-200 hover:bg-black/50",
+        "absolute top-2 right-30.5 md:right-[8.35rem] md:top-3 z-40 rounded-full bg-black/40 text-white transition-opacity duration-200 hover:bg-black/50",
         getActionVisibleClass(showActions),
       ].join(" ")}
       {...tap}
@@ -585,32 +626,146 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack }: Phot
   const [showActions, setShowActions] = useState(true)
   // Current photo zoom factor。
   const [zoomLevel, setZoomLevel] = useState(1)
-  // Whether it is currently in full screen state。
+  // Whether it is currently in full screen state.
   const [fullscreenOpen, setFullscreenOpen] = useState(false)
-  // The current rotation angle of each photo。
+  // Whether cinematic presentation mode is currently active.
+  const [isCinematicMode, setIsCinematicMode] = useState(false)
+  // Controls UI visibility in cinematic mode during idle.
+  const [controlsVisible, setControlsVisible] = useState(true)
+  // Idle timer reference for auto-hiding controls after inactivity.
+  const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // The current rotation angle of each photo.
   const [photoRotates, setPhotoRotates] = useState<Record<string, number>>({})
-  // getPhotoCache Read loaded photos from global photo cache。
+  // getPhotoCache Read loaded photos from global photo cache.
   const getPhotoCache = usePhotoStore((state) => state.getPhotoCache)
-  // setPhotoCache Write the loaded photos into the global photo cache。
+  // setPhotoCache Write the loaded photos into the global photo cache.
   const setPhotoCache = usePhotoStore((state) => state.setPhotoCache)
-  // Cancellation method of current original image request。
+  // Cancellation method of current original image request.
   const abortOriginalRef = useRef<(() => void) | null>(null)
-  // previewRequestsRef Save the requested preview id and cancellation method。
+  // previewRequestsRef Save the requested preview id and cancellation method.
   const previewRequestsRef = useRef<PreviewRequestMap>(new Map())
-  // currentPhotoIdRef Save currently viewed photo id，Used for silent preview request to prevent disorder。
+  // currentPhotoIdRef Save currently viewed photo id, Used for silent preview request to prevent disorder.
   const currentPhotoIdRef = useRef<string | null>(photos[index]?.photoId ?? null)
-  // openScrollYRef Save the page scroll position before opening the viewer，Restore photo list after closing。
+  // openScrollYRef Save the page scroll position before opening the viewer, Restore photo list after closing.
   const openScrollYRef = useRef(typeof window === "undefined" ? 0 : window.scrollY)
-  // historyPushedRef Records whether the viewer has been written to the browser history。
+  // historyPushedRef Records whether the viewer has been written to the browser history.
   const historyPushedRef = useRef(false)
-  // onBrowserBackRef Save the latest browser return callback。
+  // onBrowserBackRef Save the latest browser return callback.
   const onBrowserBackRef = useRef(onBrowserBack)
-  // originalProgressHideTimerRef Save the timer that delays and hides the original image loading progress。
+  // originalProgressHideTimerRef Save the timer that delays and hides the original image loading progress.
   const originalProgressHideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  // slidePointerStartRef Record slide superior pointerdown coordinate，Used to distinguish click and drag switching。
+  // slidePointerStartRef Record slide superior pointerdown coordinate, Used to distinguish click and drag switching.
   const slidePointerStartRef = useRef<{ x: number; y: number } | null>(null)
 
-  // lightbox Required picture list。
+  // Toggle cinematic mode with Browser Fullscreen API and graceful fallback.
+  const toggleCinematicMode = useCallback(() => {
+    setIsCinematicMode((prev) => {
+      const next = !prev
+      if (next) {
+        try {
+          if (typeof document !== "undefined" && document.fullscreenEnabled && document.documentElement.requestFullscreen) {
+            document.documentElement.requestFullscreen().catch(() => {})
+          }
+        } catch {
+          // Browser Fullscreen API denied or unsupported; fallback overlay handles view via isCinematicMode
+        }
+      } else {
+        try {
+          if (typeof document !== "undefined" && document.fullscreenElement && document.exitFullscreen) {
+            document.exitFullscreen().catch(() => {})
+          }
+        } catch {}
+      }
+      return next
+    })
+  }, [])
+
+  // Sync state if user exits browser fullscreen via native controls.
+  useEffect(() => {
+    if (typeof document === "undefined") return
+
+    function handleFullscreenChange() {
+      if (!document.fullscreenElement) {
+        setIsCinematicMode(false)
+      }
+    }
+
+    document.addEventListener("fullscreenchange", handleFullscreenChange)
+    return () => {
+      document.removeEventListener("fullscreenchange", handleFullscreenChange)
+    }
+  }, [])
+
+  // Bind keyboard shortcut F (toggle cinematic) and Esc (exit cinematic mode first).
+  useEffect(() => {
+    if (!open) return
+
+    function handleKeyDown(event: KeyboardEvent) {
+      const target = event.target as HTMLElement | null
+      if (
+        target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.isContentEditable)
+      ) {
+        return
+      }
+
+      if (event.key === "f" || event.key === "F") {
+        event.preventDefault()
+        toggleCinematicMode()
+      } else if (event.key === "Escape" && isCinematicMode) {
+        event.preventDefault()
+        event.stopPropagation()
+        toggleCinematicMode()
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown, true)
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown, true)
+    }
+  }, [open, isCinematicMode, toggleCinematicMode])
+
+  // Auto-hide UI controls after 2.5s idle when in Cinematic Mode.
+  useEffect(() => {
+    if (!open || !isCinematicMode) {
+      setControlsVisible(true)
+      if (idleTimerRef.current) {
+        clearTimeout(idleTimerRef.current)
+        idleTimerRef.current = null
+      }
+      return
+    }
+
+    function resetIdleTimer() {
+      setControlsVisible(true)
+      if (idleTimerRef.current) {
+        clearTimeout(idleTimerRef.current)
+      }
+      idleTimerRef.current = setTimeout(() => {
+        setControlsVisible(false)
+      }, 2500)
+    }
+
+    resetIdleTimer()
+
+    window.addEventListener("pointermove", resetIdleTimer)
+    window.addEventListener("touchstart", resetIdleTimer)
+    window.addEventListener("keydown", resetIdleTimer)
+
+    return () => {
+      if (idleTimerRef.current) {
+        clearTimeout(idleTimerRef.current)
+        idleTimerRef.current = null
+      }
+      window.removeEventListener("pointermove", resetIdleTimer)
+      window.removeEventListener("touchstart", resetIdleTimer)
+      window.removeEventListener("keydown", resetIdleTimer)
+    }
+  }, [open, isCinematicMode])
+
+  // lightbox Required picture list.
   const slides = useMemo<PhotoSlide[]>(() => (
     photos.map((photo) => ({
       photoId: photo.photoId,
@@ -625,7 +780,7 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack }: Phot
       alt: photo.name,
     }))
   ), [photos])
-  const actionsVisible = showActions && zoomLevel <= 1
+  const actionsVisible = showActions && zoomLevel <= 1 && controlsVisible
 
   useEffect(() => {
     // Keep the browser's return callback as the latest method passed in by the parent component。
@@ -818,15 +973,22 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack }: Phot
     onBack()
   }
 
-  // Sidebar narrows when expanded lightbox width，Leave space for the information panel on the right。
-  const lightboxClassName = infoOpen && !fullscreenOpen ? "w-0 md:w-[calc(100%-(0.25rem*80))]" : "w-full"
+  // Sidebar narrows when expanded lightbox width, Leave space for the information panel on the right.
+  const lightboxClassName = isCinematicMode
+    ? "w-full fixed inset-0 z-50 bg-black transition-colors duration-300"
+    : infoOpen && !fullscreenOpen
+    ? "w-0 md:w-[calc(100%-(0.25rem*80))]"
+    : "w-full"
 
-  // rendering yet-another-react-lightbox Minimal preview。
+  // rendering yet-another-react-lightbox Minimal preview.
   return (
     <Lightbox
       className={lightboxClassName}
       open={open}
       close={() => {
+        if (isCinematicMode) {
+          toggleCinematicMode()
+        }
         closeViewer()
         // Reset zoom on close
         setZoomLevel(1)
@@ -838,7 +1000,7 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack }: Phot
           style: photoViewerPortalStyle,
         },
       }}
-      plugins={fullscreenOpen ? [Fullscreen, Zoom] : [Thumbnails, Fullscreen, Zoom]}
+      plugins={fullscreenOpen || isCinematicMode ? [Fullscreen, Zoom] : [Thumbnails, Fullscreen, Zoom]}
       zoom={{
         scrollToZoom: true,
         wheelZoomDistanceFactor: 100,
@@ -893,26 +1055,35 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack }: Phot
         buttonNext: () => <NextButton key="next" showActions={actionsVisible} />,
         controls: () => (
           <>
-            {infoOpen && !fullscreenOpen && (
+            {infoOpen && !fullscreenOpen && !isCinematicMode && (
               <PhotoViewerBlurBackground thumbHash={photos[viewIndex]?.thumbHash} />
             )}
-            {infoOpen && !fullscreenOpen && (
+            {infoOpen && !fullscreenOpen && !isCinematicMode && (
               <PhotoInfoSidebar photo={photos[viewIndex] ?? null} onClose={() => setInfoOpen(false)} />
             )}
             <CloseButton showActions={actionsVisible} />
-            <InfoButton
+            <CinematicButton
               showActions={actionsVisible}
-              open={infoOpen}
-              onToggle={toggleInfoOpen}
+              isCinematicMode={isCinematicMode}
+              onToggle={toggleCinematicMode}
             />
-            <RotateButton showActions={actionsVisible} onRotate={rotatePhoto} />
-            <LoadOriginalButton
-              showActions={actionsVisible}
-              originalPhoto={originalPhoto}
-              getPhotoCache={getPhotoCache}
-              onLoadOriginal={loadOriginalPhoto}
-            />
-            {showOriginalProgress && (
+            {!isCinematicMode && (
+              <>
+                <InfoButton
+                  showActions={actionsVisible}
+                  open={infoOpen}
+                  onToggle={toggleInfoOpen}
+                />
+                <RotateButton showActions={actionsVisible} onRotate={rotatePhoto} />
+                <LoadOriginalButton
+                  showActions={actionsVisible}
+                  originalPhoto={originalPhoto}
+                  getPhotoCache={getPhotoCache}
+                  onLoadOriginal={loadOriginalPhoto}
+                />
+              </>
+            )}
+            {showOriginalProgress && !isCinematicMode && (
               <OriginalProgressButton progress={originalProgress} error={originalError} />
             )}
           </>
@@ -928,7 +1099,7 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack }: Phot
 
           return (
             <div
-              className="relative flex h-full w-full items-center justify-center overflow-hidden"
+              className="relative flex h-full w-full items-center justify-center overflow-hidden p-2 md:p-4 pt-[env(safe-area-inset-top,8px)] pb-[env(safe-area-inset-bottom,8px)]"
               onPointerDown={handleSlidePointerDown}
               onPointerUp={handleSlidePointerUp}
               onPointerCancel={handleSlidePointerCancel}
@@ -945,7 +1116,7 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack }: Phot
                 slide={photoSlide}
                 originalPhoto={originalPhoto}
                 rotate={photoRotates[photoSlide.photoId] ?? 0}
-                fullscreenOpen={fullscreenOpen}
+                fullscreenOpen={fullscreenOpen || isCinematicMode}
               />
             </div>
           )
