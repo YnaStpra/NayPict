@@ -122,48 +122,63 @@ export default function Page() {
   // Switch the collection status of a single photo based on the photo subscript。
   const changePhotoFavorite = useCallback((index: number, setFavorite: (favorite: boolean) => void) => {
     const photo = photos[index]
+    if (!photo) return
     const favorite = photo.favorite === PhotoFavoriteEnum.YES
       ? PhotoFavoriteEnum.NO
       : PhotoFavoriteEnum.YES
 
-    photoFavorite({ photoIds: [photo.photoId], favorite }).then(() => {
-      setFavorite(favorite === PhotoFavoriteEnum.YES)
-      photo.favorite = favorite
-    })
+    photoFavorite({ photoIds: [photo.photoId], favorite })
+      .then(() => {
+        setFavorite(favorite === PhotoFavoriteEnum.YES)
+        photo.favorite = favorite
+      })
+      .catch((err) => {
+        console.error("Failed to update favorite:", err)
+      })
   }, [photos])
 
-  // Recycle selected photos in the current album in batches。
   const recyclePhotos = useCallback((photoIds: string[]) => {
-    photoRecycle({ photoIds }).then(() => {
-      removePhotos(photoIds)
-    })
+    if (!photoIds || !photoIds.length) return
+    photoRecycle({ photoIds })
+      .then(() => {
+        removePhotos(photoIds)
+      })
+      .catch((err) => {
+        console.error("Failed to recycle photos:", err)
+      })
   }, [removePhotos])
 
-  // Move selected photos from the current album to the album in batches。
   const removeAlbumPhotos = useCallback((photoIds: string[]) => {
-    albumRemovePhoto({ albumId, photoIds }).then(() => {
-      removePhotos(photoIds)
-      void refreshAlbums()
-    })
+    if (!photoIds || !photoIds.length) return
+    albumRemovePhoto({ albumId, photoIds })
+      .then(() => {
+        removePhotos(photoIds)
+        void refreshAlbums()
+      })
+      .catch((err) => {
+        console.error("Failed to remove photos from album:", err)
+      })
   }, [albumId, removePhotos, refreshAlbums])
 
-  // Open the pop-up box for adding photos in the current album to the album in batches。
   const openAlbumDialog = useCallback((photoIds: string[]) => {
     setAlbumPhotoIds(photoIds)
     setAlbumDialogOpen(true)
   }, [])
 
-  // After selecting the album, add the photos in the current album to other albums。
   function changePhotoAlbum(albumIds: string[]) {
     const targetAlbumIds = albumIds.filter((targetAlbumId) => targetAlbumId !== albumId)
 
-    if (!targetAlbumIds.length) {
+    if (!targetAlbumIds.length || !albumPhotoIds.length) {
       return
     }
 
-    albumAddPhoto({ albumIds: targetAlbumIds, photoIds: albumPhotoIds }).then(() => {
-      void refreshAlbums()
-    })
+    albumAddPhoto({ albumIds: targetAlbumIds, photoIds: albumPhotoIds })
+      .then(() => {
+        void refreshAlbums()
+      })
+      .catch((err) => {
+        console.error("Failed to add photos to album:", err)
+      })
   }
 
   // Save the currently selected album photo time range，And filter the trigger list by shooting time。

@@ -113,20 +113,30 @@ export default function Page() {
 
   const changePhotoFavorite = useCallback((index: number, setFavorite: (favorite: boolean) => void) => {
     const photo = photos[index]
+    if (!photo) return
     const favorite = photo.favorite === PhotoFavoriteEnum.YES
       ? PhotoFavoriteEnum.NO
       : PhotoFavoriteEnum.YES
 
-    photoFavorite({ photoIds: [photo.photoId], favorite }).then(() => {
-      setFavorite(favorite === PhotoFavoriteEnum.YES)
-      photo.favorite = favorite
-    })
+    photoFavorite({ photoIds: [photo.photoId], favorite })
+      .then(() => {
+        setFavorite(favorite === PhotoFavoriteEnum.YES)
+        photo.favorite = favorite
+      })
+      .catch((err) => {
+        console.error("Failed to update favorite:", err)
+      })
   }, [photos])
 
   const recyclePhotos = useCallback((photoIds: string[]) => {
-    photoRecycle({ photoIds }).then(() => {
-      removePhotos(photoIds)
-    })
+    if (!photoIds || !photoIds.length) return
+    photoRecycle({ photoIds })
+      .then(() => {
+        removePhotos(photoIds)
+      })
+      .catch((err) => {
+        console.error("Failed to recycle photos:", err)
+      })
   }, [removePhotos])
 
   const openAlbumDialog = useCallback((photoIds: string[]) => {
@@ -135,9 +145,14 @@ export default function Page() {
   }, [])
 
   function changePhotoAlbum(albumIds: string[]) {
-    albumAddPhoto({ albumIds, photoIds: albumPhotoIds }).then(() => {
-      void refreshAlbums()
-    })
+    if (!albumIds.length || !albumPhotoIds.length) return
+    albumAddPhoto({ albumIds, photoIds: albumPhotoIds })
+      .then(() => {
+        void refreshAlbums()
+      })
+      .catch((err) => {
+        console.error("Failed to add photos to album:", err)
+      })
   }
 
   function changePhotoTime(range: { startDate: Date, endDate: Date }) {
