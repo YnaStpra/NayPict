@@ -343,10 +343,15 @@ const photoService = {
     };
   },
 
-  // Move the specified photos of the current user to the trash，And record the recycling time。
-  async recycle(params: PhotoRecycleBo, userId: string): Promise<void> {
+  // Move the specified photos of the current user to the trash, And record the recycling time.
+  async recycle(params: PhotoRecycleBo, userId?: string): Promise<void> {
     if (!params.photoIds?.length) {
       throw new BizError('photo.selectRequired');
+    }
+
+    const whereList = [inArray(photoTab.photoId, params.photoIds)];
+    if (userId) {
+      whereList.push(eq(photoTab.userId, userId));
     }
 
     await orm.update(photoTab)
@@ -354,25 +359,26 @@ const photoService = {
         status: PhotoStatusEnum.DELETE,
         recycleTime: new Date().toISOString()
       })
-      .where(and(
-        eq(photoTab.userId, userId),
-        inArray(photoTab.photoId, params.photoIds)
-      ));
+      .where(and(...whereList));
   },
 
-  // Move all photos of the specified user to the trash，And record the recycling time。
+  // Move all photos of the specified user to the trash, And record the recycling time.
   async recycleByUserId(userId: string): Promise<void> {
+    const whereList = [];
+    if (userId) {
+      whereList.push(eq(photoTab.userId, userId));
+    }
 
     await orm.update(photoTab)
       .set({
         status: PhotoStatusEnum.DELETE,
         recycleTime: new Date(0).toISOString()
       })
-      .where(eq(photoTab.userId, userId));
+      .where(whereList.length ? and(...whereList) : undefined);
   },
 
-  // Set the collection status of photos specified by the current user。
-  async favorite(params: PhotoFavoriteBo, userId: string): Promise<void> {
+  // Set the collection status of photos specified by the current user.
+  async favorite(params: PhotoFavoriteBo, userId?: string): Promise<void> {
     if (!params.photoIds?.length) {
       throw new BizError('photo.selectRequired');
     }
@@ -381,20 +387,27 @@ const photoService = {
       throw new BizError('photo.favoriteRequired');
     }
 
+    const whereList = [inArray(photoTab.photoId, params.photoIds)];
+    if (userId) {
+      whereList.push(eq(photoTab.userId, userId));
+    }
+
     await orm.update(photoTab)
       .set({
         favorite: params.favorite
       })
-      .where(and(
-        eq(photoTab.userId, userId),
-        inArray(photoTab.photoId, params.photoIds)
-      ));
+      .where(and(...whereList));
   },
 
-  // Restore the specified photos in the current user's recycle bin。
-  async restore(params: PhotoRestoreBo, userId: string): Promise<void> {
+  // Restore the specified photos in the current user's recycle bin.
+  async restore(params: PhotoRestoreBo, userId?: string): Promise<void> {
     if (!params.photoIds?.length) {
       throw new BizError('photo.selectRequired');
+    }
+
+    const whereList = [inArray(photoTab.photoId, params.photoIds)];
+    if (userId) {
+      whereList.push(eq(photoTab.userId, userId));
     }
 
     await orm.update(photoTab)
@@ -402,27 +415,26 @@ const photoService = {
         status: PhotoStatusEnum.NORMAL,
         recycleTime: null
       })
-      .where(and(
-        eq(photoTab.userId, userId),
-        inArray(photoTab.photoId, params.photoIds)
-      ));
+      .where(and(...whereList));
   },
 
-  // Completely delete the specified photo files and database records of the current user。
-  async delete(params: PhotoDeleteBo, userId: string): Promise<void> {
+  // Completely delete the specified photo files and database records of the current user.
+  async delete(params: PhotoDeleteBo, userId?: string): Promise<void> {
     if (!params.photoIds?.length) {
       throw new BizError('photo.selectRequired');
     }
 
     const fileStorageList = await storageService.list();
 
+    const selectWhere = [inArray(photoTab.photoId, params.photoIds)];
+    if (userId) {
+      selectWhere.push(eq(photoTab.userId, userId));
+    }
+
     const photos = await orm
       .select()
       .from(photoTab)
-      .where(and(
-        eq(photoTab.userId, userId),
-        inArray(photoTab.photoId, params.photoIds)
-      ));
+      .where(and(...selectWhere));
     const photoIds = photos.map((photo: any) => photo.photoId);
 
     if (!photoIds.length) {
@@ -445,10 +457,7 @@ const photoService = {
     await fileService.deleteByPhotoIds(photoIds);
 
     await orm.delete(photoTab)
-      .where(and(
-        eq(photoTab.userId, userId),
-        inArray(photoTab.photoId, photoIds)
-      ));
+      .where(inArray(photoTab.photoId, photoIds));
   },
 
   // Clean the photo files and database records in the current user's Recycle Bin。
@@ -555,18 +564,20 @@ const photoService = {
   },
 
   // Batch update photo download protection status.
-  async setAllowDownload(params: PhotoSetAllowDownloadBo, userId: string): Promise<void> {
+  async setAllowDownload(params: PhotoSetAllowDownloadBo, userId?: string): Promise<void> {
     if (!params.photoIds || !params.photoIds.length) {
       return;
+    }
+
+    const whereList = [inArray(photoTab.photoId, params.photoIds)];
+    if (userId) {
+      whereList.push(eq(photoTab.userId, userId));
     }
 
     await orm
       .update(photoTab)
       .set({ allowDownload: params.allowDownload ? 1 : 0 })
-      .where(and(
-        inArray(photoTab.photoId, params.photoIds),
-        eq(photoTab.userId, userId)
-      ));
+      .where(and(...whereList));
   },
 
   // Get the specified type of storage from the file list key.

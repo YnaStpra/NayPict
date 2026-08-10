@@ -241,6 +241,7 @@ export default function Page() {
         photos={photos}
         onBack={closePhoto}
         onBrowserBack={closePhoto}
+        onPhotoDelete={(photoId) => recyclePhotos([photoId])}
       />
       <AlbumSelectDialog
         open={albumDialogOpen}

@@ -6,7 +6,7 @@ import { isImageSlide, type SlideImage, useController, useLightboxState } from "
 import Fullscreen from "yet-another-react-lightbox/plugins/fullscreen"
 import Thumbnails from "yet-another-react-lightbox/plugins/thumbnails"
 import Zoom from "yet-another-react-lightbox/plugins/zoom"
-import { ArrowLeftIcon, ChevronLeftIcon, ChevronRightIcon, CircleAlertIcon, CircleIcon, LockIcon, Menu, LoaderCircleIcon, MaximizeIcon, MinimizeIcon, PanelRightClose, PanelRightOpen, RotateCcwSquare } from "lucide-react"
+import { ArrowLeftIcon, ChevronLeftIcon, ChevronRightIcon, CircleAlertIcon, CircleIcon, LockIcon, Menu, LoaderCircleIcon, MaximizeIcon, MinimizeIcon, PanelRightClose, PanelRightOpen, RotateCcwSquare, Trash2Icon } from "lucide-react"
 import { toast } from "sonner"
 
 import { PhotoInfoSidebar, PhotoViewerBlurBackground } from "@/components/photo/photo-info-sidebar"
@@ -29,6 +29,8 @@ interface PhotoViewerProps {
   onBack: () => void
   // Executed on browser back button close.
   onBrowserBack: () => void
+  // Executed on photo delete.
+  onPhotoDelete?: (photoId: string) => void
 }
 
 type PhotoSlide = SlideImage & {
@@ -542,6 +544,54 @@ function LoadOriginalButton({
   )
 }
 
+// Render delete photo button in Lightbox toolbar.
+function DeleteButton({
+  showActions,
+  onDelete,
+}: {
+  showActions: boolean
+  onDelete?: (photoId: string) => void
+}) {
+  const { currentSlide } = useLightboxState()
+  const { close } = useController()
+  const photoSlide = currentSlide && isImageSlide(currentSlide) ? (currentSlide as PhotoSlide) : null
+
+  function handleDelete() {
+    if (!photoSlide) return
+    onDelete?.(photoSlide.photoId)
+    close()
+  }
+
+  const tap = useTapAction(handleDelete)
+
+  if (!onDelete) return null
+
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            type="button"
+            size="icon"
+            variant="secondary"
+            className={[
+              "absolute top-2 right-40 md:right-[11.2rem] md:top-3 z-40 rounded-full bg-black/40 text-white transition-opacity duration-200 hover:bg-red-600/80",
+              getActionVisibleClass(showActions),
+            ].join(" ")}
+            {...tap}
+          >
+            <Trash2Icon className="size-4" />
+            <span className="sr-only">Delete photo</span>
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom">
+          <p>Move to Trash</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  )
+}
+
 // Render close button。
 function CloseButton({ showActions }: { showActions: boolean }) {
   const { close } = useController()
@@ -605,7 +655,7 @@ function PhotoSlideImage({
 }
 
 // Render photo detail viewer，The parent component is responsible for passing in the current photo and list data。
-export function PhotoViewer({ open, index, photos, onBack, onBrowserBack }: PhotoViewerProps) {
+export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhotoDelete }: PhotoViewerProps) {
   // current lightbox Viewed photo index。
   const [viewIndex, setViewIndex] = useState(index)
   // infoOpen Control whether the photo information sidebar on the right is expanded。
@@ -1081,6 +1131,9 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack }: Phot
                   getPhotoCache={getPhotoCache}
                   onLoadOriginal={loadOriginalPhoto}
                 />
+                {onPhotoDelete && (
+                  <DeleteButton showActions={actionsVisible} onDelete={onPhotoDelete} />
+                )}
               </>
             )}
             {showOriginalProgress && !isCinematicMode && (
