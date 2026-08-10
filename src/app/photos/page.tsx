@@ -14,6 +14,7 @@ import {
   SidebarInset,
   SidebarTrigger,
 } from "@/components/ui/sidebar"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { usePhotoList } from "@/hooks/use-photo-list"
 
 import { useCallback, useEffect, useLayoutEffect, useState } from 'react'
@@ -23,7 +24,7 @@ import { PhotoFavoriteEnum } from "@/server/enums/photo-enum"
 import { photoFavorite, photoRecycle } from "@/request/photo"
 import { albumAddPhoto } from "@/request/album"
 import { usePhotoStore } from "@/store/photo-store"
-import { Plus } from "lucide-react"
+import { LayoutGrid, Plus, Sparkles } from "lucide-react"
 import { PhotoDateDrawer } from "@/components/photo/photo-date-drawer"
 import { PhotoMasonrySkeleton } from "@/components/photo/photo-masonry-skeleton"
 import { usePhotoContext } from "@/app/photos/provider"
@@ -40,13 +41,20 @@ const PhotoViewer = dynamic(
   { ssr: false }
 )
 
-// Render photo list page。
+const InfiniteGallery = dynamic(
+  () => import("@/components/gallery/infinite-gallery").then((mod) => mod.InfiniteGallery),
+  { ssr: false }
+)
+
+// Render photo list page with Masonry & Infinite Canvas mode support.
 export default function Page() {
   const t = useTranslations("photos")
   const { initialPhotos } = usePhotoContext()
   const { userInfo, sidebarOpen, setSidebarOpen, refreshAlbums } = useApp()
-  // isBrowser Mark whether you are currently in the browser environment，SSR Stage display skeleton screen。
+
   const [isBrowser, setIsBrowser] = useState(false)
+  const [viewMode, setViewMode] = useState<"masonry" | "infinite">("masonry")
+
   const {
     photos,
     masonryKey,
@@ -55,21 +63,19 @@ export default function Page() {
     prependPhotos,
     removePhotos,
   } = usePhotoList({}, PHOTO_LIST_PAGE_SIZE, initialPhotos)
+
   const [modelPhotoIndex, setModelPhotoIndex] = useState(0)
   const [showPhotoViewer, setShowPhotoViewer] = useState(false)
-  // albumDialogOpen Control the opening status of the add album pop-up box。
   const [albumDialogOpen, setAlbumDialogOpen] = useState(false)
-  // albumPhotoIds Save the photos to be added to the album this time id。
   const [albumPhotoIds, setAlbumPhotoIds] = useState<string[]>([])
   const openUpload = usePhotoStore((state) => state.openUpload)
   const uploadedPhotos = usePhotoStore((state) => state.uploadedPhotos)
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     setIsBrowser(true)
   }, [])
 
   useEffect(() => {
-    // Disable browser scroll recovery when refreshing recent pages，and go back to the top of the photo list。
     const previousScrollRestoration = window.history.scrollRestoration
 
     window.history.scrollRestoration = 'manual'
@@ -81,7 +87,6 @@ export default function Page() {
   }, [])
 
   useEffect(() => {
-    // Consumption upload success queue，Click on the success photo taken_time Insert the corresponding position in the list。
     if (!uploadedPhotos.length) {
       return
     }
@@ -97,51 +102,59 @@ export default function Page() {
     })
   }, [prependPhotos, uploadedPhotos])
 
-  // Open photo details model。
   const openPhoto = useCallback((index: number) => {
     setModelPhotoIndex(index)
     setShowPhotoViewer(true)
   }, [])
 
-  // Close photo details model。
   function closePhoto() {
     setShowPhotoViewer(false)
   }
 
-  // Switch the collection status of a single photo based on the photo subscript。
   const changePhotoFavorite = useCallback((index: number, setFavorite: (favorite: boolean) => void) => {
     const photo = photos[index]
+    if (!photo) return
     const favorite = photo.favorite === PhotoFavoriteEnum.YES
       ? PhotoFavoriteEnum.NO
       : PhotoFavoriteEnum.YES
 
-    photoFavorite({ photoIds: [photo.photoId], favorite }).then(() => {
-      setFavorite(favorite === PhotoFavoriteEnum.YES)
-      photo.favorite = favorite
-    })
+    photoFavorite({ photoIds: [photo.photoId], favorite })
+      .then(() => {
+        setFavorite(favorite === PhotoFavoriteEnum.YES)
+        photo.favorite = favorite
+      })
+      .catch((err) => {
+        console.error("Failed to update favorite:", err)
+      })
   }, [photos])
 
-  // Recycle selected photos in batches。
   const recyclePhotos = useCallback((photoIds: string[]) => {
-    photoRecycle({ photoIds }).then(() => {
-      removePhotos(photoIds)
-    })
+    if (!photoIds || !photoIds.length) return
+    photoRecycle({ photoIds })
+      .then(() => {
+        removePhotos(photoIds)
+      })
+      .catch((err) => {
+        console.error("Failed to recycle photos:", err)
+      })
   }, [removePhotos])
 
-  // Open the batch add album pop-up box。
   const openAlbumDialog = useCallback((photoIds: string[]) => {
     setAlbumPhotoIds(photoIds)
     setAlbumDialogOpen(true)
   }, [])
 
-  // Select the album and add the photo to the album。
   function changePhotoAlbum(albumIds: string[]) {
-    albumAddPhoto({ albumIds, photoIds: albumPhotoIds }).then(() => {
-      void refreshAlbums()
-    })
+    if (!albumIds.length || !albumPhotoIds.length) return
+    albumAddPhoto({ albumIds, photoIds: albumPhotoIds })
+      .then(() => {
+        void refreshAlbums()
+      })
+      .catch((err) => {
+        console.error("Failed to add photos to album:", err)
+      })
   }
 
-  // Save the currently selected photo time range，And filter the trigger list by shooting time。
   function changePhotoTime(range: { startDate: Date, endDate: Date }) {
     refreshPhotoList({
       startTakenTime: range.startDate.toISOString(),
@@ -172,7 +185,25 @@ export default function Page() {
                 </BreadcrumbList>
               </Breadcrumb>
             </div>
-            <div className="fixed left-[calc(100vw-5.75rem)]  md:left-[calc(100vw-6.25rem)] top-0 flex h-12 items-center gap-1 px-4">
+            <div className="fixed left-[calc(100vw-7.75rem)] md:left-[calc(100vw-8.25rem)] top-0 flex h-12 items-center gap-1.5 px-4">
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant={viewMode === "infinite" ? "secondary" : "ghost"}
+                      className="size-8 rounded-lg"
+                      onClick={() => setViewMode((prev) => (prev === "masonry" ? "infinite" : "masonry"))}
+                    >
+                      {viewMode === "infinite" ? <LayoutGrid className="size-4 text-primary" /> : <Sparkles className="size-4" />}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">
+                    {viewMode === "infinite" ? "Switch to Masonry Grid View" : "Switch to Infinite Canvas View"}
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
               <PhotoDateDrawer onRangeChange={changePhotoTime} />
               {userInfo && (
                 <Button
@@ -188,15 +219,31 @@ export default function Page() {
           </header>
           <div className="px-1 md:pl-1 md:pr-0">
             {isBrowser ? (
-              <PhotoMasonry
-                photos={photos}
-                resetKey={masonryKey}
-                onReachBottom={loadMorePhotos}
-                onPhotoOpen={openPhoto}
-                onPhotoFavorite={changePhotoFavorite}
-                onPhotoDelete={recyclePhotos}
-                onAlbumOpen={openAlbumDialog}
-              />
+              viewMode === "infinite" ? (
+                <div className="relative w-full h-[calc(100vh-3.5rem)] rounded-xl overflow-hidden border bg-background/50">
+                  <InfiniteGallery
+                    photos={photos}
+                    onPhotoClick={(index) => openPhoto(index)}
+                    density={10}
+                    imageWidth={180}
+                    imageHeight={180}
+                    rounded={6}
+                    dragSpeed={20}
+                    driftAmount={15}
+                    friction={10}
+                  />
+                </div>
+              ) : (
+                <PhotoMasonry
+                  photos={photos}
+                  resetKey={masonryKey}
+                  onReachBottom={loadMorePhotos}
+                  onPhotoOpen={openPhoto}
+                  onPhotoFavorite={changePhotoFavorite}
+                  onPhotoDelete={recyclePhotos}
+                  onAlbumOpen={openAlbumDialog}
+                />
+              )
             ) : (
               <PhotoMasonrySkeleton photos={initialPhotos} />
             )}
@@ -209,6 +256,7 @@ export default function Page() {
         photos={photos}
         onBack={closePhoto}
         onBrowserBack={closePhoto}
+        onPhotoDelete={(photoId) => recyclePhotos([photoId])}
       />
       <AlbumSelectDialog
         open={albumDialogOpen}

@@ -37,5 +37,4 @@ function createHonoApp() {
   return instance;
 }
 
-const globalForHono = globalThis as unknown as { honoApp?: Hono<HonoEnv> };
-export const app = globalForHono.honoApp ?? (globalForHono.honoApp = createHonoApp());
+export const app = createHonoApp();
