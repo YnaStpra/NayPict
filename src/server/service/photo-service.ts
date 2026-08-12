@@ -54,10 +54,6 @@ const photoService = {
       eq(photoTab.status, status)
     ];
 
-    if (userId) {
-      whereList.push(eq(photoTab.userId, userId));
-    }
-
     if (params.favorite) {
       whereList.push(eq(photoTab.favorite, params.favorite));
     }
@@ -129,10 +125,6 @@ const photoService = {
       eq(photoTab.status, PhotoStatusEnum.NORMAL),
       isNotNull(photoTab.takenTime),
     ];
-
-    if (userId) {
-      whereList.push(eq(photoTab.userId, userId));
-    }
 
     if (params.favorite) {
       whereList.push(eq(photoTab.favorite, params.favorite));

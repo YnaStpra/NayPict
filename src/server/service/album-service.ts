@@ -73,14 +73,11 @@ function calculateAlbumCoverScore(photo: {
 const albumService = {
 
   // Query the list of photo albums with automatic cover resolution.
-  async list(userId?: string): Promise<AlbumVo[]> {
-
-    const whereAlbum = userId ? eq(albumTab.userId, userId) : undefined;
+  async list(): Promise<AlbumVo[]> {
 
     const albumList = await orm
       .select()
       .from(albumTab)
-      .where(whereAlbum)
       .orderBy(desc(albumTab.sort));
 
     if (!albumList.length) {
