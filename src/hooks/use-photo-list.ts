@@ -102,10 +102,13 @@ function usePhotoList(params: Partial<PhotoListBo> = {}, pageSize = PHOTO_LIST_P
           const uniquePhotos = raw.filter((item) => {
             if (seen.has(item.photoId)) return false
             seen.add(item.photoId)
-            return true
           })
 
-          const nextPhotos = queryParams.status === PhotoStatusEnum.DELETE ? uniquePhotos : shuffleArray(uniquePhotos)
+          let nextPhotos = uniquePhotos
+          if (!append && queryParams.status !== PhotoStatusEnum.DELETE) {
+            nextPhotos = shuffleArray(uniquePhotos)
+          }
+
           photosRef.current = nextPhotos
           return nextPhotos
         })
