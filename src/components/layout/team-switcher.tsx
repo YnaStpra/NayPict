@@ -14,6 +14,7 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar"
+import { useRouter } from "next/navigation"
 import { ChevronsUpDownIcon } from "lucide-react"
 
 export function TeamSwitcher({
@@ -32,9 +33,36 @@ export function TeamSwitcher({
   onTeamChange: (team: { name: string; logo: React.ReactNode }) => void
 }) {
   const { isMobile } = useSidebar()
+  const router = useRouter()
 
   if (!activeTeam) {
     return null
+  }
+
+  if (teams.length <= 1) {
+    return (
+      <SidebarMenu>
+        <SidebarMenuItem>
+          <SidebarMenuButton
+            size="lg"
+            onClick={() => router.push("/photos")}
+            className="cursor-pointer hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+          >
+            <div className="flex aspect-square size-8 items-center justify-center">
+              <img
+                src="/logo.png"
+                alt=""
+                className="size-7 object-contain"
+                crossOrigin="anonymous"
+              />
+            </div>
+            <div className="grid flex-1 text-left text-sm leading-tight">
+              <span className="truncate font-medium">{activeTeam.name}</span>
+            </div>
+          </SidebarMenuButton>
+        </SidebarMenuItem>
+      </SidebarMenu>
+    )
   }
 
   return (
