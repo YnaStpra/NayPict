@@ -2,9 +2,13 @@
 
 import { useEffect, useState } from "react"
 import { useTranslations } from "next-intl"
+import { PlusIcon, CheckIcon } from "lucide-react"
+import { toast } from "sonner"
 
 import { Dialog } from "@/components/common/dialog"
 import { Checkbox } from "@/components/ui/checkbox"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import {
   Item,
   ItemContent,
@@ -14,6 +18,8 @@ import {
   ItemTitle,
 } from "@/components/ui/item"
 import { useAlbumStore } from "@/store/album-store"
+import { albumAdd } from "@/request/album"
+import { useApp } from "@/app/provider"
 
 interface AlbumSelectDialogProps {
   open: boolean
@@ -21,21 +27,27 @@ interface AlbumSelectDialogProps {
   onAlbumSelect: (albumIds: string[]) => void
 }
 
-// Render the album selection popup used when adding to an album。
+// Render the album selection popup used when adding photos to an album.
 export function AlbumSelectDialog({ open, onOpenChange, onAlbumSelect }: AlbumSelectDialogProps) {
   const t = useTranslations("albums")
   const albums = useAlbumStore((state) => state.albums)
-  // selectedAlbumIds Save the currently selected album id list。
-  const [selectedAlbumIds, setSelectedAlbumIds] = useState<string[]>([])
+  const { refreshAlbums } = useApp()
 
-  // Clear the selected album after closing the pop-up box。
+  // selectedAlbumIds saves the currently selected album ID list.
+  const [selectedAlbumIds, setSelectedAlbumIds] = useState<string[]>([])
+  const [creating, setCreating] = useState(false)
+  const [newAlbumName, setNewAlbumName] = useState("")
+
+  // Clear selected albums & creation state after closing popup.
   useEffect(() => {
     if (!open) {
       setSelectedAlbumIds([])
+      setCreating(false)
+      setNewAlbumName("")
     }
   }, [open])
 
-  // Switch the current multi-selected album。
+  // Toggle album selection.
   function changeAlbum(albumId: string) {
     setSelectedAlbumIds((prev) => (
       prev.includes(albumId)
@@ -44,13 +56,12 @@ export function AlbumSelectDialog({ open, onOpenChange, onAlbumSelect }: AlbumSe
     ))
   }
 
-  // After selecting the album, select the album id The list is passed to the parent component，and close the pop-up box。
+  // Confirm selection and notify parent component.
   function selectAlbum(albumIds: string[]) {
     onAlbumSelect(albumIds)
     onOpenChange(false)
   }
 
-  // Save current selection，Close the popup directly when there is no selection。
   function saveAlbum() {
     if (!selectedAlbumIds.length) {
       onOpenChange(false)
@@ -58,6 +69,28 @@ export function AlbumSelectDialog({ open, onOpenChange, onAlbumSelect }: AlbumSe
     }
 
     selectAlbum(selectedAlbumIds)
+  }
+
+  // Handle new album creation directly inside the selection dialog.
+  async function handleCreateNewAlbum() {
+    const name = newAlbumName.trim()
+    if (!name) return
+
+    try {
+      const res = await albumAdd({ name })
+      await refreshAlbums()
+      const createdId = (res as any)?.data || (res as any)?.albumId || (typeof res === "string" ? res : null)
+
+      if (createdId) {
+        setSelectedAlbumIds((prev) => [...prev, String(createdId)])
+      }
+
+      toast.success(t("createSuccess", { defaultMessage: `Album "${name}" berhasil dibuat` }))
+      setNewAlbumName("")
+      setCreating(false)
+    } catch (err: any) {
+      toast.error(err.message || "Gagal membuat album baru")
+    }
   }
 
   return (
@@ -69,11 +102,46 @@ export function AlbumSelectDialog({ open, onOpenChange, onAlbumSelect }: AlbumSe
       onConfirm={saveAlbum}
     >
       <div className="flex flex-col gap-3 max-h-[60vh] overflow-auto pb-0.25">
+        {/* Button / Form to create a new album on the fly */}
+        {!creating ? (
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full justify-start gap-2 border-dashed text-sm text-foreground hover:bg-accent"
+            onClick={() => setCreating(true)}
+          >
+            <PlusIcon className="size-4" />
+            <span>+ Create New Album / Album Baru</span>
+          </Button>
+        ) : (
+          <div className="flex items-center gap-2 p-2 rounded-lg border bg-muted/30">
+            <Input
+              autoFocus
+              value={newAlbumName}
+              placeholder={t("namePlaceholder", { defaultMessage: "Nama album baru..." })}
+              className="h-9 text-sm bg-background"
+              onChange={(e) => setNewAlbumName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleCreateNewAlbum()
+                if (e.key === "Escape") setCreating(false)
+              }}
+            />
+            <Button size="sm" className="h-9 shrink-0 gap-1" onClick={handleCreateNewAlbum}>
+              <CheckIcon className="size-3.5" />
+              <span>Buat</span>
+            </Button>
+            <Button size="sm" variant="ghost" className="h-9 shrink-0" onClick={() => setCreating(false)}>
+              Batal
+            </Button>
+          </div>
+        )}
+
         {!albums.length && (
           <div className="py-8 text-center text-sm text-muted-foreground">
             {t("empty")}
           </div>
         )}
+
         {!!albums.length && (
           <ItemGroup className="gap-2">
             {albums.map((album) => (
@@ -81,7 +149,7 @@ export function AlbumSelectDialog({ open, onOpenChange, onAlbumSelect }: AlbumSe
                 key={album.albumId}
                 variant="outline"
                 role="listitem"
-                className="h-20.5 [contain-intrinsic-size:100%_82px] [content-visibility:auto]"
+                className="h-20.5 [contain-intrinsic-size:100%_82px] [content-visibility:auto] cursor-pointer"
                 onClick={() => changeAlbum(album.albumId)}
               >
                 <ItemMedia variant="image" className="size-14 rounded-md">

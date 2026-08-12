@@ -1,6 +1,6 @@
 "use client"
 
-import { XIcon } from "lucide-react"
+import { FolderPlusIcon, XIcon } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { useTapAction } from "@/hooks/use-tap-action"
@@ -9,20 +9,24 @@ import { getThumbHashUrl } from "@/lib/thumb-hash"
 import { formatPhotoLocation, getPhotoColorSpace, getPhotoDeviceParams, getPhotoShootingParams, getPhotoSoftware, getPhotoTimezone } from "@/lib/viewer-field"
 import { type PhotoVo } from "@/server/entity/vo/photo"
 import { useLocale, useTranslations } from "next-intl"
+import { useApp } from "@/app/provider"
+import { UserTypeEnum } from "@/server/enums/user-enum"
 
 type PhotoInfoSidebarProps = {
-  // Currently viewing photos。
+  // Currently viewing photos.
   photo: PhotoVo | null
-  // Close sidebar。
+  // Close sidebar.
   onClose?: () => void
+  // Trigger open album dialog (Admin only).
+  onAlbumOpen?: (photoId: string) => void
 }
 
 type PhotoViewerBlurBackgroundProps = {
-  // of current photo thumbHash。
+  // of current photo thumbHash.
   thumbHash?: string | null
 }
 
-// Format storage location：storage name(Translated type)。
+// Format storage location: storage name(Translated type).
 function formatStorageLocation(photo: PhotoVo, t: (key: string) => string) {
   if (!photo.storageName && !photo.storageTypeDesc) {
     return null
@@ -33,19 +37,19 @@ function formatStorageLocation(photo: PhotoVo, t: (key: string) => string) {
   return `${photo.storageName ?? "-"} (${type})`
 }
 
-// Format photo name，Remove file suffix。
+// Format photo name, Remove file suffix.
 function formatPhotoName(name: string) {
   const index = name.lastIndexOf(".")
 
   return index > 0 ? name.slice(0, index) : name
 }
 
-// Format the number of bytes into MB。
+// Format the number of bytes into MB.
 function formatFileSize(size: number) {
   return `${(size / 1024 / 1024).toFixed(1)}MB`
 }
 
-// Format photo resolution。
+// Format photo resolution.
 function formatResolution(width: number | null, height: number | null) {
   if (!width || !height) {
     return null
@@ -54,7 +58,7 @@ function formatResolution(width: number | null, height: number | null) {
   return `${width} × ${height}`
 }
 
-// Format photo pixels（megapixels）。
+// Format photo pixels (megapixels).
 function formatMegapixels(width: number | null, height: number | null) {
   if (!width || !height) {
     return null
@@ -63,7 +67,7 @@ function formatMegapixels(width: number | null, height: number | null) {
   return `${(width * height / 1_000_000).toFixed(1)} MP`
 }
 
-// Rendering a single line of photo information，label on the left，value on the right；Do not display if there is no value。
+// Rendering a single line of photo information.
 function PhotoInfoRow({
   label,
   value,
@@ -92,7 +96,7 @@ function PhotoInfoRow({
   )
 }
 
-// Render full screen blurred background，Stacked under the Details & Information sidebar。
+// Render full screen blurred background.
 export function PhotoViewerBlurBackground({ thumbHash }: PhotoViewerBlurBackgroundProps) {
   const thumbHashUrl = getThumbHashUrl(thumbHash)
 
@@ -113,7 +117,7 @@ export function PhotoViewerBlurBackground({ thumbHash }: PhotoViewerBlurBackgrou
   )
 }
 
-// Render sidebar close button（Mobile terminal md The following shows）。
+// Render sidebar close button.
 function SidebarCloseButton({ onClose }: { onClose: () => void }) {
   const tap = useTapAction(onClose)
 
@@ -131,11 +135,13 @@ function SidebarCloseButton({ onClose }: { onClose: () => void }) {
   )
 }
 
-// Render photo information sidebar，fixed at Lightbox right side。
-export function PhotoInfoSidebar({ photo, onClose }: PhotoInfoSidebarProps) {
+// Render photo information sidebar.
+export function PhotoInfoSidebar({ photo, onClose, onAlbumOpen }: PhotoInfoSidebarProps) {
   const t = useTranslations("photos.info")
   const storageT = useTranslations("storage")
   const locale = useLocale()
+  const { userInfo } = useApp()
+  const isAdmin = userInfo?.type === UserTypeEnum.ADMIN
   const deviceParams = photo ? getPhotoDeviceParams(photo.exif) : []
   const shootingParams = photo ? getPhotoShootingParams(photo.exif) : []
 
@@ -143,8 +149,25 @@ export function PhotoInfoSidebar({ photo, onClose }: PhotoInfoSidebarProps) {
     <aside className="fixed top-0 right-0 z-[41] flex h-full w-full flex-col overflow-y-auto bg-transparent backdrop-blur-xl text-white shadow-photo-sidebar md:w-80 md:shrink-0" onPointerDown={(event) => event.stopPropagation()}>
       {onClose && <SidebarCloseButton onClose={onClose} />}
       {photo && (
-        <div className="text-left">
+        <div className="text-left pb-6">
           <div className="px-4 pt-6.5 md:pt-4.5 text-sm font-medium">{t("basicInformation")}</div>
+          
+          {/* Admin Add to Album Action */}
+          {isAdmin && onAlbumOpen && (
+            <div className="px-4 pt-2">
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                className="w-full justify-center gap-2 bg-white/10 text-white hover:bg-white/20 border border-white/20 text-xs font-medium"
+                onClick={() => onAlbumOpen(photo.photoId)}
+              >
+                <FolderPlusIcon className="size-3.5" />
+                <span>+ Tambah ke Album</span>
+              </Button>
+            </div>
+          )}
+
           <div className="space-y-1.5 px-4 py-2">
             <PhotoInfoRow label={t("fileName")} value={formatPhotoName(photo.name)} twoLines />
             <PhotoInfoRow label={t("format")} value={photo.typeDesc.toUpperCase()} />
