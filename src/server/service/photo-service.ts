@@ -93,15 +93,25 @@ const photoService = {
           ...whereList,
           eq(albumPhotoTab.albumId, params.albumId)
         ))
-        // Preserve the order of provided photoIds if given, otherwise use time-based sort
-        .orderBy(params.photoIds?.length ? sql`CASE ${photoTab.photoId} ${params.photoIds.map((id, i) => sql`WHEN ${id} THEN ${i}`).reduce((a, b) => sql`${a} ${b}`)} END` : desc(orderColumn), desc(photoTab.photoId))
+        // Preserve photoIds order if given; otherwise random or time-based sort
+        .orderBy(
+          params.photoIds?.length
+            ? sql`CASE ${photoTab.photoId} ${params.photoIds.map((id, i) => sql`WHEN ${id} THEN ${i}`).reduce((a, b) => sql`${a} ${b}`)} END`
+            : (params.shuffle && !params.cursorPhotoId ? sql`RANDOM()` : desc(orderColumn)),
+          desc(photoTab.photoId)
+        )
         .limit(size)
       : await orm
         .select()
         .from(photoTab)
         .where(and(...whereList))
-        // Preserve the order of provided photoIds if given, otherwise use time-based or random sort
-        .orderBy(params.photoIds?.length ? sql`CASE ${photoTab.photoId} ${params.photoIds.map((id, i) => sql`WHEN ${id} THEN ${i}`).reduce((a, b) => sql`${a} ${b}`)} END` : (params.shuffle && !params.cursorPhotoId ? sql`RANDOM()` : desc(orderColumn)), desc(photoTab.photoId))
+        // Preserve photoIds order if given; otherwise random or time-based sort
+        .orderBy(
+          params.photoIds?.length
+            ? sql`CASE ${photoTab.photoId} ${params.photoIds.map((id, i) => sql`WHEN ${id} THEN ${i}`).reduce((a, b) => sql`${a} ${b}`)} END`
+            : (params.shuffle && !params.cursorPhotoId ? sql`RANDOM()` : desc(orderColumn)),
+          desc(photoTab.photoId)
+        )
         .limit(size);
 
     const fileStorageList = await storageService.getStorageList();
