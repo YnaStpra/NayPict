@@ -1,7 +1,7 @@
-import { integer, sqliteTable, text } from 'drizzle-orm/sqlite-core';
+import { integer, pgTable, text } from 'drizzle-orm/pg-core';
 
-// storage
-export const storageTab = sqliteTable('storage', {
+// storage (stores cloud storage provider configurations)
+export const storageTab = pgTable('storage', {
   storageId: text('storage_id').primaryKey(),
   name: text('name').notNull(),
   type: integer('type').notNull(),
@@ -12,8 +12,8 @@ export const storageTab = sqliteTable('storage', {
   accessKey: text('access_key'),
   secretKey: text('secret_key'),
   userId: text('user_id'),
-  sort: integer('sort').default(0).notNull(),
-  status: integer('status').default(0)
+  sort: integer('sort').notNull().default(0),
+  status: integer('status').default(0),
 });
 
 export type Storage = typeof storageTab.$inferSelect;

@@ -1,13 +1,17 @@
-import { sqliteTable, text } from 'drizzle-orm/sqlite-core';
+import { pgTable, text } from 'drizzle-orm/pg-core';
 
-// System settings
-export const settingTab = sqliteTable('setting', {
+// setting (key-value system configuration store)
+export const settingTab = pgTable('setting', {
   key: text('key').primaryKey(),
-  value: text('value').notNull()
+  value: text('value').notNull(),
 });
 
-export type Setting = {
+export interface SettingConfig {
   syncDelete: number;
   clearLast: number;
   photoDedup: number;
-};
+}
+
+export type Setting = SettingConfig;
+export type SettingDb = typeof settingTab.$inferSelect;
+export type SettingInto = typeof settingTab.$inferInsert;

@@ -92,7 +92,7 @@ export function useStorageColumns({ onEdit, onSetTop, onToggleStatus, onDelete }
     {
       accessorKey: "type",
       header: t("columns.type"),
-      cell: ({ row }) => row.original.type === StorageTypeEnum.LOCAL ? t("local") : t("objectStorage"),
+      cell: ({ row }) => t("objectStorage"),
     },
     {
       accessorKey: "usedCapacity",
@@ -135,7 +135,6 @@ export function useStorageColumns({ onEdit, onSetTop, onToggleStatus, onDelete }
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => onSetTop(row.original.storageId)}>{t("pin")}</DropdownMenuItem>
             <DropdownMenuItem
-              disabled={row.original.type === StorageTypeEnum.LOCAL}
               onClick={() => onDelete(row.original)}
             >
               {t("delete")}

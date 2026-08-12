@@ -24,7 +24,7 @@ export function registerPhotoApi(app: Hono<HonoEnv>) {
 
   // Download original photo file with server-side protection validation.
   app.get('/photo/download/:id', async (c: Context) => {
-    const photoId = c.req.param('id');
+    const photoId = c.req.param('id') ?? '';
     const userId = getUserId();
     const photo = await photoService.getById(photoId, userId);
 

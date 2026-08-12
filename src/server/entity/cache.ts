@@ -1,10 +1,10 @@
-import { integer, sqliteTable, text } from 'drizzle-orm/sqlite-core';
+import { integer, pgTable, text } from 'drizzle-orm/pg-core';
 
-// general cache table
-export const cacheTab = sqliteTable('cache', {
+// cache (key-value cache store with optional TTL, backed by PostgreSQL)
+export const cacheTab = pgTable('cache', {
   key: text('key').primaryKey(),
   value: text('value').notNull(),
-  expireTime: integer('expire_time')
+  expireTime: integer('expire_time'),
 });
 
 export type Cache = typeof cacheTab.$inferSelect;

@@ -1,11 +1,10 @@
-// This module defines the photo business input parameter object。
+// This module defines the photo business input parameter object.
 
 interface PhotoTakenDateListBo {
   favorite?: number | null;
   albumId?: string | null;
-  // tzOffset for relative UTC offset minutes，East Eighth District is 480。
+  // tzOffset for relative UTC offset minutes, East Eighth District is 480.
   tzOffset: number;
-
 }
 
 interface PhotoListBo {
@@ -36,7 +35,10 @@ interface PhotoFavoriteBo {
 
 interface PhotoRestoreBo {
   photoIds: string[];
+}
 
+interface PhotoDeleteBo {
+  photoIds: string[];
 }
 
 interface PhotoSetAllowDownloadBo {
@@ -45,4 +47,3 @@ interface PhotoSetAllowDownloadBo {
 }
 
 export type { PhotoDeleteBo, PhotoExistsBo, PhotoFavoriteBo, PhotoListBo, PhotoRecycleBo, PhotoRestoreBo, PhotoSetAllowDownloadBo, PhotoTakenDateListBo };
-

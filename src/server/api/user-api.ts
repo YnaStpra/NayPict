@@ -58,7 +58,7 @@ export function registerUserApi(app: Hono<HonoEnv>) {
       return c.body(null, 404);
     }
 
-    return c.body(file.body, 200, {
+    return c.body(file.body as unknown as ReadableStream, 200, {
       'Content-Type': 'image/webp',
       'Cache-Control': 'public, max-age=31536000, immutable',
       'Content-Length': String(file.size),
