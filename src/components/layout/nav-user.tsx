@@ -84,11 +84,12 @@ export function NavUser({
         <SidebarMenuItem>
           <SidebarMenuButton
             size="lg"
+            tooltip="Admin Login"
             onClick={() => router.push("/login")}
-            className="bg-primary/10 hover:bg-primary/20 text-primary font-medium flex items-center justify-center gap-2 rounded-lg w-full cursor-pointer"
+            className="bg-primary/10 hover:bg-primary/20 text-primary font-medium flex items-center justify-center gap-2 rounded-lg w-full cursor-pointer group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0"
           >
-            <LogIn className="size-4" />
-            <span>Admin Login</span>
+            <LogIn className="size-4 shrink-0" />
+            <span className="truncate group-data-[collapsible=icon]:hidden">Admin Login</span>
           </SidebarMenuButton>
         </SidebarMenuItem>
       </SidebarMenu>
