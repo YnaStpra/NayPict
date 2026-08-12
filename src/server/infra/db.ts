@@ -25,13 +25,29 @@ if (isVercel && !fs.existsSync(dbPath)) {
   if (fs.existsSync(seedPath)) {
     try {
       fs.copyFileSync(seedPath, dbPath)
+      fs.chmodSync(dbPath, 0o666)
     } catch (e) {
       console.warn('Failed to copy seed database to /tmp:', e)
     }
   }
 }
 
+if (isVercel && fs.existsSync(dbPath)) {
+  try {
+    fs.chmodSync(dbPath, 0o666)
+  } catch {
+    // ignore
+  }
+}
+
 const sqlite = new Database(dbPath)
+
+// Ensure PRAGMA journal_mode is WAL or DELETE and readwrite
+try {
+  sqlite.pragma('journal_mode = WAL')
+} catch {
+  // ignore
+}
 
 export const db = sqlite
 export const orm = drizzle(sqlite, { schema: schema as any })
