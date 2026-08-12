@@ -10,6 +10,9 @@
     "lint": "eslint",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:production": "cross-env TEST_BASE_URL=https://naypict.vercel.app playwright test",
     "bundle:win": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/bundle-win.ps1"
   },
   "dependencies": {
@@ -60,6 +63,8 @@
     "@types/node-cron": "^3.0.11",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@playwright/test": "^1.50.0",
+    "cross-env": "^7.0.3",
     "drizzle-kit": "^0.31.10",
     "eslint": "^9",
     "eslint-config-next": "16.2.6",
