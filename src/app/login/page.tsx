@@ -36,14 +36,21 @@ export default function LoginPage() {
     setLoading(true)
 
     login(params)
-      .then(() => userInfo())
-      .then((info) => {
-        if (info) {
-          setUserInfo(info)
-          router.replace("/admin")
-          void refreshAlbums()
-          void refreshStorages()
+      .then((res) => {
+        if (res?.token) {
+          document.cookie = `token=${res.token}; path=/; max-age=2592000`
         }
+        if (res?.user) {
+          setUserInfo(res.user)
+          window.location.href = "/admin"
+          return
+        }
+        return userInfo().then((info) => {
+          if (info) {
+            setUserInfo(info)
+            window.location.href = "/admin"
+          }
+        })
       })
       .catch((err) => {
         console.error("Login failed:", err)

@@ -6,21 +6,23 @@ import { type LoginBo } from "@/server/entity/bo/login";
 import { type LoginVo } from "@/server/entity/vo/login";
 import { getLoginInfo } from "@/lib/cookie";
 import { loginService } from "@/server/service/login-service";
+import { userService } from '@/server/service/user-service';
 import type { HonoEnv } from '../hono/type';
 
 // This module registers and logs in related interfaces.
 
 export function registerLoginApi(app: Hono<HonoEnv>) {
-  // User login, Return after success JWT.
+  // User login, Return after success JWT and user info.
   app.post('/login', async (c: Context) => {
     const params = await c.req.json<LoginBo>();
     const token = await loginService.login(params);
-    const data: LoginVo = { token };
+    const { userId } = await getLoginInfo(`token=${token}`);
+    const user = userId ? await userService.getById(userId) : null;
+    const data: LoginVo = { token, user };
 
     setCookie(c, TOKEN_COOKIE_NAME, token, {
       path: '/',
       maxAge: TOKEN_COOKIE_MAX_AGE,
-      httpOnly: true,
       sameSite: 'Lax',
     });
 

@@ -72,9 +72,8 @@ async function post<T = unknown>(url: string, params: RequestParams = null) {
 
     if (res.status === 401 || json?.code === 401) {
       handleUnauthorized();
-    } else {
-      toast.error(message);
     }
+    toast.error(message);
 
     throw new Error(message);
   }
