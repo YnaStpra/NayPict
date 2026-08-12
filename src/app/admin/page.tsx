@@ -85,7 +85,7 @@ export default function AdminPage() {
     },
     {
       title: "Storage Settings",
-      description: "Configure local storage, Cloudflare R2, AWS S3, or Supabase providers.",
+      description: "Configure your Cloudflare R2 storage provider for photo uploads and media delivery.",
       icon: <Database className="size-6 text-emerald-500" />,
       actionLabel: "Configure Storage",
       onClick: () => router.push("/storage"),

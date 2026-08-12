@@ -165,7 +165,7 @@ export function PhotoCard({
         </div>
       ) : (
         <img
-          src={src}
+          src={src ?? undefined}
           crossOrigin="anonymous"
           alt={data.name}
           draggable={false}

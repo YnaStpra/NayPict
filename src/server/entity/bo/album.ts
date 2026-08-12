@@ -1,4 +1,4 @@
-// This module defines the photo album business input parameter object。
+// This module defines the photo album business input parameter object.
 
 interface AlbumAddBo {
   name: string;
@@ -27,6 +27,10 @@ interface AlbumSetCoverBo {
   albumId: string;
   photoId?: string | null;
   autoSelect?: boolean;
+}
+
+interface AlbumSetTopBo {
+  albumId: string;
 }
 
 export type { AlbumAddBo, AlbumAddPhotoBo, AlbumDeleteBo, AlbumRemovePhotoBo, AlbumSetCoverBo, AlbumSetNameBo, AlbumSetTopBo };

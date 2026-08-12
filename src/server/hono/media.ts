@@ -94,7 +94,7 @@ media.get('*', async (c: Context, next: Next) => {
     headers['Content-Disposition'] = disposition;
   }
 
-  return c.body(obj.body, 200, headers);
+  return c.body(obj.body as unknown as ReadableStream, 200, headers);
 });
 
 export { media };

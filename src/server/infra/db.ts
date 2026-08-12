@@ -1,53 +1,18 @@
-import Database from 'better-sqlite3'
-import { drizzle } from 'drizzle-orm/better-sqlite3'
-import fs from 'node:fs'
-import path from 'path'
-import { schema } from '@/server/infra/schema'
+import { neon } from '@neondatabase/serverless';
+import { drizzle } from 'drizzle-orm/neon-http';
+import { schema } from '@/server/infra/schema';
 
-// This module initializes the SQLite database with Vercel serverless /tmp support.
+// This module initializes the Neon PostgreSQL database client for serverless environments.
 
-const isVercel = Boolean(process.env.VERCEL)
-const dataDir = isVercel ? '/tmp' : path.join(process.cwd(), 'data')
-
-if (!isVercel) {
-  try {
-    fs.mkdirSync(dataDir, { recursive: true })
-  } catch {
-    // ignore
-  }
+if (!process.env.DATABASE_URL) {
+  throw new Error('DATABASE_URL environment variable is required but not set.');
 }
 
-const dbPath = isVercel ? '/tmp/pictale.sqlite' : path.join(dataDir, 'pictale.sqlite')
+// Create a Neon HTTP client from the connection string.
+const sql = neon(process.env.DATABASE_URL);
 
-// On Vercel, copy initial seed database to /tmp/pictale.sqlite if not present in /tmp
-if (isVercel && !fs.existsSync(dbPath)) {
-  const seedPath = path.join(process.cwd(), 'data', 'pictale.sqlite')
-  if (fs.existsSync(seedPath)) {
-    try {
-      fs.copyFileSync(seedPath, dbPath)
-      fs.chmodSync(dbPath, 0o666)
-    } catch (e) {
-      console.warn('Failed to copy seed database to /tmp:', e)
-    }
-  }
-}
+// Initialize Drizzle ORM with the Neon client and full schema.
+export const orm = drizzle(sql, { schema });
 
-if (isVercel && fs.existsSync(dbPath)) {
-  try {
-    fs.chmodSync(dbPath, 0o666)
-  } catch {
-    // ignore
-  }
-}
-
-const sqlite = new Database(dbPath)
-
-// Ensure PRAGMA journal_mode is WAL or DELETE and readwrite
-try {
-  sqlite.pragma('journal_mode = WAL')
-} catch {
-  // ignore
-}
-
-export const db = sqlite
-export const orm = drizzle(sqlite, { schema: schema as any })
+// Export a no-op db shim so legacy migrate.ts import does not break during transition.
+export const db = { exec: () => {} };

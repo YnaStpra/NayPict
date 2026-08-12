@@ -8,6 +8,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
     "bundle:win": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/bundle-win.ps1"
   },
   "dependencies": {
@@ -58,6 +60,7 @@
     "@types/node-cron": "^3.0.11",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "drizzle-kit": "^0.31.10",
     "eslint": "^9",
     "eslint-config-next": "16.2.6",
     "tailwindcss": "^4",

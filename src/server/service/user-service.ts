@@ -21,10 +21,15 @@ import { storage } from '@/server/storage/storage';
 
 const userService = {
 
-  // According to environment variables ADMIN、PASSWORD Initialize administrator，Create if it does not exist，If it already exists, skip it。
+  // According to environment variables ADMIN, PASSWORD initialize administrator: create if not exists, skip if exists.
   async init(): Promise<void> {
-    const username = (process.env.ADMIN?.trim() || 'admin');
-    const password = (process.env.PASSWORD?.trim() || 'password123');
+    const username = process.env.ADMIN?.trim();
+    const password = process.env.PASSWORD?.trim();
+
+    if (!username || !password) {
+      console.warn('[INIT] ADMIN or PASSWORD env var is not set — skipping admin initialization.');
+      return;
+    }
 
     const [user] = await orm
       .select()

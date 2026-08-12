@@ -1,10 +1,10 @@
-import { sqliteTable, text } from 'drizzle-orm/sqlite-core';
+import { pgTable, text } from 'drizzle-orm/pg-core';
 
-// Album photo association
-export const albumPhotoTab = sqliteTable('album_photo', {
+// album_photo (many-to-many join table)
+export const albumPhotoTab = pgTable('album_photo', {
   id: text('id').primaryKey().notNull(),
   photoId: text('photo_id').notNull(),
-  albumId: text('album_id').notNull()
+  albumId: text('album_id').notNull(),
 });
 
 export type AlbumPhoto = typeof albumPhotoTab.$inferSelect;

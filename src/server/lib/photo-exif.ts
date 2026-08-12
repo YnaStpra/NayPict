@@ -197,7 +197,7 @@ export async function readPhotoExifFromBuffer(input: ArrayBuffer | Buffer) {
     }
   }
 
-  const source = input instanceof Buffer ? input : Buffer.from(input)
+  const source = input instanceof Buffer ? input : Buffer.from(input as any)
   const dir = await mkdtemp(join(tmpdir(), "album-exif-"))
   const filePath = join(dir, "photo")
 

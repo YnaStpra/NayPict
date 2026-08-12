@@ -1,14 +1,13 @@
-import { integer, sqliteTable, text } from 'drizzle-orm/sqlite-core';
-import { FileTypeEnum } from '@/server/enums/file-enum';
+import { integer, pgTable, text } from 'drizzle-orm/pg-core';
 
-// photo files
-export const fileTab = sqliteTable('file', {
+// file (stores individual file records: original, preview, thumbnail)
+export const fileTab = pgTable('file', {
   fileId: text('file_id').primaryKey().notNull(),
   photoId: text('photo_id').notNull(),
-  key: text('key').notNull(),
-  type: integer('type').notNull().default(FileTypeEnum.ORIGINAL),
+  key: text('key').notNull().unique(),
+  type: integer('type').notNull(),
   fileType: text('file_type').notNull(),
-  size: integer('size').notNull()
+  size: integer('size').notNull(),
 });
 
 export type File = typeof fileTab.$inferSelect;

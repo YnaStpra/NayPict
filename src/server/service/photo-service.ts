@@ -257,7 +257,7 @@ const photoService = {
     const activeStorageId = targetStorageId;
 
     const { buffer, name, size, type } = await this.readPhotoUpload(file);
-    const checksum = await fileChecksum(new Blob([buffer]));
+    const checksum = await fileChecksum(new Blob([new Uint8Array(buffer)]));
 
     if ((await this.exists({ checksum, name }, userId)).duplicate) {
       return { photo: null, duplicate: true };

@@ -58,8 +58,8 @@ function createStorageForm(storage?: StorageVo | null): StorageAddForm {
 // Render storage pop-up window，And after confirmation, hand the storage configuration to the parent component for storage.。
 export function StorageAddDialog({ title, open, storage, onOpenChange, onStorageConfirm }: StorageAddDialogProps) {
   const t = useTranslations("storage")
+  // Only Cloudflare R2 (S3-compatible) is supported in production.
   const storageTypeOptions = [
-    { label: t("local"), value: StorageTypeEnum.LOCAL, disabled: true },
     { label: t("objectStorage"), value: StorageTypeEnum.S3, disabled: false },
   ]
   // resetTimerRef Reset the form's timer after the save-close animation ends。
@@ -70,8 +70,8 @@ export function StorageAddDialog({ title, open, storage, onOpenChange, onStorage
   const [errors, setErrors] = useState<StorageAddFormErrors>({})
 
   const isS3 = form.type === StorageTypeEnum.S3
-  // Modification of types is not allowed when editing local storage。
-  const typeLocked = Boolean(storage && storage.type === StorageTypeEnum.LOCAL)
+  // Type is always S3-compatible; locking is not needed.
+  const typeLocked = false
 
   useEffect(() => {
     return () => {

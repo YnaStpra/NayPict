@@ -39,7 +39,7 @@ type PhotoSlide = SlideImage & {
   // Current photo ID.
   photoId: string
   // Current photo original key.
-  key: string
+  key: string | null
   // Current photo original size.
   originalSize: number
   // Current photo preview URL.

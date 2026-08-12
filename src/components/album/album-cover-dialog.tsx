@@ -53,7 +53,7 @@ export function AlbumCoverDialog({ open, album, onOpenChange, onSuccess }: Album
   const currentCoverPhotoId = album.coverPhotoId
 
   async function handleApplySuggested() {
-    if (!suggestedCandidate) return
+    if (!suggestedCandidate || !album) return
     setSaving(true)
     try {
       await albumSetCover({ albumId: album.albumId, photoId: suggestedCandidate.photoId })
@@ -68,6 +68,7 @@ export function AlbumCoverDialog({ open, album, onOpenChange, onSuccess }: Album
   }
 
   async function handleSetManualCover(photoId: string) {
+    if (!album) return
     setSaving(true)
     try {
       await albumSetCover({ albumId: album.albumId, photoId })
@@ -82,6 +83,7 @@ export function AlbumCoverDialog({ open, album, onOpenChange, onSuccess }: Album
   }
 
   async function handleAutoSelect() {
+    if (!album) return
     setSaving(true)
     try {
       await albumSetCover({ albumId: album.albumId, autoSelect: true })

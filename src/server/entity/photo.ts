@@ -1,9 +1,9 @@
 import { sql } from 'drizzle-orm';
-import { integer, sqliteTable, text } from 'drizzle-orm/sqlite-core';
+import { integer, pgTable, text, timestamp } from 'drizzle-orm/pg-core';
 import { PhotoFavoriteEnum, PhotoStatusEnum } from '@/server/enums/photo-enum';
 
 // photo
-export const photoTab = sqliteTable('photo', {
+export const photoTab = pgTable('photo', {
   photoId: text('photo_id').primaryKey().notNull(),
   name: text('name').notNull(),
   thumbHash: text('thumb_hash'),
@@ -14,13 +14,13 @@ export const photoTab = sqliteTable('photo', {
   width: integer('width'),
   height: integer('height'),
   takenTime: text('taken_time'),
-  createTime: text('create_time').default(sql`(strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))`).notNull(),
+  createTime: timestamp('create_time', { mode: 'string' }).notNull().default(sql`now()`),
   recycleTime: text('recycle_time'),
   userId: text('user_id').notNull(),
-  status: integer('status').default(PhotoStatusEnum.NORMAL).notNull(),
-  favorite: integer('favorite').default(PhotoFavoriteEnum.NO).notNull(),
+  status: integer('status').notNull().default(PhotoStatusEnum.NORMAL),
+  favorite: integer('favorite').notNull().default(PhotoFavoriteEnum.NO),
   storageId: text('storage_id'),
-  allowDownload: integer('allow_download').default(0).notNull()
+  allowDownload: integer('allow_download').notNull().default(0),
 });
 
 export type Photo = typeof photoTab.$inferSelect;
