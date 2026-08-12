@@ -33,7 +33,8 @@ const PUBLIC_API_PATHS = [
   '/photo/takenDateList',
   '/photo/download',
   '/album/list',
-  '/storage/select'
+  '/storage/select',
+  '/media'
 ];
 
 // Determine whether the current path hits the specified interface or its subpath.
