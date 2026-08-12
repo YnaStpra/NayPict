@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { AppSidebar } from "@/components/layout/app-sidebar"
 import {
@@ -19,23 +19,50 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { useApp } from "@/app/provider"
 import { UserTypeEnum } from "@/server/enums/user-enum"
-import { Image, FolderOpen, Database, Trash2, Settings, Upload, ShieldCheck, ArrowRight } from "lucide-react"
+import { Image, FolderOpen, Database, Trash2, Settings, Upload, ShieldCheck, ArrowRight, LoaderCircle } from "lucide-react"
 import { usePhotoStore } from "@/store/photo-store"
+import { userInfo as fetchUserInfo } from "@/request/user"
 
 export default function AdminPage() {
   const router = useRouter()
-  const { userInfo, sidebarOpen, setSidebarOpen, title } = useApp()
+  const { userInfo, setUserInfo, sidebarOpen, setSidebarOpen, title } = useApp()
   const openUpload = usePhotoStore((state) => state.openUpload)
-
-  const isAdmin = userInfo?.type === UserTypeEnum.ADMIN
+  const [checking, setChecking] = useState(!userInfo)
 
   useEffect(() => {
-    if (!userInfo || userInfo.type !== UserTypeEnum.ADMIN) {
-      router.replace("/login")
+    if (userInfo) {
+      if (userInfo.type !== UserTypeEnum.ADMIN) {
+        router.replace("/login")
+      }
+      setChecking(false)
+      return
     }
-  }, [userInfo, router])
 
-  if (!isAdmin) {
+    fetchUserInfo()
+      .then((info) => {
+        if (info && info.type === UserTypeEnum.ADMIN) {
+          setUserInfo(info)
+        } else {
+          router.replace("/login")
+        }
+      })
+      .catch(() => {
+        router.replace("/login")
+      })
+      .finally(() => {
+        setChecking(false)
+      })
+  }, [userInfo, setUserInfo, router])
+
+  if (checking) {
+    return (
+      <div className="flex h-screen w-full items-center justify-center bg-background">
+        <LoaderCircle className="size-8 animate-spin text-primary" />
+      </div>
+    )
+  }
+
+  if (!userInfo || userInfo.type !== UserTypeEnum.ADMIN) {
     return null
   }
 

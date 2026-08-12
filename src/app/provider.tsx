@@ -75,7 +75,9 @@ function Provider({ children, defaultTheme, defaultSidebarOpen, initialUserInfo,
   const isLogin = pathname === "/login"
 
   useEffect(() => {
-    setUserInfo(initialUserInfo)
+    if (initialUserInfo) {
+      setUserInfo(initialUserInfo)
+    }
   }, [initialUserInfo])
 
   // Query normal storage configuration and write global storage options。
