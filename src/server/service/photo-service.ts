@@ -142,9 +142,8 @@ const photoService = {
       whereList.push(eq(photoTab.favorite, params.favorite));
     }
 
-    const tzOffset = params.tzOffset || 0;
-    // Group by calendar day in the time zone passed in from the front end (PostgreSQL compatible).
-    const takenDate = sql<string>`to_char((${photoTab.takenTime}::timestamp + (${tzOffset} * interval '1 minute')), 'YYYY-MM-DD')`;
+    // Group by calendar day (YYYY-MM-DD) from takenTime ISO timestamp string.
+    const takenDate = sql<string>`substr(${photoTab.takenTime}, 1, 10)`;
     const selectColumns = {
       date: takenDate,
       count: count(photoTab.photoId),

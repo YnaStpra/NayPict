@@ -18,8 +18,8 @@ function toMediaUrl(key: string, domain?: string | null) {
   const encodedKey = key.split('/').map((segment) => encodeURIComponent(segment)).join('/');
   const base = formatHttpUrl(domain);
 
-  // If domain is an r2.dev domain (wildcard-blocked by Indonesian ISP DNS filtering), route via /media proxy for 100% reliable delivery
-  if (base && !base.includes('.r2.dev')) {
+  // Route via /media proxy if domain is empty, or contains .r2.dev, or contains r2.cloudflarestorage.com (S3 API endpoint)
+  if (base && !base.includes('.r2.dev') && !base.includes('r2.cloudflarestorage.com')) {
     return `${base}/${encodedKey}`;
   }
 
