@@ -142,9 +142,9 @@ const photoService = {
       whereList.push(eq(photoTab.favorite, params.favorite));
     }
 
-    const tzModifier = params.tzOffset >= 0 ? `+${params.tzOffset} minutes` : `${params.tzOffset} minutes`;
-    // Group by calendar day in the time zone passed in from the front end，Consistent with list display and filter boundaries。
-    const takenDate = sql<string>`date(${photoTab.takenTime}, ${tzModifier})`;
+    const tzOffset = params.tzOffset || 0;
+    // Group by calendar day in the time zone passed in from the front end (PostgreSQL compatible).
+    const takenDate = sql<string>`to_char((${photoTab.takenTime}::timestamp + (${tzOffset} * interval '1 minute')), 'YYYY-MM-DD')`;
     const selectColumns = {
       date: takenDate,
       count: count(photoTab.photoId),
