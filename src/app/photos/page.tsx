@@ -241,7 +241,7 @@ export default function Page() {
                   resetKey={masonryKey}
                   onReachBottom={loadMorePhotos}
                   onPhotoOpen={openPhoto}
-                  onPhotoFavorite={changePhotoFavorite}
+                  onPhotoFavorite={isAdmin ? changePhotoFavorite : undefined}
                   onPhotoDelete={recyclePhotos}
                   onAlbumOpen={openAlbumDialog}
                 />

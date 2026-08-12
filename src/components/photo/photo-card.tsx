@@ -217,7 +217,7 @@ export function PhotoCard({
           ].join(" ")}
         />
       )}
-      {onFavoriteChange && !selectionActive && !selected && (
+      {isAdmin && onFavoriteChange && !selectionActive && !selected && (
         <Button
           type="button"
           size="icon-sm"
