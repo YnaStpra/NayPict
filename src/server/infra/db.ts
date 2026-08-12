@@ -4,12 +4,14 @@ import { schema } from '@/server/infra/schema';
 
 // This module initializes the Neon PostgreSQL database client for serverless environments.
 
+const connectionString = process.env.DATABASE_URL || 'postgresql://placeholder:placeholder@localhost:5432/placeholder';
+
 if (!process.env.DATABASE_URL) {
-  throw new Error('DATABASE_URL environment variable is required but not set.');
+  console.warn('[DB] DATABASE_URL environment variable is not set. Using fallback string for build-time evaluation.');
 }
 
 // Create a Neon HTTP client from the connection string.
-const sql = neon(process.env.DATABASE_URL);
+const sql = neon(connectionString);
 
 // Initialize Drizzle ORM with the Neon client and full schema.
 export const orm = drizzle(sql, { schema });
