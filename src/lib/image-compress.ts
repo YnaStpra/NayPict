@@ -1,4 +1,4 @@
-// This module provides browser-based high-quality image size compression before uploading.
+// This module provides browser-based high-quality image size compression while preserving full original EXIF metadata.
 
 export interface CompressImageOptions {
   /** Maximum width or height bound in pixels (default: 3840 for 4K quality) */
@@ -8,8 +8,119 @@ export interface CompressImageOptions {
 }
 
 /**
- * Compresses an image file in the browser while maintaining high visual quality.
- * Reduces file size significantly (60-85% smaller) before network transmission.
+ * Extracts the APP1 EXIF segment from a JPEG ArrayBuffer if present.
+ */
+function extractExifApp1Segment(buffer: ArrayBuffer): Uint8Array | null {
+  const view = new Uint8Array(buffer);
+  if (view[0] !== 0xff || view[1] !== 0xd8) return null;
+
+  let offset = 2;
+  while (offset < view.length - 4) {
+    if (view[offset] !== 0xff) break;
+    const marker = view[offset + 1];
+    // Stop at SOS (0xDA) or EOI (0xD9)
+    if (marker === 0xda || marker === 0xd9) break;
+
+    const length = (view[offset + 2] << 8) | view[offset + 3];
+    if (marker === 0xe1 && offset + 4 + 6 <= view.length) {
+      // Verify "Exif\0\0" magic header
+      if (
+        view[offset + 4] === 0x45 && // E
+        view[offset + 5] === 0x78 && // x
+        view[offset + 6] === 0x69 && // i
+        view[offset + 7] === 0x66 && // f
+        view[offset + 8] === 0x00 &&
+        view[offset + 9] === 0x00
+      ) {
+        return new Uint8Array(view.subarray(offset, offset + 2 + length));
+      }
+    }
+    offset += 2 + length;
+  }
+  return null;
+}
+
+/**
+ * Patches the EXIF Orientation tag (0x0112) in an APP1 segment to 1 (normal),
+ * because HTML5 Canvas drawImage automatically bakes visual orientation into the output pixels.
+ */
+function fixExifOrientationInApp1(app1: Uint8Array): void {
+  const exifStart = 10;
+  if (app1.length < exifStart + 8) return;
+
+  const isLittleEndian = app1[exifStart] === 0x49 && app1[exifStart + 1] === 0x49;
+  const isBigEndian = app1[exifStart] === 0x4d && app1[exifStart + 1] === 0x4d;
+  if (!isLittleEndian && !isBigEndian) return;
+
+  const read16 = (off: number) =>
+    isLittleEndian ? app1[off] | (app1[off + 1] << 8) : (app1[off] << 8) | app1[off + 1];
+  const read32 = (off: number) =>
+    isLittleEndian
+      ? app1[off] | (app1[off + 1] << 8) | (app1[off + 2] << 16) | (app1[off + 3] << 24)
+      : (app1[off] << 24) | (app1[off + 1] << 16) | (app1[off + 2] << 8) | app1[off + 3];
+  const write16 = (off: number, val: number) => {
+    if (isLittleEndian) {
+      app1[off] = val & 0xff;
+      app1[off + 1] = (val >> 8) & 0xff;
+    } else {
+      app1[off] = (val >> 8) & 0xff;
+      app1[off + 1] = val & 0xff;
+    }
+  };
+
+  const ifd0Offset = read32(exifStart + 4);
+  const ifd0Start = exifStart + ifd0Offset;
+  if (ifd0Start + 2 > app1.length) return;
+
+  const tagCount = read16(ifd0Start);
+  let currentOffset = ifd0Start + 2;
+
+  for (let i = 0; i < tagCount; i++) {
+    if (currentOffset + 12 > app1.length) break;
+    const tagNumber = read16(currentOffset);
+    if (tagNumber === 0x0112) {
+      write16(currentOffset + 8, 1);
+      break;
+    }
+    currentOffset += 12;
+  }
+}
+
+/**
+ * Preserves the original EXIF metadata by copying the APP1 segment from originalFile into compressedBlob.
+ */
+async function preserveExifMetadata(originalFile: File, compressedBlob: Blob): Promise<Blob> {
+  try {
+    const origBuffer = await originalFile.arrayBuffer();
+    const exifSegment = extractExifApp1Segment(origBuffer);
+
+    if (!exifSegment || exifSegment.length === 0) {
+      return compressedBlob;
+    }
+
+    fixExifOrientationInApp1(exifSegment);
+
+    const compBuffer = await compressedBlob.arrayBuffer();
+    const compView = new Uint8Array(compBuffer);
+
+    if (compView[0] !== 0xff || compView[1] !== 0xd8) {
+      return compressedBlob;
+    }
+
+    const merged = new Uint8Array(2 + exifSegment.length + (compView.length - 2));
+    merged.set(compView.subarray(0, 2), 0);
+    merged.set(exifSegment, 2);
+    merged.set(compView.subarray(2), 2 + exifSegment.length);
+
+    return new Blob([merged], { type: 'image/jpeg' });
+  } catch (error) {
+    console.warn('Could not preserve EXIF metadata:', error);
+    return compressedBlob;
+  }
+}
+
+/**
+ * Compresses an image file in the browser while maintaining high visual quality and 100% EXIF metadata.
  */
 export async function compressImageFile(
   file: File,
@@ -32,7 +143,7 @@ export async function compressImageFile(
       const img = new Image();
       const objectUrl = URL.createObjectURL(file);
 
-      img.onload = () => {
+      img.onload = async () => {
         URL.revokeObjectURL(objectUrl);
 
         let { width, height } = img;
@@ -58,24 +169,23 @@ export async function compressImageFile(
           return;
         }
 
-        // Draw image onto canvas with high quality smoothing
         ctx.imageSmoothingEnabled = true;
         ctx.imageSmoothingQuality = 'high';
         ctx.drawImage(img, 0, 0, width, height);
 
-        // Determine output MIME type (prefer webp or original jpeg)
         const outputMime = file.type === 'image/png' ? 'image/png' : 'image/jpeg';
 
         canvas.toBlob(
-          (blob) => {
+          async (blob) => {
             if (!blob || blob.size >= file.size) {
-              // If compressed blob is larger than original file, use original file
               resolve(file);
               return;
             }
 
-            // Create compressed File object carrying over original file name
-            const compressedFile = new File([blob], file.name, {
+            // Restore complete original EXIF metadata back into compressed Blob
+            const finalBlob = await preserveExifMetadata(file, blob);
+
+            const compressedFile = new File([finalBlob], file.name, {
               type: outputMime,
               lastModified: file.lastModified,
             });
