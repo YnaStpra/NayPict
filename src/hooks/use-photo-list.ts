@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 
-import { photoList } from "@/request/photo"
+import { photoList, photoRandomIdList } from "@/request/photo"
 import { PHOTO_LIST_PAGE_SIZE } from "@/server/const/global"
 import { type PhotoListBo } from "@/server/entity/bo/photo"
 import { PhotoStatusEnum } from "@/server/enums/photo-enum"
@@ -10,7 +10,7 @@ import { type PhotoVo } from "@/server/entity/vo/photo"
 
 type PhotoSortField = "takenTime" | "recycleTime"
 
-// Compare two photos by photo list sorting rules，Sequence and backend desc(time), desc(photoId) consistent。
+// Compare two photos by photo list sorting rules (for inserting newly uploaded photos).
 function comparePhotos(a: PhotoVo, b: PhotoVo, sortField: PhotoSortField) {
   const timeA = a[sortField] ?? ""
   const timeB = b[sortField] ?? ""
@@ -22,76 +22,73 @@ function comparePhotos(a: PhotoVo, b: PhotoVo, sortField: PhotoSortField) {
   return b.photoId.localeCompare(a.photoId)
 }
 
-// Find where in the sorted list the new photo should be inserted。
+// Find where in the sorted list the new photo should be inserted.
 function findPhotoInsertIndex(list: PhotoVo[], photo: PhotoVo, sortField: PhotoSortField) {
   const index = list.findIndex((item) => comparePhotos(photo, item, sortField) < 0)
 
   return index === -1 ? list.length : index
 }
 
-
-// Manage photo paged list, Bottom loading and waterfall refresh markers.
+// Manage photo paged list, bottom loading and waterfall refresh markers.
 function usePhotoList(params: Partial<PhotoListBo> = {}, pageSize = PHOTO_LIST_PAGE_SIZE, initialPhotos?: PhotoVo[]) {
   const paramsKey = JSON.stringify(params)
   const initialParams = useMemo<Partial<PhotoListBo>>(() => JSON.parse(paramsKey) as Partial<PhotoListBo>, [paramsKey])
-  const paramsRef = useRef<Partial<PhotoListBo>>(initialParams) // Save current list request parameters, Updated by explicit refresh method.
+  const paramsRef = useRef<Partial<PhotoListBo>>(initialParams) // Save current list request parameters, updated by explicit refresh method.
   const sortField: PhotoSortField = paramsRef.current.status === PhotoStatusEnum.DELETE ? "recycleTime" : "takenTime"
   const initialUsedRef = useRef(false) // Mark whether the first screen data of the server has been used for the initialization list.
   const loadingRef = useRef(false) // Flag whether the photo list is currently loading.
 
-  // Initial photos from SSR, used as-is (server returns random order when shuffle=true)
+  // Holds the full shuffled list of photo IDs fetched from the server for random pagination.
+  const allShuffledIdsRef = useRef<string[] | null>(null)
+  // Tracks the current offset into allShuffledIdsRef for the next page fetch.
+  const pageOffsetRef = useRef(0)
+
+  // Initial photos from SSR, used as-is (server returns random order when shuffle=true).
   const initialPhotoList = useMemo(() => initialPhotos ?? [], [initialPhotos])
 
   const photosRef = useRef<PhotoVo[]>(initialPhotoList) // Save latest photo list.
-  const hasMoreRef = useRef(initialPhotos ? initialPhotos.length === pageSize : true) // Tracks if more pages are available; set to false on load error or when less than pageSize returned.
+  const hasMoreRef = useRef(initialPhotos ? initialPhotos.length === pageSize : true) // Tracks if more pages are available.
   const [photos, setPhotos] = useState<PhotoVo[]>(initialPhotoList) // Store the list of photos displayed on the current page.
   const [masonryKey, setMasonryKey] = useState(0) // Control waterfall flow to recalculate layout after list structure changes.
 
   useEffect(() => {
-    // Skip the browser's first page request when there is data on the first page of the server.
+    // Skip the browser's first page request when there is data on the first page from the server.
     if (!initialUsedRef.current) {
       initialUsedRef.current = true
       photosRef.current = initialPhotoList
       setPhotos(initialPhotoList)
       hasMoreRef.current = initialPhotos ? initialPhotos.length === pageSize : true
+      // Offset starts at how many SSR photos we already have
+      pageOffsetRef.current = initialPhotoList.length
       return
     }
-
   }, [initialPhotos, pageSize, initialPhotoList])
 
-  // Refresh waterfall layout calculations。
+  // Refresh waterfall layout calculations.
   const refreshMasonry = useCallback(() => {
     setMasonryKey((prev) => prev + 1)
   }, [])
 
-  // Load photo list，And generate the next page cursor based on the current last photo。
-  const loadPhotoList = useCallback((append: boolean) => {
-    if ((append && loadingRef.current) || (!hasMoreRef.current && append)) {
-      return
-    }
-
+  // Fetch next page of photos by ID slice from the shuffled ID list.
+  const loadPhotosByIds = useCallback((ids: string[], append: boolean) => {
     const queryParams = paramsRef.current
-
-    loadingRef.current = true
-
-    const lastPhoto = append ? photosRef.current.at(-1) : null
-    const cursorTime = lastPhoto
-      ? (queryParams.status === PhotoStatusEnum.DELETE ? lastPhoto.recycleTime : lastPhoto.takenTime)
-      : null
 
     photoList({
       ...queryParams,
-      // Request server-side random ordering on first page (no cursor) for normal photos
-      shuffle: !append && !queryParams.status ? true : undefined,
-      size: pageSize,
-      cursorPhotoId: lastPhoto?.photoId ?? null,
-      cursorTime: cursorTime ?? null,
+      size: ids.length,
+      photoIds: ids,
+      cursorPhotoId: null,
+      cursorTime: null,
     })
       .then((data) => {
+        // Preserve the order of the requested IDs (server may return in different order)
+        const idOrder = new Map(ids.map((id, i) => [id, i]))
+        const ordered = [...data.list].sort((a, b) => (idOrder.get(a.photoId) ?? 0) - (idOrder.get(b.photoId) ?? 0))
+
         setPhotos((prev) => {
-          const raw = append ? [...prev, ...data.list] : data.list
+          const raw = append ? [...prev, ...ordered] : ordered
           const seen = new Set<string>()
-          // Deduplicate, preserving server-provided order
+          // Deduplicate while preserving order
           const uniquePhotos = raw.filter((item) => {
             if (seen.has(item.photoId)) return false
             seen.add(item.photoId)
@@ -101,40 +98,145 @@ function usePhotoList(params: Partial<PhotoListBo> = {}, pageSize = PHOTO_LIST_P
           photosRef.current = uniquePhotos
           return uniquePhotos
         })
-        // No more pages if fewer items than pageSize were returned
-        hasMoreRef.current = data.list.length === pageSize
+
         if (!append) {
           refreshMasonry()
           window.scrollTo(0, 0)
         }
       })
       .catch((err) => {
-        console.error('Failed to load photo list:', err)
-        // Stop further load attempts on error
+        console.error("Failed to load photos by IDs:", err)
         hasMoreRef.current = false
       })
       .finally(() => {
         loadingRef.current = false
       })
-  }, [pageSize, refreshMasonry])
+  }, [refreshMasonry])
 
-  // Explicitly refresh the first page of the list by passing in parameters。
+  // Load photo list — on first load fetches all IDs randomly, subsequent pages use ID slices.
+  const loadPhotoList = useCallback((append: boolean) => {
+    if (append && loadingRef.current) return
+    if (append && !hasMoreRef.current) return
+
+    const queryParams = paramsRef.current
+    loadingRef.current = true
+
+    // For recycle bin, use normal cursor-based pagination (no random shuffle needed)
+    if (queryParams.status === PhotoStatusEnum.DELETE) {
+      const lastPhoto = append ? photosRef.current.at(-1) : null
+      const cursorTime = lastPhoto?.recycleTime ?? null
+
+      photoList({
+        ...queryParams,
+        size: pageSize,
+        cursorPhotoId: lastPhoto?.photoId ?? null,
+        cursorTime: cursorTime ?? null,
+      })
+        .then((data) => {
+          setPhotos((prev) => {
+            const raw = append ? [...prev, ...data.list] : data.list
+            const seen = new Set<string>()
+            const uniquePhotos = raw.filter((item) => {
+              if (seen.has(item.photoId)) return false
+              seen.add(item.photoId)
+              return true
+            })
+            photosRef.current = uniquePhotos
+            return uniquePhotos
+          })
+          hasMoreRef.current = data.list.length === pageSize
+          if (!append) {
+            refreshMasonry()
+            window.scrollTo(0, 0)
+          }
+        })
+        .catch((err) => {
+          console.error("Failed to load photo list:", err)
+          hasMoreRef.current = false
+        })
+        .finally(() => {
+          loadingRef.current = false
+        })
+      return
+    }
+
+    // Normal mode: use shuffled ID list for true random ordering across all pages
+    if (append && allShuffledIdsRef.current) {
+      // Already have the full ID list — take the next page slice
+      const allIds = allShuffledIdsRef.current
+      const offset = pageOffsetRef.current
+      const nextIds = allIds.slice(offset, offset + pageSize)
+
+      if (!nextIds.length) {
+        hasMoreRef.current = false
+        loadingRef.current = false
+        return
+      }
+
+      pageOffsetRef.current = offset + nextIds.length
+      hasMoreRef.current = pageOffsetRef.current < allIds.length
+      loadPhotosByIds(nextIds, true)
+      return
+    }
+
+    // Initial load: fetch all IDs in random order, then load first page
+    photoRandomIdList({
+      favorite: queryParams.favorite ?? null,
+      status: queryParams.status ?? null,
+      albumId: queryParams.albumId ?? null,
+      startTakenTime: queryParams.startTakenTime ?? null,
+      endTakenTime: queryParams.endTakenTime ?? null,
+    })
+      .then((allIds) => {
+        allShuffledIdsRef.current = allIds
+
+        // First page: use IDs that aren't already shown via SSR
+        const alreadyShownIds = new Set(photosRef.current.map((p) => p.photoId))
+        const remainingIds = allIds.filter((id) => !alreadyShownIds.has(id))
+
+        if (append) {
+          // loadMorePhotos called before IDs were ready — load next page
+          const nextIds = remainingIds.slice(0, pageSize)
+          pageOffsetRef.current = allIds.indexOf(nextIds[nextIds.length - 1]) + 1
+          hasMoreRef.current = pageOffsetRef.current < allIds.length
+          if (nextIds.length) loadPhotosByIds(nextIds, true)
+          else { hasMoreRef.current = false; loadingRef.current = false }
+        } else {
+          // Fresh load: replace everything with first page from shuffled IDs
+          const firstPageIds = allIds.slice(0, pageSize)
+          pageOffsetRef.current = firstPageIds.length
+          hasMoreRef.current = allIds.length > pageSize
+          if (firstPageIds.length) loadPhotosByIds(firstPageIds, false)
+          else loadingRef.current = false
+        }
+      })
+      .catch((err) => {
+        console.error("Failed to fetch random ID list:", err)
+        hasMoreRef.current = false
+        loadingRef.current = false
+      })
+  }, [pageSize, loadPhotosByIds, refreshMasonry])
+
+  // Explicitly refresh the first page of the list by passing in parameters.
   const refreshPhotoList = useCallback((nextParams?: Partial<PhotoListBo>) => {
     if (nextParams) {
       paramsRef.current = nextParams
     }
 
+    // Reset shuffled ID list so next load fetches fresh random order
+    allShuffledIdsRef.current = null
+    pageOffsetRef.current = 0
     photosRef.current = []
     hasMoreRef.current = true
     loadPhotoList(false)
   }, [loadPhotoList])
 
-  // Handle next page request after photo list bottoms out。
+  // Handle next page request after photo list bottoms out.
   const loadMorePhotos = useCallback(() => {
     loadPhotoList(true)
   }, [loadPhotoList])
 
-  // press new photo taken_time Insert the corresponding positions in the list sequentially，and filter out photos that already exist。
+  // Insert newly uploaded photos at the top of the list.
   const prependPhotos = useCallback((photosToAdd: PhotoVo[]) => {
     setPhotos((prev) => {
       const photoIds = new Set(prev.map((photo) => photo.photoId))
@@ -158,7 +260,7 @@ function usePhotoList(params: Partial<PhotoListBo> = {}, pageSize = PHOTO_LIST_P
     refreshMasonry()
   }, [refreshMasonry, sortField])
 
-  // Remove specified photo from photo list，Not enough list 95 Zhang Shi continues to load the next page。
+  // Remove specified photos from photo list; refill if list falls below threshold.
   const removePhotos = useCallback((photoIds: string[]) => {
     const photoIdSet = new Set(photoIds)
     const nextPhotos = photosRef.current.filter((photo) => !photoIdSet.has(photo.photoId))

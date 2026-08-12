@@ -1,5 +1,5 @@
 import { http } from "@/request/request";
-import { type PhotoDeleteBo, type PhotoExistsBo, type PhotoFavoriteBo, type PhotoListBo, type PhotoRecycleBo, type PhotoRestoreBo, type PhotoSetAllowDownloadBo, type PhotoTakenDateListBo } from "@/server/entity/bo/photo";
+import { type PhotoDeleteBo, type PhotoExistsBo, type PhotoFavoriteBo, type PhotoListBo, type PhotoRandomIdListBo, type PhotoRecycleBo, type PhotoRestoreBo, type PhotoSetAllowDownloadBo, type PhotoTakenDateListBo } from "@/server/entity/bo/photo";
 import { type PageVo } from "@/server/entity/vo/common";
 import { type PhotoAddResultVo, type PhotoExistsVo, type PhotoTakenDateVo, type PhotoVo } from "@/server/entity/vo/photo";
 
@@ -8,6 +8,11 @@ import { type PhotoAddResultVo, type PhotoExistsVo, type PhotoTakenDateVo, type 
 // Query the photo list by pagination and conditions.
 export function photoList(params: PhotoListBo) {
   return http.post<PageVo<PhotoVo>>('/photo/list', params);
+}
+
+// Fetch all photo IDs in random order for client-side random pagination.
+export function photoRandomIdList(params: PhotoRandomIdListBo) {
+  return http.post<string[]>('/photo/randomIdList', params);
 }
 
 // Query the shooting date and number of existing photos by day.

@@ -368,10 +368,7 @@ function FullscreenButton({
       type="button"
       size="icon"
       variant="secondary"
-      className={[
-        "absolute top-2 right-2 md:top-3 md:right-3 z-40 rounded-full bg-black/40 text-white transition-opacity duration-200 hover:bg-black/50",
-        getActionVisibleClass(showActions),
-      ].join(" ")}
+      className="rounded-full bg-black/40 text-white transition-opacity duration-200 hover:bg-black/50"
       {...tap}
     >
       <MaximizeIcon />
@@ -401,9 +398,8 @@ function CinematicButton({
             size="icon"
             variant="secondary"
             className={[
-              "absolute top-2 right-2 md:top-3 md:right-3 z-40 rounded-full text-white transition-opacity duration-200",
+              "rounded-full text-white transition-opacity duration-200",
               isCinematicMode ? "bg-black/60 hover:bg-black/70" : "bg-black/40 hover:bg-black/50",
-              getActionVisibleClass(showActions),
             ].join(" ")}
             aria-label={isCinematicMode ? "Exit cinematic mode" : "Enter cinematic mode"}
             {...tap}
@@ -438,9 +434,8 @@ function InfoButton({
       size="icon"
       variant="secondary"
       className={[
-        "absolute top-2 right-11.5 md:right-13 md:top-3 z-40 rounded-full text-white transition-opacity duration-200",
+        "rounded-full text-white transition-opacity duration-200",
         open ? "bg-black/50 hover:bg-black/50" : "bg-black/40 hover:bg-black/50",
-        getActionVisibleClass(showActions),
       ].join(" ")}
       {...tap}
     >
@@ -474,10 +469,7 @@ function RotateButton({ showActions, onRotate }: { showActions: boolean, onRotat
       type="button"
       size="icon"
       variant="secondary"
-      className={[
-        "absolute top-2 right-21 md:right-23.25 md:top-3 z-40 rounded-full bg-black/40 text-white transition-opacity duration-200 hover:bg-black/50",
-        getActionVisibleClass(showActions),
-      ].join(" ")}
+      className="rounded-full bg-black/40 text-white transition-opacity duration-200 hover:bg-black/50"
       {...tap}
     >
       <RotateCcwSquare />
@@ -506,10 +498,7 @@ function LoadOriginalButton({
   if (photoSlide && !photoSlide.key) {
     return (
       <div
-        className={[
-          "absolute top-2 right-[10.25rem] md:right-[11.25rem] md:top-3 z-40 flex cursor-pointer items-center gap-1.5 rounded-full bg-black/60 px-3 py-1 text-xs text-white/90 transition-opacity duration-200 hover:bg-black/80",
-          getActionVisibleClass(showActions),
-        ].join(" ")}
+        className="flex cursor-pointer items-center gap-1.5 rounded-full bg-black/60 px-3 py-1 text-xs text-white/90 transition-opacity duration-200 hover:bg-black/80"
         onClick={() => toast.info("Download is disabled for this photo.")}
       >
         <LockIcon className="size-3.5 text-white/80" />
@@ -536,10 +525,7 @@ function LoadOriginalButton({
       type="button"
       size="icon"
       variant="secondary"
-      className={[
-        "absolute top-2 right-[10.25rem] md:right-[11.25rem] md:top-3 z-40 rounded-full bg-black/40 text-white transition-opacity duration-200 hover:bg-black/50",
-        getActionVisibleClass(showActions),
-      ].join(" ")}
+      className="rounded-full bg-black/40 text-white transition-opacity duration-200 hover:bg-black/50"
       {...tap}
     >
       {originalLoaded ? <CircleIcon /> : <LoaderCircleIcon />}
@@ -576,10 +562,7 @@ function AddToAlbumButton({
             type="button"
             size="icon"
             variant="secondary"
-            className={[
-              "absolute top-2 right-[10.25rem] md:right-[11.45rem] md:top-3 z-40 rounded-full bg-black/40 text-white transition-opacity duration-200 hover:bg-black/60",
-              getActionVisibleClass(showActions),
-            ].join(" ")}
+            className="rounded-full bg-black/40 text-white transition-opacity duration-200 hover:bg-black/60"
             {...tap}
           >
             <FolderPlusIcon className="size-4" />
@@ -624,10 +607,7 @@ function DeleteButton({
             type="button"
             size="icon"
             variant="secondary"
-            className={[
-              "absolute top-2 right-[7.65rem] md:right-[8.55rem] md:top-3 z-40 rounded-full bg-black/40 text-white transition-opacity duration-200 hover:bg-red-600/80",
-              getActionVisibleClass(showActions),
-            ].join(" ")}
+            className="rounded-full bg-black/40 text-white transition-opacity duration-200 hover:bg-red-600/80"
             {...tap}
           >
             <Trash2Icon className="size-4" />
@@ -1168,33 +1148,41 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
               />
             )}
             <CloseButton showActions={actionsVisible} />
-            <CinematicButton
-              showActions={actionsVisible}
-              isCinematicMode={isCinematicMode}
-              onToggle={toggleCinematicMode}
-            />
-            {!isCinematicMode && (
-              <>
-                <InfoButton
-                  showActions={actionsVisible}
-                  open={infoOpen}
-                  onToggle={toggleInfoOpen}
-                />
-                <RotateButton showActions={actionsVisible} onRotate={rotatePhoto} />
-                <LoadOriginalButton
-                  showActions={actionsVisible}
-                  originalPhoto={originalPhoto}
-                  getPhotoCache={getPhotoCache}
-                  onLoadOriginal={loadOriginalPhoto}
-                />
-                {isAdmin && onAlbumOpen && (
-                  <AddToAlbumButton showActions={actionsVisible} onAlbumOpen={onAlbumOpen} />
-                )}
-                {isAdmin && onPhotoDelete && (
-                  <DeleteButton showActions={actionsVisible} onDelete={onPhotoDelete} />
-                )}
-              </>
-            )}
+            {/* Right-side toolbar — all buttons in a flex row to prevent overlap */}
+            <div
+              className={[
+                "absolute top-2 right-2 md:top-3 md:right-3 z-40 flex items-center gap-1.5",
+                getActionVisibleClass(actionsVisible),
+              ].join(" ")}
+            >
+              {!isCinematicMode && (
+                <>
+                  {isAdmin && onPhotoDelete && (
+                    <DeleteButton showActions={actionsVisible} onDelete={onPhotoDelete} />
+                  )}
+                  {isAdmin && onAlbumOpen && (
+                    <AddToAlbumButton showActions={actionsVisible} onAlbumOpen={onAlbumOpen} />
+                  )}
+                  <LoadOriginalButton
+                    showActions={actionsVisible}
+                    originalPhoto={originalPhoto}
+                    getPhotoCache={getPhotoCache}
+                    onLoadOriginal={loadOriginalPhoto}
+                  />
+                  <RotateButton showActions={actionsVisible} onRotate={rotatePhoto} />
+                  <InfoButton
+                    showActions={actionsVisible}
+                    open={infoOpen}
+                    onToggle={toggleInfoOpen}
+                  />
+                </>
+              )}
+              <CinematicButton
+                showActions={actionsVisible}
+                isCinematicMode={isCinematicMode}
+                onToggle={toggleCinematicMode}
+              />
+            </div>
             {showOriginalProgress && !isCinematicMode && (
               <OriginalProgressButton progress={originalProgress} error={originalError} />
             )}

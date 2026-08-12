@@ -2,7 +2,7 @@ import { Hono, Context } from "hono";
 import result from '@/server/model/result';
 import { photoService } from '@/server/service/photo-service';
 import { getUserId } from "@/server/security/context";
-import { type PhotoDeleteBo, type PhotoExistsBo, type PhotoFavoriteBo, type PhotoListBo, type PhotoRecycleBo, type PhotoRestoreBo, type PhotoSetAllowDownloadBo, type PhotoTakenDateListBo } from '@/server/entity/bo/photo';
+import { type PhotoDeleteBo, type PhotoExistsBo, type PhotoFavoriteBo, type PhotoListBo, type PhotoRandomIdListBo, type PhotoRecycleBo, type PhotoRestoreBo, type PhotoSetAllowDownloadBo, type PhotoTakenDateListBo } from '@/server/entity/bo/photo';
 import type { HonoEnv } from '../hono/type';
 
 // This module registers photo-related interfaces.
@@ -12,6 +12,13 @@ export function registerPhotoApi(app: Hono<HonoEnv>) {
   app.post('/photo/list', async (c: Context) => {
     const body = await c.req.json<PhotoListBo>();
     const data = await photoService.list(body, getUserId());
+    return c.json(result.ok(data));
+  });
+
+  // Return all photo IDs in random order for client-side random pagination.
+  app.post('/photo/randomIdList', async (c: Context) => {
+    const body = await c.req.json<PhotoRandomIdListBo>();
+    const data = await photoService.randomIdList(body, getUserId());
     return c.json(result.ok(data));
   });
 
