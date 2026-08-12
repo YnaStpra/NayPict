@@ -29,6 +29,7 @@ import { PhotoDateDrawer } from "@/components/photo/photo-date-drawer"
 import { PhotoMasonrySkeleton } from "@/components/photo/photo-masonry-skeleton"
 import { usePhotoContext } from "@/app/photos/provider"
 import { useApp } from "@/app/provider"
+import { UserTypeEnum } from "@/server/enums/user-enum"
 import { useTranslations } from "next-intl"
 
 const AlbumSelectDialog = dynamic(
@@ -51,6 +52,7 @@ export default function Page() {
   const t = useTranslations("photos")
   const { initialPhotos } = usePhotoContext()
   const { userInfo, sidebarOpen, setSidebarOpen, refreshAlbums } = useApp()
+  const isAdmin = userInfo?.type === UserTypeEnum.ADMIN
 
   const [isBrowser, setIsBrowser] = useState(false)
   const [viewMode, setViewMode] = useState<"masonry" | "infinite">("masonry")
@@ -257,6 +259,7 @@ export default function Page() {
         onBack={closePhoto}
         onBrowserBack={closePhoto}
         onPhotoDelete={(photoId) => recyclePhotos([photoId])}
+        onAlbumOpen={isAdmin ? openAlbumDialog : undefined}
       />
       <AlbumSelectDialog
         open={albumDialogOpen}

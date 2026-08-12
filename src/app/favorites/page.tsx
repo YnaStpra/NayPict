@@ -23,6 +23,7 @@ import { photoFavorite, photoRecycle } from "@/request/photo"
 import { albumAddPhoto } from "@/request/album"
 import { useFavoriteContext } from "@/app/favorites/provider"
 import { useApp } from "@/app/provider"
+import { UserTypeEnum } from "@/server/enums/user-enum"
 import { PhotoDateDrawer } from "@/components/photo/photo-date-drawer"
 import { PhotoMasonrySkeleton } from "@/components/photo/photo-masonry-skeleton"
 import { useTranslations } from "next-intl"
@@ -40,7 +41,8 @@ const PhotoViewer = dynamic(
 export default function Page() {
   const t = useTranslations("favorites")
   const { initialPhotos } = useFavoriteContext()
-  const { sidebarOpen, setSidebarOpen, refreshAlbums } = useApp()
+  const { userInfo, sidebarOpen, setSidebarOpen, refreshAlbums } = useApp()
+  const isAdmin = userInfo?.type === UserTypeEnum.ADMIN
   // isBrowser Mark whether you are currently in the browser environment，SSR Stage display skeleton screen。
   const [isBrowser, setIsBrowser] = useState(false)
   const {
@@ -176,6 +178,7 @@ export default function Page() {
         photos={photos}
         onBack={closePhoto}
         onBrowserBack={closePhoto}
+        onAlbumOpen={isAdmin ? openAlbumDialog : undefined}
       />
       <AlbumSelectDialog
         open={albumDialogOpen}

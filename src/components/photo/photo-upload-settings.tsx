@@ -10,6 +10,7 @@ export interface PhotoUploadSettingsValue {
   concurrency: number
   retryOnFail: boolean
   allowDownload: boolean
+  compressImage: boolean
 }
 
 const STORAGE_KEY = "photo-upload-settings"
@@ -18,6 +19,7 @@ const defaultSettings: PhotoUploadSettingsValue = {
   concurrency: 4,
   retryOnFail: false,
   allowDownload: false,
+  compressImage: true,
 }
 
 // Limit the number of concurrencies to 1 arrive 5 between.
@@ -40,6 +42,7 @@ export function readPhotoUploadSettings(): PhotoUploadSettingsValue {
       concurrency: clampConcurrency(data.concurrency ?? defaultSettings.concurrency),
       retryOnFail: data.retryOnFail ?? defaultSettings.retryOnFail,
       allowDownload: data.allowDownload ?? defaultSettings.allowDownload,
+      compressImage: data.compressImage ?? defaultSettings.compressImage,
     }
   } catch {
     return defaultSettings
@@ -52,6 +55,7 @@ function savePhotoUploadSettings(settings: PhotoUploadSettingsValue) {
     concurrency: clampConcurrency(settings.concurrency),
     retryOnFail: settings.retryOnFail,
     allowDownload: settings.allowDownload,
+    compressImage: settings.compressImage,
   }))
 }
 
@@ -74,6 +78,26 @@ export function PhotoUploadSettings({ onChange }: { onChange?: () => void }) {
 
   return (
     <div className="flex flex-col gap-4">
+      {/* Photo Compression Setting */}
+      <div className="flex flex-col gap-2 pb-2 border-b border-border">
+        <div className="flex items-center justify-between text-sm font-medium">
+          <span>Kompres Ukuran Foto</span>
+          <span className="text-xs font-semibold px-2 py-0.5 rounded bg-muted text-foreground">
+            {settings.compressImage ? "Kualitas Tinggi (WebP/JPEG 85%)" : "Original"}
+          </span>
+        </div>
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-xs text-muted-foreground">Kompres otomatis sebelum upload</span>
+          <Switch
+            checked={settings.compressImage}
+            onCheckedChange={(compressImage) => updateSettings({ compressImage })}
+          />
+        </div>
+        <p className="text-[11px] text-muted-foreground leading-snug mt-0.5">
+          Memperkecil ukuran berkas 60%-85% secara signifikan dengan tetap menjaga kejernihan visual foto.
+        </p>
+      </div>
+
       <div className="flex flex-col gap-2">
         <div className="flex items-center justify-between text-sm font-medium">
           <span>{t("concurrentUploads")}</span>

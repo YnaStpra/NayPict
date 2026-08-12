@@ -260,6 +260,7 @@ export default function Page() {
         photos={photos}
         onBack={closePhoto}
         onBrowserBack={closePhoto}
+        onAlbumOpen={isAdmin ? openAlbumDialog : undefined}
       />
       <AlbumSelectDialog
         open={albumDialogOpen}

@@ -6,7 +6,7 @@ import { isImageSlide, type SlideImage, useController, useLightboxState } from "
 import Fullscreen from "yet-another-react-lightbox/plugins/fullscreen"
 import Thumbnails from "yet-another-react-lightbox/plugins/thumbnails"
 import Zoom from "yet-another-react-lightbox/plugins/zoom"
-import { ArrowLeftIcon, ChevronLeftIcon, ChevronRightIcon, CircleAlertIcon, CircleIcon, LockIcon, Menu, LoaderCircleIcon, MaximizeIcon, MinimizeIcon, PanelRightClose, PanelRightOpen, RotateCcwSquare, Trash2Icon } from "lucide-react"
+import { ArrowLeftIcon, ChevronLeftIcon, ChevronRightIcon, CircleAlertIcon, CircleIcon, FolderPlusIcon, LockIcon, Menu, LoaderCircleIcon, MaximizeIcon, MinimizeIcon, PanelRightClose, PanelRightOpen, RotateCcwSquare, Trash2Icon } from "lucide-react"
 import { toast } from "sonner"
 
 import { PhotoInfoSidebar, PhotoViewerBlurBackground } from "@/components/photo/photo-info-sidebar"
@@ -33,6 +33,8 @@ interface PhotoViewerProps {
   onBrowserBack: () => void
   // Executed on photo delete.
   onPhotoDelete?: (photoId: string) => void
+  // Executed on album select open.
+  onAlbumOpen?: (photoIds: string[]) => void
 }
 
 type PhotoSlide = SlideImage & {
@@ -546,6 +548,52 @@ function LoadOriginalButton({
   )
 }
 
+// Render add to album button in Lightbox toolbar (Admin only).
+function AddToAlbumButton({
+  showActions,
+  onAlbumOpen,
+}: {
+  showActions: boolean
+  onAlbumOpen?: (photoIds: string[]) => void
+}) {
+  const { currentSlide } = useLightboxState()
+  const photoSlide = currentSlide && isImageSlide(currentSlide) ? (currentSlide as PhotoSlide) : null
+
+  function handleAddToAlbum() {
+    if (!photoSlide) return
+    onAlbumOpen?.([photoSlide.photoId])
+  }
+
+  const tap = useTapAction(handleAddToAlbum)
+
+  if (!onAlbumOpen) return null
+
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            type="button"
+            size="icon"
+            variant="secondary"
+            className={[
+              "absolute top-2 right-[10.25rem] md:right-[11.45rem] md:top-3 z-40 rounded-full bg-black/40 text-white transition-opacity duration-200 hover:bg-black/60",
+              getActionVisibleClass(showActions),
+            ].join(" ")}
+            {...tap}
+          >
+            <FolderPlusIcon className="size-4" />
+            <span className="sr-only">Add to album</span>
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom">
+          <p>Tambah ke Album</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  )
+}
+
 // Render delete photo button in Lightbox toolbar.
 function DeleteButton({
   showActions,
@@ -657,7 +705,7 @@ function PhotoSlideImage({
 }
 
 // Render photo detail viewer，The parent component is responsible for passing in the current photo and list data。
-export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhotoDelete }: PhotoViewerProps) {
+export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhotoDelete, onAlbumOpen }: PhotoViewerProps) {
   const { userInfo } = useApp()
   const isAdmin = userInfo?.type === UserTypeEnum.ADMIN
   // current lightbox Viewed photo index。
@@ -1113,7 +1161,11 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
               <PhotoViewerBlurBackground thumbHash={photos[viewIndex]?.thumbHash} />
             )}
             {infoOpen && !fullscreenOpen && !isCinematicMode && (
-              <PhotoInfoSidebar photo={photos[viewIndex] ?? null} onClose={() => setInfoOpen(false)} />
+              <PhotoInfoSidebar
+                photo={photos[viewIndex] ?? null}
+                onClose={() => setInfoOpen(false)}
+                onAlbumOpen={onAlbumOpen ? (photoId) => onAlbumOpen([photoId]) : undefined}
+              />
             )}
             <CloseButton showActions={actionsVisible} />
             <CinematicButton
@@ -1135,6 +1187,9 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
                   getPhotoCache={getPhotoCache}
                   onLoadOriginal={loadOriginalPhoto}
                 />
+                {isAdmin && onAlbumOpen && (
+                  <AddToAlbumButton showActions={actionsVisible} onAlbumOpen={onAlbumOpen} />
+                )}
                 {isAdmin && onPhotoDelete && (
                   <DeleteButton showActions={actionsVisible} onDelete={onPhotoDelete} />
                 )}
