@@ -239,16 +239,22 @@ const photoService = {
       throw new BizError('photo.selectRequired');
     }
 
-    if (!storageId) {
+    const fileStorageList = await storageService.getStorageList();
+    const activeStorage = fileStorageList.find((item: any) => item.status === StorageStatusEnum.NORMAL);
+    const targetStorageId = storageId || activeStorage?.storageId;
+
+    if (!targetStorageId) {
       throw new BizError('storage.configRequired');
     }
 
-    const fileStorageList = await storageService.getStorageList();
-    const fileStorage = fileStorageList.find((item: any) => item.storageId === storageId);
+    const fileStorage = fileStorageList.find((item: any) => item.storageId === targetStorageId);
 
     if (!fileStorage) {
       throw new BizError('storage.notFound');
     }
+
+    // Assign final targetStorageId
+    const activeStorageId = targetStorageId;
 
     const { buffer, name, size, type } = await this.readPhotoUpload(file);
     const checksum = await fileChecksum(new Blob([buffer]));
@@ -290,7 +296,7 @@ const photoService = {
         type: 'image/webp',
         metadata: cacheMetadata,
       },
-    ], storageId);
+    ], activeStorageId);
 
     const now = new Date().toISOString();
 
@@ -309,7 +315,7 @@ const photoService = {
       userId,
       status: PhotoStatusEnum.NORMAL,
       favorite: PhotoFavoriteEnum.NO,
-      storageId,
+      storageId: activeStorageId,
       allowDownload: allowDownload ? 1 : 0
     }).returning();
 
