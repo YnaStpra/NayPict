@@ -32,6 +32,7 @@ import { compressImageFile } from "@/lib/image-compress"
 import { useStorageStore } from "@/store/storage-store"
 import { usePhotoStore } from "@/store/photo-store"
 import { photoExists } from "@/request/photo"
+import { albumAddPhoto } from "@/request/album"
 import { type PhotoAddResultVo } from "@/server/entity/vo/photo"
 import { useTranslations } from "next-intl"
 
@@ -296,6 +297,15 @@ export function PhotoUploadDialog() {
       const existsResult = await photoExists({ checksum, name: fileToUpload.name })
 
       if (existsResult.duplicate) {
+        if (item.albumId && (existsResult as any).photoId) {
+          await albumAddPhoto({ albumIds: [item.albumId], photoIds: [(existsResult as any).photoId] })
+          toast.success("Foto sudah ada di galeri, otomatis ditautkan ke album!")
+          setPreviews(previewsRef.current.map((p) => (
+            p.id === item.id ? { ...p, progress: 100, status: "success" } : p
+          )))
+          return
+        }
+
         setPreviews(previewsRef.current.map((p) => (
           p.id === item.id ? { ...p, progress: 100, status: "skipped" } : p
         )))
@@ -325,6 +335,15 @@ export function PhotoUploadDialog() {
       }, (abort) => abortMapRef.current.set(preview.id, abort))
 
       if (result.duplicate) {
+        if (result.photo && item.albumId) {
+          addUploadedPhoto(result.photo, item.albumId)
+          toast.success("Foto sudah ada di galeri, otomatis ditautkan ke album!")
+          setPreviews(previewsRef.current.map((p) => (
+            p.id === item.id ? { ...p, progress: 100, status: "success" } : p
+          )))
+          return
+        }
+
         setPreviews(previewsRef.current.map((p) => (
           p.id === item.id ? { ...p, progress: 100, status: "skipped" } : p
         )))

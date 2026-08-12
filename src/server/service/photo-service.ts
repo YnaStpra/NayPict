@@ -221,7 +221,7 @@ const photoService = {
       ))
       .limit(1);
 
-    return { duplicate: Boolean(duplicatePhoto) };
+    return { duplicate: Boolean(duplicatePhoto), photoId: duplicatePhoto?.photoId ?? null };
   },
 
   // Upload a single photo，Backend generation preview、thumbnail and meta information。
@@ -258,8 +258,13 @@ const photoService = {
     const { buffer, name, size, type } = await this.readPhotoUpload(file);
     const checksum = await fileChecksum(new Blob([new Uint8Array(buffer)]));
 
-    if ((await this.exists({ checksum, name }, userId)).duplicate) {
-      return { photo: null, duplicate: true };
+    const existingCheck = await this.exists({ checksum, name }, userId);
+    if (existingCheck.duplicate && existingCheck.photoId) {
+      if (albumId) {
+        await albumService.addPhoto({ albumIds: [albumId], photoIds: [existingCheck.photoId] }, userId);
+      }
+      const existingPhotoVo = await this.getById(existingCheck.photoId, userId);
+      return { photo: existingPhotoVo, duplicate: true };
     }
 
     const images = await processPhotoImages(buffer);
