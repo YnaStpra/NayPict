@@ -97,22 +97,24 @@ function usePhotoList(params: Partial<PhotoListBo> = {}, pageSize = PHOTO_LIST_P
         setPhotos((prev) => {
           const raw = append ? [...prev, ...data.list] : data.list
           const seen = new Set<string>()
+          // Deduplicate, preserving order
           const uniquePhotos = raw.filter((item) => {
             if (seen.has(item.photoId)) return false
             seen.add(item.photoId)
+            return true
           })
 
-          let nextPhotos = uniquePhotos
-          // Preserve server-provided order; do not shuffle on initial load
-          if (!append && queryParams.status !== PhotoStatusEnum.DELETE) {
-            nextPhotos = uniquePhotos
-          }
+          // Only shuffle on initial/refresh load, not on append (load more)
+          const nextPhotos =
+            !append && queryParams.status !== PhotoStatusEnum.DELETE
+              ? shuffleArray(uniquePhotos)
+              : uniquePhotos
 
           photosRef.current = nextPhotos
           return nextPhotos
         })
-        // Determine if more data likely exists: only true when a full page of new items was returned
-        hasMoreRef.current = data.list.length === pageSize && data.list.length > 0
+        // No more pages if fewer items than pageSize were returned
+        hasMoreRef.current = data.list.length === pageSize
         if (!append) {
           refreshMasonry()
           window.scrollTo(0, 0)
