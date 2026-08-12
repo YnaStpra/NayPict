@@ -112,18 +112,6 @@ const photoService = {
       return this.toPhotoVo(photo, fileMap.get(photo.photoId) ?? [], fileStorage, domain, exifMap.get(photo.photoId) ?? null, userId);
     });
 
-    // Randomize / Shuffle photos on initial feed load and album load
-    const isNormalFeed = status === PhotoStatusEnum.NORMAL && !params.cursorPhotoId && !params.startTakenTime && !params.endTakenTime;
-    const shouldShuffle = params.shuffle ?? isNormalFeed;
-    if (shouldShuffle && result.length > 1) {
-      const shuffled = [...result];
-      for (let i = shuffled.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-      }
-      result = shuffled;
-    }
-
     return {
       list: result,
       total: result.length
