@@ -9,7 +9,7 @@ import type { HonoEnv } from './type';
 
 // This module creates Hono App and registers common middleware and error handling.
 
-function createHonoApp() {
+export function createHonoApp() {
   const instance = new Hono<HonoEnv>().basePath('/api');
 
   instance.use('*', cors());

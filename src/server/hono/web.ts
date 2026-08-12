@@ -1,12 +1,22 @@
-import './hono';
+import { createHonoApp } from './hono';
+import { registerAlbumApi } from '../api/album-api';
+import { registerPhotoApi } from '../api/photo-api';
+import { registerStorageApi } from '../api/storage-api';
+import { registerUserApi } from '../api/user-api';
+import { registerLoginApi } from '../api/login-api';
+import { registerSettingApi } from '../api/setting-api';
 
-import '../api/album-api'
-import '../api/photo-api'
-import '../api/storage-api'
-import '../api/user-api'
-import '../api/login-api'
-import '../api/setting-api'
+// This module creates a fresh Hono application instance with all API routes attached per request handler.
 
-// This module summarizes registration Web The middleware required for the interface and API routing。
+export function getApp() {
+  const instance = createHonoApp();
+  registerAlbumApi(instance);
+  registerPhotoApi(instance);
+  registerStorageApi(instance);
+  registerUserApi(instance);
+  registerLoginApi(instance);
+  registerSettingApi(instance);
+  return instance;
+}
 
-export { app } from './hono';
+export const app = getApp();
