@@ -17,6 +17,7 @@ export default async function AlbumPhotoLayout({ children, params }: AlbumPhotoL
   const cookieStore = await cookies()
   const { userId } = await getLoginInfo(cookieStore.toString())
 
+  // Use shuffle so each page load returns a different random order from the album
   const data = await photoService.list({
     size: PHOTO_LIST_PAGE_SIZE,
     cursorPhotoId: null,
@@ -24,6 +25,7 @@ export default async function AlbumPhotoLayout({ children, params }: AlbumPhotoL
     favorite: null,
     status: null,
     albumId,
+    shuffle: true,
   }, userId || undefined)
 
   return (
