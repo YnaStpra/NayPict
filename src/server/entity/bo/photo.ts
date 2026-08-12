@@ -17,7 +17,7 @@ interface PhotoListBo {
   favorite?: number | null;
   status?: number | null;
   albumId?: string | null;
-
+  shuffle?: boolean;
 }
 
 interface PhotoExistsBo {

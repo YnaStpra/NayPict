@@ -29,29 +29,45 @@ function findPhotoInsertIndex(list: PhotoVo[], photo: PhotoVo, sortField: PhotoS
   return index === -1 ? list.length : index
 }
 
-// Manage photo paged list、Bottom loading and waterfall refresh markers。
+function shuffleArray<T>(array: T[]): T[] {
+  const result = [...array]
+  for (let i = result.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[result[i], result[j]] = [result[j], result[i]]
+  }
+  return result
+}
+
+// Manage photo paged list, Bottom loading and waterfall refresh markers.
 function usePhotoList(params: Partial<PhotoListBo> = {}, pageSize = PHOTO_LIST_PAGE_SIZE, initialPhotos?: PhotoVo[]) {
   const paramsKey = JSON.stringify(params)
   const initialParams = useMemo<Partial<PhotoListBo>>(() => JSON.parse(paramsKey) as Partial<PhotoListBo>, [paramsKey])
-  const paramsRef = useRef<Partial<PhotoListBo>>(initialParams) // Save current list request parameters，Updated by explicit refresh method。
+  const paramsRef = useRef<Partial<PhotoListBo>>(initialParams) // Save current list request parameters, Updated by explicit refresh method.
   const sortField: PhotoSortField = paramsRef.current.status === PhotoStatusEnum.DELETE ? "recycleTime" : "takenTime"
-  const initialUsedRef = useRef(false) // Mark whether the first screen data of the server has been used for the initialization list。
-  const loadingRef = useRef(false) // Flag whether the photo list is currently loading。
-  const photosRef = useRef<PhotoVo[]>(initialPhotos ?? []) // Save latest photo list，For the cursor to read the last page in pages。
-  const hasMoreRef = useRef(initialPhotos ? initialPhotos.length === pageSize : true) // Mark whether there is a next page under the current query conditions。
-  const [photos, setPhotos] = useState<PhotoVo[]>(initialPhotos ?? []) // Store the list of photos displayed on the current page。
-  const [masonryKey, setMasonryKey] = useState(0) // Control waterfall flow to recalculate layout after list structure changes。
+  const initialUsedRef = useRef(false) // Mark whether the first screen data of the server has been used for the initialization list.
+  const loadingRef = useRef(false) // Flag whether the photo list is currently loading.
+
+  const shuffledInitial = useMemo(() => {
+    if (!initialPhotos || initialPhotos.length <= 1) return initialPhotos ?? []
+    return shuffleArray(initialPhotos)
+  }, [initialPhotos])
+
+  const photosRef = useRef<PhotoVo[]>(shuffledInitial) // Save latest photo list.
+  const hasMoreRef = useRef(initialPhotos ? initialPhotos.length === pageSize : true) // Mark whether there is a next page under the current query conditions.
+  const [photos, setPhotos] = useState<PhotoVo[]>(shuffledInitial) // Store the list of photos displayed on the current page.
+  const [masonryKey, setMasonryKey] = useState(0) // Control waterfall flow to recalculate layout after list structure changes.
 
   useEffect(() => {
-    // Skip the browser's first page request when there is data on the first page of the server。
+    // Skip the browser's first page request when there is data on the first page of the server.
     if (!initialUsedRef.current) {
       initialUsedRef.current = true
-      photosRef.current = initialPhotos ?? []
+      photosRef.current = shuffledInitial
+      setPhotos(shuffledInitial)
       hasMoreRef.current = initialPhotos ? initialPhotos.length === pageSize : true
       return
     }
 
-  }, [initialPhotos, pageSize])
+  }, [initialPhotos, pageSize, shuffledInitial])
 
   // Refresh waterfall layout calculations。
   const refreshMasonry = useCallback(() => {
