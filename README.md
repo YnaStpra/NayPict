@@ -96,9 +96,9 @@ Click **Deploy**. Vercel will automatically compile the project and deploy it to
 | Variable | Required | Default | Description |
 |---|---|---|---|
 | `TITLE` | ❌ | `NayPict` | Website title and app name |
-| `ADMIN` | ✅ | `admin` | Administrator username |
-| `PASSWORD` | ✅ | `password` | Administrator password |
-| `JWT_SECRET` | ✅ | `kuncirahasia12345` | Secret key for signing JWT tokens |
+| `ADMIN` | ✅ | `admin isme` | Administrator username |
+| `PASSWORD` | ✅ | `yourpass` | Administrator password |
+| `JWT_SECRET` | ✅ | `Secret_JWT` | Secret key for signing JWT tokens |
 
 ---
 
