@@ -24,6 +24,8 @@ import { albumAdd, albumDelete, albumList, albumSetName, albumSetTop } from "@/r
 import { type AlbumVo } from "@/server/entity/vo/album"
 import { useTranslations } from "next-intl"
 
+import { UserTypeEnum } from "@/server/enums/user-enum"
+
 const AlbumMasonry = dynamic(
   () => import("@/components/album/album-masonry").then((mod) => mod.AlbumMasonry),
   { ssr: false },
@@ -37,7 +39,8 @@ const AlbumCoverDialog = dynamic(
 export default function Page() {
   const t = useTranslations("albums")
   const { initialAlbums } = useAlbumContext()
-  const { sidebarOpen, setSidebarOpen, refreshAlbums } = useApp()
+  const { userInfo, sidebarOpen, setSidebarOpen, refreshAlbums } = useApp()
+  const isAdmin = userInfo?.type === UserTypeEnum.ADMIN
   const [albums, setAlbums] = useState<AlbumVo[]>(initialAlbums)
   const [albumListKey, setAlbumListKey] = useState(0)
   const [renameOpen, setRenameOpen] = useState(false)
@@ -195,18 +198,20 @@ export default function Page() {
                 </BreadcrumbList>
               </Breadcrumb>
             </div>
-            <div className="fixed left-[calc(100vw-3.5rem)] md:left-[calc(100vw-4rem)] top-0 flex h-12 items-center gap-3 px-4">
-              <AlbumAddDialog title={t("addTitle")} onNameConfirm={addAlbum} />
-            </div>
+            {isAdmin && (
+              <div className="fixed left-[calc(100vw-3.5rem)] md:left-[calc(100vw-4rem)] top-0 flex h-12 items-center gap-3 px-4">
+                <AlbumAddDialog title={t("addTitle")} onNameConfirm={addAlbum} />
+              </div>
+            )}
           </header>
           <div className="px-2 md:pl-3 md:pr-2">
             <AlbumMasonry
               albums={albums}
               resetKey={albumListKey}
-              onAlbumRename={renameAlbum}
-              onAlbumTop={topAlbum}
-              onAlbumDelete={openDeleteAlbum}
-              onAlbumChangeCover={openChangeCover}
+              onAlbumRename={isAdmin ? renameAlbum : undefined}
+              onAlbumTop={isAdmin ? topAlbum : undefined}
+              onAlbumDelete={isAdmin ? openDeleteAlbum : undefined}
+              onAlbumChangeCover={isAdmin ? openChangeCover : undefined}
             />
           </div>
         </SidebarInset>

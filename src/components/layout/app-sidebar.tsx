@@ -58,7 +58,6 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     ],
     sysMain: [
       { title: t("navigation.storage"), url: "/storage", icon: <Database />, isActive: false },
-      { title: t("navigation.users"), url: "/users", icon: <User />, isActive: false },
       { title: t("navigation.settings"), url: "/settings", icon: <Settings />, isActive: false },
     ],
   }
@@ -70,7 +69,14 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const teams = isAdmin ? [albumTeam, data.teams[1]] : [albumTeam]
   const isSystemTeam = isAdmin && data.sysMain.some((item) => isUrlMatched(pathname, item.url))
   const activeTeam = isSystemTeam ? data.teams[1] : albumTeam
-  const navItems = isSystemTeam ? data.sysMain : data.navMain
+  const navItems = isSystemTeam
+    ? data.sysMain
+    : isAdmin
+    ? data.navMain
+    : [
+        { title: t("navigation.photos"), url: "/photos", icon: <Image />, isActive: isUrlMatched(pathname, "/photos") },
+        { title: t("navigation.albums"), url: "/albums", icon: <FolderOpen />, isActive: isUrlMatched(pathname, "/albums") },
+      ]
   const navUser = {
     ...data.user,
     name: userInfo?.username ?? data.user.name,

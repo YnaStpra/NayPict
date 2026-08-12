@@ -82,10 +82,10 @@ export function LoginForm({
               alt=""
               className="size-10 object-contain"
             />
-            {title}
+            {title} Admin Portal
           </CardTitle>
           <CardDescription>
-            {t("description")}
+            Enter your admin credentials to manage your gallery
           </CardDescription>
         </CardHeader>
         <CardContent>

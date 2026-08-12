@@ -31,6 +31,7 @@ import { useAlbumPhotoContext } from "@/app/albums/[albumId]/provider"
 import { useApp } from "@/app/provider"
 import { PhotoDateDrawer } from "@/components/photo/photo-date-drawer"
 import { PhotoMasonrySkeleton } from "@/components/photo/photo-masonry-skeleton"
+import { UserTypeEnum } from "@/server/enums/user-enum"
 
 const AlbumSelectDialog = dynamic(
   () => import("@/components/album/album-select-dialog").then((mod) => mod.AlbumSelectDialog),
@@ -47,7 +48,8 @@ export default function Page() {
   const router = useRouter()
   const { albumId } = useParams<{ albumId: string }>()
   const { initialPhotos } = useAlbumPhotoContext()
-  const { sidebarOpen, setSidebarOpen, refreshAlbums } = useApp()
+  const { userInfo, sidebarOpen, setSidebarOpen, refreshAlbums } = useApp()
+  const isAdmin = userInfo?.type === UserTypeEnum.ADMIN
   const currentAlbumName = useAlbumStore((state) => state.currentAlbumName)
   const albumIdRef = useRef(albumId)
   // isBrowser Mark whether you are currently in the browser environment，SSR Stage display skeleton screen。
@@ -222,14 +224,16 @@ export default function Page() {
             </div>
             <div className="fixed left-[calc(100vw-5.75rem)] md:left-[calc(100vw-6.25rem)] top-0 flex h-12 items-center gap-1 px-4">
               <PhotoDateDrawer albumId={albumId} onRangeChange={changePhotoTime} />
-              <Button
-                type="button"
-                size="icon"
-                variant="ghost"
-                onClick={() => openUpload(albumId)}
-              >
-                <PlusIcon />
-              </Button>
+              {isAdmin && (
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="ghost"
+                  onClick={() => openUpload(albumId)}
+                >
+                  <PlusIcon />
+                </Button>
+              )}
             </div>
           </header>
           <div className="px-1 md:pl-1 md:pr-0">
@@ -239,10 +243,10 @@ export default function Page() {
                 resetKey={masonryKey}
                 onReachBottom={loadMorePhotos}
                 onPhotoOpen={openPhoto}
-                onPhotoFavorite={changePhotoFavorite}
-                onPhotoDelete={recyclePhotos}
-                onAlbumOpen={openAlbumDialog}
-                onAlbumRemove={removeAlbumPhotos}
+                onPhotoFavorite={isAdmin ? changePhotoFavorite : undefined}
+                onPhotoDelete={isAdmin ? recyclePhotos : undefined}
+                onAlbumOpen={isAdmin ? openAlbumDialog : undefined}
+                onAlbumRemove={isAdmin ? removeAlbumPhotos : undefined}
               />
             ) : (
               <PhotoMasonrySkeleton photos={initialPhotos} />

@@ -16,6 +16,8 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { getThumbHashUrl } from "@/lib/thumb-hash"
 import { type PhotoVo } from "@/server/entity/vo/photo"
 import { usePhotoStore } from "@/store/photo-store"
+import { useApp } from "@/app/provider"
+import { UserTypeEnum } from "@/server/enums/user-enum"
 import { useTranslations } from "next-intl"
 
 interface PhotoViewerProps {
@@ -656,6 +658,8 @@ function PhotoSlideImage({
 
 // Render photo detail viewer，The parent component is responsible for passing in the current photo and list data。
 export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhotoDelete }: PhotoViewerProps) {
+  const { userInfo } = useApp()
+  const isAdmin = userInfo?.type === UserTypeEnum.ADMIN
   // current lightbox Viewed photo index。
   const [viewIndex, setViewIndex] = useState(index)
   // infoOpen Control whether the photo information sidebar on the right is expanded。
@@ -1131,7 +1135,7 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
                   getPhotoCache={getPhotoCache}
                   onLoadOriginal={loadOriginalPhoto}
                 />
-                {onPhotoDelete && (
+                {isAdmin && onPhotoDelete && (
                   <DeleteButton showActions={actionsVisible} onDelete={onPhotoDelete} />
                 )}
               </>

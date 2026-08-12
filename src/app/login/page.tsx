@@ -39,7 +39,7 @@ export default function LoginPage() {
       .then(() => userInfo())
       .then((info) => {
         setUserInfo(info)
-        router.replace("/photos")
+        router.replace("/admin")
         void refreshAlbums()
         void refreshStorages()
       })

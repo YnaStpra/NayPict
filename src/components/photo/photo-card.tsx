@@ -11,6 +11,8 @@ import { getThumbHashUrl } from "@/lib/thumb-hash"
 import { PhotoFavoriteEnum, PhotoStatusEnum } from "@/server/enums/photo-enum"
 import { type PhotoVo } from "@/server/entity/vo/photo"
 import { useLocale, useTranslations } from "next-intl"
+import { useApp } from "@/app/provider"
+import { UserTypeEnum } from "@/server/enums/user-enum"
 
 type TouchHoverCloseRef = {
   current: (() => void) | null
@@ -57,6 +59,8 @@ export function PhotoCard({
   onSelectedChange,
   touchHoverCloseRef,
 }: PhotoCardProps) {
+  const { userInfo } = useApp()
+  const isAdmin = userInfo?.type === UserTypeEnum.ADMIN
   const t = useTranslations("photos")
   const locale = useLocale()
   const src = data.thumbnail || data.preview || data.key
@@ -189,20 +193,22 @@ export function PhotoCard({
           {formatRecycleTime(data.recycleTime, locale)}
         </div>
       )}
-      <div
-        className={[
-          "absolute top-[6px] right-[6px] z-10 flex size-6 items-center justify-center opacity-0 transition-opacity duration-200 group-hover:opacity-100",
-          selected || selectionActive || showHover ? "opacity-100" : "",
-        ].join(" ")}
-        onClick={(event) => event.stopPropagation()}
-      >
-        <Checkbox
-          aria-label={`Select photo ${data.name}`}
-          checked={selected}
-          className="!size-4.5 rounded-full border-0 !bg-white/35 data-[state=checked]:!bg-[#e5e5e5] data-[state=checked]:!text-black [&_svg]:!size-3"
-          onCheckedChange={(checked) => changeSelected(checked === true)}
-        />
-      </div>
+      {isAdmin && (
+        <div
+          className={[
+            "absolute top-[6px] right-[6px] z-10 flex size-6 items-center justify-center opacity-0 transition-opacity duration-200 group-hover:opacity-100",
+            selected || selectionActive || showHover ? "opacity-100" : "",
+          ].join(" ")}
+          onClick={(event) => event.stopPropagation()}
+        >
+          <Checkbox
+            aria-label={`Select photo ${data.name}`}
+            checked={selected}
+            className="!size-4.5 rounded-full border-0 !bg-white/35 data-[state=checked]:!bg-[#e5e5e5] data-[state=checked]:!text-black [&_svg]:!size-3"
+            onCheckedChange={(checked) => changeSelected(checked === true)}
+          />
+        </div>
+      )}
       {!selectionActive && (
         <div
           className={[
