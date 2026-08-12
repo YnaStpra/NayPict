@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/select"
 import { PhotoUploadSettings, readPhotoUploadSettings } from "@/components/photo/photo-upload-settings"
 import { createPhotoCover } from "@/lib/upload-cover"
+import { compressImageFile } from "@/lib/image-compress"
 import { useStorageStore } from "@/store/storage-store"
 import { usePhotoStore } from "@/store/photo-store"
 import { photoExists } from "@/request/photo"
@@ -38,11 +39,11 @@ type UploadStatus = "new" | "waiting" | "uploading" | "success" | "failed" | "sk
 
 interface UploadPreview {
   id: string
-  cover: string
   file: File
-  albumId: string | null
-  progress: number
+  cover: string
   status: UploadStatus
+  progress: number
+  albumId?: string
 }
 
 // Calculate the size of the file to be uploaded in the browser SHA-1 Checksum。
@@ -52,64 +53,69 @@ async function getFileChecksum(file: File) {
 }
 
 // Extract error message from upload interface response，XML Read first Message Label。
-function getUploadErrorText(text: string) {
-  const value = text.trim()
+function getUploadErrorMessage(xhr: XMLHttpRequest): string {
+  const xml = xhr.responseXML
+  if (xml) {
+    const messageNode = xml.querySelector("Message")
+    if (messageNode?.textContent) {
+      return messageNode.textContent
+    }
+  }
 
   try {
-    const data = JSON.parse(value) as { message?: string }
-    return data.message || value
+    const json = JSON.parse(xhr.responseText)
+    if (json.message) {
+      return json.message
+    }
   } catch {
-    // No JSON Error continues by pressing normal text or XML deal with。
+    // Ignore JSON Parsing error
   }
 
-  if (!value.startsWith("<") || !value.endsWith(">")) {
-    return value || "Upload failed"
-  }
-
-  const xml = new DOMParser().parseFromString(value, "text/xml")
-  const message = xml.querySelector("Message")?.textContent?.trim()
-
-  return message || value
+  return xhr.statusText || "Upload failed"
 }
 
-// use XMLHttpRequest Upload photos to /photo/add。
 function uploadPhotoAdd(
   formData: FormData,
   onProgress?: (progress: number) => void,
-  registerAbort?: (abort: () => void) => void,
-) {
-  return new Promise<PhotoAddResultVo>((resolve, reject) => {
+  onAbort?: (abort: () => void) => void
+): Promise<PhotoAddResultVo> {
+  return new Promise((resolve, reject) => {
     const request = new XMLHttpRequest()
 
-    registerAbort?.(() => request.abort())
-    request.open("POST", "/api/photo/add")
-    request.withCredentials = true
     request.upload.onprogress = (event) => {
-      if (event.lengthComputable) {
-        onProgress?.(Math.min(95, Math.round((event.loaded / event.total) * 100)))
+      if (!event.lengthComputable) {
+        return
       }
-    }
-    request.onload = () => {
-      try {
-        const json = JSON.parse(request.responseText) as {
-          code: number
-          message?: string
-          data?: PhotoAddResultVo
-        }
 
-        if (request.status >= 200 && request.status < 300 && json.code === 200 && json.data) {
-          onProgress?.(100)
-          resolve(json.data)
+      onProgress?.(Math.round((event.loaded / event.total) * 100))
+    }
+
+    request.onload = () => {
+      if (request.status < 200 || request.status >= 300) {
+        reject(new Error(getUploadErrorMessage(request)))
+        return
+      }
+
+      try {
+        const result = JSON.parse(request.responseText)
+
+        if (result.code !== 200) {
+          reject(new Error(result.message || "Upload failed"))
           return
         }
 
-        reject(new Error(json.message || getUploadErrorText(request.responseText)))
-      } catch {
-        reject(new Error(getUploadErrorText(request.responseText)))
+        resolve(result.data)
+      } catch (err) {
+        reject(err)
       }
     }
-    request.onerror = () => reject(new Error("Upload failed"))
-    request.onabort = () => reject(new DOMException("Upload aborted", "AbortError"))
+
+    request.onerror = () => {
+      reject(new Error("Network error"))
+    }
+
+    request.open("POST", "/api/photo/add")
+    onAbort?.(() => request.abort())
     request.send(formData)
   })
 }
@@ -158,29 +164,24 @@ export function PhotoUploadDialog() {
     uploadQueueRef.current = []
     uploadingRef.current = false
     setUploading(false)
+    activeCountRef.current = 0
+    abortMapRef.current.clear()
+    pausedRef.current = false
+    uploadStorageIdRef.current = null
     setPreviews([])
   }
 
-  // Handle pop-up window opening status changes。
-  function handleOpenChange(nextOpen: boolean) {
-    if (!nextOpen) {
+  // Close the upload pop-up window and clean up the preview cache。
+  function handleOpenChange(next: boolean) {
+    if (uploadingRef.current) {
+      toast.warning("Uploading in progress")
+      return
+    }
+
+    if (!next) {
+      resetUpload()
       closeUpload()
     }
-  }
-
-  // After generating the cover, add it to the preview list。
-  async function addPhoto(file: File) {
-    const cover = await createPhotoCover(file)
-    const item: UploadPreview = {
-      id: `${Math.random()}`,
-      cover,
-      file,
-      albumId: uploadAlbumId,
-      progress: 100,
-      status: "new",
-    }
-
-    setPreviews([...previewsRef.current, item])
   }
 
   // Pause upload，Interrupt only xhr，and reset the queue/Photos being uploaded。
@@ -206,33 +207,44 @@ export function PhotoUploadDialog() {
     setUploading(false)
   }
 
-  // Process each new photo after selecting it。
+  // Read files in batches when selecting files, Generate temporary local object preview URL。
   async function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
     const files = Array.from(event.target.files ?? [])
-    event.target.value = ""
-
     if (!files.length) {
       return
     }
 
-    let index = 0
+    const nextPreviews = [...previewsRef.current]
 
-    async function runAddPhoto() {
-      while (index < files.length) {
-        const file = files[index]
-        index += 1
-
-        try {
-          await addPhoto(file)
-        } catch {
-          toast.error(t("previewFailed", { name: file.name }))
-        }
-      }
+    for (const file of files) {
+      const cover = await createPhotoCover(file)
+      nextPreviews.push({
+        id: `${file.name}-${file.size}-${file.lastModified}`,
+        file,
+        cover,
+        status: "new",
+        progress: 0,
+        albumId: uploadAlbumId ?? undefined,
+      })
     }
 
-    await Promise.all(
-      Array.from({ length: Math.min(6, files.length) }, runAddPhoto),
-    )
+    setPreviews(nextPreviews)
+
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ""
+    }
+
+    if (uploadingRef.current) {
+      const newItems = nextPreviews.filter((p) => p.status === "new")
+      if (newItems.length) {
+        const newIds = new Set(newItems.map((p) => p.id))
+        uploadQueueRef.current.push(...newItems)
+        setPreviews(previewsRef.current.map((p) => (
+          newIds.has(p.id) ? { ...p, status: "waiting" } : p
+        )))
+        runNext()
+      }
+    }
   }
 
   // Add currently eligible photos to the upload queue。
@@ -246,16 +258,14 @@ export function PhotoUploadDialog() {
     }
 
     const uploadIds = new Set(uploadList.map((preview) => preview.id))
-
+    uploadStorageIdRef.current = selectedStorageId
     uploadQueueRef.current.push(...uploadList)
 
-    const nextPreviews: UploadPreview[] = previewsRef.current.map((preview) => (
+    setPreviews(previewsRef.current.map((preview) => (
       uploadIds.has(preview.id)
-        ? { ...preview, progress: 0, status: "waiting" }
+        ? { ...preview, status: "waiting", progress: 0 }
         : preview
-    ))
-
-    setPreviews(nextPreviews)
+    )))
 
     return uploadList.length
   }
@@ -271,8 +281,19 @@ export function PhotoUploadDialog() {
     const item = previewsRef.current.find((p) => p.id === preview.id) ?? preview
 
     try {
-      const checksum = await getFileChecksum(item.file)
-      const existsResult = await photoExists({ checksum, name: item.file.name })
+      const uploadSettings = readPhotoUploadSettings()
+      let fileToUpload = item.file
+
+      // Compress large images client-side if enabled in upload settings
+      if (uploadSettings.compressImage) {
+        fileToUpload = await compressImageFile(item.file, {
+          maxDimension: 3840,
+          quality: 0.85,
+        })
+      }
+
+      const checksum = await getFileChecksum(fileToUpload)
+      const existsResult = await photoExists({ checksum, name: fileToUpload.name })
 
       if (existsResult.duplicate) {
         setPreviews(previewsRef.current.map((p) => (
@@ -290,9 +311,9 @@ export function PhotoUploadDialog() {
 
       const formData = new FormData()
       formData.set("storageId", currentStorageId)
-      formData.set("file", item.file)
+      formData.set("file", fileToUpload)
       formData.set("lastModified", String(item.file.lastModified))
-      formData.set("allowDownload", String(readPhotoUploadSettings().allowDownload))
+      formData.set("allowDownload", String(uploadSettings.allowDownload))
       if (item.albumId) {
         formData.set("albumId", item.albumId)
       }
@@ -311,7 +332,7 @@ export function PhotoUploadDialog() {
       }
 
       if (result.photo) {
-        addUploadedPhoto(result.photo, item.albumId)
+        addUploadedPhoto(result.photo, item.albumId ?? null)
       }
 
       setPreviews(previewsRef.current.map((p) => (
