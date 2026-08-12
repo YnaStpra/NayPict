@@ -11,7 +11,7 @@ interface LoginTokenPayload extends JWTPayload {
 
 // Generate and return JWT token after successful login.
 async function createLoginToken(userId: string, uuid: string): Promise<string> {
-  const secret = process.env.JWT_SECRET || 'pictale_default_secret_key';
+  const secret = process.env.JWT_SECRET || 'naypict_default_secret_key';
 
   const now = Math.floor(Date.now() / 1000);
   const payload: LoginTokenPayload = {
@@ -26,7 +26,7 @@ async function createLoginToken(userId: string, uuid: string): Promise<string> {
 
 // Verify login JWT safely without throwing uncaught exceptions.
 async function verifyLoginToken(token: string | undefined): Promise<LoginTokenPayload | null> {
-  const secret = process.env.JWT_SECRET || 'pictale_default_secret_key';
+  const secret = process.env.JWT_SECRET || 'naypict_default_secret_key';
 
   if (!token) {
     return null;
