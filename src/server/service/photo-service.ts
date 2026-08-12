@@ -10,6 +10,7 @@ import {
   type PhotoExistsBo,
   type PhotoFavoriteBo,
   type PhotoListBo,
+  type PhotoRandomIdListBo,
   type PhotoRecycleBo,
   type PhotoRestoreBo,
   type PhotoSetAllowDownloadBo,
@@ -66,7 +67,10 @@ const photoService = {
       whereList.push(lte(photoTab.takenTime, params.endTakenTime));
     }
 
-    if (params.cursorPhotoId && params.cursorTime) {
+    // When specific photoIds are provided, skip cursor/time filters and use IN clause instead
+    if (params.photoIds && params.photoIds.length > 0) {
+      whereList.push(inArray(photoTab.photoId, params.photoIds));
+    } else if (params.cursorPhotoId && params.cursorTime) {
       const cursorWhere = or(
         lt(orderColumn, params.cursorTime),
         and(
@@ -89,15 +93,15 @@ const photoService = {
           ...whereList,
           eq(albumPhotoTab.albumId, params.albumId)
         ))
-        // Use random ordering on first page load when shuffle is requested and no cursor is present
-        .orderBy(params.shuffle && !params.cursorPhotoId ? sql`RANDOM()` : desc(orderColumn), desc(photoTab.photoId))
+        // Preserve the order of provided photoIds if given, otherwise use time-based sort
+        .orderBy(params.photoIds?.length ? sql`CASE ${photoTab.photoId} ${params.photoIds.map((id, i) => sql`WHEN ${id} THEN ${i}`).reduce((a, b) => sql`${a} ${b}`)} END` : desc(orderColumn), desc(photoTab.photoId))
         .limit(size)
       : await orm
         .select()
         .from(photoTab)
         .where(and(...whereList))
-        // Use random ordering on first page load when shuffle is requested and no cursor is present
-        .orderBy(params.shuffle && !params.cursorPhotoId ? sql`RANDOM()` : desc(orderColumn), desc(photoTab.photoId))
+        // Preserve the order of provided photoIds if given, otherwise use time-based or random sort
+        .orderBy(params.photoIds?.length ? sql`CASE ${photoTab.photoId} ${params.photoIds.map((id, i) => sql`WHEN ${id} THEN ${i}`).reduce((a, b) => sql`${a} ${b}`)} END` : (params.shuffle && !params.cursorPhotoId ? sql`RANDOM()` : desc(orderColumn)), desc(photoTab.photoId))
         .limit(size);
 
     const fileStorageList = await storageService.getStorageList();
@@ -118,6 +122,42 @@ const photoService = {
       list: result,
       total: result.length
     };
+  },
+
+  // Return all photo IDs in random order for client-side random pagination.
+  async randomIdList(params: PhotoRandomIdListBo, userId?: string): Promise<string[]> {
+    const status = params.status ?? PhotoStatusEnum.NORMAL;
+
+    const whereList = [
+      eq(photoTab.status, status)
+    ];
+
+    if (params.favorite) {
+      whereList.push(eq(photoTab.favorite, params.favorite));
+    }
+
+    if (params.startTakenTime) {
+      whereList.push(gte(photoTab.takenTime, params.startTakenTime));
+    }
+
+    if (params.endTakenTime) {
+      whereList.push(lte(photoTab.takenTime, params.endTakenTime));
+    }
+
+    const rows = params.albumId
+      ? await orm
+        .select({ photoId: photoTab.photoId })
+        .from(photoTab)
+        .innerJoin(albumPhotoTab, eq(photoTab.photoId, albumPhotoTab.photoId))
+        .where(and(...whereList, eq(albumPhotoTab.albumId, params.albumId)))
+        .orderBy(sql`RANDOM()`)
+      : await orm
+        .select({ photoId: photoTab.photoId })
+        .from(photoTab)
+        .where(and(...whereList))
+        .orderBy(sql`RANDOM()`);
+
+    return rows.map((row: any) => row.photoId);
   },
 
   // Statistics by day of photos that have shooting time (publicly for guests or user-specific for logged-in admin).

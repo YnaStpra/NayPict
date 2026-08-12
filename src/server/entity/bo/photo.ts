@@ -17,6 +17,17 @@ interface PhotoListBo {
   status?: number | null;
   albumId?: string | null;
   shuffle?: boolean;
+  // Filter by specific photo IDs (used for random-order pagination)
+  photoIds?: string[] | null;
+}
+
+// Input params for fetching all photo IDs in random order.
+interface PhotoRandomIdListBo {
+  favorite?: number | null;
+  status?: number | null;
+  albumId?: string | null;
+  startTakenTime?: string | null;
+  endTakenTime?: string | null;
 }
 
 interface PhotoExistsBo {
@@ -46,4 +57,4 @@ interface PhotoSetAllowDownloadBo {
   allowDownload: boolean;
 }
 
-export type { PhotoDeleteBo, PhotoExistsBo, PhotoFavoriteBo, PhotoListBo, PhotoRecycleBo, PhotoRestoreBo, PhotoSetAllowDownloadBo, PhotoTakenDateListBo };
+export type { PhotoDeleteBo, PhotoExistsBo, PhotoFavoriteBo, PhotoListBo, PhotoRandomIdListBo, PhotoRecycleBo, PhotoRestoreBo, PhotoSetAllowDownloadBo, PhotoTakenDateListBo };
