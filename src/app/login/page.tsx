@@ -38,22 +38,22 @@ export default function LoginPage() {
     login(params)
       .then((res) => {
         if (res?.token) {
-          document.cookie = `token=${res.token}; path=/; max-age=2592000`
+          // Server already set JWT cookie; no need to set manually.
         }
         if (res?.user) {
           setUserInfo(res.user)
-          window.location.href = "/admin"
+          router.replace('/admin')
           return
         }
         return userInfo().then((info) => {
           if (info) {
             setUserInfo(info)
-            window.location.href = "/admin"
+            router.replace('/admin')
           }
         })
       })
       .catch((err) => {
-        console.error("Login failed:", err)
+        console.error('Login failed:', err)
       })
       .finally(() => {
         setLoading(false)
