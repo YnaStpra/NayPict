@@ -59,6 +59,25 @@ export function NavUser({
   const router = useRouter()
   const { userInfo, setUserInfo } = useApp()
 
+  // fileInputRef Used to select the avatar picture first, Open the cropping pop-up again.
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
+  // objectUrlRef Save the current address of the image to be cropped, Easy to free up memory.
+  const objectUrlRef = useRef<string | null>(null)
+  // image Save the image address currently passed to the avatar cropping pop-up frame.
+  const [image, setImage] = useState("")
+  // avatarOpen Control the opening status of the avatar upload pop-up box.
+  const [avatarOpen, setAvatarOpen] = useState(false)
+  // passwordOpen Control the opening status of the password change popup box.
+  const [passwordOpen, setPasswordOpen] = useState(false)
+
+  useEffect(() => {
+    return () => {
+      if (objectUrlRef.current) {
+        URL.revokeObjectURL(objectUrlRef.current)
+      }
+    }
+  }, [])
+
   if (!userInfo) {
     return (
       <SidebarMenu>
@@ -75,25 +94,8 @@ export function NavUser({
       </SidebarMenu>
     )
   }
-  const fallback = getAvatarFallback(user.name)
-  // fileInputRef Used to select the avatar picture first，Open the cropping pop-up again。
-  const fileInputRef = useRef<HTMLInputElement | null>(null)
-  // objectUrlRef Save the current address of the image to be cropped，Easy to free up memory。
-  const objectUrlRef = useRef<string | null>(null)
-  // image Save the image address currently passed to the avatar cropping pop-up frame。
-  const [image, setImage] = useState("")
-  // avatarOpen Control the opening status of the avatar upload pop-up box。
-  const [avatarOpen, setAvatarOpen] = useState(false)
-  // passwordOpen Control the opening status of the password change popup box。
-  const [passwordOpen, setPasswordOpen] = useState(false)
 
-  useEffect(() => {
-    return () => {
-      if (objectUrlRef.current) {
-        URL.revokeObjectURL(objectUrlRef.current)
-      }
-    }
-  }, [])
+  const fallback = getAvatarFallback(user.name)
 
   // Log out and jump back to login page。
   function logoutUser() {
