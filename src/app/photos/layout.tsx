@@ -13,6 +13,7 @@ export default async function PhotoLayout({ children }: PhotoLayoutProps) {
   const cookieStore = await cookies()
   const { userId } = await getLoginInfo(cookieStore.toString())
 
+  // Use shuffle so each page load returns a different random order from the full library
   const data = await photoService.list({
     size: PHOTO_LIST_PAGE_SIZE,
     cursorPhotoId: null,
@@ -20,6 +21,7 @@ export default async function PhotoLayout({ children }: PhotoLayoutProps) {
     favorite: null,
     status: null,
     albumId: null,
+    shuffle: true,
   }, userId || undefined)
 
   return (
