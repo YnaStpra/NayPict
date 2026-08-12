@@ -5,7 +5,7 @@ import { type Storage, type StorageInto, storageTab } from '@/server/entity/stor
 import { type StorageSetTopBo, type StorageToggleStatusBo } from '@/server/entity/bo/storage';
 import { type PageVo } from '@/server/entity/vo/common';
 import { type StorageSelectVo, type StorageVo } from '@/server/entity/vo/storage';
-import { StorageStatusEnum } from '@/server/enums/storage-enum';
+import { StorageStatusEnum, StorageTypeEnum } from '@/server/enums/storage-enum';
 import BizError from '@/server/error/biz-error';
 import { STORAGE_LIST_CACHE_KEY } from '@/server/const/cache';
 import { cache } from '@/server/infra/cache';
@@ -193,7 +193,7 @@ const storageService = {
     await this.refreshStorageCache();
   },
 
-  // Query all storage configurations，Read-first cache。
+  // Query all storage configurations, read-first cache.
   async getStorageList(): Promise<Storage[]> {
     let storageList = await cache.get<Storage[]>(STORAGE_LIST_CACHE_KEY);
 
@@ -203,7 +203,32 @@ const storageService = {
         .from(storageTab)
         .orderBy(desc(storageTab.sort));
 
-      await cache.set(STORAGE_LIST_CACHE_KEY, storageList as any);
+      if (!storageList.length && process.env.R2_BUCKET_NAME && process.env.R2_ACCESS_KEY_ID) {
+        const defaultR2: Storage = {
+          storageId: 'r2_default',
+          name: 'Cloudflare R2',
+          type: StorageTypeEnum.S3,
+          domain: process.env.R2_PUBLIC_URL || (process.env.R2_ACCOUNT_ID ? `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com` : null),
+          bucket: process.env.R2_BUCKET_NAME,
+          region: 'auto',
+          endpoint: process.env.R2_ACCOUNT_ID ? `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com` : null,
+          accessKey: process.env.R2_ACCESS_KEY_ID,
+          secretKey: process.env.R2_SECRET_ACCESS_KEY || '',
+          userId: null,
+          sort: 0,
+          status: StorageStatusEnum.NORMAL,
+        };
+
+        try {
+          await orm.insert(storageTab).values(defaultR2);
+          storageList = [defaultR2];
+        } catch {
+          // If already inserted concurrently
+          storageList = await orm.select().from(storageTab).orderBy(desc(storageTab.sort));
+        }
+      }
+
+      await cache.set(STORAGE_LIST_CACHE_KEY, (storageList ?? []) as unknown as Record<string, unknown>);
     }
 
     return (storageList ?? []) as Storage[];
