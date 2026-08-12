@@ -95,7 +95,8 @@ const photoService = {
         .select()
         .from(photoTab)
         .where(and(...whereList))
-        .orderBy(desc(orderColumn), desc(photoTab.photoId))
+        // Use random ordering on first page load when shuffle is requested and no cursor is present
+        .orderBy(params.shuffle && !params.cursorPhotoId ? sql`RANDOM()` : desc(orderColumn), desc(photoTab.photoId))
         .limit(size);
 
     const fileStorageList = await storageService.getStorageList();

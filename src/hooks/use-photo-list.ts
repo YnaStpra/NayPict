@@ -29,14 +29,6 @@ function findPhotoInsertIndex(list: PhotoVo[], photo: PhotoVo, sortField: PhotoS
   return index === -1 ? list.length : index
 }
 
-function shuffleArray<T>(array: T[]): T[] {
-  const result = [...array]
-  for (let i = result.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1))
-    ;[result[i], result[j]] = [result[j], result[i]]
-  }
-  return result
-}
 
 // Manage photo paged list, Bottom loading and waterfall refresh markers.
 function usePhotoList(params: Partial<PhotoListBo> = {}, pageSize = PHOTO_LIST_PAGE_SIZE, initialPhotos?: PhotoVo[]) {
@@ -47,25 +39,25 @@ function usePhotoList(params: Partial<PhotoListBo> = {}, pageSize = PHOTO_LIST_P
   const initialUsedRef = useRef(false) // Mark whether the first screen data of the server has been used for the initialization list.
   const loadingRef = useRef(false) // Flag whether the photo list is currently loading.
 
-  // Use initial photos directly without shuffling
-  const shuffledInitial = useMemo(() => initialPhotos ?? [], [initialPhotos])
+  // Initial photos from SSR, used as-is (server returns random order when shuffle=true)
+  const initialPhotoList = useMemo(() => initialPhotos ?? [], [initialPhotos])
 
-  const photosRef = useRef<PhotoVo[]>(shuffledInitial) // Save latest photo list.
+  const photosRef = useRef<PhotoVo[]>(initialPhotoList) // Save latest photo list.
   const hasMoreRef = useRef(initialPhotos ? initialPhotos.length === pageSize : true) // Tracks if more pages are available; set to false on load error or when less than pageSize returned.
-  const [photos, setPhotos] = useState<PhotoVo[]>(shuffledInitial) // Store the list of photos displayed on the current page.
+  const [photos, setPhotos] = useState<PhotoVo[]>(initialPhotoList) // Store the list of photos displayed on the current page.
   const [masonryKey, setMasonryKey] = useState(0) // Control waterfall flow to recalculate layout after list structure changes.
 
   useEffect(() => {
     // Skip the browser's first page request when there is data on the first page of the server.
     if (!initialUsedRef.current) {
       initialUsedRef.current = true
-      photosRef.current = shuffledInitial
-      setPhotos(shuffledInitial)
+      photosRef.current = initialPhotoList
+      setPhotos(initialPhotoList)
       hasMoreRef.current = initialPhotos ? initialPhotos.length === pageSize : true
       return
     }
 
-  }, [initialPhotos, pageSize, shuffledInitial])
+  }, [initialPhotos, pageSize, initialPhotoList])
 
   // Refresh waterfall layout calculations。
   const refreshMasonry = useCallback(() => {
@@ -89,6 +81,8 @@ function usePhotoList(params: Partial<PhotoListBo> = {}, pageSize = PHOTO_LIST_P
 
     photoList({
       ...queryParams,
+      // Request server-side random ordering on first page (no cursor) for normal photos
+      shuffle: !append && !queryParams.status ? true : undefined,
       size: pageSize,
       cursorPhotoId: lastPhoto?.photoId ?? null,
       cursorTime: cursorTime ?? null,
@@ -97,21 +91,15 @@ function usePhotoList(params: Partial<PhotoListBo> = {}, pageSize = PHOTO_LIST_P
         setPhotos((prev) => {
           const raw = append ? [...prev, ...data.list] : data.list
           const seen = new Set<string>()
-          // Deduplicate, preserving order
+          // Deduplicate, preserving server-provided order
           const uniquePhotos = raw.filter((item) => {
             if (seen.has(item.photoId)) return false
             seen.add(item.photoId)
             return true
           })
 
-          // Only shuffle on initial/refresh load, not on append (load more)
-          const nextPhotos =
-            !append && queryParams.status !== PhotoStatusEnum.DELETE
-              ? shuffleArray(uniquePhotos)
-              : uniquePhotos
-
-          photosRef.current = nextPhotos
-          return nextPhotos
+          photosRef.current = uniquePhotos
+          return uniquePhotos
         })
         // No more pages if fewer items than pageSize were returned
         hasMoreRef.current = data.list.length === pageSize
