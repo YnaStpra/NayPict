@@ -13,12 +13,17 @@ function formatHttpUrl(input?: string | null) {
   return httpUrl.replace(/\/+$/, '');
 }
 
-// store key Convert to a requestable file address，Path fragments are encoded piece by piece to avoid # Truncate special characters URL。
+// store key Convert to a requestable file address, Path fragments are encoded piece by piece to avoid # Truncate special characters URL.
 function toMediaUrl(key: string, domain?: string | null) {
   const encodedKey = key.split('/').map((segment) => encodeURIComponent(segment)).join('/');
   const base = formatHttpUrl(domain);
 
-  return base ? `${base}/${encodedKey}` : `/media/${encodedKey}`;
+  // If domain is an r2.dev domain (wildcard-blocked by Indonesian ISP DNS filtering), route via /media proxy for 100% reliable delivery
+  if (base && !base.includes('.r2.dev')) {
+    return `${base}/${encodedKey}`;
+  }
+
+  return `/media/${encodedKey}`;
 }
 
 export { formatHttpUrl, toMediaUrl };
