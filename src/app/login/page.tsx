@@ -43,12 +43,12 @@ export default function LoginPage() {
           router.replace("/admin")
           void refreshAlbums()
           void refreshStorages()
-        } else {
-          setLoading(false)
         }
       })
       .catch((err) => {
         console.error("Login failed:", err)
+      })
+      .finally(() => {
         setLoading(false)
       })
   }

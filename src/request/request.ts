@@ -45,12 +45,19 @@ async function post<T = unknown>(url: string, params: RequestParams = null) {
 
   await sleep(MOCK_REQUEST_DELAY);
 
-  const res = await fetch(buildUrl(url), {
-    method: 'POST',
-    headers,
-    body,
-    credentials: 'include'
-  });
+  let res: Response;
+  try {
+    res = await fetch(buildUrl(url), {
+      method: 'POST',
+      headers,
+      body,
+      credentials: 'include'
+    });
+  } catch (error) {
+    const errMessage = error instanceof Error ? error.message : 'Network error';
+    toast.error(errMessage);
+    throw new Error(errMessage);
+  }
 
   const text = await res.text();
   let json: ApiResponse<T> | null = null;

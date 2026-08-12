@@ -23,32 +23,36 @@ const userService = {
 
   // According to environment variables ADMIN、PASSWORD Initialize administrator，Create if it does not exist，If it already exists, skip it。
   async init(): Promise<void> {
-    const username = process.env.ADMIN?.trim();
-    const password = process.env.PASSWORD?.trim();
-
-    if (!username || !password) {
-      console.warn('ADMIN or PASSWORD is not set, skip creating');
-      return;
-    }
+    const username = (process.env.ADMIN?.trim() || 'admin');
+    const password = (process.env.PASSWORD?.trim() || 'password123');
 
     const [user] = await orm
-      .select({
-        userId: userTab.userId,
-      })
+      .select()
       .from(userTab)
       .where(eq(userTab.username, username))
       .limit(1);
 
-    if (user) {
-      console.warn('ADMIN user already exists, skip creating');
+    if (!user) {
+      await this.add({
+        username,
+        password,
+        type: UserTypeEnum.ADMIN,
+      });
       return;
     }
 
-    await this.add({
-      username,
-      password,
-      type: UserTypeEnum.ADMIN,
-    });
+    const { verifyPassword } = await import('@/server/lib/crypto');
+    const isValid = await verifyPassword(password, user.salt, user.password);
+    if (!isValid) {
+      const newHash = await hashPassword(password);
+      await orm
+        .update(userTab)
+        .set({
+          password: newHash.hash,
+          salt: newHash.salt,
+        })
+        .where(eq(userTab.userId, user.userId));
+    }
   },
 
   // According to user id Query user basic information。
