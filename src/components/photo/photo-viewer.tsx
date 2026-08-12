@@ -503,7 +503,7 @@ function LoadOriginalButton({
     return (
       <div
         className={[
-          "absolute top-2 right-30.5 md:right-[8.35rem] md:top-3 z-40 flex cursor-pointer items-center gap-1.5 rounded-full bg-black/60 px-3 py-1 text-xs text-white/90 transition-opacity duration-200 hover:bg-black/80",
+          "absolute top-2 right-[10.25rem] md:right-[11.25rem] md:top-3 z-40 flex cursor-pointer items-center gap-1.5 rounded-full bg-black/60 px-3 py-1 text-xs text-white/90 transition-opacity duration-200 hover:bg-black/80",
           getActionVisibleClass(showActions),
         ].join(" ")}
         onClick={() => toast.info("Download is disabled for this photo.")}
@@ -533,7 +533,7 @@ function LoadOriginalButton({
       size="icon"
       variant="secondary"
       className={[
-        "absolute top-2 right-30.5 md:right-[8.35rem] md:top-3 z-40 rounded-full bg-black/40 text-white transition-opacity duration-200 hover:bg-black/50",
+        "absolute top-2 right-[10.25rem] md:right-[11.25rem] md:top-3 z-40 rounded-full bg-black/40 text-white transition-opacity duration-200 hover:bg-black/50",
         getActionVisibleClass(showActions),
       ].join(" ")}
       {...tap}
@@ -575,7 +575,7 @@ function DeleteButton({
             size="icon"
             variant="secondary"
             className={[
-              "absolute top-2 right-40 md:right-[11.2rem] md:top-3 z-40 rounded-full bg-black/40 text-white transition-opacity duration-200 hover:bg-red-600/80",
+              "absolute top-2 right-[7.65rem] md:right-[8.55rem] md:top-3 z-40 rounded-full bg-black/40 text-white transition-opacity duration-200 hover:bg-red-600/80",
               getActionVisibleClass(showActions),
             ].join(" ")}
             {...tap}
