@@ -1,9 +1,9 @@
-# 构建阶段
+# Build stage
 FROM node:22-alpine AS builder
 
 WORKDIR /app
 
-# better-sqlite3、sharp 原生模块编译依赖
+# Native module build dependencies (better-sqlite3, sharp)
 RUN apk add --no-cache python3 make g++
 
 RUN corepack enable && corepack prepare pnpm@11.6.0 --activate
@@ -17,8 +17,7 @@ COPY . .
 
 RUN pnpm run build
 
-
-# 运行阶段
+# Run stage
 FROM node:22-alpine AS runner
 
 WORKDIR /app
@@ -26,9 +25,15 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=8082
 
+# Create data directory for SQLite persistent storage
+RUN mkdir -p /app/data
+
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
+
+# Copy initial seed database if it exists
+COPY --from=builder /app/data ./data
 
 EXPOSE 8082
 
