@@ -42,7 +42,7 @@ next-env.d.ts
 .wrangler
 .idea
 album.sqlite
-/data
+!data/pictale.sqlite
 git-tools.js
 gen-demo.js
 .vercelignore
