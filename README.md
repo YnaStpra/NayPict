@@ -1,6 +1,6 @@
 <p align="center">
     <img src="docs/images/logo.png" width="96px" />
-    <h1 align="center">Pictale</h1>
+    <h1 align="center">NayPict</h1>
     <p align="center"><strong>A masonry-style web photo gallery application built with Next.js</strong></p>
 </p>
 
@@ -58,7 +58,7 @@
 
 2. Configure environment variables in `.env`:
    ```env
-   TITLE=Pictale
+   TITLE=NayPict
    JWT_SECRET=your_jwt_secret
    ADMIN=admin
    PASSWORD=your_password
@@ -79,8 +79,8 @@
 | `ADMIN` | ✅ | None | Administrator username |
 | `PASSWORD` | ✅ | None | Administrator password |
 | `JWT_SECRET` | ✅ | None | Secret key for signing JWT tokens |
-| `TITLE` | ❌ | Pictale | Website title |
+| `TITLE` | ❌ | NayPict | Website title |
 
 ## License
 
-`Pictale` is open-source software licensed under the [AGPL-3.0](LICENSE).
+`NayPict` is open-source software licensed under the [AGPL-3.0](LICENSE).
