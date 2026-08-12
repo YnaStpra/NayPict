@@ -7,6 +7,7 @@ import {
   type Positioner,
   usePositioner,
 } from "masonic"
+import { FolderOpen } from "lucide-react"
 
 import { useApp } from "@/app/provider"
 import { AlbumCard } from "@/components/album/album-card"
@@ -191,6 +192,22 @@ export function AlbumMasonry({ albums, resetKey = 0, onAlbumRename, onAlbumTop, 
       resizeObserver.disconnect()
     }
   }, [])
+
+  if (!albums || albums.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] w-full text-center p-8">
+        <div className="flex size-20 items-center justify-center rounded-2xl bg-muted/50 border border-border/50 mb-4 shadow-sm">
+          <FolderOpen className="size-10 text-muted-foreground/70" />
+        </div>
+        <h3 className="text-xl font-semibold text-foreground mb-1">
+          belum ada albumnya cuy, sorry yeah.
+        </h3>
+        <p className="text-sm text-muted-foreground max-w-sm">
+          Album belum ditambahkan oleh Admin. Silakan cek kembali nanti!
+        </p>
+      </div>
+    )
+  }
 
   return (
     <div ref={wrapRef} className="w-full overflow-x-hidden">
