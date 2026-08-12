@@ -38,12 +38,17 @@ export default function LoginPage() {
     login(params)
       .then(() => userInfo())
       .then((info) => {
-        setUserInfo(info)
-        router.replace("/admin")
-        void refreshAlbums()
-        void refreshStorages()
+        if (info) {
+          setUserInfo(info)
+          router.replace("/admin")
+          void refreshAlbums()
+          void refreshStorages()
+        } else {
+          setLoading(false)
+        }
       })
-      .catch(() => {
+      .catch((err) => {
+        console.error("Login failed:", err)
         setLoading(false)
       })
   }

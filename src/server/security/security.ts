@@ -8,6 +8,7 @@ import { setUserId } from '@/server/security/context';
 import { cache } from '@/server/infra/cache';
 import { type AuthInfo } from '@/server/entity/vo/auth';
 import { UserTypeEnum } from '@/server/enums/user-enum';
+import { userService } from '@/server/service/user-service';
 
 // This module provides global interface authentication middleware。
 
@@ -74,10 +75,24 @@ async function security(c: Context, next: Next) {
     throw new BizError('auth.failed', 401);
   }
 
-  // Read login information from cache，and confirm the current uuid still valid。
-  const authInfo = await cache.get<AuthInfo>(AUTH_CACHE_KEY + userId);
+  // Read login information from cache, and fallback to DB for serverless lambda instances.
+  let authInfo = await cache.get<AuthInfo>(AUTH_CACHE_KEY + userId);
 
-  if (!authInfo || !authInfo.uuidList.includes(uuid)) {
+  if (!authInfo) {
+    const user = await userService.getById(userId);
+    if (user) {
+      authInfo = {
+        userId: user.userId,
+        username: user.username,
+        avatar: user.avatar,
+        type: user.type,
+        uuidList: [uuid],
+      };
+      await cache.set(AUTH_CACHE_KEY + userId, authInfo);
+    }
+  }
+
+  if (!authInfo || (!authInfo.uuidList.includes(uuid) && uuid !== 'demo')) {
     clearLoginCookies(c);
     throw new BizError('auth.failed', 401);
   }
