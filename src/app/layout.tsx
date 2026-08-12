@@ -20,7 +20,7 @@ const THEME_COOKIE_NAME = "theme"
 
 export async function generateMetadata(): Promise<Metadata> {
   return {
-    title: process.env.TITLE || "Pictale",
+    title: process.env.TITLE || "NayPict",
     icons: {
       icon: "/logo.png",
       apple: "/logo.png",
@@ -40,7 +40,7 @@ export default async function RootLayout({ children }: RootLayoutProps) {
   const defaultSidebarOpen = cookieStore.get(SIDEBAR_COOKIE_NAME)?.value === "true"
   const { userId } = await getLoginInfo(cookieStore.toString())
   const userInfo = userId ? await userService.getById(userId) : null
-  const title = process.env.TITLE || "Pictale"
+  const title = process.env.TITLE || "NayPict"
   const [locale, messages] = await Promise.all([getLocale(), getMessages()])
 
   return (

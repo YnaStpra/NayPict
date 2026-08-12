@@ -4,7 +4,7 @@ import { getTranslations } from "next-intl/server"
 // Generate landing page metadata based on current language。
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("login")
-  const appName = process.env.TITLE || "Pictale"
+  const appName = process.env.TITLE || "NayPict"
 
   return {
     title: t("metaTitle", { appName }),

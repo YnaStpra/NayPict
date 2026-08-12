@@ -104,7 +104,7 @@ export function AlbumCoverDialog({ open, album, onOpenChange, onSuccess }: Album
             <span>Manage Album Cover</span>
           </DialogTitle>
           <DialogDescription>
-            Pictale automatically calculates and suggests the best landscape cover photo. You can accept the suggestion or manually choose a photo.
+            NayPict automatically calculates and suggests the best landscape cover photo. You can accept the suggestion or manually choose a photo.
           </DialogDescription>
         </DialogHeader>
 
