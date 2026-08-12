@@ -9,14 +9,7 @@ interface AlbumLayoutProps {
 
 // Query all photo albums on the server，and provided to /album Page initialization list。
 export default async function AlbumLayout({ children }: AlbumLayoutProps) {
-  const cookieStore = await cookies()
-  const { userId } = await getLoginInfo(cookieStore.toString())
-
-  if (!userId) {
-    return null
-  }
-
-  const data = await albumService.list(userId)
+  const data = await albumService.list()
 
   return (
     <AlbumProvider initialAlbums={data}>
