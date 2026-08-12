@@ -97,7 +97,13 @@ function usePhotoList(params: Partial<PhotoListBo> = {}, pageSize = PHOTO_LIST_P
     })
       .then((data) => {
         setPhotos((prev) => {
-          const nextPhotos = append ? [...prev, ...data.list] : data.list
+          const raw = append ? [...prev, ...data.list] : data.list
+          const seen = new Set<string>()
+          const nextPhotos = raw.filter((item) => {
+            if (seen.has(item.photoId)) return false
+            seen.add(item.photoId)
+            return true
+          })
           photosRef.current = nextPhotos
           return nextPhotos
         })
