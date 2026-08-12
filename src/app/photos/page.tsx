@@ -239,7 +239,12 @@ export default function Page() {
                 <PhotoMasonry
                   photos={photos}
                   resetKey={masonryKey}
-                  onReachBottom={loadMorePhotos}
+                  onReachBottom={() => {
+                    // Only request next page if we likely have more data
+                    if (photos.length >= PHOTO_LIST_PAGE_SIZE) {
+                      loadMorePhotos();
+                    }
+                  }}
                   onPhotoOpen={openPhoto}
                   onPhotoFavorite={isAdmin ? changePhotoFavorite : undefined}
                   onPhotoDelete={recyclePhotos}

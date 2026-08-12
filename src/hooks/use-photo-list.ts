@@ -47,13 +47,11 @@ function usePhotoList(params: Partial<PhotoListBo> = {}, pageSize = PHOTO_LIST_P
   const initialUsedRef = useRef(false) // Mark whether the first screen data of the server has been used for the initialization list.
   const loadingRef = useRef(false) // Flag whether the photo list is currently loading.
 
-  const shuffledInitial = useMemo(() => {
-    if (!initialPhotos || initialPhotos.length <= 1) return initialPhotos ?? []
-    return shuffleArray(initialPhotos)
-  }, [initialPhotos])
+  // Use initial photos directly without shuffling
+  const shuffledInitial = useMemo(() => initialPhotos ?? [], [initialPhotos])
 
   const photosRef = useRef<PhotoVo[]>(shuffledInitial) // Save latest photo list.
-  const hasMoreRef = useRef(initialPhotos ? initialPhotos.length === pageSize : true) // Mark whether there is a next page under the current query conditions.
+  const hasMoreRef = useRef(initialPhotos ? initialPhotos.length === pageSize : true) // Tracks if more pages are available; set to false on load error or when less than pageSize returned.
   const [photos, setPhotos] = useState<PhotoVo[]>(shuffledInitial) // Store the list of photos displayed on the current page.
   const [masonryKey, setMasonryKey] = useState(0) // Control waterfall flow to recalculate layout after list structure changes.
 
@@ -105,18 +103,25 @@ function usePhotoList(params: Partial<PhotoListBo> = {}, pageSize = PHOTO_LIST_P
           })
 
           let nextPhotos = uniquePhotos
+          // Preserve server-provided order; do not shuffle on initial load
           if (!append && queryParams.status !== PhotoStatusEnum.DELETE) {
-            nextPhotos = shuffleArray(uniquePhotos)
+            nextPhotos = uniquePhotos
           }
 
           photosRef.current = nextPhotos
           return nextPhotos
         })
-        hasMoreRef.current = data.list.length === pageSize
+        // Determine if more data likely exists: only true when a full page of new items was returned
+        hasMoreRef.current = data.list.length === pageSize && data.list.length > 0
         if (!append) {
           refreshMasonry()
           window.scrollTo(0, 0)
         }
+      })
+      .catch((err) => {
+        console.error('Failed to load photo list:', err)
+        // Stop further load attempts on error
+        hasMoreRef.current = false
       })
       .finally(() => {
         loadingRef.current = false
