@@ -39,8 +39,8 @@
 ### 2. Configure Environment Variables
 Set the following environment variables in Vercel settings:
 - `TITLE`: `NayPict`
-- `ADMIN`: Your admin username (default: `admin`)
-- `PASSWORD`: Your admin password (default: `password123`)
+- `ADMIN`: Your admin username (default: `YOURUSERNAME`)
+- `PASSWORD`: Your admin password (default: `YOURPASSWORD`)
 - `JWT_SECRET`: A long random secret key
 
 ### 3. Click Deploy
