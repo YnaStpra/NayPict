@@ -1,7 +1,7 @@
 import { http } from "@/request/request";
 import { type PhotoDeleteBo, type PhotoExistsBo, type PhotoFavoriteBo, type PhotoListBo, type PhotoRandomIdListBo, type PhotoRecycleBo, type PhotoRestoreBo, type PhotoSetAllowDownloadBo, type PhotoTakenDateListBo } from "@/server/entity/bo/photo";
 import { type PageVo } from "@/server/entity/vo/common";
-import { type PhotoAddResultVo, type PhotoExistsVo, type PhotoTakenDateVo, type PhotoVo } from "@/server/entity/vo/photo";
+import { type PhotoAddResultVo, type PhotoDuplicateGroupVo, type PhotoExistsVo, type PhotoTakenDateVo, type PhotoVo } from "@/server/entity/vo/photo";
 
 // This module encapsulates photo-related interface requests.
 
@@ -63,4 +63,9 @@ export function photoDelete(params: PhotoDeleteBo) {
 // Empty Recycle Bin Photos.
 export function photoClear() {
   return http.post<void>('/photo/clear');
+}
+
+// Auto-detect duplicate photo groups (Admin only).
+export function photoGetDuplicates() {
+  return http.post<PhotoDuplicateGroupVo[]>('/photo/duplicates');
 }

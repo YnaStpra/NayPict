@@ -6,7 +6,7 @@ import { isImageSlide, type SlideImage, useController, useLightboxState } from "
 import Fullscreen from "yet-another-react-lightbox/plugins/fullscreen"
 import Thumbnails from "yet-another-react-lightbox/plugins/thumbnails"
 import Zoom from "yet-another-react-lightbox/plugins/zoom"
-import { ArrowLeftIcon, ChevronLeftIcon, ChevronRightIcon, CircleAlertIcon, CircleIcon, FolderPlusIcon, LockIcon, Menu, LoaderCircleIcon, MaximizeIcon, MinimizeIcon, PanelRightClose, PanelRightOpen, RotateCcwSquare, Trash2Icon } from "lucide-react"
+import { ArrowLeftIcon, ChevronLeftIcon, ChevronRightIcon, CircleAlertIcon, CircleIcon, FolderIcon, FolderPlusIcon, LockIcon, Menu, LoaderCircleIcon, MaximizeIcon, MinimizeIcon, PanelRightClose, PanelRightOpen, RotateCcwSquare, Trash2Icon } from "lucide-react"
 import { toast } from "sonner"
 
 import { PhotoInfoSidebar, PhotoViewerBlurBackground } from "@/components/photo/photo-info-sidebar"
@@ -28,9 +28,9 @@ interface PhotoViewerProps {
   // Photo list passed from parent.
   photos: PhotoVo[]
   // Executed on viewer close.
-  onBack: () => void
-  // Executed on browser back button close.
-  onBrowserBack: () => void
+  onBack?: () => void
+  // Executed on browser back button.
+  onBrowserBack?: () => void
   // Executed on photo delete.
   onPhotoDelete?: (photoId: string) => void
   // Executed on album select open.
@@ -50,6 +50,8 @@ type PhotoSlide = SlideImage & {
   thumbnail: string
   // ThumbHash blurred background URL.
   thumbHashUrl?: string
+  // Album list photo belongs to.
+  albums?: { albumId: string; name: string }[]
 }
 
 type FullscreenButtonProps = {
@@ -623,7 +625,27 @@ function DeleteButton({
   )
 }
 
-// Render close button。
+// Render bottom-left album badge overlay when previewing photos that belong to one or more albums.
+function AlbumOverlayBadge({ isCinematicMode }: { isCinematicMode: boolean }) {
+  const { currentSlide } = useLightboxState()
+  const photoSlide = currentSlide && isImageSlide(currentSlide) ? (currentSlide as PhotoSlide) : null
+
+  if (!photoSlide?.albums || photoSlide.albums.length === 0 || isCinematicMode) {
+    return null
+  }
+
+  return (
+    <div className="absolute bottom-3 left-3 md:bottom-4 md:left-4 z-40 flex items-center gap-1.5 rounded-full bg-black/70 px-3 py-1.5 text-xs text-white backdrop-blur-md border border-white/15 shadow-lg select-none">
+      <FolderIcon className="size-3.5 text-primary shrink-0" />
+      <span className="font-medium text-white/70">Album:</span>
+      <span className="font-semibold text-white">
+        {photoSlide.albums.map((a) => a.name).join(", ")}
+      </span>
+    </div>
+  )
+}
+
+// Render close button.
 function CloseButton({ showActions }: { showActions: boolean }) {
   const { close } = useController()
   const tap = useTapAction(() => close())
@@ -858,6 +880,7 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
       src: photo.thumbnail || photo.preview || "",
       thumbnail: photo.thumbnail || photo.preview || "",
       thumbHashUrl: getThumbHashUrl(photo.thumbHash),
+      albums: photo.albums,
       width: photo.width ?? undefined,
       height: photo.height ?? undefined,
       alt: photo.name,
@@ -889,7 +912,7 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
       }
 
       historyPushedRef.current = false
-      onBrowserBackRef.current()
+      onBrowserBackRef.current?.()
     }
 
     window.history.pushState(
@@ -1053,7 +1076,7 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
       return
     }
 
-    onBack()
+    onBack?.()
   }
 
   // Sidebar narrows when expanded lightbox width, Leave space for the information panel on the right.
@@ -1187,6 +1210,7 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
             {showOriginalProgress && !isCinematicMode && (
               <OriginalProgressButton progress={originalProgress} error={originalError} />
             )}
+            <AlbumOverlayBadge isCinematicMode={isCinematicMode} />
           </>
         ),
         buttonFullscreen: () => null,

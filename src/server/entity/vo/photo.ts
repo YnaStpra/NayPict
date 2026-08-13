@@ -12,6 +12,7 @@ type PhotoVo = Photo & {
   altitude: number | null;
   storageName: string | null;
   storageTypeDesc: string | null;
+  albums?: { albumId: string; name: string }[];
 };
 
 interface PhotoTakenDateVo {
@@ -29,4 +30,10 @@ interface PhotoExistsVo {
   photoId?: string | null;
 }
 
-export type { PhotoVo, PhotoTakenDateVo, PhotoAddResultVo, PhotoExistsVo };
+interface PhotoDuplicateGroupVo {
+  groupId: string;
+  similarityType: 'visual' | 'checksum';
+  photos: PhotoVo[];
+}
+
+export type { PhotoVo, PhotoTakenDateVo, PhotoAddResultVo, PhotoExistsVo, PhotoDuplicateGroupVo };
