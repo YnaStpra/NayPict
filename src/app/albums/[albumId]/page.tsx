@@ -37,6 +37,7 @@ import { useAlbumPhotoContext } from "@/app/albums/[albumId]/provider"
 import { useApp } from "@/app/provider"
 import { PhotoDateDrawer } from "@/components/photo/photo-date-drawer"
 import { PhotoMasonrySkeleton } from "@/components/photo/photo-masonry-skeleton"
+import { BackToTopButton } from "@/components/ui/back-to-top-button"
 import { UserTypeEnum } from "@/server/enums/user-enum"
 
 const AlbumSelectDialog = dynamic(
@@ -324,6 +325,7 @@ export default function Page() {
         onOpenChange={setAlbumDialogOpen}
         onAlbumSelect={changePhotoAlbum}
       />
+      <BackToTopButton />
     </>
   )
 }

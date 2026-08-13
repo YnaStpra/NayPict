@@ -882,37 +882,6 @@ export function InfiniteGallery(props: InfiniteGalleryProps) {
   return (
     <div ref={containerRef} className={className} style={wrapperStyle}>
       <div ref={sceneRef} style={sceneStyle} />
-
-      {/* Floating zoom controls for mobile & desktop */}
-      <div className="absolute bottom-4 right-4 z-20 flex items-center gap-1.5 rounded-full bg-black/60 p-1.5 backdrop-blur-md border border-white/10 shadow-lg">
-        <button
-          type="button"
-          onClick={handleZoomIn}
-          className="flex size-8 items-center justify-center rounded-full bg-white/10 text-white transition hover:bg-white/20 active:scale-95"
-          aria-label="Zoom in"
-          title="Zoom in (+)"
-        >
-          <ZoomIn className="size-4" />
-        </button>
-        <button
-          type="button"
-          onClick={handleZoomOut}
-          className="flex size-8 items-center justify-center rounded-full bg-white/10 text-white transition hover:bg-white/20 active:scale-95"
-          aria-label="Zoom out"
-          title="Zoom out (-)"
-        >
-          <ZoomOut className="size-4" />
-        </button>
-        <button
-          type="button"
-          onClick={handleResetZoom}
-          className="flex size-8 items-center justify-center rounded-full bg-white/10 text-white transition hover:bg-white/20 active:scale-95"
-          aria-label="Reset position and zoom"
-          title="Reset position and zoom"
-        >
-          <RotateCcw className="size-3.5" />
-        </button>
-      </div>
     </div>
   )
 }
