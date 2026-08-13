@@ -60,6 +60,7 @@ export default function Page() {
   const {
     photos,
     totalCount,
+    hasMore,
     masonryKey,
     loadMorePhotos,
     refreshPhotoList,
@@ -247,15 +248,24 @@ export default function Page() {
                   />
                 </div>
               ) : (
-                <PhotoMasonry
-                  photos={photos}
-                  resetKey={masonryKey}
-                  onReachBottom={loadMorePhotos}
-                  onPhotoOpen={openPhoto}
-                  onPhotoFavorite={isAdmin ? changePhotoFavorite : undefined}
-                  onPhotoDelete={recyclePhotos}
-                  onAlbumOpen={openAlbumDialog}
-                />
+                <>
+                  <PhotoMasonry
+                    photos={photos}
+                    resetKey={masonryKey}
+                    onReachBottom={loadMorePhotos}
+                    onPhotoOpen={openPhoto}
+                    onPhotoFavorite={isAdmin ? changePhotoFavorite : undefined}
+                    onPhotoDelete={recyclePhotos}
+                    onAlbumOpen={openAlbumDialog}
+                  />
+                  {!hasMore && photos.length > 0 && (
+                    <div className="py-12 pb-16 text-center select-none">
+                      <p className="text-sm font-medium text-muted-foreground/80 tracking-wide">
+                        yahh fotonya sampe sini doang cuy, tunggu gw hunting lagi yeah..
+                      </p>
+                    </div>
+                  )}
+                </>
               )
             ) : (
               <PhotoMasonrySkeleton photos={initialPhotos} />
