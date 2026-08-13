@@ -99,8 +99,8 @@ type LoadOriginalImageParams = {
 }
 
 const photoViewerPortalStyle: CSSProperties & { "--yarl__portal_zindex": number } = {
-  "--yarl__portal_zindex": 999999,
-  zIndex: 999999,
+  "--yarl__portal_zindex": 1000,
+  zIndex: 1000,
 }
 
 // Generate fade-in and fade-out styles based on the display state of the action button。
