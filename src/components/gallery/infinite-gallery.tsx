@@ -597,7 +597,7 @@ export function InfiniteGallery(props: InfiniteGalleryProps) {
     const loop = () => {
       if (isAutoAnimatingRef.current) {
         // Continuous center zoom effect - sumbu X & Y tetap 0 (timbul dari tengah) (+40% speed)
-        targetLogZoom.set(targetLogZoom.get() + 0.0007)
+        targetLogZoom.set(targetLogZoom.get() + 0.0020)
       }
 
       const tx = targetX.get() + velX.get()
@@ -695,7 +695,7 @@ export function InfiniteGallery(props: InfiniteGalleryProps) {
         hasCaptured = true
         try {
           el.setPointerCapture(e.pointerId)
-        } catch {}
+        } catch { }
         el.style.cursor = "grabbing"
       }
 
@@ -729,7 +729,7 @@ export function InfiniteGallery(props: InfiniteGalleryProps) {
         hasCaptured = false
         try {
           el.releasePointerCapture(e.pointerId)
-        } catch {}
+        } catch { }
       }
       el.style.cursor = "grab"
     }
