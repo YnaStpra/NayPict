@@ -596,10 +596,8 @@ export function InfiniteGallery(props: InfiniteGalleryProps) {
 
     const loop = () => {
       if (isAutoAnimatingRef.current) {
-        // Smooth cinematic auto-zoom & pan drift on open and after 15s idle (+35% speed)
-        targetLogZoom.set(targetLogZoom.get() + 0.0004)
-        targetX.set(targetX.get() + 0.16)
-        targetY.set(targetY.get() + 0.08)
+        // Continuous center zoom effect - sumbu X & Y tetap 0 (timbul dari tengah)
+        targetLogZoom.set(targetLogZoom.get() + 0.0005)
       }
 
       const tx = targetX.get() + velX.get()
