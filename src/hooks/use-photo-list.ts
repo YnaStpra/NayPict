@@ -51,12 +51,15 @@ function usePhotoList(params: Partial<PhotoListBo> = {}, pageSize = PHOTO_LIST_P
   const [photos, setPhotos] = useState<PhotoVo[]>(initialPhotoList) // Store the list of photos displayed on the current page.
   const [masonryKey, setMasonryKey] = useState(0) // Control waterfall flow to recalculate layout after list structure changes.
 
+  const [totalCount, setTotalCount] = useState<number>(() => initialPhotos ? initialPhotos.length : 0)
+
   useEffect(() => {
     // Skip the browser's first page request when there is data on the first page from the server.
     if (!initialUsedRef.current) {
       initialUsedRef.current = true
       photosRef.current = initialPhotoList
       setPhotos(initialPhotoList)
+      setTotalCount(initialPhotoList.length)
       hasMoreRef.current = initialPhotos ? initialPhotos.length === pageSize : true
       // Offset starts at how many SSR photos we already have
       pageOffsetRef.current = initialPhotoList.length
@@ -142,6 +145,7 @@ function usePhotoList(params: Partial<PhotoListBo> = {}, pageSize = PHOTO_LIST_P
               return true
             })
             photosRef.current = uniquePhotos
+            setTotalCount(uniquePhotos.length)
             return uniquePhotos
           })
           hasMoreRef.current = data.list.length === pageSize
@@ -189,6 +193,7 @@ function usePhotoList(params: Partial<PhotoListBo> = {}, pageSize = PHOTO_LIST_P
     })
       .then((allIds) => {
         allShuffledIdsRef.current = allIds
+        setTotalCount(allIds.length)
 
         // First page: use IDs that aren't already shown via SSR
         const alreadyShownIds = new Set(photosRef.current.map((p) => p.photoId))
@@ -255,6 +260,11 @@ function usePhotoList(params: Partial<PhotoListBo> = {}, pageSize = PHOTO_LIST_P
       }
 
       photosRef.current = nextPhotos
+      if (allShuffledIdsRef.current) {
+        const newIds = newPhotos.map((p) => p.photoId)
+        allShuffledIdsRef.current = [...newIds, ...allShuffledIdsRef.current]
+      }
+      setTotalCount((c) => c + newPhotos.length)
       return nextPhotos
     })
     refreshMasonry()
@@ -266,7 +276,11 @@ function usePhotoList(params: Partial<PhotoListBo> = {}, pageSize = PHOTO_LIST_P
     const nextPhotos = photosRef.current.filter((photo) => !photoIdSet.has(photo.photoId))
 
     photosRef.current = nextPhotos
+    if (allShuffledIdsRef.current) {
+      allShuffledIdsRef.current = allShuffledIdsRef.current.filter((id) => !photoIdSet.has(id))
+    }
     setPhotos(nextPhotos)
+    setTotalCount((c) => Math.max(0, c - photoIds.length))
     refreshMasonry()
 
     if (nextPhotos.length < 95) {
@@ -276,6 +290,7 @@ function usePhotoList(params: Partial<PhotoListBo> = {}, pageSize = PHOTO_LIST_P
 
   return {
     photos,
+    totalCount,
     setPhotos,
     masonryKey,
     loadMorePhotos,

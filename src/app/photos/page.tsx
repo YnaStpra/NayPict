@@ -24,7 +24,7 @@ import { PhotoFavoriteEnum } from "@/server/enums/photo-enum"
 import { photoFavorite, photoRecycle } from "@/request/photo"
 import { albumAddPhoto } from "@/request/album"
 import { usePhotoStore } from "@/store/photo-store"
-import { LayoutGrid, Plus, Sparkles } from "lucide-react"
+import { ImageIcon, LayoutGrid, Plus, Sparkles } from "lucide-react"
 import { PhotoDateDrawer } from "@/components/photo/photo-date-drawer"
 import { PhotoMasonrySkeleton } from "@/components/photo/photo-masonry-skeleton"
 import { usePhotoContext } from "@/app/photos/provider"
@@ -59,6 +59,7 @@ export default function Page() {
 
   const {
     photos,
+    totalCount,
     masonryKey,
     loadMorePhotos,
     refreshPhotoList,
@@ -187,7 +188,7 @@ export default function Page() {
                 </BreadcrumbList>
               </Breadcrumb>
             </div>
-            <div className="fixed left-[calc(100vw-7.75rem)] md:left-[calc(100vw-8.25rem)] top-0 z-30 flex h-12 items-center gap-1.5 px-4">
+            <div className="flex items-center gap-1.5 px-4 z-30">
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -206,6 +207,16 @@ export default function Page() {
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
+
+              {/* Photo Count Badge beside Grid Icon */}
+              <div
+                className="flex items-center gap-1.5 bg-muted/70 text-foreground text-xs font-semibold px-2.5 py-1 rounded-lg border border-border/50 select-none shadow-2xs"
+                title={`${totalCount} Photos`}
+              >
+                <ImageIcon className="size-3.5 text-primary" />
+                <span>{totalCount}</span>
+              </div>
+
               <PhotoDateDrawer onRangeChange={changePhotoTime} />
               {userInfo && (
                 <Button

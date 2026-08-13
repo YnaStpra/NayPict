@@ -26,7 +26,7 @@ import { photoFavorite, photoRecycle } from "@/request/photo"
 import { albumAddPhoto, albumRemovePhoto } from "@/request/album"
 import { useAlbumStore } from "@/store/album-store"
 import { usePhotoStore } from "@/store/photo-store"
-import { ArrowLeftIcon, LayoutGrid, PlusIcon, Sparkles } from "lucide-react"
+import { ArrowLeftIcon, ImageIcon, LayoutGrid, PlusIcon, Sparkles } from "lucide-react"
 import {
   Tooltip,
   TooltipContent,
@@ -68,6 +68,7 @@ export default function Page() {
   const [viewMode, setViewMode] = useState<"masonry" | "infinite">("masonry")
   const {
     photos,
+    totalCount,
     masonryKey,
     loadMorePhotos,
     refreshPhotoList,
@@ -234,7 +235,7 @@ export default function Page() {
                 </BreadcrumbList>
               </Breadcrumb>
             </div>
-            <div className="fixed left-[calc(100vw-7.75rem)] md:left-[calc(100vw-8.25rem)] top-0 z-30 flex h-12 items-center gap-1.5 px-4">
+            <div className="flex items-center gap-1.5 px-4 z-30">
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -253,6 +254,16 @@ export default function Page() {
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
+
+              {/* Photo Count Badge beside Grid Icon */}
+              <div
+                className="flex items-center gap-1.5 bg-muted/70 text-foreground text-xs font-semibold px-2.5 py-1 rounded-lg border border-border/50 select-none shadow-2xs"
+                title={`${totalCount} Photos`}
+              >
+                <ImageIcon className="size-3.5 text-primary" />
+                <span>{totalCount}</span>
+              </div>
+
               <PhotoDateDrawer albumId={albumId} onRangeChange={changePhotoTime} />
               {isAdmin && (
                 <Button
