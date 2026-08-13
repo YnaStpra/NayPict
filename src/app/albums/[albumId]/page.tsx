@@ -65,7 +65,7 @@ export default function Page() {
   const albumIdRef = useRef(albumId)
   // isBrowser Mark whether you are currently in the browser environment, SSR Stage display skeleton screen.
   const [isBrowser, setIsBrowser] = useState(false)
-  const [viewMode, setViewMode] = useState<"masonry" | "infinite">("infinite")
+  const [viewMode, setViewMode] = useState<"masonry" | "infinite">("masonry")
   const {
     photos,
     masonryKey,
