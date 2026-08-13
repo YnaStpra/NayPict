@@ -55,7 +55,7 @@ export default function Page() {
   const isAdmin = userInfo?.type === UserTypeEnum.ADMIN
 
   const [isBrowser, setIsBrowser] = useState(false)
-  const [viewMode, setViewMode] = useState<"masonry" | "infinite">("masonry")
+  const [viewMode, setViewMode] = useState<"masonry" | "infinite">("infinite")
 
   const {
     photos,

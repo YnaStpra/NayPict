@@ -3,6 +3,7 @@
 import * as React from "react"
 import { useEffect, useMemo, useRef } from "react"
 import { type PhotoVo } from "@/server/entity/vo/photo"
+import { RotateCcw, ZoomIn, ZoomOut } from "lucide-react"
 
 function createMotionValue(initial: number) {
   let val = initial
@@ -704,12 +705,56 @@ export function InfiniteGallery(props: InfiniteGalleryProps) {
       driftTY.set(0)
     }
 
+    // Touch Pinch-to-Zoom gesture handling for Android and mobile touch screens
+    let isPinching = false
+    let initialPinchDist = 0
+    let initialPinchZoom = 0
+
+    const getTouchDist = (e: TouchEvent) => {
+      if (e.touches.length < 2) return 0
+      const dx = e.touches[0].clientX - e.touches[1].clientX
+      const dy = e.touches[0].clientY - e.touches[1].clientY
+      return Math.hypot(dx, dy)
+    }
+
+    const onTouchStart = (e: TouchEvent) => {
+      if (e.touches.length === 2) {
+        isPinching = true
+        dragging = false
+        initialPinchDist = getTouchDist(e)
+        initialPinchZoom = targetLogZoom.get()
+      }
+    }
+
+    const onTouchMove = (e: TouchEvent) => {
+      if (isPinching && e.touches.length === 2) {
+        if (e.cancelable) e.preventDefault()
+        const dist = getTouchDist(e)
+        if (dist > 0 && initialPinchDist > 0) {
+          const scale = dist / initialPinchDist
+          const logDelta = Math.log2(scale)
+          targetLogZoom.set(initialPinchZoom + logDelta)
+        }
+      }
+    }
+
+    const onTouchEnd = (e: TouchEvent) => {
+      if (e.touches.length < 2) {
+        isPinching = false
+      }
+    }
+
     el.addEventListener("pointerdown", onDown)
     el.addEventListener("pointermove", onMove)
     el.addEventListener("pointerup", onUp)
     el.addEventListener("pointercancel", onCancel)
     el.addEventListener("wheel", onWheel, { passive: false })
     el.addEventListener("pointerleave", onLeave)
+
+    el.addEventListener("touchstart", onTouchStart, { passive: true })
+    el.addEventListener("touchmove", onTouchMove, { passive: false })
+    el.addEventListener("touchend", onTouchEnd, { passive: true })
+    el.addEventListener("touchcancel", onTouchEnd, { passive: true })
 
     el.style.cursor = "grab"
 
@@ -720,6 +765,11 @@ export function InfiniteGallery(props: InfiniteGalleryProps) {
       el.removeEventListener("pointercancel", onCancel)
       el.removeEventListener("wheel", onWheel)
       el.removeEventListener("pointerleave", onLeave)
+
+      el.removeEventListener("touchstart", onTouchStart)
+      el.removeEventListener("touchmove", onTouchMove)
+      el.removeEventListener("touchend", onTouchEnd)
+      el.removeEventListener("touchcancel", onTouchEnd)
     }
   }, [
     isStatic,
@@ -730,6 +780,7 @@ export function InfiniteGallery(props: InfiniteGalleryProps) {
     velY,
     velLogZoom,
     logZoom,
+    targetLogZoom,
     driftTX,
     driftTY,
   ])
@@ -762,9 +813,54 @@ export function InfiniteGallery(props: InfiniteGalleryProps) {
     inset: 0,
   }
 
+  const handleZoomIn = () => {
+    targetLogZoom.set(targetLogZoom.get() + 0.6)
+  }
+
+  const handleZoomOut = () => {
+    targetLogZoom.set(targetLogZoom.get() - 0.6)
+  }
+
+  const handleResetZoom = () => {
+    targetLogZoom.set(0)
+    targetX.set(0)
+    targetY.set(0)
+  }
+
   return (
     <div ref={containerRef} className={className} style={wrapperStyle}>
       <div ref={sceneRef} style={sceneStyle} />
+
+      {/* Floating zoom controls for mobile & desktop */}
+      <div className="absolute bottom-4 right-4 z-20 flex items-center gap-1.5 rounded-full bg-black/60 p-1.5 backdrop-blur-md border border-white/10 shadow-lg">
+        <button
+          type="button"
+          onClick={handleZoomIn}
+          className="flex size-8 items-center justify-center rounded-full bg-white/10 text-white transition hover:bg-white/20 active:scale-95"
+          aria-label="Zoom in"
+          title="Zoom in (+)"
+        >
+          <ZoomIn className="size-4" />
+        </button>
+        <button
+          type="button"
+          onClick={handleZoomOut}
+          className="flex size-8 items-center justify-center rounded-full bg-white/10 text-white transition hover:bg-white/20 active:scale-95"
+          aria-label="Zoom out"
+          title="Zoom out (-)"
+        >
+          <ZoomOut className="size-4" />
+        </button>
+        <button
+          type="button"
+          onClick={handleResetZoom}
+          className="flex size-8 items-center justify-center rounded-full bg-white/10 text-white transition hover:bg-white/20 active:scale-95"
+          aria-label="Reset position and zoom"
+          title="Reset position and zoom"
+        >
+          <RotateCcw className="size-3.5" />
+        </button>
+      </div>
     </div>
   )
 }
