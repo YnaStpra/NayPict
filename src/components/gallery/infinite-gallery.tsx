@@ -3,6 +3,7 @@
 import * as React from "react"
 import { useEffect, useMemo, useRef } from "react"
 import { type PhotoVo } from "@/server/entity/vo/photo"
+import { RotateCcw, ZoomIn, ZoomOut } from "lucide-react"
 
 function createMotionValue(initial: number) {
   let val = initial
@@ -121,6 +122,9 @@ type Tile = {
   slot: number
   octave: number
   imgIdx: number
+  photoId?: string
+  src?: string
+  alt?: string
   w: number
   h: number
   rot: number
@@ -172,7 +176,7 @@ export function InfiniteGallery(props: InfiniteGalleryProps) {
   const safeImages: GalleryImage[] = useMemo(() => {
     if (photos && photos.length > 0) {
       return photos.map((photo, idx) => ({
-        src: photo.preview || photo.thumbnail || photo.key || "",
+        src: photo.thumbnail || photo.preview || photo.key || "",
         alt: photo.name || `Photo ${idx + 1}`,
         photoId: photo.photoId,
         photoIndex: idx,
@@ -260,6 +264,8 @@ export function InfiniteGallery(props: InfiniteGalleryProps) {
             ? Math.floor(rand() * imagesCount) % imagesCount
             : 0
 
+        const imageItem = safeImages[imgIdx]
+
         tiles.push({
           wx,
           wy,
@@ -267,7 +273,10 @@ export function InfiniteGallery(props: InfiniteGalleryProps) {
           cy: gy,
           slot,
           octave,
-          imgIdx,
+          imgIdx: imageItem?.photoIndex ?? imgIdx,
+          photoId: imageItem?.photoId,
+          src: imageItem?.src || "",
+          alt: imageItem?.alt || "",
           w: wWorld,
           h: hWorld,
           rot: 0,
@@ -339,26 +348,52 @@ export function InfiniteGallery(props: InfiniteGalleryProps) {
       pool.imgEls.delete(key)
     }
 
-    const ensureTile = (t: Tile): HTMLDivElement => {
+    const cellCache = new Map<string, Tile[]>()
+
+    const getCachedCell = (gx: number, gy: number, octave: number): Tile[] => {
+      const cacheKey = `${gx},${gy},${octave}`
+      let cached = cellCache.get(cacheKey)
+      if (!cached) {
+        cached = generateCell(gx, gy, octave)
+        if (cellCache.size > 2000) cellCache.clear()
+        cellCache.set(cacheKey, cached)
+      }
+      return cached
+    }
+
+    const ensureTile = (t: Tile, layerZBase: number): HTMLDivElement => {
       const pool = getPool(t.octave)
       const key = `${t.cx},${t.cy},${t.slot}`
       let el = pool.tileEls.get(key)
+
+      const currentPhotoId = t.photoId || safeImages[t.imgIdx]?.photoId || ""
+      const currentSrc = t.src || safeImages[t.imgIdx]?.src || ""
+      const currentPhotoIndex = safeImages[t.imgIdx]?.photoIndex ?? t.imgIdx
+
       if (!el) {
-        el = document.createElement("div")
-        el.style.position = "absolute"
-        el.style.left = "50%"
-        el.style.top = "50%"
-        el.style.transformOrigin = "0 0"
-        el.style.willChange = "transform, opacity"
-        el.style.pointerEvents = "auto"
-        el.style.cursor = "pointer"
-        el.dataset.tileKey = key
+        const divEl = document.createElement("div")
+        divEl.style.position = "absolute"
+        divEl.style.left = "50%"
+        divEl.style.top = "50%"
+        divEl.style.transformOrigin = "0 0"
+        divEl.style.willChange = "transform, opacity"
+        divEl.style.pointerEvents = "auto"
+        divEl.style.cursor = "pointer"
+        divEl.dataset.tileKey = key
+        divEl.dataset.photoId = currentPhotoId
+        divEl.dataset.photoIndex = String(currentPhotoIndex)
+
+        const wPx = t.w * PX_PER_UNIT
+        const hPx = t.h * PX_PER_UNIT
+        divEl.style.width = `${wPx}px`
+        divEl.style.height = `${hPx}px`
+        divEl.style.zIndex = String(layerZBase + Math.floor(t.bakedScale * 5))
 
         const img = document.createElement("img")
-        const src = safeImages[t.imgIdx]
-        img.src = src?.src || ""
-        if (src?.srcSet) img.srcset = src.srcSet
-        img.alt = src?.alt || ""
+        img.src = currentSrc
+        img.alt = t.alt || safeImages[t.imgIdx]?.alt || ""
+        img.decoding = "async"
+        img.loading = "lazy"
         img.draggable = false
         img.style.width = "100%"
         img.style.height = "100%"
@@ -367,40 +402,68 @@ export function InfiniteGallery(props: InfiniteGalleryProps) {
         img.style.pointerEvents = "none"
         img.style.userSelect = "none"
         img.style.transition = "transform 0.2s ease, box-shadow 0.2s ease"
-        el.appendChild(img)
 
-        // Click handler with drag distinction
+        const radiusPx = (safeRounded / 20) * (Math.min(wPx, hPx) / 2)
+        img.style.borderRadius = `${radiusPx}px`
+
+        divEl.appendChild(img)
+
+        // Click / Tap handler
         let pointerStartX = 0
         let pointerStartY = 0
-        el.addEventListener("pointerdown", (e) => {
+
+        const triggerClick = (e: Event) => {
+          e.stopPropagation()
+          const pId = divEl.dataset.photoId
+          let realIndex = -1
+          if (pId && photos && photos.length > 0) {
+            realIndex = photos.findIndex((photo) => photo.photoId === pId)
+          }
+          if (realIndex === -1) {
+            const idxData = Number(divEl.dataset.photoIndex)
+            realIndex = !isNaN(idxData) ? idxData : t.imgIdx
+          }
+          const realPhoto = photos && realIndex >= 0 ? photos[realIndex] : undefined
+          onPhotoClick?.(realIndex, realPhoto)
+        }
+
+        divEl.addEventListener("pointerdown", (e) => {
           pointerStartX = e.clientX
           pointerStartY = e.clientY
         })
-        el.addEventListener("click", (e) => {
+
+        divEl.addEventListener("click", (e) => {
           const dx = Math.abs(e.clientX - pointerStartX)
           const dy = Math.abs(e.clientY - pointerStartY)
-          if (dx < 8 && dy < 8) {
-            e.stopPropagation()
-            const imageItem = safeImages[t.imgIdx]
-            const realIndex = imageItem?.photoIndex ?? t.imgIdx
-            const realPhoto = photos ? photos[realIndex] : undefined
-            onPhotoClick?.(realIndex, realPhoto)
+          if (dx < 12 && dy < 12) {
+            triggerClick(e)
           }
         })
 
         // Hover animation
-        el.addEventListener("pointerenter", () => {
+        divEl.addEventListener("pointerenter", () => {
           img.style.transform = "scale(1.06)"
           img.style.boxShadow = "0 12px 24px -6px rgba(0,0,0,0.4)"
         })
-        el.addEventListener("pointerleave", () => {
+        divEl.addEventListener("pointerleave", () => {
           img.style.transform = "scale(1)"
           img.style.boxShadow = "none"
         })
 
-        scene.appendChild(el)
-        pool.tileEls.set(key, el)
+        scene.appendChild(divEl)
+        pool.tileEls.set(key, divEl)
         pool.imgEls.set(key, img)
+        el = divEl
+      } else {
+        // Update photoId & src on reused tile if data changed
+        if (el.dataset.photoId !== currentPhotoId) {
+          el.dataset.photoId = currentPhotoId
+          el.dataset.photoIndex = String(currentPhotoIndex)
+          const img = pool.imgEls.get(key)
+          if (img && img.src !== currentSrc) {
+            img.src = currentSrc
+          }
+        }
       }
       return el
     }
@@ -430,62 +493,34 @@ export function InfiniteGallery(props: InfiniteGalleryProps) {
       )
 
       const visibleKeys = new Set<string>()
-      const tilesThisFrame: Tile[] = []
 
       for (let dy = -rangeY; dy <= rangeY; dy++) {
         for (let dx = -rangeX; dx <= rangeX; dx++) {
-          const tiles = generateCell(
+          const tiles = getCachedCell(
             camCellX + dx,
             camCellY + dy,
             octave
           )
           for (let i = 0; i < tiles.length; i++) {
-            tilesThisFrame.push(tiles[i])
+            const t = tiles[i]
+            const key = `${t.cx},${t.cy},${t.slot}`
+            visibleKeys.add(key)
+
+            const dxPx = (t.wx - cx) * layerScale * PX_PER_UNIT
+            const dyPx = (t.wy - cy) * layerScale * PX_PER_UNIT
+            const s = t.bakedScale * layerScale
+            const wPx = t.w * PX_PER_UNIT
+            const hPx = t.h * PX_PER_UNIT
+
+            const el = ensureTile(t, layerZBase)
+            el.style.transform = `translate3d(${dxPx}px, ${dyPx}px, 0) scale(${s}) rotate(${t.rot}deg) translate(${-wPx / 2}px, ${-hPx / 2}px)`
+            el.style.opacity = String(layerAlpha)
           }
         }
       }
 
-      const orderKeys: string[] = new Array(tilesThisFrame.length)
-      const orderScale: number[] = new Array(tilesThisFrame.length)
-
-      for (let i = 0; i < tilesThisFrame.length; i++) {
-        const t = tilesThisFrame[i]
-        const key = `${t.cx},${t.cy},${t.slot}`
-        visibleKeys.add(key)
-
-        const dxPx = (t.wx - cx) * layerScale * PX_PER_UNIT
-        const dyPx = (t.wy - cy) * layerScale * PX_PER_UNIT
-        const s = t.bakedScale * layerScale
-
-        const el = ensureTile(t)
-        const img = pool.imgEls.get(key)
-
-        const wPx = t.w * PX_PER_UNIT
-        const hPx = t.h * PX_PER_UNIT
-
-        el.style.transform = `translate3d(${dxPx}px, ${dyPx}px, 0) scale(${s}) rotate(${t.rot}deg) translate(${-wPx / 2}px, ${-hPx / 2}px)`
-        el.style.width = `${wPx}px`
-        el.style.height = `${hPx}px`
-        el.style.opacity = String(layerAlpha)
-
-        if (img) {
-          const radiusPx = (safeRounded / 20) * (Math.min(wPx, hPx) / 2)
-          img.style.borderRadius = `${radiusPx}px`
-        }
-
-        orderKeys[i] = key
-        orderScale[i] = t.bakedScale
-      }
-
       for (const key of Array.from(pool.tileEls.keys())) {
         if (!visibleKeys.has(key)) removeTile(octave, key)
-      }
-
-      const idxs = orderKeys.map((_, i) => i)
-      idxs.sort((a, b) => orderScale[a] - orderScale[b])
-      for (let k = 0; k < idxs.length; k++) {
-        const el = pool.tileEls.get(orderKeys[idxs[k]])
-        if (el) el.style.zIndex = String(layerZBase + k)
       }
     }
 
@@ -506,7 +541,7 @@ export function InfiniteGallery(props: InfiniteGalleryProps) {
       const alphaNext = frac
 
       const zBaseCurrent = 0
-      const zBaseNext = 100000
+      const zBaseNext = 10
 
       projectLayer(
         octave,
@@ -595,6 +630,9 @@ export function InfiniteGallery(props: InfiniteGalleryProps) {
     if (!el || isStatic) return
 
     let dragging = false
+    let hasCaptured = false
+    let startPX = 0
+    let startPY = 0
     let lastPX = 0
     let lastPY = 0
     let lastT = 0
@@ -603,14 +641,13 @@ export function InfiniteGallery(props: InfiniteGalleryProps) {
     const onDown = (e: PointerEvent) => {
       if (e.button !== 0 && e.pointerType === "mouse") return
       dragging = true
+      hasCaptured = false
       pid = e.pointerId
+      startPX = e.clientX
+      startPY = e.clientY
       lastPX = e.clientX
       lastPY = e.clientY
       lastT = e.timeStamp
-      try {
-        el.setPointerCapture(e.pointerId)
-      } catch {}
-      el.style.cursor = "grabbing"
     }
 
     const onMove = (e: PointerEvent) => {
@@ -621,6 +658,15 @@ export function InfiniteGallery(props: InfiniteGalleryProps) {
       driftTY.set(Math.max(-1, Math.min(1, ny)))
 
       if (!dragging || e.pointerId !== pid) return
+
+      const moveDist = Math.hypot(e.clientX - startPX, e.clientY - startPY)
+      if (moveDist > 4 && !hasCaptured) {
+        hasCaptured = true
+        try {
+          el.setPointerCapture(e.pointerId)
+        } catch {}
+        el.style.cursor = "grabbing"
+      }
 
       const dpx = e.clientX - lastPX
       const dpy = e.clientY - lastPY
@@ -648,9 +694,12 @@ export function InfiniteGallery(props: InfiniteGalleryProps) {
       if (!dragging || e.pointerId !== pid) return
       dragging = false
       pid = null
-      try {
-        el.releasePointerCapture(e.pointerId)
-      } catch {}
+      if (hasCaptured) {
+        hasCaptured = false
+        try {
+          el.releasePointerCapture(e.pointerId)
+        } catch {}
+      }
       el.style.cursor = "grab"
     }
 
@@ -670,12 +719,56 @@ export function InfiniteGallery(props: InfiniteGalleryProps) {
       driftTY.set(0)
     }
 
+    // Touch Pinch-to-Zoom gesture handling for Android and mobile touch screens
+    let isPinching = false
+    let initialPinchDist = 0
+    let initialPinchZoom = 0
+
+    const getTouchDist = (e: TouchEvent) => {
+      if (e.touches.length < 2) return 0
+      const dx = e.touches[0].clientX - e.touches[1].clientX
+      const dy = e.touches[0].clientY - e.touches[1].clientY
+      return Math.hypot(dx, dy)
+    }
+
+    const onTouchStart = (e: TouchEvent) => {
+      if (e.touches.length === 2) {
+        isPinching = true
+        dragging = false
+        initialPinchDist = getTouchDist(e)
+        initialPinchZoom = targetLogZoom.get()
+      }
+    }
+
+    const onTouchMove = (e: TouchEvent) => {
+      if (isPinching && e.touches.length === 2) {
+        if (e.cancelable) e.preventDefault()
+        const dist = getTouchDist(e)
+        if (dist > 0 && initialPinchDist > 0) {
+          const scale = dist / initialPinchDist
+          const logDelta = Math.log2(scale)
+          targetLogZoom.set(initialPinchZoom + logDelta)
+        }
+      }
+    }
+
+    const onTouchEnd = (e: TouchEvent) => {
+      if (e.touches.length < 2) {
+        isPinching = false
+      }
+    }
+
     el.addEventListener("pointerdown", onDown)
     el.addEventListener("pointermove", onMove)
     el.addEventListener("pointerup", onUp)
     el.addEventListener("pointercancel", onCancel)
     el.addEventListener("wheel", onWheel, { passive: false })
     el.addEventListener("pointerleave", onLeave)
+
+    el.addEventListener("touchstart", onTouchStart, { passive: true })
+    el.addEventListener("touchmove", onTouchMove, { passive: false })
+    el.addEventListener("touchend", onTouchEnd, { passive: true })
+    el.addEventListener("touchcancel", onTouchEnd, { passive: true })
 
     el.style.cursor = "grab"
 
@@ -686,6 +779,11 @@ export function InfiniteGallery(props: InfiniteGalleryProps) {
       el.removeEventListener("pointercancel", onCancel)
       el.removeEventListener("wheel", onWheel)
       el.removeEventListener("pointerleave", onLeave)
+
+      el.removeEventListener("touchstart", onTouchStart)
+      el.removeEventListener("touchmove", onTouchMove)
+      el.removeEventListener("touchend", onTouchEnd)
+      el.removeEventListener("touchcancel", onTouchEnd)
     }
   }, [
     isStatic,
@@ -696,6 +794,7 @@ export function InfiniteGallery(props: InfiniteGalleryProps) {
     velY,
     velLogZoom,
     logZoom,
+    targetLogZoom,
     driftTX,
     driftTY,
   ])
@@ -728,9 +827,54 @@ export function InfiniteGallery(props: InfiniteGalleryProps) {
     inset: 0,
   }
 
+  const handleZoomIn = () => {
+    targetLogZoom.set(targetLogZoom.get() + 0.6)
+  }
+
+  const handleZoomOut = () => {
+    targetLogZoom.set(targetLogZoom.get() - 0.6)
+  }
+
+  const handleResetZoom = () => {
+    targetLogZoom.set(0)
+    targetX.set(0)
+    targetY.set(0)
+  }
+
   return (
     <div ref={containerRef} className={className} style={wrapperStyle}>
       <div ref={sceneRef} style={sceneStyle} />
+
+      {/* Floating zoom controls for mobile & desktop */}
+      <div className="absolute bottom-4 right-4 z-20 flex items-center gap-1.5 rounded-full bg-black/60 p-1.5 backdrop-blur-md border border-white/10 shadow-lg">
+        <button
+          type="button"
+          onClick={handleZoomIn}
+          className="flex size-8 items-center justify-center rounded-full bg-white/10 text-white transition hover:bg-white/20 active:scale-95"
+          aria-label="Zoom in"
+          title="Zoom in (+)"
+        >
+          <ZoomIn className="size-4" />
+        </button>
+        <button
+          type="button"
+          onClick={handleZoomOut}
+          className="flex size-8 items-center justify-center rounded-full bg-white/10 text-white transition hover:bg-white/20 active:scale-95"
+          aria-label="Zoom out"
+          title="Zoom out (-)"
+        >
+          <ZoomOut className="size-4" />
+        </button>
+        <button
+          type="button"
+          onClick={handleResetZoom}
+          className="flex size-8 items-center justify-center rounded-full bg-white/10 text-white transition hover:bg-white/20 active:scale-95"
+          aria-label="Reset position and zoom"
+          title="Reset position and zoom"
+        >
+          <RotateCcw className="size-3.5" />
+        </button>
+      </div>
     </div>
   )
 }
