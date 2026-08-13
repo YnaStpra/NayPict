@@ -597,7 +597,7 @@ export function InfiniteGallery(props: InfiniteGalleryProps) {
     const loop = () => {
       if (isAutoAnimatingRef.current) {
         // Continuous center zoom effect - sumbu X & Y tetap 0 (timbul dari tengah) (+40% speed)
-        targetLogZoom.set(targetLogZoom.get() + 0.0020)
+        targetLogZoom.set(targetLogZoom.get() + 0.0035)
       }
 
       const tx = targetX.get() + velX.get()
