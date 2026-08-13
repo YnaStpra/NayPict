@@ -27,6 +27,7 @@ import { usePhotoStore } from "@/store/photo-store"
 import { ImageIcon, LayoutGrid, Plus, Sparkles } from "lucide-react"
 import { PhotoDateDrawer } from "@/components/photo/photo-date-drawer"
 import { PhotoMasonrySkeleton } from "@/components/photo/photo-masonry-skeleton"
+import { BackToTopButton } from "@/components/ui/back-to-top-button"
 import { usePhotoContext } from "@/app/photos/provider"
 import { useApp } from "@/app/provider"
 import { UserTypeEnum } from "@/server/enums/user-enum"
@@ -287,6 +288,7 @@ export default function Page() {
         onOpenChange={setAlbumDialogOpen}
         onAlbumSelect={changePhotoAlbum}
       />
+      <BackToTopButton />
     </>
   )
 }
