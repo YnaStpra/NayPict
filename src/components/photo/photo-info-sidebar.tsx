@@ -26,6 +26,15 @@ type PhotoViewerBlurBackgroundProps = {
   thumbHash?: string | null
 }
 
+// Format album names array into human-readable list string (e.g. "Album A & Album B" or "Album A, Album B & Album C")
+export function formatAlbumList(albums?: { albumId: string; name: string }[]): string {
+  if (!albums || albums.length === 0) return ""
+  const names = albums.map((a) => a.name)
+  if (names.length === 1) return names[0]
+  if (names.length === 2) return `${names[0]} & ${names[1]}`
+  return `${names.slice(0, -1).join(", ")} & ${names[names.length - 1]}`
+}
+
 // Format storage location: storage name(Translated type).
 function formatStorageLocation(photo: PhotoVo, t: (key: string) => string) {
   if (!photo.storageName && !photo.storageTypeDesc) {
@@ -186,7 +195,7 @@ export function PhotoInfoSidebar({ photo, onClose, onAlbumOpen }: PhotoInfoSideb
             {photo.albums && photo.albums.length > 0 && (
               <PhotoInfoRow
                 label="Album"
-                value={photo.albums.map((a) => a.name).join(", ")}
+                value={formatAlbumList(photo.albums)}
                 wrap
               />
             )}

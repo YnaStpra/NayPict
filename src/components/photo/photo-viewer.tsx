@@ -9,7 +9,7 @@ import Zoom from "yet-another-react-lightbox/plugins/zoom"
 import { ArrowLeftIcon, ChevronLeftIcon, ChevronRightIcon, CircleAlertIcon, CircleIcon, FolderIcon, FolderPlusIcon, LockIcon, Menu, LoaderCircleIcon, MaximizeIcon, MinimizeIcon, PanelRightClose, PanelRightOpen, RotateCcwSquare, Trash2Icon } from "lucide-react"
 import { toast } from "sonner"
 
-import { PhotoInfoSidebar, PhotoViewerBlurBackground } from "@/components/photo/photo-info-sidebar"
+import { PhotoInfoSidebar, PhotoViewerBlurBackground, formatAlbumList } from "@/components/photo/photo-info-sidebar"
 import { useTapAction } from "@/hooks/use-tap-action"
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
@@ -634,12 +634,14 @@ function AlbumOverlayBadge({ isCinematicMode }: { isCinematicMode: boolean }) {
     return null
   }
 
+  const albumText = formatAlbumList(photoSlide.albums)
+
   return (
-    <div className="absolute bottom-3 left-3 md:bottom-4 md:left-4 z-40 flex items-center gap-1.5 rounded-full bg-black/70 px-3 py-1.5 text-xs text-white backdrop-blur-md border border-white/15 shadow-lg select-none">
+    <div className="absolute bottom-3 left-3 md:bottom-4 md:left-4 z-40 flex items-center gap-1.5 rounded-full bg-black/75 px-3.5 py-1.5 text-xs text-white backdrop-blur-md border border-white/15 shadow-lg select-none max-w-[85vw] md:max-w-md truncate">
       <FolderIcon className="size-3.5 text-primary shrink-0" />
-      <span className="font-medium text-white/70">Album:</span>
-      <span className="font-semibold text-white">
-        {photoSlide.albums.map((a) => a.name).join(", ")}
+      <span className="font-medium text-white/70 shrink-0">Berada di album:</span>
+      <span className="font-semibold text-white truncate" title={albumText}>
+        {albumText}
       </span>
     </div>
   )

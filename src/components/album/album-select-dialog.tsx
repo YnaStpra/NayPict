@@ -25,10 +25,11 @@ interface AlbumSelectDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   onAlbumSelect: (albumIds: string[]) => void
+  initialSelectedAlbumIds?: string[]
 }
 
 // Render the album selection popup used when adding photos to an album.
-export function AlbumSelectDialog({ open, onOpenChange, onAlbumSelect }: AlbumSelectDialogProps) {
+export function AlbumSelectDialog({ open, onOpenChange, onAlbumSelect, initialSelectedAlbumIds }: AlbumSelectDialogProps) {
   const t = useTranslations("albums")
   const albums = useAlbumStore((state) => state.albums)
   const { refreshAlbums } = useApp()
@@ -40,12 +41,16 @@ export function AlbumSelectDialog({ open, onOpenChange, onAlbumSelect }: AlbumSe
 
   // Clear selected albums & creation state after closing popup.
   useEffect(() => {
-    if (!open) {
+    if (open) {
+      if (initialSelectedAlbumIds && initialSelectedAlbumIds.length > 0) {
+        setSelectedAlbumIds(initialSelectedAlbumIds)
+      }
+    } else {
       setSelectedAlbumIds([])
       setCreating(false)
       setNewAlbumName("")
     }
-  }, [open])
+  }, [open, initialSelectedAlbumIds])
 
   // Toggle album selection.
   function changeAlbum(albumId: string) {
