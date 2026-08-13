@@ -116,16 +116,25 @@ const photoService = {
 
     const fileStorageList = await storageService.getStorageList();
     const photoIds = list.map((photo: any) => photo.photoId);
-    const [exifMap, fileMap] = await Promise.all([
+    const [exifMap, fileMap, albumMap] = await Promise.all([
       exifService.listByPhotoIds(photoIds),
       fileService.listByPhotoIds(photoIds),
+      albumService.listAlbumMapByPhotoIds(photoIds),
     ]);
 
     let result = list.map((photo: any) => {
       const fileStorage = fileStorageList.find((item: any) => item.storageId === photo.storageId);
       const domain = formatHttpUrl(fileStorage?.domain);
 
-      return this.toPhotoVo(photo, fileMap.get(photo.photoId) ?? [], fileStorage, domain, exifMap.get(photo.photoId) ?? null, userId);
+      return this.toPhotoVo(
+        photo,
+        fileMap.get(photo.photoId) ?? [],
+        fileStorage,
+        domain,
+        exifMap.get(photo.photoId) ?? null,
+        userId,
+        albumMap.get(photo.photoId) ?? []
+      );
     });
 
     return {
@@ -609,12 +618,13 @@ const photoService = {
     const fileStorageList = await storageService.getStorageList();
     const fileStorage = fileStorageList.find((item: any) => item.storageId === photo.storageId);
     const domain = formatHttpUrl(fileStorage?.domain);
-    const [exifRow, files] = await Promise.all([
+    const [exifRow, files, albumMap] = await Promise.all([
       exifService.getByPhotoId(photoId),
       fileService.listByPhotoId(photoId),
+      albumService.listAlbumMapByPhotoIds([photoId]),
     ]);
 
-    return this.toPhotoVo(photo, files, fileStorage, domain, exifRow, currentUserId);
+    return this.toPhotoVo(photo, files, fileStorage, domain, exifRow, currentUserId, albumMap.get(photoId) ?? []);
   },
 
   // Batch update photo download protection status.
@@ -640,7 +650,15 @@ const photoService = {
   },
 
   // Store information and files key Merge into photo return object.
-  toPhotoVo(photo: Photo, files: PhotoFile[], fileStorage?: Storage, domain?: string, exifRow: Exif | null = null, currentUserId?: string): PhotoVo {
+  toPhotoVo(
+    photo: Photo,
+    files: PhotoFile[],
+    fileStorage?: Storage,
+    domain?: string,
+    exifRow: Exif | null = null,
+    currentUserId?: string,
+    albums?: { albumId: string; name: string }[]
+  ): PhotoVo {
     const rawKey = this.getFileKey(files, FileTypeEnum.ORIGINAL) ?? '';
     const preview = this.getFileKey(files, FileTypeEnum.PREVIEW) ?? '';
     const thumbnail = this.getFileKey(files, FileTypeEnum.THUMBNAIL) ?? '';
@@ -662,7 +680,8 @@ const photoService = {
       storageName: fileStorage?.name ?? null,
       storageTypeDesc: fileStorage
         ? StorageTypeOptions.find((item: any) => item.value === fileStorage.type)?.label ?? null
-        : null
+        : null,
+      albums: albums ?? [],
     };
   },
 

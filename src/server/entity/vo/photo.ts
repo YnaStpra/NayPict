@@ -12,6 +12,7 @@ type PhotoVo = Photo & {
   altitude: number | null;
   storageName: string | null;
   storageTypeDesc: string | null;
+  albums?: { albumId: string; name: string }[];
 };
 
 interface PhotoTakenDateVo {

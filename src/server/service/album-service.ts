@@ -502,6 +502,30 @@ const albumService = {
       suggestedCoverPhotoId: coverPhoto?.photoId ?? null,
       isManualCover: false
     };
+  },
+
+  // Return album map for a list of photoIds: Map<photoId, { albumId: string; name: string }[]>
+  async listAlbumMapByPhotoIds(photoIds: string[]): Promise<Map<string, { albumId: string; name: string }[]>> {
+    const map = new Map<string, { albumId: string; name: string }[]>();
+    if (!photoIds || !photoIds.length) return map;
+
+    const rows = await orm
+      .select({
+        photoId: albumPhotoTab.photoId,
+        albumId: albumTab.albumId,
+        name: albumTab.name,
+      })
+      .from(albumPhotoTab)
+      .innerJoin(albumTab, eq(albumPhotoTab.albumId, albumTab.albumId))
+      .where(inArray(albumPhotoTab.photoId, photoIds));
+
+    for (const row of rows) {
+      const existing = map.get(row.photoId) ?? [];
+      existing.push({ albumId: row.albumId, name: row.name });
+      map.set(row.photoId, existing);
+    }
+
+    return map;
   }
 }
 

@@ -183,6 +183,13 @@ export function PhotoInfoSidebar({ photo, onClose, onAlbumOpen }: PhotoInfoSideb
               wrap
             />
             <PhotoInfoRow label={t("software")} value={getPhotoSoftware(photo.exif)} wrap />
+            {photo.albums && photo.albums.length > 0 && (
+              <PhotoInfoRow
+                label="Album"
+                value={photo.albums.map((a) => a.name).join(", ")}
+                wrap
+              />
+            )}
             <PhotoInfoRow label={t("storage")} value={formatStorageLocation(photo, storageT)} />
             <PhotoInfoRow label="Download" value={photo.allowDownload === 1 ? "↓ Downloadable" : "🔒 Protected"} />
           </div>
