@@ -8,18 +8,20 @@ import { Dialog } from "@/components/common/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+
 interface AlbumAddDialogProps {
   title: string
   onNameConfirm: (name: string) => void
 }
 
-// Render a new album pop-up window，And after confirmation, hand the album name to the parent component。
+// Render a new album pop-up window, And after confirmation, hand the album name to the parent component.
 export function AlbumAddDialog({ title, onNameConfirm }: AlbumAddDialogProps) {
   const t = useTranslations("albums")
   const [open, setOpen] = useState(false)
   const [name, setName] = useState("")
 
-  // Submit the entered album name。
+  // Submit the entered album name.
   function submitName() {
     const value = name.trim()
 
@@ -32,14 +34,14 @@ export function AlbumAddDialog({ title, onNameConfirm }: AlbumAddDialogProps) {
     setOpen(false)
   }
 
-  // Process input box and press Enter to confirm。
+  // Process input box and press Enter to confirm.
   function handleInputKeyDown(event: KeyboardEvent<HTMLInputElement>) {
     if (event.key === "Enter") {
       submitName()
     }
   }
 
-  // Handle pop-up window opening status changes。
+  // Handle pop-up window opening status changes.
   function handleOpenChange(nextOpen: boolean) {
     setOpen(nextOpen)
 
@@ -56,13 +58,22 @@ export function AlbumAddDialog({ title, onNameConfirm }: AlbumAddDialogProps) {
       onOpenChange={handleOpenChange}
       onConfirm={submitName}
       trigger={
-        <Button
-          type="button"
-          size="icon"
-          variant="ghost"
-        >
-          <Plus />
-        </Button>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                type="button"
+                size="icon"
+                variant="ghost"
+                className="size-8 rounded-lg"
+              >
+                <Plus className="size-4" />
+                <span className="sr-only">{title}</span>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">{title}</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       }
     >
       <Input

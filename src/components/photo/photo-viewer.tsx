@@ -9,7 +9,7 @@ import Zoom from "yet-another-react-lightbox/plugins/zoom"
 import { ArrowLeftIcon, ChevronLeftIcon, ChevronRightIcon, CircleAlertIcon, CircleIcon, FolderIcon, FolderPlusIcon, LockIcon, Menu, LoaderCircleIcon, MaximizeIcon, MinimizeIcon, PanelRightClose, PanelRightOpen, RotateCcwSquare, Trash2Icon } from "lucide-react"
 import { toast } from "sonner"
 
-import { PhotoInfoSidebar, PhotoViewerBlurBackground } from "@/components/photo/photo-info-sidebar"
+import { PhotoInfoSidebar, PhotoViewerBlurBackground, formatAlbumList } from "@/components/photo/photo-info-sidebar"
 import { useTapAction } from "@/hooks/use-tap-action"
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
@@ -99,8 +99,8 @@ type LoadOriginalImageParams = {
 }
 
 const photoViewerPortalStyle: CSSProperties & { "--yarl__portal_zindex": number } = {
-  "--yarl__portal_zindex": 999999,
-  zIndex: 999999,
+  "--yarl__portal_zindex": 1000,
+  zIndex: 1000,
 }
 
 // Generate fade-in and fade-out styles based on the display state of the action button。
@@ -548,12 +548,12 @@ function AddToAlbumButton({
   const { currentSlide } = useLightboxState()
   const photoSlide = currentSlide && isImageSlide(currentSlide) ? (currentSlide as PhotoSlide) : null
 
-  function handleAddToAlbum() {
+  function handleAddToAlbum(e: React.MouseEvent) {
+    e.stopPropagation()
+    e.preventDefault()
     if (!photoSlide) return
     onAlbumOpen?.([photoSlide.photoId])
   }
-
-  const tap = useTapAction(handleAddToAlbum)
 
   if (!onAlbumOpen) return null
 
@@ -565,8 +565,8 @@ function AddToAlbumButton({
             type="button"
             size="icon"
             variant="secondary"
-            className="rounded-full bg-black/40 text-white transition-opacity duration-200 hover:bg-black/60"
-            {...tap}
+            className="rounded-full bg-black/40 text-white transition-opacity duration-200 hover:bg-black/60 cursor-pointer pointer-events-auto"
+            onClick={handleAddToAlbum}
           >
             <FolderPlusIcon className="size-4" />
             <span className="sr-only">Add to album</span>
@@ -634,12 +634,14 @@ function AlbumOverlayBadge({ isCinematicMode }: { isCinematicMode: boolean }) {
     return null
   }
 
+  const albumText = formatAlbumList(photoSlide.albums)
+
   return (
-    <div className="absolute bottom-3 left-3 md:bottom-4 md:left-4 z-40 flex items-center gap-1.5 rounded-full bg-black/70 px-3 py-1.5 text-xs text-white backdrop-blur-md border border-white/15 shadow-lg select-none">
+    <div className="absolute bottom-3 left-3 md:bottom-4 md:left-4 z-40 flex items-center gap-1.5 rounded-full bg-black/75 px-3.5 py-1.5 text-xs text-white backdrop-blur-md border border-white/15 shadow-lg select-none max-w-[85vw] md:max-w-md truncate">
       <FolderIcon className="size-3.5 text-primary shrink-0" />
-      <span className="font-medium text-white/70">Album:</span>
-      <span className="font-semibold text-white">
-        {photoSlide.albums.map((a) => a.name).join(", ")}
+      <span className="font-medium text-white/70 shrink-0">Berada di album:</span>
+      <span className="font-semibold text-white truncate" title={albumText}>
+        {albumText}
       </span>
     </div>
   )

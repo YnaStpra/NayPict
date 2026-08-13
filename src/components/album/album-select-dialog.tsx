@@ -25,10 +25,11 @@ interface AlbumSelectDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   onAlbumSelect: (albumIds: string[]) => void
+  initialSelectedAlbumIds?: string[]
 }
 
 // Render the album selection popup used when adding photos to an album.
-export function AlbumSelectDialog({ open, onOpenChange, onAlbumSelect }: AlbumSelectDialogProps) {
+export function AlbumSelectDialog({ open, onOpenChange, onAlbumSelect, initialSelectedAlbumIds }: AlbumSelectDialogProps) {
   const t = useTranslations("albums")
   const albums = useAlbumStore((state) => state.albums)
   const { refreshAlbums } = useApp()
@@ -40,12 +41,16 @@ export function AlbumSelectDialog({ open, onOpenChange, onAlbumSelect }: AlbumSe
 
   // Clear selected albums & creation state after closing popup.
   useEffect(() => {
-    if (!open) {
+    if (open) {
+      if (initialSelectedAlbumIds && initialSelectedAlbumIds.length > 0) {
+        setSelectedAlbumIds(initialSelectedAlbumIds)
+      }
+    } else {
       setSelectedAlbumIds([])
       setCreating(false)
       setNewAlbumName("")
     }
-  }, [open])
+  }, [open, initialSelectedAlbumIds])
 
   // Toggle album selection.
   function changeAlbum(albumId: string) {
@@ -101,7 +106,11 @@ export function AlbumSelectDialog({ open, onOpenChange, onAlbumSelect }: AlbumSe
       showCloseButton={false}
       onConfirm={saveAlbum}
     >
-      <div className="flex flex-col gap-3 max-h-[60vh] overflow-auto pb-0.25">
+      <div
+        className="flex flex-col gap-3 max-h-[60vh] overflow-auto pb-0.25 select-none"
+        onPointerDown={(e) => e.stopPropagation()}
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Button / Form to create a new album on the fly */}
         {!creating ? (
           <Button

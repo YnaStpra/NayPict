@@ -96,6 +96,32 @@ export default function DuplicatesPage() {
     toast.info('Grup duplikat dibiarkan / diabaikan.')
   }, [])
 
+  // 1-Click Clean All Duplicates across all groups
+  const handleRecycleAllDuplicates = useCallback(() => {
+    const activeGrps = groups.filter((grp) => !ignoredGroupIds.has(grp.groupId) && grp.photos.length >= 2)
+    const allDuplicateIds: string[] = []
+
+    for (const grp of activeGrps) {
+      const dupIds = grp.photos.slice(1).map((p) => p.photoId)
+      allDuplicateIds.push(...dupIds)
+    }
+
+    if (!allDuplicateIds.length) {
+      toast.info('Tidak ada foto duplikat yang dapat dihapus.')
+      return
+    }
+
+    photoRecycle({ photoIds: allDuplicateIds })
+      .then(() => {
+        toast.success(`Berhasil membersihkan ${allDuplicateIds.length} foto duplikat!`)
+        fetchDuplicates()
+      })
+      .catch((err) => {
+        console.error('Failed to clean all duplicates:', err)
+        toast.error('Gagal membersihkan foto duplikat.')
+      })
+  }, [groups, ignoredGroupIds, fetchDuplicates])
+
   // Open photo in viewer
   const handlePreviewPhoto = useCallback((photo: PhotoVo, groupPhotos: PhotoVo[]) => {
     const idx = groupPhotos.findIndex((p) => p.photoId === photo.photoId)
@@ -124,6 +150,7 @@ export default function DuplicatesPage() {
 
   const activeGroups = groups.filter((grp) => !ignoredGroupIds.has(grp.groupId) && grp.photos.length >= 2)
   const totalDuplicatesCount = activeGroups.reduce((acc, grp) => acc + grp.photos.length, 0)
+  const deletableCount = activeGroups.reduce((acc, grp) => acc + (grp.photos.length - 1), 0)
 
   return (
     <>
@@ -161,27 +188,40 @@ export default function DuplicatesPage() {
           <div className="p-4 md:p-6 space-y-6 max-w-7xl mx-auto">
             {/* Header info banner */}
             <div className="rounded-xl border bg-card p-5 shadow-2xs">
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                 <div>
                   <h1 className="text-lg font-bold flex items-center gap-2">
                     <CopyCheck className="size-5 text-primary" />
-                    Pendeteksi Foto Duplikat Berbasis Tampilan Visual
+                    Pendeteksi Foto Duplikat Berbasis Tampilan Visual & File
                   </h1>
                   <p className="text-xs md:text-sm text-muted-foreground mt-1">
-                    Sistem menganalisis tampilan visual foto yang identik untuk membantu Anda menghemat ruang penyimpanan. Anda dapat memilih foto mana yang ingin disimpan atau dihapus.
+                    Sistem secara otomatis menganalisis sidik jari piksel visual (*thumbHash*), checksum berkas, resolusi, dan ukuran foto untuk mendeteksi semua foto duplikat tanpa ada yang terlewat.
                   </p>
                 </div>
-                {!loading && (
-                  <div className="flex items-center gap-3 shrink-0 bg-muted/60 px-4 py-2.5 rounded-lg border">
-                    <div className="text-center">
-                      <div className="text-lg font-bold text-primary">{activeGroups.length}</div>
-                      <div className="text-[11px] text-muted-foreground">Grup Duplikat</div>
+                {!loading && activeGroups.length > 0 && (
+                  <div className="flex flex-wrap items-center gap-3 shrink-0">
+                    <div className="flex items-center gap-3 bg-muted/60 px-4 py-2.5 rounded-lg border">
+                      <div className="text-center">
+                        <div className="text-lg font-bold text-primary">{activeGroups.length}</div>
+                        <div className="text-[11px] text-muted-foreground">Grup Duplikat</div>
+                      </div>
+                      <Separator orientation="vertical" className="h-8" />
+                      <div className="text-center">
+                        <div className="text-lg font-bold text-foreground">{totalDuplicatesCount}</div>
+                        <div className="text-[11px] text-muted-foreground">Total Foto</div>
+                      </div>
                     </div>
-                    <Separator orientation="vertical" className="h-8" />
-                    <div className="text-center">
-                      <div className="text-lg font-bold text-foreground">{totalDuplicatesCount}</div>
-                      <div className="text-[11px] text-muted-foreground">Total Foto</div>
-                    </div>
+
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="sm"
+                      className="gap-1.5 h-10 px-4 text-xs font-semibold shadow-xs"
+                      onClick={handleRecycleAllDuplicates}
+                    >
+                      <Trash2 className="size-4" />
+                      <span>Bersihkan {deletableCount} Foto Duplikat Sekaligus</span>
+                    </Button>
                   </div>
                 )}
               </div>

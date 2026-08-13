@@ -17,7 +17,8 @@ import {
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { usePhotoList } from "@/hooks/use-photo-list"
 
-import { useCallback, useEffect, useLayoutEffect, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'react'
+import { toast } from 'sonner'
 import { PhotoMasonry } from "@/components/photo/photo-masonry"
 import { PHOTO_LIST_PAGE_SIZE } from "@/server/const/global"
 import { PhotoFavoriteEnum } from "@/server/enums/photo-enum"
@@ -149,14 +150,25 @@ export default function Page() {
     setAlbumDialogOpen(true)
   }, [])
 
+  const initialAlbumIds = useMemo(() => {
+    if (albumPhotoIds.length === 1) {
+      const p = photos.find((photo) => photo.photoId === albumPhotoIds[0])
+      return p?.albums?.map((a) => a.albumId) ?? []
+    }
+    return []
+  }, [albumPhotoIds, photos])
+
   function changePhotoAlbum(albumIds: string[]) {
     if (!albumIds.length || !albumPhotoIds.length) return
     albumAddPhoto({ albumIds, photoIds: albumPhotoIds })
       .then(() => {
+        toast.success("Album foto berhasil diperbarui!")
         void refreshAlbums()
+        refreshPhotoList()
       })
       .catch((err) => {
         console.error("Failed to add photos to album:", err)
+        toast.error("Gagal memperbarui album foto.")
       })
   }
 
