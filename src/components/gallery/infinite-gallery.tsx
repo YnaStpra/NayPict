@@ -540,7 +540,7 @@ export function InfiniteGallery(props: InfiniteGalleryProps) {
       const alphaNext = frac
 
       const zBaseCurrent = 0
-      const zBaseNext = 100000
+      const zBaseNext = 100
 
       projectLayer(
         octave,
