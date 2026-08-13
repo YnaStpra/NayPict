@@ -387,7 +387,7 @@ export function InfiniteGallery(props: InfiniteGalleryProps) {
         const hPx = t.h * PX_PER_UNIT
         divEl.style.width = `${wPx}px`
         divEl.style.height = `${hPx}px`
-        divEl.style.zIndex = String(layerZBase + Math.floor(t.bakedScale * 1000))
+        divEl.style.zIndex = String(layerZBase + Math.floor(t.bakedScale * 5))
 
         const img = document.createElement("img")
         img.src = currentSrc
@@ -541,7 +541,7 @@ export function InfiniteGallery(props: InfiniteGalleryProps) {
       const alphaNext = frac
 
       const zBaseCurrent = 0
-      const zBaseNext = 100
+      const zBaseNext = 10
 
       projectLayer(
         octave,
