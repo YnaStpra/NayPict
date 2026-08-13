@@ -121,6 +121,9 @@ type Tile = {
   slot: number
   octave: number
   imgIdx: number
+  photoId?: string
+  src?: string
+  alt?: string
   w: number
   h: number
   rot: number
@@ -260,6 +263,8 @@ export function InfiniteGallery(props: InfiniteGalleryProps) {
             ? Math.floor(rand() * imagesCount) % imagesCount
             : 0
 
+        const imageItem = safeImages[imgIdx]
+
         tiles.push({
           wx,
           wy,
@@ -267,7 +272,10 @@ export function InfiniteGallery(props: InfiniteGalleryProps) {
           cy: gy,
           slot,
           octave,
-          imgIdx,
+          imgIdx: imageItem?.photoIndex ?? imgIdx,
+          photoId: imageItem?.photoId,
+          src: imageItem?.src || "",
+          alt: imageItem?.alt || "",
           w: wWorld,
           h: hWorld,
           rot: 0,
@@ -356,28 +364,33 @@ export function InfiniteGallery(props: InfiniteGalleryProps) {
       const pool = getPool(t.octave)
       const key = `${t.cx},${t.cy},${t.slot}`
       let el = pool.tileEls.get(key)
+
+      const currentPhotoId = t.photoId || safeImages[t.imgIdx]?.photoId || ""
+      const currentSrc = t.src || safeImages[t.imgIdx]?.src || ""
+      const currentPhotoIndex = safeImages[t.imgIdx]?.photoIndex ?? t.imgIdx
+
       if (!el) {
-        el = document.createElement("div")
-        el.style.position = "absolute"
-        el.style.left = "50%"
-        el.style.top = "50%"
-        el.style.transformOrigin = "0 0"
-        el.style.willChange = "transform, opacity"
-        el.style.pointerEvents = "auto"
-        el.style.cursor = "pointer"
-        el.dataset.tileKey = key
+        const divEl = document.createElement("div")
+        divEl.style.position = "absolute"
+        divEl.style.left = "50%"
+        divEl.style.top = "50%"
+        divEl.style.transformOrigin = "0 0"
+        divEl.style.willChange = "transform, opacity"
+        divEl.style.pointerEvents = "auto"
+        divEl.style.cursor = "pointer"
+        divEl.dataset.tileKey = key
+        divEl.dataset.photoId = currentPhotoId
+        divEl.dataset.photoIndex = String(currentPhotoIndex)
 
         const wPx = t.w * PX_PER_UNIT
         const hPx = t.h * PX_PER_UNIT
-        el.style.width = `${wPx}px`
-        el.style.height = `${hPx}px`
-        el.style.zIndex = String(layerZBase + Math.floor(t.bakedScale * 1000))
+        divEl.style.width = `${wPx}px`
+        divEl.style.height = `${hPx}px`
+        divEl.style.zIndex = String(layerZBase + Math.floor(t.bakedScale * 1000))
 
         const img = document.createElement("img")
-        const src = safeImages[t.imgIdx]
-        img.src = src?.src || ""
-        if (src?.srcSet) img.srcset = src.srcSet
-        img.alt = src?.alt || ""
+        img.src = currentSrc
+        img.alt = t.alt || safeImages[t.imgIdx]?.alt || ""
         img.decoding = "async"
         img.loading = "lazy"
         img.draggable = false
@@ -392,40 +405,64 @@ export function InfiniteGallery(props: InfiniteGalleryProps) {
         const radiusPx = (safeRounded / 20) * (Math.min(wPx, hPx) / 2)
         img.style.borderRadius = `${radiusPx}px`
 
-        el.appendChild(img)
+        divEl.appendChild(img)
 
-        // Click handler with drag distinction
+        // Click / Tap handler
         let pointerStartX = 0
         let pointerStartY = 0
-        el.addEventListener("pointerdown", (e) => {
+
+        const triggerClick = (e: Event) => {
+          e.stopPropagation()
+          const pId = divEl.dataset.photoId
+          let realIndex = -1
+          if (pId && photos && photos.length > 0) {
+            realIndex = photos.findIndex((photo) => photo.photoId === pId)
+          }
+          if (realIndex === -1) {
+            const idxData = Number(divEl.dataset.photoIndex)
+            realIndex = !isNaN(idxData) ? idxData : t.imgIdx
+          }
+          const realPhoto = photos && realIndex >= 0 ? photos[realIndex] : undefined
+          onPhotoClick?.(realIndex, realPhoto)
+        }
+
+        divEl.addEventListener("pointerdown", (e) => {
           pointerStartX = e.clientX
           pointerStartY = e.clientY
         })
-        el.addEventListener("click", (e) => {
+
+        divEl.addEventListener("click", (e) => {
           const dx = Math.abs(e.clientX - pointerStartX)
           const dy = Math.abs(e.clientY - pointerStartY)
-          if (dx < 8 && dy < 8) {
-            e.stopPropagation()
-            const imageItem = safeImages[t.imgIdx]
-            const realIndex = imageItem?.photoIndex ?? t.imgIdx
-            const realPhoto = photos ? photos[realIndex] : undefined
-            onPhotoClick?.(realIndex, realPhoto)
+          if (dx < 12 && dy < 12) {
+            triggerClick(e)
           }
         })
 
         // Hover animation
-        el.addEventListener("pointerenter", () => {
+        divEl.addEventListener("pointerenter", () => {
           img.style.transform = "scale(1.06)"
           img.style.boxShadow = "0 12px 24px -6px rgba(0,0,0,0.4)"
         })
-        el.addEventListener("pointerleave", () => {
+        divEl.addEventListener("pointerleave", () => {
           img.style.transform = "scale(1)"
           img.style.boxShadow = "none"
         })
 
-        scene.appendChild(el)
-        pool.tileEls.set(key, el)
+        scene.appendChild(divEl)
+        pool.tileEls.set(key, divEl)
         pool.imgEls.set(key, img)
+        el = divEl
+      } else {
+        // Update photoId & src on reused tile if data changed
+        if (el.dataset.photoId !== currentPhotoId) {
+          el.dataset.photoId = currentPhotoId
+          el.dataset.photoIndex = String(currentPhotoIndex)
+          const img = pool.imgEls.get(key)
+          if (img && img.src !== currentSrc) {
+            img.src = currentSrc
+          }
+        }
       }
       return el
     }
