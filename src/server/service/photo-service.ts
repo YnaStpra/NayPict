@@ -695,18 +695,29 @@ const photoService = {
     };
   },
 
-  // Auto-detect duplicate photos based on visual similarity (thumbHash) or file checksum.
-  async findDuplicateGroups(userId?: string): Promise<PhotoDuplicateGroupVo[]> {
+  // Auto-detect duplicate photos based on visual similarity (thumbHash), checksum, or dimensions+size (optionally within an album).
+  async findDuplicateGroups(userId?: string, albumId?: string): Promise<PhotoDuplicateGroupVo[]> {
     const whereList = [eq(photoTab.status, PhotoStatusEnum.NORMAL)];
     if (userId) {
       whereList.push(eq(photoTab.userId, userId));
     }
 
-    const list = await orm
-      .select()
-      .from(photoTab)
-      .where(and(...whereList))
-      .orderBy(desc(photoTab.takenTime), desc(photoTab.photoId));
+    let list: Photo[] = [];
+    if (albumId) {
+      const rows = await orm
+        .select({ photo: photoTab })
+        .from(photoTab)
+        .innerJoin(albumPhotoTab, eq(photoTab.photoId, albumPhotoTab.photoId))
+        .where(and(eq(albumPhotoTab.albumId, albumId), ...whereList))
+        .orderBy(desc(photoTab.takenTime), desc(photoTab.photoId));
+      list = rows.map((r: any) => r.photo);
+    } else {
+      list = await orm
+        .select()
+        .from(photoTab)
+        .where(and(...whereList))
+        .orderBy(desc(photoTab.takenTime), desc(photoTab.photoId));
+    }
 
     if (!list.length) return [];
 

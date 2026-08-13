@@ -66,6 +66,6 @@ export function photoClear() {
 }
 
 // Auto-detect duplicate photo groups (Admin only).
-export function photoGetDuplicates() {
-  return http.post<PhotoDuplicateGroupVo[]>('/photo/duplicates');
+export function photoGetDuplicates(params?: { albumId?: string }) {
+  return http.post<PhotoDuplicateGroupVo[]>('/photo/duplicates', params ?? {});
 }

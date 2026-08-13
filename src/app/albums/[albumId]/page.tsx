@@ -2,6 +2,7 @@
 import dynamic from "next/dynamic"
 import { useParams, useRouter } from "next/navigation"
 import { useTranslations } from "next-intl"
+import { toast } from "sonner"
 
 import { AppSidebar } from "@/components/layout/app-sidebar"
 import { Button } from "@/components/ui/button"
@@ -190,10 +191,12 @@ export default function Page() {
 
     albumAddPhoto({ albumIds: targetAlbumIds, photoIds: albumPhotoIds })
       .then(() => {
+        toast.success("Foto berhasil ditambahkan ke album!")
         void refreshAlbums()
       })
       .catch((err) => {
         console.error("Failed to add photos to album:", err)
+        toast.error("Gagal menambahkan foto ke album.")
       })
   }
 
