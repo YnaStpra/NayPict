@@ -187,7 +187,7 @@ export default function Page() {
                 </BreadcrumbList>
               </Breadcrumb>
             </div>
-            <div className="fixed left-[calc(100vw-7.75rem)] md:left-[calc(100vw-8.25rem)] top-0 flex h-12 items-center gap-1.5 px-4">
+            <div className="fixed left-[calc(100vw-7.75rem)] md:left-[calc(100vw-8.25rem)] top-0 z-30 flex h-12 items-center gap-1.5 px-4">
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>

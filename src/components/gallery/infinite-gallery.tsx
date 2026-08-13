@@ -630,6 +630,9 @@ export function InfiniteGallery(props: InfiniteGalleryProps) {
     if (!el || isStatic) return
 
     let dragging = false
+    let hasCaptured = false
+    let startPX = 0
+    let startPY = 0
     let lastPX = 0
     let lastPY = 0
     let lastT = 0
@@ -638,14 +641,13 @@ export function InfiniteGallery(props: InfiniteGalleryProps) {
     const onDown = (e: PointerEvent) => {
       if (e.button !== 0 && e.pointerType === "mouse") return
       dragging = true
+      hasCaptured = false
       pid = e.pointerId
+      startPX = e.clientX
+      startPY = e.clientY
       lastPX = e.clientX
       lastPY = e.clientY
       lastT = e.timeStamp
-      try {
-        el.setPointerCapture(e.pointerId)
-      } catch {}
-      el.style.cursor = "grabbing"
     }
 
     const onMove = (e: PointerEvent) => {
@@ -656,6 +658,15 @@ export function InfiniteGallery(props: InfiniteGalleryProps) {
       driftTY.set(Math.max(-1, Math.min(1, ny)))
 
       if (!dragging || e.pointerId !== pid) return
+
+      const moveDist = Math.hypot(e.clientX - startPX, e.clientY - startPY)
+      if (moveDist > 4 && !hasCaptured) {
+        hasCaptured = true
+        try {
+          el.setPointerCapture(e.pointerId)
+        } catch {}
+        el.style.cursor = "grabbing"
+      }
 
       const dpx = e.clientX - lastPX
       const dpy = e.clientY - lastPY
@@ -683,9 +694,12 @@ export function InfiniteGallery(props: InfiniteGalleryProps) {
       if (!dragging || e.pointerId !== pid) return
       dragging = false
       pid = null
-      try {
-        el.releasePointerCapture(e.pointerId)
-      } catch {}
+      if (hasCaptured) {
+        hasCaptured = false
+        try {
+          el.releasePointerCapture(e.pointerId)
+        } catch {}
+      }
       el.style.cursor = "grab"
     }
 
