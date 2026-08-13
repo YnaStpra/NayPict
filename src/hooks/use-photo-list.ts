@@ -48,8 +48,11 @@ function usePhotoList(params: Partial<PhotoListBo> = {}, pageSize = PHOTO_LIST_P
 
   const photosRef = useRef<PhotoVo[]>(initialPhotoList) // Save latest photo list.
   const hasMoreRef = useRef(initialPhotos ? initialPhotos.length === pageSize : true) // Tracks if more pages are available.
+  const [hasMore, setHasMore] = useState<boolean>(() => initialPhotos ? initialPhotos.length === pageSize : true)
   const [photos, setPhotos] = useState<PhotoVo[]>(initialPhotoList) // Store the list of photos displayed on the current page.
   const [masonryKey, setMasonryKey] = useState(0) // Control waterfall flow to recalculate layout after list structure changes.
+
+  const [totalCount, setTotalCount] = useState<number>(() => initialPhotos ? initialPhotos.length : 0)
 
   useEffect(() => {
     // Skip the browser's first page request when there is data on the first page from the server.
@@ -57,7 +60,10 @@ function usePhotoList(params: Partial<PhotoListBo> = {}, pageSize = PHOTO_LIST_P
       initialUsedRef.current = true
       photosRef.current = initialPhotoList
       setPhotos(initialPhotoList)
-      hasMoreRef.current = initialPhotos ? initialPhotos.length === pageSize : true
+      setTotalCount(initialPhotoList.length)
+      const moreAvailable = initialPhotos ? initialPhotos.length === pageSize : true
+      hasMoreRef.current = moreAvailable
+      setHasMore(moreAvailable)
       // Offset starts at how many SSR photos we already have
       pageOffsetRef.current = initialPhotoList.length
       return
@@ -107,6 +113,7 @@ function usePhotoList(params: Partial<PhotoListBo> = {}, pageSize = PHOTO_LIST_P
       .catch((err) => {
         console.error("Failed to load photos by IDs:", err)
         hasMoreRef.current = false
+        setHasMore(false)
       })
       .finally(() => {
         loadingRef.current = false
@@ -142,9 +149,12 @@ function usePhotoList(params: Partial<PhotoListBo> = {}, pageSize = PHOTO_LIST_P
               return true
             })
             photosRef.current = uniquePhotos
+            setTotalCount(uniquePhotos.length)
             return uniquePhotos
           })
-          hasMoreRef.current = data.list.length === pageSize
+          const more = data.list.length === pageSize
+          hasMoreRef.current = more
+          setHasMore(more)
           if (!append) {
             refreshMasonry()
             window.scrollTo(0, 0)
@@ -153,6 +163,7 @@ function usePhotoList(params: Partial<PhotoListBo> = {}, pageSize = PHOTO_LIST_P
         .catch((err) => {
           console.error("Failed to load photo list:", err)
           hasMoreRef.current = false
+          setHasMore(false)
         })
         .finally(() => {
           loadingRef.current = false
@@ -169,12 +180,15 @@ function usePhotoList(params: Partial<PhotoListBo> = {}, pageSize = PHOTO_LIST_P
 
       if (!nextIds.length) {
         hasMoreRef.current = false
+        setHasMore(false)
         loadingRef.current = false
         return
       }
 
       pageOffsetRef.current = offset + nextIds.length
-      hasMoreRef.current = pageOffsetRef.current < allIds.length
+      const more = pageOffsetRef.current < allIds.length
+      hasMoreRef.current = more
+      setHasMore(more)
       loadPhotosByIds(nextIds, true)
       return
     }
@@ -189,6 +203,7 @@ function usePhotoList(params: Partial<PhotoListBo> = {}, pageSize = PHOTO_LIST_P
     })
       .then((allIds) => {
         allShuffledIdsRef.current = allIds
+        setTotalCount(allIds.length)
 
         // First page: use IDs that aren't already shown via SSR
         const alreadyShownIds = new Set(photosRef.current.map((p) => p.photoId))
@@ -198,14 +213,18 @@ function usePhotoList(params: Partial<PhotoListBo> = {}, pageSize = PHOTO_LIST_P
           // loadMorePhotos called before IDs were ready — load next page
           const nextIds = remainingIds.slice(0, pageSize)
           pageOffsetRef.current = allIds.indexOf(nextIds[nextIds.length - 1]) + 1
-          hasMoreRef.current = pageOffsetRef.current < allIds.length
+          const more = pageOffsetRef.current < allIds.length
+          hasMoreRef.current = more
+          setHasMore(more)
           if (nextIds.length) loadPhotosByIds(nextIds, true)
-          else { hasMoreRef.current = false; loadingRef.current = false }
+          else { hasMoreRef.current = false; setHasMore(false); loadingRef.current = false }
         } else {
           // Fresh load: replace everything with first page from shuffled IDs
           const firstPageIds = allIds.slice(0, pageSize)
           pageOffsetRef.current = firstPageIds.length
-          hasMoreRef.current = allIds.length > pageSize
+          const more = allIds.length > pageSize
+          hasMoreRef.current = more
+          setHasMore(more)
           if (firstPageIds.length) loadPhotosByIds(firstPageIds, false)
           else loadingRef.current = false
         }
@@ -213,6 +232,7 @@ function usePhotoList(params: Partial<PhotoListBo> = {}, pageSize = PHOTO_LIST_P
       .catch((err) => {
         console.error("Failed to fetch random ID list:", err)
         hasMoreRef.current = false
+        setHasMore(false)
         loadingRef.current = false
       })
   }, [pageSize, loadPhotosByIds, refreshMasonry])
@@ -228,6 +248,7 @@ function usePhotoList(params: Partial<PhotoListBo> = {}, pageSize = PHOTO_LIST_P
     pageOffsetRef.current = 0
     photosRef.current = []
     hasMoreRef.current = true
+    setHasMore(true)
     loadPhotoList(false)
   }, [loadPhotoList])
 
@@ -255,6 +276,11 @@ function usePhotoList(params: Partial<PhotoListBo> = {}, pageSize = PHOTO_LIST_P
       }
 
       photosRef.current = nextPhotos
+      if (allShuffledIdsRef.current) {
+        const newIds = newPhotos.map((p) => p.photoId)
+        allShuffledIdsRef.current = [...newIds, ...allShuffledIdsRef.current]
+      }
+      setTotalCount((c) => c + newPhotos.length)
       return nextPhotos
     })
     refreshMasonry()
@@ -266,7 +292,11 @@ function usePhotoList(params: Partial<PhotoListBo> = {}, pageSize = PHOTO_LIST_P
     const nextPhotos = photosRef.current.filter((photo) => !photoIdSet.has(photo.photoId))
 
     photosRef.current = nextPhotos
+    if (allShuffledIdsRef.current) {
+      allShuffledIdsRef.current = allShuffledIdsRef.current.filter((id) => !photoIdSet.has(id))
+    }
     setPhotos(nextPhotos)
+    setTotalCount((c) => Math.max(0, c - photoIds.length))
     refreshMasonry()
 
     if (nextPhotos.length < 95) {
@@ -276,6 +306,8 @@ function usePhotoList(params: Partial<PhotoListBo> = {}, pageSize = PHOTO_LIST_P
 
   return {
     photos,
+    totalCount,
+    hasMore,
     setPhotos,
     masonryKey,
     loadMorePhotos,
