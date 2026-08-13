@@ -132,13 +132,15 @@ export function registerPhotoApi(app: Hono<HonoEnv>) {
     return c.json(result.ok());
   });
 
-  // Auto-detect duplicate photo groups based on visual content / checksum (Admin only).
+  // Auto-detect duplicate photo groups based on visual content / checksum / album (Admin only).
   app.post('/photo/duplicates', async (c: Context) => {
-    const data = await photoService.findDuplicateGroups(getUserId());
+    const { albumId } = await c.req.json<{ albumId?: string }>().catch(() => ({ albumId: undefined }));
+    const data = await photoService.findDuplicateGroups(getUserId(), albumId);
     return c.json(result.ok(data));
   });
   app.get('/photo/duplicates', async (c: Context) => {
-    const data = await photoService.findDuplicateGroups(getUserId());
+    const albumId = c.req.query('albumId');
+    const data = await photoService.findDuplicateGroups(getUserId(), albumId);
     return c.json(result.ok(data));
   });
 }

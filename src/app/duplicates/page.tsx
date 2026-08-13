@@ -20,7 +20,7 @@ import { useApp } from '@/app/provider'
 import { UserTypeEnum } from '@/server/enums/user-enum'
 import { type PhotoDuplicateGroupVo, type PhotoVo } from '@/server/entity/vo/photo'
 import { photoGetDuplicates, photoRecycle } from '@/request/photo'
-import { Check, CopyCheck, Eye, EyeOff, Loader2, RefreshCw, Trash2, CheckCircle2, ShieldAlert } from 'lucide-react'
+import { Check, CopyCheck, Eye, EyeOff, FolderIcon, Loader2, RefreshCw, Trash2, CheckCircle2, ShieldAlert } from 'lucide-react'
 import { toast } from 'sonner'
 import dynamic from 'next/dynamic'
 
@@ -352,6 +352,16 @@ export default function DuplicatesPage() {
                                   {photo.storageName && (
                                     <div className="text-[10px] text-muted-foreground/80 truncate mt-0.5">
                                       Storage: {photo.storageName}
+                                    </div>
+                                  )}
+                                  {photo.albums && photo.albums.length > 0 ? (
+                                    <div className="mt-1.5 flex items-center gap-1 text-[10px] text-primary bg-primary/10 px-2 py-0.5 rounded-md font-medium truncate" title={photo.albums.map((a) => a.name).join(", ")}>
+                                      <FolderIcon className="size-3 shrink-0" />
+                                      <span className="truncate">Album: {photo.albums.map((a) => a.name).join(", ")}</span>
+                                    </div>
+                                  ) : (
+                                    <div className="mt-1.5 inline-flex items-center gap-1 text-[10px] text-muted-foreground bg-muted px-2 py-0.5 rounded-md font-medium">
+                                      <span>Galeri Utama</span>
                                     </div>
                                   )}
                                 </div>

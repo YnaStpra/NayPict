@@ -308,9 +308,8 @@ const albumService = {
     return scored;
   },
 
-  // Add photo associations.
+  // Add photo associations, preventing duplicate photos (by ID, checksum, thumbHash, or resolution+size) in target albums.
   async addPhoto(params: AlbumAddPhotoBo, userId: string): Promise<void> {
-
     if (!params.photoIds?.length) {
       throw new BizError('photo.selectRequired');
     }
@@ -319,44 +318,59 @@ const albumService = {
       throw new BizError('album.selectRequired');
     }
 
-    const photos = await orm
-      .select({
-        photoId: photoTab.photoId
-      })
+    const candidatePhotos = await orm
+      .select()
       .from(photoTab)
       .where(and(
         eq(photoTab.userId, userId),
         inArray(photoTab.photoId, params.photoIds)
       ));
-    const photoIds = Array.from(new Set(photos.map((photo: any) => photo.photoId))) as string[];
 
-    if (!photoIds.length) {
+    if (!candidatePhotos.length) {
       return;
     }
 
-    const existsRows = await orm
-      .select({
-        albumId: albumPhotoTab.albumId,
-        photoId: albumPhotoTab.photoId
-      })
-      .from(albumPhotoTab)
-      .where(and(
-        inArray(albumPhotoTab.albumId, params.albumIds),
-        inArray(albumPhotoTab.photoId, photoIds)
-      ));
-    const existsKeys = new Set(existsRows.map((row: any) => `${row.albumId}:${row.photoId}`));
-    const rows = params.albumIds.flatMap((albumId: any) => (
-      photoIds
-        .filter((photoId: any) => !existsKeys.has(`${albumId}:${photoId}`))
-        .map((photoId: any) => ({
-          id: createId(),
-          photoId,
-          albumId
-        }))
-    ));
+    for (const albumId of params.albumIds) {
+      // Query all existing photos in this album to check for duplicates
+      const existingRows = await orm
+        .select({
+          photoId: photoTab.photoId,
+          checksum: photoTab.checksum,
+          thumbHash: photoTab.thumbHash,
+          width: photoTab.width,
+          height: photoTab.height,
+          size: photoTab.size,
+        })
+        .from(albumPhotoTab)
+        .innerJoin(photoTab, eq(albumPhotoTab.photoId, photoTab.photoId))
+        .where(eq(albumPhotoTab.albumId, albumId));
 
-    if (rows.length) {
-      await orm.insert(albumPhotoTab).values(rows);
+      const existingPhotoIds = new Set(existingRows.map((r: any) => r.photoId));
+      const existingChecksums = new Set(existingRows.map((r: any) => r.checksum).filter(Boolean));
+      const existingThumbHashes = new Set(existingRows.map((r: any) => r.thumbHash).filter(Boolean));
+      const existingDimSizes = new Set(
+        existingRows
+          .filter((r: any) => r.width && r.height && r.size)
+          .map((r: any) => `${r.width}x${r.height}:${r.size}`)
+      );
+
+      // Filter candidate photos that are NOT duplicates of any photo already in albumId
+      const newPhotosToAdd = candidatePhotos.filter((cp: any) => {
+        if (existingPhotoIds.has(cp.photoId)) return false;
+        if (cp.checksum && existingChecksums.has(cp.checksum)) return false;
+        if (cp.thumbHash && existingThumbHashes.has(cp.thumbHash)) return false;
+        if (cp.width && cp.height && cp.size && existingDimSizes.has(`${cp.width}x${cp.height}:${cp.size}`)) return false;
+        return true;
+      });
+
+      if (newPhotosToAdd.length) {
+        const rows = newPhotosToAdd.map((cp: any) => ({
+          id: createId(),
+          photoId: cp.photoId,
+          albumId,
+        }));
+        await orm.insert(albumPhotoTab).values(rows);
+      }
     }
   },
 
