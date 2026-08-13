@@ -734,39 +734,142 @@ const photoService = {
       photoVoMap.set(photo.photoId, vo);
     }
 
-    // Group candidates by visual key: checksum or thumbHash
-    const groupsMap = new Map<string, { type: 'visual' | 'checksum'; photoIds: string[] }>();
+    // Initialize Disjoint-Set Union (DSU) for multi-criteria grouping
+    const parentMap = new Map<string, string>();
+    function find(id: string): string {
+      if (!parentMap.has(id)) parentMap.set(id, id);
+      if (parentMap.get(id) !== id) {
+        parentMap.set(id, find(parentMap.get(id)!));
+      }
+      return parentMap.get(id)!;
+    }
+
+    function union(id1: string, id2: string) {
+      const root1 = find(id1);
+      const root2 = find(id2);
+      if (root1 !== root2) {
+        parentMap.set(root1, root2);
+      }
+    }
+
+    const matchReasonsMap = new Map<string, Set<string>>();
+    function addReason(photoId: string, reason: string) {
+      const set = matchReasonsMap.get(photoId) ?? new Set<string>();
+      set.add(reason);
+      matchReasonsMap.set(photoId, set);
+    }
+
+    // 1. Group by Checksum
+    const checksumMap = new Map<string, string[]>();
+    // 2. Group by ThumbHash
+    const thumbHashMap = new Map<string, string[]>();
+    // 3. Group by Dimensions + Size (width x height x size)
+    const dimSizeMap = new Map<string, string[]>();
+    // 4. Group by Normalized Name + Size
+    const nameSizeMap = new Map<string, string[]>();
 
     for (const p of list) {
-      // 1. Checksum key
-      const checksumKey = p.checksum ? `checksum:${p.checksum}` : null;
-      // 2. Visual thumbHash key
-      const thumbKey = p.thumbHash ? `thumb:${p.thumbHash}` : null;
+      find(p.photoId); // Register node in DSU
 
-      const groupKey = checksumKey ?? thumbKey;
-      if (!groupKey) continue;
+      if (p.checksum) {
+        const arr = checksumMap.get(p.checksum) ?? [];
+        arr.push(p.photoId);
+        checksumMap.set(p.checksum, arr);
+      }
 
-      const existing = groupsMap.get(groupKey) ?? {
-        type: checksumKey ? 'checksum' : 'visual',
-        photoIds: [],
-      };
-      existing.photoIds.push(p.photoId);
-      groupsMap.set(groupKey, existing);
+      if (p.thumbHash) {
+        const arr = thumbHashMap.get(p.thumbHash) ?? [];
+        arr.push(p.photoId);
+        thumbHashMap.set(p.thumbHash, arr);
+      }
+
+      if (p.width && p.height && p.size) {
+        const dimKey = `${p.width}x${p.height}:${p.size}`;
+        const arr = dimSizeMap.get(dimKey) ?? [];
+        arr.push(p.photoId);
+        dimSizeMap.set(dimKey, arr);
+      }
+
+      if (p.name && p.size) {
+        const cleanName = p.name.toLowerCase().trim().replace(/\.[^/.]+$/, '');
+        if (cleanName.length >= 3) {
+          const nameKey = `${cleanName}:${p.size}`;
+          const arr = nameSizeMap.get(nameKey) ?? [];
+          arr.push(p.photoId);
+          nameSizeMap.set(nameKey, arr);
+        }
+      }
+    }
+
+    // Perform Union operations
+    for (const [, pIds] of checksumMap.entries()) {
+      if (pIds.length >= 2) {
+        for (let i = 1; i < pIds.length; i++) {
+          union(pIds[0], pIds[i]);
+          addReason(pIds[i], 'Checksum Identik');
+        }
+        addReason(pIds[0], 'Checksum Identik');
+      }
+    }
+
+    for (const [, pIds] of thumbHashMap.entries()) {
+      if (pIds.length >= 2) {
+        for (let i = 1; i < pIds.length; i++) {
+          union(pIds[0], pIds[i]);
+          addReason(pIds[i], 'Tampilan Visual Identik');
+        }
+        addReason(pIds[0], 'Tampilan Visual Identik');
+      }
+    }
+
+    for (const [, pIds] of dimSizeMap.entries()) {
+      if (pIds.length >= 2) {
+        for (let i = 1; i < pIds.length; i++) {
+          union(pIds[0], pIds[i]);
+          addReason(pIds[i], 'Resolusi & Ukuran Sama');
+        }
+        addReason(pIds[0], 'Resolusi & Ukuran Sama');
+      }
+    }
+
+    for (const [, pIds] of nameSizeMap.entries()) {
+      if (pIds.length >= 2) {
+        for (let i = 1; i < pIds.length; i++) {
+          union(pIds[0], pIds[i]);
+          addReason(pIds[i], 'Nama & Ukuran Sama');
+        }
+        addReason(pIds[0], 'Nama & Ukuran Sama');
+      }
+    }
+
+    // Collect DSU root groups
+    const rootGroupsMap = new Map<string, string[]>();
+    for (const p of list) {
+      const root = find(p.photoId);
+      const arr = rootGroupsMap.get(root) ?? [];
+      arr.push(p.photoId);
+      rootGroupsMap.set(root, arr);
     }
 
     const resultGroups: PhotoDuplicateGroupVo[] = [];
     let groupCounter = 1;
 
-    for (const [, grp] of groupsMap.entries()) {
-      if (grp.photoIds.length >= 2) {
-        const photos = grp.photoIds
+    for (const [, pIds] of rootGroupsMap.entries()) {
+      if (pIds.length >= 2) {
+        const photos = pIds
           .map((id) => photoVoMap.get(id))
           .filter((p): p is PhotoVo => Boolean(p));
 
         if (photos.length >= 2) {
+          const reasons = new Set<string>();
+          for (const id of pIds) {
+            matchReasonsMap.get(id)?.forEach((r) => reasons.add(r));
+          }
+          const simType: 'checksum' | 'visual' = reasons.has('Checksum Identik') ? 'checksum' : 'visual';
+
           resultGroups.push({
             groupId: `dup-group-${groupCounter++}`,
-            similarityType: grp.type,
+            similarityType: simType,
             photos,
           });
         }

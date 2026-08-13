@@ -106,7 +106,11 @@ export function AlbumSelectDialog({ open, onOpenChange, onAlbumSelect, initialSe
       showCloseButton={false}
       onConfirm={saveAlbum}
     >
-      <div className="flex flex-col gap-3 max-h-[60vh] overflow-auto pb-0.25">
+      <div
+        className="flex flex-col gap-3 max-h-[60vh] overflow-auto pb-0.25 select-none"
+        onPointerDown={(e) => e.stopPropagation()}
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Button / Form to create a new album on the fly */}
         {!creating ? (
           <Button
