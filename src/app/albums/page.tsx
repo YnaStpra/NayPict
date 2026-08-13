@@ -23,6 +23,7 @@ import { useApp } from "@/app/provider"
 import { albumAdd, albumDelete, albumList, albumSetName, albumSetTop } from "@/request/album"
 import { type AlbumVo } from "@/server/entity/vo/album"
 import { useTranslations } from "next-intl"
+import { toast } from "sonner"
 
 import { UserTypeEnum } from "@/server/enums/user-enum"
 
@@ -74,9 +75,15 @@ export default function Page() {
   }
 
   function addAlbum(name: string) {
-    albumAdd({ name }).then(() => {
-      void refreshAlbumData()
-    })
+    albumAdd({ name })
+      .then(() => {
+        toast.success(`Album "${name}" berhasil dibuat!`)
+        void refreshAlbumData()
+      })
+      .catch((err: any) => {
+        console.error("Failed to add album:", err)
+        toast.error(err?.message || "Gagal membuat album baru.")
+      })
   }
 
   function renameAlbum(album: AlbumVo) {
@@ -199,7 +206,7 @@ export default function Page() {
               </Breadcrumb>
             </div>
             {isAdmin && (
-              <div className="fixed left-[calc(100vw-3.5rem)] md:left-[calc(100vw-4rem)] top-0 flex h-12 items-center gap-3 px-4">
+              <div className="flex items-center gap-2 px-4 z-30">
                 <AlbumAddDialog title={t("addTitle")} onNameConfirm={addAlbum} />
               </div>
             )}
