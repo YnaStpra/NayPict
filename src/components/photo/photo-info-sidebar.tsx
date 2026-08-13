@@ -168,8 +168,12 @@ export function PhotoInfoSidebar({ photo, onClose, onAlbumOpen }: PhotoInfoSideb
                 type="button"
                 variant="secondary"
                 size="sm"
-                className="w-full justify-center gap-2 bg-white/10 text-white hover:bg-white/20 border border-white/20 text-xs font-medium"
-                onClick={() => onAlbumOpen(photo.photoId)}
+                className="w-full justify-center gap-2 bg-white/10 text-white hover:bg-white/20 border border-white/20 text-xs font-medium cursor-pointer pointer-events-auto"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  e.preventDefault()
+                  onAlbumOpen(photo.photoId)
+                }}
               >
                 <FolderPlusIcon className="size-3.5" />
                 <span>+ Tambah ke Album</span>

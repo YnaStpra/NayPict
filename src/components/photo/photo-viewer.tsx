@@ -548,12 +548,12 @@ function AddToAlbumButton({
   const { currentSlide } = useLightboxState()
   const photoSlide = currentSlide && isImageSlide(currentSlide) ? (currentSlide as PhotoSlide) : null
 
-  function handleAddToAlbum() {
+  function handleAddToAlbum(e: React.MouseEvent) {
+    e.stopPropagation()
+    e.preventDefault()
     if (!photoSlide) return
     onAlbumOpen?.([photoSlide.photoId])
   }
-
-  const tap = useTapAction(handleAddToAlbum)
 
   if (!onAlbumOpen) return null
 
@@ -565,8 +565,8 @@ function AddToAlbumButton({
             type="button"
             size="icon"
             variant="secondary"
-            className="rounded-full bg-black/40 text-white transition-opacity duration-200 hover:bg-black/60"
-            {...tap}
+            className="rounded-full bg-black/40 text-white transition-opacity duration-200 hover:bg-black/60 cursor-pointer pointer-events-auto"
+            onClick={handleAddToAlbum}
           >
             <FolderPlusIcon className="size-4" />
             <span className="sr-only">Add to album</span>
