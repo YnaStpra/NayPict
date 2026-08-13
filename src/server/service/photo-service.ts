@@ -20,7 +20,7 @@ import { PHOTO_LIST_PAGE_SIZE } from '@/server/const/global';
 import { PhotoFavoriteEnum, PhotoStatusEnum } from '@/server/enums/photo-enum';
 import { StorageStatusEnum, StorageTypeOptions } from '@/server/enums/storage-enum';
 import { type PageVo } from '@/server/entity/vo/common';
-import { type PhotoAddResultVo, type PhotoExistsVo, type PhotoTakenDateVo, type PhotoVo } from '@/server/entity/vo/photo';
+import { type PhotoAddResultVo, type PhotoDuplicateGroupVo, type PhotoExistsVo, type PhotoTakenDateVo, type PhotoVo } from '@/server/entity/vo/photo';
 import { type Storage } from '@/server/entity/storage';
 import { storageService } from '@/server/service/storage-service';
 import { buildContentDisposition, formatFileTimestamp, splitFileName } from '@/server/lib/file';
@@ -685,7 +685,7 @@ const photoService = {
     };
   },
 
-  // Read photos from uploaded files buffer and name、size、type。
+  // Read photos from uploaded files buffer and name, size, type.
   async readPhotoUpload(file: File): Promise<{ buffer: Buffer; name: string; size: number; type: string }> {
     return {
       buffer: Buffer.from(await file.arrayBuffer()),
@@ -693,6 +693,87 @@ const photoService = {
       size: file.size,
       type: file.type || 'application/octet-stream',
     };
+  },
+
+  // Auto-detect duplicate photos based on visual similarity (thumbHash) or file checksum.
+  async findDuplicateGroups(userId?: string): Promise<PhotoDuplicateGroupVo[]> {
+    const whereList = [eq(photoTab.status, PhotoStatusEnum.NORMAL)];
+    if (userId) {
+      whereList.push(eq(photoTab.userId, userId));
+    }
+
+    const list = await orm
+      .select()
+      .from(photoTab)
+      .where(and(...whereList))
+      .orderBy(desc(photoTab.takenTime), desc(photoTab.photoId));
+
+    if (!list.length) return [];
+
+    const fileStorageList = await storageService.getStorageList();
+    const photoIds = list.map((p: any) => p.photoId);
+    const [exifMap, fileMap, albumMap] = await Promise.all([
+      exifService.listByPhotoIds(photoIds),
+      fileService.listByPhotoIds(photoIds),
+      albumService.listAlbumMapByPhotoIds(photoIds),
+    ]);
+
+    const photoVoMap = new Map<string, PhotoVo>();
+    for (const photo of list) {
+      const fileStorage = fileStorageList.find((item: any) => item.storageId === photo.storageId);
+      const domain = formatHttpUrl(fileStorage?.domain);
+      const vo = this.toPhotoVo(
+        photo,
+        fileMap.get(photo.photoId) ?? [],
+        fileStorage,
+        domain,
+        exifMap.get(photo.photoId) ?? null,
+        userId,
+        albumMap.get(photo.photoId) ?? []
+      );
+      photoVoMap.set(photo.photoId, vo);
+    }
+
+    // Group candidates by visual key: checksum or thumbHash
+    const groupsMap = new Map<string, { type: 'visual' | 'checksum'; photoIds: string[] }>();
+
+    for (const p of list) {
+      // 1. Checksum key
+      const checksumKey = p.checksum ? `checksum:${p.checksum}` : null;
+      // 2. Visual thumbHash key
+      const thumbKey = p.thumbHash ? `thumb:${p.thumbHash}` : null;
+
+      const groupKey = checksumKey ?? thumbKey;
+      if (!groupKey) continue;
+
+      const existing = groupsMap.get(groupKey) ?? {
+        type: checksumKey ? 'checksum' : 'visual',
+        photoIds: [],
+      };
+      existing.photoIds.push(p.photoId);
+      groupsMap.set(groupKey, existing);
+    }
+
+    const resultGroups: PhotoDuplicateGroupVo[] = [];
+    let groupCounter = 1;
+
+    for (const [, grp] of groupsMap.entries()) {
+      if (grp.photoIds.length >= 2) {
+        const photos = grp.photoIds
+          .map((id) => photoVoMap.get(id))
+          .filter((p): p is PhotoVo => Boolean(p));
+
+        if (photos.length >= 2) {
+          resultGroups.push({
+            groupId: `dup-group-${groupCounter++}`,
+            similarityType: grp.type,
+            photos,
+          });
+        }
+      }
+    }
+
+    return resultGroups;
   }
 }
 

@@ -16,19 +16,19 @@ import {
   SidebarHeader,
   SidebarRail,
 } from "@/components/ui/sidebar"
-import { Library, MonitorCog, Image, Heart, Trash2, FolderOpen, Database, User, Settings } from "lucide-react"
+import { Library, MonitorCog, Image, Heart, Trash2, FolderOpen, Database, User, Settings, CopyCheck } from "lucide-react"
 
-// Determine whether the current browser path hits the menu URL。
+// Determine whether the current browser path hits the menu URL.
 function isUrlMatched(pathname: string, url: string) {
   return pathname === url || pathname.startsWith(`${url}/`)
 }
 
-// According to avatar key Generate avatar picture access address。
+// According to avatar key Generate avatar picture access address.
 function getAvatarUrl(avatar: string | undefined, fallbackAvatar: string) {
   return avatar ? `/api/user/avatar/${avatar}` : fallbackAvatar
 }
 
-// Rendering the app sidebar，And generate navigation copy based on the current language。
+// Rendering the app sidebar, And generate navigation copy based on the current language.
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const t = useTranslations("layout")
   const pathname = usePathname()
@@ -58,6 +58,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     ],
     sysMain: [
       { title: t("navigation.storage"), url: "/storage", icon: <Database />, isActive: false },
+      { title: "Foto Duplikat", url: "/duplicates", icon: <CopyCheck />, isActive: false },
       { title: t("navigation.settings"), url: "/settings", icon: <Settings />, isActive: false },
     ],
   }

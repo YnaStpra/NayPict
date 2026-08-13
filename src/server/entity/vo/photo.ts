@@ -30,4 +30,10 @@ interface PhotoExistsVo {
   photoId?: string | null;
 }
 
-export type { PhotoVo, PhotoTakenDateVo, PhotoAddResultVo, PhotoExistsVo };
+interface PhotoDuplicateGroupVo {
+  groupId: string;
+  similarityType: 'visual' | 'checksum';
+  photos: PhotoVo[];
+}
+
+export type { PhotoVo, PhotoTakenDateVo, PhotoAddResultVo, PhotoExistsVo, PhotoDuplicateGroupVo };
