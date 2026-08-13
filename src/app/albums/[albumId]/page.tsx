@@ -26,7 +26,13 @@ import { photoFavorite, photoRecycle } from "@/request/photo"
 import { albumAddPhoto, albumRemovePhoto } from "@/request/album"
 import { useAlbumStore } from "@/store/album-store"
 import { usePhotoStore } from "@/store/photo-store"
-import { ArrowLeftIcon, PlusIcon } from "lucide-react"
+import { ArrowLeftIcon, LayoutGrid, PlusIcon, Sparkles } from "lucide-react"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 import { useAlbumPhotoContext } from "@/app/albums/[albumId]/provider"
 import { useApp } from "@/app/provider"
 import { PhotoDateDrawer } from "@/components/photo/photo-date-drawer"
@@ -43,6 +49,11 @@ const PhotoViewer = dynamic(
   { ssr: false }
 )
 
+const InfiniteGallery = dynamic(
+  () => import("@/components/gallery/infinite-gallery").then((mod) => mod.InfiniteGallery),
+  { ssr: false }
+)
+
 export default function Page() {
   const t = useTranslations("albums")
   const router = useRouter()
@@ -52,8 +63,9 @@ export default function Page() {
   const isAdmin = userInfo?.type === UserTypeEnum.ADMIN
   const currentAlbumName = useAlbumStore((state) => state.currentAlbumName)
   const albumIdRef = useRef(albumId)
-  // isBrowser Mark whether you are currently in the browser environment，SSR Stage display skeleton screen。
+  // isBrowser Mark whether you are currently in the browser environment, SSR Stage display skeleton screen.
   const [isBrowser, setIsBrowser] = useState(false)
+  const [viewMode, setViewMode] = useState<"masonry" | "infinite">("infinite")
   const {
     photos,
     masonryKey,
@@ -222,7 +234,25 @@ export default function Page() {
                 </BreadcrumbList>
               </Breadcrumb>
             </div>
-            <div className="fixed left-[calc(100vw-5.75rem)] md:left-[calc(100vw-6.25rem)] top-0 flex h-12 items-center gap-1 px-4">
+            <div className="fixed left-[calc(100vw-7.75rem)] md:left-[calc(100vw-8.25rem)] top-0 z-30 flex h-12 items-center gap-1.5 px-4">
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant={viewMode === "infinite" ? "secondary" : "ghost"}
+                      className="size-8 rounded-lg"
+                      onClick={() => setViewMode((prev) => (prev === "masonry" ? "infinite" : "masonry"))}
+                    >
+                      {viewMode === "infinite" ? <LayoutGrid className="size-4 text-primary" /> : <Sparkles className="size-4" />}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">
+                    {viewMode === "infinite" ? "Switch to Masonry Grid View" : "Switch to Infinite Canvas View"}
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
               <PhotoDateDrawer albumId={albumId} onRangeChange={changePhotoTime} />
               {isAdmin && (
                 <Button
@@ -238,16 +268,32 @@ export default function Page() {
           </header>
           <div className="px-1 md:pl-1 md:pr-0">
             {isBrowser ? (
-              <PhotoMasonry
-                photos={photos}
-                resetKey={masonryKey}
-                onReachBottom={loadMorePhotos}
-                onPhotoOpen={openPhoto}
-                onPhotoFavorite={isAdmin ? changePhotoFavorite : undefined}
-                onPhotoDelete={isAdmin ? recyclePhotos : undefined}
-                onAlbumOpen={isAdmin ? openAlbumDialog : undefined}
-                onAlbumRemove={isAdmin ? removeAlbumPhotos : undefined}
-              />
+              viewMode === "infinite" ? (
+                <div className="relative w-full h-[calc(100vh-3.5rem)] rounded-xl overflow-hidden border bg-background/50">
+                  <InfiniteGallery
+                    photos={photos}
+                    onPhotoClick={(index) => openPhoto(index)}
+                    density={10}
+                    imageWidth={180}
+                    imageHeight={180}
+                    rounded={6}
+                    dragSpeed={20}
+                    driftAmount={15}
+                    friction={10}
+                  />
+                </div>
+              ) : (
+                <PhotoMasonry
+                  photos={photos}
+                  resetKey={masonryKey}
+                  onReachBottom={loadMorePhotos}
+                  onPhotoOpen={openPhoto}
+                  onPhotoFavorite={isAdmin ? changePhotoFavorite : undefined}
+                  onPhotoDelete={isAdmin ? recyclePhotos : undefined}
+                  onAlbumOpen={isAdmin ? openAlbumDialog : undefined}
+                  onAlbumRemove={isAdmin ? removeAlbumPhotos : undefined}
+                />
+              )
             ) : (
               <PhotoMasonrySkeleton photos={initialPhotos} />
             )}
