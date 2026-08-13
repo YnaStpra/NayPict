@@ -172,7 +172,7 @@ export function InfiniteGallery(props: InfiniteGalleryProps) {
   const safeImages: GalleryImage[] = useMemo(() => {
     if (photos && photos.length > 0) {
       return photos.map((photo, idx) => ({
-        src: photo.preview || photo.thumbnail || photo.key || "",
+        src: photo.thumbnail || photo.preview || photo.key || "",
         alt: photo.name || `Photo ${idx + 1}`,
         photoId: photo.photoId,
         photoIndex: idx,
@@ -339,7 +339,20 @@ export function InfiniteGallery(props: InfiniteGalleryProps) {
       pool.imgEls.delete(key)
     }
 
-    const ensureTile = (t: Tile): HTMLDivElement => {
+    const cellCache = new Map<string, Tile[]>()
+
+    const getCachedCell = (gx: number, gy: number, octave: number): Tile[] => {
+      const cacheKey = `${gx},${gy},${octave}`
+      let cached = cellCache.get(cacheKey)
+      if (!cached) {
+        cached = generateCell(gx, gy, octave)
+        if (cellCache.size > 2000) cellCache.clear()
+        cellCache.set(cacheKey, cached)
+      }
+      return cached
+    }
+
+    const ensureTile = (t: Tile, layerZBase: number): HTMLDivElement => {
       const pool = getPool(t.octave)
       const key = `${t.cx},${t.cy},${t.slot}`
       let el = pool.tileEls.get(key)
@@ -354,11 +367,19 @@ export function InfiniteGallery(props: InfiniteGalleryProps) {
         el.style.cursor = "pointer"
         el.dataset.tileKey = key
 
+        const wPx = t.w * PX_PER_UNIT
+        const hPx = t.h * PX_PER_UNIT
+        el.style.width = `${wPx}px`
+        el.style.height = `${hPx}px`
+        el.style.zIndex = String(layerZBase + Math.floor(t.bakedScale * 1000))
+
         const img = document.createElement("img")
         const src = safeImages[t.imgIdx]
         img.src = src?.src || ""
         if (src?.srcSet) img.srcset = src.srcSet
         img.alt = src?.alt || ""
+        img.decoding = "async"
+        img.loading = "lazy"
         img.draggable = false
         img.style.width = "100%"
         img.style.height = "100%"
@@ -367,6 +388,10 @@ export function InfiniteGallery(props: InfiniteGalleryProps) {
         img.style.pointerEvents = "none"
         img.style.userSelect = "none"
         img.style.transition = "transform 0.2s ease, box-shadow 0.2s ease"
+
+        const radiusPx = (safeRounded / 20) * (Math.min(wPx, hPx) / 2)
+        img.style.borderRadius = `${radiusPx}px`
+
         el.appendChild(img)
 
         // Click handler with drag distinction
@@ -430,62 +455,34 @@ export function InfiniteGallery(props: InfiniteGalleryProps) {
       )
 
       const visibleKeys = new Set<string>()
-      const tilesThisFrame: Tile[] = []
 
       for (let dy = -rangeY; dy <= rangeY; dy++) {
         for (let dx = -rangeX; dx <= rangeX; dx++) {
-          const tiles = generateCell(
+          const tiles = getCachedCell(
             camCellX + dx,
             camCellY + dy,
             octave
           )
           for (let i = 0; i < tiles.length; i++) {
-            tilesThisFrame.push(tiles[i])
+            const t = tiles[i]
+            const key = `${t.cx},${t.cy},${t.slot}`
+            visibleKeys.add(key)
+
+            const dxPx = (t.wx - cx) * layerScale * PX_PER_UNIT
+            const dyPx = (t.wy - cy) * layerScale * PX_PER_UNIT
+            const s = t.bakedScale * layerScale
+            const wPx = t.w * PX_PER_UNIT
+            const hPx = t.h * PX_PER_UNIT
+
+            const el = ensureTile(t, layerZBase)
+            el.style.transform = `translate3d(${dxPx}px, ${dyPx}px, 0) scale(${s}) rotate(${t.rot}deg) translate(${-wPx / 2}px, ${-hPx / 2}px)`
+            el.style.opacity = String(layerAlpha)
           }
         }
       }
 
-      const orderKeys: string[] = new Array(tilesThisFrame.length)
-      const orderScale: number[] = new Array(tilesThisFrame.length)
-
-      for (let i = 0; i < tilesThisFrame.length; i++) {
-        const t = tilesThisFrame[i]
-        const key = `${t.cx},${t.cy},${t.slot}`
-        visibleKeys.add(key)
-
-        const dxPx = (t.wx - cx) * layerScale * PX_PER_UNIT
-        const dyPx = (t.wy - cy) * layerScale * PX_PER_UNIT
-        const s = t.bakedScale * layerScale
-
-        const el = ensureTile(t)
-        const img = pool.imgEls.get(key)
-
-        const wPx = t.w * PX_PER_UNIT
-        const hPx = t.h * PX_PER_UNIT
-
-        el.style.transform = `translate3d(${dxPx}px, ${dyPx}px, 0) scale(${s}) rotate(${t.rot}deg) translate(${-wPx / 2}px, ${-hPx / 2}px)`
-        el.style.width = `${wPx}px`
-        el.style.height = `${hPx}px`
-        el.style.opacity = String(layerAlpha)
-
-        if (img) {
-          const radiusPx = (safeRounded / 20) * (Math.min(wPx, hPx) / 2)
-          img.style.borderRadius = `${radiusPx}px`
-        }
-
-        orderKeys[i] = key
-        orderScale[i] = t.bakedScale
-      }
-
       for (const key of Array.from(pool.tileEls.keys())) {
         if (!visibleKeys.has(key)) removeTile(octave, key)
-      }
-
-      const idxs = orderKeys.map((_, i) => i)
-      idxs.sort((a, b) => orderScale[a] - orderScale[b])
-      for (let k = 0; k < idxs.length; k++) {
-        const el = pool.tileEls.get(orderKeys[idxs[k]])
-        if (el) el.style.zIndex = String(layerZBase + k)
       }
     }
 

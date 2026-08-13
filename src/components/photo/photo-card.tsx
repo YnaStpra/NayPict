@@ -166,6 +166,8 @@ export function PhotoCard({
       ) : (
         <img
           src={src ?? undefined}
+          loading="lazy"
+          decoding="async"
           crossOrigin="anonymous"
           alt={data.name}
           draggable={false}
