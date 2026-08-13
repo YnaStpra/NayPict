@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { useEffect, useMemo, useRef } from "react"
+import { useCallback, useEffect, useMemo, useRef } from "react"
 import { type PhotoVo } from "@/server/entity/vo/photo"
 import { RotateCcw, ZoomIn, ZoomOut } from "lucide-react"
 
@@ -212,6 +212,28 @@ export function InfiniteGallery(props: InfiniteGalleryProps) {
   const driftX = useMotionValue(0)
   const driftY = useMotionValue(0)
 
+  // Controls auto zoom & pan drift, pausing on user interaction and reactivating after 15s idle
+  const isAutoAnimatingRef = useRef(true)
+  const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const resetIdleTimer = useCallback(() => {
+    isAutoAnimatingRef.current = false
+    if (idleTimerRef.current) {
+      clearTimeout(idleTimerRef.current)
+    }
+    idleTimerRef.current = setTimeout(() => {
+      isAutoAnimatingRef.current = true
+    }, 15000)
+  }, [])
+
+  useEffect(() => {
+    return () => {
+      if (idleTimerRef.current) {
+        clearTimeout(idleTimerRef.current)
+      }
+    }
+  }, [])
+
   const subN = Math.max(1, Math.ceil(Math.sqrt(safeDensity)))
   const subSize = CELL_SIZE / subN
   const SUBCELL_INNER_PAD = 0.1
@@ -414,6 +436,7 @@ export function InfiniteGallery(props: InfiniteGalleryProps) {
 
         const triggerClick = (e: Event) => {
           e.stopPropagation()
+          resetIdleTimer()
           const pId = divEl.dataset.photoId
           let realIndex = -1
           if (pId && photos && photos.length > 0) {
@@ -572,6 +595,13 @@ export function InfiniteGallery(props: InfiniteGalleryProps) {
     let raf = 0
 
     const loop = () => {
+      if (isAutoAnimatingRef.current) {
+        // Slow, smooth cinematic auto-zoom & pan drift on open and after 15s idle
+        targetLogZoom.set(targetLogZoom.get() + 0.0003)
+        targetX.set(targetX.get() + 0.12)
+        targetY.set(targetY.get() + 0.06)
+      }
+
       const tx = targetX.get() + velX.get()
       const ty = targetY.get() + velY.get()
       targetX.set(tx)
@@ -640,6 +670,7 @@ export function InfiniteGallery(props: InfiniteGalleryProps) {
 
     const onDown = (e: PointerEvent) => {
       if (e.button !== 0 && e.pointerType === "mouse") return
+      resetIdleTimer()
       dragging = true
       hasCaptured = false
       pid = e.pointerId
@@ -658,6 +689,8 @@ export function InfiniteGallery(props: InfiniteGalleryProps) {
       driftTY.set(Math.max(-1, Math.min(1, ny)))
 
       if (!dragging || e.pointerId !== pid) return
+
+      resetIdleTimer()
 
       const moveDist = Math.hypot(e.clientX - startPX, e.clientY - startPY)
       if (moveDist > 4 && !hasCaptured) {
@@ -707,6 +740,7 @@ export function InfiniteGallery(props: InfiniteGalleryProps) {
 
     const onWheel = (e: WheelEvent) => {
       e.preventDefault()
+      resetIdleTimer()
       let delta = e.deltaY
       if (e.deltaMode === 1) delta *= 16
       else if (e.deltaMode === 2) delta *= 400
@@ -732,6 +766,7 @@ export function InfiniteGallery(props: InfiniteGalleryProps) {
     }
 
     const onTouchStart = (e: TouchEvent) => {
+      resetIdleTimer()
       if (e.touches.length === 2) {
         isPinching = true
         dragging = false
@@ -742,6 +777,7 @@ export function InfiniteGallery(props: InfiniteGalleryProps) {
 
     const onTouchMove = (e: TouchEvent) => {
       if (isPinching && e.touches.length === 2) {
+        resetIdleTimer()
         if (e.cancelable) e.preventDefault()
         const dist = getTouchDist(e)
         if (dist > 0 && initialPinchDist > 0) {
@@ -797,6 +833,7 @@ export function InfiniteGallery(props: InfiniteGalleryProps) {
     targetLogZoom,
     driftTX,
     driftTY,
+    resetIdleTimer,
   ])
 
   const resolveDim = (
@@ -828,14 +865,17 @@ export function InfiniteGallery(props: InfiniteGalleryProps) {
   }
 
   const handleZoomIn = () => {
+    resetIdleTimer()
     targetLogZoom.set(targetLogZoom.get() + 0.6)
   }
 
   const handleZoomOut = () => {
+    resetIdleTimer()
     targetLogZoom.set(targetLogZoom.get() - 0.6)
   }
 
   const handleResetZoom = () => {
+    resetIdleTimer()
     targetLogZoom.set(0)
     targetX.set(0)
     targetY.set(0)
