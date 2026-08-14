@@ -25,14 +25,10 @@ function nestMessages(messages: Record<string, string>): Record<string, unknown>
 
 // Read the browser language and return the corresponding translation message。
 export default getRequestConfig(async () => {
-  const requestHeaders = await headers()
-  const locale = resolveLocale(requestHeaders.get("accept-language"))
-  const flatMessages = locale === "en"
-    ? (await import("../../locales/web/en.json")).default
-    : (await import("../../locales/web/zh.json")).default
+  const flatMessages = (await import("../../locales/web/en.json")).default
 
   return {
-    locale,
+    locale: "en",
     messages: nestMessages(flatMessages),
   }
 })

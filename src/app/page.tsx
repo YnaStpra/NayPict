@@ -59,7 +59,7 @@ export default function Home() {
               NayPict
             </h1>
             <p className="text-xs sm:text-sm text-slate-300 font-medium max-w-xs mx-auto leading-relaxed">
-              Galeri Foto Indah & Koleksi Album Kenangan Estetik
+              Aesthetic Photo Gallery & Favorite Album Collection
             </p>
           </div>
 
@@ -71,7 +71,7 @@ export default function Home() {
             >
               <div className="flex items-center gap-3">
                 <ImageIcon className="size-5" />
-                <span>Jelajahi Galeri</span>
+                <span>Explore Gallery</span>
               </div>
               <ArrowRight className="size-4 opacity-75 group-hover:translate-x-1 transition-transform" />
             </Link>
@@ -82,7 +82,7 @@ export default function Home() {
             >
               <div className="flex items-center gap-3">
                 <FolderHeart className="size-5 text-amber-300" />
-                <span>Lihat Album</span>
+                <span>Browse Albums</span>
               </div>
               <ArrowRight className="size-4 opacity-75 group-hover:translate-x-1 transition-transform" />
             </Link>

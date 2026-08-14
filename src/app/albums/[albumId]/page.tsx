@@ -68,15 +68,15 @@ const InfiniteGallery = dynamic(
 type SortOptionKey = 'none' | 'takenTime_desc' | 'takenTime_asc' | 'createTime_desc' | 'createTime_asc' | 'size_desc' | 'size_asc' | 'name_asc' | 'name_desc'
 
 const SORT_OPTIONS: { key: SortOptionKey; label: string; sortBy?: 'takenTime' | 'createTime' | 'size' | 'name' | null; sortOrder?: 'asc' | 'desc' | null; shuffle?: boolean }[] = [
-  { key: 'none', label: 'Default / Acak (Bawaan Web)', sortBy: null, sortOrder: null, shuffle: true },
-  { key: 'takenTime_desc', label: 'Tanggal Foto (Terbaru)', sortBy: 'takenTime', sortOrder: 'desc', shuffle: false },
-  { key: 'takenTime_asc', label: 'Tanggal Foto (Terlama)', sortBy: 'takenTime', sortOrder: 'asc', shuffle: false },
-  { key: 'createTime_desc', label: 'Terakhir Ditambahkan', sortBy: 'createTime', sortOrder: 'desc', shuffle: false },
-  { key: 'createTime_asc', label: 'Pertama Ditambahkan', sortBy: 'createTime', sortOrder: 'asc', shuffle: false },
-  { key: 'size_desc', label: 'Ukuran Berkas (Terbesar)', sortBy: 'size', sortOrder: 'desc', shuffle: false },
-  { key: 'size_asc', label: 'Ukuran Berkas (Terkecil)', sortBy: 'size', sortOrder: 'asc', shuffle: false },
-  { key: 'name_asc', label: 'Nama Foto (A - Z)', sortBy: 'name', sortOrder: 'asc', shuffle: false },
-  { key: 'name_desc', label: 'Nama Foto (Z - A)', sortBy: 'name', sortOrder: 'desc', shuffle: false },
+  { key: 'none', label: 'Default / Random', sortBy: null, sortOrder: null, shuffle: true },
+  { key: 'takenTime_desc', label: 'Taken Date (Newest)', sortBy: 'takenTime', sortOrder: 'desc', shuffle: false },
+  { key: 'takenTime_asc', label: 'Taken Date (Oldest)', sortBy: 'takenTime', sortOrder: 'asc', shuffle: false },
+  { key: 'createTime_desc', label: 'Recently Added', sortBy: 'createTime', sortOrder: 'desc', shuffle: false },
+  { key: 'createTime_asc', label: 'Oldest Added', sortBy: 'createTime', sortOrder: 'asc', shuffle: false },
+  { key: 'size_desc', label: 'File Size (Largest)', sortBy: 'size', sortOrder: 'desc', shuffle: false },
+  { key: 'size_asc', label: 'File Size (Smallest)', sortBy: 'size', sortOrder: 'asc', shuffle: false },
+  { key: 'name_asc', label: 'Name (A - Z)', sortBy: 'name', sortOrder: 'asc', shuffle: false },
+  { key: 'name_desc', label: 'Name (Z - A)', sortBy: 'name', sortOrder: 'desc', shuffle: false },
 ]
 
 export default function Page() {
@@ -320,19 +320,19 @@ export default function Page() {
                         >
                           <ArrowUpDown className="size-3.5 text-primary shrink-0" />
                           <span className="hidden md:inline-block max-w-[140px] truncate">
-                            {SORT_OPTIONS.find((o) => o.key === sortKey)?.label || "Urutkan"}
+                            {SORT_OPTIONS.find((o) => o.key === sortKey)?.label || "Sort"}
                           </span>
                           <ChevronDown className="size-3 text-muted-foreground" />
                         </Button>
                       </DropdownMenuTrigger>
                     </TooltipTrigger>
-                    <TooltipContent side="bottom">Urutkan Foto Album</TooltipContent>
+                    <TooltipContent side="bottom">Sort Album Photos</TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
 
                 <DropdownMenuContent align="end" className="w-56 z-[50]">
                   <DropdownMenuLabel className="text-xs text-muted-foreground font-semibold px-2 py-1.5">
-                    Urutkan Berdasarkan
+                    Sort By
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   <DropdownMenuRadioGroup value={sortKey} onValueChange={(val) => handleSortChange(val as SortOptionKey)}>

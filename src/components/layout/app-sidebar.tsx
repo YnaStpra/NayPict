@@ -58,7 +58,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     ],
     sysMain: [
       { title: t("navigation.storage"), url: "/storage", icon: <Database />, isActive: false },
-      { title: "Foto Duplikat", url: "/duplicates", icon: <CopyCheck />, isActive: false },
+      { title: "Duplicate Photos", url: "/duplicates", icon: <CopyCheck />, isActive: false },
       { title: t("navigation.settings"), url: "/settings", icon: <Settings />, isActive: false },
     ],
   }

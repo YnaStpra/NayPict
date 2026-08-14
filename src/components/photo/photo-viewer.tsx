@@ -573,7 +573,7 @@ function AddToAlbumButton({
           </Button>
         </TooltipTrigger>
         <TooltipContent side="bottom">
-          <p>Tambah ke Album</p>
+          <p>Add to Album</p>
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>
@@ -639,7 +639,7 @@ function AlbumOverlayBadge({ isCinematicMode }: { isCinematicMode: boolean }) {
   return (
     <div className="absolute bottom-3 left-3 md:bottom-4 md:left-4 z-40 flex items-center gap-1.5 rounded-full bg-black/75 px-3.5 py-1.5 text-xs text-white backdrop-blur-md border border-white/15 shadow-lg select-none max-w-[85vw] md:max-w-md truncate">
       <FolderIcon className="size-3.5 text-primary shrink-0" />
-      <span className="font-medium text-white/70 shrink-0">Berada di album:</span>
+      <span className="font-medium text-white/70 shrink-0">In Albums:</span>
       <span className="font-semibold text-white truncate" title={albumText}>
         {albumText}
       </span>
