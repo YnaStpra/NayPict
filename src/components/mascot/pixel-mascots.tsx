@@ -572,85 +572,133 @@ export function PixelMascots() {
             </div>
           )}
 
-          {/* SVG C (100% IDENTICAL TO USER REFERENCE IMAGE PIXEL ART) */}
-          <svg width="42" height="70" viewBox="0 0 38 68" className="drop-shadow-md" style={{ imageRendering: 'pixelated' }}>
-            {/* === BLACK OUTLINE & BASE SHAPE === */}
-            {/* Crown Spikes */}
-            <rect x="14" y="2" width="10" height="7" fill="#000000" />
-            <rect x="15" y="3" width="8" height="5" fill="#f5a623" />
-            <rect x="18" y="4" width="2" height="3" fill="#e60000" />
-            <rect x="15" y="4" width="2" height="2" fill="#0091ff" />
-            <rect x="21" y="4" width="2" height="2" fill="#0091ff" />
-
-            {/* Hair Flaring Outline & Golden Yellow Fill */}
-            {/* Top Hair Dome */}
-            <path d="M 10 7 L 28 7 L 31 10 L 33 14 L 35 17 L 32 17 L 36 21 L 30 21 L 33 26 L 29 26 L 31 33 L 7 33 L 9 26 L 5 26 L 8 21 L 2 21 L 6 17 L 3 17 L 5 14 L 7 10 Z" fill="#ffe57f" stroke="#000000" strokeWidth="1" />
-
-            {/* Cyan Earrings */}
-            <rect x="12" y="20" width="3" height="3" rx="1" fill="#0091ff" stroke="#000000" strokeWidth="0.5" />
-            <rect x="23" y="20" width="3" height="3" rx="1" fill="#0091ff" stroke="#000000" strokeWidth="0.5" />
-
-            {/* Peach Face Front */}
-            <rect x="14" y="10" width="10" height="11" fill="#fedac2" />
-            {/* Black Eyebrows */}
-            <rect x="15" y="11" width="3" height="1" fill="#000000" />
-            <rect x="20" y="11" width="3" height="1" fill="#000000" />
-            {/* Ocean Blue Eyes */}
-            <rect x="15" y="13" width="3" height="4" fill="#0091ff" stroke="#000000" strokeWidth="0.5" />
-            <rect x="16" y="13" width="1" height="2" fill="#000000" />
-            <rect x="20" y="13" width="3" height="4" fill="#0091ff" stroke="#000000" strokeWidth="0.5" />
-            <rect x="21" y="13" width="1" height="2" fill="#000000" />
-            {/* Nose Dot */}
-            <rect x="18.5" y="17" width="1" height="1.5" fill="#000000" />
-            {/* Red Lips */}
-            <rect x="17.5" y="19" width="3" height="1" fill="#e60000" />
-
-            {/* Light Pink Puff Sleeves & Bodice */}
-            <rect x="10" y="22" width="6" height="5" rx="1" fill="#ff9ebb" stroke="#000000" strokeWidth="1" />
-            <rect x="22" y="22" width="6" height="5" rx="1" fill="#ff9ebb" stroke="#000000" strokeWidth="1" />
-
-            {/* Cyan Brooch with Gold Ring */}
-            <ellipse cx="19" cy="24" rx="2.5" ry="3" fill="#0091ff" stroke="#f5a623" strokeWidth="1" />
-
-            {/* White V-Lace Bodice Panel */}
-            <path d="M 16 26 L 22 26 L 20 33 L 18 33 Z" fill="#ffffff" stroke="#000000" strokeWidth="0.5" />
-
-            {/* Hot Pink Hip Peplum / Panniers */}
-            <path d="M 9 32 C 9 32, 14 30, 18 33 C 14 38, 9 37, 9 32 Z" fill="#ff3b7c" stroke="#000000" strokeWidth="1" />
-            <path d="M 29 32 C 29 32, 24 30, 20 33 C 24 38, 29 37, 29 32 Z" fill="#ff3b7c" stroke="#000000" strokeWidth="1" strokeLinecap="round" />
-
-            {/* Long White Gloves */}
-            {cState === 'wave' ? (
+          {/* SVG C (MARIO & LUIGI 3: BOWSER'S INSIDE STORY PRINCESS PEACH SPRITE) */}
+          <svg width="34" height="48" viewBox="0 0 22 34" className="drop-shadow-md" style={{ imageRendering: 'pixelated' }}>
+            {isCMoving ? (
+              /* ROW 2 OF MARIO & LUIGI 3 SPRITE SHEET: 3/4 SIDE PROFILE WALKING GAIT */
               <g>
-                <path d="M 7 30 L 10 26 L 11 36 L 8 36 Z" fill="#ffffff" stroke="#000000" strokeWidth="1" />
-                {/* Waving Arm Raised */}
-                <path d="M 28 26 L 31 16 L 33 16 L 30 26 Z" fill="#ffffff" stroke="#000000" strokeWidth="1" />
+                {/* Gold Crown */}
+                <rect x="7" y="1" width="6" height="3" fill="#fbc02d" stroke="#000000" strokeWidth="0.5" />
+                <rect x="7" y="1" width="1" height="1" fill="#d50000" />
+                <rect x="12" y="1" width="1" height="1" fill="#00b0ff" />
+                <rect x="9" y="1" width="2" height="1" fill="#00b0ff" />
+
+                {/* Golden Hair (Profile Flow) */}
+                <rect x="4" y="4" width="9" height="7" fill="#ffd600" />
+                <rect x="3" y="6" width="3" height="8" fill="#f57f17" />
+                <rect x="2" y="9" width="3" height="6" fill="#e65100" />
+
+                {/* Blue Earring */}
+                <rect x="6" y="9" width="2" height="2" rx="0.5" fill="#00b0ff" stroke="#000000" strokeWidth="0.5" />
+
+                {/* Peach Face Profile */}
+                <rect x="7" y="4" width="7" height="6" fill="#ffe0b2" />
+                {/* Large Ocean Blue Eye */}
+                <rect x="10" y="6" width="3" height="3" fill="#00b0ff" stroke="#000000" strokeWidth="0.5" />
+                <rect x="11" y="6" width="1" height="2" fill="#000000" />
+                {/* Red Mouth */}
+                <rect x="12" y="9" width="2" height="1" fill="#d50000" />
+
+                {/* Light Pink Bodice & Collar */}
+                <rect x="6" y="11" width="8" height="4" fill="#ff80ab" stroke="#000000" strokeWidth="0.5" />
+                {/* Blue Chest Brooch */}
+                <ellipse cx="11" cy="12" rx="1.5" ry="1.5" fill="#00b0ff" stroke="#fbc02d" strokeWidth="0.5" />
+
+                {/* Main Pastel Pink Skirt */}
+                <path d="M 5 15 L 15 15 L 18 31 L 2 31 Z" fill="#ff80ab" stroke="#000000" strokeWidth="0.5" />
+                {/* Bottom Hem Magenta Accent Ring */}
+                <path d="M 2 29 L 18 29 L 18.5 32 L 1.5 32 Z" fill="#d81b60" stroke="#000000" strokeWidth="0.5" />
+
+                {/* White Glove & Hand Stepping Motion */}
+                <rect x={animFrame === 0 ? "10" : "12"} y="13" width="3" height="4" rx="1" fill="#ffffff" stroke="#000000" strokeWidth="0.5" />
+                <rect x={animFrame === 0 ? "6" : "4"} y="14" width="3" height="3" rx="1" fill="#ffffff" stroke="#000000" strokeWidth="0.5" />
+              </g>
+            ) : cState === 'wave' || cState === 'pet-kuro' ? (
+              /* ROW 4 OF MARIO & LUIGI 3 SPRITE SHEET: FRONT VIEW WAVING HAND */
+              <g>
+                {/* Gold Crown */}
+                <rect x="8" y="1" width="6" height="3" fill="#fbc02d" stroke="#000000" strokeWidth="0.5" />
+                <rect x="8" y="1" width="1" height="1" fill="#d50000" />
+                <rect x="13" y="1" width="1" height="1" fill="#d50000" />
+                <rect x="10" y="1" width="2" height="1" fill="#00b0ff" />
+
+                {/* Golden Hair */}
+                <rect x="4" y="4" width="14" height="6" fill="#ffd600" />
+                <rect x="3" y="6" width="3" height="9" fill="#f57f17" />
+                <rect x="16" y="6" width="3" height="9" fill="#f57f17" />
+
+                {/* Blue Earrings */}
+                <rect x="4" y="9" width="2" height="2" fill="#00b0ff" stroke="#000000" strokeWidth="0.5" />
+                <rect x="16" y="9" width="2" height="2" fill="#00b0ff" stroke="#000000" strokeWidth="0.5" />
+
+                {/* Peach Face Front */}
+                <rect x="6" y="4" width="10" height="6" fill="#ffe0b2" />
+                {/* Large Blue Eyes */}
+                <rect x="7" y="6" width="2" height="3" fill="#00b0ff" stroke="#000000" strokeWidth="0.5" />
+                <rect x="7" y="6" width="1" height="2" fill="#000000" />
+                <rect x="13" y="6" width="2" height="3" fill="#00b0ff" stroke="#000000" strokeWidth="0.5" />
+                <rect x="14" y="6" width="1" height="2" fill="#000000" />
+                {/* Red Lips */}
+                <rect x="9" y="8" width="4" height="1" fill="#d50000" />
+
+                {/* Light Pink Bodice & Collar */}
+                <rect x="5" y="11" width="12" height="4" fill="#ff80ab" stroke="#000000" strokeWidth="0.5" />
+                {/* Blue Chest Brooch */}
+                <ellipse cx="11" cy="12" rx="1.5" ry="1.5" fill="#00b0ff" stroke="#fbc02d" strokeWidth="0.5" />
+
+                {/* Main Pastel Pink Skirt */}
+                <path d="M 4 15 L 18 15 L 20 31 L 2 31 Z" fill="#ff80ab" stroke="#000000" strokeWidth="0.5" />
+                {/* Bottom Hem Magenta Accent Ring */}
+                <path d="M 2 29 L 20 29 L 20.5 32 L 1.5 32 Z" fill="#d81b60" stroke="#000000" strokeWidth="0.5" />
+
+                {/* Waving White Glove Raised High */}
+                <g className={animFrame === 0 ? "translate-y-0" : "-translate-y-1"}>
+                  <rect x="16" y="6" width="3" height="5" rx="1" fill="#ffffff" stroke="#000000" strokeWidth="0.5" />
+                </g>
+                <rect x="3" y="12" width="3" height="4" rx="1" fill="#ffffff" stroke="#000000" strokeWidth="0.5" />
               </g>
             ) : (
+              /* ROW 1 OF MARIO & LUIGI 3 SPRITE SHEET: FRONT VIEW IDLE */
               <g>
-                <path d="M 7 30 L 10 26 L 11 38 L 8 38 Z" fill="#ffffff" stroke="#000000" strokeWidth="1" />
-                <path d="M 31 30 L 28 26 L 27 38 L 30 38 Z" fill="#ffffff" stroke="#000000" strokeWidth="1" />
+                {/* Gold Crown */}
+                <rect x="8" y="1" width="6" height="3" fill="#fbc02d" stroke="#000000" strokeWidth="0.5" />
+                <rect x="8" y="1" width="1" height="1" fill="#d50000" />
+                <rect x="13" y="1" width="1" height="1" fill="#d50000" />
+                <rect x="10" y="1" width="2" height="1" fill="#00b0ff" />
+
+                {/* Golden Hair */}
+                <rect x="4" y="4" width="14" height="6" fill="#ffd600" />
+                <rect x="3" y="6" width="3" height="9" fill="#f57f17" />
+                <rect x="16" y="6" width="3" height="9" fill="#f57f17" />
+
+                {/* Blue Earrings */}
+                <rect x="4" y="9" width="2" height="2" fill="#00b0ff" stroke="#000000" strokeWidth="0.5" />
+                <rect x="16" y="9" width="2" height="2" fill="#00b0ff" stroke="#000000" strokeWidth="0.5" />
+
+                {/* Peach Face Front */}
+                <rect x="6" y="4" width="10" height="6" fill="#ffe0b2" />
+                {/* Large Blue Eyes */}
+                <rect x="7" y="6" width="2" height="3" fill="#00b0ff" stroke="#000000" strokeWidth="0.5" />
+                <rect x="7" y="6" width="1" height="2" fill="#000000" />
+                <rect x="13" y="6" width="2" height="3" fill="#00b0ff" stroke="#000000" strokeWidth="0.5" />
+                <rect x="14" y="6" width="1" height="2" fill="#000000" />
+                {/* Red Lips */}
+                <rect x="9" y="8" width="4" height="1" fill="#d50000" />
+
+                {/* Light Pink Bodice & Collar */}
+                <rect x="5" y="11" width="12" height="4" fill="#ff80ab" stroke="#000000" strokeWidth="0.5" />
+                {/* Blue Chest Brooch */}
+                <ellipse cx="11" cy="12" rx="1.5" ry="1.5" fill="#00b0ff" stroke="#fbc02d" strokeWidth="0.5" />
+
+                {/* Main Pastel Pink Skirt */}
+                <path d="M 4 15 L 18 15 L 20 31 L 2 31 Z" fill="#ff80ab" stroke="#000000" strokeWidth="0.5" />
+                {/* Bottom Hem Magenta Accent Ring */}
+                <path d="M 2 29 L 20 29 L 20.5 32 L 1.5 32 Z" fill="#d81b60" stroke="#000000" strokeWidth="0.5" />
+
+                {/* Clasped White Gloves */}
+                <rect x="8" y="13" width="6" height="3" rx="1" fill="#ffffff" stroke="#000000" strokeWidth="0.5" />
               </g>
             )}
-
-            {/* Main Sweeping Gown Skirt */}
-            {/* Outer Skirt Mid-Pink */}
-            <path d="M 8 34 L 30 34 L 36 64 L 2 64 Z" fill="#f06292" stroke="#000000" strokeWidth="1" />
-            {/* Center Panel Pastel Pink */}
-            <path d="M 16 33 L 22 33 L 26 64 L 12 64 Z" fill="#ff9ebb" />
-
-            {/* Flanking White Lace Trim Borders */}
-            <path d="M 15 33 L 16 33 L 13 64 L 11 64 Z" fill="#ffffff" />
-            <path d="M 22 33 L 23 33 L 27 64 L 25 64 Z" fill="#ffffff" />
-
-            {/* Gold Embroidery Pattern along Trim */}
-            <path d="M 14 34 L 15 34 L 12 64 L 11.5 64 Z" fill="#ffc107" />
-            <path d="M 23 34 L 24 34 L 26.5 64 L 26 64 Z" fill="#ffc107" />
-
-            {/* Bottom Hem White Lace & Gold Embroidery */}
-            <path d="M 2 62 L 36 62 L 37 66 L 1 66 Z" fill="#ffffff" stroke="#000000" strokeWidth="0.5" />
-            <path d="M 2 65 L 36 65 L 36 67 L 2 67 Z" fill="#ff3b7c" />
-            <path d="M 3 66 L 35 66 L 35 67 L 3 67 Z" fill="#ffc107" />
           </svg>
         </button>
       </div>
