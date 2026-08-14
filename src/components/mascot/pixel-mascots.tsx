@@ -11,46 +11,23 @@ const KURO_MESSAGES_GENERAL = [
   "Nom nom... Kuro just caught a yummy fish! 🐟",
   "Wheee! Kuro is chasing a cute butterfly! 🦋",
   "Mmm... Kuro loves sniffing fresh flowers ~ 🌸",
-  "Boing! Kuro loves patrolling NayPict with C! 📸",
-  "Purrr... C gives the best head pats! 💖",
+  "Boing! Kuro loves patrolling NayPict! 📸",
+  "Purrr... NayPict gallery is Kuro's favorite spot! 💖",
   "Purrrr... Click Kuro anytime for random fun! ✨",
 ]
 
 const KURO_MESSAGES_LANDING = [
   "Meow! Welcome to NayPict! Explore the gallery or browse albums! 📸",
-  "Purrr... Kuro & C are chilling on the hero card! ✨",
+  "Purrr... Kuro is chilling right on top of the hero card! ✨",
   "Meow! Click any button below to get started! 🚀",
+  "Purrrr... Kuro loves this infinite floating canvas! 🎨",
 ]
 
 const KURO_MESSAGES_PREVIEW = [
-  "Purrr... Kuro loves watching this photo preview with C! 📸",
+  "Purrr... Kuro loves watching this photo preview with you! 📸",
   "Meow! What a gorgeous photo! ✨",
   "Purrrr... Kuro is sitting right under your photo ~ 🐱",
-]
-
-// ==========================================
-// C (PRINCESS PEACH) MESSAGES
-// ==========================================
-const C_MESSAGES_GENERAL = [
-  "Hi! I'm C 👑 Welcome to NayPict!",
-  "C is taking a pretty photo of the gallery! 📸",
-  "Mmm... C loves drinking warm tea while viewing photos ~ ☕",
-  "C says: Have a magical & aesthetic day! ✨",
-  "C is reading a cozy art book 📖",
-  "Look! C and Kuro are exploring together! 💖",
-  "C: Don't forget to check out the albums! 👑",
-]
-
-const C_MESSAGES_LANDING = [
-  "Welcome! C & Kuro are here to guide your journey! 👑✨",
-  "C loves this aesthetic infinite floating gallery! 🎨",
-  "Explore photos or browse albums with C & Kuro! 🚀",
-]
-
-const C_MESSAGES_PREVIEW = [
-  "C: Wow, this photo is absolutely breathtaking! 💖",
-  "C is taking notes on this beautiful memory ~ 📖",
-  "C & Kuro love previewing photos with you! 👑",
+  "Nom nom... Kuro brought a fish to eat while viewing photos! 🐟",
 ]
 
 type CatState =
@@ -64,19 +41,6 @@ type CatState =
   | 'butterfly'
   | 'flower'
   | 'fish'
-  | 'jump'
-
-type HumanState =
-  | 'idle'
-  | 'walk-left'
-  | 'walk-right'
-  | 'run-left'
-  | 'run-right'
-  | 'tea'
-  | 'book'
-  | 'camera'
-  | 'wave'
-  | 'pet-kuro'
   | 'jump'
 
 type FacingDirection = 'left' | 'right'
@@ -93,24 +57,12 @@ export function PixelMascots() {
   const [kuroBubble, setKuroBubble] = useState<string | null>(null)
   const [kuroJumping, setKuroJumping] = useState<boolean>(false)
 
-  // C (Princess Peach) State
-  const [cState, setCState] = useState<HumanState>('idle')
-  const [cX, setCX] = useState<number>(60)
-  const [cFacing, setCFacing] = useState<FacingDirection>('right')
-  const [cBubble, setCBubble] = useState<string | null>(null)
-  const [cJumping, setCJumping] = useState<boolean>(false)
-
   const [animFrame, setAnimFrame] = useState<number>(0)
 
   const kuroXRef = useRef<number>(0)
   const kuroTargetXRef = useRef<number>(0)
-
-  const cXRef = useRef<number>(60)
-  const cTargetXRef = useRef<number>(60)
-
   const animFrameIdRef = useRef<number | null>(null)
   const kuroTimerRef = useRef<NodeJS.Timeout | null>(null)
-  const cTimerRef = useRef<NodeJS.Timeout | null>(null)
 
   // Track directional facing for Kuro
   useEffect(() => {
@@ -120,15 +72,6 @@ export function PixelMascots() {
       setKuroFacing('right')
     }
   }, [kuroState])
-
-  // Track directional facing for C
-  useEffect(() => {
-    if (cState === 'walk-left' || cState === 'run-left') {
-      setCFacing('left')
-    } else if (cState === 'walk-right' || cState === 'run-right') {
-      setCFacing('right')
-    }
-  }, [cState])
 
   // Detect Lightbox Photo Viewer
   useEffect(() => {
@@ -149,53 +92,42 @@ export function PixelMascots() {
     const isMobile = screenWidth < 640
 
     if (isLightboxOpen) {
-      return { minX: isMobile ? -90 : -140, maxX: isMobile ? 90 : 140, isRelative: true }
+      return { minX: isMobile ? -100 : -140, maxX: isMobile ? 100 : 140, isRelative: true }
     }
     if (isLandingPage) {
-      return { minX: isMobile ? -85 : -130, maxX: isMobile ? 85 : 130, isRelative: true }
+      return { minX: isMobile ? -90 : -130, maxX: isMobile ? 90 : 130, isRelative: true }
     }
     const minX = isMobile ? 40 : 130
     const maxX = Math.max(minX + 60, screenWidth - (isMobile ? 70 : 180))
     return { minX, maxX, isRelative: false }
   }, [isLightboxOpen, isLandingPage])
 
-  // Reset positions safely when mode changes
+  // Reset position safely when mode changes
   useEffect(() => {
     const { minX, maxX, isRelative } = getBounds()
     if (isRelative) {
-      kuroXRef.current = -40
-      kuroTargetXRef.current = -40
-      setKuroX(-40)
-
-      cXRef.current = 40
-      cTargetXRef.current = 40
-      setCX(40)
+      kuroXRef.current = 0
+      kuroTargetXRef.current = 0
+      setKuroX(0)
     } else {
       const startKuro = Math.min(Math.max(minX, 150), maxX - 60)
-      const startC = Math.min(Math.max(minX + 60, 220), maxX)
-
       kuroXRef.current = startKuro
       kuroTargetXRef.current = startKuro
       setKuroX(startKuro)
-
-      cXRef.current = startC
-      cTargetXRef.current = startC
-      setCX(startC)
     }
   }, [isLightboxOpen, isLandingPage, getBounds])
 
-  // Animation leg/arm frame switcher (fast for smooth gait)
+  // Animation leg/arm frame switcher
   useEffect(() => {
     const interval = setInterval(() => {
       setAnimFrame((prev) => (prev === 0 ? 1 : 0))
-    }, 160)
+    }, 150)
     return () => clearInterval(interval)
   }, [])
 
-  // Smooth Movement Loop for both Kuro & C (60 FPS)
+  // Smooth Movement Loop for Kuro (60 FPS)
   useEffect(() => {
     const moveLoop = () => {
-      // Kuro Movement
       if (kuroState.startsWith('walk') || kuroState.startsWith('run')) {
         const diffK = kuroTargetXRef.current - kuroXRef.current
         const speedK = kuroState.startsWith('run') ? 2.2 : 1.1
@@ -211,22 +143,6 @@ export function PixelMascots() {
         }
       }
 
-      // C (Princess Peach) Movement
-      if (cState.startsWith('walk') || cState.startsWith('run')) {
-        const diffC = cTargetXRef.current - cXRef.current
-        const speedC = cState.startsWith('run') ? 2.0 : 1.0
-
-        if (Math.abs(diffC) <= speedC) {
-          cXRef.current = cTargetXRef.current
-          setCX(cTargetXRef.current)
-          const nextC: HumanState[] = ['idle', 'tea', 'book', 'camera', 'wave']
-          setCState(nextC[Math.floor(Math.random() * nextC.length)])
-        } else {
-          cXRef.current += diffC > 0 ? speedC : -speedC
-          setCX(cXRef.current)
-        }
-      }
-
       animFrameIdRef.current = requestAnimationFrame(moveLoop)
     }
 
@@ -234,39 +150,16 @@ export function PixelMascots() {
     return () => {
       if (animFrameIdRef.current) cancelAnimationFrame(animFrameIdRef.current)
     }
-  }, [kuroState, cState])
+  }, [kuroState])
 
-  // Autonomous Decision & Interaction Engine (Every 3.8s)
+  // Autonomous Decision Engine (Every 3.8s)
   useEffect(() => {
     const decisionInterval = setInterval(() => {
       const { minX, maxX } = getBounds()
-      const rand = Math.random()
 
-      // Occasional Duo Interaction if close to each other
-      const dist = Math.abs(kuroXRef.current - cXRef.current)
-      if (dist < 65 && rand < 0.35 && !kuroBubble && !cBubble) {
-        setCState('pet-kuro')
-        setKuroState('happy')
-        setCBubble("C: Good kitty Kuro ~ 💕")
-        setKuroBubble("Kuro: Purrrrr! 💖")
-
-        setTimeout(() => {
-          setCBubble(null)
-          setKuroBubble(null)
-          setCState('idle')
-          setKuroState('idle')
-        }, 3500)
-        return
-      }
-
-      // Kuro Decision
       if (!kuroBubble && !kuroState.startsWith('walk') && !kuroState.startsWith('run')) {
         if (Math.random() < 0.5) {
-          let newTargetK = Math.floor(Math.random() * (maxX - minX)) + minX
-          if (Math.abs(newTargetK - cXRef.current) < 45) {
-            newTargetK = newTargetK < cXRef.current ? newTargetK - 50 : newTargetK + 50
-            newTargetK = Math.min(Math.max(minX, newTargetK), maxX)
-          }
+          const newTargetK = Math.floor(Math.random() * (maxX - minX)) + minX
           kuroTargetXRef.current = newTargetK
           const isRun = Math.random() < 0.3
           setKuroState(newTargetK < kuroXRef.current ? (isRun ? 'run-left' : 'walk-left') : (isRun ? 'run-right' : 'walk-right'))
@@ -275,27 +168,10 @@ export function PixelMascots() {
           setKuroState(actsK[Math.floor(Math.random() * actsK.length)])
         }
       }
-
-      // C Decision
-      if (!cBubble && !cState.startsWith('walk') && !cState.startsWith('run')) {
-        if (Math.random() < 0.5) {
-          let newTargetC = Math.floor(Math.random() * (maxX - minX)) + minX
-          if (Math.abs(newTargetC - kuroXRef.current) < 45) {
-            newTargetC = newTargetC < kuroXRef.current ? newTargetC - 50 : newTargetC + 50
-            newTargetC = Math.min(Math.max(minX, newTargetC), maxX)
-          }
-          cTargetXRef.current = newTargetC
-          const isRun = Math.random() < 0.3
-          setCState(newTargetC < cXRef.current ? (isRun ? 'run-left' : 'walk-left') : (isRun ? 'run-right' : 'walk-right'))
-        } else {
-          const actsC: HumanState[] = ['tea', 'book', 'camera', 'wave', 'idle']
-          setCState(actsC[Math.floor(Math.random() * actsC.length)])
-        }
-      }
     }, 3800)
 
     return () => clearInterval(decisionInterval)
-  }, [kuroState, cState, kuroBubble, cBubble, getBounds])
+  }, [kuroState, kuroBubble, getBounds])
 
   // Click Kuro Handler
   const handleClickKuro = useCallback(() => {
@@ -313,25 +189,6 @@ export function PixelMascots() {
     kuroTimerRef.current = setTimeout(() => {
       setKuroBubble(null)
       setKuroState('idle')
-    }, 4500)
-  }, [isLightboxOpen, isLandingPage])
-
-  // Click C (Princess Peach) Handler
-  const handleClickC = useCallback(() => {
-    setCJumping(true)
-    setTimeout(() => setCJumping(false), 350)
-    setCState('wave')
-
-    let pool = C_MESSAGES_GENERAL
-    if (isLightboxOpen) pool = C_MESSAGES_PREVIEW
-    else if (isLandingPage) pool = C_MESSAGES_LANDING
-
-    setCBubble(pool[Math.floor(Math.random() * pool.length)])
-
-    if (cTimerRef.current) clearTimeout(cTimerRef.current)
-    cTimerRef.current = setTimeout(() => {
-      setCBubble(null)
-      setCState('idle')
     }, 4500)
   }, [isLightboxOpen, isLandingPage])
 
@@ -371,33 +228,7 @@ export function PixelMascots() {
   }
 
   const kuroStyle = getContainerStyle(kuroX)
-  const cStyle = getContainerStyle(cX)
-
   const isKuroMoving = kuroState.startsWith('walk') || kuroState.startsWith('run')
-  const isCMoving = cState.startsWith('walk') || cState.startsWith('run')
-
-  const isDuoBubble = Boolean(kuroBubble && cBubble)
-  const isKuroLeft = kuroX <= cX
-
-  // Dynamic non-overlapping speech bubble styling for Kuro
-  const getKuroBubbleClass = () => {
-    if (isDuoBubble) {
-      return isKuroLeft
-        ? 'absolute top-11 right-3 px-2.5 sm:px-3 py-1.5 rounded-2xl bg-black/90 text-white text-[11px] sm:text-xs font-semibold backdrop-blur-md border border-white/20 shadow-xl w-max max-w-[160px] sm:max-w-[220px] text-center animate-in fade-in zoom-in-95 duration-200 z-50 leading-tight sm:leading-snug break-words'
-        : 'absolute top-20 left-3 px-2.5 sm:px-3 py-1.5 rounded-2xl bg-black/90 text-white text-[11px] sm:text-xs font-semibold backdrop-blur-md border border-white/20 shadow-xl w-max max-w-[160px] sm:max-w-[220px] text-center animate-in fade-in zoom-in-95 duration-200 z-50 leading-tight sm:leading-snug break-words'
-    }
-    return 'absolute top-11 left-1/2 -translate-x-1/2 px-2.5 sm:px-3 py-1.5 rounded-2xl bg-black/90 text-white text-[11px] sm:text-xs font-semibold backdrop-blur-md border border-white/20 shadow-xl w-max max-w-[190px] sm:max-w-[280px] text-center animate-in fade-in zoom-in-95 duration-200 z-50 leading-tight sm:leading-snug break-words'
-  }
-
-  // Dynamic non-overlapping speech bubble styling for C
-  const getCBubbleClass = () => {
-    if (isDuoBubble) {
-      return isKuroLeft
-        ? 'absolute top-20 left-3 px-2.5 sm:px-3 py-1.5 rounded-2xl bg-black/90 text-white text-[11px] sm:text-xs font-semibold backdrop-blur-md border border-pink-400/40 shadow-xl w-max max-w-[160px] sm:max-w-[220px] text-center animate-in fade-in zoom-in-95 duration-200 z-50 leading-tight sm:leading-snug break-words'
-        : 'absolute top-11 right-3 px-2.5 sm:px-3 py-1.5 rounded-2xl bg-black/90 text-white text-[11px] sm:text-xs font-semibold backdrop-blur-md border border-pink-400/40 shadow-xl w-max max-w-[160px] sm:max-w-[220px] text-center animate-in fade-in zoom-in-95 duration-200 z-50 leading-tight sm:leading-snug break-words'
-    }
-    return 'absolute top-11 left-1/2 -translate-x-1/2 px-2.5 sm:px-3 py-1.5 rounded-2xl bg-black/90 text-white text-[11px] sm:text-xs font-semibold backdrop-blur-md border border-pink-400/40 shadow-xl w-max max-w-[190px] sm:max-w-[280px] text-center animate-in fade-in zoom-in-95 duration-200 z-50 leading-tight sm:leading-snug break-words'
-  }
 
   return (
     <>
@@ -406,7 +237,7 @@ export function PixelMascots() {
       {/* ========================================== */}
       <div className={kuroStyle.className} style={kuroStyle.style}>
         {kuroBubble && (
-          <div className={getKuroBubbleClass()}>
+          <div className="absolute top-11 left-1/2 -translate-x-1/2 px-2.5 sm:px-3 py-1.5 rounded-2xl bg-black/90 text-white text-[11px] sm:text-xs font-semibold backdrop-blur-md border border-white/20 shadow-xl w-max max-w-[190px] sm:max-w-[280px] text-center animate-in fade-in zoom-in-95 duration-200 z-50 leading-tight sm:leading-snug break-words">
             <div className="absolute left-1/2 -top-1 -translate-x-1/2 w-2 h-2 bg-black/90 border-l border-t border-white/20 rotate-45" />
             {kuroBubble}
           </div>
@@ -523,185 +354,9 @@ export function PixelMascots() {
           </svg>
         </button>
       </div>
-
-      {/* ========================================== */}
-      {/* C (PRINCESS PEACH HUMAN MASCOT)             */}
-      {/* ========================================== */}
-      <div className={cStyle.className} style={cStyle.style}>
-        {cBubble && (
-          <div className={getCBubbleClass()}>
-            <div className="absolute left-1/2 -top-1 -translate-x-1/2 w-2 h-2 bg-black/90 border-l border-t border-pink-400/40 rotate-45" />
-            {cBubble}
-          </div>
-        )}
-
-        <button
-          type="button"
-          onClick={handleClickC}
-          title="Click C (Princess Peach)!"
-          className={`group relative cursor-pointer outline-none flex items-center justify-center transition-all ${
-            cJumping || cState === 'jump' ? '-translate-y-2 scale-110' : 'hover:scale-110 active:scale-95'
-          }`}
-          style={{
-            transform: `${cFacing === 'left' ? 'scaleX(-1)' : 'scaleX(1)'} translateY(${isCMoving && animFrame === 1 ? '-1px' : '0px'})`,
-            transition: 'transform 0.15s ease',
-          }}
-        >
-          {/* C ITEM OVERLAYS (Tea, Book, Camera) */}
-          {cState === 'tea' && (
-            <div className="absolute bottom-1 -right-4 animate-bounce">
-              <svg width="12" height="12" viewBox="0 0 6 6" style={{ imageRendering: 'pixelated' }}>
-                <rect x="1" y="2" width="4" height="4" rx="1" fill="#ffffff" />
-                <rect x="2" y="1" width="2" height="1" fill="#93c5fd" />
-              </svg>
-            </div>
-          )}
-
-          {cState === 'book' && (
-            <div className="absolute bottom-1 -left-4 animate-pulse">
-              <svg width="12" height="12" viewBox="0 0 6 6" style={{ imageRendering: 'pixelated' }}>
-                <rect x="1" y="1" width="4" height="4" fill="#ec4899" />
-                <rect x="2" y="2" width="2" height="2" fill="#ffffff" />
-              </svg>
-            </div>
-          )}
-
-          {cState === 'camera' && (
-            <div className="absolute -top-3 right-0 animate-ping">
-              <span className="text-[10px]">✨</span>
-            </div>
-          )}
-
-          {/* SVG C (MARIO & LUIGI 3: BOWSER'S INSIDE STORY PRINCESS PEACH SPRITE) */}
-          <svg width="34" height="48" viewBox="0 0 22 34" className="drop-shadow-md" style={{ imageRendering: 'pixelated' }}>
-            {isCMoving ? (
-              /* ROW 2 OF MARIO & LUIGI 3 SPRITE SHEET: 3/4 SIDE PROFILE WALKING GAIT */
-              <g>
-                {/* Gold Crown */}
-                <rect x="7" y="1" width="6" height="3" fill="#fbc02d" stroke="#000000" strokeWidth="0.5" />
-                <rect x="7" y="1" width="1" height="1" fill="#d50000" />
-                <rect x="12" y="1" width="1" height="1" fill="#00b0ff" />
-                <rect x="9" y="1" width="2" height="1" fill="#00b0ff" />
-
-                {/* Golden Hair (Profile Flow) */}
-                <rect x="4" y="4" width="9" height="7" fill="#ffd600" />
-                <rect x="3" y="6" width="3" height="8" fill="#f57f17" />
-                <rect x="2" y="9" width="3" height="6" fill="#e65100" />
-
-                {/* Blue Earring */}
-                <rect x="6" y="9" width="2" height="2" rx="0.5" fill="#00b0ff" stroke="#000000" strokeWidth="0.5" />
-
-                {/* Peach Face Profile */}
-                <rect x="7" y="4" width="7" height="6" fill="#ffe0b2" />
-                {/* Large Ocean Blue Eye */}
-                <rect x="10" y="6" width="3" height="3" fill="#00b0ff" stroke="#000000" strokeWidth="0.5" />
-                <rect x="11" y="6" width="1" height="2" fill="#000000" />
-                {/* Red Mouth */}
-                <rect x="12" y="9" width="2" height="1" fill="#d50000" />
-
-                {/* Light Pink Bodice & Collar */}
-                <rect x="6" y="11" width="8" height="4" fill="#ff80ab" stroke="#000000" strokeWidth="0.5" />
-                {/* Blue Chest Brooch */}
-                <ellipse cx="11" cy="12" rx="1.5" ry="1.5" fill="#00b0ff" stroke="#fbc02d" strokeWidth="0.5" />
-
-                {/* Main Pastel Pink Skirt */}
-                <path d="M 5 15 L 15 15 L 18 31 L 2 31 Z" fill="#ff80ab" stroke="#000000" strokeWidth="0.5" />
-                {/* Bottom Hem Magenta Accent Ring */}
-                <path d="M 2 29 L 18 29 L 18.5 32 L 1.5 32 Z" fill="#d81b60" stroke="#000000" strokeWidth="0.5" />
-
-                {/* White Glove & Hand Stepping Motion */}
-                <rect x={animFrame === 0 ? "10" : "12"} y="13" width="3" height="4" rx="1" fill="#ffffff" stroke="#000000" strokeWidth="0.5" />
-                <rect x={animFrame === 0 ? "6" : "4"} y="14" width="3" height="3" rx="1" fill="#ffffff" stroke="#000000" strokeWidth="0.5" />
-              </g>
-            ) : cState === 'wave' || cState === 'pet-kuro' ? (
-              /* ROW 4 OF MARIO & LUIGI 3 SPRITE SHEET: FRONT VIEW WAVING HAND */
-              <g>
-                {/* Gold Crown */}
-                <rect x="8" y="1" width="6" height="3" fill="#fbc02d" stroke="#000000" strokeWidth="0.5" />
-                <rect x="8" y="1" width="1" height="1" fill="#d50000" />
-                <rect x="13" y="1" width="1" height="1" fill="#d50000" />
-                <rect x="10" y="1" width="2" height="1" fill="#00b0ff" />
-
-                {/* Golden Hair */}
-                <rect x="4" y="4" width="14" height="6" fill="#ffd600" />
-                <rect x="3" y="6" width="3" height="9" fill="#f57f17" />
-                <rect x="16" y="6" width="3" height="9" fill="#f57f17" />
-
-                {/* Blue Earrings */}
-                <rect x="4" y="9" width="2" height="2" fill="#00b0ff" stroke="#000000" strokeWidth="0.5" />
-                <rect x="16" y="9" width="2" height="2" fill="#00b0ff" stroke="#000000" strokeWidth="0.5" />
-
-                {/* Peach Face Front */}
-                <rect x="6" y="4" width="10" height="6" fill="#ffe0b2" />
-                {/* Large Blue Eyes */}
-                <rect x="7" y="6" width="2" height="3" fill="#00b0ff" stroke="#000000" strokeWidth="0.5" />
-                <rect x="7" y="6" width="1" height="2" fill="#000000" />
-                <rect x="13" y="6" width="2" height="3" fill="#00b0ff" stroke="#000000" strokeWidth="0.5" />
-                <rect x="14" y="6" width="1" height="2" fill="#000000" />
-                {/* Red Lips */}
-                <rect x="9" y="8" width="4" height="1" fill="#d50000" />
-
-                {/* Light Pink Bodice & Collar */}
-                <rect x="5" y="11" width="12" height="4" fill="#ff80ab" stroke="#000000" strokeWidth="0.5" />
-                {/* Blue Chest Brooch */}
-                <ellipse cx="11" cy="12" rx="1.5" ry="1.5" fill="#00b0ff" stroke="#fbc02d" strokeWidth="0.5" />
-
-                {/* Main Pastel Pink Skirt */}
-                <path d="M 4 15 L 18 15 L 20 31 L 2 31 Z" fill="#ff80ab" stroke="#000000" strokeWidth="0.5" />
-                {/* Bottom Hem Magenta Accent Ring */}
-                <path d="M 2 29 L 20 29 L 20.5 32 L 1.5 32 Z" fill="#d81b60" stroke="#000000" strokeWidth="0.5" />
-
-                {/* Waving White Glove Raised High */}
-                <g className={animFrame === 0 ? "translate-y-0" : "-translate-y-1"}>
-                  <rect x="16" y="6" width="3" height="5" rx="1" fill="#ffffff" stroke="#000000" strokeWidth="0.5" />
-                </g>
-                <rect x="3" y="12" width="3" height="4" rx="1" fill="#ffffff" stroke="#000000" strokeWidth="0.5" />
-              </g>
-            ) : (
-              /* ROW 1 OF MARIO & LUIGI 3 SPRITE SHEET: FRONT VIEW IDLE */
-              <g>
-                {/* Gold Crown */}
-                <rect x="8" y="1" width="6" height="3" fill="#fbc02d" stroke="#000000" strokeWidth="0.5" />
-                <rect x="8" y="1" width="1" height="1" fill="#d50000" />
-                <rect x="13" y="1" width="1" height="1" fill="#d50000" />
-                <rect x="10" y="1" width="2" height="1" fill="#00b0ff" />
-
-                {/* Golden Hair */}
-                <rect x="4" y="4" width="14" height="6" fill="#ffd600" />
-                <rect x="3" y="6" width="3" height="9" fill="#f57f17" />
-                <rect x="16" y="6" width="3" height="9" fill="#f57f17" />
-
-                {/* Blue Earrings */}
-                <rect x="4" y="9" width="2" height="2" fill="#00b0ff" stroke="#000000" strokeWidth="0.5" />
-                <rect x="16" y="9" width="2" height="2" fill="#00b0ff" stroke="#000000" strokeWidth="0.5" />
-
-                {/* Peach Face Front */}
-                <rect x="6" y="4" width="10" height="6" fill="#ffe0b2" />
-                {/* Large Blue Eyes */}
-                <rect x="7" y="6" width="2" height="3" fill="#00b0ff" stroke="#000000" strokeWidth="0.5" />
-                <rect x="7" y="6" width="1" height="2" fill="#000000" />
-                <rect x="13" y="6" width="2" height="3" fill="#00b0ff" stroke="#000000" strokeWidth="0.5" />
-                <rect x="14" y="6" width="1" height="2" fill="#000000" />
-                {/* Red Lips */}
-                <rect x="9" y="8" width="4" height="1" fill="#d50000" />
-
-                {/* Light Pink Bodice & Collar */}
-                <rect x="5" y="11" width="12" height="4" fill="#ff80ab" stroke="#000000" strokeWidth="0.5" />
-                {/* Blue Chest Brooch */}
-                <ellipse cx="11" cy="12" rx="1.5" ry="1.5" fill="#00b0ff" stroke="#fbc02d" strokeWidth="0.5" />
-
-                {/* Main Pastel Pink Skirt */}
-                <path d="M 4 15 L 18 15 L 20 31 L 2 31 Z" fill="#ff80ab" stroke="#000000" strokeWidth="0.5" />
-                {/* Bottom Hem Magenta Accent Ring */}
-                <path d="M 2 29 L 20 29 L 20.5 32 L 1.5 32 Z" fill="#d81b60" stroke="#000000" strokeWidth="0.5" />
-
-                {/* Clasped White Gloves */}
-                <rect x="8" y="13" width="6" height="3" rx="1" fill="#ffffff" stroke="#000000" strokeWidth="0.5" />
-              </g>
-            )}
-          </svg>
-        </button>
-      </div>
     </>
   )
 }
+
+// Export alias for backward compatibility
+export { PixelMascots as PixelCat }
