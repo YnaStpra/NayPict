@@ -27,7 +27,16 @@ import { photoFavorite, photoRecycle } from "@/request/photo"
 import { albumAddPhoto, albumRemovePhoto } from "@/request/album"
 import { useAlbumStore } from "@/store/album-store"
 import { usePhotoStore } from "@/store/photo-store"
-import { ArrowLeftIcon, ImageIcon, LayoutGrid, PlusIcon, Sparkles } from "lucide-react"
+import { ArrowLeftIcon, ArrowUpDown, ChevronDown, ImageIcon, LayoutGrid, PlusIcon, Sparkles } from "lucide-react"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import {
   Tooltip,
   TooltipContent,
@@ -56,6 +65,20 @@ const InfiniteGallery = dynamic(
   { ssr: false }
 )
 
+type SortOptionKey = 'none' | 'takenTime_desc' | 'takenTime_asc' | 'createTime_desc' | 'createTime_asc' | 'size_desc' | 'size_asc' | 'name_asc' | 'name_desc'
+
+const SORT_OPTIONS: { key: SortOptionKey; label: string; sortBy?: 'takenTime' | 'createTime' | 'size' | 'name' | null; sortOrder?: 'asc' | 'desc' | null; shuffle?: boolean }[] = [
+  { key: 'none', label: 'Default / Acak (Bawaan Web)', sortBy: null, sortOrder: null, shuffle: true },
+  { key: 'takenTime_desc', label: 'Tanggal Foto (Terbaru)', sortBy: 'takenTime', sortOrder: 'desc', shuffle: false },
+  { key: 'takenTime_asc', label: 'Tanggal Foto (Terlama)', sortBy: 'takenTime', sortOrder: 'asc', shuffle: false },
+  { key: 'createTime_desc', label: 'Terakhir Ditambahkan', sortBy: 'createTime', sortOrder: 'desc', shuffle: false },
+  { key: 'createTime_asc', label: 'Pertama Ditambahkan', sortBy: 'createTime', sortOrder: 'asc', shuffle: false },
+  { key: 'size_desc', label: 'Ukuran Berkas (Terbesar)', sortBy: 'size', sortOrder: 'desc', shuffle: false },
+  { key: 'size_asc', label: 'Ukuran Berkas (Terkecil)', sortBy: 'size', sortOrder: 'asc', shuffle: false },
+  { key: 'name_asc', label: 'Nama Foto (A - Z)', sortBy: 'name', sortOrder: 'asc', shuffle: false },
+  { key: 'name_desc', label: 'Nama Foto (Z - A)', sortBy: 'name', sortOrder: 'desc', shuffle: false },
+]
+
 export default function Page() {
   const t = useTranslations("albums")
   const router = useRouter()
@@ -68,6 +91,8 @@ export default function Page() {
   // isBrowser Mark whether you are currently in the browser environment, SSR Stage display skeleton screen.
   const [isBrowser, setIsBrowser] = useState(false)
   const [viewMode, setViewMode] = useState<"masonry" | "infinite">("masonry")
+  const [sortKey, setSortKey] = useState<SortOptionKey>("none")
+
   const {
     photos,
     totalCount,
@@ -77,6 +102,19 @@ export default function Page() {
     prependPhotos,
     removePhotos,
   } = usePhotoList({ albumId }, PHOTO_LIST_PAGE_SIZE, initialPhotos)
+
+  const handleSortChange = (key: SortOptionKey) => {
+    setSortKey(key)
+    const option = SORT_OPTIONS.find((o) => o.key === key)
+    if (option) {
+      refreshPhotoList({
+        albumId,
+        sortBy: option.sortBy ?? null,
+        sortOrder: option.sortOrder ?? null,
+        shuffle: option.shuffle ?? false,
+      })
+    }
+  }
   const [modelPhotoIndex, setModelPhotoIndex] = useState(0)
   const [showPhotoViewer, setShowPhotoViewer] = useState(false)
   // albumDialogOpen Control the opening status of the add album pop-up box。
@@ -267,6 +305,45 @@ export default function Page() {
                 <ImageIcon className="size-3.5 text-primary" />
                 <span>{totalCount}</span>
               </div>
+
+              {/* Sort By Dropdown Menu */}
+              <DropdownMenu>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-8 gap-1.5 px-2.5 text-xs font-semibold rounded-lg shadow-2xs border-border/60"
+                        >
+                          <ArrowUpDown className="size-3.5 text-primary shrink-0" />
+                          <span className="hidden md:inline-block max-w-[140px] truncate">
+                            {SORT_OPTIONS.find((o) => o.key === sortKey)?.label || "Urutkan"}
+                          </span>
+                          <ChevronDown className="size-3 text-muted-foreground" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom">Urutkan Foto Album</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+
+                <DropdownMenuContent align="end" className="w-56 z-[50]">
+                  <DropdownMenuLabel className="text-xs text-muted-foreground font-semibold px-2 py-1.5">
+                    Urutkan Berdasarkan
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuRadioGroup value={sortKey} onValueChange={(val) => handleSortChange(val as SortOptionKey)}>
+                    {SORT_OPTIONS.map((opt) => (
+                      <DropdownMenuRadioItem key={opt.key} value={opt.key} className="text-xs font-medium cursor-pointer py-1.5">
+                        {opt.label}
+                      </DropdownMenuRadioItem>
+                    ))}
+                  </DropdownMenuRadioGroup>
+                </DropdownMenuContent>
+              </DropdownMenu>
 
               <PhotoDateDrawer albumId={albumId} onRangeChange={changePhotoTime} />
               {isAdmin && (

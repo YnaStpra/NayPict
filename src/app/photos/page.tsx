@@ -58,17 +58,18 @@ const InfiniteGallery = dynamic(
   { ssr: false }
 )
 
-type SortOptionKey = 'takenTime_desc' | 'takenTime_asc' | 'createTime_desc' | 'createTime_asc' | 'size_desc' | 'size_asc' | 'name_asc' | 'name_desc'
+type SortOptionKey = 'none' | 'takenTime_desc' | 'takenTime_asc' | 'createTime_desc' | 'createTime_asc' | 'size_desc' | 'size_asc' | 'name_asc' | 'name_desc'
 
-const SORT_OPTIONS: { key: SortOptionKey; label: string; sortBy: 'takenTime' | 'createTime' | 'size' | 'name'; sortOrder: 'asc' | 'desc' }[] = [
-  { key: 'takenTime_desc', label: 'Tanggal Foto (Terbaru)', sortBy: 'takenTime', sortOrder: 'desc' },
-  { key: 'takenTime_asc', label: 'Tanggal Foto (Terlama)', sortBy: 'takenTime', sortOrder: 'asc' },
-  { key: 'createTime_desc', label: 'Terakhir Ditambahkan', sortBy: 'createTime', sortOrder: 'desc' },
-  { key: 'createTime_asc', label: 'Pertama Ditambahkan', sortBy: 'createTime', sortOrder: 'asc' },
-  { key: 'size_desc', label: 'Ukuran Berkas (Terbesar)', sortBy: 'size', sortOrder: 'desc' },
-  { key: 'size_asc', label: 'Ukuran Berkas (Terkecil)', sortBy: 'size', sortOrder: 'asc' },
-  { key: 'name_asc', label: 'Nama Foto (A - Z)', sortBy: 'name', sortOrder: 'asc' },
-  { key: 'name_desc', label: 'Nama Foto (Z - A)', sortBy: 'name', sortOrder: 'desc' },
+const SORT_OPTIONS: { key: SortOptionKey; label: string; sortBy?: 'takenTime' | 'createTime' | 'size' | 'name' | null; sortOrder?: 'asc' | 'desc' | null; shuffle?: boolean }[] = [
+  { key: 'none', label: 'Default / Acak (Bawaan Web)', sortBy: null, sortOrder: null, shuffle: true },
+  { key: 'takenTime_desc', label: 'Tanggal Foto (Terbaru)', sortBy: 'takenTime', sortOrder: 'desc', shuffle: false },
+  { key: 'takenTime_asc', label: 'Tanggal Foto (Terlama)', sortBy: 'takenTime', sortOrder: 'asc', shuffle: false },
+  { key: 'createTime_desc', label: 'Terakhir Ditambahkan', sortBy: 'createTime', sortOrder: 'desc', shuffle: false },
+  { key: 'createTime_asc', label: 'Pertama Ditambahkan', sortBy: 'createTime', sortOrder: 'asc', shuffle: false },
+  { key: 'size_desc', label: 'Ukuran Berkas (Terbesar)', sortBy: 'size', sortOrder: 'desc', shuffle: false },
+  { key: 'size_asc', label: 'Ukuran Berkas (Terkecil)', sortBy: 'size', sortOrder: 'asc', shuffle: false },
+  { key: 'name_asc', label: 'Nama Foto (A - Z)', sortBy: 'name', sortOrder: 'asc', shuffle: false },
+  { key: 'name_desc', label: 'Nama Foto (Z - A)', sortBy: 'name', sortOrder: 'desc', shuffle: false },
 ]
 
 // Render photo list page with Masonry & Infinite Canvas mode support.
@@ -79,8 +80,8 @@ export default function Page() {
   const isAdmin = userInfo?.type === UserTypeEnum.ADMIN
 
   const [isBrowser, setIsBrowser] = useState(false)
-  const [viewMode, setViewMode] = useState<"masonry" | "infinite">("infinite")
-  const [sortKey, setSortKey] = useState<SortOptionKey>("takenTime_desc")
+  const [viewMode, setViewMode] = useState<"masonry" | "infinite">("masonry")
+  const [sortKey, setSortKey] = useState<SortOptionKey>("none")
 
   const {
     photos,
@@ -98,9 +99,9 @@ export default function Page() {
     const option = SORT_OPTIONS.find((o) => o.key === key)
     if (option) {
       refreshPhotoList({
-        sortBy: option.sortBy,
-        sortOrder: option.sortOrder,
-        shuffle: false,
+        sortBy: option.sortBy ?? null,
+        sortOrder: option.sortOrder ?? null,
+        shuffle: option.shuffle ?? false,
       })
     }
   }
