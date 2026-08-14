@@ -25,7 +25,16 @@ import { PhotoFavoriteEnum } from "@/server/enums/photo-enum"
 import { photoFavorite, photoRecycle } from "@/request/photo"
 import { albumAddPhoto } from "@/request/album"
 import { usePhotoStore } from "@/store/photo-store"
-import { ImageIcon, LayoutGrid, Plus, Sparkles } from "lucide-react"
+import { ArrowUpDown, ChevronDown, ImageIcon, LayoutGrid, Plus, Sparkles } from "lucide-react"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { PhotoDateDrawer } from "@/components/photo/photo-date-drawer"
 import { PhotoMasonrySkeleton } from "@/components/photo/photo-masonry-skeleton"
 import { BackToTopButton } from "@/components/ui/back-to-top-button"
@@ -49,6 +58,19 @@ const InfiniteGallery = dynamic(
   { ssr: false }
 )
 
+type SortOptionKey = 'takenTime_desc' | 'takenTime_asc' | 'createTime_desc' | 'createTime_asc' | 'size_desc' | 'size_asc' | 'name_asc' | 'name_desc'
+
+const SORT_OPTIONS: { key: SortOptionKey; label: string; sortBy: 'takenTime' | 'createTime' | 'size' | 'name'; sortOrder: 'asc' | 'desc' }[] = [
+  { key: 'takenTime_desc', label: 'Tanggal Foto (Terbaru)', sortBy: 'takenTime', sortOrder: 'desc' },
+  { key: 'takenTime_asc', label: 'Tanggal Foto (Terlama)', sortBy: 'takenTime', sortOrder: 'asc' },
+  { key: 'createTime_desc', label: 'Terakhir Ditambahkan', sortBy: 'createTime', sortOrder: 'desc' },
+  { key: 'createTime_asc', label: 'Pertama Ditambahkan', sortBy: 'createTime', sortOrder: 'asc' },
+  { key: 'size_desc', label: 'Ukuran Berkas (Terbesar)', sortBy: 'size', sortOrder: 'desc' },
+  { key: 'size_asc', label: 'Ukuran Berkas (Terkecil)', sortBy: 'size', sortOrder: 'asc' },
+  { key: 'name_asc', label: 'Nama Foto (A - Z)', sortBy: 'name', sortOrder: 'asc' },
+  { key: 'name_desc', label: 'Nama Foto (Z - A)', sortBy: 'name', sortOrder: 'desc' },
+]
+
 // Render photo list page with Masonry & Infinite Canvas mode support.
 export default function Page() {
   const t = useTranslations("photos")
@@ -58,6 +80,7 @@ export default function Page() {
 
   const [isBrowser, setIsBrowser] = useState(false)
   const [viewMode, setViewMode] = useState<"masonry" | "infinite">("infinite")
+  const [sortKey, setSortKey] = useState<SortOptionKey>("takenTime_desc")
 
   const {
     photos,
@@ -69,6 +92,18 @@ export default function Page() {
     prependPhotos,
     removePhotos,
   } = usePhotoList({}, PHOTO_LIST_PAGE_SIZE, initialPhotos)
+
+  const handleSortChange = (key: SortOptionKey) => {
+    setSortKey(key)
+    const option = SORT_OPTIONS.find((o) => o.key === key)
+    if (option) {
+      refreshPhotoList({
+        sortBy: option.sortBy,
+        sortOrder: option.sortOrder,
+        shuffle: false,
+      })
+    }
+  }
 
   const [modelPhotoIndex, setModelPhotoIndex] = useState(0)
   const [showPhotoViewer, setShowPhotoViewer] = useState(false)
@@ -230,6 +265,45 @@ export default function Page() {
                 <ImageIcon className="size-3.5 text-primary" />
                 <span>{totalCount}</span>
               </div>
+
+              {/* Sort By Dropdown Menu */}
+              <DropdownMenu>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-8 gap-1.5 px-2.5 text-xs font-semibold rounded-lg shadow-2xs border-border/60"
+                        >
+                          <ArrowUpDown className="size-3.5 text-primary shrink-0" />
+                          <span className="hidden md:inline-block max-w-[140px] truncate">
+                            {SORT_OPTIONS.find((o) => o.key === sortKey)?.label || "Urutkan"}
+                          </span>
+                          <ChevronDown className="size-3 text-muted-foreground" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom">Urutkan Foto Galeri</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+
+                <DropdownMenuContent align="end" className="w-56 z-[50]">
+                  <DropdownMenuLabel className="text-xs text-muted-foreground font-semibold px-2 py-1.5">
+                    Urutkan Berdasarkan
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuRadioGroup value={sortKey} onValueChange={(val) => handleSortChange(val as SortOptionKey)}>
+                    {SORT_OPTIONS.map((opt) => (
+                      <DropdownMenuRadioItem key={opt.key} value={opt.key} className="text-xs font-medium cursor-pointer py-1.5">
+                        {opt.label}
+                      </DropdownMenuRadioItem>
+                    ))}
+                  </DropdownMenuRadioGroup>
+                </DropdownMenuContent>
+              </DropdownMenu>
 
               <PhotoDateDrawer onRangeChange={changePhotoTime} />
               {userInfo && (
