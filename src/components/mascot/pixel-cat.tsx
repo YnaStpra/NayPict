@@ -1,17 +1,31 @@
 'use client'
 
 import React, { useState, useEffect, useRef, useCallback } from 'react'
+import { usePathname } from 'next/navigation'
 
 // Kuro's easter egg speech bubble messages
-const KURO_MESSAGES = [
+const KURO_MESSAGES_GENERAL = [
   "Meow! Hi, I'm Kuro the black-grey tabby cat! 🐾",
   "Nom nom... Kuro just caught a yummy fish! 🐟",
   "Wheee! Kuro is chasing a cute butterfly! 🦋",
   "Mmm... Kuro loves sniffing fresh flowers ~ 🌸",
-  "Boing! Kuro loves patrolling the top navbar! 📸",
+  "Boing! Kuro loves patrolling NayPict! 📸",
   "Purrr... NayPict gallery is Kuro's favorite spot! 💖",
-  "Meow! Kuro is taking a cozy cat nap on the header 💤",
   "Purrrr... Click Kuro anytime for random fun! ✨",
+]
+
+const KURO_MESSAGES_LANDING = [
+  "Meow! Welcome to NayPict! Explore the gallery or browse albums! 📸",
+  "Purrr... Kuro is chilling right on top of the hero card! ✨",
+  "Meow! Click any button below to get started! 🚀",
+  "Purrrr... Kuro loves this infinite floating canvas! 🎨",
+]
+
+const KURO_MESSAGES_PREVIEW = [
+  "Purrr... Kuro loves watching this photo preview with you! 📸",
+  "Meow! What a gorgeous photo! ✨",
+  "Purrrr... Kuro is sitting right under your photo ~ 🐱",
+  "Nom nom... Kuro brought a fish to eat while viewing photos! 🐟",
 ]
 
 type CatState =
@@ -28,33 +42,59 @@ type CatState =
   | 'jump'
 
 export function PixelCat() {
+  const pathname = usePathname()
+  const isLandingPage = pathname === '/'
+  const [isLightboxOpen, setIsLightboxOpen] = useState<boolean>(false)
+
   const [catState, setCatState] = useState<CatState>('idle')
-  const [posX, setPosX] = useState<number>(180)
+  const [posX, setPosX] = useState<number>(0)
   const [bubbleText, setBubbleText] = useState<string | null>(null)
   const [isJumping, setIsJumping] = useState<boolean>(false)
   const [animFrame, setAnimFrame] = useState<number>(0)
 
-  const posXRef = useRef<number>(180)
-  const targetXRef = useRef<number>(180)
+  const posXRef = useRef<number>(0)
+  const targetXRef = useRef<number>(0)
   const animFrameIdRef = useRef<number | null>(null)
   const bubbleTimerRef = useRef<NodeJS.Timeout | null>(null)
 
-  // Calculate screen bounds for navbar territory
+  // Listen to Lightbox photo preview modal open/close
+  useEffect(() => {
+    const checkLightbox = () => {
+      const portal = document.querySelector('.yarl__portal')
+      setIsLightboxOpen(!!portal)
+    }
+
+    checkLightbox()
+    const observer = new MutationObserver(checkLightbox)
+    observer.observe(document.body, { childList: true, subtree: true })
+    return () => observer.disconnect()
+  }, [])
+
+  // Calculate territory bounds depending on current mode
   const getBounds = useCallback(() => {
+    if (isLightboxOpen) {
+      // Under preview photo (relative offset from center: -140px to +140px)
+      return { minX: -140, maxX: 140, isRelative: true }
+    }
+    if (isLandingPage) {
+      // On top of Landing Hero Card (relative offset from center: -120px to +120px)
+      return { minX: -120, maxX: 120, isRelative: true }
+    }
+    // Default Navbar mode (absolute screen X: 140px to window.innerWidth - 200px)
     const screenWidth = typeof window !== 'undefined' ? window.innerWidth : 800
     const minX = screenWidth < 640 ? 60 : 140
     const maxX = Math.max(minX + 80, screenWidth - (screenWidth < 640 ? 90 : 200))
-    return { minX, maxX }
-  }, [])
+    return { minX, maxX, isRelative: false }
+  }, [isLightboxOpen, isLandingPage])
 
-  // Initialize position on client mount
+  // Reset position when mode changes
   useEffect(() => {
-    const { minX, maxX } = getBounds()
-    const startX = Math.min(Math.max(minX, 180), maxX)
+    const { minX, maxX, isRelative } = getBounds()
+    const startX = isRelative ? 0 : Math.min(Math.max(minX, 180), maxX)
     setPosX(startX)
     posXRef.current = startX
     targetXRef.current = startX
-  }, [getBounds])
+  }, [isLightboxOpen, isLandingPage, getBounds])
 
   // Leg movement frame toggle
   useEffect(() => {
@@ -68,7 +108,7 @@ export function PixelCat() {
     return () => clearInterval(interval)
   }, [catState])
 
-  // Real-Time Smooth Movement Engine using requestAnimationFrame
+  // Real-Time Smooth Movement Engine (60 FPS)
   useEffect(() => {
     const moveLoop = () => {
       const isMoving = catState.startsWith('walk') || catState.startsWith('run')
@@ -114,7 +154,7 @@ export function PixelCat() {
       const rand = Math.random()
 
       if (rand < 0.55) {
-        // Pick new target destination across navbar
+        // Pick new target destination within active territory bounds
         const newTarget = Math.floor(Math.random() * (maxX - minX)) + minX
         targetXRef.current = newTarget
         const isRun = Math.random() < 0.35
@@ -147,7 +187,15 @@ export function PixelCat() {
     const pickedState = states[Math.floor(Math.random() * states.length)]
     setCatState(pickedState)
 
-    const randomMsg = KURO_MESSAGES[Math.floor(Math.random() * KURO_MESSAGES.length)]
+    // Select context-aware message pool
+    let pool = KURO_MESSAGES_GENERAL
+    if (isLightboxOpen) {
+      pool = KURO_MESSAGES_PREVIEW
+    } else if (isLandingPage) {
+      pool = KURO_MESSAGES_LANDING
+    }
+
+    const randomMsg = pool[Math.floor(Math.random() * pool.length)]
     setBubbleText(randomMsg)
 
     if (bubbleTimerRef.current) clearTimeout(bubbleTimerRef.current)
@@ -156,15 +204,43 @@ export function PixelCat() {
       setBubbleText(null)
       setCatState('idle')
     }, 4500)
-  }, [])
+  }, [isLightboxOpen, isLandingPage])
+
+  // Determine dynamic container style based on active context
+  const getContainerStyle = (): { className: string; style: React.CSSProperties } => {
+    if (isLightboxOpen) {
+      // Photo Preview Mode: Under preview photo at bottom of screen (z-[1000000] above Lightbox)
+      return {
+        className: 'fixed bottom-4 left-1/2 z-[1000000] flex flex-col items-center select-none pointer-events-auto',
+        style: {
+          transform: `translateX(calc(-50% + ${posX}px))`,
+        },
+      }
+    }
+
+    if (isLandingPage) {
+      // Landing Page Mode: On top of floating Hero Title Card (z-[99999])
+      return {
+        className: 'fixed top-1/2 left-1/2 z-[99999] flex flex-col items-center select-none pointer-events-auto',
+        style: {
+          transform: `translate(calc(-50% + ${posX}px), -195px)`,
+        },
+      }
+    }
+
+    // Default Navbar Mode: Top header bar (z-[99999])
+    return {
+      className: 'fixed top-1 z-[99999] flex flex-col items-center select-none pointer-events-auto',
+      style: {
+        left: `${posX}px`,
+      },
+    }
+  }
+
+  const containerConfig = getContainerStyle()
 
   return (
-    <div
-      className="fixed top-1 z-[99999] flex flex-col items-center select-none pointer-events-auto"
-      style={{
-        left: `${posX}px`,
-      }}
-    >
+    <div className={containerConfig.className} style={containerConfig.style}>
       {/* Easter Egg Speech Bubble with Dynamic Text Wrap & Overflow Prevention */}
       {bubbleText && (
         <div className="absolute top-11 left-1/2 -translate-x-1/2 px-3.5 py-2 rounded-2xl bg-black/90 text-white text-xs font-semibold backdrop-blur-md border border-white/20 shadow-xl w-max max-w-[260px] sm:max-w-[320px] text-center animate-in fade-in zoom-in-95 duration-200 z-50 leading-snug break-words">
