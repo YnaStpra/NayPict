@@ -572,137 +572,85 @@ export function PixelMascots() {
             </div>
           )}
 
-          {/* SVG C (PRINCESS PEACH 24x24 PIXEL ART MATCHING EXACT REFERENCE SPRITE SHEET) */}
-          <svg width="42" height="42" viewBox="0 0 24 24" className="drop-shadow-md" style={{ imageRendering: 'pixelated' }}>
-            {isCMoving ? (
-              /* TOP ROW OF REFERENCE: SIDE PROFILE WALKING GAIT */
+          {/* SVG C (100% IDENTICAL TO USER REFERENCE IMAGE PIXEL ART) */}
+          <svg width="42" height="70" viewBox="0 0 38 68" className="drop-shadow-md" style={{ imageRendering: 'pixelated' }}>
+            {/* === BLACK OUTLINE & BASE SHAPE === */}
+            {/* Crown Spikes */}
+            <rect x="14" y="2" width="10" height="7" fill="#000000" />
+            <rect x="15" y="3" width="8" height="5" fill="#f5a623" />
+            <rect x="18" y="4" width="2" height="3" fill="#e60000" />
+            <rect x="15" y="4" width="2" height="2" fill="#0091ff" />
+            <rect x="21" y="4" width="2" height="2" fill="#0091ff" />
+
+            {/* Hair Flaring Outline & Golden Yellow Fill */}
+            {/* Top Hair Dome */}
+            <path d="M 10 7 L 28 7 L 31 10 L 33 14 L 35 17 L 32 17 L 36 21 L 30 21 L 33 26 L 29 26 L 31 33 L 7 33 L 9 26 L 5 26 L 8 21 L 2 21 L 6 17 L 3 17 L 5 14 L 7 10 Z" fill="#ffe57f" stroke="#000000" strokeWidth="1" />
+
+            {/* Cyan Earrings */}
+            <rect x="12" y="20" width="3" height="3" rx="1" fill="#0091ff" stroke="#000000" strokeWidth="0.5" />
+            <rect x="23" y="20" width="3" height="3" rx="1" fill="#0091ff" stroke="#000000" strokeWidth="0.5" />
+
+            {/* Peach Face Front */}
+            <rect x="14" y="10" width="10" height="11" fill="#fedac2" />
+            {/* Black Eyebrows */}
+            <rect x="15" y="11" width="3" height="1" fill="#000000" />
+            <rect x="20" y="11" width="3" height="1" fill="#000000" />
+            {/* Ocean Blue Eyes */}
+            <rect x="15" y="13" width="3" height="4" fill="#0091ff" stroke="#000000" strokeWidth="0.5" />
+            <rect x="16" y="13" width="1" height="2" fill="#000000" />
+            <rect x="20" y="13" width="3" height="4" fill="#0091ff" stroke="#000000" strokeWidth="0.5" />
+            <rect x="21" y="13" width="1" height="2" fill="#000000" />
+            {/* Nose Dot */}
+            <rect x="18.5" y="17" width="1" height="1.5" fill="#000000" />
+            {/* Red Lips */}
+            <rect x="17.5" y="19" width="3" height="1" fill="#e60000" />
+
+            {/* Light Pink Puff Sleeves & Bodice */}
+            <rect x="10" y="22" width="6" height="5" rx="1" fill="#ff9ebb" stroke="#000000" strokeWidth="1" />
+            <rect x="22" y="22" width="6" height="5" rx="1" fill="#ff9ebb" stroke="#000000" strokeWidth="1" />
+
+            {/* Cyan Brooch with Gold Ring */}
+            <ellipse cx="19" cy="24" rx="2.5" ry="3" fill="#0091ff" stroke="#f5a623" strokeWidth="1" />
+
+            {/* White V-Lace Bodice Panel */}
+            <path d="M 16 26 L 22 26 L 20 33 L 18 33 Z" fill="#ffffff" stroke="#000000" strokeWidth="0.5" />
+
+            {/* Hot Pink Hip Peplum / Panniers */}
+            <path d="M 9 32 C 9 32, 14 30, 18 33 C 14 38, 9 37, 9 32 Z" fill="#ff3b7c" stroke="#000000" strokeWidth="1" />
+            <path d="M 29 32 C 29 32, 24 30, 20 33 C 24 38, 29 37, 29 32 Z" fill="#ff3b7c" stroke="#000000" strokeWidth="1" strokeLinecap="round" />
+
+            {/* Long White Gloves */}
+            {cState === 'wave' ? (
               <g>
-                {/* Gold Crown */}
-                <rect x="8" y="1" width="6" height="3" fill="#ffcc00" />
-                <rect x="8" y="1" width="1" height="1" fill="#ef4444" />
-                <rect x="13" y="1" width="1" height="1" fill="#ef4444" />
-                <rect x="10" y="1" width="2" height="1" fill="#00ccff" />
-
-                {/* Voluminous Golden Hair */}
-                <rect x="5" y="4" width="10" height="7" fill="#ffcc00" />
-                <rect x="4" y="5" width="3" height="9" fill="#ff9900" />
-                <rect x="3" y="7" width="3" height="8" fill="#e68a00" />
-
-                {/* Cyan Earring */}
-                <rect x="7" y="9" width="2" height="2" fill="#00ccff" />
-
-                {/* Peach Face Profile */}
-                <rect x="8" y="4" width="7" height="6" fill="#ffe0b2" />
-                {/* Big Blue Eye */}
-                <rect x="11" y="6" width="3" height="3" fill="#0099ff" />
-                <rect x="12" y="6" width="1" height="2" fill="#000000" />
-                {/* Smile */}
-                <rect x="13" y="9" width="2" height="1" fill="#ff3366" />
-
-                {/* Light Pink Puff Sleeve & Collar */}
-                <rect x="7" y="10" width="8" height="3" fill="#ff66b2" />
-                {/* Cyan Brooch */}
-                <rect x="11" y="11" width="2" height="2" fill="#00ccff" />
-
-                {/* Magenta-Pink Gown */}
-                <rect x="6" y="13" width="10" height="9" fill="#e60073" />
-                <rect x="5" y="15" width="12" height="7" fill="#d81b60" />
-                {/* Gown Fold Details */}
-                <rect x="7" y="16" width="2" height="6" fill="#b30059" />
-                <rect x="12" y="16" width="2" height="6" fill="#b30059" />
-
-                {/* Long White Evening Glove & Hand Movement */}
-                <rect x={animFrame === 0 ? "11" : "13"} y="12" width="3" height="4" rx="1" fill="#ffffff" />
-                <rect x={animFrame === 0 ? "8" : "6"} y="13" width="3" height="3" rx="1" fill="#ffffff" />
-              </g>
-            ) : cState === 'wave' || cState === 'pet-kuro' ? (
-              /* BOTTOM ROW OF REFERENCE: FRONT VIEW WAVING HAND */
-              <g>
-                {/* Gold Crown */}
-                <rect x="9" y="1" width="6" height="3" fill="#ffcc00" />
-                <rect x="9" y="1" width="1" height="1" fill="#ef4444" />
-                <rect x="14" y="1" width="1" height="1" fill="#ef4444" />
-                <rect x="11" y="1" width="2" height="1" fill="#00ccff" />
-
-                {/* Golden Hair */}
-                <rect x="5" y="4" width="14" height="6" fill="#ffcc00" />
-                <rect x="4" y="6" width="3" height="8" fill="#ff9900" />
-                <rect x="17" y="6" width="3" height="8" fill="#ff9900" />
-
-                {/* Cyan Earrings */}
-                <rect x="5" y="8" width="2" height="2" fill="#00ccff" />
-                <rect x="17" y="8" width="2" height="2" fill="#00ccff" />
-
-                {/* Peach Face Front */}
-                <rect x="7" y="4" width="10" height="6" fill="#ffe0b2" />
-                {/* Blue Eyes */}
-                <rect x="8" y="6" width="2" height="2" fill="#0099ff" />
-                <rect x="8" y="6" width="1" height="1" fill="#000000" />
-                <rect x="14" y="6" width="2" height="2" fill="#0099ff" />
-                <rect x="15" y="6" width="1" height="1" fill="#000000" />
-                {/* Cheerful Smile */}
-                <rect x="10" y="8" width="4" height="1" fill="#ff3366" />
-
-                {/* Light Pink Puff Collar */}
-                <rect x="6" y="10" width="12" height="3" fill="#ff66b2" />
-                {/* Cyan Chest Brooch */}
-                <rect x="11" y="10" width="2" height="2" fill="#00ccff" />
-
-                {/* Magenta-Pink Gown */}
-                <rect x="5" y="13" width="14" height="9" fill="#e60073" />
-                <rect x="4" y="16" width="16" height="6" fill="#d81b60" />
-                <rect x="7" y="16" width="2" height="6" fill="#b30059" />
-                <rect x="15" y="16" width="2" height="6" fill="#b30059" />
-
-                {/* Waving Hand with Long White Glove */}
-                <g className={animFrame === 0 ? "translate-y-0" : "-translate-y-1"}>
-                  <rect x="17" y="5" width="3" height="6" rx="1" fill="#ffffff" />
-                </g>
-                <rect x="4" y="12" width="3" height="4" rx="1" fill="#ffffff" />
+                <path d="M 7 30 L 10 26 L 11 36 L 8 36 Z" fill="#ffffff" stroke="#000000" strokeWidth="1" />
+                {/* Waving Arm Raised */}
+                <path d="M 28 26 L 31 16 L 33 16 L 30 26 Z" fill="#ffffff" stroke="#000000" strokeWidth="1" />
               </g>
             ) : (
-              /* BOTTOM ROW OF REFERENCE: FRONT VIEW IDLE (HANDS CLASPED WITH WHITE GLOVES) */
               <g>
-                {/* Gold Crown */}
-                <rect x="9" y="1" width="6" height="3" fill="#ffcc00" />
-                <rect x="9" y="1" width="1" height="1" fill="#ef4444" />
-                <rect x="14" y="1" width="1" height="1" fill="#ef4444" />
-                <rect x="11" y="1" width="2" height="1" fill="#00ccff" />
-
-                {/* Golden Hair */}
-                <rect x="5" y="4" width="14" height="6" fill="#ffcc00" />
-                <rect x="4" y="6" width="3" height="8" fill="#ff9900" />
-                <rect x="17" y="6" width="3" height="8" fill="#ff9900" />
-
-                {/* Cyan Earrings */}
-                <rect x="5" y="8" width="2" height="2" fill="#00ccff" />
-                <rect x="17" y="8" width="2" height="2" fill="#00ccff" />
-
-                {/* Peach Face Front */}
-                <rect x="7" y="4" width="10" height="6" fill="#ffe0b2" />
-                {/* Blue Eyes */}
-                <rect x="8" y="6" width="2" height="2" fill="#0099ff" />
-                <rect x="8" y="6" width="1" height="1" fill="#000000" />
-                <rect x="14" y="6" width="2" height="2" fill="#0099ff" />
-                <rect x="15" y="6" width="1" height="1" fill="#000000" />
-                {/* Cheerful Smile */}
-                <rect x="10" y="8" width="4" height="1" fill="#ff3366" />
-
-                {/* Light Pink Puff Collar */}
-                <rect x="6" y="10" width="12" height="3" fill="#ff66b2" />
-                {/* Cyan Chest Brooch */}
-                <rect x="11" y="10" width="2" height="2" fill="#00ccff" />
-
-                {/* Magenta-Pink Gown */}
-                <rect x="5" y="13" width="14" height="9" fill="#e60073" />
-                <rect x="4" y="16" width="16" height="6" fill="#d81b60" />
-                <rect x="7" y="16" width="2" height="6" fill="#b30059" />
-                <rect x="15" y="16" width="2" height="6" fill="#b30059" />
-
-                {/* Clasped Long White Evening Gloves */}
-                <rect x="9" y="12" width="6" height="3" rx="1" fill="#ffffff" />
+                <path d="M 7 30 L 10 26 L 11 38 L 8 38 Z" fill="#ffffff" stroke="#000000" strokeWidth="1" />
+                <path d="M 31 30 L 28 26 L 27 38 L 30 38 Z" fill="#ffffff" stroke="#000000" strokeWidth="1" />
               </g>
             )}
+
+            {/* Main Sweeping Gown Skirt */}
+            {/* Outer Skirt Mid-Pink */}
+            <path d="M 8 34 L 30 34 L 36 64 L 2 64 Z" fill="#f06292" stroke="#000000" strokeWidth="1" />
+            {/* Center Panel Pastel Pink */}
+            <path d="M 16 33 L 22 33 L 26 64 L 12 64 Z" fill="#ff9ebb" />
+
+            {/* Flanking White Lace Trim Borders */}
+            <path d="M 15 33 L 16 33 L 13 64 L 11 64 Z" fill="#ffffff" />
+            <path d="M 22 33 L 23 33 L 27 64 L 25 64 Z" fill="#ffffff" />
+
+            {/* Gold Embroidery Pattern along Trim */}
+            <path d="M 14 34 L 15 34 L 12 64 L 11.5 64 Z" fill="#ffc107" />
+            <path d="M 23 34 L 24 34 L 26.5 64 L 26 64 Z" fill="#ffc107" />
+
+            {/* Bottom Hem White Lace & Gold Embroidery */}
+            <path d="M 2 62 L 36 62 L 37 66 L 1 66 Z" fill="#ffffff" stroke="#000000" strokeWidth="0.5" />
+            <path d="M 2 65 L 36 65 L 36 67 L 2 67 Z" fill="#ff3b7c" />
+            <path d="M 3 66 L 35 66 L 35 67 L 3 67 Z" fill="#ffc107" />
           </svg>
         </button>
       </div>
