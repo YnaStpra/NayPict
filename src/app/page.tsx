@@ -43,7 +43,7 @@ export default function Home() {
 
       {/* Floating Centered Hero Card */}
       <div className="fixed inset-0 z-20 flex items-center justify-center p-4 pointer-events-none">
-        <div className="pointer-events-auto max-w-sm sm:max-w-md w-full rounded-3xl bg-black/45 backdrop-blur-2xl border border-white/20 shadow-2xl p-6 sm:p-8 text-center text-white flex flex-col items-center gap-6 animate-in fade-in zoom-in-95 duration-500">
+        <div id="landing-hero-card" className="pointer-events-auto max-w-sm sm:max-w-md w-full rounded-3xl bg-black/45 backdrop-blur-2xl border border-white/20 shadow-2xl p-6 sm:p-8 text-center text-white flex flex-col items-center gap-6 animate-in fade-in zoom-in-95 duration-500">
           
           {/* Logo & Icon */}
           <div className="relative">

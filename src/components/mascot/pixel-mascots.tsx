@@ -323,9 +323,20 @@ export function PixelMascots() {
       }
     }
     if (isLandingPage) {
+      // Landing Page Mode: Standing exactly on top of the hero card's top border line as their ground
+      const cardEl = typeof document !== 'undefined' ? document.getElementById('landing-hero-card') : null
+      const cardRect = cardEl ? cardEl.getBoundingClientRect() : null
+      const topY = cardRect ? cardRect.top - 36 : undefined
+
       return {
-        className: 'fixed top-1/2 left-1/2 z-[99999] flex flex-col items-center select-none pointer-events-auto',
-        style: { transform: `translate(calc(-50% + ${x}px), -195px)` },
+        className: 'fixed left-1/2 z-[99999] flex flex-col items-center select-none pointer-events-auto',
+        style: cardRect && topY !== undefined ? {
+          top: `${topY}px`,
+          transform: `translateX(calc(-50% + ${x}px))`,
+        } : {
+          top: '50%',
+          transform: `translate(calc(-50% + ${x}px), -245px)`,
+        },
       }
     }
     return {
