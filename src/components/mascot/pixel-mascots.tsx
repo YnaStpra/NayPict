@@ -376,6 +376,29 @@ export function PixelMascots() {
   const isKuroMoving = kuroState.startsWith('walk') || kuroState.startsWith('run')
   const isCMoving = cState.startsWith('walk') || cState.startsWith('run')
 
+  const isDuoBubble = Boolean(kuroBubble && cBubble)
+  const isKuroLeft = kuroX <= cX
+
+  // Dynamic non-overlapping speech bubble styling for Kuro
+  const getKuroBubbleClass = () => {
+    if (isDuoBubble) {
+      return isKuroLeft
+        ? 'absolute top-11 right-3 px-2.5 sm:px-3 py-1.5 rounded-2xl bg-black/90 text-white text-[11px] sm:text-xs font-semibold backdrop-blur-md border border-white/20 shadow-xl w-max max-w-[160px] sm:max-w-[220px] text-center animate-in fade-in zoom-in-95 duration-200 z-50 leading-tight sm:leading-snug break-words'
+        : 'absolute top-20 left-3 px-2.5 sm:px-3 py-1.5 rounded-2xl bg-black/90 text-white text-[11px] sm:text-xs font-semibold backdrop-blur-md border border-white/20 shadow-xl w-max max-w-[160px] sm:max-w-[220px] text-center animate-in fade-in zoom-in-95 duration-200 z-50 leading-tight sm:leading-snug break-words'
+    }
+    return 'absolute top-11 left-1/2 -translate-x-1/2 px-2.5 sm:px-3 py-1.5 rounded-2xl bg-black/90 text-white text-[11px] sm:text-xs font-semibold backdrop-blur-md border border-white/20 shadow-xl w-max max-w-[190px] sm:max-w-[280px] text-center animate-in fade-in zoom-in-95 duration-200 z-50 leading-tight sm:leading-snug break-words'
+  }
+
+  // Dynamic non-overlapping speech bubble styling for C
+  const getCBubbleClass = () => {
+    if (isDuoBubble) {
+      return isKuroLeft
+        ? 'absolute top-20 left-3 px-2.5 sm:px-3 py-1.5 rounded-2xl bg-black/90 text-white text-[11px] sm:text-xs font-semibold backdrop-blur-md border border-pink-400/40 shadow-xl w-max max-w-[160px] sm:max-w-[220px] text-center animate-in fade-in zoom-in-95 duration-200 z-50 leading-tight sm:leading-snug break-words'
+        : 'absolute top-11 right-3 px-2.5 sm:px-3 py-1.5 rounded-2xl bg-black/90 text-white text-[11px] sm:text-xs font-semibold backdrop-blur-md border border-pink-400/40 shadow-xl w-max max-w-[160px] sm:max-w-[220px] text-center animate-in fade-in zoom-in-95 duration-200 z-50 leading-tight sm:leading-snug break-words'
+    }
+    return 'absolute top-11 left-1/2 -translate-x-1/2 px-2.5 sm:px-3 py-1.5 rounded-2xl bg-black/90 text-white text-[11px] sm:text-xs font-semibold backdrop-blur-md border border-pink-400/40 shadow-xl w-max max-w-[190px] sm:max-w-[280px] text-center animate-in fade-in zoom-in-95 duration-200 z-50 leading-tight sm:leading-snug break-words'
+  }
+
   return (
     <>
       {/* ========================================== */}
@@ -383,7 +406,7 @@ export function PixelMascots() {
       {/* ========================================== */}
       <div className={kuroStyle.className} style={kuroStyle.style}>
         {kuroBubble && (
-          <div className="absolute top-11 left-1/2 -translate-x-1/2 px-2.5 sm:px-3 py-1.5 rounded-2xl bg-black/90 text-white text-[11px] sm:text-xs font-semibold backdrop-blur-md border border-white/20 shadow-xl w-max max-w-[190px] sm:max-w-[280px] text-center animate-in fade-in zoom-in-95 duration-200 z-50 leading-tight sm:leading-snug break-words">
+          <div className={getKuroBubbleClass()}>
             <div className="absolute left-1/2 -top-1 -translate-x-1/2 w-2 h-2 bg-black/90 border-l border-t border-white/20 rotate-45" />
             {kuroBubble}
           </div>
@@ -506,7 +529,7 @@ export function PixelMascots() {
       {/* ========================================== */}
       <div className={cStyle.className} style={cStyle.style}>
         {cBubble && (
-          <div className="absolute top-11 left-1/2 -translate-x-1/2 px-2.5 sm:px-3 py-1.5 rounded-2xl bg-black/90 text-white text-[11px] sm:text-xs font-semibold backdrop-blur-md border border-pink-400/40 shadow-xl w-max max-w-[190px] sm:max-w-[280px] text-center animate-in fade-in zoom-in-95 duration-200 z-50 leading-tight sm:leading-snug break-words">
+          <div className={getCBubbleClass()}>
             <div className="absolute left-1/2 -top-1 -translate-x-1/2 w-2 h-2 bg-black/90 border-l border-t border-pink-400/40 rotate-45" />
             {cBubble}
           </div>
