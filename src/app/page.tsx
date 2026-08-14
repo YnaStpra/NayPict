@@ -73,18 +73,18 @@ export default function Home() {
                 <ImageIcon className="size-5" />
                 <span>Explore Gallery</span>
               </div>
-              <ArrowRight className="size-4 opacity-75 group-hover:translate-x-1 transition-transform" />
+              <ArrowRight className="size-4 opacity-80 group-hover:translate-x-1 transition-transform" />
             </Link>
 
             <Link
               href="/albums"
-              className="group relative flex items-center justify-between w-full h-12 px-5 rounded-2xl bg-white/10 hover:bg-white/20 border border-white/20 text-white font-bold text-sm sm:text-base backdrop-blur-md hover:scale-[1.02] active:scale-[0.98] transition-all duration-200"
+              className="group relative flex items-center justify-between w-full h-12 px-5 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-bold text-sm sm:text-base shadow-lg shadow-emerald-950/40 hover:shadow-emerald-500/30 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200"
             >
               <div className="flex items-center gap-3">
-                <FolderHeart className="size-5 text-amber-300" />
+                <FolderHeart className="size-5" />
                 <span>Browse Albums</span>
               </div>
-              <ArrowRight className="size-4 opacity-75 group-hover:translate-x-1 transition-transform" />
+              <ArrowRight className="size-4 opacity-80 group-hover:translate-x-1 transition-transform" />
             </Link>
           </div>
 
