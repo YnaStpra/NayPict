@@ -50,12 +50,6 @@ export async function proxy(req: NextRequest) {
 
   const { pathname } = req.nextUrl;
 
-  if (pathname === '/') {
-    const url = req.nextUrl.clone();
-    url.pathname = '/photos';
-    return NextResponse.redirect(url);
-  }
-
   const cookie = req.headers.get('cookie');
   const { userId, uuid } = await getLoginInfo(cookie);
 
