@@ -79,6 +79,8 @@ type HumanState =
   | 'pet-kuro'
   | 'jump'
 
+type FacingDirection = 'left' | 'right'
+
 export function PixelMascots() {
   const pathname = usePathname()
   const isLandingPage = pathname === '/'
@@ -87,12 +89,14 @@ export function PixelMascots() {
   // Kuro State
   const [kuroState, setKuroState] = useState<CatState>('idle')
   const [kuroX, setKuroX] = useState<number>(0)
+  const [kuroFacing, setKuroFacing] = useState<FacingDirection>('right')
   const [kuroBubble, setKuroBubble] = useState<string | null>(null)
   const [kuroJumping, setKuroJumping] = useState<boolean>(false)
 
   // C (Princess Peach) State
   const [cState, setCState] = useState<HumanState>('idle')
   const [cX, setCX] = useState<number>(60)
+  const [cFacing, setCFacing] = useState<FacingDirection>('right')
   const [cBubble, setCBubble] = useState<string | null>(null)
   const [cJumping, setCJumping] = useState<boolean>(false)
 
@@ -107,6 +111,24 @@ export function PixelMascots() {
   const animFrameIdRef = useRef<number | null>(null)
   const kuroTimerRef = useRef<NodeJS.Timeout | null>(null)
   const cTimerRef = useRef<NodeJS.Timeout | null>(null)
+
+  // Track directional facing for Kuro
+  useEffect(() => {
+    if (kuroState === 'walk-left' || kuroState === 'run-left') {
+      setKuroFacing('left')
+    } else if (kuroState === 'walk-right' || kuroState === 'run-right') {
+      setKuroFacing('right')
+    }
+  }, [kuroState])
+
+  // Track directional facing for C
+  useEffect(() => {
+    if (cState === 'walk-left' || cState === 'run-left') {
+      setCFacing('left')
+    } else if (cState === 'walk-right' || cState === 'run-right') {
+      setCFacing('right')
+    }
+  }, [cState])
 
   // Detect Lightbox Photo Viewer
   useEffect(() => {
@@ -162,11 +184,11 @@ export function PixelMascots() {
     }
   }, [isLightboxOpen, isLandingPage, getBounds])
 
-  // Animation leg/arm frame switcher
+  // Animation leg/arm frame switcher (fast for smooth gait)
   useEffect(() => {
     const interval = setInterval(() => {
       setAnimFrame((prev) => (prev === 0 ? 1 : 0))
-    }, 180)
+    }, 150)
     return () => clearInterval(interval)
   }, [])
 
@@ -241,7 +263,6 @@ export function PixelMascots() {
       if (!kuroBubble && !kuroState.startsWith('walk') && !kuroState.startsWith('run')) {
         if (Math.random() < 0.5) {
           let newTargetK = Math.floor(Math.random() * (maxX - minX)) + minX
-          // Prevent stepping directly on C
           if (Math.abs(newTargetK - cXRef.current) < 45) {
             newTargetK = newTargetK < cXRef.current ? newTargetK - 50 : newTargetK + 50
             newTargetK = Math.min(Math.max(minX, newTargetK), maxX)
@@ -259,7 +280,6 @@ export function PixelMascots() {
       if (!cBubble && !cState.startsWith('walk') && !cState.startsWith('run')) {
         if (Math.random() < 0.5) {
           let newTargetC = Math.floor(Math.random() * (maxX - minX)) + minX
-          // Prevent stepping directly on Kuro
           if (Math.abs(newTargetC - kuroXRef.current) < 45) {
             newTargetC = newTargetC < kuroXRef.current ? newTargetC - 50 : newTargetC + 50
             newTargetC = Math.min(Math.max(minX, newTargetC), maxX)
@@ -353,6 +373,9 @@ export function PixelMascots() {
   const kuroStyle = getContainerStyle(kuroX)
   const cStyle = getContainerStyle(cX)
 
+  const isKuroMoving = kuroState.startsWith('walk') || kuroState.startsWith('run')
+  const isCMoving = cState.startsWith('walk') || cState.startsWith('run')
+
   return (
     <>
       {/* ========================================== */}
@@ -370,9 +393,13 @@ export function PixelMascots() {
           type="button"
           onClick={handleClickKuro}
           title="Click Kuro!"
-          className={`group relative cursor-pointer outline-none transition-transform flex items-center justify-center ${
+          className={`group relative cursor-pointer outline-none flex items-center justify-center transition-all ${
             kuroJumping || kuroState === 'jump' ? '-translate-y-2 scale-110' : 'hover:scale-110 active:scale-95'
           }`}
+          style={{
+            transform: `${kuroFacing === 'left' ? 'scaleX(-1)' : 'scaleX(1)'} translateY(${isKuroMoving && animFrame === 1 ? '-1px' : '0px'})`,
+            transition: 'transform 0.15s ease',
+          }}
         >
           {kuroState === 'butterfly' && (
             <div className="absolute -top-3 left-6 animate-bounce">
@@ -404,9 +431,10 @@ export function PixelMascots() {
             </div>
           )}
 
-          {/* SVG KURO (BLACK/GREY TABBY) */}
+          {/* SVG KURO (BLACK/GREY TABBY CAT WITH DIRECTIONAL WALKING SILHOUETTE) */}
           <svg width="38" height="38" viewBox="0 0 16 16" className="drop-shadow-md" style={{ imageRendering: 'pixelated' }}>
             {kuroState === 'sleep' ? (
+              /* SLEEPING CAT */
               <g>
                 <rect x="3" y="6" width="2" height="2" fill="#0f172a" />
                 <rect x="4" y="7" width="1" height="1" fill="#f43f5e" />
@@ -422,25 +450,32 @@ export function PixelMascots() {
                 <rect x="7" y="10" width="2" height="1" fill="#f43f5e" />
                 <text x="12" y="5" fontSize="4" fill="#60a5fa" fontWeight="bold">z</text>
               </g>
-            ) : kuroState === 'butterfly' || kuroState === 'happy' ? (
+            ) : isKuroMoving ? (
+              /* QUADRUPED CAT WALKING / RUNNING SPRITE (SIDE PROFILE) */
               <g>
-                <rect x="2" y="1" width="3" height="3" fill="#0f172a" />
-                <rect x="3" y="2" width="1" height="1" fill="#f43f5e" />
-                <rect x="11" y="1" width="3" height="3" fill="#0f172a" />
-                <rect x="12" y="2" width="1" height="1" fill="#f43f5e" />
-                <rect x="2" y="3" width="12" height="6" fill="#475569" />
-                <rect x="6" y="3" width="4" height="2" fill="#0f172a" />
-                <rect x="4" y="5" width="2" height="1" fill="#0f172a" />
-                <rect x="10" y="5" width="2" height="1" fill="#0f172a" />
-                <rect x="7" y="6" width="2" height="1" fill="#f43f5e" />
-                <rect x="7" y="7" width="2" height="1" fill="#0f172a" />
-                <rect x="3" y="9" width="10" height="5" fill="#475569" />
-                <rect x="5" y="9" width="6" height="5" fill="#f8fafc" />
-                <rect x="3" y="13" width="3" height="3" fill="#f8fafc" />
-                <rect x="10" y="13" width="3" height="3" fill="#f8fafc" />
-                <rect x="13" y="5" width="2" height="7" fill="#0f172a" />
+                {/* Ears */}
+                <rect x="10" y="2" width="3" height="3" fill="#0f172a" />
+                <rect x="11" y="3" width="1" height="1" fill="#f43f5e" />
+                {/* Head */}
+                <rect x="9" y="4" width="6" height="5" fill="#475569" />
+                <rect x="11" y="4" width="2" height="2" fill="#0f172a" />
+                {/* Eye looking forward */}
+                <rect x="12" y="6" width="2" height="2" fill="#10b981" />
+                <rect x="13" y="6" width="1" height="2" fill="#0f172a" />
+                {/* Snout & Nose */}
+                <rect x="14" y="7" width="2" height="1" fill="#f43f5e" />
+                {/* Quadruped Cat Body */}
+                <rect x="2" y="7" width="9" height="5" fill="#475569" />
+                <rect x="5" y="7" width="2" height="5" fill="#0f172a" />
+                <rect x="4" y="8" width="6" height="4" fill="#f8fafc" />
+                {/* Rhythmic Quadruped Paws Walking Motion */}
+                <rect x={animFrame === 0 ? "3" : "5"} y="12" width="2" height="4" fill="#f8fafc" />
+                <rect x={animFrame === 0 ? "9" : "7"} y="12" width="2" height="4" fill="#f8fafc" />
+                {/* Swishing Tail */}
+                <rect x="0" y={animFrame === 0 ? "5" : "6"} width="3" height="4" rx="1" fill="#0f172a" />
               </g>
             ) : (
+              /* IDLE / HAPPY SITTING CAT */
               <g>
                 <rect x="2" y="2" width="3" height="3" fill="#0f172a" />
                 <rect x="3" y="3" width="1" height="1" fill="#f43f5e" />
@@ -457,7 +492,7 @@ export function PixelMascots() {
                 <rect x="4" y="9" width="2" height="5" fill="#0f172a" />
                 <rect x="10" y="9" width="2" height="5" fill="#0f172a" />
                 <rect x="6" y="9" width="4" height="5" fill="#f8fafc" />
-                <rect x="4" y="14" width="2" height="2" stroke="#f8fafc" />
+                <rect x="4" y="14" width="2" height="2" fill="#f8fafc" />
                 <rect x="10" y="14" width="2" height="2" fill="#f8fafc" />
                 <rect x="13" y="8" width="2" height="5" rx="1" fill="#0f172a" />
               </g>
@@ -481,11 +516,15 @@ export function PixelMascots() {
           type="button"
           onClick={handleClickC}
           title="Click C (Princess Peach)!"
-          className={`group relative cursor-pointer outline-none transition-transform flex items-center justify-center ${
+          className={`group relative cursor-pointer outline-none flex items-center justify-center transition-all ${
             cJumping || cState === 'jump' ? '-translate-y-2 scale-110' : 'hover:scale-110 active:scale-95'
           }`}
+          style={{
+            transform: `${cFacing === 'left' ? 'scaleX(-1)' : 'scaleX(1)'} translateY(${isCMoving && animFrame === 1 ? '-1px' : '0px'})`,
+            transition: 'transform 0.15s ease',
+          }}
         >
-          {/* C ITEM OVERLAYS (Tea, Book, Camera, Heart) */}
+          {/* C ITEM OVERLAYS (Tea, Book, Camera) */}
           {cState === 'tea' && (
             <div className="absolute bottom-1 -right-4 animate-bounce">
               <svg width="12" height="12" viewBox="0 0 6 6" style={{ imageRendering: 'pixelated' }}>
@@ -510,51 +549,59 @@ export function PixelMascots() {
             </div>
           )}
 
-          {/* SVG C (PRINCESS PEACH PIXEL ART) */}
+          {/* SVG C (PRINCESS PEACH HUMAN SPRITE WITH SIDE PROFILE WALKING GAIT) */}
           <svg width="38" height="38" viewBox="0 0 16 16" className="drop-shadow-md" style={{ imageRendering: 'pixelated' }}>
             {/* Golden Crown */}
-            <rect x="5" y="0" width="6" height="2" fill="#f59e0b" />
-            <rect x="5" y="0" width="1" height="1" fill="#ef4444" />
-            <rect x="10" y="0" width="1" height="1" fill="#ef4444" />
-            <rect x="7" y="0" width="2" height="1" fill="#3b82f6" />
+            <rect x="6" y="0" width="5" height="2" fill="#f59e0b" />
+            <rect x="6" y="0" width="1" height="1" fill="#ef4444" />
+            <rect x="9" y="0" width="1" height="1" fill="#ef4444" />
+            <rect x="7" y="0" width="1" height="1" fill="#3b82f6" />
 
             {/* Blonde Hair */}
-            <rect x="3" y="2" width="10" height="5" fill="#facc15" />
-            <rect x="2" y="3" width="2" height="7" fill="#eab308" />
-            <rect x="12" y="3" width="2" height="7" fill="#eab308" />
+            <rect x="3" y="2" width="9" height="5" fill="#facc15" />
+            <rect x="2" y="3" width="3" height="7" fill="#eab308" />
 
             {/* Peach Face */}
-            <rect x="4" y="3" width="8" height="4" fill="#ffedd5" />
-            {/* Ocean Blue Eyes */}
-            <rect x="5" y="4" width="2" height="2" fill="#06b6d4" />
-            <rect x="5" y="4" width="1" height="1" fill="#0f172a" />
+            <rect x="5" y="3" width="7" height="4" fill="#ffedd5" />
+            {/* Ocean Blue Eye looking forward */}
             <rect x="9" y="4" width="2" height="2" fill="#06b6d4" />
-            <rect x="9" y="4" width="1" height="1" fill="#0f172a" />
-            {/* Rosy Lips */}
-            <rect x="7" y="6" width="2" height="1" fill="#f43f5e" />
+            <rect x="10" y="4" width="1" height="1" fill="#0f172a" />
+            {/* Rosy Lip */}
+            <rect x="10" y="6" width="1" height="1" fill="#f43f5e" />
 
             {/* Pink Princess Dress */}
-            <rect x="4" y="7" width="8" height="7" fill="#ec4899" />
-            <rect x="5" y="7" width="6" height="2" fill="#f472b6" />
-            {/* White Dress Trim */}
+            <rect x="4" y="7" width="8" height="6" fill="#ec4899" />
+            <rect x="5" y="7" width="5" height="2" fill="#f472b6" />
             <rect x="4" y="13" width="8" height="1" fill="#ffffff" />
 
             {/* Arms / Hands */}
             {cState === 'wave' || cState === 'pet-kuro' ? (
               <g>
-                <rect x="2" y="7" width="2" height="2" fill="#ffedd5" />
-                <rect x="12" y="7" width="2" height="2" fill="#ffedd5" />
+                <rect x="11" y="6" width="3" height="2" fill="#ffedd5" />
+              </g>
+            ) : isCMoving ? (
+              /* Swinging Arm While Walking */
+              <g>
+                <rect x={animFrame === 0 ? "11" : "3"} y="8" width="2" height="3" fill="#ffedd5" />
               </g>
             ) : (
               <g>
-                <rect x="3" y="8" width="1" height="3" fill="#ffedd5" />
-                <rect x="12" y="8" width="1" height="3" fill="#ffedd5" />
+                <rect x="10" y="8" width="2" height="3" fill="#ffedd5" />
               </g>
             )}
 
-            {/* Shoes */}
-            <rect x="5" y="14" width="2" height="1" fill="#be185d" />
-            <rect x="9" y="14" width="2" height="1" fill="#be185d" />
+            {/* Walking Legs Gait */}
+            {isCMoving ? (
+              <g>
+                <rect x={animFrame === 0 ? "4" : "7"} y="14" width="2" height="2" fill="#be185d" />
+                <rect x={animFrame === 0 ? "8" : "5"} y="14" width="2" height="2" fill="#be185d" />
+              </g>
+            ) : (
+              <g>
+                <rect x="5" y="14" width="2" height="1" fill="#be185d" />
+                <rect x="9" y="14" width="2" height="1" fill="#be185d" />
+              </g>
+            )}
           </svg>
         </button>
       </div>
