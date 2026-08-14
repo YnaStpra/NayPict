@@ -222,7 +222,7 @@ export function PixelMascots() {
       }
     }
     return {
-      className: 'fixed bottom-2 sm:bottom-4 z-[99999] flex flex-col items-center select-none pointer-events-auto touch-manipulation',
+      className: 'fixed bottom-0 z-[99999] flex flex-col items-center select-none pointer-events-auto touch-manipulation',
       style: { left: `${x}px` },
     }
   }
