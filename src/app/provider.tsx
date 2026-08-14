@@ -20,6 +20,11 @@ const PhotoUploadDialog = dynamic(
   { ssr: false }
 )
 
+const PixelCat = dynamic(
+  () => import("@/components/mascot/pixel-cat").then((mod) => mod.PixelCat),
+  { ssr: false }
+)
+
 type Theme = "light" | "dark"
 
 const THEME_COOKIE_NAME = "theme"
@@ -164,6 +169,7 @@ function Provider({ children, defaultTheme, defaultSidebarOpen, initialUserInfo,
       <TooltipProvider>
         {children}
         <PhotoUploadDialog />
+        <PixelCat />
         <Toaster position="top-center" />
       </TooltipProvider>
     </AppContext.Provider>
