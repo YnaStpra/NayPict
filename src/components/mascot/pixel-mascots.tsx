@@ -121,17 +121,19 @@ export function PixelMascots() {
     return () => observer.disconnect()
   }, [])
 
-  // Calculate territory bounds for current mode
+  // Calculate territory bounds for current mode, fully responsive for mobile phones
   const getBounds = useCallback(() => {
+    const screenWidth = typeof window !== 'undefined' ? window.innerWidth : 800
+    const isMobile = screenWidth < 640
+
     if (isLightboxOpen) {
-      return { minX: -140, maxX: 140, isRelative: true }
+      return { minX: isMobile ? -90 : -140, maxX: isMobile ? 90 : 140, isRelative: true }
     }
     if (isLandingPage) {
-      return { minX: -130, maxX: 130, isRelative: true }
+      return { minX: isMobile ? -85 : -130, maxX: isMobile ? 85 : 130, isRelative: true }
     }
-    const screenWidth = typeof window !== 'undefined' ? window.innerWidth : 800
-    const minX = screenWidth < 640 ? 50 : 130
-    const maxX = Math.max(minX + 80, screenWidth - (screenWidth < 640 ? 80 : 180))
+    const minX = isMobile ? 40 : 130
+    const maxX = Math.max(minX + 60, screenWidth - (isMobile ? 70 : 180))
     return { minX, maxX, isRelative: false }
   }, [isLightboxOpen, isLandingPage])
 
@@ -315,10 +317,13 @@ export function PixelMascots() {
 
   // Container styling configuration
   const getContainerStyle = (x: number): { className: string; style: React.CSSProperties } => {
+    const screenWidth = typeof window !== 'undefined' ? window.innerWidth : 800
+    const isMobile = screenWidth < 640
+
     if (isLightboxOpen) {
       // Photo Preview Mode: Standing exactly on top of the thumbnail photo list bar (46px mobile / 75px desktop)
       return {
-        className: 'fixed bottom-[46px] md:bottom-[75px] left-1/2 z-[1000000] flex flex-col items-center select-none pointer-events-auto',
+        className: 'fixed bottom-[46px] md:bottom-[75px] left-1/2 z-[1000000] flex flex-col items-center select-none pointer-events-auto touch-manipulation',
         style: { transform: `translateX(calc(-50% + ${x}px))` },
       }
     }
@@ -326,10 +331,10 @@ export function PixelMascots() {
       // Landing Page Mode: Standing exactly on top of the hero card's top border line as their ground
       const cardEl = typeof document !== 'undefined' ? document.getElementById('landing-hero-card') : null
       const cardRect = cardEl ? cardEl.getBoundingClientRect() : null
-      const topY = cardRect ? cardRect.top - 36 : undefined
+      const topY = cardRect ? cardRect.top - (isMobile ? 32 : 36) : undefined
 
       return {
-        className: 'fixed left-1/2 z-[99999] flex flex-col items-center select-none pointer-events-auto',
+        className: 'fixed left-1/2 z-[99999] flex flex-col items-center select-none pointer-events-auto touch-manipulation',
         style: cardRect && topY !== undefined ? {
           top: `${topY}px`,
           transform: `translateX(calc(-50% + ${x}px))`,
@@ -340,7 +345,7 @@ export function PixelMascots() {
       }
     }
     return {
-      className: 'fixed top-1 z-[99999] flex flex-col items-center select-none pointer-events-auto',
+      className: 'fixed top-1 z-[99999] flex flex-col items-center select-none pointer-events-auto touch-manipulation',
       style: { left: `${x}px` },
     }
   }
@@ -355,7 +360,7 @@ export function PixelMascots() {
       {/* ========================================== */}
       <div className={kuroStyle.className} style={kuroStyle.style}>
         {kuroBubble && (
-          <div className="absolute top-11 left-1/2 -translate-x-1/2 px-3 py-1.5 rounded-2xl bg-black/90 text-white text-xs font-semibold backdrop-blur-md border border-white/20 shadow-xl w-max max-w-[240px] sm:max-w-[300px] text-center animate-in fade-in zoom-in-95 duration-200 z-50 leading-snug break-words">
+          <div className="absolute top-11 left-1/2 -translate-x-1/2 px-2.5 sm:px-3 py-1.5 rounded-2xl bg-black/90 text-white text-[11px] sm:text-xs font-semibold backdrop-blur-md border border-white/20 shadow-xl w-max max-w-[190px] sm:max-w-[280px] text-center animate-in fade-in zoom-in-95 duration-200 z-50 leading-tight sm:leading-snug break-words">
             <div className="absolute left-1/2 -top-1 -translate-x-1/2 w-2 h-2 bg-black/90 border-l border-t border-white/20 rotate-45" />
             {kuroBubble}
           </div>
@@ -466,7 +471,7 @@ export function PixelMascots() {
       {/* ========================================== */}
       <div className={cStyle.className} style={cStyle.style}>
         {cBubble && (
-          <div className="absolute top-11 left-1/2 -translate-x-1/2 px-3 py-1.5 rounded-2xl bg-black/90 text-white text-xs font-semibold backdrop-blur-md border border-pink-400/40 shadow-xl w-max max-w-[240px] sm:max-w-[300px] text-center animate-in fade-in zoom-in-95 duration-200 z-50 leading-snug break-words">
+          <div className="absolute top-11 left-1/2 -translate-x-1/2 px-2.5 sm:px-3 py-1.5 rounded-2xl bg-black/90 text-white text-[11px] sm:text-xs font-semibold backdrop-blur-md border border-pink-400/40 shadow-xl w-max max-w-[190px] sm:max-w-[280px] text-center animate-in fade-in zoom-in-95 duration-200 z-50 leading-tight sm:leading-snug break-words">
             <div className="absolute left-1/2 -top-1 -translate-x-1/2 w-2 h-2 bg-black/90 border-l border-t border-pink-400/40 rotate-45" />
             {cBubble}
           </div>
