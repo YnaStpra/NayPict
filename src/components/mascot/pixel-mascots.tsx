@@ -188,7 +188,7 @@ export function PixelMascots() {
   useEffect(() => {
     const interval = setInterval(() => {
       setAnimFrame((prev) => (prev === 0 ? 1 : 0))
-    }, 150)
+    }, 160)
     return () => clearInterval(interval)
   }, [])
 
@@ -572,57 +572,135 @@ export function PixelMascots() {
             </div>
           )}
 
-          {/* SVG C (PRINCESS PEACH HUMAN SPRITE WITH SIDE PROFILE WALKING GAIT) */}
-          <svg width="38" height="38" viewBox="0 0 16 16" className="drop-shadow-md" style={{ imageRendering: 'pixelated' }}>
-            {/* Golden Crown */}
-            <rect x="6" y="0" width="5" height="2" fill="#f59e0b" />
-            <rect x="6" y="0" width="1" height="1" fill="#ef4444" />
-            <rect x="9" y="0" width="1" height="1" fill="#ef4444" />
-            <rect x="7" y="0" width="1" height="1" fill="#3b82f6" />
-
-            {/* Blonde Hair */}
-            <rect x="3" y="2" width="9" height="5" fill="#facc15" />
-            <rect x="2" y="3" width="3" height="7" fill="#eab308" />
-
-            {/* Peach Face */}
-            <rect x="5" y="3" width="7" height="4" fill="#ffedd5" />
-            {/* Ocean Blue Eye looking forward */}
-            <rect x="9" y="4" width="2" height="2" fill="#06b6d4" />
-            <rect x="10" y="4" width="1" height="1" fill="#0f172a" />
-            {/* Rosy Lip */}
-            <rect x="10" y="6" width="1" height="1" fill="#f43f5e" />
-
-            {/* Pink Princess Dress */}
-            <rect x="4" y="7" width="8" height="6" fill="#ec4899" />
-            <rect x="5" y="7" width="5" height="2" fill="#f472b6" />
-            <rect x="4" y="13" width="8" height="1" fill="#ffffff" />
-
-            {/* Arms / Hands */}
-            {cState === 'wave' || cState === 'pet-kuro' ? (
-              <g>
-                <rect x="11" y="6" width="3" height="2" fill="#ffedd5" />
-              </g>
-            ) : isCMoving ? (
-              /* Swinging Arm While Walking */
-              <g>
-                <rect x={animFrame === 0 ? "11" : "3"} y="8" width="2" height="3" fill="#ffedd5" />
-              </g>
-            ) : (
-              <g>
-                <rect x="10" y="8" width="2" height="3" fill="#ffedd5" />
-              </g>
-            )}
-
-            {/* Walking Legs Gait */}
+          {/* SVG C (PRINCESS PEACH 24x24 PIXEL ART MATCHING EXACT REFERENCE SPRITE SHEET) */}
+          <svg width="42" height="42" viewBox="0 0 24 24" className="drop-shadow-md" style={{ imageRendering: 'pixelated' }}>
             {isCMoving ? (
+              /* TOP ROW OF REFERENCE: SIDE PROFILE WALKING GAIT */
               <g>
-                <rect x={animFrame === 0 ? "4" : "7"} y="14" width="2" height="2" fill="#be185d" />
-                <rect x={animFrame === 0 ? "8" : "5"} y="14" width="2" height="2" fill="#be185d" />
+                {/* Gold Crown */}
+                <rect x="8" y="1" width="6" height="3" fill="#ffcc00" />
+                <rect x="8" y="1" width="1" height="1" fill="#ef4444" />
+                <rect x="13" y="1" width="1" height="1" fill="#ef4444" />
+                <rect x="10" y="1" width="2" height="1" fill="#00ccff" />
+
+                {/* Voluminous Golden Hair */}
+                <rect x="5" y="4" width="10" height="7" fill="#ffcc00" />
+                <rect x="4" y="5" width="3" height="9" fill="#ff9900" />
+                <rect x="3" y="7" width="3" height="8" fill="#e68a00" />
+
+                {/* Cyan Earring */}
+                <rect x="7" y="9" width="2" height="2" fill="#00ccff" />
+
+                {/* Peach Face Profile */}
+                <rect x="8" y="4" width="7" height="6" fill="#ffe0b2" />
+                {/* Big Blue Eye */}
+                <rect x="11" y="6" width="3" height="3" fill="#0099ff" />
+                <rect x="12" y="6" width="1" height="2" fill="#000000" />
+                {/* Smile */}
+                <rect x="13" y="9" width="2" height="1" fill="#ff3366" />
+
+                {/* Light Pink Puff Sleeve & Collar */}
+                <rect x="7" y="10" width="8" height="3" fill="#ff66b2" />
+                {/* Cyan Brooch */}
+                <rect x="11" y="11" width="2" height="2" fill="#00ccff" />
+
+                {/* Magenta-Pink Gown */}
+                <rect x="6" y="13" width="10" height="9" fill="#e60073" />
+                <rect x="5" y="15" width="12" height="7" fill="#d81b60" />
+                {/* Gown Fold Details */}
+                <rect x="7" y="16" width="2" height="6" fill="#b30059" />
+                <rect x="12" y="16" width="2" height="6" fill="#b30059" />
+
+                {/* Long White Evening Glove & Hand Movement */}
+                <rect x={animFrame === 0 ? "11" : "13"} y="12" width="3" height="4" rx="1" fill="#ffffff" />
+                <rect x={animFrame === 0 ? "8" : "6"} y="13" width="3" height="3" rx="1" fill="#ffffff" />
+              </g>
+            ) : cState === 'wave' || cState === 'pet-kuro' ? (
+              /* BOTTOM ROW OF REFERENCE: FRONT VIEW WAVING HAND */
+              <g>
+                {/* Gold Crown */}
+                <rect x="9" y="1" width="6" height="3" fill="#ffcc00" />
+                <rect x="9" y="1" width="1" height="1" fill="#ef4444" />
+                <rect x="14" y="1" width="1" height="1" fill="#ef4444" />
+                <rect x="11" y="1" width="2" height="1" fill="#00ccff" />
+
+                {/* Golden Hair */}
+                <rect x="5" y="4" width="14" height="6" fill="#ffcc00" />
+                <rect x="4" y="6" width="3" height="8" fill="#ff9900" />
+                <rect x="17" y="6" width="3" height="8" fill="#ff9900" />
+
+                {/* Cyan Earrings */}
+                <rect x="5" y="8" width="2" height="2" fill="#00ccff" />
+                <rect x="17" y="8" width="2" height="2" fill="#00ccff" />
+
+                {/* Peach Face Front */}
+                <rect x="7" y="4" width="10" height="6" fill="#ffe0b2" />
+                {/* Blue Eyes */}
+                <rect x="8" y="6" width="2" height="2" fill="#0099ff" />
+                <rect x="8" y="6" width="1" height="1" fill="#000000" />
+                <rect x="14" y="6" width="2" height="2" fill="#0099ff" />
+                <rect x="15" y="6" width="1" height="1" fill="#000000" />
+                {/* Cheerful Smile */}
+                <rect x="10" y="8" width="4" height="1" fill="#ff3366" />
+
+                {/* Light Pink Puff Collar */}
+                <rect x="6" y="10" width="12" height="3" fill="#ff66b2" />
+                {/* Cyan Chest Brooch */}
+                <rect x="11" y="10" width="2" height="2" fill="#00ccff" />
+
+                {/* Magenta-Pink Gown */}
+                <rect x="5" y="13" width="14" height="9" fill="#e60073" />
+                <rect x="4" y="16" width="16" height="6" fill="#d81b60" />
+                <rect x="7" y="16" width="2" height="6" fill="#b30059" />
+                <rect x="15" y="16" width="2" height="6" fill="#b30059" />
+
+                {/* Waving Hand with Long White Glove */}
+                <g className={animFrame === 0 ? "translate-y-0" : "-translate-y-1"}>
+                  <rect x="17" y="5" width="3" height="6" rx="1" fill="#ffffff" />
+                </g>
+                <rect x="4" y="12" width="3" height="4" rx="1" fill="#ffffff" />
               </g>
             ) : (
+              /* BOTTOM ROW OF REFERENCE: FRONT VIEW IDLE (HANDS CLASPED WITH WHITE GLOVES) */
               <g>
-                <rect x="5" y="14" width="2" height="1" fill="#be185d" />
-                <rect x="9" y="14" width="2" height="1" fill="#be185d" />
+                {/* Gold Crown */}
+                <rect x="9" y="1" width="6" height="3" fill="#ffcc00" />
+                <rect x="9" y="1" width="1" height="1" fill="#ef4444" />
+                <rect x="14" y="1" width="1" height="1" fill="#ef4444" />
+                <rect x="11" y="1" width="2" height="1" fill="#00ccff" />
+
+                {/* Golden Hair */}
+                <rect x="5" y="4" width="14" height="6" fill="#ffcc00" />
+                <rect x="4" y="6" width="3" height="8" fill="#ff9900" />
+                <rect x="17" y="6" width="3" height="8" fill="#ff9900" />
+
+                {/* Cyan Earrings */}
+                <rect x="5" y="8" width="2" height="2" fill="#00ccff" />
+                <rect x="17" y="8" width="2" height="2" fill="#00ccff" />
+
+                {/* Peach Face Front */}
+                <rect x="7" y="4" width="10" height="6" fill="#ffe0b2" />
+                {/* Blue Eyes */}
+                <rect x="8" y="6" width="2" height="2" fill="#0099ff" />
+                <rect x="8" y="6" width="1" height="1" fill="#000000" />
+                <rect x="14" y="6" width="2" height="2" fill="#0099ff" />
+                <rect x="15" y="6" width="1" height="1" fill="#000000" />
+                {/* Cheerful Smile */}
+                <rect x="10" y="8" width="4" height="1" fill="#ff3366" />
+
+                {/* Light Pink Puff Collar */}
+                <rect x="6" y="10" width="12" height="3" fill="#ff66b2" />
+                {/* Cyan Chest Brooch */}
+                <rect x="11" y="10" width="2" height="2" fill="#00ccff" />
+
+                {/* Magenta-Pink Gown */}
+                <rect x="5" y="13" width="14" height="9" fill="#e60073" />
+                <rect x="4" y="16" width="16" height="6" fill="#d81b60" />
+                <rect x="7" y="16" width="2" height="6" fill="#b30059" />
+                <rect x="15" y="16" width="2" height="6" fill="#b30059" />
+
+                {/* Clasped Long White Evening Gloves */}
+                <rect x="9" y="12" width="6" height="3" rx="1" fill="#ffffff" />
               </g>
             )}
           </svg>
