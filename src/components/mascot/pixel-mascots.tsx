@@ -316,8 +316,9 @@ export function PixelMascots() {
   // Container styling configuration
   const getContainerStyle = (x: number): { className: string; style: React.CSSProperties } => {
     if (isLightboxOpen) {
+      // Photo Preview Mode: Standing exactly on top of the thumbnail photo list bar (46px mobile / 75px desktop)
       return {
-        className: 'fixed bottom-4 left-1/2 z-[1000000] flex flex-col items-center select-none pointer-events-auto',
+        className: 'fixed bottom-[46px] md:bottom-[75px] left-1/2 z-[1000000] flex flex-col items-center select-none pointer-events-auto',
         style: { transform: `translateX(calc(-50% + ${x}px))` },
       }
     }
