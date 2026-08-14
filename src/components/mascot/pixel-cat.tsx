@@ -33,91 +33,120 @@ export function PixelCat() {
   const [bubbleText, setBubbleText] = useState<string | null>(null)
   const [isJumping, setIsJumping] = useState<boolean>(false)
   const [animFrame, setAnimFrame] = useState<number>(0)
+
+  const posXRef = useRef<number>(180)
+  const targetXRef = useRef<number>(180)
+  const animFrameIdRef = useRef<number | null>(null)
   const bubbleTimerRef = useRef<NodeJS.Timeout | null>(null)
 
-  // Initialize position safely on client side
-  useEffect(() => {
+  // Calculate screen bounds for navbar territory
+  const getBounds = useCallback(() => {
     const screenWidth = typeof window !== 'undefined' ? window.innerWidth : 800
-    const startX = Math.min(Math.max(140, screenWidth * 0.35), screenWidth - 220)
-    setPosX(startX)
+    const minX = screenWidth < 640 ? 60 : 140
+    const maxX = Math.max(minX + 80, screenWidth - (screenWidth < 640 ? 90 : 200))
+    return { minX, maxX }
   }, [])
 
-  // Animation frame toggle (for walking/running/chasing)
+  // Initialize position on client mount
   useEffect(() => {
+    const { minX, maxX } = getBounds()
+    const startX = Math.min(Math.max(minX, 180), maxX)
+    setPosX(startX)
+    posXRef.current = startX
+    targetXRef.current = startX
+  }, [getBounds])
+
+  // Leg movement frame toggle
+  useEffect(() => {
+    const isMoving = catState.startsWith('walk') || catState.startsWith('run')
+    if (!isMoving) return
+
     const interval = setInterval(() => {
       setAnimFrame((prev) => (prev === 0 ? 1 : 0))
-    }, catState.startsWith('run') ? 120 : 220)
+    }, catState.startsWith('run') ? 100 : 180)
+
     return () => clearInterval(interval)
   }, [catState])
 
-  // Autonomous Random AI Activity Loop
+  // Real-Time Smooth Movement Engine using requestAnimationFrame
   useEffect(() => {
-    const actionInterval = setInterval(() => {
-      setCatState((currentState) => {
-        // Don't override click speech bubble state
-        if (bubbleText && (currentState === 'happy' || currentState === 'fish' || currentState === 'flower')) {
-          return currentState
-        }
+    const moveLoop = () => {
+      const isMoving = catState.startsWith('walk') || catState.startsWith('run')
 
-        const screenWidth = typeof window !== 'undefined' ? window.innerWidth : 800
-        const minX = 140
-        const maxX = Math.max(minX + 100, screenWidth - 240)
+      if (isMoving) {
+        const diff = targetXRef.current - posXRef.current
+        const speed = catState.startsWith('run') ? 2.5 : 1.2
 
-        const rand = Math.random()
+        if (Math.abs(diff) <= speed) {
+          // Reached target position
+          posXRef.current = targetXRef.current
+          setPosX(targetXRef.current)
 
-        if (rand < 0.18) {
-          // Walk Left
-          setPosX((prev) => Math.max(minX, prev - Math.floor(Math.random() * 60 + 40)))
-          return 'walk-left'
-        } else if (rand < 0.36) {
-          // Walk Right
-          setPosX((prev) => Math.min(maxX, prev + Math.floor(Math.random() * 60 + 40)))
-          return 'walk-right'
-        } else if (rand < 0.48) {
-          // Run fast
-          const runLeft = Math.random() > 0.5
-          if (runLeft) {
-            setPosX((prev) => Math.max(minX, prev - Math.floor(Math.random() * 120 + 80)))
-            return 'run-left'
-          } else {
-            setPosX((prev) => Math.min(maxX, prev + Math.floor(Math.random() * 120 + 80)))
-            return 'run-right'
-          }
-        } else if (rand < 0.62) {
-          // Chase butterfly
-          return 'butterfly'
-        } else if (rand < 0.74) {
-          // Sniff flower
-          return 'flower'
-        } else if (rand < 0.86) {
-          // Eat fish
-          return 'fish'
-        } else if (rand < 0.94) {
-          // Jump
-          setIsJumping(true)
-          setTimeout(() => setIsJumping(false), 400)
-          return 'jump'
+          // Switch to random stationary activity after arriving
+          const nextActivities: CatState[] = ['idle', 'butterfly', 'flower', 'fish', 'sleep']
+          const nextAct = nextActivities[Math.floor(Math.random() * nextActivities.length)]
+          setCatState(nextAct)
         } else {
-          // Sleep
-          return 'sleep'
+          // Move step towards target
+          const step = diff > 0 ? speed : -speed
+          posXRef.current += step
+          setPosX(posXRef.current)
         }
-      })
-    }, 5500)
+      }
 
-    return () => clearInterval(actionInterval)
-  }, [bubbleText])
+      animFrameIdRef.current = requestAnimationFrame(moveLoop)
+    }
 
-  // Click Handler - Kuro Easter Egg Speech Bubble
+    animFrameIdRef.current = requestAnimationFrame(moveLoop)
+    return () => {
+      if (animFrameIdRef.current) cancelAnimationFrame(animFrameIdRef.current)
+    }
+  }, [catState])
+
+  // Autonomous Decision Maker (Every 3.5 seconds)
+  useEffect(() => {
+    const decisionInterval = setInterval(() => {
+      // Don't interrupt active click bubble chat or ongoing movement
+      if (bubbleText) return
+      if (catState.startsWith('walk') || catState.startsWith('run')) return
+
+      const { minX, maxX } = getBounds()
+      const rand = Math.random()
+
+      if (rand < 0.55) {
+        // Pick new target destination across navbar
+        const newTarget = Math.floor(Math.random() * (maxX - minX)) + minX
+        targetXRef.current = newTarget
+        const isRun = Math.random() < 0.35
+
+        if (newTarget < posXRef.current) {
+          setCatState(isRun ? 'run-left' : 'walk-left')
+        } else {
+          setCatState(isRun ? 'run-right' : 'walk-right')
+        }
+      } else if (rand < 0.70) {
+        setCatState('butterfly')
+      } else if (rand < 0.80) {
+        setCatState('flower')
+      } else if (rand < 0.90) {
+        setCatState('fish')
+      } else {
+        setCatState('sleep')
+      }
+    }, 3500)
+
+    return () => clearInterval(decisionInterval)
+  }, [catState, bubbleText, getBounds])
+
+  // Click Handler for Kuro Easter Egg Speech Bubble
   const handleClickKuro = useCallback(() => {
     setIsJumping(true)
     setTimeout(() => setIsJumping(false), 350)
 
-    // Select random activity state
     const states: CatState[] = ['happy', 'fish', 'flower', 'butterfly', 'jump']
     const pickedState = states[Math.floor(Math.random() * states.length)]
     setCatState(pickedState)
 
-    // Select random message
     const randomMsg = KURO_MESSAGES[Math.floor(Math.random() * KURO_MESSAGES.length)]
     setBubbleText(randomMsg)
 
@@ -131,19 +160,14 @@ export function PixelCat() {
 
   return (
     <div
-      className="fixed top-1 z-[99999] flex flex-col items-center select-none pointer-events-auto transition-all duration-300"
+      className="fixed top-1 z-[99999] flex flex-col items-center select-none pointer-events-auto"
       style={{
         left: `${posX}px`,
-        transition: catState.startsWith('run')
-          ? 'left 0.9s cubic-bezier(0.25, 1, 0.5, 1)'
-          : catState.startsWith('walk')
-          ? 'left 1.6s ease-in-out'
-          : 'left 0.4s ease',
       }}
     >
-      {/* Easter Egg Speech Bubble */}
+      {/* Easter Egg Speech Bubble with Dynamic Text Wrap & Overflow Prevention */}
       {bubbleText && (
-        <div className="absolute top-11 px-3 py-1.5 rounded-2xl bg-black/90 text-white text-xs font-semibold backdrop-blur-md border border-white/20 shadow-xl max-w-[220px] text-center animate-in fade-in zoom-in-95 duration-200 whitespace-nowrap z-50">
+        <div className="absolute top-11 left-1/2 -translate-x-1/2 px-3.5 py-2 rounded-2xl bg-black/90 text-white text-xs font-semibold backdrop-blur-md border border-white/20 shadow-xl w-max max-w-[260px] sm:max-w-[320px] text-center animate-in fade-in zoom-in-95 duration-200 z-50 leading-snug break-words">
           {/* Top Arrow indicator */}
           <div className="absolute left-1/2 -top-1 -translate-x-1/2 w-2 h-2 bg-black/90 border-l border-t border-white/20 rotate-45" />
           {bubbleText}
