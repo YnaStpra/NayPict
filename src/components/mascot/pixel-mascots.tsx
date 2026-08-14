@@ -33,6 +33,20 @@ const KURO_MESSAGES_PREVIEW = [
   "Nom nom... Kuro brought a fish to eat while viewing photos! 🐟",
 ]
 
+const KURO_MESSAGES_ANNOYED = [
+  "Hmph! Stop poking Kuro so fast! 😼💢",
+  "Meow! Kuro is getting dizzy from all this clicking! 😵",
+  "Hey! Kuro is trying to rest, stop spamming! 😾",
+  "Purr... Please give Kuro a break! 🐾💢",
+]
+
+const KURO_MESSAGES_ANGRY = [
+  "HISSSS! THAT'S IT! Kuro is ANGRY now! 😾🔥",
+  "GRRRR... HISS! Leave Kuro alone for a moment! ⚡💢",
+  "HISS! Kuro needs a 4-second timeout! 😾💥",
+  "Rawrrr! Kuro will bite your finger if you keep poking! 😼🔥",
+]
+
 type CatState =
   | 'idle'
   | 'walk-left'
@@ -41,6 +55,8 @@ type CatState =
   | 'run-right'
   | 'sleep'
   | 'happy'
+  | 'annoyed'
+  | 'angry'
   | 'butterfly'
   | 'flower'
   | 'fish'
@@ -70,6 +86,11 @@ export function PixelMascots() {
   const kuroTargetXRef = useRef<number>(0)
   const animFrameIdRef = useRef<number | null>(null)
   const kuroTimerRef = useRef<NodeJS.Timeout | null>(null)
+
+  // Mood escalation click tracking
+  const clickCountRef = useRef<number>(0)
+  const lastClickTimeRef = useRef<number>(0)
+  const coolDownTimerRef = useRef<NodeJS.Timeout | null>(null)
 
   // Track directional facing for Kuro
   useEffect(() => {
@@ -159,12 +180,12 @@ export function PixelMascots() {
     }
   }, [kuroState])
 
-  // Autonomous Decision Engine (Every 3.8s)
+  // Autonomous Decision Engine (Every 3.8s) - paused if Kuro is angry or annoyed
   useEffect(() => {
     const decisionInterval = setInterval(() => {
       const { minX, maxX } = getBounds()
 
-      if (!kuroBubble && !kuroState.startsWith('walk') && !kuroState.startsWith('run')) {
+      if (!kuroBubble && kuroState !== 'angry' && kuroState !== 'annoyed' && !kuroState.startsWith('walk') && !kuroState.startsWith('run')) {
         if (Math.random() < 0.45) {
           const newTargetK = Math.floor(Math.random() * (maxX - minX)) + minX
           kuroTargetXRef.current = newTargetK
@@ -180,23 +201,62 @@ export function PixelMascots() {
     return () => clearInterval(decisionInterval)
   }, [kuroState, kuroBubble, getBounds])
 
-  // Click Kuro Handler
+  // Click Kuro Handler with Mood Escalation & Auto Cool-Down Reset
   const handleClickKuro = useCallback(() => {
+    const now = Date.now()
+    if (now - lastClickTimeRef.current < 2000) {
+      clickCountRef.current += 1
+    } else {
+      clickCountRef.current = 1
+    }
+    lastClickTimeRef.current = now
+
     setKuroJumping(true)
     setTimeout(() => setKuroJumping(false), 350)
-    setKuroState('happy')
 
-    let pool = KURO_MESSAGES_GENERAL
-    if (isLightboxOpen) pool = KURO_MESSAGES_PREVIEW
-    else if (isLandingPage) pool = KURO_MESSAGES_LANDING
-
-    setKuroBubble(pool[Math.floor(Math.random() * pool.length)])
-
+    if (coolDownTimerRef.current) clearTimeout(coolDownTimerRef.current)
     if (kuroTimerRef.current) clearTimeout(kuroTimerRef.current)
-    kuroTimerRef.current = setTimeout(() => {
-      setKuroBubble(null)
-      setKuroState('idle')
-    }, 4500)
+
+    const count = clickCountRef.current
+
+    if (count >= 6) {
+      // Level 3: ANGRY / FURIOUS SPAM!
+      setKuroState('angry')
+      const msg = KURO_MESSAGES_ANGRY[Math.floor(Math.random() * KURO_MESSAGES_ANGRY.length)]
+      setKuroBubble(msg)
+
+      // Cool Down Reset: After 4.5 seconds of peace, Kuro calms down and returns to normal
+      coolDownTimerRef.current = setTimeout(() => {
+        clickCountRef.current = 0
+        setKuroBubble(null)
+        setKuroState('idle')
+      }, 4500)
+    } else if (count >= 3) {
+      // Level 2: ANNOYED / JENGKEL!
+      setKuroState('annoyed')
+      const msg = KURO_MESSAGES_ANNOYED[Math.floor(Math.random() * KURO_MESSAGES_ANNOYED.length)]
+      setKuroBubble(msg)
+
+      coolDownTimerRef.current = setTimeout(() => {
+        clickCountRef.current = 0
+        setKuroBubble(null)
+        setKuroState('idle')
+      }, 3800)
+    } else {
+      // Level 1: HAPPY / KEGIRANGAN!
+      setKuroState('happy')
+      let pool = KURO_MESSAGES_GENERAL
+      if (isLightboxOpen) pool = KURO_MESSAGES_PREVIEW
+      else if (isLandingPage) pool = KURO_MESSAGES_LANDING
+
+      setKuroBubble(pool[Math.floor(Math.random() * pool.length)])
+
+      kuroTimerRef.current = setTimeout(() => {
+        clickCountRef.current = 0
+        setKuroBubble(null)
+        setKuroState('idle')
+      }, 4000)
+    }
   }, [isLightboxOpen, isLandingPage])
 
   // Container styling configuration
@@ -234,7 +294,7 @@ export function PixelMascots() {
     }
   }
 
-  // Dynamic Speech Bubble Clamping calculation - placed above Kuro's head with downward pointing arrow
+  // Dynamic Speech Bubble Clamping calculation - placed above Kuro's head & head icons with downward pointing arrow
   const getBubbleAlignment = () => {
     const { isRelative } = getBounds()
     const screenWidth = typeof window !== 'undefined' ? window.innerWidth : 800
@@ -242,33 +302,33 @@ export function PixelMascots() {
     if (isRelative) {
       if (kuroX < -45) {
         return {
-          bubbleClass: 'absolute bottom-[100%] mb-2.5 left-0 translate-x-0 px-2.5 sm:px-3 py-1.5 rounded-2xl text-[11px] sm:text-xs font-semibold backdrop-blur-md border shadow-xl w-max max-w-[180px] sm:max-w-[250px] text-center animate-in fade-in zoom-in-95 duration-200 z-50 leading-tight sm:leading-snug break-words',
+          bubbleClass: 'absolute bottom-[100%] mb-6 sm:mb-7 left-0 translate-x-0 px-2.5 sm:px-3 py-1.5 rounded-2xl text-[11px] sm:text-xs font-semibold backdrop-blur-md border shadow-xl w-max max-w-[180px] sm:max-w-[250px] text-center animate-in fade-in zoom-in-95 duration-200 z-50 leading-tight sm:leading-snug break-words',
           arrowClass: 'absolute left-4 -bottom-1 w-2 h-2 border-r border-b rotate-45',
         }
       }
       if (kuroX > 45) {
         return {
-          bubbleClass: 'absolute bottom-[100%] mb-2.5 right-0 left-auto translate-x-0 px-2.5 sm:px-3 py-1.5 rounded-2xl text-[11px] sm:text-xs font-semibold backdrop-blur-md border shadow-xl w-max max-w-[180px] sm:max-w-[250px] text-center animate-in fade-in zoom-in-95 duration-200 z-50 leading-tight sm:leading-snug break-words',
+          bubbleClass: 'absolute bottom-[100%] mb-6 sm:mb-7 right-0 left-auto translate-x-0 px-2.5 sm:px-3 py-1.5 rounded-2xl text-[11px] sm:text-xs font-semibold backdrop-blur-md border shadow-xl w-max max-w-[180px] sm:max-w-[250px] text-center animate-in fade-in zoom-in-95 duration-200 z-50 leading-tight sm:leading-snug break-words',
           arrowClass: 'absolute right-4 left-auto -bottom-1 w-2 h-2 border-r border-b rotate-45',
         }
       }
     } else {
       if (kuroX < 110) {
         return {
-          bubbleClass: 'absolute bottom-[100%] mb-2.5 left-0 translate-x-0 px-2.5 sm:px-3 py-1.5 rounded-2xl text-[11px] sm:text-xs font-semibold backdrop-blur-md border shadow-xl w-max max-w-[180px] sm:max-w-[250px] text-center animate-in fade-in zoom-in-95 duration-200 z-50 leading-tight sm:leading-snug break-words',
+          bubbleClass: 'absolute bottom-[100%] mb-6 sm:mb-7 left-0 translate-x-0 px-2.5 sm:px-3 py-1.5 rounded-2xl text-[11px] sm:text-xs font-semibold backdrop-blur-md border shadow-xl w-max max-w-[180px] sm:max-w-[250px] text-center animate-in fade-in zoom-in-95 duration-200 z-50 leading-tight sm:leading-snug break-words',
           arrowClass: 'absolute left-4 -bottom-1 w-2 h-2 border-r border-b rotate-45',
         }
       }
       if (kuroX > screenWidth - 140) {
         return {
-          bubbleClass: 'absolute bottom-[100%] mb-2.5 right-0 left-auto translate-x-0 px-2.5 sm:px-3 py-1.5 rounded-2xl text-[11px] sm:text-xs font-semibold backdrop-blur-md border shadow-xl w-max max-w-[180px] sm:max-w-[250px] text-center animate-in fade-in zoom-in-95 duration-200 z-50 leading-tight sm:leading-snug break-words',
+          bubbleClass: 'absolute bottom-[100%] mb-6 sm:mb-7 right-0 left-auto translate-x-0 px-2.5 sm:px-3 py-1.5 rounded-2xl text-[11px] sm:text-xs font-semibold backdrop-blur-md border shadow-xl w-max max-w-[180px] sm:max-w-[250px] text-center animate-in fade-in zoom-in-95 duration-200 z-50 leading-tight sm:leading-snug break-words',
           arrowClass: 'absolute right-4 left-auto -bottom-1 w-2 h-2 border-r border-b rotate-45',
         }
       }
     }
 
     return {
-      bubbleClass: 'absolute bottom-[100%] mb-2.5 left-1/2 -translate-x-1/2 px-2.5 sm:px-3 py-1.5 rounded-2xl text-[11px] sm:text-xs font-semibold backdrop-blur-md border shadow-xl w-max max-w-[190px] sm:max-w-[280px] text-center animate-in fade-in zoom-in-95 duration-200 z-50 leading-tight sm:leading-snug break-words',
+      bubbleClass: 'absolute bottom-[100%] mb-6 sm:mb-7 left-1/2 -translate-x-1/2 px-2.5 sm:px-3 py-1.5 rounded-2xl text-[11px] sm:text-xs font-semibold backdrop-blur-md border shadow-xl w-max max-w-[190px] sm:max-w-[280px] text-center animate-in fade-in zoom-in-95 duration-200 z-50 leading-tight sm:leading-snug break-words',
       arrowClass: 'absolute left-1/2 -bottom-1 -translate-x-1/2 w-2 h-2 border-r border-b rotate-45',
     }
   }
@@ -294,9 +354,9 @@ export function PixelMascots() {
           <div
             className={bubbleAlign.bubbleClass}
             style={{
-              backgroundColor: 'rgba(10, 10, 10, 0.92)',
+              backgroundColor: kuroState === 'angry' ? 'rgba(220, 38, 38, 0.95)' : kuroState === 'annoyed' ? 'rgba(217, 119, 6, 0.95)' : 'rgba(10, 10, 10, 0.92)',
               color: '#ffffff',
-              borderColor: 'rgba(255, 255, 255, 0.2)',
+              borderColor: kuroState === 'angry' ? 'rgba(248, 113, 113, 0.5)' : kuroState === 'annoyed' ? 'rgba(251, 191, 36, 0.5)' : 'rgba(255, 255, 255, 0.2)',
               forcedColorAdjust: 'none',
               colorScheme: 'normal',
             }}
@@ -304,8 +364,8 @@ export function PixelMascots() {
             <div
               className={bubbleAlign.arrowClass}
               style={{
-                backgroundColor: 'rgba(10, 10, 10, 0.92)',
-                borderColor: 'rgba(255, 255, 255, 0.2)',
+                backgroundColor: kuroState === 'angry' ? 'rgba(220, 38, 38, 0.95)' : kuroState === 'annoyed' ? 'rgba(217, 119, 6, 0.95)' : 'rgba(10, 10, 10, 0.92)',
+                borderColor: kuroState === 'angry' ? 'rgba(248, 113, 113, 0.5)' : kuroState === 'annoyed' ? 'rgba(251, 191, 36, 0.5)' : 'rgba(255, 255, 255, 0.2)',
                 forcedColorAdjust: 'none',
               }}
             />
@@ -318,7 +378,7 @@ export function PixelMascots() {
           onClick={handleClickKuro}
           title="Click Kuro!"
           className={`group relative cursor-pointer outline-none flex items-center justify-center transition-all ${
-            kuroJumping || kuroState === 'jump' ? '-translate-y-2 scale-110' : 'hover:scale-110 active:scale-95'
+            kuroJumping || kuroState === 'jump' ? '-translate-y-3 scale-125' : 'hover:scale-110 active:scale-95'
           }`}
           style={{
             transform: `${kuroFacing === 'left' ? 'scaleX(-1)' : 'scaleX(1)'} translateY(${isKuroMoving && animFrame === 1 ? '-1px' : '0px'})`,
@@ -327,7 +387,27 @@ export function PixelMascots() {
             colorScheme: 'normal',
           }}
         >
-          {/* ITEM / ACTIVITY OVERLAYS */}
+          {/* VISUAL OVERLAYS & ANIMATION SYMBOLS */}
+          {kuroState === 'happy' && (
+            <div className="absolute -top-4 left-1/2 -translate-x-1/2 flex items-center gap-1 animate-bounce">
+              <span className="text-xs">💖</span>
+              <span className="text-xs">✨</span>
+            </div>
+          )}
+
+          {kuroState === 'annoyed' && (
+            <div className="absolute -top-3 right-0 animate-ping text-xs">
+              💢
+            </div>
+          )}
+
+          {kuroState === 'angry' && (
+            <div className="absolute -top-4 left-1/2 -translate-x-1/2 flex items-center gap-1 animate-pulse">
+              <span className="text-xs animate-bounce">💨</span>
+              <span className="text-xs">💢</span>
+            </div>
+          )}
+
           {kuroState === 'butterfly' && (
             <div className="absolute -top-3 left-6 animate-bounce">
               <svg width="14" height="14" viewBox="0 0 8 8" style={{ imageRendering: 'pixelated', forcedColorAdjust: 'none' }}>
@@ -377,9 +457,69 @@ export function PixelMascots() {
             </div>
           )}
 
-          {/* SVG KURO (INDONESIAN BLACK/DARK GREY TABBY ALLEY CAT - NO WHITE FUR) */}
+          {/* SVG KURO (BLACK/DARK GREY TABBY ALLEY CAT WITH MOOD ANIME EXPRESSIONS) */}
           <svg width="38" height="38" viewBox="0 0 16 16" className="drop-shadow-md" style={{ imageRendering: 'pixelated', forcedColorAdjust: 'none', colorScheme: 'normal' }}>
-            {kuroState === 'sleep' ? (
+            {kuroState === 'angry' ? (
+              /* ANGRY / FURIOUS CAT SPRITE */
+              <g>
+                {/* Pinned Back Ears */}
+                <rect x="1" y="4" width="3" height="2" fill="#020617" />
+                <rect x="12" y="4" width="3" height="2" fill="#020617" />
+                {/* Head */}
+                <rect x="2" y="4" width="12" height="5" fill="#334155" />
+                <rect x="6" y="4" width="4" height="2" fill="#0f172a" />
+                {/* Glowing Red Angry Eyes */}
+                <rect x="4" y="6" width="3" height="2" fill="#ef4444" />
+                <rect x="5" y="6" width="1" height="2" fill="#020617" />
+                <rect x="9" y="6" width="3" height="2" fill="#ef4444" />
+                <rect x="10" y="6" width="1" height="2" fill="#020617" />
+                <rect x="7" y="7" width="2" height="1" fill="#f43f5e" />
+                {/* Body & Paws */}
+                <rect x="3" y="9" width="10" height="5" fill="#334155" />
+                <rect x="4" y="14" width="2" height="2" fill="#1e293b" />
+                <rect x="10" y="14" width="2" height="2" fill="#1e293b" />
+                {/* Tail Standing Straight Up Angry */}
+                <rect x="13" y="2" width="2" height="9" rx="1" fill="#020617" />
+              </g>
+            ) : kuroState === 'annoyed' ? (
+              /* ANNOYED CAT SPRITE */
+              <g>
+                <rect x="2" y="2" width="3" height="3" fill="#020617" />
+                <rect x="3" y="3" width="1" height="1" fill="#f43f5e" />
+                <rect x="11" y="2" width="3" height="3" fill="#020617" />
+                <rect x="12" y="3" width="1" height="1" fill="#f43f5e" />
+                <rect x="2" y="4" width="12" height="5" fill="#334155" />
+                <rect x="6" y="4" width="4" height="2" fill="#0f172a" />
+                {/* Squinting Annoyed Eyes */}
+                <rect x="4" y="6" width="2" height="1" fill="#f59e0b" />
+                <rect x="10" y="6" width="2" height="1" fill="#f59e0b" />
+                <rect x="7" y="7" width="2" height="1" fill="#f43f5e" />
+                <rect x="3" y="9" width="10" height="5" fill="#334155" />
+                <rect x="4" y="14" width="2" height="2" fill="#1e293b" />
+                <rect x="10" y="14" width="2" height="2" fill="#1e293b" />
+                {/* Twitching Tail */}
+                <rect x="13" y={animFrame === 0 ? "7" : "9"} width="3" height="4" rx="1" fill="#020617" />
+              </g>
+            ) : kuroState === 'happy' ? (
+              /* JOYFUL HAPPY CAT SPRITE */
+              <g>
+                <rect x="2" y="1" width="3" height="3" fill="#020617" />
+                <rect x="3" y="2" width="1" height="1" fill="#f43f5e" />
+                <rect x="11" y="1" width="3" height="3" fill="#020617" />
+                <rect x="12" y="2" width="1" height="1" fill="#f43f5e" />
+                <rect x="2" y="3" width="12" height="6" fill="#334155" />
+                <rect x="6" y="3" width="4" height="2" fill="#0f172a" />
+                {/* Happy Winking / Sparkling Eyes */}
+                <rect x="4" y="5" width="2" height="2" fill="#10b981" />
+                <rect x="10" y="5" width="2" height="2" fill="#10b981" />
+                <rect x="7" y="6" width="2" height="1" fill="#f43f5e" />
+                <rect x="7" y="7" width="2" height="1" fill="#020617" />
+                <rect x="3" y="9" width="10" height="5" fill="#334155" />
+                <rect x="4" y="14" width="2" height="2" fill="#1e293b" />
+                <rect x="10" y="14" width="2" height="2" fill="#1e293b" />
+                <rect x="13" y="6" width="2" height="7" fill="#020617" />
+              </g>
+            ) : kuroState === 'sleep' ? (
               /* SLEEPING ALLEY CAT */
               <g>
                 <rect x="3" y="6" width="2" height="2" fill="#020617" />
@@ -405,7 +545,6 @@ export function PixelMascots() {
                 <rect x="12" y="3" width="1" height="1" fill="#f43f5e" />
                 <rect x="2" y="4" width="12" height="5" fill="#334155" />
                 <rect x="6" y="4" width="4" height="2" fill="#0f172a" />
-                {/* Licking Paw Up to Face */}
                 <rect x="4" y="6" width="2" height="2" fill="#10b981" />
                 <rect x="10" y="6" width="2" height="2" fill="#10b981" />
                 <rect x="7" y="7" width="2" height="2" fill="#f43f5e" />
@@ -429,31 +568,24 @@ export function PixelMascots() {
                 <rect x="0" y="4" width="2" height="6" rx="1" fill="#020617" />
               </g>
             ) : isKuroMoving ? (
-              /* QUADRUPED BLACK/DARK GREY TABBY WALKING/RUNNING (SIDE PROFILE - NO WHITE FUR) */
+              /* QUADRUPED BLACK/DARK GREY TABBY WALKING/RUNNING */
               <g>
-                {/* Ears */}
                 <rect x="10" y="2" width="3" height="3" fill="#020617" />
                 <rect x="11" y="3" width="1" height="1" fill="#f43f5e" />
-                {/* Head */}
                 <rect x="9" y="4" width="6" height="5" fill="#334155" />
                 <rect x="11" y="4" width="2" height="2" fill="#0f172a" />
-                {/* Emerald Green Eye */}
                 <rect x="12" y="6" width="2" height="2" fill="#10b981" />
                 <rect x="13" y="6" width="1" height="2" fill="#020617" />
-                {/* Snout & Nose */}
                 <rect x="14" y="7" width="2" height="1" fill="#f43f5e" />
-                {/* Quadruped Dark Grey Tabby Body */}
                 <rect x="2" y="7" width="9" height="5" fill="#334155" />
                 <rect x="5" y="7" width="2" height="5" fill="#0f172a" />
                 <rect x="4" y="8" width="6" height="4" fill="#475569" />
-                {/* Dark Grey Paws Walking Motion (No White) */}
                 <rect x={animFrame === 0 ? "3" : "5"} y="12" width="2" height="4" fill="#1e293b" />
                 <rect x={animFrame === 0 ? "9" : "7"} y="12" width="2" height="4" fill="#1e293b" />
-                {/* Swishing Tail */}
                 <rect x="0" y={animFrame === 0 ? "5" : "6"} width="3" height="4" rx="1" fill="#020617" />
               </g>
             ) : (
-              /* IDLE / HAPPY SITTING CAT (BLACK & DARK GREY TABBY - NO WHITE FUR) */
+              /* IDLE / SITTING CAT */
               <g>
                 <rect x="2" y="2" width="3" height="3" fill="#020617" />
                 <rect x="3" y="3" width="1" height="1" fill="#f43f5e" />
@@ -461,13 +593,11 @@ export function PixelMascots() {
                 <rect x="12" y="3" width="1" height="1" fill="#f43f5e" />
                 <rect x="2" y="4" width="12" height="5" fill="#334155" />
                 <rect x="6" y="4" width="4" height="2" fill="#0f172a" />
-                {/* Emerald Green Eyes */}
                 <rect x="4" y="6" width="2" height="2" fill="#10b981" />
                 <rect x="4" y="6" width="1" height="2" fill="#020617" />
                 <rect x="10" y="6" width="2" height="2" fill="#10b981" />
                 <rect x="10" y="6" width="1" height="2" fill="#020617" />
                 <rect x="7" y="7" width="2" height="1" fill="#f43f5e" />
-                {/* Dark Grey Chest & Body (No White) */}
                 <rect x="3" y="9" width="10" height="5" fill="#334155" />
                 <rect x="4" y="9" width="2" height="5" fill="#0f172a" />
                 <rect x="10" y="9" width="2" height="5" fill="#0f172a" />
