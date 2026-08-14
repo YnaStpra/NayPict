@@ -47,15 +47,15 @@ export default function Home() {
           
           {/* Logo & Icon */}
           <div className="relative">
-            <div className="absolute -inset-1 rounded-full bg-gradient-to-r from-primary via-emerald-400 to-teal-400 opacity-75 blur-md animate-pulse" />
+            <div className="absolute -inset-1 rounded-full bg-gradient-to-r from-white/20 via-slate-200/30 to-white/20 opacity-75 blur-md animate-pulse" />
             <div className="relative size-16 sm:size-20 rounded-2xl bg-gradient-to-br from-neutral-900 to-black border border-white/20 flex items-center justify-center shadow-xl">
-              <Camera className="size-8 sm:size-10 text-emerald-400" />
+              <Camera className="size-8 sm:size-10 text-white" />
             </div>
           </div>
 
           {/* Title & Tagline */}
           <div className="space-y-2">
-            <h1 className="text-4xl sm:text-5xl font-black tracking-tight bg-gradient-to-r from-white via-slate-100 to-emerald-200 bg-clip-text text-transparent drop-shadow-md">
+            <h1 className="text-4xl sm:text-5xl font-black tracking-tight bg-gradient-to-r from-white via-slate-100 to-slate-300 bg-clip-text text-transparent drop-shadow-md">
               NayPict
             </h1>
             <p className="text-xs sm:text-sm text-slate-300 font-medium max-w-xs mx-auto leading-relaxed">
@@ -67,24 +67,24 @@ export default function Home() {
           <div className="flex flex-col gap-3 w-full pt-2">
             <Link
               href="/photos"
-              className="group relative flex items-center justify-between w-full h-12 px-5 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-bold text-sm sm:text-base shadow-lg shadow-emerald-950/40 hover:shadow-emerald-500/30 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200"
+              className="group relative flex items-center justify-between w-full h-12 px-5 rounded-2xl bg-white/10 hover:bg-white/20 border border-white/20 text-white font-bold text-sm sm:text-base backdrop-blur-md hover:scale-[1.02] active:scale-[0.98] transition-all duration-200"
             >
               <div className="flex items-center gap-3">
-                <ImageIcon className="size-5" />
+                <ImageIcon className="size-5 text-white/90" />
                 <span>Explore Gallery</span>
               </div>
-              <ArrowRight className="size-4 opacity-80 group-hover:translate-x-1 transition-transform" />
+              <ArrowRight className="size-4 opacity-75 group-hover:translate-x-1 transition-transform" />
             </Link>
 
             <Link
               href="/albums"
-              className="group relative flex items-center justify-between w-full h-12 px-5 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-bold text-sm sm:text-base shadow-lg shadow-emerald-950/40 hover:shadow-emerald-500/30 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200"
+              className="group relative flex items-center justify-between w-full h-12 px-5 rounded-2xl bg-white/10 hover:bg-white/20 border border-white/20 text-white font-bold text-sm sm:text-base backdrop-blur-md hover:scale-[1.02] active:scale-[0.98] transition-all duration-200"
             >
               <div className="flex items-center gap-3">
-                <FolderHeart className="size-5" />
+                <FolderHeart className="size-5 text-white/90" />
                 <span>Browse Albums</span>
               </div>
-              <ArrowRight className="size-4 opacity-80 group-hover:translate-x-1 transition-transform" />
+              <ArrowRight className="size-4 opacity-75 group-hover:translate-x-1 transition-transform" />
             </Link>
           </div>
 
