@@ -51,7 +51,7 @@ export default function DuplicatesPage() {
       })
       .catch((err) => {
         console.error('Failed to fetch duplicate photo groups:', err)
-        toast.error('Gagal memuat daftar foto duplikat.')
+        toast.error('Failed to load duplicate photo list.')
       })
       .finally(() => {
         setLoading(false)
@@ -72,7 +72,7 @@ export default function DuplicatesPage() {
 
     photoRecycle({ photoIds })
       .then(() => {
-        toast.success(`${photoIds.length} foto duplikat berhasil dipindahkan ke tempat sampah.`)
+        toast.success(`${photoIds.length} duplicate photo(s) moved to recycle bin.`)
         // Update local state by removing recycled photoIds from groups
         setGroups((prevGroups) =>
           prevGroups
@@ -86,14 +86,14 @@ export default function DuplicatesPage() {
       })
       .catch((err) => {
         console.error('Failed to recycle photos:', err)
-        toast.error('Gagal menghapus foto duplikat.')
+        toast.error('Failed to delete duplicate photos.')
       })
   }, [])
 
   // Ignore/Keep group
   const handleIgnoreGroup = useCallback((groupId: string) => {
     setIgnoredGroupIds((prev) => new Set(prev).add(groupId))
-    toast.info('Grup duplikat dibiarkan / diabaikan.')
+    toast.info('Duplicate group kept / ignored.')
   }, [])
 
   // 1-Click Clean All Duplicates across all groups
@@ -107,18 +107,18 @@ export default function DuplicatesPage() {
     }
 
     if (!allDuplicateIds.length) {
-      toast.info('Tidak ada foto duplikat yang dapat dihapus.')
+      toast.info('No duplicate photos to delete.')
       return
     }
 
     photoRecycle({ photoIds: allDuplicateIds })
       .then(() => {
-        toast.success(`Berhasil membersihkan ${allDuplicateIds.length} foto duplikat!`)
+        toast.success(`Successfully cleaned ${allDuplicateIds.length} duplicate photos!`)
         fetchDuplicates()
       })
       .catch((err) => {
         console.error('Failed to clean all duplicates:', err)
-        toast.error('Gagal membersihkan foto duplikat.')
+        toast.error('Failed to clean duplicate photos.')
       })
   }, [groups, ignoredGroupIds, fetchDuplicates])
 
@@ -137,11 +137,11 @@ export default function DuplicatesPage() {
         <SidebarInset>
           <div className="flex h-[80vh] flex-col items-center justify-center gap-3 text-center px-4">
             <ShieldAlert className="size-12 text-destructive" />
-            <h1 className="text-xl font-semibold">Akses Ditolak</h1>
+            <h1 className="text-xl font-semibold">Access Denied</h1>
             <p className="text-sm text-muted-foreground max-w-sm">
-              Fitur deteksi foto duplikat hanya tersedia untuk pengguna Admin.
+              Duplicate photo detection feature is only available for Admin users.
             </p>
-            <Button onClick={() => router.push('/photos')}>Kembali ke Galeri Utama</Button>
+            <Button onClick={() => router.push('/photos')}>Back to Gallery</Button>
           </div>
         </SidebarInset>
       </SidebarProvider>
@@ -166,7 +166,7 @@ export default function DuplicatesPage() {
                   <BreadcrumbItem>
                     <BreadcrumbPage className="flex items-center gap-2 font-medium">
                       <CopyCheck className="size-4 text-primary" />
-                      <span>Deteksi Foto Duplikat</span>
+                      <span>Duplicate Photo Detection</span>
                     </BreadcrumbPage>
                   </BreadcrumbItem>
                 </BreadcrumbList>
@@ -181,7 +181,7 @@ export default function DuplicatesPage() {
               className="gap-1.5 text-xs font-medium"
             >
               <RefreshCw className={`size-3.5 ${loading ? 'animate-spin' : ''}`} />
-              <span>Pindai Ulang</span>
+              <span>Rescan</span>
             </Button>
           </header>
 
@@ -192,10 +192,10 @@ export default function DuplicatesPage() {
                 <div>
                   <h1 className="text-lg font-bold flex items-center gap-2">
                     <CopyCheck className="size-5 text-primary" />
-                    Pendeteksi Foto Duplikat Berbasis Tampilan Visual & File
+                    Visual & File-Based Duplicate Photo Detector
                   </h1>
                   <p className="text-xs md:text-sm text-muted-foreground mt-1">
-                    Sistem secara otomatis menganalisis sidik jari piksel visual (*thumbHash*), checksum berkas, resolusi, dan ukuran foto untuk mendeteksi semua foto duplikat tanpa ada yang terlewat.
+                    Automatically analyzes visual pixel fingerprints (*thumbHash*), file checksums, resolution, and size to detect all duplicate photos without missing any.
                   </p>
                 </div>
                 {!loading && activeGroups.length > 0 && (
@@ -203,12 +203,12 @@ export default function DuplicatesPage() {
                     <div className="flex items-center gap-3 bg-muted/60 px-4 py-2.5 rounded-lg border">
                       <div className="text-center">
                         <div className="text-lg font-bold text-primary">{activeGroups.length}</div>
-                        <div className="text-[11px] text-muted-foreground">Grup Duplikat</div>
+                        <div className="text-[11px] text-muted-foreground">Duplicate Groups</div>
                       </div>
                       <Separator orientation="vertical" className="h-8" />
                       <div className="text-center">
                         <div className="text-lg font-bold text-foreground">{totalDuplicatesCount}</div>
-                        <div className="text-[11px] text-muted-foreground">Total Foto</div>
+                        <div className="text-[11px] text-muted-foreground">Total Photos</div>
                       </div>
                     </div>
 
@@ -220,7 +220,7 @@ export default function DuplicatesPage() {
                       onClick={handleRecycleAllDuplicates}
                     >
                       <Trash2 className="size-4" />
-                      <span>Bersihkan {deletableCount} Foto Duplikat Sekaligus</span>
+                      <span>Clean {deletableCount} Duplicate Photos at Once</span>
                     </Button>
                   </div>
                 )}
@@ -232,15 +232,15 @@ export default function DuplicatesPage() {
               <div className="flex h-64 flex-col items-center justify-center gap-3 text-center">
                 <Loader2 className="size-8 animate-spin text-primary" />
                 <p className="text-sm font-medium text-muted-foreground">
-                  Sedang memindai dan menganalisis tampilan foto...
+                  Scanning and analyzing photo appearance...
                 </p>
               </div>
             ) : activeGroups.length === 0 ? (
               <div className="flex h-64 flex-col items-center justify-center gap-3 text-center border rounded-xl bg-card/40 p-8">
                 <CheckCircle2 className="size-12 text-emerald-500" />
-                <h2 className="text-base font-semibold">Tidak Ada Foto Duplikat Ditemukan</h2>
+                <h2 className="text-base font-semibold">No Duplicate Photos Found</h2>
                 <p className="text-xs md:text-sm text-muted-foreground max-w-md">
-                  Semua foto di galeri Anda memiliki visual unik! Tidak ada foto ganda yang terdeteksi.
+                  All photos in your gallery have unique visuals! No duplicate photos detected.
                 </p>
               </div>
             ) : (
@@ -259,13 +259,13 @@ export default function DuplicatesPage() {
                           </span>
                           <div>
                             <div className="text-sm font-bold flex items-center gap-2">
-                              <span>Grup Duplikat #{idx + 1}</span>
+                              <span>Duplicate Group #{idx + 1}</span>
                               <span className="text-[11px] font-normal px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
-                                {group.similarityType === 'visual' ? 'Tampilan Visual Sama' : 'Berkas Identik'}
+                                {group.similarityType === 'visual' ? 'Visual Match' : 'Identical File'}
                               </span>
                             </div>
                             <div className="text-xs text-muted-foreground">
-                              Terdeteksi {group.photos.length} foto dengan tampilan identik
+                              Detected {group.photos.length} photos with identical appearance
                             </div>
                           </div>
                         </div>
@@ -280,7 +280,7 @@ export default function DuplicatesPage() {
                             onClick={() => handleRecyclePhotos(duplicatePhotoIds, group.groupId)}
                           >
                             <Trash2 className="size-3.5" />
-                            <span>Hapus Duplikat (Simpan 1 Utama)</span>
+                            <span>Delete Duplicates (Keep 1 Main)</span>
                           </Button>
 
                           <Button
@@ -289,10 +289,10 @@ export default function DuplicatesPage() {
                             size="sm"
                             className="text-xs h-8 gap-1 text-muted-foreground hover:text-foreground"
                             onClick={() => handleIgnoreGroup(group.groupId)}
-                            title="Abaikan grup ini"
+                            title="Ignore this group"
                           >
                             <EyeOff className="size-3.5" />
-                            <span>Biarkan</span>
+                            <span>Keep / Ignore</span>
                           </Button>
                         </div>
                       </div>
@@ -313,11 +313,11 @@ export default function DuplicatesPage() {
                               <div className="absolute top-2 left-2 z-10">
                                 {isPrimary ? (
                                   <span className="inline-flex items-center gap-1 rounded-md bg-emerald-600 px-2 py-0.5 text-[10px] font-semibold text-white shadow-xs">
-                                    <Check className="size-3" /> Foto Utama
+                                    <Check className="size-3" /> Main Photo
                                   </span>
                                 ) : (
                                   <span className="inline-flex items-center gap-1 rounded-md bg-amber-500/90 px-2 py-0.5 text-[10px] font-semibold text-white shadow-xs">
-                                    Duplikat #{pIdx}
+                                    Duplicate #{pIdx}
                                   </span>
                                 )}
                               </div>
@@ -347,7 +347,7 @@ export default function DuplicatesPage() {
                                     {photo.name}
                                   </div>
                                   <div className="text-[11px] text-muted-foreground mt-0.5">
-                                    {photo.width && photo.height ? `${photo.width}×${photo.height}` : 'Resolusi n/a'} • {(photo.size / 1024 / 1024).toFixed(1)}MB
+                                    {photo.width && photo.height ? `${photo.width}×${photo.height}` : 'Resolution n/a'} • {(photo.size / 1024 / 1024).toFixed(1)}MB
                                   </div>
                                   {photo.storageName && (
                                     <div className="text-[10px] text-muted-foreground/80 truncate mt-0.5">
@@ -361,7 +361,7 @@ export default function DuplicatesPage() {
                                     </div>
                                   ) : (
                                     <div className="mt-1.5 inline-flex items-center gap-1 text-[10px] text-muted-foreground bg-muted px-2 py-0.5 rounded-md font-medium">
-                                      <span>Galeri Utama</span>
+                                      <span>Main Gallery</span>
                                     </div>
                                   )}
                                 </div>
@@ -376,7 +376,7 @@ export default function DuplicatesPage() {
                                     onClick={() => handleRecyclePhotos([photo.photoId], group.groupId)}
                                   >
                                     <Trash2 className="size-3" />
-                                    <span>Hapus Foto Ini</span>
+                                    <span>Delete This Photo</span>
                                   </Button>
                                 </div>
                               </div>

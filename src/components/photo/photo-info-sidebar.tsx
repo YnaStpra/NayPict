@@ -176,7 +176,7 @@ export function PhotoInfoSidebar({ photo, onClose, onAlbumOpen }: PhotoInfoSideb
                 }}
               >
                 <FolderPlusIcon className="size-3.5" />
-                <span>+ Tambah ke Album</span>
+                <span>+ Add to Album</span>
               </Button>
             </div>
           )}

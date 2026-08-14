@@ -1,4 +1,4 @@
-import { and, asc, count, desc, eq, getTableColumns, gte, inArray, isNotNull, lt, lte, or, sql } from 'drizzle-orm';
+import { and, asc, count, desc, eq, getTableColumns, gt, gte, inArray, isNotNull, lt, lte, or, sql } from 'drizzle-orm';
 import { createId } from '@/server/lib/id';
 import { type Photo, photoTab } from '@/server/entity/photo';
 import { albumPhotoTab } from '@/server/entity/album-photo';
@@ -47,9 +47,23 @@ const photoService = {
 
     const size = params.size && params.size > 0 ? params.size : PHOTO_LIST_PAGE_SIZE;
     const status = params.status ?? PhotoStatusEnum.NORMAL;
-    const orderColumn = status === PhotoStatusEnum.DELETE
-      ? photoTab.recycleTime
-      : photoTab.takenTime;
+
+    // Determine target sort column
+    let orderColumn: any = photoTab.takenTime;
+    if (params.sortBy === 'createTime') {
+      orderColumn = photoTab.createTime;
+    } else if (params.sortBy === 'size') {
+      orderColumn = photoTab.size;
+    } else if (params.sortBy === 'name') {
+      orderColumn = photoTab.name;
+    } else if (status === PhotoStatusEnum.DELETE) {
+      orderColumn = photoTab.recycleTime;
+    }
+
+    // Determine sort direction (asc / desc)
+    const isAsc = params.sortOrder === 'asc';
+    const sortFn = isAsc ? asc : desc;
+    const compFn = isAsc ? gt : lt;
 
     const whereList = [
       eq(photoTab.status, status)
@@ -70,12 +84,13 @@ const photoService = {
     // When specific photoIds are provided, skip cursor/time filters and use IN clause instead
     if (params.photoIds && params.photoIds.length > 0) {
       whereList.push(inArray(photoTab.photoId, params.photoIds));
-    } else if (params.cursorPhotoId && params.cursorTime) {
+    } else if (params.cursorPhotoId && params.cursorTime !== undefined && params.cursorTime !== null) {
+      const cursorVal = params.sortBy === 'size' ? Number(params.cursorTime) : params.cursorTime;
       const cursorWhere = or(
-        lt(orderColumn, params.cursorTime),
+        compFn(orderColumn, cursorVal as any),
         and(
-          eq(orderColumn, params.cursorTime),
-          lt(photoTab.photoId, params.cursorPhotoId)
+          eq(orderColumn, cursorVal as any),
+          compFn(photoTab.photoId, params.cursorPhotoId)
         )
       );
 
@@ -93,24 +108,22 @@ const photoService = {
           ...whereList,
           eq(albumPhotoTab.albumId, params.albumId)
         ))
-        // Preserve photoIds order if given; otherwise random or time-based sort
         .orderBy(
           params.photoIds?.length
             ? sql`CASE ${photoTab.photoId} ${params.photoIds.map((id, i) => sql`WHEN ${id} THEN ${i}`).reduce((a, b) => sql`${a} ${b}`)} END`
-            : (params.shuffle && !params.cursorPhotoId ? sql`RANDOM()` : desc(orderColumn)),
-          desc(photoTab.photoId)
+            : (params.shuffle && !params.sortBy && !params.cursorPhotoId ? sql`RANDOM()` : sortFn(orderColumn)),
+          sortFn(photoTab.photoId)
         )
         .limit(size)
       : await orm
         .select()
         .from(photoTab)
         .where(and(...whereList))
-        // Preserve photoIds order if given; otherwise random or time-based sort
         .orderBy(
           params.photoIds?.length
             ? sql`CASE ${photoTab.photoId} ${params.photoIds.map((id, i) => sql`WHEN ${id} THEN ${i}`).reduce((a, b) => sql`${a} ${b}`)} END`
-            : (params.shuffle && !params.cursorPhotoId ? sql`RANDOM()` : desc(orderColumn)),
-          desc(photoTab.photoId)
+            : (params.shuffle && !params.sortBy && !params.cursorPhotoId ? sql`RANDOM()` : sortFn(orderColumn)),
+          sortFn(photoTab.photoId)
         )
         .limit(size);
 

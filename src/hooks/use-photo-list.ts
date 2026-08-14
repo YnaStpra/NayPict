@@ -128,16 +128,32 @@ function usePhotoList(params: Partial<PhotoListBo> = {}, pageSize = PHOTO_LIST_P
     const queryParams = paramsRef.current
     loadingRef.current = true
 
-    // For recycle bin, use normal cursor-based pagination (no random shuffle needed)
-    if (queryParams.status === PhotoStatusEnum.DELETE) {
+    const isSortedMode = Boolean(queryParams.sortBy) || queryParams.status === PhotoStatusEnum.DELETE || queryParams.shuffle === false
+
+    // Sorted mode or recycle bin: use normal cursor-based pagination
+    if (isSortedMode) {
       const lastPhoto = append ? photosRef.current.at(-1) : null
-      const cursorTime = lastPhoto?.recycleTime ?? null
+      let cursorTime: string | null = null
+
+      if (lastPhoto) {
+        if (queryParams.sortBy === "createTime") {
+          cursorTime = lastPhoto.createTime
+        } else if (queryParams.sortBy === "size") {
+          cursorTime = String(lastPhoto.size)
+        } else if (queryParams.sortBy === "name") {
+          cursorTime = lastPhoto.name
+        } else if (queryParams.status === PhotoStatusEnum.DELETE) {
+          cursorTime = lastPhoto.recycleTime
+        } else {
+          cursorTime = lastPhoto.takenTime
+        }
+      }
 
       photoList({
         ...queryParams,
         size: pageSize,
         cursorPhotoId: lastPhoto?.photoId ?? null,
-        cursorTime: cursorTime ?? null,
+        cursorTime: cursorTime,
       })
         .then((data) => {
           setPhotos((prev) => {

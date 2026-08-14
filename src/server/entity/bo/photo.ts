@@ -19,6 +19,8 @@ interface PhotoListBo {
   shuffle?: boolean;
   // Filter by specific photo IDs (used for random-order pagination)
   photoIds?: string[] | null;
+  sortBy?: 'takenTime' | 'createTime' | 'size' | 'name' | null;
+  sortOrder?: 'asc' | 'desc' | null;
 }
 
 // Input params for fetching all photo IDs in random order.

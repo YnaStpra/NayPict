@@ -25,7 +25,16 @@ import { PhotoFavoriteEnum } from "@/server/enums/photo-enum"
 import { photoFavorite, photoRecycle } from "@/request/photo"
 import { albumAddPhoto } from "@/request/album"
 import { usePhotoStore } from "@/store/photo-store"
-import { ImageIcon, LayoutGrid, Plus, Sparkles } from "lucide-react"
+import { ArrowUpDown, ChevronDown, ImageIcon, LayoutGrid, Plus, Sparkles } from "lucide-react"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { PhotoDateDrawer } from "@/components/photo/photo-date-drawer"
 import { PhotoMasonrySkeleton } from "@/components/photo/photo-masonry-skeleton"
 import { BackToTopButton } from "@/components/ui/back-to-top-button"
@@ -49,6 +58,20 @@ const InfiniteGallery = dynamic(
   { ssr: false }
 )
 
+type SortOptionKey = 'none' | 'takenTime_desc' | 'takenTime_asc' | 'createTime_desc' | 'createTime_asc' | 'size_desc' | 'size_asc' | 'name_asc' | 'name_desc'
+
+const SORT_OPTIONS: { key: SortOptionKey; label: string; sortBy?: 'takenTime' | 'createTime' | 'size' | 'name' | null; sortOrder?: 'asc' | 'desc' | null; shuffle?: boolean }[] = [
+  { key: 'none', label: 'Default / Random', sortBy: null, sortOrder: null, shuffle: true },
+  { key: 'takenTime_desc', label: 'Taken Date (Newest)', sortBy: 'takenTime', sortOrder: 'desc', shuffle: false },
+  { key: 'takenTime_asc', label: 'Taken Date (Oldest)', sortBy: 'takenTime', sortOrder: 'asc', shuffle: false },
+  { key: 'createTime_desc', label: 'Recently Added', sortBy: 'createTime', sortOrder: 'desc', shuffle: false },
+  { key: 'createTime_asc', label: 'Oldest Added', sortBy: 'createTime', sortOrder: 'asc', shuffle: false },
+  { key: 'size_desc', label: 'File Size (Largest)', sortBy: 'size', sortOrder: 'desc', shuffle: false },
+  { key: 'size_asc', label: 'File Size (Smallest)', sortBy: 'size', sortOrder: 'asc', shuffle: false },
+  { key: 'name_asc', label: 'Name (A - Z)', sortBy: 'name', sortOrder: 'asc', shuffle: false },
+  { key: 'name_desc', label: 'Name (Z - A)', sortBy: 'name', sortOrder: 'desc', shuffle: false },
+]
+
 // Render photo list page with Masonry & Infinite Canvas mode support.
 export default function Page() {
   const t = useTranslations("photos")
@@ -57,7 +80,8 @@ export default function Page() {
   const isAdmin = userInfo?.type === UserTypeEnum.ADMIN
 
   const [isBrowser, setIsBrowser] = useState(false)
-  const [viewMode, setViewMode] = useState<"masonry" | "infinite">("infinite")
+  const [viewMode, setViewMode] = useState<"masonry" | "infinite">("masonry")
+  const [sortKey, setSortKey] = useState<SortOptionKey>("none")
 
   const {
     photos,
@@ -69,6 +93,18 @@ export default function Page() {
     prependPhotos,
     removePhotos,
   } = usePhotoList({}, PHOTO_LIST_PAGE_SIZE, initialPhotos)
+
+  const handleSortChange = (key: SortOptionKey) => {
+    setSortKey(key)
+    const option = SORT_OPTIONS.find((o) => o.key === key)
+    if (option) {
+      refreshPhotoList({
+        sortBy: option.sortBy ?? null,
+        sortOrder: option.sortOrder ?? null,
+        shuffle: option.shuffle ?? false,
+      })
+    }
+  }
 
   const [modelPhotoIndex, setModelPhotoIndex] = useState(0)
   const [showPhotoViewer, setShowPhotoViewer] = useState(false)
@@ -231,6 +267,45 @@ export default function Page() {
                 <span>{totalCount}</span>
               </div>
 
+              {/* Sort By Dropdown Menu */}
+              <DropdownMenu>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-8 gap-1.5 px-2.5 text-xs font-semibold rounded-lg shadow-2xs border-border/60"
+                        >
+                          <ArrowUpDown className="size-3.5 text-primary shrink-0" />
+                          <span className="hidden md:inline-block max-w-[140px] truncate">
+                            {SORT_OPTIONS.find((o) => o.key === sortKey)?.label || "Sort"}
+                          </span>
+                          <ChevronDown className="size-3 text-muted-foreground" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom">Sort Gallery Photos</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+
+                <DropdownMenuContent align="end" className="w-56 z-[50]">
+                  <DropdownMenuLabel className="text-xs text-muted-foreground font-semibold px-2 py-1.5">
+                    Sort By
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuRadioGroup value={sortKey} onValueChange={(val) => handleSortChange(val as SortOptionKey)}>
+                    {SORT_OPTIONS.map((opt) => (
+                      <DropdownMenuRadioItem key={opt.key} value={opt.key} className="text-xs font-medium cursor-pointer py-1.5">
+                        {opt.label}
+                      </DropdownMenuRadioItem>
+                    ))}
+                  </DropdownMenuRadioGroup>
+                </DropdownMenuContent>
+              </DropdownMenu>
+
               <PhotoDateDrawer onRangeChange={changePhotoTime} />
               {userInfo && (
                 <Button
@@ -274,7 +349,7 @@ export default function Page() {
                   {!hasMore && photos.length > 0 && (
                     <div className="py-12 pb-16 text-center select-none">
                       <p className="text-sm font-medium text-muted-foreground/80 tracking-wide">
-                        yahh fotonya sampe sini doang cuy, tunggu gw hunting lagi yeah..
+                        That's all the photos for now, stay tuned for the next photo hunt!
                       </p>
                     </div>
                   )}
