@@ -150,9 +150,22 @@ const photoService = {
       );
     });
 
+    const [totalRow] = params.albumId
+      ? await orm
+        .select({ total: count() })
+        .from(photoTab)
+        .innerJoin(albumPhotoTab, eq(photoTab.photoId, albumPhotoTab.photoId))
+        .where(and(...whereList, eq(albumPhotoTab.albumId, params.albumId)))
+      : await orm
+        .select({ total: count() })
+        .from(photoTab)
+        .where(and(...whereList));
+
+    const totalCount = Number(totalRow?.total ?? 0);
+
     return {
       list: result,
-      total: result.length
+      total: totalCount
     };
   },
 

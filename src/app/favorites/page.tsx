@@ -17,10 +17,11 @@ import { usePhotoList } from "@/hooks/use-photo-list"
 import { PHOTO_LIST_PAGE_SIZE } from "@/server/const/global"
 import { PhotoFavoriteEnum } from "@/server/enums/photo-enum"
 
-import { useCallback, useEffect, useLayoutEffect, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'react'
 import { PhotoMasonry } from "@/components/photo/photo-masonry"
 import { photoFavorite, photoRecycle } from "@/request/photo"
 import { albumAddPhoto } from "@/request/album"
+import { useAlbumStore } from "@/store/album-store"
 import { useFavoriteContext } from "@/app/favorites/provider"
 import { useApp } from "@/app/provider"
 import { UserTypeEnum } from "@/server/enums/user-enum"
@@ -51,6 +52,7 @@ export default function Page() {
     loadMorePhotos,
     refreshPhotoList,
     removePhotos,
+    setPhotos,
   } = usePhotoList({ favorite: PhotoFavoriteEnum.YES }, PHOTO_LIST_PAGE_SIZE, initialPhotos)
   const [modelPhotoIndex, setModelPhotoIndex] = useState(0)
   const [showPhotoViewer, setShowPhotoViewer] = useState(false)
@@ -112,10 +114,41 @@ export default function Page() {
     setAlbumDialogOpen(true)
   }, [])
 
+  const initialAlbumIds = useMemo(() => {
+    if (albumPhotoIds.length === 1) {
+      const p = photos.find((photo) => photo.photoId === albumPhotoIds[0])
+      return p?.albums?.map((a) => a.albumId) ?? []
+    }
+    return []
+  }, [albumPhotoIds, photos])
+
   // After selecting the album, add the favorite photos to the album。
   function changePhotoAlbum(albumIds: string[]) {
     albumAddPhoto({ albumIds, photoIds: albumPhotoIds }).then(() => {
       void refreshAlbums()
+
+      const allAlbums = useAlbumStore.getState().albums
+      const selectedAlbumObjs = allAlbums
+        .filter((a: any) => albumIds.includes(a.albumId))
+        .map((a: any) => ({ albumId: a.albumId, name: a.name }))
+
+      setPhotos((prevPhotos: any[]) =>
+        prevPhotos.map((photo: any) => {
+          if (albumPhotoIds.includes(photo.photoId)) {
+            const existingAlbums = photo.albums ?? []
+            const combinedMap = new Map<string, { albumId: string; name: string }>()
+
+            existingAlbums.forEach((a: any) => combinedMap.set(a.albumId, a))
+            selectedAlbumObjs.forEach((a: any) => combinedMap.set(a.albumId, a))
+
+            return {
+              ...photo,
+              albums: Array.from(combinedMap.values()),
+            }
+          }
+          return photo
+        })
+      )
     })
   }
 
@@ -184,6 +217,7 @@ export default function Page() {
         open={albumDialogOpen}
         onOpenChange={setAlbumDialogOpen}
         onAlbumSelect={changePhotoAlbum}
+        initialSelectedAlbumIds={initialAlbumIds}
       />
     </>
   )

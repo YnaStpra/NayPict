@@ -25,6 +25,7 @@ import { PhotoFavoriteEnum } from "@/server/enums/photo-enum"
 import { photoFavorite, photoRecycle } from "@/request/photo"
 import { albumAddPhoto } from "@/request/album"
 import { usePhotoStore } from "@/store/photo-store"
+import { useAlbumStore } from "@/store/album-store"
 import { ArrowUpDown, ChevronDown, ImageIcon, LayoutGrid, Plus, Sparkles } from "lucide-react"
 import {
   DropdownMenu,
@@ -87,6 +88,7 @@ export default function Page() {
     photos,
     totalCount,
     hasMore,
+    setPhotos,
     masonryKey,
     loadMorePhotos,
     refreshPhotoList,
@@ -200,6 +202,29 @@ export default function Page() {
       .then(() => {
         toast.success("Foto berhasil ditambahkan ke album!")
         void refreshAlbums()
+
+        const allAlbums = useAlbumStore.getState().albums
+        const selectedAlbumObjs = allAlbums
+          .filter((a: any) => albumIds.includes(a.albumId))
+          .map((a: any) => ({ albumId: a.albumId, name: a.name }))
+
+        setPhotos((prevPhotos: any[]) =>
+          prevPhotos.map((photo: any) => {
+            if (albumPhotoIds.includes(photo.photoId)) {
+              const existingAlbums = photo.albums ?? []
+              const combinedMap = new Map<string, { albumId: string; name: string }>()
+
+              existingAlbums.forEach((a: any) => combinedMap.set(a.albumId, a))
+              selectedAlbumObjs.forEach((a: any) => combinedMap.set(a.albumId, a))
+
+              return {
+                ...photo,
+                albums: Array.from(combinedMap.values()),
+              }
+            }
+            return photo
+          })
+        )
       })
       .catch((err) => {
         console.error("Failed to add photos to album:", err)
