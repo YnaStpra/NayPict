@@ -224,15 +224,20 @@ const PhotoMasonry = memo(function PhotoMasonry({
   }, [])
 
   useEffect(() => {
-    // Processing window bottoms out，Notify the parent component to request the next page of photos。
-    function handleWindowScroll() {
+    let isChecking = false
+    function checkAutoLoad() {
+      if (isChecking) return
+      isChecking = true
+
       if (touchHoverCloseRef.current) {
         touchHoverCloseRef.current()
         touchHoverCloseRef.current = null
       }
 
-      const bottomDistance = document.documentElement.scrollHeight - window.scrollY - window.innerHeight
-      let threshold = isMobile ? 7000 : 2200
+      const scrollHeight = document.documentElement.scrollHeight || document.body.scrollHeight
+      const scrollY = window.scrollY || window.pageYOffset
+      const bottomDistance = scrollHeight - scrollY - window.innerHeight
+      let threshold = isMobile ? 9000 : 4500
 
       if (photos.length >= 200) {
         threshold *= 1.5
@@ -241,12 +246,16 @@ const PhotoMasonry = memo(function PhotoMasonry({
       if (bottomDistance <= threshold) {
         onReachBottomRef.current()
       }
+      isChecking = false
     }
 
-    window.addEventListener("scroll", handleWindowScroll)
+    window.addEventListener("scroll", checkAutoLoad, { passive: true })
+    const interval = setInterval(checkAutoLoad, 400)
+    checkAutoLoad()
 
     return () => {
-      window.removeEventListener("scroll", handleWindowScroll)
+      window.removeEventListener("scroll", checkAutoLoad)
+      clearInterval(interval)
     }
   }, [isMobile, photos.length])
 

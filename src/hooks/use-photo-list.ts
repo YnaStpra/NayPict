@@ -165,7 +165,9 @@ function usePhotoList(params: Partial<PhotoListBo> = {}, pageSize = PHOTO_LIST_P
               return true
             })
             photosRef.current = uniquePhotos
-            setTotalCount(uniquePhotos.length)
+            if (data.total !== undefined) {
+              setTotalCount(data.total)
+            }
             return uniquePhotos
           })
           const more = data.list.length === pageSize
