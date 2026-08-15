@@ -35,6 +35,10 @@ interface PhotoRandomIdListBo {
 interface PhotoExistsBo {
   checksum: string;
   name: string;
+  size?: number;
+  width?: number;
+  height?: number;
+  thumbHash?: string;
 }
 
 interface PhotoRecycleBo {
