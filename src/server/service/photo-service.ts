@@ -259,12 +259,16 @@ const photoService = {
     return key;
   },
 
-  // According to the deduplication settings and SHA-1 Determine whether the current user already has the same file。
-  async exists(params: PhotoExistsBo, userId: string): Promise<PhotoExistsVo> {
+  // According to the deduplication settings, SHA-1, visual thumbHash, and dimensions, determine whether duplicate photo exists.
+  async exists(params: PhotoExistsBo, userId?: string): Promise<PhotoExistsVo> {
     const checksum = params.checksum?.trim();
     const name = params.name?.trim();
+    const size = params.size;
+    const width = params.width;
+    const height = params.height;
+    const thumbHash = params.thumbHash?.trim();
 
-    if (!checksum || !name) {
+    if (!checksum && !name && !thumbHash) {
       return { duplicate: false };
     }
 
@@ -274,19 +278,71 @@ const photoService = {
       return { duplicate: false };
     }
 
-    const [duplicatePhoto] = await orm
-      .select({ photoId: photoTab.photoId })
-      .from(photoTab)
-      .where(and(
-        eq(photoTab.userId, userId),
-        eq(photoTab.checksum, checksum)
-      ))
-      .limit(1);
+    const baseConditions = [
+      eq(photoTab.status, PhotoStatusEnum.NORMAL),
+    ];
+    if (userId) {
+      baseConditions.push(eq(photoTab.userId, userId));
+    }
 
-    return { duplicate: Boolean(duplicatePhoto), photoId: duplicatePhoto?.photoId ?? null };
+    const matchOrList: any[] = [];
+    if (checksum) {
+      matchOrList.push(eq(photoTab.checksum, checksum));
+    }
+    if (thumbHash) {
+      matchOrList.push(eq(photoTab.thumbHash, thumbHash));
+    }
+    if (width && height && size) {
+      matchOrList.push(
+        and(
+          eq(photoTab.width, width),
+          eq(photoTab.height, height),
+          gte(photoTab.size, Math.floor(size * 0.95)),
+          lte(photoTab.size, Math.ceil(size * 1.05))
+        )
+      );
+    }
+
+    if (matchOrList.length > 0) {
+      const [duplicatePhoto] = await orm
+        .select({ photoId: photoTab.photoId })
+        .from(photoTab)
+        .where(and(...baseConditions, or(...matchOrList)!))
+        .limit(1);
+
+      if (duplicatePhoto) {
+        return { duplicate: true, photoId: duplicatePhoto.photoId };
+      }
+    }
+
+    // Normalized name + dimension or size matching fallback
+    if (name) {
+      const cleanName = name.toLowerCase().trim().replace(/\.[^/.]+$/, '').replace(/[\s_–-]+(copy|salinan|\d+)/gi, '').replace(/\(\d+\)/g, '').replace(/[^a-z0-9]/g, '');
+      if (cleanName.length >= 3) {
+        const candidates = await orm
+          .select({ photoId: photoTab.photoId, name: photoTab.name, size: photoTab.size, width: photoTab.width, height: photoTab.height })
+          .from(photoTab)
+          .where(and(...baseConditions))
+          .limit(100);
+
+        const matched = candidates.find((c) => {
+          const cClean = c.name.toLowerCase().trim().replace(/\.[^/.]+$/, '').replace(/[\s_–-]+(copy|salinan|\d+)/gi, '').replace(/\(\d+\)/g, '').replace(/[^a-z0-9]/g, '');
+          if (cClean !== cleanName) return false;
+          if (width && height && c.width === width && c.height === height) return true;
+          if (size && c.size && Math.abs(c.size - size) <= Math.max(1024, size * 0.08)) return true;
+          return false;
+        });
+
+        if (matched) {
+          return { duplicate: true, photoId: matched.photoId };
+        }
+      }
+    }
+
+    return { duplicate: false };
   },
 
-  // Upload a single photo，Backend generation preview、thumbnail and meta information。
+  // Upload a single photo, Backend generation preview, thumbnail and meta information.
   async add(form: FormData, userId: string): Promise<PhotoAddResultVo> {
 
     const file = form.get('file') as File;
@@ -319,8 +375,18 @@ const photoService = {
 
     const { buffer, name, size, type } = await this.readPhotoUpload(file);
     const checksum = await fileChecksum(new Blob([new Uint8Array(buffer)]));
+    const images = await processPhotoImages(buffer);
 
-    const existingCheck = await this.exists({ checksum, name }, userId);
+    // Multi-Tiered Smart Deduplication Check (Checksum, Visual ThumbHash, Resolution & Size, Normalized Filename)
+    const existingCheck = await this.exists({
+      checksum,
+      name,
+      size,
+      width: images.width,
+      height: images.height,
+      thumbHash: images.thumbHash,
+    }, userId);
+
     if (existingCheck.duplicate && existingCheck.photoId) {
       if (albumId) {
         await albumService.addPhoto({ albumIds: [albumId], photoIds: [existingCheck.photoId] }, userId);
@@ -329,7 +395,6 @@ const photoService = {
       return { photo: existingPhotoVo, duplicate: true };
     }
 
-    const images = await processPhotoImages(buffer);
     const meta = await readPhotoExifFromBuffer(buffer);
     const takenTime = meta.takenTime ?? new Date(lastModified > 0 ? lastModified : Date.now()).toISOString();
     const key = await this.resolvePhotoKey(userId, name);
@@ -789,8 +854,12 @@ const photoService = {
     const thumbHashMap = new Map<string, string[]>();
     // 3. Group by Dimensions + Size (width x height x size)
     const dimSizeMap = new Map<string, string[]>();
-    // 4. Group by Normalized Name + Size
-    const nameSizeMap = new Map<string, string[]>();
+    // 4. Group by Normalized Name + Dimensions (width x height)
+    const nameDimMap = new Map<string, string[]>();
+    // 5. Group by Normalized Name + Approximate Size (tolerance 5%)
+    const nameApproxSizeMap = new Map<string, string[]>();
+    // 6. Group by EXIF Taken Time + Dimensions
+    const takenTimeDimMap = new Map<string, string[]>();
 
     for (const p of list) {
       find(p.photoId); // Register node in DSU
@@ -814,14 +883,31 @@ const photoService = {
         dimSizeMap.set(dimKey, arr);
       }
 
-      if (p.name && p.size) {
-        const cleanName = p.name.toLowerCase().trim().replace(/\.[^/.]+$/, '');
+      if (p.name) {
+        const cleanName = p.name.toLowerCase().trim().replace(/\.[^/.]+$/, '').replace(/[\s_–-]+(copy|salinan|\d+)/gi, '').replace(/\(\d+\)/g, '').replace(/[^a-z0-9]/g, '');
         if (cleanName.length >= 3) {
-          const nameKey = `${cleanName}:${p.size}`;
-          const arr = nameSizeMap.get(nameKey) ?? [];
-          arr.push(p.photoId);
-          nameSizeMap.set(nameKey, arr);
+          if (p.width && p.height) {
+            const key = `${cleanName}:${p.width}x${p.height}`;
+            const arr = nameDimMap.get(key) ?? [];
+            arr.push(p.photoId);
+            nameDimMap.set(key, arr);
+          }
+          if (p.size) {
+            const bucketSize = Math.round(p.size / 10240); // 10KB bucket tolerance
+            const key = `${cleanName}:${bucketSize}`;
+            const arr = nameApproxSizeMap.get(key) ?? [];
+            arr.push(p.photoId);
+            nameApproxSizeMap.set(key, arr);
+          }
         }
+      }
+
+      if (p.takenTime && p.width && p.height) {
+        const timeSec = p.takenTime.substring(0, 19); // YYYY-MM-DDTHH:mm:ss
+        const key = `${timeSec}:${p.width}x${p.height}`;
+        const arr = takenTimeDimMap.get(key) ?? [];
+        arr.push(p.photoId);
+        takenTimeDimMap.set(key, arr);
       }
     }
 
@@ -856,13 +942,33 @@ const photoService = {
       }
     }
 
-    for (const [, pIds] of nameSizeMap.entries()) {
+    for (const [, pIds] of nameDimMap.entries()) {
       if (pIds.length >= 2) {
         for (let i = 1; i < pIds.length; i++) {
           union(pIds[0], pIds[i]);
-          addReason(pIds[i], 'Nama & Ukuran Sama');
+          addReason(pIds[i], 'Nama & Resolusi Sama');
         }
-        addReason(pIds[0], 'Nama & Ukuran Sama');
+        addReason(pIds[0], 'Nama & Resolusi Sama');
+      }
+    }
+
+    for (const [, pIds] of nameApproxSizeMap.entries()) {
+      if (pIds.length >= 2) {
+        for (let i = 1; i < pIds.length; i++) {
+          union(pIds[0], pIds[i]);
+          addReason(pIds[i], 'Nama & Ukuran Mirip');
+        }
+        addReason(pIds[0], 'Nama & Ukuran Mirip');
+      }
+    }
+
+    for (const [, pIds] of takenTimeDimMap.entries()) {
+      if (pIds.length >= 2) {
+        for (let i = 1; i < pIds.length; i++) {
+          union(pIds[0], pIds[i]);
+          addReason(pIds[i], 'Waktu Foto & Resolusi Sama');
+        }
+        addReason(pIds[0], 'Waktu Foto & Resolusi Sama');
       }
     }
 
