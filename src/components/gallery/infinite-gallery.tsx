@@ -215,9 +215,11 @@ export function InfiniteGallery(props: InfiniteGalleryProps) {
   // Controls auto zoom & pan drift, pausing on user interaction and reactivating after 15s idle
   const isAutoAnimatingRef = useRef(true)
   const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const lastUserInteractionTimeRef = useRef<number>(0)
 
   const resetIdleTimer = useCallback(() => {
     isAutoAnimatingRef.current = false
+    lastUserInteractionTimeRef.current = Date.now()
     if (idleTimerRef.current) {
       clearTimeout(idleTimerRef.current)
     }
@@ -560,8 +562,17 @@ export function InfiniteGallery(props: InfiniteGalleryProps) {
       const scaleCurrent = Math.pow(2, frac)
       const scaleNext = Math.pow(2, frac - 1)
 
-      const alphaCurrent = 1 - frac
-      const alphaNext = frac
+      // Solid opacity curve: boost active layer to 100% opacity when close to integer step
+      let alphaCurrent = 1 - frac
+      let alphaNext = frac
+
+      if (frac < 0.18) {
+        alphaCurrent = 1.0
+        alphaNext = (frac / 0.18) * 0.15
+      } else if (frac > 0.82) {
+        alphaCurrent = ((1 - frac) / 0.18) * 0.15
+        alphaNext = 1.0
+      }
 
       const zBaseCurrent = 0
       const zBaseNext = 10
@@ -598,6 +609,17 @@ export function InfiniteGallery(props: InfiniteGalleryProps) {
       if (isAutoAnimatingRef.current) {
         // Continuous center zoom effect - sumbu X & Y tetap 0 (timbul dari tengah) (+40% speed)
         targetLogZoom.set(targetLogZoom.get() + 0.0035)
+      } else {
+        // Auto-snap to nearest 100% opacity integer zoom step when user stops manual scrolling/zooming
+        const isRecentlyInteracting = Date.now() - lastUserInteractionTimeRef.current < 250
+        if (!isRecentlyInteracting && Math.abs(velLogZoom.get()) < 0.005) {
+          const roundedZoom = Math.round(targetLogZoom.get())
+          if (Math.abs(targetLogZoom.get() - roundedZoom) > 0.0001) {
+            targetLogZoom.set(lerp(targetLogZoom.get(), roundedZoom, 0.16))
+          } else {
+            targetLogZoom.set(roundedZoom)
+          }
+        }
       }
 
       const tx = targetX.get() + velX.get()
