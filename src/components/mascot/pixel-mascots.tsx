@@ -15,7 +15,7 @@ const KURO_MESSAGES_GENERAL = [
   "Wash wash... Kuro is grooming his paws & face! 🧹",
   "Peek-a-boo! Kuro loves hiding inside cardboard boxes! 📦",
   "Big stretch ~ Kuro feels so relaxed & happy! 🐾",
-  "Meow! Kuro and Pikachu are patrolling NayPict together! ⚡🐾",
+  "Meow! Kuro and Pikachu are patrolling NayPict! ⚡🐾",
   "Purrrr... Click Kuro anytime for random fun! ✨",
 ]
 
@@ -68,9 +68,15 @@ const PIKACHU_MESSAGES_PREVIEW = [
   "Pikachuuuu! Watching photos with Kuro! ✨💛",
 ]
 
-const PIKACHU_MESSAGES_SPAM = [
+const PIKACHU_MESSAGES_ANNOYED = [
   "Pika pika... Don't poke Pikachu's red cheeks too hard! ⚡😲",
-  "PIKACHUUUU! 100,000 Volt Electric Attack incoming! ⚡🔥",
+  "Piiika! Electric Shock warming up! ⚡💥",
+  "Chaa... Pikachu is getting dizzy from clicking! 😵⚡",
+]
+
+const PIKACHU_MESSAGES_ULTIMATE = [
+  "PIKAAACHUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU! 100,000 VOLT THUNDERBOLT! ⚡⚡⚡⚡⚡🔥",
+  "PIKAAAAAAA-CHUUUUUUUUUUU! ULTIMATE THUNDERSTORMS UNLEASHED! ⚡🌩️🔥",
 ]
 
 type CatState =
@@ -98,6 +104,8 @@ type PikachuState =
   | 'walk-right'
   | 'happy'
   | 'spark'
+  | 'annoyed'
+  | 'ult-thunder'
   | 'jump'
 
 type FacingDirection = 'left' | 'right'
@@ -119,15 +127,21 @@ export function PixelMascots() {
 
   // Pikachu State
   const [pikachuState, setPikachuState] = useState<PikachuState>('idle')
+  const [pikachuX, setPikachuX] = useState<number>(0)
   const [pikachuFacing, setPikachuFacing] = useState<FacingDirection>('right')
   const [pikachuBubble, setPikachuBubble] = useState<string | null>(null)
   const [pikachuJumping, setPikachuJumping] = useState<boolean>(false)
   const [pikachuGaze, setPikachuGaze] = useState<GazeDirection>('center')
+  const [isThunderboltActive, setIsThunderboltActive] = useState<boolean>(false)
 
   const [animFrame, setAnimFrame] = useState<number>(0)
 
+  // Position Refs for Independent Movement Loop
   const kuroXRef = useRef<number>(0)
   const kuroTargetXRef = useRef<number>(0)
+  const pikachuXRef = useRef<number>(0)
+  const pikachuTargetXRef = useRef<number>(0)
+
   const animFrameIdRef = useRef<number | null>(null)
   const kuroTimerRef = useRef<NodeJS.Timeout | null>(null)
   const pikachuTimerRef = useRef<NodeJS.Timeout | null>(null)
@@ -136,7 +150,10 @@ export function PixelMascots() {
   const clickCountRef = useRef<number>(0)
   const lastClickTimeRef = useRef<number>(0)
   const coolDownTimerRef = useRef<NodeJS.Timeout | null>(null)
+
   const pikachuClickCountRef = useRef<number>(0)
+  const pikachuLastClickTimeRef = useRef<number>(0)
+  const pikachuCoolDownTimerRef = useRef<NodeJS.Timeout | null>(null)
 
   // Dynamic Gaze Direction Engine: Tracks nearby objects & wandering gaze
   useEffect(() => {
@@ -159,14 +176,14 @@ export function PixelMascots() {
   }, [kuroState, animFrame])
 
   useEffect(() => {
-    if (pikachuState === 'spark') {
+    if (pikachuState === 'spark' || pikachuState === 'ult-thunder') {
       setPikachuGaze('up')
     } else if (pikachuState.startsWith('walk')) {
-      setPikachuGaze('left')
+      setPikachuGaze(pikachuFacing === 'left' ? 'left' : 'right')
     } else {
       setPikachuGaze(animFrame === 0 ? 'left' : 'center')
     }
-  }, [pikachuState, animFrame])
+  }, [pikachuState, pikachuFacing, animFrame])
 
   // Eye blinking animation timer
   useEffect(() => {
@@ -177,16 +194,23 @@ export function PixelMascots() {
     return () => clearInterval(blinkInterval)
   }, [])
 
-  // Track directional facing for Kuro & Pikachu
+  // Track directional facing for Kuro
   useEffect(() => {
     if (kuroState === 'walk-left' || kuroState === 'run-left') {
       setKuroFacing('left')
-      setPikachuFacing('left')
     } else if (kuroState === 'walk-right' || kuroState === 'run-right') {
       setKuroFacing('right')
-      setPikachuFacing('right')
     }
   }, [kuroState])
+
+  // Track directional facing for Pikachu
+  useEffect(() => {
+    if (pikachuState === 'walk-left') {
+      setPikachuFacing('left')
+    } else if (pikachuState === 'walk-right') {
+      setPikachuFacing('right')
+    }
+  }, [pikachuState])
 
   // Detect Lightbox Photo Viewer
   useEffect(() => {
@@ -212,23 +236,37 @@ export function PixelMascots() {
     if (isLandingPage) {
       return { minX: isMobile ? -90 : -130, maxX: isMobile ? 90 : 130, isRelative: true }
     }
-    const minX = isMobile ? 40 : 130
-    const maxX = Math.max(minX + 60, screenWidth - (isMobile ? 70 : 180))
+    const minX = isMobile ? 40 : 100
+    const maxX = Math.max(minX + 60, screenWidth - (isMobile ? 60 : 120))
     return { minX, maxX, isRelative: false }
   }, [isLightboxOpen, isLandingPage])
 
-  // Reset position safely when mode changes
+  // Independent spawn locations on web load: Kuro on Left/Middle, Pikachu on Right side for Gallery Pages
   useEffect(() => {
     const { minX, maxX, isRelative } = getBounds()
+    const screenWidth = typeof window !== 'undefined' ? window.innerWidth : 800
+    const isMobile = screenWidth < 640
+
     if (isRelative) {
-      kuroXRef.current = 0
-      kuroTargetXRef.current = 0
-      setKuroX(0)
+      // On Landing Page & Lightbox: keep them close on top of card / photo bar
+      kuroXRef.current = -20
+      kuroTargetXRef.current = -20
+      setKuroX(-20)
+
+      pikachuXRef.current = 25
+      pikachuTargetXRef.current = 25
+      setPikachuX(25)
     } else {
-      const startKuro = Math.min(Math.max(minX, 150), maxX - 60)
+      // On Normal / Gallery Pages: Spawn in different parts of the screen!
+      const startKuro = Math.min(Math.max(minX, isMobile ? 50 : 120), screenWidth / 2 - 40)
       kuroXRef.current = startKuro
       kuroTargetXRef.current = startKuro
       setKuroX(startKuro)
+
+      const startPikachu = Math.max(screenWidth / 2 + 40, Math.min(maxX - 40, screenWidth - (isMobile ? 70 : 160)))
+      pikachuXRef.current = startPikachu
+      pikachuTargetXRef.current = startPikachu
+      setPikachuX(startPikachu)
     }
   }, [isLightboxOpen, isLandingPage, getBounds])
 
@@ -240,9 +278,10 @@ export function PixelMascots() {
     return () => clearInterval(interval)
   }, [])
 
-  // Smooth Movement Loop for Kuro (60 FPS)
+  // Smooth Independent Movement Loops for Kuro & Pikachu (60 FPS)
   useEffect(() => {
     const moveLoop = () => {
+      // Kuro Movement Engine
       if (kuroState.startsWith('walk') || kuroState.startsWith('run')) {
         const diffK = kuroTargetXRef.current - kuroXRef.current
         const speedK = kuroState.startsWith('run') ? 2.2 : 1.1
@@ -252,11 +291,24 @@ export function PixelMascots() {
           setKuroX(kuroTargetXRef.current)
           const nextK: CatState[] = ['idle', 'butterfly', 'flower', 'fish', 'yarn', 'groom', 'box', 'stretch', 'sleep']
           setKuroState(nextK[Math.floor(Math.random() * nextK.length)])
-          setPikachuState('idle')
         } else {
           kuroXRef.current += diffK > 0 ? speedK : -speedK
           setKuroX(kuroXRef.current)
-          setPikachuState(diffK > 0 ? 'walk-right' : 'walk-left')
+        }
+      }
+
+      // Pikachu Independent Movement Engine
+      if (pikachuState.startsWith('walk')) {
+        const diffP = pikachuTargetXRef.current - pikachuXRef.current
+        const speedP = 1.3
+
+        if (Math.abs(diffP) <= speedP) {
+          pikachuXRef.current = pikachuTargetXRef.current
+          setPikachuX(pikachuTargetXRef.current)
+          setPikachuState('idle')
+        } else {
+          pikachuXRef.current += diffP > 0 ? speedP : -speedP
+          setPikachuX(pikachuXRef.current)
         }
       }
 
@@ -267,13 +319,14 @@ export function PixelMascots() {
     return () => {
       if (animFrameIdRef.current) cancelAnimationFrame(animFrameIdRef.current)
     }
-  }, [kuroState])
+  }, [kuroState, pikachuState])
 
-  // Autonomous Decision Engine (Every 3.8s) - paused if Kuro is angry or annoyed
+  // Autonomous Decision Engine (Every 3.8s) for Kuro & Pikachu
   useEffect(() => {
     const decisionInterval = setInterval(() => {
-      const { minX, maxX } = getBounds()
+      const { minX, maxX, isRelative } = getBounds()
 
+      // Kuro Decision
       if (!kuroBubble && kuroState !== 'angry' && kuroState !== 'annoyed' && !kuroState.startsWith('walk') && !kuroState.startsWith('run')) {
         if (Math.random() < 0.45) {
           const newTargetK = Math.floor(Math.random() * (maxX - minX)) + minX
@@ -285,10 +338,24 @@ export function PixelMascots() {
           setKuroState(actsK[Math.floor(Math.random() * actsK.length)])
         }
       }
+
+      // Pikachu Independent Decision
+      if (!pikachuBubble && pikachuState !== 'ult-thunder' && pikachuState !== 'annoyed' && !pikachuState.startsWith('walk')) {
+        if (Math.random() < 0.5) {
+          const newTargetP = isRelative
+            ? Math.floor(Math.random() * (maxX - minX)) + minX
+            : Math.floor(Math.random() * (maxX - minX)) + minX
+          pikachuTargetXRef.current = newTargetP
+          setPikachuState(newTargetP < pikachuXRef.current ? 'walk-left' : 'walk-right')
+        } else {
+          const actsP: PikachuState[] = ['spark', 'happy', 'idle']
+          setPikachuState(actsP[Math.floor(Math.random() * actsP.length)])
+        }
+      }
     }, 3800)
 
     return () => clearInterval(decisionInterval)
-  }, [kuroState, kuroBubble, getBounds])
+  }, [kuroState, pikachuState, kuroBubble, pikachuBubble, getBounds])
 
   // Click Kuro Handler with Mood Escalation & Auto Cool-Down Reset
   const handleClickKuro = useCallback(() => {
@@ -347,33 +414,73 @@ export function PixelMascots() {
     }
   }, [isLightboxOpen, isLandingPage])
 
-  // Click Pikachu Handler
+  // Click Pikachu Handler with Spam Mood Escalation & Screen-Wide Lightning Ultimate Easter Egg!
   const handleClickPikachu = useCallback(() => {
-    pikachuClickCountRef.current += 1
+    const now = Date.now()
+    if (now - pikachuLastClickTimeRef.current < 2000) {
+      pikachuClickCountRef.current += 1
+    } else {
+      pikachuClickCountRef.current = 1
+    }
+    pikachuLastClickTimeRef.current = now
+
     setPikachuJumping(true)
     setTimeout(() => setPikachuJumping(false), 350)
-    setPikachuState('spark')
 
-    let pool = PIKACHU_MESSAGES_GENERAL
-    if (pikachuClickCountRef.current > 4) pool = PIKACHU_MESSAGES_SPAM
-    else if (isLightboxOpen) pool = PIKACHU_MESSAGES_PREVIEW
-    else if (isLandingPage) pool = PIKACHU_MESSAGES_LANDING
-
-    setPikachuBubble(pool[Math.floor(Math.random() * pool.length)])
-
+    if (pikachuCoolDownTimerRef.current) clearTimeout(pikachuCoolDownTimerRef.current)
     if (pikachuTimerRef.current) clearTimeout(pikachuTimerRef.current)
-    pikachuTimerRef.current = setTimeout(() => {
-      setPikachuBubble(null)
-      setPikachuState('idle')
-    }, 4000)
+
+    const count = pikachuClickCountRef.current
+
+    if (count >= 7) {
+      // RARE ULTIMATE EASTER EGG: 100,000 VOLT THUNDERBOLT SCREEN-WIDE FLASH ATTACK!
+      setIsThunderboltActive(true)
+      setPikachuState('ult-thunder')
+      const ultMsg = PIKACHU_MESSAGES_ULTIMATE[Math.floor(Math.random() * PIKACHU_MESSAGES_ULTIMATE.length)]
+      setPikachuBubble(ultMsg)
+
+      setTimeout(() => {
+        setIsThunderboltActive(false)
+      }, 2000)
+
+      pikachuCoolDownTimerRef.current = setTimeout(() => {
+        pikachuClickCountRef.current = 0
+        setPikachuBubble(null)
+        setPikachuState('idle')
+      }, 5000)
+    } else if (count >= 3) {
+      // Level 2: ANNOYED / SPARKING!
+      setPikachuState('annoyed')
+      const msg = PIKACHU_MESSAGES_ANNOYED[Math.floor(Math.random() * PIKACHU_MESSAGES_ANNOYED.length)]
+      setPikachuBubble(msg)
+
+      pikachuCoolDownTimerRef.current = setTimeout(() => {
+        pikachuClickCountRef.current = 0
+        setPikachuBubble(null)
+        setPikachuState('idle')
+      }, 3800)
+    } else {
+      // Level 1: HAPPY / SPARK!
+      setPikachuState('spark')
+      let pool = PIKACHU_MESSAGES_GENERAL
+      if (isLightboxOpen) pool = PIKACHU_MESSAGES_PREVIEW
+      else if (isLandingPage) pool = PIKACHU_MESSAGES_LANDING
+
+      setPikachuBubble(pool[Math.floor(Math.random() * pool.length)])
+
+      pikachuTimerRef.current = setTimeout(() => {
+        pikachuClickCountRef.current = 0
+        setPikachuBubble(null)
+        setPikachuState('idle')
+      }, 4000)
+    }
   }, [isLightboxOpen, isLandingPage])
 
   // Container styling configuration
   const getContainerStyle = (x: number, isPikachu = false): { className: string; style: React.CSSProperties } => {
     const screenWidth = typeof window !== 'undefined' ? window.innerWidth : 800
     const isMobile = screenWidth < 640
-    const offset = isPikachu ? (isMobile ? 42 : 52) : 0
-    const finalX = x + offset
+    const finalX = x
 
     if (isLightboxOpen) {
       return {
@@ -443,13 +550,13 @@ export function PixelMascots() {
   }
 
   const kuroStyle = getContainerStyle(kuroX, false)
-  const pikachuStyle = getContainerStyle(kuroX, true)
+  const pikachuStyle = getContainerStyle(pikachuX, true)
 
   const isKuroMoving = kuroState.startsWith('walk') || kuroState.startsWith('run')
   const isPikachuMoving = pikachuState.startsWith('walk')
 
   const kuroBubbleAlign = getBubbleAlignment(kuroX)
-  const pikachuBubbleAlign = getBubbleAlignment(kuroX + 45)
+  const pikachuBubbleAlign = getBubbleAlignment(pikachuX)
 
   // Helper for Kuro Pupil Position Coordinates
   const getKuroPupilX = (baseX: number) => {
@@ -479,6 +586,20 @@ export function PixelMascots() {
 
   return (
     <>
+      {/* ========================================== */}
+      {/* SCREEN-WIDE 100,000 VOLT THUNDERBOLT FLASH */}
+      {/* ========================================== */}
+      {isThunderboltActive && (
+        <div className="fixed inset-0 z-[1000001] pointer-events-none flex items-center justify-center overflow-hidden bg-yellow-400/25 backdrop-blur-[1px] animate-pulse">
+          {/* Thunderbolt SVG Lightning Bolts across screen */}
+          <svg className="w-full h-full opacity-90 animate-bounce" viewBox="0 0 100 100" preserveAspectRatio="none">
+            <polygon points="45,0 55,0 40,40 60,40 30,100 45,50 35,50" fill="#fef08a" filter="drop-shadow(0 0 12px #facc15)" />
+            <polygon points="15,0 25,0 10,40 30,40 0,100 15,50 5,50" fill="#ffffff" filter="drop-shadow(0 0 10px #facc15)" />
+            <polygon points="75,0 85,0 70,40 90,40 60,100 75,50 65,50" fill="#fef08a" filter="drop-shadow(0 0 12px #facc15)" />
+          </svg>
+        </div>
+      )}
+
       {/* ========================================== */}
       {/* KURO (INDONESIAN ALLEY CAT MASCOT)         */}
       {/* ========================================== */}
@@ -760,9 +881,9 @@ export function PixelMascots() {
           <div
             className={pikachuBubbleAlign.bubbleClass}
             style={{
-              backgroundColor: 'rgba(234, 179, 8, 0.95)',
+              backgroundColor: pikachuState === 'ult-thunder' ? 'rgba(202, 138, 4, 0.98)' : pikachuState === 'annoyed' ? 'rgba(217, 119, 6, 0.95)' : 'rgba(234, 179, 8, 0.95)',
               color: '#0f172a',
-              borderColor: 'rgba(250, 204, 21, 0.8)',
+              borderColor: 'rgba(250, 204, 21, 0.9)',
               forcedColorAdjust: 'none',
               colorScheme: 'normal',
             }}
@@ -770,8 +891,8 @@ export function PixelMascots() {
             <div
               className={pikachuBubbleAlign.arrowClass}
               style={{
-                backgroundColor: 'rgba(234, 179, 8, 0.95)',
-                borderColor: 'rgba(250, 204, 21, 0.8)',
+                backgroundColor: pikachuState === 'ult-thunder' ? 'rgba(202, 138, 4, 0.98)' : pikachuState === 'annoyed' ? 'rgba(217, 119, 6, 0.95)' : 'rgba(234, 179, 8, 0.95)',
+                borderColor: 'rgba(250, 204, 21, 0.9)',
                 forcedColorAdjust: 'none',
               }}
             />
@@ -793,23 +914,31 @@ export function PixelMascots() {
             colorScheme: 'normal',
           }}
         >
-          {/* PIKACHU ELECTRIC SPARK OVERLAY */}
-          {pikachuState === 'spark' && (
+          {/* PIKACHU ELECTRIC SPARK & ULTIMATE OVERLAYS */}
+          {(pikachuState === 'spark' || pikachuState === 'annoyed') && (
             <div className="absolute -top-4 left-1/2 -translate-x-1/2 flex items-center gap-1 animate-bounce">
               <span className="text-xs">⚡</span>
               <span className="text-xs">✨</span>
             </div>
           )}
 
-          {/* SVG PIKACHU PIXEL ART SPRITE WITH GAZE TRACKING */}
+          {pikachuState === 'ult-thunder' && (
+            <div className="absolute -top-5 left-1/2 -translate-x-1/2 flex items-center gap-1 animate-pulse scale-125">
+              <span className="text-xs animate-bounce">⚡</span>
+              <span className="text-xs">🔥</span>
+              <span className="text-xs animate-bounce">⚡</span>
+            </div>
+          )}
+
+          {/* SVG PIKACHU PIXEL ART SPRITE WITH DIRECTIONAL FACING & WALKING GAIT */}
           <svg width="36" height="36" viewBox="0 0 16 16" className="drop-shadow-md" style={{ imageRendering: 'pixelated', forcedColorAdjust: 'none', colorScheme: 'normal' }}>
             <g>
               {/* Pointy Ear Left with Black Tip */}
-              <rect x="2" y="0" width="2" height="2" fill="#0f172a" />
-              <rect x="3" y="2" width="2" height="3" fill="#facc15" />
+              <rect x="2" y={isPikachuMoving && animFrame === 1 ? "1" : "0"} width="2" height="2" fill="#0f172a" />
+              <rect x="3" y={isPikachuMoving && animFrame === 1 ? "3" : "2"} width="2" height="3" fill="#facc15" />
               {/* Pointy Ear Right with Black Tip */}
-              <rect x="12" y="0" width="2" height="2" fill="#0f172a" />
-              <rect x="11" y="2" width="2" height="3" fill="#facc15" />
+              <rect x="12" y={isPikachuMoving && animFrame === 0 ? "1" : "0"} width="2" height="2" fill="#0f172a" />
+              <rect x="11" y={isPikachuMoving && animFrame === 0 ? "3" : "2"} width="2" height="3" fill="#facc15" />
 
               {/* Head Base */}
               <rect x="3" y="4" width="10" height="5" fill="#facc15" />
@@ -835,14 +964,14 @@ export function PixelMascots() {
               <rect x="6" y="10" width="4" height="1" fill="#78350f" />
               <rect x="6" y="12" width="4" height="1" fill="#78350f" />
 
-              {/* Paws */}
-              <rect x={isPikachuMoving && animFrame === 0 ? "4" : "5"} y="14" width="2" height="2" fill="#eab308" />
-              <rect x={isPikachuMoving && animFrame === 0 ? "10" : "9"} y="14" width="2" height="2" fill="#eab308" />
+              {/* Walking Gait Paws */}
+              <rect x={isPikachuMoving ? (animFrame === 0 ? "3" : "5") : "5"} y="14" width="2" height="2" fill="#eab308" />
+              <rect x={isPikachuMoving ? (animFrame === 0 ? "11" : "9") : "9"} y="14" width="2" height="2" fill="#eab308" />
 
               {/* Lightning Bolt Tail */}
               <rect x="12" y="7" width="2" height="2" fill="#78350f" />
-              <rect x="13" y="5" width="2" height="3" fill="#facc15" />
-              <rect x="14" y="3" width="2" height="3" fill="#facc15" />
+              <rect x="13" y={isPikachuMoving && animFrame === 1 ? "4" : "5"} width="2" height="3" fill="#facc15" />
+              <rect x="14" y={isPikachuMoving && animFrame === 1 ? "2" : "3"} width="2" height="3" fill="#facc15" />
             </g>
           </svg>
         </button>
