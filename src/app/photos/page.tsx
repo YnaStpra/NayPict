@@ -269,11 +269,15 @@ export default function Page() {
                     <Button
                       type="button"
                       size="icon"
-                      variant={viewMode === "infinite" ? "secondary" : "ghost"}
-                      className="size-8 rounded-lg"
+                      variant="ghost"
+                      className="size-8 p-0 rounded-full hover:bg-muted/60 transition-all duration-200 hover:scale-110 active:scale-95"
                       onClick={() => setViewMode((prev) => (prev === "masonry" ? "infinite" : "masonry"))}
                     >
-                      {viewMode === "infinite" ? <LayoutGrid className="size-4 text-primary" /> : <Sparkles className="size-4" />}
+                      {viewMode === "infinite" ? (
+                        <LayoutGrid className="size-4.5 text-cyan-400 drop-shadow-[0_0_4px_rgba(34,211,238,0.8)] animate-pulse" />
+                      ) : (
+                        <Sparkles className="size-4.5 text-amber-400 dark:text-amber-300 drop-shadow-[0_0_4px_rgba(251,191,36,0.85)] animate-pulse" />
+                      )}
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent side="bottom">
