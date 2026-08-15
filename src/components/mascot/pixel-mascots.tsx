@@ -8,6 +8,8 @@ import { usePathname } from 'next/navigation'
 // ==========================================
 const KURO_MESSAGES_GENERAL = [
   "Meow! Hi, I'm Kuro, an Indonesian alley cat (kucing kampung)! 🐾",
+  "Wheee! Kuro loves rolling on the soft green grass ~ 🌱🐾",
+  "Purrr... Rolling around on fresh grass feels so good! 🌿✨",
   "Nom nom... Kuro just caught a yummy fish! 🐟",
   "Wheee! Kuro is chasing a cute butterfly! 🦋",
   "Mmm... Kuro loves sniffing fresh flowers ~ 🌸",
@@ -64,6 +66,7 @@ type CatState =
   | 'groom'
   | 'box'
   | 'stretch'
+  | 'roll'
   | 'jump'
 
 type FacingDirection = 'left' | 'right'
@@ -79,6 +82,7 @@ export function PixelMascots() {
   const [kuroFacing, setKuroFacing] = useState<FacingDirection>('right')
   const [kuroBubble, setKuroBubble] = useState<string | null>(null)
   const [kuroJumping, setKuroJumping] = useState<boolean>(false)
+  const [isBlinking, setIsBlinking] = useState<boolean>(false)
 
   const [animFrame, setAnimFrame] = useState<number>(0)
 
@@ -91,6 +95,15 @@ export function PixelMascots() {
   const clickCountRef = useRef<number>(0)
   const lastClickTimeRef = useRef<number>(0)
   const coolDownTimerRef = useRef<NodeJS.Timeout | null>(null)
+
+  // Eye blinking animation timer
+  useEffect(() => {
+    const blinkInterval = setInterval(() => {
+      setIsBlinking(true)
+      setTimeout(() => setIsBlinking(false), 220)
+    }, 3800)
+    return () => clearInterval(blinkInterval)
+  }, [])
 
   // Track directional facing for Kuro
   useEffect(() => {
@@ -163,7 +176,7 @@ export function PixelMascots() {
         if (Math.abs(diffK) <= speedK) {
           kuroXRef.current = kuroTargetXRef.current
           setKuroX(kuroTargetXRef.current)
-          const nextK: CatState[] = ['idle', 'butterfly', 'flower', 'fish', 'yarn', 'groom', 'box', 'stretch', 'sleep']
+          const nextK: CatState[] = ['idle', 'butterfly', 'flower', 'fish', 'yarn', 'groom', 'box', 'stretch', 'roll', 'sleep']
           setKuroState(nextK[Math.floor(Math.random() * nextK.length)])
         } else {
           kuroXRef.current += diffK > 0 ? speedK : -speedK
@@ -192,7 +205,7 @@ export function PixelMascots() {
           const isRun = Math.random() < 0.3
           setKuroState(newTargetK < kuroXRef.current ? (isRun ? 'run-left' : 'walk-left') : (isRun ? 'run-right' : 'walk-right'))
         } else {
-          const actsK: CatState[] = ['butterfly', 'flower', 'fish', 'yarn', 'groom', 'box', 'stretch', 'sleep', 'idle']
+          const actsK: CatState[] = ['butterfly', 'flower', 'fish', 'yarn', 'groom', 'box', 'stretch', 'roll', 'sleep', 'idle']
           setKuroState(actsK[Math.floor(Math.random() * actsK.length)])
         }
       }
@@ -225,7 +238,6 @@ export function PixelMascots() {
       const msg = KURO_MESSAGES_ANGRY[Math.floor(Math.random() * KURO_MESSAGES_ANGRY.length)]
       setKuroBubble(msg)
 
-      // Cool Down Reset: After 4.5 seconds of peace, Kuro calms down and returns to normal
       coolDownTimerRef.current = setTimeout(() => {
         clickCountRef.current = 0
         setKuroBubble(null)
@@ -408,6 +420,14 @@ export function PixelMascots() {
             </div>
           )}
 
+          {kuroState === 'roll' && (
+            <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 flex items-center gap-1 animate-pulse pointer-events-none z-40">
+              <span className="text-[10px]">🌱</span>
+              <span className="text-[10px]">🌿</span>
+              <span className="text-[10px]">🌸</span>
+            </div>
+          )}
+
           {kuroState === 'butterfly' && (
             <div className="absolute -top-3 left-6 animate-bounce">
               <svg width="14" height="14" viewBox="0 0 8 8" style={{ imageRendering: 'pixelated', forcedColorAdjust: 'none' }}>
@@ -457,28 +477,39 @@ export function PixelMascots() {
             </div>
           )}
 
-          {/* SVG KURO (BLACK/DARK GREY TABBY ALLEY CAT WITH MOOD ANIME EXPRESSIONS) */}
+          {/* SVG KURO (BLACK/DARK GREY TABBY ALLEY CAT WITH BLINKING EYES & ROLLING SPRITE) */}
           <svg width="38" height="38" viewBox="0 0 16 16" className="drop-shadow-md" style={{ imageRendering: 'pixelated', forcedColorAdjust: 'none', colorScheme: 'normal' }}>
-            {kuroState === 'angry' ? (
+            {kuroState === 'roll' ? (
+              /* ROLLING ON GRASS CAT SPRITE */
+              <g className="animate-spin duration-1000">
+                <rect x="2" y="3" width="12" height="6" rx="2" fill="#334155" />
+                <rect x="3" y="3" width="2" height="4" fill="#0f172a" />
+                <rect x="7" y="3" width="2" height="4" fill="#0f172a" />
+                <rect x="11" y="3" width="2" height="4" fill="#0f172a" />
+                <rect x="4" y="7" width="2" height="2" fill={isBlinking ? "#020617" : "#10b981"} />
+                <rect x="10" y="7" width="2" height="2" fill={isBlinking ? "#020617" : "#10b981"} />
+                <rect x="7" y="8" width="2" height="1" fill="#f43f5e" />
+                {/* Happy Paws Sticking Up in the Air */}
+                <rect x="4" y="0" width="2" height="3" fill="#1e293b" />
+                <rect x="10" y="0" width="2" height="3" fill="#1e293b" />
+                {/* Playful Tail */}
+                <rect x="13" y="5" width="3" height="4" rx="1" fill="#020617" />
+              </g>
+            ) : kuroState === 'angry' ? (
               /* ANGRY / FURIOUS CAT SPRITE */
               <g>
-                {/* Pinned Back Ears */}
                 <rect x="1" y="4" width="3" height="2" fill="#020617" />
                 <rect x="12" y="4" width="3" height="2" fill="#020617" />
-                {/* Head */}
                 <rect x="2" y="4" width="12" height="5" fill="#334155" />
                 <rect x="6" y="4" width="4" height="2" fill="#0f172a" />
-                {/* Glowing Red Angry Eyes */}
                 <rect x="4" y="6" width="3" height="2" fill="#ef4444" />
                 <rect x="5" y="6" width="1" height="2" fill="#020617" />
                 <rect x="9" y="6" width="3" height="2" fill="#ef4444" />
                 <rect x="10" y="6" width="1" height="2" fill="#020617" />
                 <rect x="7" y="7" width="2" height="1" fill="#f43f5e" />
-                {/* Body & Paws */}
                 <rect x="3" y="9" width="10" height="5" fill="#334155" />
                 <rect x="4" y="14" width="2" height="2" fill="#1e293b" />
                 <rect x="10" y="14" width="2" height="2" fill="#1e293b" />
-                {/* Tail Standing Straight Up Angry */}
                 <rect x="13" y="2" width="2" height="9" rx="1" fill="#020617" />
               </g>
             ) : kuroState === 'annoyed' ? (
@@ -490,14 +521,12 @@ export function PixelMascots() {
                 <rect x="12" y="3" width="1" height="1" fill="#f43f5e" />
                 <rect x="2" y="4" width="12" height="5" fill="#334155" />
                 <rect x="6" y="4" width="4" height="2" fill="#0f172a" />
-                {/* Squinting Annoyed Eyes */}
                 <rect x="4" y="6" width="2" height="1" fill="#f59e0b" />
                 <rect x="10" y="6" width="2" height="1" fill="#f59e0b" />
                 <rect x="7" y="7" width="2" height="1" fill="#f43f5e" />
                 <rect x="3" y="9" width="10" height="5" fill="#334155" />
                 <rect x="4" y="14" width="2" height="2" fill="#1e293b" />
                 <rect x="10" y="14" width="2" height="2" fill="#1e293b" />
-                {/* Twitching Tail */}
                 <rect x="13" y={animFrame === 0 ? "7" : "9"} width="3" height="4" rx="1" fill="#020617" />
               </g>
             ) : kuroState === 'happy' ? (
@@ -509,9 +538,8 @@ export function PixelMascots() {
                 <rect x="12" y="2" width="1" height="1" fill="#f43f5e" />
                 <rect x="2" y="3" width="12" height="6" fill="#334155" />
                 <rect x="6" y="3" width="4" height="2" fill="#0f172a" />
-                {/* Happy Winking / Sparkling Eyes */}
-                <rect x="4" y="5" width="2" height="2" fill="#10b981" />
-                <rect x="10" y="5" width="2" height="2" fill="#10b981" />
+                <rect x="4" y="5" width="2" height="2" fill={isBlinking ? "#020617" : "#10b981"} />
+                <rect x="10" y="5" width="2" height="2" fill={isBlinking ? "#020617" : "#10b981"} />
                 <rect x="7" y="6" width="2" height="1" fill="#f43f5e" />
                 <rect x="7" y="7" width="2" height="1" fill="#020617" />
                 <rect x="3" y="9" width="10" height="5" fill="#334155" />
@@ -545,8 +573,8 @@ export function PixelMascots() {
                 <rect x="12" y="3" width="1" height="1" fill="#f43f5e" />
                 <rect x="2" y="4" width="12" height="5" fill="#334155" />
                 <rect x="6" y="4" width="4" height="2" fill="#0f172a" />
-                <rect x="4" y="6" width="2" height="2" fill="#10b981" />
-                <rect x="10" y="6" width="2" height="2" fill="#10b981" />
+                <rect x="4" y="6" width="2" height="2" fill={isBlinking ? "#020617" : "#10b981"} />
+                <rect x="10" y="6" width="2" height="2" fill={isBlinking ? "#020617" : "#10b981"} />
                 <rect x="7" y="7" width="2" height="2" fill="#f43f5e" />
                 <rect x={animFrame === 0 ? "5" : "7"} y="7" width="3" height="4" rx="1" fill="#475569" />
                 <rect x="3" y="9" width="10" height="5" fill="#334155" />
@@ -562,7 +590,7 @@ export function PixelMascots() {
                 <rect x="10" y="3" width="3" height="3" fill="#020617" />
                 <rect x="1" y="6" width="12" height="5" fill="#334155" />
                 <rect x="4" y="3" width="6" height="3" fill="#0f172a" />
-                <rect x="11" y="7" width="2" height="2" fill="#10b981" />
+                <rect x="11" y="7" width="2" height="2" fill={isBlinking ? "#020617" : "#10b981"} />
                 <rect x="2" y="11" width="3" height="5" fill="#1e293b" />
                 <rect x="11" y="11" width="3" height="5" fill="#1e293b" />
                 <rect x="0" y="4" width="2" height="6" rx="1" fill="#020617" />
@@ -574,7 +602,7 @@ export function PixelMascots() {
                 <rect x="11" y="3" width="1" height="1" fill="#f43f5e" />
                 <rect x="9" y="4" width="6" height="5" fill="#334155" />
                 <rect x="11" y="4" width="2" height="2" fill="#0f172a" />
-                <rect x="12" y="6" width="2" height="2" fill="#10b981" />
+                <rect x="12" y="6" width="2" height="2" fill={isBlinking ? "#020617" : "#10b981"} />
                 <rect x="13" y="6" width="1" height="2" fill="#020617" />
                 <rect x="14" y="7" width="2" height="1" fill="#f43f5e" />
                 <rect x="2" y="7" width="9" height="5" fill="#334155" />
@@ -593,9 +621,9 @@ export function PixelMascots() {
                 <rect x="12" y="3" width="1" height="1" fill="#f43f5e" />
                 <rect x="2" y="4" width="12" height="5" fill="#334155" />
                 <rect x="6" y="4" width="4" height="2" fill="#0f172a" />
-                <rect x="4" y="6" width="2" height="2" fill="#10b981" />
+                <rect x="4" y="6" width="2" height="2" fill={isBlinking ? "#020617" : "#10b981"} />
                 <rect x="4" y="6" width="1" height="2" fill="#020617" />
-                <rect x="10" y="6" width="2" height="2" fill="#10b981" />
+                <rect x="10" y="6" width="2" height="2" fill={isBlinking ? "#020617" : "#10b981"} />
                 <rect x="10" y="6" width="1" height="2" fill="#020617" />
                 <rect x="7" y="7" width="2" height="1" fill="#f43f5e" />
                 <rect x="3" y="9" width="10" height="5" fill="#334155" />
