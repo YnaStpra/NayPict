@@ -101,6 +101,7 @@ type PikachuState =
   | 'jump'
 
 type FacingDirection = 'left' | 'right'
+type GazeDirection = 'center' | 'up' | 'down' | 'left' | 'right'
 
 export function PixelMascots() {
   const pathname = usePathname()
@@ -114,12 +115,14 @@ export function PixelMascots() {
   const [kuroBubble, setKuroBubble] = useState<string | null>(null)
   const [kuroJumping, setKuroJumping] = useState<boolean>(false)
   const [isBlinking, setIsBlinking] = useState<boolean>(false)
+  const [kuroGaze, setKuroGaze] = useState<GazeDirection>('center')
 
   // Pikachu State
   const [pikachuState, setPikachuState] = useState<PikachuState>('idle')
   const [pikachuFacing, setPikachuFacing] = useState<FacingDirection>('right')
   const [pikachuBubble, setPikachuBubble] = useState<string | null>(null)
   const [pikachuJumping, setPikachuJumping] = useState<boolean>(false)
+  const [pikachuGaze, setPikachuGaze] = useState<GazeDirection>('center')
 
   const [animFrame, setAnimFrame] = useState<number>(0)
 
@@ -135,6 +138,36 @@ export function PixelMascots() {
   const coolDownTimerRef = useRef<NodeJS.Timeout | null>(null)
   const pikachuClickCountRef = useRef<number>(0)
 
+  // Dynamic Gaze Direction Engine: Tracks nearby objects & wandering gaze
+  useEffect(() => {
+    if (kuroState === 'butterfly') {
+      setKuroGaze('up')
+    } else if (kuroState === 'flower') {
+      setKuroGaze('left')
+    } else if (kuroState === 'fish' || kuroState === 'yarn') {
+      setKuroGaze('right')
+    } else if (kuroState === 'groom') {
+      setKuroGaze('down')
+    } else if (kuroState === 'box') {
+      setKuroGaze(animFrame === 0 ? 'left' : 'right')
+    } else if (kuroState.startsWith('walk') || kuroState.startsWith('run')) {
+      setKuroGaze('right')
+    } else {
+      const dirs: GazeDirection[] = ['center', 'up', 'down', 'left', 'right']
+      setKuroGaze(dirs[Math.floor(Math.random() * dirs.length)])
+    }
+  }, [kuroState, animFrame])
+
+  useEffect(() => {
+    if (pikachuState === 'spark') {
+      setPikachuGaze('up')
+    } else if (pikachuState.startsWith('walk')) {
+      setPikachuGaze('left')
+    } else {
+      setPikachuGaze(animFrame === 0 ? 'left' : 'center')
+    }
+  }, [pikachuState, animFrame])
+
   // Eye blinking animation timer
   useEffect(() => {
     const blinkInterval = setInterval(() => {
@@ -144,7 +177,7 @@ export function PixelMascots() {
     return () => clearInterval(blinkInterval)
   }, [])
 
-  // Track directional facing for Kuro
+  // Track directional facing for Kuro & Pikachu
   useEffect(() => {
     if (kuroState === 'walk-left' || kuroState === 'run-left') {
       setKuroFacing('left')
@@ -343,14 +376,12 @@ export function PixelMascots() {
     const finalX = x + offset
 
     if (isLightboxOpen) {
-      // Photo Preview Mode: Standing exactly on top of the thumbnail photo list bar (46px mobile / 75px desktop)
       return {
         className: 'fixed bottom-[46px] md:bottom-[75px] left-1/2 z-[1000000] flex flex-col items-center select-none pointer-events-auto touch-manipulation',
         style: { transform: `translateX(calc(-50% + ${finalX}px))` },
       }
     }
     if (isLandingPage) {
-      // Landing Page Mode: Standing exactly on top of the hero card's top border line as their ground
       const cardEl = typeof document !== 'undefined' ? document.getElementById('landing-hero-card') : null
       const cardRect = cardEl ? cardEl.getBoundingClientRect() : null
       const topY = cardRect ? cardRect.top - (isMobile ? 32 : 36) : undefined
@@ -419,6 +450,32 @@ export function PixelMascots() {
 
   const kuroBubbleAlign = getBubbleAlignment(kuroX)
   const pikachuBubbleAlign = getBubbleAlignment(kuroX + 45)
+
+  // Helper for Kuro Pupil Position Coordinates
+  const getKuroPupilX = (baseX: number) => {
+    if (kuroGaze === 'left') return baseX - 1
+    if (kuroGaze === 'right') return baseX + 1
+    return baseX
+  }
+
+  const getKuroPupilY = (baseY: number) => {
+    if (kuroGaze === 'up') return baseY - 1
+    if (kuroGaze === 'down') return baseY + 1
+    return baseY
+  }
+
+  // Helper for Pikachu Pupil Position Coordinates
+  const getPikachuPupilX = (baseX: number) => {
+    if (pikachuGaze === 'left') return baseX - 1
+    if (pikachuGaze === 'right') return baseX + 1
+    return baseX
+  }
+
+  const getPikachuPupilY = (baseY: number) => {
+    if (pikachuGaze === 'up') return baseY - 1
+    if (pikachuGaze === 'down') return baseY + 1
+    return baseY
+  }
 
   return (
     <>
@@ -540,7 +597,7 @@ export function PixelMascots() {
             </div>
           )}
 
-          {/* SVG KURO (BLACK/DARK GREY TABBY ALLEY CAT WITH BLINKING EYES) */}
+          {/* SVG KURO (BLACK/DARK GREY TABBY ALLEY CAT WITH DYNAMIC GAZE TRACKING) */}
           <svg width="38" height="38" viewBox="0 0 16 16" className="drop-shadow-md" style={{ imageRendering: 'pixelated', forcedColorAdjust: 'none', colorScheme: 'normal' }}>
             {kuroState === 'angry' ? (
               /* ANGRY / FURIOUS CAT SPRITE */
@@ -585,8 +642,8 @@ export function PixelMascots() {
                 <rect x="12" y="2" width="1" height="1" fill="#f43f5e" />
                 <rect x="2" y="3" width="12" height="6" fill="#334155" />
                 <rect x="6" y="3" width="4" height="2" fill="#0f172a" />
-                <rect x="4" y="5" width="2" height="2" fill={isBlinking ? "#020617" : "#10b981"} />
-                <rect x="10" y="5" width="2" height="2" fill={isBlinking ? "#020617" : "#10b981"} />
+                <rect x={getKuroPupilX(4)} y={getKuroPupilY(5)} width="2" height="2" fill={isBlinking ? "#020617" : "#10b981"} />
+                <rect x={getKuroPupilX(10)} y={getKuroPupilY(5)} width="2" height="2" fill={isBlinking ? "#020617" : "#10b981"} />
                 <rect x="7" y="6" width="2" height="1" fill="#f43f5e" />
                 <rect x="7" y="7" width="2" height="1" fill="#020617" />
                 <rect x="3" y="9" width="10" height="5" fill="#334155" />
@@ -620,8 +677,8 @@ export function PixelMascots() {
                 <rect x="12" y="3" width="1" height="1" fill="#f43f5e" />
                 <rect x="2" y="4" width="12" height="5" fill="#334155" />
                 <rect x="6" y="4" width="4" height="2" fill="#0f172a" />
-                <rect x="4" y="6" width="2" height="2" fill={isBlinking ? "#020617" : "#10b981"} />
-                <rect x="10" y="6" width="2" height="2" fill={isBlinking ? "#020617" : "#10b981"} />
+                <rect x={getKuroPupilX(4)} y={getKuroPupilY(6)} width="2" height="2" fill={isBlinking ? "#020617" : "#10b981"} />
+                <rect x={getKuroPupilX(10)} y={getKuroPupilY(6)} width="2" height="2" fill={isBlinking ? "#020617" : "#10b981"} />
                 <rect x="7" y="7" width="2" height="2" fill="#f43f5e" />
                 <rect x={animFrame === 0 ? "5" : "7"} y="7" width="3" height="4" rx="1" fill="#475569" />
                 <rect x="3" y="9" width="10" height="5" fill="#334155" />
@@ -637,7 +694,7 @@ export function PixelMascots() {
                 <rect x="10" y="3" width="3" height="3" fill="#020617" />
                 <rect x="1" y="6" width="12" height="5" fill="#334155" />
                 <rect x="4" y="3" width="6" height="3" fill="#0f172a" />
-                <rect x="11" y="7" width="2" height="2" fill={isBlinking ? "#020617" : "#10b981"} />
+                <rect x={getKuroPupilX(11)} y={getKuroPupilY(7)} width="2" height="2" fill={isBlinking ? "#020617" : "#10b981"} />
                 <rect x="2" y="11" width="3" height="5" fill="#1e293b" />
                 <rect x="11" y="11" width="3" height="5" fill="#1e293b" />
                 <rect x="0" y="4" width="2" height="6" rx="1" fill="#020617" />
@@ -649,8 +706,8 @@ export function PixelMascots() {
                 <rect x="11" y="3" width="1" height="1" fill="#f43f5e" />
                 <rect x="9" y="4" width="6" height="5" fill="#334155" />
                 <rect x="11" y="4" width="2" height="2" fill="#0f172a" />
-                <rect x="12" y="6" width="2" height="2" fill={isBlinking ? "#020617" : "#10b981"} />
-                <rect x="13" y="6" width="1" height="2" fill="#020617" />
+                <rect x={getKuroPupilX(12)} y={getKuroPupilY(6)} width="2" height="2" fill={isBlinking ? "#020617" : "#10b981"} />
+                <rect x={getKuroPupilX(13)} y={getKuroPupilY(6)} width="1" height="2" fill="#020617" />
                 <rect x="14" y="7" width="2" height="1" fill="#f43f5e" />
                 <rect x="2" y="7" width="9" height="5" fill="#334155" />
                 <rect x="5" y="7" width="2" height="5" fill="#0f172a" />
@@ -660,7 +717,7 @@ export function PixelMascots() {
                 <rect x="0" y={animFrame === 0 ? "5" : "6"} width="3" height="4" rx="1" fill="#020617" />
               </g>
             ) : (
-              /* IDLE / SITTING CAT */
+              /* IDLE / SITTING CAT WITH DYNAMIC PUPIL GAZE */
               <g>
                 <rect x="2" y="2" width="3" height="3" fill="#020617" />
                 <rect x="3" y="3" width="1" height="1" fill="#f43f5e" />
@@ -668,10 +725,12 @@ export function PixelMascots() {
                 <rect x="12" y="3" width="1" height="1" fill="#f43f5e" />
                 <rect x="2" y="4" width="12" height="5" fill="#334155" />
                 <rect x="6" y="4" width="4" height="2" fill="#0f172a" />
+                {/* Left Eye Base & Pupil */}
                 <rect x="4" y="6" width="2" height="2" fill={isBlinking ? "#020617" : "#10b981"} />
-                <rect x="4" y="6" width="1" height="2" fill="#020617" />
+                {!isBlinking && <rect x={getKuroPupilX(4)} y={getKuroPupilY(6)} width="1" height="2" fill="#020617" />}
+                {/* Right Eye Base & Pupil */}
                 <rect x="10" y="6" width="2" height="2" fill={isBlinking ? "#020617" : "#10b981"} />
-                <rect x="10" y="6" width="1" height="2" fill="#020617" />
+                {!isBlinking && <rect x={getKuroPupilX(10)} y={getKuroPupilY(6)} width="1" height="2" fill="#020617" />}
                 <rect x="7" y="7" width="2" height="1" fill="#f43f5e" />
                 <rect x="3" y="9" width="10" height="5" fill="#334155" />
                 <rect x="4" y="9" width="2" height="5" fill="#0f172a" />
@@ -742,7 +801,7 @@ export function PixelMascots() {
             </div>
           )}
 
-          {/* SVG PIKACHU PIXEL ART SPRITE */}
+          {/* SVG PIKACHU PIXEL ART SPRITE WITH GAZE TRACKING */}
           <svg width="36" height="36" viewBox="0 0 16 16" className="drop-shadow-md" style={{ imageRendering: 'pixelated', forcedColorAdjust: 'none', colorScheme: 'normal' }}>
             <g>
               {/* Pointy Ear Left with Black Tip */}
@@ -755,11 +814,11 @@ export function PixelMascots() {
               {/* Head Base */}
               <rect x="3" y="4" width="10" height="5" fill="#facc15" />
               
-              {/* Sparkle Eyes */}
-              <rect x="4" y="5" width="2" height="2" fill="#020617" />
-              <rect x="4" y="5" width="1" height="1" fill="#ffffff" />
-              <rect x="10" y="5" width="2" height="2" fill="#020617" />
-              <rect x="10" y="5" width="1" height="1" fill="#ffffff" />
+              {/* Dynamic Sparkle Eyes with Gaze Tracking */}
+              <rect x={getPikachuPupilX(4)} y={getPikachuPupilY(5)} width="2" height="2" fill="#020617" />
+              <rect x={getPikachuPupilX(4)} y={getPikachuPupilY(5)} width="1" height="1" fill="#ffffff" />
+              <rect x={getPikachuPupilX(10)} y={getPikachuPupilY(5)} width="2" height="2" fill="#020617" />
+              <rect x={getPikachuPupilX(10)} y={getPikachuPupilY(5)} width="1" height="1" fill="#ffffff" />
 
               {/* Nose & Cute Mouth */}
               <rect x="7" y="6" width="2" height="1" fill="#020617" />
