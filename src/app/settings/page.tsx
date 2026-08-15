@@ -137,63 +137,8 @@ export default function Page() {
               />
             </SettingItem>
           </div>
-
-          {/* Admin-Only Public Mascot Roster (VSCode Pokemon Pets) */}
-          <div className="mt-8">
-            <h2 className="text-xl font-semibold pb-3 md:pb-4 flex items-center gap-2">
-              <span>Public Gallery Mascots (VSCode Pokemon Pets)</span>
-            </h2>
-            <p className="text-xs text-muted-foreground mb-4">
-              Only authenticated Admins can configure which Pokemon & Cat mascots are enabled on the public gallery. Regular public visitors cannot add or alter mascots.
-            </p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {[
-                { key: 'kuro', name: 'Kuro Cat', type: 'Alley Cat 🐾', icon: '🐱', color: 'border-slate-700 bg-slate-900/40 text-slate-200' },
-                { key: 'pikachu', name: 'Pikachu', type: 'Electric ⚡', icon: '⚡', color: 'border-amber-500/40 bg-amber-500/10 text-amber-300' },
-                { key: 'charmander', name: 'Charmander', type: 'Fire 🔥', icon: '🔥', color: 'border-orange-500/40 bg-orange-500/10 text-orange-300' },
-                { key: 'bulbasaur', name: 'Bulbasaur', type: 'Grass 🍃', icon: '🍃', color: 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300' },
-                { key: 'squirtle', name: 'Squirtle', type: 'Water 💧', icon: '💧', color: 'border-cyan-500/40 bg-cyan-500/10 text-cyan-300' },
-                { key: 'eevee', name: 'Eevee', type: 'Normal 🦊', icon: '🦊', color: 'border-yellow-600/40 bg-yellow-600/10 text-yellow-200' },
-                { key: 'gengar', name: 'Gengar', type: 'Ghost 👻', icon: '👻', color: 'border-purple-500/40 bg-purple-500/10 text-purple-300' },
-              ].map((mascot) => {
-                const activeMascots = setting.activeMascots || ['kuro', 'pikachu']
-                const isChecked = activeMascots.includes(mascot.key)
-
-                const toggleMascot = () => {
-                  const updated = isChecked
-                    ? activeMascots.filter((m) => m !== mascot.key)
-                    : [...activeMascots, mascot.key]
-
-                  setSetting((prev) => ({
-                    ...prev,
-                    activeMascots: updated.length > 0 ? updated : ['kuro'],
-                  }))
-                }
-
-                return (
-                  <div
-                    key={mascot.key}
-                    onClick={toggleMascot}
-                    className={`flex items-center justify-between p-3.5 rounded-2xl border cursor-pointer transition-all ${
-                      isChecked ? `${mascot.color} shadow-sm ring-1 ring-primary/30` : 'border-border/50 bg-card/40 opacity-60 hover:opacity-100'
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <span className="text-xl">{mascot.icon}</span>
-                      <div>
-                        <div className="font-semibold text-sm">{mascot.name}</div>
-                        <div className="text-[11px] opacity-80">{mascot.type}</div>
-                      </div>
-                    </div>
-                    <Switch checked={isChecked} onCheckedChange={toggleMascot} />
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-
           <div className="mt-8 flex justify-end">
-            <Button type="button" size="lg" className="px-8 cursor-pointer font-semibold shadow-md" onClick={saveSetting}>
+            <Button type="button" onClick={saveSetting}>
               {t("save")}
             </Button>
           </div>

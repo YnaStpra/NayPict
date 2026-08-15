@@ -10,7 +10,6 @@ const defaultSetting: Setting = {
   syncDelete: SettingSyncDeleteEnum.ENABLE,
   clearLast: 7,
   photoDedup: SettingPhotoDedupEnum.ENABLE,
-  activeMascots: ['kuro', 'pikachu'],
 };
 
 const settingService = {

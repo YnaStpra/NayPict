@@ -10,7 +10,6 @@ export interface SettingConfig {
   syncDelete: number;
   clearLast: number;
   photoDedup: number;
-  activeMascots?: string[];
 }
 
 export type Setting = SettingConfig;
