@@ -15,7 +15,7 @@ const KURO_MESSAGES_GENERAL = [
   "Wash wash... Kuro is grooming his paws & face! 🧹",
   "Peek-a-boo! Kuro loves hiding inside cardboard boxes! 📦",
   "Big stretch ~ Kuro feels so relaxed & happy! 🐾",
-  "Boing! Kuro loves patrolling NayPict! 📸",
+  "Meow! Kuro is patrolling NayPict! 🐾✨",
   "Purrrr... Click Kuro anytime for random fun! ✨",
 ]
 
@@ -67,6 +67,7 @@ type CatState =
   | 'jump'
 
 type FacingDirection = 'left' | 'right'
+type GazeDirection = 'center' | 'up' | 'down' | 'left' | 'right'
 
 export function PixelMascots() {
   const pathname = usePathname()
@@ -79,11 +80,15 @@ export function PixelMascots() {
   const [kuroFacing, setKuroFacing] = useState<FacingDirection>('right')
   const [kuroBubble, setKuroBubble] = useState<string | null>(null)
   const [kuroJumping, setKuroJumping] = useState<boolean>(false)
+  const [isBlinking, setIsBlinking] = useState<boolean>(false)
+  const [kuroGaze, setKuroGaze] = useState<GazeDirection>('center')
 
   const [animFrame, setAnimFrame] = useState<number>(0)
 
+  // Position Refs for Independent Movement Loop
   const kuroXRef = useRef<number>(0)
   const kuroTargetXRef = useRef<number>(0)
+
   const animFrameIdRef = useRef<number | null>(null)
   const kuroTimerRef = useRef<NodeJS.Timeout | null>(null)
 
@@ -91,6 +96,35 @@ export function PixelMascots() {
   const clickCountRef = useRef<number>(0)
   const lastClickTimeRef = useRef<number>(0)
   const coolDownTimerRef = useRef<NodeJS.Timeout | null>(null)
+
+  // Dynamic Gaze Direction Engine: Tracks nearby objects & wandering gaze
+  useEffect(() => {
+    if (kuroState === 'butterfly') {
+      setKuroGaze('up')
+    } else if (kuroState === 'flower') {
+      setKuroGaze('left')
+    } else if (kuroState === 'fish' || kuroState === 'yarn') {
+      setKuroGaze('right')
+    } else if (kuroState === 'groom') {
+      setKuroGaze('down')
+    } else if (kuroState === 'box') {
+      setKuroGaze(animFrame === 0 ? 'left' : 'right')
+    } else if (kuroState.startsWith('walk') || kuroState.startsWith('run')) {
+      setKuroGaze('right')
+    } else {
+      const dirs: GazeDirection[] = ['center', 'up', 'down', 'left', 'right']
+      setKuroGaze(dirs[Math.floor(Math.random() * dirs.length)])
+    }
+  }, [kuroState, animFrame])
+
+  // Eye blinking animation timer
+  useEffect(() => {
+    const blinkInterval = setInterval(() => {
+      setIsBlinking(true)
+      setTimeout(() => setIsBlinking(false), 220)
+    }, 3800)
+    return () => clearInterval(blinkInterval)
+  }, [])
 
   // Track directional facing for Kuro
   useEffect(() => {
@@ -125,20 +159,23 @@ export function PixelMascots() {
     if (isLandingPage) {
       return { minX: isMobile ? -90 : -130, maxX: isMobile ? 90 : 130, isRelative: true }
     }
-    const minX = isMobile ? 40 : 130
-    const maxX = Math.max(minX + 60, screenWidth - (isMobile ? 70 : 180))
+    const minX = isMobile ? 40 : 100
+    const maxX = Math.max(minX + 60, screenWidth - (isMobile ? 60 : 120))
     return { minX, maxX, isRelative: false }
   }, [isLightboxOpen, isLandingPage])
 
-  // Reset position safely when mode changes
+  // Spawn location on web load
   useEffect(() => {
     const { minX, maxX, isRelative } = getBounds()
+    const screenWidth = typeof window !== 'undefined' ? window.innerWidth : 800
+    const isMobile = screenWidth < 640
+
     if (isRelative) {
       kuroXRef.current = 0
       kuroTargetXRef.current = 0
       setKuroX(0)
     } else {
-      const startKuro = Math.min(Math.max(minX, 150), maxX - 60)
+      const startKuro = Math.min(Math.max(minX, isMobile ? 50 : 120), screenWidth / 2 - 40)
       kuroXRef.current = startKuro
       kuroTargetXRef.current = startKuro
       setKuroX(startKuro)
@@ -180,7 +217,7 @@ export function PixelMascots() {
     }
   }, [kuroState])
 
-  // Autonomous Decision Engine (Every 3.8s) - paused if Kuro is angry or annoyed
+  // Autonomous Decision Engine (Every 3.8s) for Kuro
   useEffect(() => {
     const decisionInterval = setInterval(() => {
       const { minX, maxX } = getBounds()
@@ -225,7 +262,6 @@ export function PixelMascots() {
       const msg = KURO_MESSAGES_ANGRY[Math.floor(Math.random() * KURO_MESSAGES_ANGRY.length)]
       setKuroBubble(msg)
 
-      // Cool Down Reset: After 4.5 seconds of peace, Kuro calms down and returns to normal
       coolDownTimerRef.current = setTimeout(() => {
         clickCountRef.current = 0
         setKuroBubble(null)
@@ -263,16 +299,15 @@ export function PixelMascots() {
   const getContainerStyle = (x: number): { className: string; style: React.CSSProperties } => {
     const screenWidth = typeof window !== 'undefined' ? window.innerWidth : 800
     const isMobile = screenWidth < 640
+    const finalX = x
 
     if (isLightboxOpen) {
-      // Photo Preview Mode: Standing exactly on top of the thumbnail photo list bar (46px mobile / 75px desktop)
       return {
         className: 'fixed bottom-[46px] md:bottom-[75px] left-1/2 z-[1000000] flex flex-col items-center select-none pointer-events-auto touch-manipulation',
-        style: { transform: `translateX(calc(-50% + ${x}px))` },
+        style: { transform: `translateX(calc(-50% + ${finalX}px))` },
       }
     }
     if (isLandingPage) {
-      // Landing Page Mode: Standing exactly on top of the hero card's top border line as their ground
       const cardEl = typeof document !== 'undefined' ? document.getElementById('landing-hero-card') : null
       const cardRect = cardEl ? cardEl.getBoundingClientRect() : null
       const topY = cardRect ? cardRect.top - (isMobile ? 32 : 36) : undefined
@@ -281,45 +316,45 @@ export function PixelMascots() {
         className: 'fixed left-1/2 z-[99999] flex flex-col items-center select-none pointer-events-auto touch-manipulation',
         style: cardRect && topY !== undefined ? {
           top: `${topY}px`,
-          transform: `translateX(calc(-50% + ${x}px))`,
+          transform: `translateX(calc(-50% + ${finalX}px))`,
         } : {
           top: '50%',
-          transform: `translate(calc(-50% + ${x}px), -245px)`,
+          transform: `translate(calc(-50% + ${finalX}px), -245px)`,
         },
       }
     }
     return {
       className: 'fixed bottom-0 z-[99999] flex flex-col items-center select-none pointer-events-auto touch-manipulation',
-      style: { left: `${x}px` },
+      style: { left: `${finalX}px` },
     }
   }
 
-  // Dynamic Speech Bubble Clamping calculation - placed above Kuro's head & head icons with downward pointing arrow
-  const getBubbleAlignment = () => {
+  // Dynamic Speech Bubble Clamping calculation for Kuro
+  const getBubbleAlignment = (curX: number) => {
     const { isRelative } = getBounds()
     const screenWidth = typeof window !== 'undefined' ? window.innerWidth : 800
 
     if (isRelative) {
-      if (kuroX < -45) {
+      if (curX < -45) {
         return {
           bubbleClass: 'absolute bottom-[100%] mb-6 sm:mb-7 left-0 translate-x-0 px-2.5 sm:px-3 py-1.5 rounded-2xl text-[11px] sm:text-xs font-semibold backdrop-blur-md border shadow-xl w-max max-w-[180px] sm:max-w-[250px] text-center animate-in fade-in zoom-in-95 duration-200 z-50 leading-tight sm:leading-snug break-words',
           arrowClass: 'absolute left-4 -bottom-1 w-2 h-2 border-r border-b rotate-45',
         }
       }
-      if (kuroX > 45) {
+      if (curX > 45) {
         return {
           bubbleClass: 'absolute bottom-[100%] mb-6 sm:mb-7 right-0 left-auto translate-x-0 px-2.5 sm:px-3 py-1.5 rounded-2xl text-[11px] sm:text-xs font-semibold backdrop-blur-md border shadow-xl w-max max-w-[180px] sm:max-w-[250px] text-center animate-in fade-in zoom-in-95 duration-200 z-50 leading-tight sm:leading-snug break-words',
           arrowClass: 'absolute right-4 left-auto -bottom-1 w-2 h-2 border-r border-b rotate-45',
         }
       }
     } else {
-      if (kuroX < 110) {
+      if (curX < 110) {
         return {
           bubbleClass: 'absolute bottom-[100%] mb-6 sm:mb-7 left-0 translate-x-0 px-2.5 sm:px-3 py-1.5 rounded-2xl text-[11px] sm:text-xs font-semibold backdrop-blur-md border shadow-xl w-max max-w-[180px] sm:max-w-[250px] text-center animate-in fade-in zoom-in-95 duration-200 z-50 leading-tight sm:leading-snug break-words',
           arrowClass: 'absolute left-4 -bottom-1 w-2 h-2 border-r border-b rotate-45',
         }
       }
-      if (kuroX > screenWidth - 140) {
+      if (curX > screenWidth - 140) {
         return {
           bubbleClass: 'absolute bottom-[100%] mb-6 sm:mb-7 right-0 left-auto translate-x-0 px-2.5 sm:px-3 py-1.5 rounded-2xl text-[11px] sm:text-xs font-semibold backdrop-blur-md border shadow-xl w-max max-w-[180px] sm:max-w-[250px] text-center animate-in fade-in zoom-in-95 duration-200 z-50 leading-tight sm:leading-snug break-words',
           arrowClass: 'absolute right-4 left-auto -bottom-1 w-2 h-2 border-r border-b rotate-45',
@@ -335,7 +370,20 @@ export function PixelMascots() {
 
   const kuroStyle = getContainerStyle(kuroX)
   const isKuroMoving = kuroState.startsWith('walk') || kuroState.startsWith('run')
-  const bubbleAlign = getBubbleAlignment()
+  const kuroBubbleAlign = getBubbleAlignment(kuroX)
+
+  // Helper for Kuro Pupil Position Coordinates
+  const getKuroPupilX = (baseX: number) => {
+    if (kuroGaze === 'left') return baseX - 1
+    if (kuroGaze === 'right') return baseX + 1
+    return baseX
+  }
+
+  const getKuroPupilY = (baseY: number) => {
+    if (kuroGaze === 'up') return baseY - 1
+    if (kuroGaze === 'down') return baseY + 1
+    return baseY
+  }
 
   return (
     <>
@@ -352,7 +400,7 @@ export function PixelMascots() {
       >
         {kuroBubble && (
           <div
-            className={bubbleAlign.bubbleClass}
+            className={kuroBubbleAlign.bubbleClass}
             style={{
               backgroundColor: kuroState === 'angry' ? 'rgba(220, 38, 38, 0.95)' : kuroState === 'annoyed' ? 'rgba(217, 119, 6, 0.95)' : 'rgba(10, 10, 10, 0.92)',
               color: '#ffffff',
@@ -362,7 +410,7 @@ export function PixelMascots() {
             }}
           >
             <div
-              className={bubbleAlign.arrowClass}
+              className={kuroBubbleAlign.arrowClass}
               style={{
                 backgroundColor: kuroState === 'angry' ? 'rgba(220, 38, 38, 0.95)' : kuroState === 'annoyed' ? 'rgba(217, 119, 6, 0.95)' : 'rgba(10, 10, 10, 0.92)',
                 borderColor: kuroState === 'angry' ? 'rgba(248, 113, 113, 0.5)' : kuroState === 'annoyed' ? 'rgba(251, 191, 36, 0.5)' : 'rgba(255, 255, 255, 0.2)',
@@ -457,28 +505,23 @@ export function PixelMascots() {
             </div>
           )}
 
-          {/* SVG KURO (BLACK/DARK GREY TABBY ALLEY CAT WITH MOOD ANIME EXPRESSIONS) */}
+          {/* SVG KURO (BLACK/DARK GREY TABBY ALLEY CAT WITH DYNAMIC GAZE TRACKING) */}
           <svg width="38" height="38" viewBox="0 0 16 16" className="drop-shadow-md" style={{ imageRendering: 'pixelated', forcedColorAdjust: 'none', colorScheme: 'normal' }}>
             {kuroState === 'angry' ? (
               /* ANGRY / FURIOUS CAT SPRITE */
               <g>
-                {/* Pinned Back Ears */}
                 <rect x="1" y="4" width="3" height="2" fill="#020617" />
                 <rect x="12" y="4" width="3" height="2" fill="#020617" />
-                {/* Head */}
                 <rect x="2" y="4" width="12" height="5" fill="#334155" />
                 <rect x="6" y="4" width="4" height="2" fill="#0f172a" />
-                {/* Glowing Red Angry Eyes */}
                 <rect x="4" y="6" width="3" height="2" fill="#ef4444" />
                 <rect x="5" y="6" width="1" height="2" fill="#020617" />
                 <rect x="9" y="6" width="3" height="2" fill="#ef4444" />
                 <rect x="10" y="6" width="1" height="2" fill="#020617" />
                 <rect x="7" y="7" width="2" height="1" fill="#f43f5e" />
-                {/* Body & Paws */}
                 <rect x="3" y="9" width="10" height="5" fill="#334155" />
                 <rect x="4" y="14" width="2" height="2" fill="#1e293b" />
                 <rect x="10" y="14" width="2" height="2" fill="#1e293b" />
-                {/* Tail Standing Straight Up Angry */}
                 <rect x="13" y="2" width="2" height="9" rx="1" fill="#020617" />
               </g>
             ) : kuroState === 'annoyed' ? (
@@ -490,14 +533,12 @@ export function PixelMascots() {
                 <rect x="12" y="3" width="1" height="1" fill="#f43f5e" />
                 <rect x="2" y="4" width="12" height="5" fill="#334155" />
                 <rect x="6" y="4" width="4" height="2" fill="#0f172a" />
-                {/* Squinting Annoyed Eyes */}
                 <rect x="4" y="6" width="2" height="1" fill="#f59e0b" />
                 <rect x="10" y="6" width="2" height="1" fill="#f59e0b" />
                 <rect x="7" y="7" width="2" height="1" fill="#f43f5e" />
                 <rect x="3" y="9" width="10" height="5" fill="#334155" />
                 <rect x="4" y="14" width="2" height="2" fill="#1e293b" />
                 <rect x="10" y="14" width="2" height="2" fill="#1e293b" />
-                {/* Twitching Tail */}
                 <rect x="13" y={animFrame === 0 ? "7" : "9"} width="3" height="4" rx="1" fill="#020617" />
               </g>
             ) : kuroState === 'happy' ? (
@@ -509,9 +550,8 @@ export function PixelMascots() {
                 <rect x="12" y="2" width="1" height="1" fill="#f43f5e" />
                 <rect x="2" y="3" width="12" height="6" fill="#334155" />
                 <rect x="6" y="3" width="4" height="2" fill="#0f172a" />
-                {/* Happy Winking / Sparkling Eyes */}
-                <rect x="4" y="5" width="2" height="2" fill="#10b981" />
-                <rect x="10" y="5" width="2" height="2" fill="#10b981" />
+                <rect x={getKuroPupilX(4)} y={getKuroPupilY(5)} width="2" height="2" fill={isBlinking ? "#020617" : "#10b981"} />
+                <rect x={getKuroPupilX(10)} y={getKuroPupilY(5)} width="2" height="2" fill={isBlinking ? "#020617" : "#10b981"} />
                 <rect x="7" y="6" width="2" height="1" fill="#f43f5e" />
                 <rect x="7" y="7" width="2" height="1" fill="#020617" />
                 <rect x="3" y="9" width="10" height="5" fill="#334155" />
@@ -545,8 +585,8 @@ export function PixelMascots() {
                 <rect x="12" y="3" width="1" height="1" fill="#f43f5e" />
                 <rect x="2" y="4" width="12" height="5" fill="#334155" />
                 <rect x="6" y="4" width="4" height="2" fill="#0f172a" />
-                <rect x="4" y="6" width="2" height="2" fill="#10b981" />
-                <rect x="10" y="6" width="2" height="2" fill="#10b981" />
+                <rect x={getKuroPupilX(4)} y={getKuroPupilY(6)} width="2" height="2" fill={isBlinking ? "#020617" : "#10b981"} />
+                <rect x={getKuroPupilX(10)} y={getKuroPupilY(6)} width="2" height="2" fill={isBlinking ? "#020617" : "#10b981"} />
                 <rect x="7" y="7" width="2" height="2" fill="#f43f5e" />
                 <rect x={animFrame === 0 ? "5" : "7"} y="7" width="3" height="4" rx="1" fill="#475569" />
                 <rect x="3" y="9" width="10" height="5" fill="#334155" />
@@ -562,7 +602,7 @@ export function PixelMascots() {
                 <rect x="10" y="3" width="3" height="3" fill="#020617" />
                 <rect x="1" y="6" width="12" height="5" fill="#334155" />
                 <rect x="4" y="3" width="6" height="3" fill="#0f172a" />
-                <rect x="11" y="7" width="2" height="2" fill="#10b981" />
+                <rect x={getKuroPupilX(11)} y={getKuroPupilY(7)} width="2" height="2" fill={isBlinking ? "#020617" : "#10b981"} />
                 <rect x="2" y="11" width="3" height="5" fill="#1e293b" />
                 <rect x="11" y="11" width="3" height="5" fill="#1e293b" />
                 <rect x="0" y="4" width="2" height="6" rx="1" fill="#020617" />
@@ -574,8 +614,8 @@ export function PixelMascots() {
                 <rect x="11" y="3" width="1" height="1" fill="#f43f5e" />
                 <rect x="9" y="4" width="6" height="5" fill="#334155" />
                 <rect x="11" y="4" width="2" height="2" fill="#0f172a" />
-                <rect x="12" y="6" width="2" height="2" fill="#10b981" />
-                <rect x="13" y="6" width="1" height="2" fill="#020617" />
+                <rect x={getKuroPupilX(12)} y={getKuroPupilY(6)} width="2" height="2" fill={isBlinking ? "#020617" : "#10b981"} />
+                <rect x={getKuroPupilX(13)} y={getKuroPupilY(6)} width="1" height="2" fill="#020617" />
                 <rect x="14" y="7" width="2" height="1" fill="#f43f5e" />
                 <rect x="2" y="7" width="9" height="5" fill="#334155" />
                 <rect x="5" y="7" width="2" height="5" fill="#0f172a" />
@@ -585,7 +625,7 @@ export function PixelMascots() {
                 <rect x="0" y={animFrame === 0 ? "5" : "6"} width="3" height="4" rx="1" fill="#020617" />
               </g>
             ) : (
-              /* IDLE / SITTING CAT */
+              /* IDLE / SITTING CAT WITH DYNAMIC PUPIL GAZE */
               <g>
                 <rect x="2" y="2" width="3" height="3" fill="#020617" />
                 <rect x="3" y="3" width="1" height="1" fill="#f43f5e" />
@@ -593,10 +633,12 @@ export function PixelMascots() {
                 <rect x="12" y="3" width="1" height="1" fill="#f43f5e" />
                 <rect x="2" y="4" width="12" height="5" fill="#334155" />
                 <rect x="6" y="4" width="4" height="2" fill="#0f172a" />
-                <rect x="4" y="6" width="2" height="2" fill="#10b981" />
-                <rect x="4" y="6" width="1" height="2" fill="#020617" />
-                <rect x="10" y="6" width="2" height="2" fill="#10b981" />
-                <rect x="10" y="6" width="1" height="2" fill="#020617" />
+                {/* Left Eye Base & Pupil */}
+                <rect x="4" y="6" width="2" height="2" fill={isBlinking ? "#020617" : "#10b981"} />
+                {!isBlinking && <rect x={getKuroPupilX(4)} y={getKuroPupilY(6)} width="1" height="2" fill="#020617" />}
+                {/* Right Eye Base & Pupil */}
+                <rect x="10" y="6" width="2" height="2" fill={isBlinking ? "#020617" : "#10b981"} />
+                {!isBlinking && <rect x={getKuroPupilX(10)} y={getKuroPupilY(6)} width="1" height="2" fill="#020617" />}
                 <rect x="7" y="7" width="2" height="1" fill="#f43f5e" />
                 <rect x="3" y="9" width="10" height="5" fill="#334155" />
                 <rect x="4" y="9" width="2" height="5" fill="#0f172a" />
