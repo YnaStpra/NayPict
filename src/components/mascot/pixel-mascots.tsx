@@ -4,12 +4,12 @@ import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { usePathname } from 'next/navigation'
 
 // ==========================================
-// KURO (INDONESIAN ALLEY CAT) MESSAGES
+// KURO (PIXELPETS TUXEDO CAT) MESSAGES
 // ==========================================
 const KURO_MESSAGES_GENERAL = [
-  "Meow! Hi, I'm Kuro, an Indonesian alley cat (kucing kampung)! 🐾",
-  "Nom nom... Kuro just caught a yummy fish! 🐟",
-  "Wheee! Kuro is chasing a cute butterfly! 🦋",
+  "Meow! Hi, I'm Kuro the pixel tuxedo cat! 🐾",
+  "Nom nom... Kuro caught a yummy fish! 🐟",
+  "Wheee! Look, a butterfly landed right on Kuro's nose! 🦋✨",
   "Mmm... Kuro loves sniffing fresh flowers ~ 🌸",
   "Purrr... Kuro is playing with a colorful yarn ball! 🧶",
   "Wash wash... Kuro is grooming his paws & face! 🧹",
@@ -109,7 +109,7 @@ type PikachuState =
   | 'jump'
 
 type FacingDirection = 'left' | 'right'
-type GazeDirection = 'center' | 'up' | 'down' | 'left' | 'right'
+type GazeDirection = 'center' | 'up' | 'down' | 'left' | 'right' | 'nose' | 'up-left'
 
 export function PixelMascots() {
   const pathname = usePathname()
@@ -124,6 +124,7 @@ export function PixelMascots() {
   const [kuroJumping, setKuroJumping] = useState<boolean>(false)
   const [isBlinking, setIsBlinking] = useState<boolean>(false)
   const [kuroGaze, setKuroGaze] = useState<GazeDirection>('center')
+  const [butterflyStage, setButterflyStage] = useState<number>(0)
 
   // Pikachu State
   const [pikachuState, setPikachuState] = useState<PikachuState>('idle')
@@ -155,10 +156,33 @@ export function PixelMascots() {
   const pikachuLastClickTimeRef = useRef<number>(0)
   const pikachuCoolDownTimerRef = useRef<NodeJS.Timeout | null>(null)
 
+  // Butterfly Landing Stage Timer (Stage 0: right -> Stage 1: nose -> Stage 2: up-left)
+  useEffect(() => {
+    if (kuroState === 'butterfly') {
+      setButterflyStage(0)
+      setKuroGaze('right')
+
+      const timer1 = setTimeout(() => {
+        setButterflyStage(1) // Lands on nose!
+        setKuroGaze('nose') // Cross-eyed look at nose!
+      }, 1200)
+
+      const timer2 = setTimeout(() => {
+        setButterflyStage(2) // Flies up-left
+        setKuroGaze('up-left')
+      }, 2800)
+
+      return () => {
+        clearTimeout(timer1)
+        clearTimeout(timer2)
+      }
+    }
+  }, [kuroState])
+
   // Dynamic Gaze Direction Engine: Tracks nearby objects & wandering gaze
   useEffect(() => {
     if (kuroState === 'butterfly') {
-      setKuroGaze('up')
+      // Handled by butterflyStage effect
     } else if (kuroState === 'flower') {
       setKuroGaze('left')
     } else if (kuroState === 'fish' || kuroState === 'yarn') {
@@ -558,19 +582,6 @@ export function PixelMascots() {
   const kuroBubbleAlign = getBubbleAlignment(kuroX)
   const pikachuBubbleAlign = getBubbleAlignment(pikachuX)
 
-  // Helper for Kuro Pupil Position Coordinates
-  const getKuroPupilX = (baseX: number) => {
-    if (kuroGaze === 'left') return baseX - 1
-    if (kuroGaze === 'right') return baseX + 1
-    return baseX
-  }
-
-  const getKuroPupilY = (baseY: number) => {
-    if (kuroGaze === 'up') return baseY - 1
-    if (kuroGaze === 'down') return baseY + 1
-    return baseY
-  }
-
   // Helper for Pikachu Pupil Position Coordinates
   const getPikachuPupilX = (baseX: number) => {
     if (pikachuGaze === 'left') return baseX - 1
@@ -591,7 +602,6 @@ export function PixelMascots() {
       {/* ========================================== */}
       {isThunderboltActive && (
         <div className="fixed inset-0 z-[1000001] pointer-events-none flex items-center justify-center overflow-hidden bg-yellow-400/25 backdrop-blur-[1px] animate-pulse">
-          {/* Thunderbolt SVG Lightning Bolts across screen */}
           <svg className="w-full h-full opacity-90 animate-bounce" viewBox="0 0 100 100" preserveAspectRatio="none">
             <polygon points="45,0 55,0 40,40 60,40 30,100 45,50 35,50" fill="#fef08a" filter="drop-shadow(0 0 12px #facc15)" />
             <polygon points="15,0 25,0 10,40 30,40 0,100 15,50 5,50" fill="#ffffff" filter="drop-shadow(0 0 10px #facc15)" />
@@ -601,7 +611,7 @@ export function PixelMascots() {
       )}
 
       {/* ========================================== */}
-      {/* KURO (INDONESIAN ALLEY CAT MASCOT)         */}
+      {/* KURO (PIXELPETS TUXEDO CAT WITH OUTLINE)  */}
       {/* ========================================== */}
       <div
         className={kuroStyle.className}
@@ -669,12 +679,23 @@ export function PixelMascots() {
             </div>
           )}
 
+          {/* ORANGE BUTTERFLY THAT LANDS RIGHT ON KURO'S NOSE / FOREHEAD! */}
           {kuroState === 'butterfly' && (
-            <div className="absolute -top-3 left-6 animate-bounce">
-              <svg width="14" height="14" viewBox="0 0 8 8" style={{ imageRendering: 'pixelated', forcedColorAdjust: 'none' }}>
-                <rect x="3" y="2" width="2" height="4" fill="#0f172a" />
-                <rect x={animFrame === 0 ? "1" : "0"} y="1" width="2" height="3" fill="#f43f5e" />
-                <rect x={animFrame === 0 ? "5" : "6"} y="1" width="2" height="3" fill="#06b6d4" />
+            <div
+              className={`absolute transition-all duration-700 ease-in-out z-40 ${
+                butterflyStage === 0
+                  ? '-top-2 right-[-14px] animate-pulse'
+                  : butterflyStage === 1
+                  ? '-top-3 left-[14px] scale-110 animate-bounce' // LANDS RIGHT ON KURO'S NOSE!
+                  : '-top-6 -left-3 scale-90 animate-pulse'
+              }`}
+            >
+              <svg width="16" height="16" viewBox="0 0 10 10" style={{ imageRendering: 'pixelated', forcedColorAdjust: 'none' }}>
+                <rect x="4" y="2" width="2" height="6" fill="#451a03" />
+                <rect x={animFrame === 0 ? "1" : "0"} y="1" width="3" height="4" rx="1" fill="#f97316" />
+                <rect x={animFrame === 0 ? "2" : "1"} y="2" width="2" height="2" fill="#fde047" />
+                <rect x={animFrame === 0 ? "6" : "7"} y="1" width="3" height="4" rx="1" fill="#f97316" />
+                <rect x={animFrame === 0 ? "6" : "7"} y="2" width="2" height="2" fill="#fde047" />
               </svg>
             </div>
           )}
@@ -710,158 +731,109 @@ export function PixelMascots() {
 
           {kuroState === 'box' && (
             <div className="absolute -bottom-1 left-0 z-30 pointer-events-none">
-              <svg width="40" height="24" viewBox="0 0 16 10" style={{ imageRendering: 'pixelated', forcedColorAdjust: 'none' }}>
-                <rect x="1" y="2" width="14" height="8" rx="1" fill="#b45309" stroke="#78350f" strokeWidth="0.5" />
-                <rect x="2" y="1" width="5" height="2" fill="#d97706" />
-                <rect x="9" y="1" width="5" height="2" fill="#d97706" />
+              <svg width="42" height="26" viewBox="0 0 18 11" style={{ imageRendering: 'pixelated', forcedColorAdjust: 'none' }}>
+                <rect x="1" y="2" width="16" height="9" rx="1" fill="#b45309" stroke="#78350f" strokeWidth="0.5" />
+                <rect x="2" y="1" width="6" height="2" fill="#d97706" />
+                <rect x="10" y="1" width="6" height="2" fill="#d97706" />
               </svg>
             </div>
           )}
 
-          {/* SVG KURO (BLACK/DARK GREY TABBY ALLEY CAT WITH DYNAMIC GAZE TRACKING) */}
-          <svg width="38" height="38" viewBox="0 0 16 16" className="drop-shadow-md" style={{ imageRendering: 'pixelated', forcedColorAdjust: 'none', colorScheme: 'normal' }}>
-            {kuroState === 'angry' ? (
-              /* ANGRY / FURIOUS CAT SPRITE */
-              <g>
-                <rect x="1" y="4" width="3" height="2" fill="#020617" />
-                <rect x="12" y="4" width="3" height="2" fill="#020617" />
-                <rect x="2" y="4" width="12" height="5" fill="#334155" />
-                <rect x="6" y="4" width="4" height="2" fill="#0f172a" />
-                <rect x="4" y="6" width="3" height="2" fill="#ef4444" />
-                <rect x="5" y="6" width="1" height="2" fill="#020617" />
-                <rect x="9" y="6" width="3" height="2" fill="#ef4444" />
-                <rect x="10" y="6" width="1" height="2" fill="#020617" />
-                <rect x="7" y="7" width="2" height="1" fill="#f43f5e" />
-                <rect x="3" y="9" width="10" height="5" fill="#334155" />
-                <rect x="4" y="14" width="2" height="2" fill="#1e293b" />
-                <rect x="10" y="14" width="2" height="2" fill="#1e293b" />
-                <rect x="13" y="2" width="2" height="9" rx="1" fill="#020617" />
-              </g>
-            ) : kuroState === 'annoyed' ? (
-              /* ANNOYED CAT SPRITE */
-              <g>
-                <rect x="2" y="2" width="3" height="3" fill="#020617" />
-                <rect x="3" y="3" width="1" height="1" fill="#f43f5e" />
-                <rect x="11" y="2" width="3" height="3" fill="#020617" />
-                <rect x="12" y="3" width="1" height="1" fill="#f43f5e" />
-                <rect x="2" y="4" width="12" height="5" fill="#334155" />
-                <rect x="6" y="4" width="4" height="2" fill="#0f172a" />
-                <rect x="4" y="6" width="2" height="1" fill="#f59e0b" />
-                <rect x="10" y="6" width="2" height="1" fill="#f59e0b" />
-                <rect x="7" y="7" width="2" height="1" fill="#f43f5e" />
-                <rect x="3" y="9" width="10" height="5" fill="#334155" />
-                <rect x="4" y="14" width="2" height="2" fill="#1e293b" />
-                <rect x="10" y="14" width="2" height="2" fill="#1e293b" />
-                <rect x="13" y={animFrame === 0 ? "7" : "9"} width="3" height="4" rx="1" fill="#020617" />
-              </g>
-            ) : kuroState === 'happy' ? (
-              /* JOYFUL HAPPY CAT SPRITE */
-              <g>
-                <rect x="2" y="1" width="3" height="3" fill="#020617" />
-                <rect x="3" y="2" width="1" height="1" fill="#f43f5e" />
-                <rect x="11" y="1" width="3" height="3" fill="#020617" />
-                <rect x="12" y="2" width="1" height="1" fill="#f43f5e" />
-                <rect x="2" y="3" width="12" height="6" fill="#334155" />
-                <rect x="6" y="3" width="4" height="2" fill="#0f172a" />
-                <rect x={getKuroPupilX(4)} y={getKuroPupilY(5)} width="2" height="2" fill={isBlinking ? "#020617" : "#10b981"} />
-                <rect x={getKuroPupilX(10)} y={getKuroPupilY(5)} width="2" height="2" fill={isBlinking ? "#020617" : "#10b981"} />
-                <rect x="7" y="6" width="2" height="1" fill="#f43f5e" />
-                <rect x="7" y="7" width="2" height="1" fill="#020617" />
-                <rect x="3" y="9" width="10" height="5" fill="#334155" />
-                <rect x="4" y="14" width="2" height="2" fill="#1e293b" />
-                <rect x="10" y="14" width="2" height="2" fill="#1e293b" />
-                <rect x="13" y="6" width="2" height="7" fill="#020617" />
-              </g>
-            ) : kuroState === 'sleep' ? (
-              /* SLEEPING ALLEY CAT */
-              <g>
-                <rect x="3" y="6" width="2" height="2" fill="#020617" />
-                <rect x="4" y="7" width="1" height="1" fill="#f43f5e" />
-                <rect x="11" y="6" width="2" height="2" fill="#020617" />
-                <rect x="11" y="7" width="1" height="1" fill="#f43f5e" />
-                <rect x="2" y="8" width="12" height="6" rx="2" fill="#334155" />
-                <rect x="3" y="8" width="2" height="4" fill="#0f172a" />
-                <rect x="7" y="8" width="2" height="4" fill="#0f172a" />
-                <rect x="11" y="8" width="2" height="4" fill="#0f172a" />
-                <rect x="4" y="11" width="8" height="3" fill="#475569" />
-                <rect x="4" y="10" width="2" height="1" fill="#0f172a" />
-                <rect x="10" y="10" width="2" height="1" fill="#0f172a" />
-                <rect x="7" y="10" width="2" height="1" fill="#f43f5e" />
-                <text x="12" y="5" fontSize="4" fill="#60a5fa" fontWeight="bold">z</text>
-              </g>
-            ) : kuroState === 'groom' ? (
-              /* GROOMING PAW & FACE CAT */
-              <g>
-                <rect x="2" y="2" width="3" height="3" fill="#020617" />
-                <rect x="3" y="3" width="1" height="1" fill="#f43f5e" />
-                <rect x="11" y="2" width="3" height="3" fill="#020617" />
-                <rect x="12" y="3" width="1" height="1" fill="#f43f5e" />
-                <rect x="2" y="4" width="12" height="5" fill="#334155" />
-                <rect x="6" y="4" width="4" height="2" fill="#0f172a" />
-                <rect x={getKuroPupilX(4)} y={getKuroPupilY(6)} width="2" height="2" fill={isBlinking ? "#020617" : "#10b981"} />
-                <rect x={getKuroPupilX(10)} y={getKuroPupilY(6)} width="2" height="2" fill={isBlinking ? "#020617" : "#10b981"} />
-                <rect x="7" y="7" width="2" height="2" fill="#f43f5e" />
-                <rect x={animFrame === 0 ? "5" : "7"} y="7" width="3" height="4" rx="1" fill="#475569" />
-                <rect x="3" y="9" width="10" height="5" fill="#334155" />
-                <rect x="4" y="14" width="2" height="2" fill="#1e293b" />
-                <rect x="10" y="14" width="2" height="2" fill="#1e293b" />
-                <rect x="13" y="8" width="2" height="5" rx="1" fill="#020617" />
-              </g>
-            ) : kuroState === 'stretch' ? (
-              /* ARCHED BACK CAT STRETCH */
-              <g>
-                <rect x="1" y="4" width="3" height="3" fill="#020617" />
-                <rect x="2" y="5" width="1" height="1" fill="#f43f5e" />
-                <rect x="10" y="3" width="3" height="3" fill="#020617" />
-                <rect x="1" y="6" width="12" height="5" fill="#334155" />
-                <rect x="4" y="3" width="6" height="3" fill="#0f172a" />
-                <rect x={getKuroPupilX(11)} y={getKuroPupilY(7)} width="2" height="2" fill={isBlinking ? "#020617" : "#10b981"} />
-                <rect x="2" y="11" width="3" height="5" fill="#1e293b" />
-                <rect x="11" y="11" width="3" height="5" fill="#1e293b" />
-                <rect x="0" y="4" width="2" height="6" rx="1" fill="#020617" />
-              </g>
-            ) : isKuroMoving ? (
-              /* QUADRUPED BLACK/DARK GREY TABBY WALKING/RUNNING */
-              <g>
-                <rect x="10" y="2" width="3" height="3" fill="#020617" />
-                <rect x="11" y="3" width="1" height="1" fill="#f43f5e" />
-                <rect x="9" y="4" width="6" height="5" fill="#334155" />
-                <rect x="11" y="4" width="2" height="2" fill="#0f172a" />
-                <rect x={getKuroPupilX(12)} y={getKuroPupilY(6)} width="2" height="2" fill={isBlinking ? "#020617" : "#10b981"} />
-                <rect x={getKuroPupilX(13)} y={getKuroPupilY(6)} width="1" height="2" fill="#020617" />
-                <rect x="14" y="7" width="2" height="1" fill="#f43f5e" />
-                <rect x="2" y="7" width="9" height="5" fill="#334155" />
-                <rect x="5" y="7" width="2" height="5" fill="#0f172a" />
-                <rect x="4" y="8" width="6" height="4" fill="#475569" />
-                <rect x={animFrame === 0 ? "3" : "5"} y="12" width="2" height="4" fill="#1e293b" />
-                <rect x={animFrame === 0 ? "9" : "7"} y="12" width="2" height="4" fill="#1e293b" />
-                <rect x="0" y={animFrame === 0 ? "5" : "6"} width="3" height="4" rx="1" fill="#020617" />
-              </g>
-            ) : (
-              /* IDLE / SITTING CAT WITH DYNAMIC PUPIL GAZE */
-              <g>
-                <rect x="2" y="2" width="3" height="3" fill="#020617" />
-                <rect x="3" y="3" width="1" height="1" fill="#f43f5e" />
-                <rect x="11" y="2" width="3" height="3" fill="#020617" />
-                <rect x="12" y="3" width="1" height="1" fill="#f43f5e" />
-                <rect x="2" y="4" width="12" height="5" fill="#334155" />
-                <rect x="6" y="4" width="4" height="2" fill="#0f172a" />
-                {/* Left Eye Base & Pupil */}
-                <rect x="4" y="6" width="2" height="2" fill={isBlinking ? "#020617" : "#10b981"} />
-                {!isBlinking && <rect x={getKuroPupilX(4)} y={getKuroPupilY(6)} width="1" height="2" fill="#020617" />}
-                {/* Right Eye Base & Pupil */}
-                <rect x="10" y="6" width="2" height="2" fill={isBlinking ? "#020617" : "#10b981"} />
-                {!isBlinking && <rect x={getKuroPupilX(10)} y={getKuroPupilY(6)} width="1" height="2" fill="#020617" />}
-                <rect x="7" y="7" width="2" height="1" fill="#f43f5e" />
-                <rect x="3" y="9" width="10" height="5" fill="#334155" />
-                <rect x="4" y="9" width="2" height="5" fill="#0f172a" />
-                <rect x="10" y="9" width="2" height="5" fill="#0f172a" />
-                <rect x="6" y="9" width="4" height="5" fill="#475569" />
-                <rect x="4" y="14" width="2" height="2" fill="#1e293b" />
-                <rect x="10" y="14" width="2" height="2" fill="#1e293b" />
-                <rect x="13" y="8" width="2" height="5" rx="1" fill="#020617" />
-              </g>
-            )}
+          {/* SVG KURO (EXACT PIXELPETS TUXEDO CAT SPRITE WITH 1PX WHITE OUTLINE & NOSE BUTTERFLY LANDING) */}
+          <svg width="42" height="42" viewBox="0 0 32 32" className="drop-shadow-md" style={{ imageRendering: 'pixelated', forcedColorAdjust: 'none', colorScheme: 'normal' }}>
+            <g>
+              {/* WHITE PIXEL OUTLINE AROUND THE ENTIRE TUXEDO CAT SILHOUETTE */}
+              {/* Outer Ear Outlines */}
+              <rect x="7" y="3" width="7" height="8" fill="#ffffff" />
+              <rect x="18" y="3" width="7" height="8" fill="#ffffff" />
+              {/* Head & Body Outlines */}
+              <rect x="6" y="7" width="20" height="13" fill="#ffffff" />
+              <rect x="7" y="18" width="18" height="11" fill="#ffffff" />
+              <rect x="4" y="20" width="24" height="9" fill="#ffffff" />
+              <rect x="9" y="26" width="14" height="4" fill="#ffffff" />
+
+              {/* BLACK TUXEDO COAT BASE */}
+              {/* Ear Left */}
+              <rect x="8" y="4" width="5" height="7" fill="#191b22" />
+              <rect x="10" y="6" width="2" height="4" fill="#f472b6" /> {/* Pink Inner Ear */}
+              {/* Ear Right */}
+              <rect x="19" y="4" width="5" height="7" fill="#191b22" />
+              <rect x="20" y="6" width="2" height="4" fill="#f472b6" /> {/* Pink Inner Ear */}
+
+              {/* Head Base */}
+              <rect x="7" y="8" width="18" height="11" fill="#191b22" />
+
+              {/* Body & Hip Cheeks Base */}
+              <rect x="8" y="18" width="16" height="10" fill="#191b22" />
+              <rect x="5" y="21" width="4" height="7" fill="#191b22" /> {/* Left Hip Cheek */}
+              <rect x="23" y="21" width="4" height="7" fill="#191b22" /> {/* Right Hip Cheek */}
+
+              {/* WHITE CHEST & BELLY STRIPE */}
+              <rect x="13" y="17" width="6" height="11" fill="#ffffff" />
+
+              {/* WHITE PAWS */}
+              <rect x="10" y="27" width="3" height="3" fill="#ffffff" />
+              <rect x="19" y="27" width="3" height="3" fill="#ffffff" />
+
+              {/* EYES & DYNAMIC GAZE TRACKING (EMERALD GREEN WITH BLACK PUPILS) */}
+              {kuroState === 'angry' ? (
+                /* Glowing Red Angry Eyes */
+                <>
+                  <rect x="9" y="12" width="5" height="4" fill="#ef4444" />
+                  <rect x="11" y="12" width="2" height="4" fill="#020617" />
+                  <rect x="18" y="12" width="5" height="4" fill="#ef4444" />
+                  <rect x="19" y="12" width="2" height="4" fill="#020617" />
+                </>
+              ) : isBlinking ? (
+                /* Closed Eye Lines */
+                <>
+                  <rect x="9" y="14" width="5" height="1" fill="#020617" />
+                  <rect x="18" y="14" width="5" height="1" fill="#020617" />
+                </>
+              ) : (
+                /* Emerald Green Eyes with Dynamic Pupil Gaze */
+                <>
+                  <rect x="9" y="12" width="5" height="5" fill="#22c55e" />
+                  <rect x="18" y="12" width="5" height="5" fill="#22c55e" />
+
+                  {/* Pupil Positions */}
+                  {kuroGaze === 'nose' ? (
+                    /* CROSS-EYED UP-GAZE LOOKING AT BUTTERFLY LANDED ON NOSE! */
+                    <>
+                      <rect x="12" y="12" width="2" height="3" fill="#020617" />
+                      <rect x="18" y="12" width="2" height="3" fill="#020617" />
+                    </>
+                  ) : kuroGaze === 'up-left' ? (
+                    /* Looking Up-Left following butterfly flying away */
+                    <>
+                      <rect x="9" y="12" width="2" height="3" fill="#020617" />
+                      <rect x="18" y="12" width="2" height="3" fill="#020617" />
+                    </>
+                  ) : kuroGaze === 'right' ? (
+                    <>
+                      <rect x="12" y="13" width="2" height="3" fill="#020617" />
+                      <rect x="21" y="13" width="2" height="3" fill="#020617" />
+                    </>
+                  ) : kuroGaze === 'left' ? (
+                    <>
+                      <rect x="9" y="13" width="2" height="3" fill="#020617" />
+                      <rect x="18" y="13" width="2" height="3" fill="#020617" />
+                    </>
+                  ) : (
+                    /* Normal Center Pupil */
+                    <>
+                      <rect x="11" y="13" width="2" height="3" fill="#020617" />
+                      <rect x="19" y="13" width="2" height="3" fill="#020617" />
+                    </>
+                  )}
+                </>
+              )}
+
+              {/* Nose & Cute Whiskers */}
+              <rect x="15" y="15" width="2" height="1" fill="#f43f5e" />
+              <rect x="5" y="15" width="3" height="1" fill="#ffffff" opacity="0.6" />
+              <rect x="24" y="15" width="3" height="1" fill="#ffffff" opacity="0.6" />
+            </g>
           </svg>
         </button>
       </div>
