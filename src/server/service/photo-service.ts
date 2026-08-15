@@ -65,21 +65,23 @@ const photoService = {
     const sortFn = isAsc ? asc : desc;
     const compFn = isAsc ? gt : lt;
 
-    const whereList = [
+    const baseWhereList = [
       eq(photoTab.status, status)
     ];
 
     if (params.favorite) {
-      whereList.push(eq(photoTab.favorite, params.favorite));
+      baseWhereList.push(eq(photoTab.favorite, params.favorite));
     }
 
     if (params.startTakenTime) {
-      whereList.push(gte(photoTab.takenTime, params.startTakenTime));
+      baseWhereList.push(gte(photoTab.takenTime, params.startTakenTime));
     }
 
     if (params.endTakenTime) {
-      whereList.push(lte(photoTab.takenTime, params.endTakenTime));
+      baseWhereList.push(lte(photoTab.takenTime, params.endTakenTime));
     }
+
+    const whereList = [...baseWhereList];
 
     // When specific photoIds are provided, skip cursor/time filters and use IN clause instead
     if (params.photoIds && params.photoIds.length > 0) {
@@ -155,11 +157,11 @@ const photoService = {
         .select({ total: count() })
         .from(photoTab)
         .innerJoin(albumPhotoTab, eq(photoTab.photoId, albumPhotoTab.photoId))
-        .where(and(...whereList, eq(albumPhotoTab.albumId, params.albumId)))
+        .where(and(...baseWhereList, eq(albumPhotoTab.albumId, params.albumId)))
       : await orm
         .select({ total: count() })
         .from(photoTab)
-        .where(and(...whereList));
+        .where(and(...baseWhereList));
 
     const totalCount = Number(totalRow?.total ?? 0);
 
