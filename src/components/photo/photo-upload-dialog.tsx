@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState, type ChangeEvent } from "react"
-import { CheckIcon, CircleAlertIcon, PlusIcon, RedoDot, SettingsIcon } from "lucide-react"
+import { CheckIcon, CircleAlertIcon, PlusIcon, RedoDot, SettingsIcon, Trash2Icon, CopyIcon, ShieldAlertIcon, CheckCircle2Icon } from "lucide-react"
 import { toast } from "sonner"
 import { sha1 } from "hash-wasm"
 
@@ -31,9 +31,9 @@ import { createPhotoCover } from "@/lib/upload-cover"
 import { compressImageFile } from "@/lib/image-compress"
 import { useStorageStore } from "@/store/storage-store"
 import { usePhotoStore } from "@/store/photo-store"
-import { photoExists } from "@/request/photo"
+import { photoExists, photoRecycle } from "@/request/photo"
 import { albumAddPhoto } from "@/request/album"
-import { type PhotoAddResultVo } from "@/server/entity/vo/photo"
+import { type PhotoAddResultVo, type PhotoVo } from "@/server/entity/vo/photo"
 import { useTranslations } from "next-intl"
 
 type UploadStatus = "new" | "waiting" | "uploading" | "success" | "failed" | "skipped"
@@ -47,13 +47,27 @@ interface UploadPreview {
   albumId?: string
 }
 
-// Calculate the size of the file to be uploaded in the browser SHA-1 Checksum。
+interface DuplicateReviewPair {
+  id: string
+  uploadPreview: UploadPreview
+  existingPhoto?: PhotoVo | null
+  uploadedPhoto?: PhotoVo | null
+  photoId?: string | null
+}
+
+// Format photo size helper
+function formatPhotoSize(size: number) {
+  if (size < 1024) return `${size}B`
+  if (size < 1024 * 1024) return `${Math.round(size / 1024)}KB`
+  return `${(size / 1024 / 1024).toFixed(1)}MB`
+}
+
+// Calculate browser SHA-1 Checksum
 async function getFileChecksum(file: File) {
   const buffer = await file.arrayBuffer()
   return sha1(new Uint8Array(buffer))
 }
 
-// Extract error message from upload interface response，XML Read first Message Label。
 function getUploadErrorMessage(xhr: XMLHttpRequest): string {
   const xml = xhr.responseXML
   if (xml) {
@@ -69,7 +83,7 @@ function getUploadErrorMessage(xhr: XMLHttpRequest): string {
       return json.message
     }
   } catch {
-    // Ignore JSON Parsing error
+    // Ignore JSON error
   }
 
   return xhr.statusText || "Upload failed"
@@ -84,10 +98,7 @@ function uploadPhotoAdd(
     const request = new XMLHttpRequest()
 
     request.upload.onprogress = (event) => {
-      if (!event.lengthComputable) {
-        return
-      }
-
+      if (!event.lengthComputable) return
       onProgress?.(Math.round((event.loaded / event.total) * 100))
     }
 
@@ -99,47 +110,50 @@ function uploadPhotoAdd(
 
       try {
         const result = JSON.parse(request.responseText)
-
         if (result.code !== 200) {
           reject(new Error(result.message || "Upload failed"))
           return
         }
-
         resolve(result.data)
       } catch (err) {
         reject(err)
       }
     }
 
-    request.onerror = () => {
-      reject(new Error("Network error"))
-    }
-
+    request.onerror = () => reject(new Error("Network error"))
     request.open("POST", "/api/photo/add")
     onAbort?.(() => request.abort())
     request.send(formData)
   })
 }
 
-// Render photo upload pop-up window。
 export function PhotoUploadDialog() {
   const t = useTranslations("photos.upload")
-  const fileInputRef = useRef<HTMLInputElement>(null) // File selection input，Used to trigger the system file selector。
-  const previewsRef = useRef<UploadPreview[]>([]) // Save photo preview and upload status list。
-  const uploadQueueRef = useRef<UploadPreview[]>([]) // Save the photo queue to be uploaded，Supports adding photos while uploading。
-  const uploadingRef = useRef(false) // Mark whether there is currently an upload task running。
-  const activeCountRef = useRef(0) // Record the number of photos currently being uploaded，Used to limit the number of concurrencies。
-  const abortMapRef = useRef<Map<string, () => void>>(new Map()) // Save the stop upload method corresponding to each photo。
-  const pausedRef = useRef(false) // Whether the tag is paused，prevent abort Restart upload at the end。
-  const uploadStorageIdRef = useRef<string | null>(null) // Storage configuration locked after start id。
-  const [uploading, setUploading] = useState(false) // Flag whether uploading is currently in progress，for switching start/pause button。
-  const [storageId, setStorageId] = useState<string | null>(null) // Current manually selected storage configuration id。
-  const [, setPreviewTick] = useState(0) // Increments when preview list changes，Used to trigger interface refresh。
-  const storages = useStorageStore((state) => state.storages) // Global optional storage configuration list。
-  const open = usePhotoStore((state) => state.uploadOpen) // Is the upload pop-up window open?。
-  const uploadAlbumId = usePhotoStore((state) => state.uploadAlbumId) // Currently uploading target album id。
-  const closeUpload = usePhotoStore((state) => state.closeUpload) // How to close the upload pop-up window。
-  const addUploadedPhoto = usePhotoStore((state) => state.addUploadedPhoto) // How to write a photo list after successful upload。
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const previewsRef = useRef<UploadPreview[]>([])
+  const uploadQueueRef = useRef<UploadPreview[]>([])
+  const uploadingRef = useRef(false)
+  const activeCountRef = useRef(0)
+  const abortMapRef = useRef<Map<string, () => void>>(new Map())
+  const pausedRef = useRef(false)
+  const uploadStorageIdRef = useRef<string | null>(null)
+
+  // Track detected duplicate pairs during upload batch
+  const detectedDuplicatesRef = useRef<DuplicateReviewPair[]>([])
+
+  const [uploading, setUploading] = useState(false)
+  const [storageId, setStorageId] = useState<string | null>(null)
+  const [, setPreviewTick] = useState(0)
+
+  // Duplicate Review Modal States
+  const [duplicatePairs, setDuplicatePairs] = useState<DuplicateReviewPair[]>([])
+  const [showDuplicateModal, setShowDuplicateModal] = useState<boolean>(false)
+
+  const storages = useStorageStore((state) => state.storages)
+  const open = usePhotoStore((state) => state.uploadOpen)
+  const uploadAlbumId = usePhotoStore((state) => state.uploadAlbumId)
+  const closeUpload = usePhotoStore((state) => state.closeUpload)
+  const addUploadedPhoto = usePhotoStore((state) => state.addUploadedPhoto)
   const selectedStorageId = storageId ?? storages[0]?.storageId ?? null
 
   useEffect(() => {
@@ -148,21 +162,19 @@ export function PhotoUploadDialog() {
     }
   }, [])
 
-  // Update the preview list and trigger an interface refresh。
   function setPreviews(next: UploadPreview[]) {
     previewsRef.current = next
     setPreviewTick((tick) => tick + 1)
   }
 
-  // Open the system file selector。
   function openFilePicker() {
     fileInputRef.current?.click()
   }
 
-  // Clear the generated preview in the pop-up window。
   function resetUpload() {
     previewsRef.current.forEach((preview) => URL.revokeObjectURL(preview.cover))
     uploadQueueRef.current = []
+    detectedDuplicatesRef.current = []
     uploadingRef.current = false
     setUploading(false)
     activeCountRef.current = 0
@@ -172,7 +184,6 @@ export function PhotoUploadDialog() {
     setPreviews([])
   }
 
-  // Close the upload pop-up window and clean up the preview cache。
   function handleOpenChange(next: boolean) {
     if (uploadingRef.current) {
       toast.warning("Uploading in progress")
@@ -185,7 +196,6 @@ export function PhotoUploadDialog() {
     }
   }
 
-  // Pause upload，Interrupt only xhr，and reset the queue/Photos being uploaded。
   function pauseUpload() {
     pausedRef.current = true
     const abortingIds = new Set(abortMapRef.current.keys())
@@ -194,10 +204,7 @@ export function PhotoUploadDialog() {
     uploadQueueRef.current = []
 
     const nextPreviews = previewsRef.current.map((preview) => {
-      if (preview.status === "waiting") {
-        return { ...preview, progress: 100, status: "new" as UploadStatus }
-      }
-      if (preview.status === "uploading" && abortingIds.has(preview.id)) {
+      if (preview.status === "waiting" || (preview.status === "uploading" && abortingIds.has(preview.id))) {
         return { ...preview, progress: 100, status: "new" as UploadStatus }
       }
       return preview
@@ -208,19 +215,16 @@ export function PhotoUploadDialog() {
     setUploading(false)
   }
 
-  // Read files in batches when selecting files, Generate temporary local object preview URL。
   async function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
     const files = Array.from(event.target.files ?? [])
-    if (!files.length) {
-      return
-    }
+    if (!files.length) return
 
     const nextPreviews = [...previewsRef.current]
 
     for (const file of files) {
       const cover = await createPhotoCover(file)
       nextPreviews.push({
-        id: `${file.name}-${file.size}-${file.lastModified}`,
+        id: `${file.name}-${file.size}-${file.lastModified}-${Math.random()}`,
         file,
         cover,
         status: "new",
@@ -230,10 +234,7 @@ export function PhotoUploadDialog() {
     }
 
     setPreviews(nextPreviews)
-
-    if (fileInputRef.current) {
-      fileInputRef.current.value = ""
-    }
+    if (fileInputRef.current) fileInputRef.current.value = ""
 
     if (uploadingRef.current) {
       const newItems = nextPreviews.filter((p) => p.status === "new")
@@ -248,15 +249,12 @@ export function PhotoUploadDialog() {
     }
   }
 
-  // Add currently eligible photos to the upload queue。
   function enqueueUploadItems() {
     const uploadList = previewsRef.current.filter((preview) => (
       preview.status === "new" || preview.status === "failed"
     ))
 
-    if (!uploadList.length) {
-      return 0
-    }
+    if (!uploadList.length) return 0
 
     const uploadIds = new Set(uploadList.map((preview) => preview.id))
     uploadStorageIdRef.current = selectedStorageId
@@ -271,7 +269,6 @@ export function PhotoUploadDialog() {
     return uploadList.length
   }
 
-  // Upload a single photo，And press the result to refresh the current photo status。
   async function uploadPhoto(preview: UploadPreview) {
     const currentStorageId = uploadStorageIdRef.current!
 
@@ -285,7 +282,6 @@ export function PhotoUploadDialog() {
       const uploadSettings = readPhotoUploadSettings()
       let fileToUpload = item.file
 
-      // Compress large images client-side if enabled in upload settings
       if (uploadSettings.compressImage) {
         fileToUpload = await compressImageFile(item.file, {
           maxDimension: 3840,
@@ -300,11 +296,15 @@ export function PhotoUploadDialog() {
         if (item.albumId && (existsResult as any).photoId) {
           await albumAddPhoto({ albumIds: [item.albumId], photoIds: [(existsResult as any).photoId] })
           toast.success("Foto sudah ada di galeri, otomatis ditautkan ke album!")
-          setPreviews(previewsRef.current.map((p) => (
-            p.id === item.id ? { ...p, progress: 100, status: "success" } : p
-          )))
-          return
         }
+
+        // Record duplicate pair for end-of-upload review modal
+        detectedDuplicatesRef.current.push({
+          id: item.id,
+          uploadPreview: item,
+          existingPhoto: (existsResult as any).photo ?? null,
+          photoId: (existsResult as any).photoId ?? null,
+        })
 
         setPreviews(previewsRef.current.map((p) => (
           p.id === item.id ? { ...p, progress: 100, status: "skipped" } : p
@@ -337,12 +337,16 @@ export function PhotoUploadDialog() {
       if (result.duplicate) {
         if (result.photo && item.albumId) {
           addUploadedPhoto(result.photo, item.albumId)
-          toast.success("Foto sudah ada di galeri, otomatis ditautkan ke album!")
-          setPreviews(previewsRef.current.map((p) => (
-            p.id === item.id ? { ...p, progress: 100, status: "success" } : p
-          )))
-          return
         }
+
+        // Record duplicate pair for end-of-upload review modal
+        detectedDuplicatesRef.current.push({
+          id: item.id,
+          uploadPreview: item,
+          existingPhoto: result.photo ?? null,
+          uploadedPhoto: result.photo ?? null,
+          photoId: result.photo?.photoId ?? null,
+        })
 
         setPreviews(previewsRef.current.map((p) => (
           p.id === item.id ? { ...p, progress: 100, status: "skipped" } : p
@@ -359,14 +363,9 @@ export function PhotoUploadDialog() {
       )))
 
     } catch (error) {
-
-      if (error instanceof DOMException && error.name === "AbortError") {
-        return
-      }
-
+      if (error instanceof DOMException && error.name === "AbortError") return
       if (error instanceof Error) {
         toast.error(error.message)
-        console.error(error.message)
       }
 
       if (readPhotoUploadSettings().retryOnFail) {
@@ -385,15 +384,20 @@ export function PhotoUploadDialog() {
     }
   }
 
-  // After each request is completed, the next one will be added immediately.，The number of concurrencies is determined by the upload settings。
   function runNext() {
-    if (pausedRef.current) {
-      return
-    }
+    if (pausedRef.current) return
 
     if (!uploadQueueRef.current.length && activeCountRef.current === 0) {
       uploadingRef.current = false
       setUploading(false)
+
+      // Open Duplicate Review Dialog if duplicates were detected during batch upload
+      if (detectedDuplicatesRef.current.length > 0) {
+        const dups = [...detectedDuplicatesRef.current]
+        setDuplicatePairs(dups)
+        setShowDuplicateModal(true)
+        toast.warning(`Terdeteksi ${dups.length} foto duplikat. Silakan tentukan tindakan di bawah!`)
+      }
       return
     }
 
@@ -403,10 +407,7 @@ export function PhotoUploadDialog() {
 
     while (activeCountRef.current < concurrency && uploadQueueRef.current.length) {
       const preview = uploadQueueRef.current.shift()
-
-      if (!preview) {
-        continue
-      }
+      if (!preview) continue
 
       activeCountRef.current += 1
       uploadPhoto(preview).finally(() => {
@@ -416,7 +417,6 @@ export function PhotoUploadDialog() {
     }
   }
 
-  // Upload photos to be processed in the pop-up window，Notify parent page after success。
   function startUpload() {
     if (process.env.NEXT_PUBLIC_DEMO_USERNAME && previewsRef.current.length > 0) {
       toast.error("The application is running in read-only mode.")
@@ -430,127 +430,296 @@ export function PhotoUploadDialog() {
 
     pausedRef.current = false
     uploadStorageIdRef.current = selectedStorageId
+    detectedDuplicatesRef.current = []
     const count = enqueueUploadItems()
 
-    if (!count && uploadingRef.current) {
-      return
-    }
-
+    if (!count && uploadingRef.current) return
     runNext()
   }
 
-  // Toggle start or pause upload。
   function handleUploadAction() {
     if (uploading) {
       pauseUpload()
       return
     }
-
     startUpload()
   }
 
+  // Duplicate Review Decision Handlers
+  const handleKeepPair = (pairId: string) => {
+    setDuplicatePairs((prev) => prev.filter((p) => p.id !== pairId))
+    toast.success("Foto duplikat dibiarkan tetap ada di galeri.")
+  }
+
+  const handleDeleteNewDuplicatePair = async (pair: DuplicateReviewPair) => {
+    try {
+      const pId = pair.photoId || pair.uploadedPhoto?.photoId
+      if (pId) {
+        await photoRecycle({ photoIds: [pId] })
+      }
+      setDuplicatePairs((prev) => prev.filter((p) => p.id !== pair.id))
+      toast.success("Foto duplikat baru berhasil dipindahkan ke Tong Sampah.")
+    } catch (err: any) {
+      toast.error("Gagal menghapus foto duplikat.")
+    }
+  }
+
+  const handleKeepAllDuplicates = () => {
+    setDuplicatePairs([])
+    setShowDuplicateModal(false)
+    toast.success("Semua foto duplikat dibiarkan tetap ada.")
+  }
+
+  const handleDeleteAllDuplicates = async () => {
+    try {
+      const photoIdsToDelete = duplicatePairs
+        .map((p) => p.photoId || p.uploadedPhoto?.photoId)
+        .filter((id): id is string => Boolean(id))
+
+      if (photoIdsToDelete.length > 0) {
+        await photoRecycle({ photoIds: photoIdsToDelete })
+      }
+      setDuplicatePairs([])
+      setShowDuplicateModal(false)
+      toast.success(`Berhasil menghapus ${photoIdsToDelete.length} foto duplikat baru!`)
+    } catch (err: any) {
+      toast.error("Gagal menghapus foto duplikat massal.")
+    }
+  }
+
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="grid h-[80vh] max-h-[720px] min-h-0 grid-rows-[auto_minmax(0,1fr)_auto] sm:max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>{t("title")}</DialogTitle>
-          <DialogDescription className="sr-only">
-            Select photos to upload to the current photo list.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="min-h-0 overflow-y-auto [scrollbar-width:thin]">
-          <div className="grid grid-cols-3 content-start gap-1 md:grid-cols-4">
-            {previewsRef.current.map((preview) => (
-              <div key={preview.id} className="relative aspect-square w-full overflow-hidden bg-muted [contain-intrinsic-size:160px_160px] [content-visibility:auto]">
-                <img
-                  src={preview.cover}
-                  alt={preview.file.name}
-                  decoding="async"
-                  loading="lazy"
-                  className="h-full w-full object-cover"
-                />
-                {preview.progress < 100 && (
-                  <div
-                    className="pointer-events-none absolute inset-x-0 bottom-0 bg-black/60 transition-[height] duration-200"
-                    style={{ height: `${100 - preview.progress}%` }}
+    <>
+      <Dialog open={open} onOpenChange={handleOpenChange}>
+        <DialogContent className="grid h-[80vh] max-h-[720px] min-h-0 grid-rows-[auto_minmax(0,1fr)_auto] sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{t("title")}</DialogTitle>
+            <DialogDescription className="sr-only">
+              Select photos to upload to the current photo list.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="min-h-0 overflow-y-auto [scrollbar-width:thin]">
+            <div className="grid grid-cols-3 content-start gap-1 md:grid-cols-4">
+              {previewsRef.current.map((preview) => (
+                <div key={preview.id} className="relative aspect-square w-full overflow-hidden bg-muted [contain-intrinsic-size:160px_160px] [content-visibility:auto]">
+                  <img
+                    src={preview.cover}
+                    alt={preview.file.name}
+                    decoding="async"
+                    loading="lazy"
+                    className="h-full w-full object-cover"
                   />
-                )}
-                {preview.status === "success" && (
-                  <div className="absolute right-1 bottom-1 flex size-5 items-center justify-center rounded-full bg-black/60 text-white">
-                    <CheckIcon className="size-3.5" />
-                  </div>
-                )}
-                {preview.status === "failed" && (
-                  <div className="absolute right-1 bottom-1 flex size-5 items-center justify-center rounded-full bg-black/60 text-white">
-                    <CircleAlertIcon className="size-3.5" />
-                  </div>
-                )}
-                {preview.status === "skipped" && (
-                  <div className="absolute right-1 bottom-1 flex size-5 items-center justify-center rounded-full bg-black/60 text-white">
-                    <RedoDot className="size-3.5" />
-                  </div>
-                )}
-              </div>
-            ))}
-            <button
-              type="button"
-              className="flex aspect-square w-full items-center justify-center bg-muted text-muted-foreground hover:bg-muted/80"
-              onClick={openFilePicker}
-            >
-              <PlusIcon />
-              <span className="sr-only">Add photos</span>
-            </button>
+                  {preview.progress < 100 && (
+                    <div
+                      className="pointer-events-none absolute inset-x-0 bottom-0 bg-black/60 transition-[height] duration-200"
+                      style={{ height: `${100 - preview.progress}%` }}
+                    />
+                  )}
+                  {preview.status === "success" && (
+                    <div className="absolute right-1 bottom-1 flex size-5 items-center justify-center rounded-full bg-black/60 text-white">
+                      <CheckIcon className="size-3.5" />
+                    </div>
+                  )}
+                  {preview.status === "failed" && (
+                    <div className="absolute right-1 bottom-1 flex size-5 items-center justify-center rounded-full bg-black/60 text-white">
+                      <CircleAlertIcon className="size-3.5" />
+                    </div>
+                  )}
+                  {preview.status === "skipped" && (
+                    <div className="absolute right-1 bottom-1 flex size-5 items-center justify-center rounded-full bg-amber-500/90 text-white" title="Foto duplikat terdeteksi">
+                      <CopyIcon className="size-3.5" />
+                    </div>
+                  )}
+                </div>
+              ))}
+              <button
+                type="button"
+                className="flex aspect-square w-full items-center justify-center bg-muted text-muted-foreground hover:bg-muted/80"
+                onClick={openFilePicker}
+              >
+                <PlusIcon />
+                <span className="sr-only">Add photos</span>
+              </button>
+            </div>
           </div>
-        </div>
-        <DialogFooter className="flex-row items-center justify-between gap-3 sm:justify-between">
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            multiple
-            className="hidden"
-            onChange={handleFileChange}
-          />
-          <div className="flex items-center gap-2">
-            <Select
-              value={selectedStorageId ?? undefined}
-              onValueChange={setStorageId}
-              disabled={uploading}
-            >
-              <SelectTrigger className="w-40">
-                <SelectValue placeholder={t("selectStorage")} />
-              </SelectTrigger>
-              <SelectContent>
-                {storages.map((storage) => (
-                  <SelectItem key={storage.storageId} value={storage.storageId}>
-                    {storage.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button type="button" variant="ghost" size="icon" aria-label="Upload settings">
-                  <SettingsIcon className="size-4" />
+
+          <DialogFooter className="flex-row items-center justify-between gap-3 sm:justify-between">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              multiple
+              className="hidden"
+              onChange={handleFileChange}
+            />
+            <div className="flex items-center gap-2">
+              <Select
+                value={selectedStorageId ?? undefined}
+                onValueChange={setStorageId}
+                disabled={uploading}
+              >
+                <SelectTrigger className="w-40">
+                  <SelectValue placeholder={t("selectStorage")} />
+                </SelectTrigger>
+                <SelectContent>
+                  {storages.map((storage) => (
+                    <SelectItem key={storage.storageId} value={storage.storageId}>
+                      {storage.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button type="button" variant="ghost" size="icon" aria-label="Upload settings">
+                    <SettingsIcon className="size-4" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent side="top" align="start" className="w-64">
+                  <PhotoUploadSettings onChange={runNext} />
+                </PopoverContent>
+              </Popover>
+            </div>
+            <div className="flex items-center gap-2">
+              {!uploading && (
+                <Button type="button" variant="secondary" onClick={resetUpload}>
+                  {t("clear")}
                 </Button>
-              </PopoverTrigger>
-              <PopoverContent side="top" align="start" className="w-64">
-                <PhotoUploadSettings onChange={runNext} />
-              </PopoverContent>
-            </Popover>
-          </div>
-          <div className="flex items-center gap-2">
-            {!uploading && (
-              <Button type="button" variant="secondary" onClick={resetUpload}>
-                {t("clear")}
+              )}
+              <Button type="button" onClick={handleUploadAction}>
+                {uploading ? t("pause") : t("start")}
               </Button>
-            )}
-            <Button type="button" onClick={handleUploadAction}>
-              {uploading ? t("pause") : t("start")}
-            </Button>
-          </div>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+            </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* =================================================== */}
+      {/* DUPLICATE PHOTOS REVIEW DIALOG (ADMIN DECISION MODAL) */}
+      {/* =================================================== */}
+      {showDuplicateModal && (
+        <Dialog open={showDuplicateModal} onOpenChange={setShowDuplicateModal}>
+          <DialogContent className="max-w-3xl max-h-[85vh] flex flex-col p-6">
+            <DialogHeader>
+              <div className="flex items-center gap-2 text-amber-500">
+                <ShieldAlertIcon className="size-6" />
+                <DialogTitle className="text-xl font-bold">Peringatan Foto Duplikat Terdeteksi</DialogTitle>
+              </div>
+              <DialogDescription className="text-sm text-muted-foreground mt-1">
+                Terdapat <span className="font-semibold text-foreground">{duplicatePairs.length} foto</span> yang terdeteksi duplikat selama proses upload. Silakan tentukan keputusan Admin untuk membiarkan atau menghapusnya.
+              </DialogDescription>
+            </DialogHeader>
+
+            {/* Batch Decision Bar */}
+            <div className="flex flex-wrap items-center justify-between gap-2 p-3 bg-muted/50 rounded-xl border border-border/80 my-2">
+              <span className="text-xs font-medium text-muted-foreground">Tindakan Massal Admin:</span>
+              <div className="flex items-center gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="gap-1.5 text-xs cursor-pointer border-amber-500/40 text-amber-600 dark:text-amber-400 hover:bg-amber-500/10"
+                  onClick={handleKeepAllDuplicates}
+                >
+                  <CheckCircle2Icon className="size-3.5" />
+                  <span>Biarkan Semua Duplikat</span>
+                </Button>
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  className="gap-1.5 text-xs cursor-pointer"
+                  onClick={handleDeleteAllDuplicates}
+                >
+                  <Trash2Icon className="size-3.5" />
+                  <span>Hapus Semua Foto Baru Duplikat</span>
+                </Button>
+              </div>
+            </div>
+
+            {/* Side-by-Side Comparison List */}
+            <div className="flex-1 overflow-y-auto space-y-4 pr-1 my-2 max-h-[50vh]">
+              {duplicatePairs.map((pair, idx) => (
+                <div key={pair.id} className="p-4 rounded-2xl border bg-card/60 shadow-sm space-y-3">
+                  <div className="flex items-center justify-between border-b pb-2">
+                    <span className="text-xs font-semibold text-amber-500 flex items-center gap-1.5">
+                      <CopyIcon className="size-3.5" />
+                      <span>Pasangan Duplikat #{idx + 1}</span>
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 text-xs gap-1 text-muted-foreground hover:text-foreground"
+                        onClick={() => handleKeepPair(pair.id)}
+                      >
+                        <CheckIcon className="size-3.5" />
+                        <span>Biarkan</span>
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        className="h-7 text-xs gap-1"
+                        onClick={() => handleDeleteNewDuplicatePair(pair)}
+                      >
+                        <Trash2Icon className="size-3.5" />
+                        <span>Hapus Duplikat Baru</span>
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* Uploaded New Photo Card */}
+                    <div className="p-3 rounded-xl bg-amber-500/5 border border-amber-500/20 flex gap-3 items-center">
+                      <img
+                        src={pair.uploadPreview.cover}
+                        alt="Foto Baru"
+                        className="size-16 object-cover rounded-lg shrink-0 border"
+                      />
+                      <div className="min-w-0 text-xs space-y-1">
+                        <div className="inline-block px-2 py-0.5 rounded bg-amber-500/20 text-amber-600 dark:text-amber-300 font-semibold text-[10px]">
+                          FOTO BARU (DIUPLOAD)
+                        </div>
+                        <div className="font-semibold truncate text-foreground">{pair.uploadPreview.file.name}</div>
+                        <div className="text-muted-foreground">Ukuran: {formatPhotoSize(pair.uploadPreview.file.size)}</div>
+                      </div>
+                    </div>
+
+                    {/* Existing Photo in Gallery Card */}
+                    <div className="p-3 rounded-xl bg-muted/40 border flex gap-3 items-center">
+                      {pair.existingPhoto?.thumbnail || pair.existingPhoto?.preview ? (
+                        <img
+                          src={pair.existingPhoto.thumbnail || pair.existingPhoto.preview}
+                          alt="Foto di Galeri"
+                          className="size-16 object-cover rounded-lg shrink-0 border"
+                          crossOrigin="anonymous"
+                        />
+                      ) : (
+                        <div className="size-16 rounded-lg bg-muted flex items-center justify-center text-[10px] text-muted-foreground shrink-0 border">
+                          Galeri
+                        </div>
+                      )}
+                      <div className="min-w-0 text-xs space-y-1">
+                        <div className="inline-block px-2 py-0.5 rounded bg-muted text-muted-foreground font-semibold text-[10px]">
+                          FOTO DI GALERI (EKSISTING)
+                        </div>
+                        <div className="font-semibold truncate text-foreground">{pair.existingPhoto?.name || pair.uploadPreview.file.name}</div>
+                        <div className="text-muted-foreground">
+                          {pair.existingPhoto ? `${pair.existingPhoto.width} × ${pair.existingPhoto.height} • ${formatPhotoSize(pair.existingPhoto.size)}` : 'Sudah tersimpan di galeri'}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <DialogFooter className="mt-2">
+              <Button type="button" onClick={() => setShowDuplicateModal(false)}>
+                Selesai Peninjauan
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+    </>
   )
 }
