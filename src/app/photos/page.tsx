@@ -198,9 +198,8 @@ export default function Page() {
     if (!albumIds.length || !albumPhotoIds.length) return
     albumAddPhoto({ albumIds, photoIds: albumPhotoIds })
       .then(() => {
-        toast.success("Album foto berhasil diperbarui!")
+        toast.success("Foto berhasil ditambahkan ke album!")
         void refreshAlbums()
-        refreshPhotoList()
       })
       .catch((err) => {
         console.error("Failed to add photos to album:", err)
