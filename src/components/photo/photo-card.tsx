@@ -1,7 +1,7 @@
 "use client"
 
 import { useMemo, useState, type MouseEvent } from "react"
-import { HeartIcon } from "lucide-react"
+import { HeartIcon, FolderIcon } from "lucide-react"
 import { type RenderComponentProps } from "masonic"
 import { useIsMobile } from "@/hooks/use-mobile"
 import { Button } from "@/components/ui/button"
@@ -239,6 +239,20 @@ export function PhotoCard({
       {!selectionActive && (
         <div className="pointer-events-none absolute inset-x-0 bottom-0 p-2.5 pr-11 pb-2.5 text-white">
           <div className="**:duration-300">
+            {data.albums && data.albums.length > 0 && (
+              <div className={["mb-1.5 flex flex-wrap items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-300", showHover ? "opacity-100" : ""].join(" ")}>
+                {data.albums.map((album) => (
+                  <span
+                    key={album.albumId}
+                    className="inline-flex items-center gap-1 rounded-full bg-black/60 text-amber-300 backdrop-blur-md px-2 py-0.5 text-[11px] font-medium border border-amber-400/35 shadow-sm truncate max-w-[170px]"
+                    title={`Album: ${album.name}`}
+                  >
+                    <FolderIcon className="size-3 text-amber-400 shrink-0 fill-amber-400/20" />
+                    <span className="truncate">{album.name}</span>
+                  </span>
+                ))}
+              </div>
+            )}
             <h3 className={["mb-1 truncate text-sm font-medium opacity-0 group-hover:opacity-100", showHover ? "opacity-100" : ""].join(" ")}>
               {formatPhotoName(data.name)}
             </h3>
