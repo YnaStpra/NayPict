@@ -211,9 +211,15 @@ export default function Page() {
         setPhotos((prevPhotos: any[]) =>
           prevPhotos.map((photo: any) => {
             if (albumPhotoIds.includes(photo.photoId)) {
+              const existingAlbums = photo.albums ?? []
+              const combinedMap = new Map<string, { albumId: string; name: string }>()
+
+              existingAlbums.forEach((a: any) => combinedMap.set(a.albumId, a))
+              selectedAlbumObjs.forEach((a: any) => combinedMap.set(a.albumId, a))
+
               return {
                 ...photo,
-                albums: selectedAlbumObjs,
+                albums: Array.from(combinedMap.values()),
               }
             }
             return photo
