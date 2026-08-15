@@ -266,24 +266,19 @@ export default function Page() {
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <div className="relative group flex items-center justify-center">
-                      {/* Neon Pulsing Backdrop Halo */}
-                      <span className="absolute -inset-0.5 rounded-lg bg-gradient-to-r from-pink-500 via-purple-500 to-cyan-500 opacity-80 blur-[3px] animate-pulse group-hover:opacity-100 transition duration-300 animate-neon-flicker" />
-
-                      <Button
-                        type="button"
-                        size="icon"
-                        variant="ghost"
-                        className="relative size-8 rounded-lg bg-black/85 hover:bg-black/95 text-white border border-pink-500/60 transition-all duration-300 hover:scale-105 active:scale-95 animate-neon-glow"
-                        onClick={() => setViewMode((prev) => (prev === "masonry" ? "infinite" : "masonry"))}
-                      >
-                        {viewMode === "infinite" ? (
-                          <LayoutGrid className="size-4 text-cyan-300 drop-shadow-[0_0_8px_rgba(34,211,238,0.9)] animate-neon-flicker" />
-                        ) : (
-                          <Sparkles className="size-4 text-pink-400 drop-shadow-[0_0_8px_rgba(244,114,182,0.95)] animate-neon-flicker" />
-                        )}
-                      </Button>
-                    </div>
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="ghost"
+                      className="size-8 p-0 rounded-full hover:bg-muted/60 transition-all duration-200 hover:scale-110 active:scale-95"
+                      onClick={() => setViewMode((prev) => (prev === "masonry" ? "infinite" : "masonry"))}
+                    >
+                      {viewMode === "infinite" ? (
+                        <LayoutGrid className="size-4.5 text-cyan-400 drop-shadow-[0_0_4px_rgba(34,211,238,0.8)] animate-pulse" />
+                      ) : (
+                        <Sparkles className="size-4.5 text-amber-400 dark:text-amber-300 drop-shadow-[0_0_4px_rgba(251,191,36,0.85)] animate-pulse" />
+                      )}
+                    </Button>
                   </TooltipTrigger>
                   <TooltipContent side="bottom">
                     {viewMode === "infinite" ? "Switch to Masonry Grid View" : "Switch to Infinite Canvas View"}
