@@ -8,6 +8,12 @@ import BizError from '@/server/error/biz-error';
 import { cache } from '@/server/infra/cache';
 import { orm } from '@/server/infra/db';
 import { createId } from '@/server/lib/id';
+import { type Storage } from '@/server/entity/storage';
+import { type File as PhotoFile } from '@/server/entity/file';
+import { fileService } from '@/server/service/file-service';
+import { storageService } from '@/server/service/storage-service';
+import { formatHttpUrl, toMediaUrl } from '@/lib/url';
+import { FileTypeEnum } from '@/server/enums/file-enum';
 
 // This module handles business logic and storage operations for photo comments and admin replies.
 
@@ -104,6 +110,7 @@ const commentService = {
           photoName: photoTab.name,
           thumbHash: photoTab.thumbHash,
           typeDesc: photoTab.typeDesc,
+          storageId: photoTab.storageId,
         })
         .from(commentTab)
         .leftJoin(photoTab, eq(commentTab.photoId, photoTab.photoId))
@@ -112,19 +119,35 @@ const commentService = {
         .limit(size)
         .offset(offset);
 
+      const photoIds = Array.from(new Set(rows.map((r) => r.photoId).filter(Boolean)));
+      const [fileMap, storageList] = await Promise.all([
+        fileService.listByPhotoIds(photoIds),
+        storageService.getStorageList(),
+      ]);
+
       return {
-        list: rows.map((r) => ({
-          commentId: r.commentId,
-          photoId: r.photoId,
-          photoName: r.photoName || undefined,
-          thumbHash: r.thumbHash,
-          typeDesc: r.typeDesc || 'jpg',
-          name: r.name,
-          content: r.content,
-          replyContent: r.replyContent,
-          replyTime: r.replyTime,
-          createTime: r.createTime,
-        })),
+        list: rows.map((r) => {
+          const files = fileMap.get(r.photoId) ?? [];
+          const fileStorage = storageList.find((s: Storage) => s.storageId === r.storageId);
+          const domain = formatHttpUrl(fileStorage?.domain);
+          const previewKey = files.find((f: PhotoFile) => f.type === FileTypeEnum.PREVIEW)?.key;
+          const thumbKey = files.find((f: PhotoFile) => f.type === FileTypeEnum.THUMBNAIL)?.key ?? previewKey;
+
+          return {
+            commentId: r.commentId,
+            photoId: r.photoId,
+            photoName: r.photoName || undefined,
+            photoThumbnail: thumbKey ? toMediaUrl(thumbKey, domain) ?? undefined : undefined,
+            photoPreview: previewKey ? toMediaUrl(previewKey, domain) ?? undefined : undefined,
+            thumbHash: r.thumbHash,
+            typeDesc: r.typeDesc || 'jpg',
+            name: r.name,
+            content: r.content,
+            replyContent: r.replyContent,
+            replyTime: r.replyTime,
+            createTime: r.createTime,
+          };
+        }),
         total,
       };
     } catch (err) {
