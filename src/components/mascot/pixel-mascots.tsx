@@ -19,20 +19,6 @@ const KURO_MESSAGES_GENERAL = [
   "Purrrr... Click Kuro anytime for random fun! ✨",
 ]
 
-const KURO_MESSAGES_LANDING = [
-  "Meow! Welcome to NayPict! Explore the gallery or browse albums! 📸",
-  "Purrr... Kuro is chilling right on top of the hero card! ✨",
-  "Meow! Click any button below to get started! 🚀",
-  "Purrrr... Kuro loves this infinite floating canvas! 🎨",
-]
-
-const KURO_MESSAGES_PREVIEW = [
-  "Purrr... Kuro loves watching this photo preview with you! 📸",
-  "Meow! What a gorgeous photo! ✨",
-  "Purrrr... Kuro is sitting right under your photo ~ 🐱",
-  "Nom nom... Kuro brought a fish to eat while viewing photos! 🐟",
-]
-
 const KURO_MESSAGES_ANNOYED = [
   "Hmph! Stop poking Kuro so fast! 😼💢",
   "Meow! Kuro is getting dizzy from all this clicking! 😵",
@@ -73,21 +59,24 @@ export function PixelMascots() {
   const pathname = usePathname()
   const isLandingPage = pathname === '/'
   const [isLightboxOpen, setIsLightboxOpen] = useState<boolean>(false)
+  const [isInfiniteGallery, setIsInfiniteGallery] = useState<boolean>(false)
+  const [isFullscreenOrCinematic, setIsFullscreenOrCinematic] = useState<boolean>(false)
 
   // Kuro State
   const [kuroState, setKuroState] = useState<CatState>('idle')
-  const [kuroX, setKuroX] = useState<number>(0)
-  const [kuroFacing, setKuroFacing] = useState<FacingDirection>('right')
+  const [kuroX, setKuroX] = useState<number>(() => {
+    if (typeof window === 'undefined') return 100
+    return Math.min(120, window.innerWidth / 2 - 40)
+  })
   const [kuroBubble, setKuroBubble] = useState<string | null>(null)
   const [kuroJumping, setKuroJumping] = useState<boolean>(false)
   const [isBlinking, setIsBlinking] = useState<boolean>(false)
-  const [kuroGaze, setKuroGaze] = useState<GazeDirection>('center')
 
   const [animFrame, setAnimFrame] = useState<number>(0)
 
   // Position Refs for Independent Movement Loop
-  const kuroXRef = useRef<number>(0)
-  const kuroTargetXRef = useRef<number>(0)
+  const kuroXRef = useRef<number>(100)
+  const kuroTargetXRef = useRef<number>(100)
 
   const animFrameIdRef = useRef<number | null>(null)
   const kuroTimerRef = useRef<NodeJS.Timeout | null>(null)
@@ -97,24 +86,19 @@ export function PixelMascots() {
   const lastClickTimeRef = useRef<number>(0)
   const coolDownTimerRef = useRef<NodeJS.Timeout | null>(null)
 
-  // Dynamic Gaze Direction Engine: Tracks nearby objects & wandering gaze
-  useEffect(() => {
-    if (kuroState === 'butterfly') {
-      setKuroGaze('up')
-    } else if (kuroState === 'flower') {
-      setKuroGaze('left')
-    } else if (kuroState === 'fish' || kuroState === 'yarn') {
-      setKuroGaze('right')
-    } else if (kuroState === 'groom') {
-      setKuroGaze('down')
-    } else if (kuroState === 'box') {
-      setKuroGaze(animFrame === 0 ? 'left' : 'right')
-    } else if (kuroState.startsWith('walk') || kuroState.startsWith('run')) {
-      setKuroGaze('right')
-    } else {
-      const dirs: GazeDirection[] = ['center', 'up', 'down', 'left', 'right']
-      setKuroGaze(dirs[Math.floor(Math.random() * dirs.length)])
-    }
+  // Derive facing direction directly from kuroState
+  const kuroFacing: FacingDirection =
+    kuroState === 'walk-left' || kuroState === 'run-left' ? 'left' : 'right'
+
+  // Derive gaze direction directly from kuroState and animFrame
+  const kuroGaze: GazeDirection = React.useMemo(() => {
+    if (kuroState === 'butterfly') return 'up'
+    if (kuroState === 'flower') return 'left'
+    if (kuroState === 'fish' || kuroState === 'yarn') return 'right'
+    if (kuroState === 'groom') return 'down'
+    if (kuroState === 'box') return animFrame === 0 ? 'left' : 'right'
+    if (kuroState.startsWith('walk') || kuroState.startsWith('run')) return 'right'
+    return 'center'
   }, [kuroState, animFrame])
 
   // Eye blinking animation timer
@@ -126,61 +110,40 @@ export function PixelMascots() {
     return () => clearInterval(blinkInterval)
   }, [])
 
-  // Track directional facing for Kuro
+  // Detect Lightbox Photo Viewer, Infinite Gallery, and Fullscreen/Cinematic modes
   useEffect(() => {
-    if (kuroState === 'walk-left' || kuroState === 'run-left') {
-      setKuroFacing('left')
-    } else if (kuroState === 'walk-right' || kuroState === 'run-right') {
-      setKuroFacing('right')
-    }
-  }, [kuroState])
+    const checkVisibility = () => {
+      const portal = Boolean(document.querySelector('.yarl__portal, .yarl__root, [data-photo-viewer="true"]'))
+      const infiniteEl = Boolean(document.querySelector('[data-infinite-gallery="true"], .infinite-gallery-container'))
+      const fullscreenEl = Boolean(
+        document.fullscreenElement ||
+        document.querySelector('.yarl__fullscreen, [data-cinematic="true"], .cinematic-mode, .cinematic-view')
+      )
 
-  // Detect Lightbox Photo Viewer
-  useEffect(() => {
-    const checkLightbox = () => {
-      const portal = document.querySelector('.yarl__portal')
-      setIsLightboxOpen(!!portal)
+      setIsLightboxOpen(portal)
+      setIsInfiniteGallery(infiniteEl)
+      setIsFullscreenOrCinematic(fullscreenEl)
     }
 
-    checkLightbox()
-    const observer = new MutationObserver(checkLightbox)
-    observer.observe(document.body, { childList: true, subtree: true })
-    return () => observer.disconnect()
+    checkVisibility()
+    const observer = new MutationObserver(checkVisibility)
+    observer.observe(document.body, { childList: true, subtree: true, attributes: true })
+    document.addEventListener('fullscreenchange', checkVisibility)
+
+    return () => {
+      observer.disconnect()
+      document.removeEventListener('fullscreenchange', checkVisibility)
+    }
   }, [])
 
-  // Calculate territory bounds for current mode, fully responsive for mobile phones
+  // Calculate territory bounds for standard page view
   const getBounds = useCallback(() => {
     const screenWidth = typeof window !== 'undefined' ? window.innerWidth : 800
     const isMobile = screenWidth < 640
-
-    if (isLightboxOpen) {
-      return { minX: isMobile ? -100 : -140, maxX: isMobile ? 100 : 140, isRelative: true }
-    }
-    if (isLandingPage) {
-      return { minX: isMobile ? -90 : -130, maxX: isMobile ? 90 : 130, isRelative: true }
-    }
     const minX = isMobile ? 40 : 100
     const maxX = Math.max(minX + 60, screenWidth - (isMobile ? 60 : 120))
     return { minX, maxX, isRelative: false }
-  }, [isLightboxOpen, isLandingPage])
-
-  // Spawn location on web load
-  useEffect(() => {
-    const { minX, maxX, isRelative } = getBounds()
-    const screenWidth = typeof window !== 'undefined' ? window.innerWidth : 800
-    const isMobile = screenWidth < 640
-
-    if (isRelative) {
-      kuroXRef.current = 0
-      kuroTargetXRef.current = 0
-      setKuroX(0)
-    } else {
-      const startKuro = Math.min(Math.max(minX, isMobile ? 50 : 120), screenWidth / 2 - 40)
-      kuroXRef.current = startKuro
-      kuroTargetXRef.current = startKuro
-      setKuroX(startKuro)
-    }
-  }, [isLightboxOpen, isLandingPage, getBounds])
+  }, [])
 
   // Animation leg/arm frame switcher
   useEffect(() => {
@@ -281,10 +244,7 @@ export function PixelMascots() {
     } else {
       // Level 1: HAPPY / KEGIRANGAN!
       setKuroState('happy')
-      let pool = KURO_MESSAGES_GENERAL
-      if (isLightboxOpen) pool = KURO_MESSAGES_PREVIEW
-      else if (isLandingPage) pool = KURO_MESSAGES_LANDING
-
+      const pool = KURO_MESSAGES_GENERAL
       setKuroBubble(pool[Math.floor(Math.random() * pool.length)])
 
       kuroTimerRef.current = setTimeout(() => {
@@ -293,72 +253,30 @@ export function PixelMascots() {
         setKuroState('idle')
       }, 4000)
     }
-  }, [isLightboxOpen, isLandingPage])
+  }, [])
 
-  // Container styling configuration
+  // Container styling configuration for standard pages
   const getContainerStyle = (x: number): { className: string; style: React.CSSProperties } => {
-    const screenWidth = typeof window !== 'undefined' ? window.innerWidth : 800
-    const isMobile = screenWidth < 640
-    const finalX = x
-
-    if (isLightboxOpen) {
-      return {
-        className: 'fixed bottom-0 md:bottom-1 left-1/2 z-[10000000] flex flex-col items-center select-none pointer-events-auto touch-manipulation',
-        style: { transform: `translateX(calc(-50% + ${finalX}px))` },
-      }
-    }
-    if (isLandingPage) {
-      const cardEl = typeof document !== 'undefined' ? document.getElementById('landing-hero-card') : null
-      const cardRect = cardEl ? cardEl.getBoundingClientRect() : null
-      const topY = cardRect ? cardRect.top - (isMobile ? 32 : 36) : undefined
-
-      return {
-        className: 'fixed left-1/2 z-[99999] flex flex-col items-center select-none pointer-events-auto touch-manipulation',
-        style: cardRect && topY !== undefined ? {
-          top: `${topY}px`,
-          transform: `translateX(calc(-50% + ${finalX}px))`,
-        } : {
-          top: '50%',
-          transform: `translate(calc(-50% + ${finalX}px), -245px)`,
-        },
-      }
-    }
     return {
       className: 'fixed bottom-0 z-[99999] flex flex-col items-center select-none pointer-events-auto touch-manipulation',
-      style: { left: `${finalX}px` },
+      style: { left: `${x}px` },
     }
   }
 
   // Dynamic Speech Bubble Clamping calculation for Kuro
   const getBubbleAlignment = (curX: number) => {
-    const { isRelative } = getBounds()
     const screenWidth = typeof window !== 'undefined' ? window.innerWidth : 800
 
-    if (isRelative) {
-      if (curX < -45) {
-        return {
-          bubbleClass: 'absolute bottom-[100%] mb-6 sm:mb-7 left-0 translate-x-0 px-2.5 sm:px-3 py-1.5 rounded-2xl text-[11px] sm:text-xs font-semibold backdrop-blur-md border shadow-xl w-max max-w-[180px] sm:max-w-[250px] text-center animate-in fade-in zoom-in-95 duration-200 z-50 leading-tight sm:leading-snug break-words',
-          arrowClass: 'absolute left-4 -bottom-1 w-2 h-2 border-r border-b rotate-45',
-        }
+    if (curX < 110) {
+      return {
+        bubbleClass: 'absolute bottom-[100%] mb-6 sm:mb-7 left-0 translate-x-0 px-2.5 sm:px-3 py-1.5 rounded-2xl text-[11px] sm:text-xs font-semibold backdrop-blur-md border shadow-xl w-max max-w-[180px] sm:max-w-[250px] text-center animate-in fade-in zoom-in-95 duration-200 z-50 leading-tight sm:leading-snug break-words',
+        arrowClass: 'absolute left-4 -bottom-1 w-2 h-2 border-r border-b rotate-45',
       }
-      if (curX > 45) {
-        return {
-          bubbleClass: 'absolute bottom-[100%] mb-6 sm:mb-7 right-0 left-auto translate-x-0 px-2.5 sm:px-3 py-1.5 rounded-2xl text-[11px] sm:text-xs font-semibold backdrop-blur-md border shadow-xl w-max max-w-[180px] sm:max-w-[250px] text-center animate-in fade-in zoom-in-95 duration-200 z-50 leading-tight sm:leading-snug break-words',
-          arrowClass: 'absolute right-4 left-auto -bottom-1 w-2 h-2 border-r border-b rotate-45',
-        }
-      }
-    } else {
-      if (curX < 110) {
-        return {
-          bubbleClass: 'absolute bottom-[100%] mb-6 sm:mb-7 left-0 translate-x-0 px-2.5 sm:px-3 py-1.5 rounded-2xl text-[11px] sm:text-xs font-semibold backdrop-blur-md border shadow-xl w-max max-w-[180px] sm:max-w-[250px] text-center animate-in fade-in zoom-in-95 duration-200 z-50 leading-tight sm:leading-snug break-words',
-          arrowClass: 'absolute left-4 -bottom-1 w-2 h-2 border-r border-b rotate-45',
-        }
-      }
-      if (curX > screenWidth - 140) {
-        return {
-          bubbleClass: 'absolute bottom-[100%] mb-6 sm:mb-7 right-0 left-auto translate-x-0 px-2.5 sm:px-3 py-1.5 rounded-2xl text-[11px] sm:text-xs font-semibold backdrop-blur-md border shadow-xl w-max max-w-[180px] sm:max-w-[250px] text-center animate-in fade-in zoom-in-95 duration-200 z-50 leading-tight sm:leading-snug break-words',
-          arrowClass: 'absolute right-4 left-auto -bottom-1 w-2 h-2 border-r border-b rotate-45',
-        }
+    }
+    if (curX > screenWidth - 140) {
+      return {
+        bubbleClass: 'absolute bottom-[100%] mb-6 sm:mb-7 right-0 left-auto translate-x-0 px-2.5 sm:px-3 py-1.5 rounded-2xl text-[11px] sm:text-xs font-semibold backdrop-blur-md border shadow-xl w-max max-w-[180px] sm:max-w-[250px] text-center animate-in fade-in zoom-in-95 duration-200 z-50 leading-tight sm:leading-snug break-words',
+        arrowClass: 'absolute right-4 left-auto -bottom-1 w-2 h-2 border-r border-b rotate-45',
       }
     }
 
@@ -366,6 +284,11 @@ export function PixelMascots() {
       bubbleClass: 'absolute bottom-[100%] mb-6 sm:mb-7 left-1/2 -translate-x-1/2 px-2.5 sm:px-3 py-1.5 rounded-2xl text-[11px] sm:text-xs font-semibold backdrop-blur-md border shadow-xl w-max max-w-[190px] sm:max-w-[280px] text-center animate-in fade-in zoom-in-95 duration-200 z-50 leading-tight sm:leading-snug break-words',
       arrowClass: 'absolute left-1/2 -bottom-1 -translate-x-1/2 w-2 h-2 border-r border-b rotate-45',
     }
+  }
+
+  // Do not render mascot in photo preview, infinite gallery, or fullscreen/cinematic mode
+  if (isLandingPage || isLightboxOpen || isInfiniteGallery || isFullscreenOrCinematic) {
+    return null
   }
 
   const kuroStyle = getContainerStyle(kuroX)
