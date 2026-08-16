@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Loader2Icon, MessageSquareIcon, SendIcon, Trash2Icon } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -60,8 +60,6 @@ export function PhotoComments({ photoId }: PhotoCommentsProps) {
   const [comments, setComments] = useState<CommentVo[]>([]);
   // Initial loading state while fetching comments.
   const [isLoading, setIsLoading] = useState<boolean>(true);
-  // Error state if loading comments fails.
-  const [isError, setIsError] = useState<boolean>(false);
   // Commenter name input value (initialized from localStorage).
   const [name, setName] = useState<string>(() => {
     if (typeof window === "undefined") return "";
@@ -81,23 +79,6 @@ export function PhotoComments({ photoId }: PhotoCommentsProps) {
   // Reference to the scrollable comment list container.
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
-  // Fetch comments for the current photoId.
-  const fetchComments = useCallback((targetPhotoId: string) => {
-    if (!targetPhotoId) return;
-    setIsLoading(true);
-    setIsError(false);
-    commentList(targetPhotoId)
-      .then((data) => {
-        setComments(data ?? []);
-      })
-      .catch(() => {
-        setIsError(true);
-      })
-      .finally(() => {
-        setIsLoading(false);
-      });
-  }, []);
-
   // Fetch comments whenever photoId changes.
   useEffect(() => {
     let isMounted = true;
@@ -107,12 +88,11 @@ export function PhotoComments({ photoId }: PhotoCommentsProps) {
       .then((data) => {
         if (isMounted) {
           setComments(data ?? []);
-          setIsError(false);
         }
       })
       .catch(() => {
         if (isMounted) {
-          setIsError(true);
+          setComments([]);
         }
       })
       .finally(() => {
@@ -195,7 +175,7 @@ export function PhotoComments({ photoId }: PhotoCommentsProps) {
         <MessageSquareIcon className="size-4 text-white/70" />
         <span>
           {locale === "zh" ? "评论" : "Comments"}
-          {!isLoading && !isError && ` (${comments.length})`}
+          {!isLoading && ` (${comments.length})`}
         </span>
       </div>
 
@@ -211,29 +191,13 @@ export function PhotoComments({ photoId }: PhotoCommentsProps) {
           </div>
         )}
 
-        {!isLoading && isError && (
-          <div className="py-4 text-center text-white/50">
-            <p>{locale === "zh" ? "无法加载评论" : "Unable to load comments."}</p>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="mt-1 h-6 text-xs text-white/70 hover:text-white"
-              onClick={() => fetchComments(photoId)}
-            >
-              {locale === "zh" ? "重试" : "Retry"}
-            </Button>
-          </div>
-        )}
-
-        {!isLoading && !isError && comments.length === 0 && (
+        {!isLoading && comments.length === 0 && (
           <div className="py-5 text-center text-white/40 italic">
-            {locale === "zh" ? "暂无评论，快来抢沙发吧～" : "No comments yet."}
+            {locale === "zh" ? "暂无评论" : "No comments yet."}
           </div>
         )}
 
         {!isLoading &&
-          !isError &&
           comments.map((item) => (
             <div
               key={item.commentId}

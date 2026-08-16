@@ -20,19 +20,25 @@ const commentService = {
       return [];
     }
 
-    const rows = await orm
-      .select()
-      .from(commentTab)
-      .where(eq(commentTab.photoId, cleanPhotoId))
-      .orderBy(desc(commentTab.createTime));
+    try {
+      const rows = await orm
+        .select()
+        .from(commentTab)
+        .where(eq(commentTab.photoId, cleanPhotoId))
+        .orderBy(desc(commentTab.createTime));
 
-    return rows.map((row) => ({
-      commentId: row.commentId,
-      photoId: row.photoId,
-      name: row.name,
-      content: row.content,
-      createTime: row.createTime,
-    }));
+      return rows.map((row) => ({
+        commentId: row.commentId,
+        photoId: row.photoId,
+        name: row.name,
+        content: row.content,
+        createTime: row.createTime,
+      }));
+    } catch (err) {
+      // Return empty comments list gracefully if table is empty or not yet provisioned
+      console.warn('[COMMENT] Could not retrieve comments for photoId:', cleanPhotoId, err);
+      return [];
+    }
   },
 
   // Add a new comment to a photo with server-side validation and abuse rate limiting.
@@ -86,13 +92,45 @@ const commentService = {
     const commentId = createId();
     const now = new Date().toISOString();
 
-    await orm.insert(commentTab).values({
-      commentId,
-      photoId,
-      name,
-      content,
-      createTime: now,
-    });
+    try {
+      await orm.insert(commentTab).values({
+        commentId,
+        photoId,
+        name,
+        content,
+        createTime: now,
+      });
+    } catch (insertErr) {
+      console.warn('[COMMENT] Error inserting comment, ensuring table exists:', insertErr);
+      if (process.env.DATABASE_URL) {
+        try {
+          const { neon } = await import('@neondatabase/serverless');
+          const sql = neon(process.env.DATABASE_URL);
+          await sql`
+            CREATE TABLE IF NOT EXISTS "comment" (
+              "comment_id" text PRIMARY KEY NOT NULL,
+              "photo_id" text NOT NULL,
+              "name" text NOT NULL,
+              "content" text NOT NULL,
+              "create_time" timestamp DEFAULT now() NOT NULL
+            );
+          `;
+          await sql`CREATE INDEX IF NOT EXISTS "comment_photo_id_idx" ON "comment" ("photo_id");`;
+          await orm.insert(commentTab).values({
+            commentId,
+            photoId,
+            name,
+            content,
+            createTime: now,
+          });
+        } catch (retryErr) {
+          console.error('[COMMENT] Failed to insert comment after ensuring table:', retryErr);
+          throw new BizError('system.internalError');
+        }
+      } else {
+        throw new BizError('system.internalError');
+      }
+    }
 
     return {
       commentId,

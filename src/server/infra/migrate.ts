@@ -33,6 +33,20 @@ export async function migrate(): Promise<void> {
       VALUES (${SETTING_KEY}, ${JSON.stringify(settingDefaults)})
       ON CONFLICT (key) DO NOTHING
     `;
+
+    // Ensure comment table and index exist in PostgreSQL.
+    await sql`
+      CREATE TABLE IF NOT EXISTS "comment" (
+        "comment_id" text PRIMARY KEY NOT NULL,
+        "photo_id" text NOT NULL,
+        "name" text NOT NULL,
+        "content" text NOT NULL,
+        "create_time" timestamp DEFAULT now() NOT NULL
+      );
+    `;
+    await sql`
+      CREATE INDEX IF NOT EXISTS "comment_photo_id_idx" ON "comment" ("photo_id");
+    `;
   } catch (err) {
     console.warn('[MIGRATE] Could not run migration automatically:', err);
   }

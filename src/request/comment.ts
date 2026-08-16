@@ -4,9 +4,21 @@ import { type CommentVo } from "@/server/entity/vo/comment";
 
 // This module encapsulates photo comment interface requests.
 
-// Fetch all comments for a specific photo.
-export function commentList(photoId: string) {
-  return http.get<CommentVo[]>(`/photos/${encodeURIComponent(photoId)}/comments`);
+// Fetch all comments for a specific photo (safe fetch without throwing intrusive error toasts).
+export async function commentList(photoId: string): Promise<CommentVo[]> {
+  try {
+    const res = await fetch(`/api/photos/${encodeURIComponent(photoId)}/comments`, {
+      method: 'GET',
+      credentials: 'include',
+    });
+    const json = await res.json().catch(() => null);
+    if (json && json.code === 200 && Array.isArray(json.data)) {
+      return json.data;
+    }
+    return [];
+  } catch {
+    return [];
+  }
 }
 
 // Add a new comment to a photo.
