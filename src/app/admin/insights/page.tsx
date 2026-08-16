@@ -659,6 +659,7 @@ export default function AdminInsightsPage() {
         index={viewerIndex}
         photos={viewerPhotos}
         onBack={() => setViewerOpen(false)}
+        onBrowserBack={() => setViewerOpen(false)}
       />
     </SidebarProvider>
   )
