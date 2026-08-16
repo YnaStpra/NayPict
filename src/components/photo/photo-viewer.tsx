@@ -1005,6 +1005,9 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
   ), [photos])
   const actionsVisible = showActions && zoomLevel <= 1 && controlsVisible
 
+  const onBackRef = useRef(onBack)
+  onBackRef.current = onBack
+
   useEffect(() => {
     // Keep the browser's return callback as the latest method passed in by the parent component。
     onBrowserBackRef.current = onBrowserBack
@@ -1031,7 +1034,8 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
 
       historyPushedRef.current = false
       removePhotoIdFromUrl()
-      onBrowserBackRef.current?.()
+      const callback = onBrowserBackRef.current ?? onBackRef.current
+      callback?.()
     }
 
     const initialPhoto = photosRef.current[indexRef.current]
@@ -1211,12 +1215,13 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
   function closeViewer() {
     if (historyPushedRef.current) {
       historyPushedRef.current = false
-      window.history.back()
-      return
+      try {
+        window.history.back()
+      } catch {}
     }
 
     removePhotoIdFromUrl()
-    onBack?.()
+    onBackRef.current?.()
   }
 
   // Sidebar narrows when expanded lightbox width, Leave space for the information panel on the right.
