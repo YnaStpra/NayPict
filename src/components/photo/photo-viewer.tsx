@@ -269,11 +269,9 @@ function loadPreviewImage(
 function OriginalProgressButton({
   progress,
   error,
-  infoOpen,
 }: {
   progress: OriginalProgress | null
   error: boolean
-  infoOpen?: boolean
 }) {
   const t = useTranslations("photos.viewer")
   if (!progress) {
@@ -287,8 +285,7 @@ function OriginalProgressButton({
       type="button"
       variant="secondary"
       className={[
-        "absolute bottom-3 md:bottom-4 z-[450] h-auto gap-3 rounded-xl bg-black/80 px-3 py-2 text-white transition-all duration-300 hover:bg-black/80",
-        infoOpen ? "right-3 md:right-[350px]" : "right-3 md:right-4",
+        "absolute right-3 md:right-4 bottom-3 md:bottom-4 z-[450] h-auto gap-3 rounded-xl bg-black/80 px-3 py-2 text-white transition-opacity duration-200 hover:bg-black/80",
       ].join(" ")}
     >
       {error ? (
@@ -332,7 +329,7 @@ function PrevButton({ showActions }: { showActions: boolean }) {
 }
 
 // Render next button。
-function NextButton({ showActions, infoOpen }: { showActions: boolean; infoOpen?: boolean }) {
+function NextButton({ showActions }: { showActions: boolean }) {
   const { next } = useController()
 
   return (
@@ -341,8 +338,7 @@ function NextButton({ showActions, infoOpen }: { showActions: boolean; infoOpen?
       size="icon"
       variant="secondary"
       className={[
-        "absolute top-1/2 z-40 hidden rounded-full bg-black/40 text-white transition-all duration-300 hover:bg-black/50 md:inline-flex",
-        infoOpen ? "right-3 md:right-[350px]" : "right-3 md:right-4",
+        "absolute top-1/2 right-3 md:right-4 z-40 hidden rounded-full bg-black/40 text-white transition-opacity duration-200 hover:bg-black/50 md:inline-flex",
         getActionVisibleClass(showActions),
       ].join(" ")}
       style={{ transform: "translateY(-50%)" }}
@@ -1140,7 +1136,7 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
   const lightboxClassName = isCinematicMode
     ? "w-full fixed inset-0 z-50 bg-black transition-colors duration-300"
     : infoOpen && !fullscreenOpen
-    ? "w-0 md:w-[calc(100%-(0.25rem*80))]"
+    ? "w-0 md:w-[calc(100%-(0.25rem*84))]"
     : "w-full"
 
   // rendering yet-another-react-lightbox Minimal preview.
@@ -1215,13 +1211,7 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
       }}
       render={{
         buttonPrev: () => <PrevButton key="prev" showActions={actionsVisible} />,
-        buttonNext: () => (
-          <NextButton
-            key="next"
-            showActions={actionsVisible}
-            infoOpen={infoOpen && !fullscreenOpen && !isCinematicMode}
-          />
-        ),
+        buttonNext: () => <NextButton key="next" showActions={actionsVisible} />,
         controls: () => (
           <>
             {infoOpen && !fullscreenOpen && !isCinematicMode && (
@@ -1237,13 +1227,10 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
               />
             )}
             <CloseButton showActions={actionsVisible} />
-            {/* Right-side toolbar — smoothly shifts to the left when sidebar is open to avoid cramping */}
+            {/* Right-side toolbar */}
             <div
               className={[
-                "absolute top-2 z-40 flex items-center gap-1.5 transition-all duration-300",
-                infoOpen && !fullscreenOpen && !isCinematicMode
-                  ? "right-2 md:top-3 md:right-[350px]"
-                  : "right-2 md:top-3 md:right-3",
+                "absolute top-2 right-2 md:top-3 md:right-4 z-40 flex items-center gap-1.5",
                 getActionVisibleClass(actionsVisible),
               ].join(" ")}
             >
@@ -1295,11 +1282,7 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
               />
             </div>
             {showOriginalProgress && !isCinematicMode && (
-              <OriginalProgressButton
-                progress={originalProgress}
-                error={originalError}
-                infoOpen={infoOpen && !fullscreenOpen && !isCinematicMode}
-              />
+              <OriginalProgressButton progress={originalProgress} error={originalError} />
             )}
             <AlbumOverlayBadge isCinematicMode={isCinematicMode} />
           </>
