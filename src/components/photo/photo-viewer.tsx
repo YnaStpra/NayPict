@@ -265,8 +265,16 @@ function loadPreviewImage(
   xhr.send()
 }
 
-// Render original image loading progress。
-function OriginalProgressButton({ progress, error }: { progress: OriginalProgress | null, error: boolean }) {
+// Render original progress button.
+function OriginalProgressButton({
+  progress,
+  error,
+  infoOpen,
+}: {
+  progress: OriginalProgress | null
+  error: boolean
+  infoOpen?: boolean
+}) {
   const t = useTranslations("photos.viewer")
   if (!progress) {
     return null
@@ -279,7 +287,8 @@ function OriginalProgressButton({ progress, error }: { progress: OriginalProgres
       type="button"
       variant="secondary"
       className={[
-        "absolute right-3 md:right-4 bottom-3 md:bottom-4  z-[450] h-auto gap-3 rounded-xl bg-black/80 px-3 py-2 text-white transition-opacity duration-200 hover:bg-black/80"
+        "absolute bottom-3 md:bottom-4 z-[450] h-auto gap-3 rounded-xl bg-black/80 px-3 py-2 text-white transition-all duration-300 hover:bg-black/80",
+        infoOpen ? "right-3 md:right-[350px]" : "right-3 md:right-4",
       ].join(" ")}
     >
       {error ? (
@@ -323,7 +332,7 @@ function PrevButton({ showActions }: { showActions: boolean }) {
 }
 
 // Render next button。
-function NextButton({ showActions }: { showActions: boolean }) {
+function NextButton({ showActions, infoOpen }: { showActions: boolean; infoOpen?: boolean }) {
   const { next } = useController()
 
   return (
@@ -332,7 +341,8 @@ function NextButton({ showActions }: { showActions: boolean }) {
       size="icon"
       variant="secondary"
       className={[
-        "absolute top-1/2 right-3 z-40 hidden rounded-full bg-black/40 text-white transition-opacity duration-200 hover:bg-black/50 md:inline-flex",
+        "absolute top-1/2 z-40 hidden rounded-full bg-black/40 text-white transition-all duration-300 hover:bg-black/50 md:inline-flex",
+        infoOpen ? "right-3 md:right-[350px]" : "right-3 md:right-4",
         getActionVisibleClass(showActions),
       ].join(" ")}
       style={{ transform: "translateY(-50%)" }}
@@ -1205,7 +1215,13 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
       }}
       render={{
         buttonPrev: () => <PrevButton key="prev" showActions={actionsVisible} />,
-        buttonNext: () => <NextButton key="next" showActions={actionsVisible} />,
+        buttonNext: () => (
+          <NextButton
+            key="next"
+            showActions={actionsVisible}
+            infoOpen={infoOpen && !fullscreenOpen && !isCinematicMode}
+          />
+        ),
         controls: () => (
           <>
             {infoOpen && !fullscreenOpen && !isCinematicMode && (
@@ -1221,10 +1237,13 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
               />
             )}
             <CloseButton showActions={actionsVisible} />
-            {/* Right-side toolbar — all buttons in a flex row to prevent overlap */}
+            {/* Right-side toolbar — smoothly shifts to the left when sidebar is open to avoid cramping */}
             <div
               className={[
-                "absolute top-2 right-2 md:top-3 md:right-3 z-40 flex items-center gap-1.5",
+                "absolute top-2 z-40 flex items-center gap-1.5 transition-all duration-300",
+                infoOpen && !fullscreenOpen && !isCinematicMode
+                  ? "right-2 md:top-3 md:right-[350px]"
+                  : "right-2 md:top-3 md:right-3",
                 getActionVisibleClass(actionsVisible),
               ].join(" ")}
             >
@@ -1276,7 +1295,11 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
               />
             </div>
             {showOriginalProgress && !isCinematicMode && (
-              <OriginalProgressButton progress={originalProgress} error={originalError} />
+              <OriginalProgressButton
+                progress={originalProgress}
+                error={originalError}
+                infoOpen={infoOpen && !fullscreenOpen && !isCinematicMode}
+              />
             )}
             <AlbumOverlayBadge isCinematicMode={isCinematicMode} />
           </>

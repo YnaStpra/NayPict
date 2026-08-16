@@ -139,10 +139,10 @@ function SidebarCloseButton({ onClose }: { onClose: () => void }) {
       type="button"
       size="icon"
       variant="secondary"
-      className="absolute top-2 right-2 z-10 rounded-full bg-black/40 text-white hover:bg-black/50 md:hidden"
+      className="absolute top-3.5 right-3.5 z-20 size-7 rounded-full bg-white/10 border border-white/15 text-white/80 hover:text-white hover:bg-white/20 transition-all cursor-pointer"
       {...tap}
     >
-      <XIcon />
+      <XIcon className="size-3.5" />
       <span className="sr-only">Close</span>
     </Button>
   )
@@ -185,7 +185,7 @@ export function PhotoInfoSidebar({
       {photo && (
         <div className="flex flex-col h-full text-left pb-6">
           {/* Segmented Tab Navigation: Info vs Comments */}
-          <div className="px-4 pt-6 md:pt-4 shrink-0">
+          <div className="pl-4 pr-12 pt-3.5 shrink-0">
             <div className="flex items-center p-1 rounded-xl bg-white/10 border border-white/15 backdrop-blur-md">
               <button
                 type="button"
