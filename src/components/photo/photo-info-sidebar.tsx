@@ -11,6 +11,7 @@ import { type PhotoVo } from "@/server/entity/vo/photo"
 import { useLocale, useTranslations } from "next-intl"
 import { useApp } from "@/app/provider"
 import { UserTypeEnum } from "@/server/enums/user-enum"
+import { PhotoComments } from "@/components/photo/photo-comments"
 
 type PhotoInfoSidebarProps = {
   // Currently viewing photos.
@@ -226,6 +227,9 @@ export function PhotoInfoSidebar({ photo, onClose, onAlbumOpen }: PhotoInfoSideb
               </div>
             </>
           )}
+
+          {/* Photo Comments Section */}
+          <PhotoComments photoId={photo.photoId} />
         </div>
       )}
     </aside>

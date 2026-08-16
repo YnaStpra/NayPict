@@ -36,6 +36,7 @@ import { exifService } from '@/server/service/exif-service';
 import { buildPhotoKey, buildPreviewKey, buildThumbnailKey } from '@/server/lib/photo-path';
 import { type File as PhotoFile, fileTab } from '@/server/entity/file';
 import { fileService } from '@/server/service/file-service';
+import { commentService } from '@/server/service/comment-service';
 import { FileTypeEnum } from '@/server/enums/file-enum';
 
 // This module handles business related to photo data query。
@@ -611,6 +612,7 @@ const photoService = {
       .where(inArray(albumPhotoTab.photoId, photoIds));
 
     await fileService.deleteByPhotoIds(photoIds);
+    await commentService.deleteByPhotoIds(photoIds);
 
     await orm.delete(photoTab)
       .where(inArray(photoTab.photoId, photoIds));
@@ -687,6 +689,7 @@ const photoService = {
         .where(inArray(albumPhotoTab.photoId, photoIds));
 
       await fileService.deleteByPhotoIds(photoIds);
+      await commentService.deleteByPhotoIds(photoIds);
 
       await orm.delete(photoTab)
         .where(and(

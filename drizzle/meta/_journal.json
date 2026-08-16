@@ -8,6 +8,13 @@
       "when": 1786542174179,
       "tag": "0000_deep_proudstar",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1786969200000,
+      "tag": "0001_add_comment_table",
+      "breakpoints": true
     }
   ]
 }

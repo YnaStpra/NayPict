@@ -39,5 +39,12 @@
   "totp.sessionExpired": "2FA verification session has expired.",
   "totp.codeRequired": "2FA verification code is required.",
   "login.tooManyAttempts": "Too many login attempts. Please try again later.",
-  "login.unauthorized": "Unauthorized access."
+  "login.unauthorized": "Unauthorized access.",
+  "photo.notFound": "Photo not found.",
+  "comment.nameRequired": "Your name is required.",
+  "comment.nameTooLong": "Name cannot exceed 50 characters.",
+  "comment.contentRequired": "Comment content is required.",
+  "comment.contentTooLong": "Comment cannot exceed 500 characters.",
+  "comment.selectRequired": "Please select a comment.",
+  "comment.rateLimited": "Too many comments sent. Please wait a moment before trying again."
 }

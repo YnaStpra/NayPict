@@ -39,5 +39,12 @@
   "totp.sessionExpired": "验证会话已过期",
   "totp.codeRequired": "请输入二次验证码",
   "login.tooManyAttempts": "登录尝试次数过多，请稍后再试",
-  "login.unauthorized": "未授权访问"
+  "login.unauthorized": "未授权访问",
+  "photo.notFound": "照片不存在",
+  "comment.nameRequired": "请输入您的昵称",
+  "comment.nameTooLong": "昵称长度不能超过50个字符",
+  "comment.contentRequired": "请输入评论内容",
+  "comment.contentTooLong": "评论内容不能超过500个字符",
+  "comment.selectRequired": "请选择评论",
+  "comment.rateLimited": "发表评论过于频繁，请稍后再试"
 }
