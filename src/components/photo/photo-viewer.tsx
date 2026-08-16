@@ -1019,13 +1019,8 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
         setInfoOpen(false)
       }
 
-      removePhotoIdFromUrl()
-
-      if (!historyPushedRef.current) {
-        return
-      }
-
       historyPushedRef.current = false
+      removePhotoIdFromUrl()
       onBrowserBackRef.current?.()
     }
 
@@ -1198,17 +1193,13 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
 
   // Close the viewer and sync clear the browser history written by the viewer.
   function closeViewer() {
-    removePhotoIdFromUrl()
-
     if (historyPushedRef.current) {
       historyPushedRef.current = false
       window.history.back()
-      setTimeout(() => {
-        removePhotoIdFromUrl()
-      }, 50)
       return
     }
 
+    removePhotoIdFromUrl()
     onBack?.()
   }
 

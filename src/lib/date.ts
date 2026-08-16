@@ -11,18 +11,32 @@ function parseTime(value: string) {
   return date
 }
 
-// Bundle ISO UTC String parsed into timestamp，Compatible with none Z old format。
-function parseUtcTime(value: string) {
-  const text = value.trim()
-  const hasTimezone = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(text)
-  const utcValue = hasTimezone ? text : `${text.replace(" ", "T")}Z`
-  const time = new Date(utcValue).getTime()
-
-  if (Number.isNaN(time)) {
+// Parse ISO or database date string into timestamp accurately.
+function parseUtcTime(value: string | Date | number) {
+  if (value instanceof Date) {
+    return value.getTime()
+  }
+  if (typeof value === "number") {
+    return value
+  }
+  if (!value) {
     return null
   }
 
-  return time
+  const text = String(value).trim()
+  const date = new Date(text)
+  if (!Number.isNaN(date.getTime())) {
+    return date.getTime()
+  }
+
+  // Fallback for space-separated date strings (e.g. "2026-08-16 14:25:00")
+  const formatted = text.replace(" ", "T")
+  const fallbackDate = new Date(formatted)
+  if (!Number.isNaN(fallbackDate.getTime())) {
+    return fallbackDate.getTime()
+  }
+
+  return null
 }
 
 // Format photo shooting time as local date, for list display.
