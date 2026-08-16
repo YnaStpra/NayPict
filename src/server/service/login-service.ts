@@ -28,12 +28,15 @@ const loginService = {
     const uuid = createId()
     const oldAuthInfo = await cache.get<AuthInfo>(AUTH_CACHE_KEY + user.userId)
 
+    const oldUuids = oldAuthInfo?.uuidList || []
+    const updatedUuids = [...oldUuids.filter((id) => id !== uuid), uuid].slice(-10)
+
     const authInfo: AuthInfo = {
       userId: user.userId,
       username: user.username,
       avatar: user.avatar,
       type: user.type,
-      uuidList: oldAuthInfo ? [...oldAuthInfo.uuidList, uuid] : [uuid],
+      uuidList: updatedUuids,
     }
 
     await cache.set(AUTH_CACHE_KEY + user.userId, authInfo, { ttl: AUTH_CACHE_TTL })
