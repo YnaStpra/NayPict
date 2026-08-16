@@ -303,7 +303,7 @@ export function PixelMascots() {
 
     if (isLightboxOpen) {
       return {
-        className: 'fixed bottom-[46px] md:bottom-[75px] left-1/2 z-[1000000] flex flex-col items-center select-none pointer-events-auto touch-manipulation',
+        className: 'fixed bottom-0 md:bottom-1 left-1/2 z-[10000000] flex flex-col items-center select-none pointer-events-auto touch-manipulation',
         style: { transform: `translateX(calc(-50% + ${finalX}px))` },
       }
     }
