@@ -203,13 +203,13 @@ test.describe('Photo Comments Feature', () => {
     }
 
     // 4. Verify Comments section is visible in the sidebar
-    const commentSectionHeader = page.locator('text=/Comments|评论/i').first();
+    const commentSectionHeader = page.locator('text=/Comments/i').first();
     await expect(commentSectionHeader).toBeVisible({ timeout: 10_000 });
 
     // 5. Fill in Name and Comment form
-    const nameInput = page.locator('input[placeholder*="name" i], input[placeholder*="昵称" i]').first();
-    const commentTextarea = page.locator('textarea[placeholder*="comment" i], textarea[placeholder*="评论" i]').first();
-    const sendButton = page.locator('button:has-text("Send"), button:has-text("发送")').first();
+    const nameInput = page.locator('input[placeholder*="name" i]').first();
+    const commentTextarea = page.locator('textarea[placeholder*="comment" i]').first();
+    const sendButton = page.locator('button:has-text("Send")').first();
 
     await nameInput.fill('Playwright Tester');
     await commentTextarea.fill('Awesome photo capture from automated UI test!');

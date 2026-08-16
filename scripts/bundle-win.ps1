@@ -1,4 +1,4 @@
-# 复制 Next.js standalone 产物到 D:\pictale\pictale，并带上外层 node.exe。
+# Copy Next.js standalone output to D:\pictale\pictale with external node.exe.
 
 $Root = Split-Path -Parent $PSScriptRoot
 $Base = "D:\pictale"
@@ -8,7 +8,7 @@ if (-not (Test-Path (Join-Path $Root ".next\standalone\server.js"))) {
   throw "Missing .next/standalone/server.js. Run npm run build first."
 }
 
-# 调用 robocopy；Mirror 时同步删除目标中的多余文件。
+# Invoke robocopy; mirror sync deletes extra files in target directory.
 function Invoke-Robocopy([string]$Src, [string]$Dest, [bool]$Mirror = $false) {
   New-Item -ItemType Directory -Force -Path $Dest | Out-Null
   $flag = if ($Mirror) { "/MIR" } else { "/E" }

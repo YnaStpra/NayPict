@@ -197,7 +197,7 @@ export function PhotoInfoSidebar({
                 }`}
               >
                 <InfoIcon className="size-3.5" />
-                <span>{locale === "zh" ? "照片信息" : "Information"}</span>
+                <span>Information</span>
               </button>
               <button
                 type="button"
@@ -209,7 +209,7 @@ export function PhotoInfoSidebar({
                 }`}
               >
                 <MessageSquareIcon className="size-3.5" />
-                <span>{locale === "zh" ? "评论" : "Comments"}</span>
+                <span>Comments</span>
               </button>
             </div>
           </div>
