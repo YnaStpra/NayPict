@@ -7,6 +7,7 @@ import { registerLoginApi } from '../api/login-api';
 import { registerSettingApi } from '../api/setting-api';
 import { registerTotpApi } from '../api/totp-api';
 import { registerCommentApi } from '../api/comment-api';
+import { registerInsightsApi } from '../api/insights-api';
 
 // This module creates a fresh Hono application instance with all API routes attached per request handler.
 
@@ -20,6 +21,7 @@ export function getApp() {
   registerSettingApi(instance);
   registerTotpApi(instance);
   registerCommentApi(instance);
+  registerInsightsApi(instance);
   return instance;
 }
 

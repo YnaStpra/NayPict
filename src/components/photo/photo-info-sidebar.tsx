@@ -1,6 +1,6 @@
 "use client"
 
-import { FolderPlusIcon, InfoIcon, MessageSquareIcon, XIcon } from "lucide-react"
+import { FolderPlusIcon, InfoIcon, MessageSquareIcon, TrendingUp, XIcon } from "lucide-react"
 import { useState } from "react"
 
 import { Button } from "@/components/ui/button"
@@ -21,6 +21,8 @@ type PhotoInfoSidebarProps = {
   onClose?: () => void
   // Trigger open album dialog (Admin only).
   onAlbumOpen?: (photoId: string) => void
+  // Trigger open insights dialog (Admin only).
+  onInsightsOpen?: (photoId: string) => void
   // Initial active tab ("info" | "comments")
   defaultTab?: "info" | "comments"
 }
@@ -153,6 +155,7 @@ export function PhotoInfoSidebar({
   photo,
   onClose,
   onAlbumOpen,
+  onInsightsOpen,
   activeTab: controlledTab,
   onTabChange,
 }: PhotoInfoSidebarProps & {
@@ -217,23 +220,41 @@ export function PhotoInfoSidebar({
           {/* TAB 1: Information */}
           {currentTab === "info" && (
             <div className="flex-1 overflow-y-auto px-4 py-3 space-y-4">
-              {/* Admin Add to Album Action */}
-              {isAdmin && onAlbumOpen && (
-                <div>
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    size="sm"
-                    className="w-full justify-center gap-2 bg-white/10 text-white hover:bg-white/20 border border-white/20 text-xs font-medium cursor-pointer pointer-events-auto"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      e.preventDefault()
-                      onAlbumOpen(photo.photoId)
-                    }}
-                  >
-                    <FolderPlusIcon className="size-3.5" />
-                    <span>+ Add to Album</span>
-                  </Button>
+              {/* Admin Actions: Add to Album & Photo Insights */}
+              {isAdmin && (
+                <div className="flex flex-col gap-2">
+                  {onAlbumOpen && (
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      className="w-full justify-center gap-2 bg-white/10 text-white hover:bg-white/20 border border-white/20 text-xs font-medium cursor-pointer pointer-events-auto"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        e.preventDefault()
+                        onAlbumOpen(photo.photoId)
+                      }}
+                    >
+                      <FolderPlusIcon className="size-3.5" />
+                      <span>+ Add to Album</span>
+                    </Button>
+                  )}
+                  {onInsightsOpen && (
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      className="w-full justify-center gap-2 bg-primary/20 text-white hover:bg-primary/30 border border-primary/30 text-xs font-medium cursor-pointer pointer-events-auto"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        e.preventDefault()
+                        onInsightsOpen(photo.photoId)
+                      }}
+                    >
+                      <TrendingUp className="size-3.5 text-primary" />
+                      <span>Photo Insights</span>
+                    </Button>
+                  )}
                 </div>
               )}
 
