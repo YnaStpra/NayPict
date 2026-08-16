@@ -6,7 +6,7 @@ import { isImageSlide, type SlideImage, useController, useLightboxState } from "
 import Fullscreen from "yet-another-react-lightbox/plugins/fullscreen"
 import Thumbnails from "yet-another-react-lightbox/plugins/thumbnails"
 import Zoom from "yet-another-react-lightbox/plugins/zoom"
-import { ArrowLeftIcon, ChevronLeftIcon, ChevronRightIcon, CircleAlertIcon, CircleIcon, FolderIcon, FolderPlusIcon, LockIcon, Menu, LoaderCircleIcon, MaximizeIcon, MinimizeIcon, PanelRightClose, PanelRightOpen, RotateCcwSquare, Trash2Icon } from "lucide-react"
+import { ArrowLeftIcon, ChevronLeftIcon, ChevronRightIcon, CircleAlertIcon, CircleIcon, FolderIcon, FolderPlusIcon, LockIcon, Menu, LoaderCircleIcon, MaximizeIcon, MessageSquare, MinimizeIcon, PanelRightClose, PanelRightOpen, RotateCcwSquare, Trash2Icon } from "lucide-react"
 import { toast } from "sonner"
 
 import { PhotoInfoSidebar, PhotoViewerBlurBackground, formatAlbumList } from "@/components/photo/photo-info-sidebar"
@@ -354,10 +354,6 @@ function FullscreenButton({
   showActions: boolean
   onHideActions: () => void
 }) {
-  if (fullscreen) {
-    return null
-  }
-
   // Hide viewer action buttons after entering full screen state。
   function openFullscreen() {
     enter()
@@ -365,6 +361,10 @@ function FullscreenButton({
   }
 
   const tap = useTapAction(openFullscreen)
+
+  if (fullscreen) {
+    return null
+  }
 
   return (
     <Button
@@ -419,9 +419,8 @@ function CinematicButton({
   )
 }
 
-// Render photo information button, Click to switch the information sidebar on the right.
-function InfoButton({
-  showActions,
+// Render photo comments button in toolbar.
+function CommentsButton({
   open,
   onToggle,
 }: {
@@ -432,22 +431,68 @@ function InfoButton({
   const tap = useTapAction(onToggle)
 
   return (
-    <Button
-      type="button"
-      size="icon"
-      variant="secondary"
-      className={[
-        "rounded-full text-white transition-opacity duration-200",
-        open ? "bg-black/50 hover:bg-black/50" : "bg-black/40 hover:bg-black/50",
-      ].join(" ")}
-      {...tap}
-    >
-      <Menu className="md:hidden" />
-      {open
-        ? <PanelRightClose className="hidden md:block" />
-        : <PanelRightOpen className="hidden md:block" />}
-      <span className="sr-only">Photo information</span>
-    </Button>
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            type="button"
+            size="icon"
+            variant="secondary"
+            className={[
+              "rounded-full text-white transition-opacity duration-200",
+              open ? "bg-black/70 hover:bg-black/70 border border-white/30" : "bg-black/40 hover:bg-black/50",
+            ].join(" ")}
+            {...tap}
+          >
+            <MessageSquare className="size-4" />
+            <span className="sr-only">Photo comments</span>
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom">
+          <p>Comments</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  )
+}
+
+// Render photo information button, Click to switch the information sidebar on the right.
+function InfoButton({
+  open,
+  onToggle,
+}: {
+  showActions: boolean
+  open: boolean
+  onToggle: () => void
+}) {
+  const tap = useTapAction(onToggle)
+
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            type="button"
+            size="icon"
+            variant="secondary"
+            className={[
+              "rounded-full text-white transition-opacity duration-200",
+              open ? "bg-black/70 hover:bg-black/70 border border-white/30" : "bg-black/40 hover:bg-black/50",
+            ].join(" ")}
+            {...tap}
+          >
+            <Menu className="md:hidden" />
+            {open
+              ? <PanelRightClose className="hidden md:block" />
+              : <PanelRightOpen className="hidden md:block" />}
+            <span className="sr-only">Photo information</span>
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom">
+          <p>Information</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   )
 }
 
@@ -498,18 +543,6 @@ function LoadOriginalButton({
   const cacheSrc = photoSlide ? getPhotoCache(photoSlide.photoId) : undefined
   const originalLoaded = Boolean(photoSlide && (originalPhoto?.key === photoSlide.key || cacheSrc?.includes("photo/")))
 
-  if (photoSlide && !photoSlide.key) {
-    return (
-      <div
-        className="flex cursor-pointer items-center gap-1.5 rounded-full bg-black/60 px-3 py-1 text-xs text-white/90 transition-opacity duration-200 hover:bg-black/80"
-        onClick={() => toast.info("Download is disabled for this photo.")}
-      >
-        <LockIcon className="size-3.5 text-white/80" />
-        <span className="font-medium text-xs">Protected</span>
-      </div>
-    )
-  }
-
   // put the current slide Leave it to the parent component to load the original image.
   function loadOriginal() {
 
@@ -522,6 +555,18 @@ function LoadOriginalButton({
   }
 
   const tap = useTapAction(loadOriginal)
+
+  if (photoSlide && !photoSlide.key) {
+    return (
+      <div
+        className="flex cursor-pointer items-center gap-1.5 rounded-full bg-black/60 px-3 py-1 text-xs text-white/90 transition-opacity duration-200 hover:bg-black/80"
+        onClick={() => toast.info("Download is disabled for this photo.")}
+      >
+        <LockIcon className="size-3.5 text-white/80" />
+        <span className="font-medium text-xs">Protected</span>
+      </div>
+    )
+  }
 
   return (
     <Button
@@ -719,8 +764,8 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
   const infoOpen = usePhotoStore((state) => state.infoOpen)
   // setInfoOpen Update information sidebar expansion status。
   const setInfoOpen = usePhotoStore((state) => state.setInfoOpen)
-  // toggleInfoOpen Toggle the expanded state of the information sidebar。
-  const toggleInfoOpen = usePhotoStore((state) => state.toggleInfoOpen)
+  // Current sidebar tab ("info" | "comments")
+  const [infoTab, setInfoTab] = useState<"info" | "comments">("info")
   // The original image that has been loaded currently。
   const [originalPhoto, setOriginalPhoto] = useState<OriginalPhoto | null>(null)
   // Current original image loading progress。
@@ -737,8 +782,9 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
   const [fullscreenOpen, setFullscreenOpen] = useState(false)
   // Whether cinematic presentation mode is currently active.
   const [isCinematicMode, setIsCinematicMode] = useState(false)
-  // Controls UI visibility in cinematic mode during idle.
-  const [controlsVisible, setControlsVisible] = useState(true)
+  // Controls UI idle visibility in cinematic mode.
+  const [isIdleHidden, setIsIdleHidden] = useState(false)
+  const controlsVisible = !isCinematicMode || !isIdleHidden
   // Idle timer reference for auto-hiding controls after inactivity.
   const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   // The current rotation angle of each photo.
@@ -837,7 +883,6 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
   // Auto-hide UI controls after 2.5s idle when in Cinematic Mode.
   useEffect(() => {
     if (!open || !isCinematicMode) {
-      setControlsVisible(true)
       if (idleTimerRef.current) {
         clearTimeout(idleTimerRef.current)
         idleTimerRef.current = null
@@ -846,12 +891,12 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
     }
 
     function resetIdleTimer() {
-      setControlsVisible(true)
+      setIsIdleHidden(false)
       if (idleTimerRef.current) {
         clearTimeout(idleTimerRef.current)
       }
       idleTimerRef.current = setTimeout(() => {
-        setControlsVisible(false)
+        setIsIdleHidden(true)
       }, 2500)
     }
 
@@ -1169,6 +1214,8 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
             {infoOpen && !fullscreenOpen && !isCinematicMode && (
               <PhotoInfoSidebar
                 photo={photos[viewIndex] ?? null}
+                activeTab={infoTab}
+                onTabChange={setInfoTab}
                 onClose={() => setInfoOpen(false)}
                 onAlbumOpen={onAlbumOpen ? (photoId) => onAlbumOpen([photoId]) : undefined}
               />
@@ -1196,10 +1243,29 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
                     onLoadOriginal={loadOriginalPhoto}
                   />
                   <RotateButton showActions={actionsVisible} onRotate={rotatePhoto} />
+                  <CommentsButton
+                    showActions={actionsVisible}
+                    open={infoOpen && infoTab === "comments"}
+                    onToggle={() => {
+                      if (infoOpen && infoTab === "comments") {
+                        setInfoOpen(false)
+                      } else {
+                        setInfoTab("comments")
+                        setInfoOpen(true)
+                      }
+                    }}
+                  />
                   <InfoButton
                     showActions={actionsVisible}
-                    open={infoOpen}
-                    onToggle={toggleInfoOpen}
+                    open={infoOpen && infoTab === "info"}
+                    onToggle={() => {
+                      if (infoOpen && infoTab === "info") {
+                        setInfoOpen(false)
+                      } else {
+                        setInfoTab("info")
+                        setInfoOpen(true)
+                      }
+                    }}
                   />
                 </>
               )}

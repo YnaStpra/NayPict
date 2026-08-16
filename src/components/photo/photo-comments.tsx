@@ -169,31 +169,34 @@ export function PhotoComments({ photoId }: PhotoCommentsProps) {
   };
 
   return (
-    <div className="px-4 pt-4 pb-2 text-left" onPointerDown={(e) => e.stopPropagation()}>
+    <div className="flex flex-col flex-1 h-full min-h-0 px-4 py-2 text-left" onPointerDown={(e) => e.stopPropagation()}>
       {/* Header with comment count */}
-      <div className="flex items-center gap-1.5 pb-2.5 text-sm font-medium text-white/90">
-        <MessageSquareIcon className="size-4 text-white/70" />
-        <span>
-          {locale === "zh" ? "评论" : "Comments"}
-          {!isLoading && ` (${comments.length})`}
+      <div className="flex items-center justify-between pb-2 shrink-0">
+        <div className="flex items-center gap-1.5 text-xs font-semibold text-white/50 tracking-wider uppercase">
+          <MessageSquareIcon className="size-3.5 text-white/60" />
+          <span>{locale === "zh" ? "照片评论" : "Comments"}</span>
+        </div>
+        <span className="text-[11px] font-medium text-white/60 bg-white/10 px-2 py-0.5 rounded-full">
+          {comments.length}
         </span>
       </div>
 
       {/* Independently scrollable comment list */}
       <div
         ref={scrollContainerRef}
-        className="max-h-[280px] md:max-h-[340px] space-y-2 overflow-y-auto pr-1 text-xs overscroll-contain scrollbar-thin scrollbar-thumb-white/20 scrollbar-track-transparent"
+        className="flex-1 min-h-[150px] space-y-2.5 overflow-y-auto pr-1 py-1 text-xs overscroll-contain scrollbar-thin scrollbar-thumb-white/20 scrollbar-track-transparent"
       >
         {isLoading && (
-          <div className="flex items-center justify-center py-6 text-white/50 gap-2">
+          <div className="flex items-center justify-center py-10 text-white/50 gap-2">
             <Loader2Icon className="size-4 animate-spin" />
             <span>{locale === "zh" ? "正在加载评论..." : "Loading comments..."}</span>
           </div>
         )}
 
         {!isLoading && comments.length === 0 && (
-          <div className="py-5 text-center text-white/40 italic">
-            {locale === "zh" ? "暂无评论" : "No comments yet."}
+          <div className="flex flex-col items-center justify-center py-12 text-center text-white/40 gap-2">
+            <MessageSquareIcon className="size-8 stroke-1 text-white/25" />
+            <p className="text-xs italic">{locale === "zh" ? "暂无评论，来留下第一条评论吧！" : "No comments yet. Be the first to share your thoughts!"}</p>
           </div>
         )}
 
@@ -201,12 +204,12 @@ export function PhotoComments({ photoId }: PhotoCommentsProps) {
           comments.map((item) => (
             <div
               key={item.commentId}
-              className="group relative rounded-lg border border-white/10 bg-white/5 p-2.5 backdrop-blur-sm transition-colors hover:bg-white/[0.08]"
+              className="group relative rounded-xl border border-white/15 bg-white/5 p-3 backdrop-blur-sm transition-colors hover:bg-white/[0.08]"
             >
-              <div className="flex items-center justify-between gap-2 pb-1">
-                <span className="font-medium text-white/95 truncate">{item.name}</span>
+              <div className="flex items-center justify-between gap-2 pb-1.5">
+                <span className="font-semibold text-white/95 text-xs truncate">{item.name}</span>
                 <div className="flex items-center gap-2 shrink-0">
-                  <span className="text-[11px] text-white/50">
+                  <span className="text-[10px] text-white/40">
                     {formatRelativeTime(item.createTime, locale)}
                   </span>
                   {isAdmin && (
@@ -229,7 +232,7 @@ export function PhotoComments({ photoId }: PhotoCommentsProps) {
                   )}
                 </div>
               </div>
-              <p className="text-white/80 whitespace-pre-wrap break-words text-[13px] leading-relaxed">
+              <p className="text-white/85 whitespace-pre-wrap break-words text-xs leading-relaxed">
                 {item.content}
               </p>
             </div>
@@ -237,16 +240,16 @@ export function PhotoComments({ photoId }: PhotoCommentsProps) {
       </div>
 
       {/* Comment submission form */}
-      <form onSubmit={handleSubmit} className="mt-3 space-y-2 border-t border-white/10 pt-3">
+      <form onSubmit={handleSubmit} className="mt-auto shrink-0 pt-3 space-y-2.5 border-t border-white/15">
         <div>
           <input
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder={locale === "zh" ? "您的昵称" : "Your name"}
+            placeholder={locale === "zh" ? "您的昵称 / 名字" : "Your name"}
             maxLength={50}
             disabled={isSubmitting}
-            className="w-full rounded-md border border-white/20 bg-white/10 px-3 py-1.5 text-xs text-white placeholder:text-white/40 focus:border-white/40 focus:outline-none focus:ring-1 focus:ring-white/40 disabled:opacity-50 transition-all"
+            className="w-full rounded-lg border border-white/20 bg-white/10 px-3 py-1.5 text-xs text-white placeholder:text-white/40 focus:border-white/40 focus:outline-none focus:ring-1 focus:ring-white/40 disabled:opacity-50 transition-all"
           />
         </div>
 
@@ -254,7 +257,7 @@ export function PhotoComments({ photoId }: PhotoCommentsProps) {
           <textarea
             value={content}
             onChange={(e) => setContent(e.target.value)}
-            placeholder={locale === "zh" ? "写下您的评论..." : "Write a comment..."}
+            placeholder={locale === "zh" ? "写下您的评论... (Ctrl+Enter 发送)" : "Write a comment... (Ctrl+Enter to send)"}
             maxLength={500}
             rows={2}
             disabled={isSubmitting}
@@ -263,7 +266,7 @@ export function PhotoComments({ photoId }: PhotoCommentsProps) {
                 handleSubmit(e);
               }
             }}
-            className="w-full rounded-md border border-white/20 bg-white/10 px-3 py-1.5 text-xs text-white placeholder:text-white/40 focus:border-white/40 focus:outline-none focus:ring-1 focus:ring-white/40 resize-none min-h-[56px] disabled:opacity-50 transition-all"
+            className="w-full rounded-lg border border-white/20 bg-white/10 px-3 py-2 text-xs text-white placeholder:text-white/40 focus:border-white/40 focus:outline-none focus:ring-1 focus:ring-white/40 resize-none min-h-[60px] disabled:opacity-50 transition-all"
           />
         </div>
 
@@ -272,7 +275,7 @@ export function PhotoComments({ photoId }: PhotoCommentsProps) {
             type="submit"
             size="sm"
             disabled={isSubmitting || !name.trim() || !content.trim()}
-            className="gap-1.5 bg-white/20 text-white hover:bg-white/30 border border-white/20 text-xs font-medium cursor-pointer disabled:cursor-not-allowed disabled:opacity-40 transition-all h-7 px-3"
+            className="gap-1.5 bg-white/20 text-white hover:bg-white/30 border border-white/20 text-xs font-medium cursor-pointer disabled:cursor-not-allowed disabled:opacity-40 transition-all h-7.5 px-3.5 rounded-lg"
           >
             {isSubmitting ? (
               <>

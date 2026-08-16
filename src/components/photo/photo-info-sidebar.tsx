@@ -1,6 +1,7 @@
 "use client"
 
-import { FolderPlusIcon, XIcon } from "lucide-react"
+import { FolderPlusIcon, InfoIcon, MessageSquareIcon, XIcon } from "lucide-react"
+import { useState } from "react"
 
 import { Button } from "@/components/ui/button"
 import { useTapAction } from "@/hooks/use-tap-action"
@@ -20,6 +21,8 @@ type PhotoInfoSidebarProps = {
   onClose?: () => void
   // Trigger open album dialog (Admin only).
   onAlbumOpen?: (photoId: string) => void
+  // Initial active tab ("info" | "comments")
+  defaultTab?: "info" | "comments"
 }
 
 type PhotoViewerBlurBackgroundProps = {
@@ -145,8 +148,17 @@ function SidebarCloseButton({ onClose }: { onClose: () => void }) {
   )
 }
 
-// Render photo information sidebar.
-export function PhotoInfoSidebar({ photo, onClose, onAlbumOpen }: PhotoInfoSidebarProps) {
+// Render photo information & comments sidebar with tab switcher.
+export function PhotoInfoSidebar({
+  photo,
+  onClose,
+  onAlbumOpen,
+  activeTab: controlledTab,
+  onTabChange,
+}: PhotoInfoSidebarProps & {
+  activeTab?: "info" | "comments"
+  onTabChange?: (tab: "info" | "comments") => void
+}) {
   const t = useTranslations("photos.info")
   const storageT = useTranslations("storage")
   const locale = useLocale()
@@ -155,81 +167,141 @@ export function PhotoInfoSidebar({ photo, onClose, onAlbumOpen }: PhotoInfoSideb
   const deviceParams = photo ? getPhotoDeviceParams(photo.exif) : []
   const shootingParams = photo ? getPhotoShootingParams(photo.exif) : []
 
+  const [internalTab, setInternalTab] = useState<"info" | "comments">("info")
+  const currentTab = controlledTab ?? internalTab
+
+  const handleTabChange = (tab: "info" | "comments") => {
+    setInternalTab(tab)
+    onTabChange?.(tab)
+  }
+
   return (
-    <aside className="fixed top-0 right-0 z-[41] flex h-full w-full flex-col overflow-y-auto bg-transparent backdrop-blur-xl text-white shadow-photo-sidebar md:w-80 md:shrink-0" onPointerDown={(event) => event.stopPropagation()}>
+    <aside
+      className="fixed top-0 right-0 z-[41] flex h-full w-full flex-col overflow-y-auto bg-transparent backdrop-blur-xl text-white shadow-photo-sidebar md:w-84 md:shrink-0"
+      onPointerDown={(event) => event.stopPropagation()}
+    >
       {onClose && <SidebarCloseButton onClose={onClose} />}
+
       {photo && (
-        <div className="text-left pb-6">
-          <div className="px-4 pt-6.5 md:pt-4.5 text-sm font-medium">{t("basicInformation")}</div>
-          
-          {/* Admin Add to Album Action */}
-          {isAdmin && onAlbumOpen && (
-            <div className="px-4 pt-2">
-              <Button
+        <div className="flex flex-col h-full text-left pb-6">
+          {/* Segmented Tab Navigation: Info vs Comments */}
+          <div className="px-4 pt-6 md:pt-4 shrink-0">
+            <div className="flex items-center p-1 rounded-xl bg-white/10 border border-white/15 backdrop-blur-md">
+              <button
                 type="button"
-                variant="secondary"
-                size="sm"
-                className="w-full justify-center gap-2 bg-white/10 text-white hover:bg-white/20 border border-white/20 text-xs font-medium cursor-pointer pointer-events-auto"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  e.preventDefault()
-                  onAlbumOpen(photo.photoId)
-                }}
+                onClick={() => handleTabChange("info")}
+                className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg text-xs font-medium transition-all cursor-pointer ${
+                  currentTab === "info"
+                    ? "bg-white/20 text-white shadow-sm font-semibold"
+                    : "text-white/60 hover:text-white"
+                }`}
               >
-                <FolderPlusIcon className="size-3.5" />
-                <span>+ Add to Album</span>
-              </Button>
+                <InfoIcon className="size-3.5" />
+                <span>{locale === "zh" ? "照片信息" : "Information"}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleTabChange("comments")}
+                className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg text-xs font-medium transition-all cursor-pointer ${
+                  currentTab === "comments"
+                    ? "bg-white/20 text-white shadow-sm font-semibold"
+                    : "text-white/60 hover:text-white"
+                }`}
+              >
+                <MessageSquareIcon className="size-3.5" />
+                <span>{locale === "zh" ? "评论" : "Comments"}</span>
+              </button>
+            </div>
+          </div>
+
+          {/* TAB 1: Information */}
+          {currentTab === "info" && (
+            <div className="flex-1 overflow-y-auto px-4 py-3 space-y-4">
+              {/* Admin Add to Album Action */}
+              {isAdmin && onAlbumOpen && (
+                <div>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    className="w-full justify-center gap-2 bg-white/10 text-white hover:bg-white/20 border border-white/20 text-xs font-medium cursor-pointer pointer-events-auto"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      e.preventDefault()
+                      onAlbumOpen(photo.photoId)
+                    }}
+                  >
+                    <FolderPlusIcon className="size-3.5" />
+                    <span>+ Add to Album</span>
+                  </Button>
+                </div>
+              )}
+
+              <div>
+                <div className="pb-2 text-xs font-semibold text-white/50 tracking-wider uppercase">
+                  {t("basicInformation")}
+                </div>
+                <div className="space-y-2">
+                  <PhotoInfoRow label={t("fileName")} value={formatPhotoName(photo.name)} twoLines />
+                  <PhotoInfoRow label={t("format")} value={photo.typeDesc.toUpperCase()} />
+                  <PhotoInfoRow label={t("fileSize")} value={formatFileSize(photo.size)} />
+                  <PhotoInfoRow label={t("resolution")} value={formatResolution(photo.width, photo.height)} />
+                  <PhotoInfoRow label={t("megapixels")} value={formatMegapixels(photo.width, photo.height)} />
+                  <PhotoInfoRow label={t("colorSpace")} value={getPhotoColorSpace(photo.exif, t("uncalibrated"))} />
+                  <PhotoInfoRow label={t("dateTime")} value={formatPhotoTakenDateTime(photo.takenTime, locale)} />
+                  <PhotoInfoRow label={t("timeZone")} value={getPhotoTimezone(photo.exif)} />
+                  <PhotoInfoRow
+                    label={t("location")}
+                    value={formatPhotoLocation(photo.latitude, photo.longitude, photo.altitude)}
+                    wrap
+                  />
+                  <PhotoInfoRow label={t("software")} value={getPhotoSoftware(photo.exif)} wrap />
+                  {photo.albums && photo.albums.length > 0 && (
+                    <PhotoInfoRow
+                      label="Album"
+                      value={formatAlbumList(photo.albums)}
+                      wrap
+                    />
+                  )}
+                  <PhotoInfoRow label={t("storage")} value={formatStorageLocation(photo, storageT)} />
+                  <PhotoInfoRow label="Download" value={photo.allowDownload === 1 ? "↓ Downloadable" : "🔒 Protected"} />
+                </div>
+              </div>
+
+              {shootingParams.length > 0 && (
+                <div>
+                  <div className="pb-2 text-xs font-semibold text-white/50 tracking-wider uppercase">
+                    {t("cameraSettings")}
+                  </div>
+                  <div className="space-y-2">
+                    {shootingParams.map((item) => (
+                      <PhotoInfoRow key={item.key} label={t(item.key)} value={item.value} />
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {deviceParams.length > 0 && (
+                <div>
+                  <div className="pb-2 text-xs font-semibold text-white/50 tracking-wider uppercase">
+                    {t("device")}
+                  </div>
+                  <div className="space-y-2">
+                    {deviceParams.map((item) => (
+                      <PhotoInfoRow key={item.key} label={t(item.key)} value={item.value} wrap={item.wrap} />
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
-          <div className="space-y-1.5 px-4 py-2">
-            <PhotoInfoRow label={t("fileName")} value={formatPhotoName(photo.name)} twoLines />
-            <PhotoInfoRow label={t("format")} value={photo.typeDesc.toUpperCase()} />
-            <PhotoInfoRow label={t("fileSize")} value={formatFileSize(photo.size)} />
-            <PhotoInfoRow label={t("resolution")} value={formatResolution(photo.width, photo.height)} />
-            <PhotoInfoRow label={t("megapixels")} value={formatMegapixels(photo.width, photo.height)} />
-            <PhotoInfoRow label={t("colorSpace")} value={getPhotoColorSpace(photo.exif, t("uncalibrated"))} />
-            <PhotoInfoRow label={t("dateTime")} value={formatPhotoTakenDateTime(photo.takenTime, locale)} />
-            <PhotoInfoRow label={t("timeZone")} value={getPhotoTimezone(photo.exif)} />
-            <PhotoInfoRow
-              label={t("location")}
-              value={formatPhotoLocation(photo.latitude, photo.longitude, photo.altitude)}
-              wrap
-            />
-            <PhotoInfoRow label={t("software")} value={getPhotoSoftware(photo.exif)} wrap />
-            {photo.albums && photo.albums.length > 0 && (
-              <PhotoInfoRow
-                label="Album"
-                value={formatAlbumList(photo.albums)}
-                wrap
-              />
-            )}
-            <PhotoInfoRow label={t("storage")} value={formatStorageLocation(photo, storageT)} />
-            <PhotoInfoRow label="Download" value={photo.allowDownload === 1 ? "↓ Downloadable" : "🔒 Protected"} />
-          </div>
-          {shootingParams.length > 0 && (
-            <>
-              <div className="px-4 pt-3 text-sm font-medium">{t("cameraSettings")}</div>
-              <div className="space-y-1.5 px-4 py-2">
-                {shootingParams.map((item) => (
-                  <PhotoInfoRow key={item.key} label={t(item.key)} value={item.value} />
-                ))}
-              </div>
-            </>
+          {/* TAB 2: Dedicated Spacious Comments View */}
+          {currentTab === "comments" && (
+            <div className="flex-1 flex flex-col min-h-0">
+              <PhotoComments photoId={photo.photoId} />
+            </div>
           )}
-          {deviceParams.length > 0 && (
-            <>
-              <div className="px-4 pt-3 text-sm font-medium">{t("device")}</div>
-              <div className="space-y-1.5 px-4 py-2">
-                {deviceParams.map((item) => (
-                  <PhotoInfoRow key={item.key} label={t(item.key)} value={item.value} wrap={item.wrap} />
-                ))}
-              </div>
-            </>
-          )}
-
-          {/* Photo Comments Section */}
-          <PhotoComments photoId={photo.photoId} />
         </div>
       )}
     </aside>
