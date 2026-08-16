@@ -30,5 +30,14 @@
   "storage.disabled": "This storage location has been disabled.",
   "s3.configIncomplete": "The S3 configuration is incomplete.",
   "s3.bucketRequired": "S3 bucket name is required.",
-  "s3.readFailed": "Failed to read the file from S3."
+  "s3.readFailed": "Failed to read the file from S3.",
+  "photo.invalidFileType": "Invalid file type. Only valid images are supported.",
+  "photo.fileTooLarge": "File size exceeds the allowed limit.",
+  "totp.notConfigured": "2FA is not configured for this account.",
+  "totp.invalidCode": "Invalid 2FA verification code.",
+  "totp.codeAlreadyUsed": "This 2FA code has already been used.",
+  "totp.sessionExpired": "2FA verification session has expired.",
+  "totp.codeRequired": "2FA verification code is required.",
+  "login.tooManyAttempts": "Too many login attempts. Please try again later.",
+  "login.unauthorized": "Unauthorized access."
 }

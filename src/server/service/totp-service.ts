@@ -4,6 +4,7 @@ import { orm } from '@/server/infra/db';
 import BizError from '@/server/error/biz-error';
 import { generateOtpAuthUrl, generateTotpSecret, getQrCodeImageUrl, verifyTotpCode } from '@/server/lib/totp';
 import { type TotpSetupVo, type TotpStatusVo } from '@/server/entity/vo/totp';
+import { cache } from '@/server/infra/cache';
 
 interface TotpUserData {
   secret: string;
@@ -53,7 +54,7 @@ const totpService = {
 
   // Initialize or setup Google Authenticator TOTP QR code for user.
   async setupTotp(username: string, userId: string): Promise<TotpSetupVo> {
-    let existingData = await this.getTotpData(userId);
+    const existingData = await this.getTotpData(userId);
     let secret = existingData?.secret;
 
     if (!secret) {
@@ -89,15 +90,27 @@ const totpService = {
   },
 
   // Verify initial setup 6-digit OTP code and enable 2FA for user.
-  async verifyAndEnableTotp(code: string, secretInput: string | undefined, userId: string): Promise<boolean> {
+  // Always uses the server-stored secret — ignores any client-supplied secret (MED-05)
+  async verifyAndEnableTotp(code: string, _secretInput: string | undefined, userId: string): Promise<boolean> {
     const existingData = await this.getTotpData(userId);
-    const secret = secretInput || existingData?.secret;
+    // Always read secret from DB — never trust the client-supplied value
+    const secret = existingData?.secret;
 
     if (!secret) {
       throw new BizError('totp.notConfigured');
     }
 
+    // Reject replayed codes within the verification window (HIGH-03)
+    const replayKey = `totp_used_${userId}_${code}`;
+    if (await cache.get(replayKey)) {
+      throw new BizError('totp.codeAlreadyUsed');
+    }
+
     const isValid = verifyTotpCode(secret, code);
+    if (isValid) {
+      // Mark this code as used for 90s (covers ±1 step window)
+      await cache.set(replayKey, true, { ttl: 90 });
+    }
     if (!isValid) {
       throw new BizError('totp.invalidCode');
     }
@@ -146,7 +159,7 @@ const totpService = {
       });
   },
 
-  // Verify 6-digit TOTP code during login.
+  // Verify 6-digit TOTP code during login with replay protection (HIGH-03).
   async verifyLoginTotp(userId: string, code: string): Promise<boolean> {
     const data = await this.getTotpData(userId);
 
@@ -158,10 +171,19 @@ const totpService = {
       return true; // 2FA is not enabled for this user
     }
 
+    // Reject replayed codes within the verification window
+    const replayKey = `totp_used_${userId}_${code}`;
+    if (await cache.get(replayKey)) {
+      throw new BizError('totp.codeAlreadyUsed');
+    }
+
     const isValid = verifyTotpCode(data.secret, code);
     if (!isValid) {
       throw new BizError('totp.invalidCode');
     }
+
+    // Mark this code as used for 90s to prevent replay
+    await cache.set(replayKey, true, { ttl: 90 });
 
     return true;
   }

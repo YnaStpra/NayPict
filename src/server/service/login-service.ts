@@ -41,7 +41,18 @@ const loginService = {
   },
 
   // Verify username and password, with optional 2FA code verification.
-  async login(params: LoginBo): Promise<LoginVo> {
+  async login(params: LoginBo, clientIp: string): Promise<LoginVo> {
+    // Rate limiting: max 10 login attempts per minute per IP (HIGH-02)
+    const rateLimitKey = `login_ratelimit_${clientIp}`;
+    const attempts = (await cache.get<number>(rateLimitKey)) ?? 0;
+    if (attempts >= 10) {
+      throw new BizError('login.tooManyAttempts');
+    }
+    // Increment attempt counter (TTL=60s window; only increment on non-2FA paths)
+    if (!params.tempToken) {
+      await cache.set(rateLimitKey, attempts + 1, { ttl: 60 });
+    }
+
     if (params.tempToken) {
       const cachedUserId = await cache.get<string>(`temp_2fa_${params.tempToken}`);
       if (!cachedUserId) {
@@ -52,8 +63,27 @@ const loginService = {
         throw new BizError('totp.codeRequired');
       }
 
-      await totpService.verifyLoginTotp(cachedUserId, params.code);
+      // Check 2FA attempt counter for this tempToken (HIGH-06)
+      const attemptKey = `temp_2fa_attempts_${params.tempToken}`;
+      const totpAttempts = (await cache.get<number>(attemptKey)) ?? 0;
+      if (totpAttempts >= 3) {
+        // Lockout: invalidate tempToken after 3 failed guesses
+        await cache.delete(`temp_2fa_${params.tempToken}`);
+        await cache.delete(attemptKey);
+        throw new BizError('totp.sessionExpired');
+      }
+
+      try {
+        await totpService.verifyLoginTotp(cachedUserId, params.code);
+      } catch {
+        // Increment failure counter, delete tempToken to prevent further attempts on success-then-replay
+        await cache.set(attemptKey, totpAttempts + 1, { ttl: 300 });
+        throw new BizError('totp.invalidCode');
+      }
+
+      // Success: clean up both tempToken and attempt counter
       await cache.delete(`temp_2fa_${params.tempToken}`);
+      await cache.delete(attemptKey);
 
       const [user] = await orm.select().from(userTab).where(eq(userTab.userId, cachedUserId)).limit(1);
       if (!user) throw new BizError('login.invalidCredentials');

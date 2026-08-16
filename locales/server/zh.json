@@ -30,5 +30,14 @@
   "storage.disabled": "Storage has been disabled",
   "s3.configIncomplete": "S3 Incomplete configuration",
   "s3.bucketRequired": "S3 Bucket name cannot be empty",
-  "s3.readFailed": "S3 File read failed"
+  "s3.readFailed": "S3 File read failed",
+  "photo.invalidFileType": "不支持的文件类型，仅支持有效图片",
+  "photo.fileTooLarge": "文件大小超过限制",
+  "totp.notConfigured": "未配置二次验证",
+  "totp.invalidCode": "二次验证码错误",
+  "totp.codeAlreadyUsed": "验证码已被使用",
+  "totp.sessionExpired": "验证会话已过期",
+  "totp.codeRequired": "请输入二次验证码",
+  "login.tooManyAttempts": "登录尝试次数过多，请稍后再试",
+  "login.unauthorized": "未授权访问"
 }

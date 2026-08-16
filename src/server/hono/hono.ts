@@ -31,7 +31,8 @@ export function createHonoApp() {
     }
 
     console.error(err);
-    return c.json(result.fail(err.message));
+    // Return generic error — never expose internal stack trace or file paths (LOW-02)
+    return c.json(result.fail('An internal server error occurred.'));
   });
 
   return instance;
