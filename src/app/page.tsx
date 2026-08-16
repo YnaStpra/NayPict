@@ -16,6 +16,14 @@ export default function Home() {
   const [photos, setPhotos] = useState<PhotoVo[]>([])
 
   useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const photoId = new URLSearchParams(window.location.search).get('photoId')
+      if (photoId) {
+        window.location.href = `/photos?photoId=${photoId}`
+        return
+      }
+    }
+
     photoList({ size: 40, shuffle: true })
       .then((res) => {
         if (res.list && res.list.length > 0) {

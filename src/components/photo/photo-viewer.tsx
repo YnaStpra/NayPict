@@ -6,7 +6,7 @@ import { isImageSlide, type SlideImage, useController, useLightboxState } from "
 import Fullscreen from "yet-another-react-lightbox/plugins/fullscreen"
 import Thumbnails from "yet-another-react-lightbox/plugins/thumbnails"
 import Zoom from "yet-another-react-lightbox/plugins/zoom"
-import { ArrowLeftIcon, ChevronLeftIcon, ChevronRightIcon, CircleAlertIcon, CircleIcon, FolderIcon, FolderPlusIcon, LockIcon, Menu, LoaderCircleIcon, MaximizeIcon, MessageSquare, MinimizeIcon, PanelRightClose, PanelRightOpen, RotateCcwSquare, Trash2Icon } from "lucide-react"
+import { ArrowLeftIcon, ChevronLeftIcon, ChevronRightIcon, CircleAlertIcon, CircleIcon, FolderIcon, FolderPlusIcon, LockIcon, Menu, LoaderCircleIcon, MaximizeIcon, MessageSquare, MinimizeIcon, PanelRightClose, PanelRightOpen, RotateCcwSquare, Share2Icon, Trash2Icon } from "lucide-react"
 import { toast } from "sonner"
 
 import { PhotoInfoSidebar, PhotoViewerBlurBackground, formatAlbumList } from "@/components/photo/photo-info-sidebar"
@@ -532,6 +532,59 @@ function RotateButton({ showActions, onRotate }: { showActions: boolean, onRotat
   )
 }
 
+// Render share button.
+function ShareButton({ showActions }: { showActions: boolean }) {
+  const t = useTranslations("photos.viewer")
+  const { currentSlide } = useLightboxState()
+  const photoSlide = currentSlide && isImageSlide(currentSlide) ? (currentSlide as PhotoSlide) : null
+
+  const handleShare = async () => {
+    if (!photoSlide?.photoId || typeof window === "undefined") return
+
+    const url = new URL(window.location.href)
+    url.searchParams.set("photoId", photoSlide.photoId)
+    const shareUrl = url.toString()
+
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: photoSlide.alt || "Photo",
+          text: `Check out "${photoSlide.alt || "Photo"}" on NayPict`,
+          url: shareUrl,
+        })
+        return
+      } catch (err: unknown) {
+        if (err instanceof Error && err.name === "AbortError") {
+          return
+        }
+      }
+    }
+
+    try {
+      await navigator.clipboard.writeText(shareUrl)
+      toast.success(t("copied"))
+    } catch {
+      toast.error(t("copyFailed"))
+    }
+  }
+
+  const tap = useTapAction(handleShare)
+
+  return (
+    <Button
+      type="button"
+      size="icon"
+      variant="secondary"
+      className="rounded-full bg-black/40 text-white transition-opacity duration-200 hover:bg-black/50"
+      title={t("share")}
+      {...tap}
+    >
+      <Share2Icon className="size-4" />
+      <span className="sr-only">{t("share")}</span>
+    </Button>
+  )
+}
+
 // Render original image load button.
 function LoadOriginalButton({
   showActions,
@@ -968,21 +1021,30 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
       onBrowserBackRef.current?.()
     }
 
-    window.history.pushState(
-      {
-        ...window.history.state,
-        photoViewerOpen: true,
-      },
-      "",
-      window.location.href,
-    )
-    historyPushedRef.current = true
+    const initialPhoto = photos[index]
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href)
+      if (initialPhoto?.photoId) {
+        url.searchParams.set("photoId", initialPhoto.photoId)
+      }
+
+      window.history.pushState(
+        {
+          ...window.history.state,
+          photoViewerOpen: true,
+          photoId: initialPhoto?.photoId,
+        },
+        "",
+        url.toString(),
+      )
+      historyPushedRef.current = true
+    }
     window.addEventListener("popstate", handlePopState)
 
     return () => {
       window.removeEventListener("popstate", handlePopState)
     }
-  }, [open, setInfoOpen])
+  }, [open, setInfoOpen, index, photos])
 
   useEffect(() => {
     if (!open) {
@@ -1005,8 +1067,20 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
     setViewIndex(nextIndex)
 
     const photo = photos[nextIndex]
+    if (!photo) return
     const preview = photo.preview
     currentPhotoIdRef.current = photo.photoId
+
+    // Sync URL query param ?photoId=... smoothly
+    if (typeof window !== "undefined" && photo.photoId) {
+      const url = new URL(window.location.href)
+      url.searchParams.set("photoId", photo.photoId)
+      window.history.replaceState(
+        { ...window.history.state, photoId: photo.photoId },
+        "",
+        url.toString()
+      )
+    }
 
     if (originalProgressHideTimerRef.current) {
       clearTimeout(originalProgressHideTimerRef.current)
@@ -1123,6 +1197,14 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
 
   // Close the viewer and sync clear the browser history written by the viewer。
   function closeViewer() {
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href)
+      if (url.searchParams.has("photoId")) {
+        url.searchParams.delete("photoId")
+        const cleanUrl = url.pathname + (url.search ? url.search : "") + (url.hash ? url.hash : "")
+        window.history.replaceState({ ...window.history.state, photoId: undefined }, "", cleanUrl)
+      }
+    }
 
     if (historyPushedRef.current) {
       window.history.back()
@@ -1249,6 +1331,7 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
                     onLoadOriginal={loadOriginalPhoto}
                   />
                   <RotateButton showActions={actionsVisible} onRotate={rotatePhoto} />
+                  <ShareButton showActions={actionsVisible} />
                   <CommentsButton
                     showActions={actionsVisible}
                     open={infoOpen && infoTab === "comments"}
