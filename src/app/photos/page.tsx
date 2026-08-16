@@ -17,12 +17,13 @@ import {
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { usePhotoList } from "@/hooks/use-photo-list"
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { PhotoMasonry } from "@/components/photo/photo-masonry"
 import { PHOTO_LIST_PAGE_SIZE } from "@/server/const/global"
 import { PhotoFavoriteEnum } from "@/server/enums/photo-enum"
 import { photoFavorite, photoList, photoRecycle } from "@/request/photo"
+import { removePhotoIdFromUrl } from "@/lib/url"
 import { albumAddPhoto } from "@/request/album"
 import { usePhotoStore } from "@/store/photo-store"
 import { useAlbumStore } from "@/store/album-store"
@@ -146,11 +147,15 @@ export default function Page() {
     })
   }, [prependPhotos, uploadedPhotos])
 
-  // Automatically open photo if ?photoId=... is in the URL (direct share link)
+  const initialDeepLinkHandledRef = useRef(false)
+
+  // Automatically open photo once on initial load if ?photoId=... is in the URL (direct share link)
   useEffect(() => {
-    if (typeof window === 'undefined') return
+    if (typeof window === 'undefined' || initialDeepLinkHandledRef.current) return
     const targetPhotoId = new URLSearchParams(window.location.search).get('photoId')
     if (!targetPhotoId) return
+
+    initialDeepLinkHandledRef.current = true
 
     // 1. If photo already exists in list, open it
     const existingIndex = photos.findIndex((p) => p.photoId === targetPhotoId)
@@ -180,16 +185,18 @@ export default function Page() {
       .catch((err) => {
         console.error('Failed to load shared photo:', err)
       })
-  }, [photos, setPhotos])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const openPhoto = useCallback((index: number) => {
     setModelPhotoIndex(index)
     setShowPhotoViewer(true)
   }, [])
 
-  function closePhoto() {
+  const closePhoto = useCallback(() => {
     setShowPhotoViewer(false)
-  }
+    removePhotoIdFromUrl()
+  }, [])
 
   const changePhotoFavorite = useCallback((index: number, setFavorite: (favorite: boolean) => void) => {
     const photo = photos[index]

@@ -24,6 +24,7 @@ import { PhotoMasonry } from "@/components/photo/photo-masonry"
 import { PHOTO_LIST_PAGE_SIZE } from "@/server/const/global"
 import { PhotoFavoriteEnum } from "@/server/enums/photo-enum"
 import { photoFavorite, photoList, photoRecycle } from "@/request/photo"
+import { removePhotoIdFromUrl } from "@/lib/url"
 import { albumAddPhoto, albumRemovePhoto } from "@/request/album"
 import { useAlbumStore } from "@/store/album-store"
 import { usePhotoStore } from "@/store/photo-store"
@@ -164,11 +165,15 @@ export default function Page() {
     })
   }, [prependPhotos, uploadedPhotos])
 
-  // Automatically open photo if ?photoId=... is in the URL (direct share link)
+  const initialDeepLinkHandledRef = useRef(false)
+
+  // Automatically open photo once on initial load if ?photoId=... is in the URL (direct share link)
   useEffect(() => {
-    if (typeof window === 'undefined') return
+    if (typeof window === 'undefined' || initialDeepLinkHandledRef.current) return
     const targetPhotoId = new URLSearchParams(window.location.search).get('photoId')
     if (!targetPhotoId) return
+
+    initialDeepLinkHandledRef.current = true
 
     const existingIndex = photos.findIndex((p) => p.photoId === targetPhotoId)
     if (existingIndex !== -1) {
@@ -196,18 +201,20 @@ export default function Page() {
       .catch((err) => {
         console.error('Failed to load shared photo in album:', err)
       })
-  }, [photos, setPhotos])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
-  // Open photo details of current album model。
+  // Open photo details of current album model.
   const openPhoto = useCallback((index: number) => {
     setModelPhotoIndex(index)
     setShowPhotoViewer(true)
   }, [])
 
-  // Close photo details model。
-  function closePhoto() {
+  // Close photo details model.
+  const closePhoto = useCallback(() => {
     setShowPhotoViewer(false)
-  }
+    removePhotoIdFromUrl()
+  }, [])
 
   // Switch the collection status of a single photo based on the photo subscript。
   const changePhotoFavorite = useCallback((index: number, setFavorite: (favorite: boolean) => void) => {

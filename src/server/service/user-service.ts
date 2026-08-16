@@ -26,10 +26,17 @@ const userService = {
     const username = process.env.ADMIN?.trim();
     const password = process.env.PASSWORD?.trim();
 
+    if (!process.env.DATABASE_URL) {
+      console.warn('[INIT] DATABASE_URL is not set — skipping admin user initialization.');
+      return;
+    }
+
     if (!username || !password) {
       console.warn('[INIT] ADMIN or PASSWORD env var is not set — skipping admin initialization.');
       return;
     }
+
+    try {
 
     const [user] = await orm
       .select()
@@ -58,7 +65,10 @@ const userService = {
         })
         .where(eq(userTab.userId, user.userId));
     }
-  },
+  } catch (err) {
+    console.warn('[INIT] Failed to initialize admin user:', err);
+  }
+},
 
   // According to user id Query user basic information。
   async getById(userId: string): Promise<UserInfoVo | null> {

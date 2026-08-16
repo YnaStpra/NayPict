@@ -17,9 +17,10 @@ import { usePhotoList } from "@/hooks/use-photo-list"
 import { PHOTO_LIST_PAGE_SIZE } from "@/server/const/global"
 import { PhotoFavoriteEnum } from "@/server/enums/photo-enum"
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { PhotoMasonry } from "@/components/photo/photo-masonry"
 import { photoFavorite, photoList, photoRecycle } from "@/request/photo"
+import { removePhotoIdFromUrl } from "@/lib/url"
 import { albumAddPhoto } from "@/request/album"
 import { useAlbumStore } from "@/store/album-store"
 import { useFavoriteContext } from "@/app/favorites/provider"
@@ -77,11 +78,15 @@ export default function Page() {
     }
   }, [])
 
-  // Automatically open photo if ?photoId=... is in the URL (direct share link)
+  const initialDeepLinkHandledRef = useRef(false)
+
+  // Automatically open photo once on initial load if ?photoId=... is in the URL (direct share link)
   useEffect(() => {
-    if (typeof window === 'undefined') return
+    if (typeof window === 'undefined' || initialDeepLinkHandledRef.current) return
     const targetPhotoId = new URLSearchParams(window.location.search).get('photoId')
     if (!targetPhotoId) return
+
+    initialDeepLinkHandledRef.current = true
 
     const existingIndex = photos.findIndex((p) => p.photoId === targetPhotoId)
     if (existingIndex !== -1) {
@@ -109,18 +114,20 @@ export default function Page() {
       .catch((err) => {
         console.error('Failed to load shared photo in favorites:', err)
       })
-  }, [photos, setPhotos])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
-  // Open favorite photo details model。
+  // Open favorite photo details model.
   const openPhoto = useCallback((index: number) => {
     setModelPhotoIndex(index)
     setShowPhotoViewer(true)
   }, [])
 
-  // Close photo details model。
-  function closePhoto() {
+  // Close photo details model.
+  const closePhoto = useCallback(() => {
     setShowPhotoViewer(false)
-  }
+    removePhotoIdFromUrl()
+  }, [])
 
   // Switch the collection status of a single photo based on the photo subscript。
   const changePhotoFavorite = useCallback((index: number, setFavorite: (favorite: boolean) => void) => {
