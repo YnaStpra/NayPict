@@ -28,24 +28,28 @@ export function LoginForm({
   className,
   loading = false,
   onLogin,
+  require2Fa = false,
+  tempToken = "",
+  onBackToLogin,
   ...props
-}: LoginFormProps) {
+}: LoginFormProps & {
+  require2Fa?: boolean;
+  tempToken?: string;
+  onBackToLogin?: () => void;
+}) {
   const t = useTranslations("login")
   const { title } = useApp()
-  // form Save username and password for login form。
   const [form, setForm] = useState<LoginBo>({
     username: "",
     password: "",
   })
+  const [totpCode, setTotpCode] = useState("")
 
-  // If a demo account is configured，then pre-populate the login form。
   useEffect(() => {
     const username = process.env.NEXT_PUBLIC_DEMO_USERNAME
     const password = process.env.NEXT_PUBLIC_DEMO_PASSWORD
 
-    if (!username && !password) {
-      return
-    }
+    if (!username && !password) return
 
     setForm((prev) => ({
       username: username || prev.username,
@@ -53,7 +57,6 @@ export function LoginForm({
     }))
   }, [])
 
-  // Update login form fields。
   function updateField(field: keyof LoginBo, value: string) {
     setForm((prev) => ({
       ...prev,
@@ -61,16 +64,24 @@ export function LoginForm({
     }))
   }
 
-  // Submit login form，Pass the username and password to the login page。
   function submitLogin(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+
+    if (require2Fa && tempToken) {
+      onLogin({
+        username: form.username.trim(),
+        password: form.password,
+        tempToken,
+        code: totpCode.trim(),
+      })
+      return
+    }
 
     onLogin({
       username: form.username.trim(),
       password: form.password,
     })
   }
-
 
   return (
     <div className={cn("flex flex-col gap-6", className)} {...props}>
@@ -85,39 +96,81 @@ export function LoginForm({
             {title} Admin Portal
           </CardTitle>
           <CardDescription>
-            Enter your admin credentials to manage your gallery
+            {require2Fa
+              ? "Masukkan 6 digit kode dari aplikasi Google Authenticator Anda"
+              : "Enter your admin credentials to manage your gallery"}
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={submitLogin} >
-            <FieldGroup>
-              <Field>
-                <Input
-                  type="text"
-                  placeholder={t("username")}
-                  value={form.username}
-                  onChange={(event) => updateField("username", event.target.value)}
-                  className="bg-white/50"
-                  required
-                />
-              </Field>
-              <Field>
-                <Input
-                  type="password"
-                  placeholder={t("password")}
-                  value={form.password}
-                  onChange={(event) => updateField("password", event.target.value)}
-                  className="bg-white/50"
-                  required
-                />
-              </Field>
-              <Field className="mb-2">
-                <Button type="submit" disabled={loading}>
-                  {loading && <LoaderCircle className="animate-spin" />}
-                  {t("signIn")}
-                </Button>
-              </Field>
-            </FieldGroup>
+          <form onSubmit={submitLogin}>
+            {require2Fa ? (
+              <FieldGroup>
+                <Field>
+                  <div className="flex flex-col gap-2">
+                    <label className="text-xs font-medium text-muted-foreground">
+                      Kode Verifikasi Google Authenticator (6 Digit)
+                    </label>
+                    <Input
+                      type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      maxLength={6}
+                      placeholder="000000"
+                      value={totpCode}
+                      onChange={(e) => setTotpCode(e.target.value.replace(/\D/g, ""))}
+                      className="bg-white/50 text-center tracking-[0.5em] text-lg font-mono"
+                      autoFocus
+                      required
+                    />
+                  </div>
+                </Field>
+                <Field className="mt-2 flex flex-col gap-2">
+                  <Button type="submit" disabled={loading || totpCode.length !== 6}>
+                    {loading && <LoaderCircle className="animate-spin mr-2" />}
+                    Verifikasi & Masuk
+                  </Button>
+                  {onBackToLogin && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={onBackToLogin}
+                      disabled={loading}
+                    >
+                      Kembali ke Login
+                    </Button>
+                  )}
+                </Field>
+              </FieldGroup>
+            ) : (
+              <FieldGroup>
+                <Field>
+                  <Input
+                    type="text"
+                    placeholder={t("username")}
+                    value={form.username}
+                    onChange={(event) => updateField("username", event.target.value)}
+                    className="bg-white/50"
+                    required
+                  />
+                </Field>
+                <Field>
+                  <Input
+                    type="password"
+                    placeholder={t("password")}
+                    value={form.password}
+                    onChange={(event) => updateField("password", event.target.value)}
+                    className="bg-white/50"
+                    required
+                  />
+                </Field>
+                <Field className="mb-2">
+                  <Button type="submit" disabled={loading}>
+                    {loading && <LoaderCircle className="animate-spin" />}
+                    {t("signIn")}
+                  </Button>
+                </Field>
+              </FieldGroup>
+            )}
           </form>
         </CardContent>
       </Card>

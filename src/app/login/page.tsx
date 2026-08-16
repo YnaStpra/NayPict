@@ -8,10 +8,13 @@ import { userInfo } from "@/request/user"
 import { type LoginBo } from "@/server/entity/bo/login"
 import { useApp } from "@/app/provider"
 
+import { toast } from "sonner"
+
 export default function LoginPage() {
   const { refreshAlbums, refreshStorages, setUserInfo, theme, setTheme } = useApp()
-  // loading Flag whether the login request is being submitted。
   const [loading, setLoading] = useState(false)
+  const [require2Fa, setRequire2Fa] = useState(false)
+  const [tempToken, setTempToken] = useState("")
   const router = useRouter()
 
   useServerInsertedHTML(() => (
@@ -22,7 +25,6 @@ export default function LoginPage() {
     />
   ))
 
-  // Enter login page to force bright color，Restore the user's saved default theme when leaving。
   useLayoutEffect(() => {
     document.documentElement.classList.remove("dark")
     document.documentElement.style.colorScheme = "light"
@@ -31,14 +33,20 @@ export default function LoginPage() {
     }
   }, [])
 
-  // Request login interface，After success, pull the current user information and jump to the photo page。
   function handleLogin(params: LoginBo) {
     setLoading(true)
 
     login(params)
       .then((res) => {
+        if (res?.require2Fa && res?.tempToken) {
+          setRequire2Fa(true)
+          setTempToken(res.tempToken)
+          toast.info("Masukkan 6 digit kode Google Authenticator Anda")
+          return
+        }
+
         if (res?.token) {
-          // Server already set JWT cookie; no need to set manually.
+          // Token set in HTTP-only cookie by server
         }
         if (res?.user) {
           setUserInfo(res.user)
@@ -54,6 +62,7 @@ export default function LoginPage() {
       })
       .catch((err) => {
         console.error('Login failed:', err)
+        toast.error(err?.message || "Login gagal. Periksa kembali kredensial atau kode 2FA Anda.")
       })
       .finally(() => {
         setLoading(false)
@@ -72,7 +81,16 @@ export default function LoginPage() {
         }}
       />
       <div className="relative z-10 flex w-full max-w-sm flex-col gap-6">
-        <LoginForm loading={loading} onLogin={handleLogin} />
+        <LoginForm
+          loading={loading}
+          onLogin={handleLogin}
+          require2Fa={require2Fa}
+          tempToken={tempToken}
+          onBackToLogin={() => {
+            setRequire2Fa(false)
+            setTempToken("")
+          }}
+        />
       </div>
     </div>
   )

@@ -81,8 +81,50 @@ async function post<T = unknown>(url: string, params: RequestParams = null) {
   return json.data as T;
 }
 
+// send GET Request and return interface data.
+async function get<T = unknown>(url: string) {
+  await sleep(MOCK_REQUEST_DELAY);
+
+  let res: Response;
+  try {
+    res = await fetch(buildUrl(url), {
+      method: 'GET',
+      credentials: 'include'
+    });
+  } catch (error) {
+    const errMessage = error instanceof Error ? error.message : 'Network error';
+    toast.error(errMessage);
+    throw new Error(errMessage);
+  }
+
+  const text = await res.text();
+  let json: ApiResponse<T> | null = null;
+  try {
+    json = text ? (JSON.parse(text) as ApiResponse<T>) : null;
+  } catch {
+    json = null;
+  }
+
+  if (!res.ok || !json || json.code !== 200) {
+    const message = json?.message || (res.status === 401 ? 'Unauthorized' : 'Request failed');
+
+    if (res.status === 401 || json?.code === 401) {
+      handleUnauthorized();
+    }
+    toast.error(message);
+
+    throw new Error(message);
+  }
+
+  return json.data as T;
+}
+
 const http = {
-  // send POST ask。
+  // send GET request.
+  get<T = unknown>(url: string) {
+    return get<T>(url);
+  },
+  // send POST request.
   post<T = unknown>(url: string, params: RequestParams = null) {
     return post<T>(url, params);
   }

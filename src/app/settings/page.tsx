@@ -29,6 +29,8 @@ import { Switch } from "@/components/ui/switch"
 import { useApp } from "@/app/provider"
 import { useSettingContext } from "@/app/settings/provider"
 import { SettingItem } from "@/components/setting/setting-item"
+import { TotpSettingsCard } from "@/components/setting/totp-settings-card"
+import { LoginSessionsCard } from "@/components/setting/login-sessions-card"
 import { settingSet } from "@/request/setting"
 import { type Setting } from "@/server/entity/setting"
 import { SettingPhotoDedupEnum, SettingSyncDeleteEnum } from "@/server/enums/setting-enum"
@@ -136,6 +138,8 @@ export default function Page() {
                 onCheckedChange={changePhotoDedup}
               />
             </SettingItem>
+            <TotpSettingsCard />
+            <LoginSessionsCard />
           </div>
           <div className="mt-8 flex justify-end">
             <Button type="button" onClick={saveSetting}>
