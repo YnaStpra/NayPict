@@ -10,43 +10,11 @@ import { useApp } from "@/app/provider";
 import { UserTypeEnum } from "@/server/enums/user-enum";
 import { useLocale } from "next-intl";
 
+import { formatRelativeTime } from "@/lib/date";
+
 interface PhotoCommentsProps {
   // Target photo ID to display and post comments for.
   photoId: string;
-}
-
-// Format relative timestamp into user-friendly localized string.
-function formatRelativeTime(dateStr: string, locale = "en"): string {
-  const date = new Date(dateStr);
-  if (Number.isNaN(date.getTime())) {
-    return dateStr;
-  }
-
-  const now = Date.now();
-  const diffMs = now - date.getTime();
-  const diffSec = Math.floor(diffMs / 1000);
-  const diffMin = Math.floor(diffSec / 60);
-  const diffHour = Math.floor(diffMin / 60);
-  const diffDay = Math.floor(diffHour / 24);
-
-  if (diffSec < 45) {
-    return locale === "zh" ? "刚刚" : "Just now";
-  }
-  if (diffMin < 60) {
-    return locale === "zh" ? `${diffMin}分钟前` : `${diffMin}m ago`;
-  }
-  if (diffHour < 24) {
-    return locale === "zh" ? `${diffHour}小时前` : `${diffHour}h ago`;
-  }
-  if (diffDay < 7) {
-    return locale === "zh" ? `${diffDay}天前` : `${diffDay}d ago`;
-  }
-
-  return new Intl.DateTimeFormat(locale, {
-    month: "short",
-    day: "numeric",
-    year: date.getFullYear() !== new Date().getFullYear() ? "numeric" : undefined,
-  }).format(date);
 }
 
 // Render the comments list and submission form for a specific photo.

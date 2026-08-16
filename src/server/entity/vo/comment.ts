@@ -24,6 +24,10 @@ interface CommentAdminVo {
   photoId: string;
   // Photo title / filename.
   photoName?: string;
+  // Photo thumbnail URL.
+  photoThumbnail?: string;
+  // Photo preview URL.
+  photoPreview?: string;
   // Photo ThumbHash for blurred placeholder.
   thumbHash?: string | null;
   // Photo type extension (e.g. jpg, png).

@@ -20,6 +20,7 @@ import { Button } from '@/components/ui/button'
 import { useApp } from '@/app/provider'
 import { UserTypeEnum } from '@/server/enums/user-enum'
 import { commentAdminList, commentDelete, commentDeleteReply, commentReply } from '@/request/comment'
+import { photoList } from '@/request/photo'
 import { type CommentAdminVo } from '@/server/entity/vo/comment'
 import { type PhotoVo } from '@/server/entity/vo/photo'
 import {
@@ -41,35 +42,12 @@ import {
 import { toast } from 'sonner'
 import { useLocale } from 'next-intl'
 import { getThumbHashUrl } from '@/lib/thumb-hash'
+import { formatRelativeTime } from '@/lib/date'
 
 const PhotoViewer = dynamic(
   () => import('@/components/photo/photo-viewer').then((mod) => mod.PhotoViewer),
   { ssr: false }
 )
-
-// Format relative date-time nicely
-function formatCommentTime(dateStr: string, locale = 'en'): string {
-  const date = new Date(dateStr)
-  if (Number.isNaN(date.getTime())) return dateStr
-
-  const now = Date.now()
-  const diffSec = Math.floor((now - date.getTime()) / 1000)
-  if (diffSec < 45) return locale === 'zh' ? '刚刚' : 'Just now'
-  const diffMin = Math.floor(diffSec / 60)
-  if (diffMin < 60) return locale === 'zh' ? `${diffMin}分钟前` : `${diffMin}m ago`
-  const diffHour = Math.floor(diffMin / 60)
-  if (diffHour < 24) return locale === 'zh' ? `${diffHour}小时前` : `${diffHour}h ago`
-  const diffDay = Math.floor(diffHour / 24)
-  if (diffDay < 7) return locale === 'zh' ? `${diffDay}天前` : `${diffDay}d ago`
-
-  return new Intl.DateTimeFormat(locale, {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(date)
-}
 
 export default function CommentsManagementPage() {
   const router = useRouter()
@@ -252,8 +230,10 @@ export default function CommentsManagementPage() {
   }
 
   // Open photo in viewer modal
-  const handlePreviewPhoto = (item: CommentAdminVo) => {
-    const mockPhoto: PhotoVo = {
+  const handlePreviewPhoto = async (item: CommentAdminVo) => {
+    const previewUrl = item.photoPreview || item.photoThumbnail || ''
+    const thumbUrl = item.photoThumbnail || item.photoPreview || ''
+    const initialPhoto: PhotoVo = {
       photoId: item.photoId,
       name: item.photoName || 'Photo',
       thumbHash: item.thumbHash ?? null,
@@ -271,9 +251,9 @@ export default function CommentsManagementPage() {
       favorite: 0,
       storageId: null,
       allowDownload: 1,
-      key: '',
-      preview: `/api/photo/preview/${item.photoId}`,
-      thumbnail: `/api/photo/preview/${item.photoId}`,
+      key: previewUrl,
+      preview: previewUrl,
+      thumbnail: thumbUrl,
       exif: null,
       latitude: null,
       longitude: null,
@@ -281,9 +261,19 @@ export default function CommentsManagementPage() {
       storageName: null,
       storageTypeDesc: null,
     }
-    setViewerPhotos([mockPhoto])
+    setViewerPhotos([initialPhoto])
     setViewerIndex(0)
     setViewerOpen(true)
+
+    // Fetch full PhotoVo from backend with original resolution and EXIF data
+    try {
+      const res = await photoList({ photoIds: [item.photoId], size: 1 })
+      if (res?.list && res.list.length > 0) {
+        setViewerPhotos(res.list)
+      }
+    } catch {
+      // Keep initialPhoto
+    }
   }
 
   const totalPages = Math.ceil(total / pageSize)
@@ -470,15 +460,18 @@ export default function CommentsManagementPage() {
                           : undefined
                       }
                     >
-                      <img
-                        src={`/api/photo/preview/${item.photoId}`}
-                        alt={item.photoName || 'Photo'}
-                        className="size-full object-cover group-hover:scale-105 transition-transform duration-300"
-                        loading="lazy"
-                        onError={(e) => {
-                          e.currentTarget.style.opacity = '0'
-                        }}
-                      />
+                      {item.photoThumbnail || item.photoPreview ? (
+                        <img
+                          src={item.photoThumbnail || item.photoPreview}
+                          alt={item.photoName || 'Photo'}
+                          className="size-full object-cover group-hover:scale-105 transition-transform duration-300"
+                          loading="lazy"
+                        />
+                      ) : (
+                        <div className="size-full flex items-center justify-center bg-muted text-muted-foreground text-[10px]">
+                          Photo
+                        </div>
+                      )}
                       <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white">
                         <ExternalLink className="size-4" />
                       </div>
@@ -497,7 +490,7 @@ export default function CommentsManagementPage() {
                               {item.name}
                             </span>
                             <span className="text-xs text-muted-foreground ml-2">
-                              {formatCommentTime(item.createTime, locale)}
+                              {formatRelativeTime(item.createTime, locale)}
                             </span>
                           </div>
                         </div>
@@ -528,7 +521,7 @@ export default function CommentsManagementPage() {
                               <span>{locale === 'zh' ? '管理员回复' : 'Reply by Admin'}</span>
                               {item.replyTime && (
                                 <span className="text-[10px] font-normal text-muted-foreground ml-1">
-                                  ({formatCommentTime(item.replyTime, locale)})
+                                  ({formatRelativeTime(item.replyTime, locale)})
                                 </span>
                               )}
                             </div>

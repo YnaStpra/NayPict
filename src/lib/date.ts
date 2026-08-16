@@ -92,9 +92,58 @@ function formatRecycleTime(recycleTime?: string | null, locale = "zh") {
   return new Intl.RelativeTimeFormat(locale, { numeric: "always" }).format(-Math.floor(diff / day), "day")
 }
 
+// Format comment or post time as human-friendly relative description (e.g. "Just now", "5m ago", "2h ago", "3d ago").
+function formatRelativeTime(dateStr?: string | null, locale = "en"): string {
+  if (!dateStr) {
+    return ""
+  }
+
+  const time = parseUtcTime(dateStr)
+  if (time === null) {
+    return dateStr
+  }
+
+  const diffMs = Math.max(0, Date.now() - time)
+  const diffSec = Math.floor(diffMs / 1000)
+  const diffMin = Math.floor(diffSec / 60)
+  const diffHour = Math.floor(diffMin / 60)
+  const diffDay = Math.floor(diffHour / 24)
+
+  if (diffSec < 60) {
+    return locale === "zh" ? "刚刚" : "Just now"
+  }
+
+  if (diffMin < 60) {
+    return locale === "zh" ? `${diffMin}分钟前` : `${diffMin}m ago`
+  }
+
+  if (diffHour < 24) {
+    return locale === "zh" ? `${diffHour}小时前` : `${diffHour}h ago`
+  }
+
+  if (diffDay < 30) {
+    return locale === "zh" ? `${diffDay}天前` : `${diffDay}d ago`
+  }
+
+  const date = new Date(time)
+  return new Intl.DateTimeFormat(locale, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  }).format(date)
+}
+
 // Read the current browser relative UTC offset minutes，East Eighth District is 480。
 function getLocalTzOffsetMin() {
   return -new Date().getTimezoneOffset()
 }
 
-export { formatPhotoTakenDate, formatPhotoTakenDateTime, formatRecycleTime, getLocalTzOffsetMin, parseTime, parseUtcTime }
+export {
+  formatPhotoTakenDate,
+  formatPhotoTakenDateTime,
+  formatRecycleTime,
+  formatRelativeTime,
+  getLocalTzOffsetMin,
+  parseTime,
+  parseUtcTime,
+}
