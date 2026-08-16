@@ -902,7 +902,7 @@ export function InfiniteGallery(props: InfiniteGalleryProps) {
   }
 
   return (
-    <div ref={containerRef} className={className} style={wrapperStyle}>
+    <div ref={containerRef} className={className} style={wrapperStyle} data-infinite-gallery="true">
       <div ref={sceneRef} style={sceneStyle} />
     </div>
   )

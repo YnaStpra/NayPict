@@ -24,7 +24,8 @@ const SYSTEM_PATHS = [
   '/storage/set',
   '/storage/setTop',
   '/storage/toggleStatus',
-  '/storage/delete'
+  '/storage/delete',
+  '/photo/comment/delete'
 ];
 
 const PUBLIC_API_PATHS = [
@@ -36,7 +37,10 @@ const PUBLIC_API_PATHS = [
   '/photo/download',
   '/album/list',
   '/storage/select',
-  '/media'
+  '/media',
+  '/photos',
+  '/photo/comment/list',
+  '/photo/comment/add'
 ];
 
 // Determine whether the current path hits the specified interface or its subpath.

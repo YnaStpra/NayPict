@@ -153,6 +153,7 @@
   "layout.navigation.photos": "photo",
   "layout.navigation.favorites": "collect",
   "layout.navigation.albums": "photo album",
+  "layout.navigation.comments": "评论管理",
   "layout.navigation.trash": "recycle bin",
   "layout.navigation.storage": "storage",
   "layout.navigation.users": "user",
