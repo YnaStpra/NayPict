@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { useTapAction } from "@/hooks/use-tap-action"
 import { formatPhotoTakenDateTime } from "@/lib/date"
 import { getThumbHashUrl } from "@/lib/thumb-hash"
-import { formatPhotoLocation, getPhotoColorSpace, getPhotoDeviceParams, getPhotoShootingParams, getPhotoSoftware, getPhotoTimezone } from "@/lib/viewer-field"
+import { formatPhotoLocation, getPhotoDeviceParams, getPhotoShootingParams, getPhotoSoftware, getPhotoTimezone } from "@/lib/viewer-field"
 import { type PhotoVo } from "@/server/entity/vo/photo"
 import { useLocale, useTranslations } from "next-intl"
 import { useApp } from "@/app/provider"
@@ -247,7 +247,6 @@ export function PhotoInfoSidebar({
                   <PhotoInfoRow label={t("fileSize")} value={formatFileSize(photo.size)} />
                   <PhotoInfoRow label={t("resolution")} value={formatResolution(photo.width, photo.height)} />
                   <PhotoInfoRow label={t("megapixels")} value={formatMegapixels(photo.width, photo.height)} />
-                  <PhotoInfoRow label={t("colorSpace")} value={getPhotoColorSpace(photo.exif, t("uncalibrated"))} />
                   <PhotoInfoRow label={t("dateTime")} value={formatPhotoTakenDateTime(photo.takenTime, locale)} />
                   <PhotoInfoRow label={t("timeZone")} value={getPhotoTimezone(photo.exif)} />
                   <PhotoInfoRow
@@ -263,7 +262,9 @@ export function PhotoInfoSidebar({
                       wrap
                     />
                   )}
-                  <PhotoInfoRow label={t("storage")} value={formatStorageLocation(photo, storageT)} />
+                  {isAdmin && (
+                    <PhotoInfoRow label={t("storage")} value={formatStorageLocation(photo, storageT)} />
+                  )}
                   <PhotoInfoRow label="Download" value={photo.allowDownload === 1 ? "↓ Downloadable" : "🔒 Protected"} />
                 </div>
               </div>
