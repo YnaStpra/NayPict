@@ -19,7 +19,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { useApp } from "@/app/provider"
 import { UserTypeEnum } from "@/server/enums/user-enum"
-import { Image, FolderOpen, Database, Trash2, Settings, Upload, ShieldCheck, ArrowRight, LoaderCircle } from "lucide-react"
+import { Image, FolderOpen, Database, Trash2, Settings, Upload, ShieldCheck, ArrowRight, LoaderCircle, BarChart3 } from "lucide-react"
 import { usePhotoStore } from "@/store/photo-store"
 import { userInfo as fetchUserInfo } from "@/request/user"
 
@@ -30,28 +30,24 @@ export default function AdminPage() {
   const [checking, setChecking] = useState(!userInfo)
 
   useEffect(() => {
-    if (userInfo) {
-      if (userInfo.type !== UserTypeEnum.ADMIN) {
-        router.replace("/login")
-      }
-      setChecking(false)
-      return
-    }
-
-    fetchUserInfo()
-      .then((info) => {
-        if (info && info.type === UserTypeEnum.ADMIN) {
-          setUserInfo(info)
-        } else {
+    if (!userInfo) {
+      fetchUserInfo()
+        .then((info) => {
+          if (info && info.type === UserTypeEnum.ADMIN) {
+            setUserInfo(info)
+          } else {
+            router.replace("/login")
+          }
+        })
+        .catch(() => {
           router.replace("/login")
-        }
-      })
-      .catch(() => {
-        router.replace("/login")
-      })
-      .finally(() => {
-        setChecking(false)
-      })
+        })
+        .finally(() => {
+          setChecking(false)
+        })
+    } else if (userInfo.type !== UserTypeEnum.ADMIN) {
+      router.replace("/login")
+    }
   }, [userInfo, setUserInfo, router])
 
   if (checking) {
@@ -89,6 +85,13 @@ export default function AdminPage() {
       icon: <Database className="size-6 text-emerald-500" />,
       actionLabel: "Configure Storage",
       onClick: () => router.push("/storage"),
+    },
+    {
+      title: "Photo Insights & Analytics",
+      description: "Analyze public visitor traffic, view trends, top viewed photos, and engagement metrics.",
+      icon: <BarChart3 className="size-6 text-indigo-500" />,
+      actionLabel: "View Insights",
+      onClick: () => router.push("/admin/insights"),
     },
     {
       title: "Trash & Recovery",

@@ -55,6 +55,26 @@ export async function migrate(): Promise<void> {
     await sql`
       CREATE INDEX IF NOT EXISTS "comment_photo_id_idx" ON "comment" ("photo_id");
     `;
+
+    // Ensure photo_view table and indexes exist in PostgreSQL for insights.
+    await sql`
+      CREATE TABLE IF NOT EXISTS "photo_view" (
+        "id" text PRIMARY KEY NOT NULL,
+        "photo_id" text NOT NULL REFERENCES "photo"("photo_id") ON DELETE CASCADE,
+        "visitor_id" text NOT NULL,
+        "type" text DEFAULT 'view' NOT NULL,
+        "viewed_at" timestamp DEFAULT now() NOT NULL
+      );
+    `;
+    await sql`
+      CREATE INDEX IF NOT EXISTS "photo_view_photo_id_idx" ON "photo_view" ("photo_id");
+    `;
+    await sql`
+      CREATE INDEX IF NOT EXISTS "photo_view_viewed_at_idx" ON "photo_view" ("viewed_at");
+    `;
+    await sql`
+      CREATE INDEX IF NOT EXISTS "photo_view_dedup_idx" ON "photo_view" ("photo_id", "visitor_id", "type", "viewed_at");
+    `;
   } catch (err) {
     console.warn('[MIGRATE] Could not run migration automatically:', err);
   }

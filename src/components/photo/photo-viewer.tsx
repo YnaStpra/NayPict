@@ -10,11 +10,13 @@ import { ArrowLeftIcon, ChevronLeftIcon, ChevronRightIcon, CircleAlertIcon, Circ
 import { toast } from "sonner"
 
 import { PhotoInfoSidebar, PhotoViewerBlurBackground, formatAlbumList } from "@/components/photo/photo-info-sidebar"
+import { PhotoInsightsDialog } from "@/components/photo/photo-insights-dialog"
 import { useTapAction } from "@/hooks/use-tap-action"
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { getThumbHashUrl } from "@/lib/thumb-hash"
 import { removePhotoIdFromUrl, setPhotoIdInUrl } from "@/lib/url"
+import { recordPhotoShare, recordPhotoView } from "@/request/insights"
 import { type PhotoVo } from "@/server/entity/vo/photo"
 import { usePhotoStore } from "@/store/photo-store"
 import { useApp } from "@/app/provider"
@@ -542,6 +544,9 @@ function ShareButton({ showActions }: { showActions: boolean }) {
   const handleShare = async () => {
     if (!photoSlide?.photoId || typeof window === "undefined") return
 
+    // Track public share event
+    recordPhotoShare(photoSlide.photoId)
+
     const url = new URL(window.location.href)
     url.searchParams.set("photoId", photoSlide.photoId)
     const shareUrl = url.toString()
@@ -869,6 +874,11 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
   const originalProgressHideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   // slidePointerStartRef Record slide superior pointerdown coordinate, Used to distinguish click and drag switching.
   const slidePointerStartRef = useRef<{ x: number; y: number } | null>(null)
+  // viewedInSessionRef Tracks photos viewed in current browser session to prevent duplicate network calls.
+  const viewedInSessionRef = useRef<Set<string>>(new Set())
+  // State for single-photo insights modal (Admin only)
+  const [insightsDialogOpen, setInsightsDialogOpen] = useState(false)
+  const [insightsPhotoId, setInsightsPhotoId] = useState<string | null>(null)
 
   // Toggle cinematic mode with Browser Fullscreen API and graceful fallback.
   const toggleCinematicMode = useCallback(() => {
@@ -1078,6 +1088,12 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
     // Sync URL query param ?photoId=... smoothly
     setPhotoIdInUrl(photo.photoId)
 
+    // Track public visitor views (strictly excluded for Admin)
+    if (userInfo?.type !== UserTypeEnum.ADMIN && !viewedInSessionRef.current.has(photo.photoId)) {
+      viewedInSessionRef.current.add(photo.photoId)
+      recordPhotoView(photo.photoId)
+    }
+
     if (originalProgressHideTimerRef.current) {
       clearTimeout(originalProgressHideTimerRef.current)
       originalProgressHideTimerRef.current = null
@@ -1212,225 +1228,238 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
 
   // rendering yet-another-react-lightbox Minimal preview.
   return (
-    <Lightbox
-      className={lightboxClassName}
-      open={open}
-      close={() => {
-        if (isCinematicMode) {
-          toggleCinematicMode()
-        }
-        closeViewer()
-        // Reset zoom on close
-        setZoomLevel(1)
-      }}
-      index={index}
-      slides={slides}
-      portal={{
-        container: {
-          style: photoViewerPortalStyle,
-        },
-      }}
-      plugins={fullscreenOpen || isCinematicMode ? [Fullscreen, Zoom] : [Thumbnails, Fullscreen, Zoom]}
-      zoom={{
-        scrollToZoom: true,
-        wheelZoomDistanceFactor: 100,
-        maxZoomPixelRatio: 1.2,
-        doubleClickMaxStops: 2,
-      }}
-      toolbar={{
-        buttons: [],
-      }}
-      carousel={{
-        spacing: 0,
-        preload: innerWidth < 768 ? 10 : 22,
-      }}
-      animation={{
-        fade: 250,
-        easing: {
-          fade: "ease-out",
-          navigation: "cubic-bezier(0.22, 1, 0.36, 1)",
-        },
-      }}
-      thumbnails={{
-        width: innerWidth < 768 ? 46 : 75,
-        height: innerWidth < 768 ? 46 : 75,
-        gap: 0,
-        padding: 0,
-        border: 0,
-        borderRadius: 0,
-        imageFit: "cover",
-        vignette: false,
-      }}
-      on={{
-        exiting: () => {
-          restoreListScroll()
-        },
-        view: ({ index }) => {
-          handleView(index)
-        },
-        zoom: ({ zoom }) => {
-          setZoomLevel(zoom)
-        },
-        enterFullscreen: () => {
-          setFullscreenOpen(true)
-          hideActions()
-        },
-        exitFullscreen: () => {
-          setFullscreenOpen(false)
-          showActionButtons()
-        },
-      }}
-      render={{
-        buttonPrev: () => <PrevButton key="prev" showActions={actionsVisible} />,
-        buttonNext: () => <NextButton key="next" showActions={actionsVisible} />,
-        controls: () => (
-          <>
-            {infoOpen && !fullscreenOpen && !isCinematicMode && (
-              <PhotoViewerBlurBackground thumbHash={photos[viewIndex]?.thumbHash} />
-            )}
-            {infoOpen && !fullscreenOpen && !isCinematicMode && (
-              <PhotoInfoSidebar
-                photo={photos[viewIndex] ?? null}
-                activeTab={infoTab}
-                onTabChange={setInfoTab}
-                onClose={() => setInfoOpen(false)}
-                onAlbumOpen={onAlbumOpen ? (photoId) => onAlbumOpen([photoId]) : undefined}
-              />
-            )}
-            <CloseButton showActions={actionsVisible} />
-            {/* Right-side toolbar */}
-            <div
-              className={[
-                "absolute top-2 right-2 md:top-3 md:right-4 z-40 flex items-center gap-1.5",
-                getActionVisibleClass(actionsVisible),
-              ].join(" ")}
-            >
-              {!isCinematicMode && (
-                <>
-                  {isAdmin && onPhotoDelete && (
-                    <DeleteButton showActions={actionsVisible} onDelete={onPhotoDelete} />
-                  )}
-                  {isAdmin && onAlbumOpen && (
-                    <AddToAlbumButton showActions={actionsVisible} onAlbumOpen={onAlbumOpen} />
-                  )}
-                  <LoadOriginalButton
-                    showActions={actionsVisible}
-                    originalPhoto={originalPhoto}
-                    getPhotoCache={getPhotoCache}
-                    onLoadOriginal={loadOriginalPhoto}
-                  />
-                  <RotateButton showActions={actionsVisible} onRotate={rotatePhoto} />
-                  <ShareButton showActions={actionsVisible} />
-                  <CommentsButton
-                    showActions={actionsVisible}
-                    open={infoOpen && infoTab === "comments"}
-                    onToggle={() => {
-                      if (infoOpen && infoTab === "comments") {
-                        setInfoOpen(false)
-                      } else {
-                        setInfoTab("comments")
-                        setInfoOpen(true)
-                      }
-                    }}
-                  />
-                  <InfoButton
-                    showActions={actionsVisible}
-                    open={infoOpen && infoTab === "info"}
-                    onToggle={() => {
-                      if (infoOpen && infoTab === "info") {
-                        setInfoOpen(false)
-                      } else {
-                        setInfoTab("info")
-                        setInfoOpen(true)
-                      }
-                    }}
-                  />
-                </>
-              )}
-              <CinematicButton
-                showActions={actionsVisible}
-                isCinematicMode={isCinematicMode}
-                onToggle={toggleCinematicMode}
-              />
-            </div>
-            {showOriginalProgress && !isCinematicMode && (
-              <OriginalProgressButton progress={originalProgress} error={originalError} />
-            )}
-            <AlbumOverlayBadge isCinematicMode={isCinematicMode} />
-          </>
-        ),
-        buttonFullscreen: () => null,
-        buttonZoom: () => null,
-        slide: ({ slide }) => {
-          if (!isImageSlide(slide)) {
-            return null
+    <>
+      <Lightbox
+        className={lightboxClassName}
+        open={open}
+        close={() => {
+          if (isCinematicMode) {
+            toggleCinematicMode()
           }
-
-          const photoSlide = slide as PhotoSlide
-
-          return (
-            <div
-              className="relative flex h-full w-full items-center justify-center overflow-hidden p-2 md:p-4 pt-[env(safe-area-inset-top,8px)] pb-[env(safe-area-inset-bottom,8px)]"
-              onPointerDown={handleSlidePointerDown}
-              onPointerUp={handleSlidePointerUp}
-              onPointerCancel={handleSlidePointerCancel}
-            >
-              {photoSlide.thumbHashUrl && (
-                <img
-                  src={photoSlide.thumbHashUrl}
-                  alt=""
-                  className="absolute inset-0 h-full w-full scale-110 blur-sm"
-                  aria-hidden
+          closeViewer()
+          // Reset zoom on close
+          setZoomLevel(1)
+        }}
+        index={index}
+        slides={slides}
+        portal={{
+          container: {
+            style: photoViewerPortalStyle,
+          },
+        }}
+        plugins={fullscreenOpen || isCinematicMode ? [Fullscreen, Zoom] : [Thumbnails, Fullscreen, Zoom]}
+        zoom={{
+          scrollToZoom: true,
+          wheelZoomDistanceFactor: 100,
+          maxZoomPixelRatio: 1.2,
+          doubleClickMaxStops: 2,
+        }}
+        toolbar={{
+          buttons: [],
+        }}
+        carousel={{
+          spacing: 0,
+          preload: innerWidth < 768 ? 10 : 22,
+        }}
+        animation={{
+          fade: 250,
+          easing: {
+            fade: "ease-out",
+            navigation: "cubic-bezier(0.22, 1, 0.36, 1)",
+          },
+        }}
+        thumbnails={{
+          width: innerWidth < 768 ? 46 : 75,
+          height: innerWidth < 768 ? 46 : 75,
+          gap: 0,
+          padding: 0,
+          border: 0,
+          borderRadius: 0,
+          imageFit: "cover",
+          vignette: false,
+        }}
+        on={{
+          exiting: () => {
+            restoreListScroll()
+          },
+          view: ({ index }) => {
+            handleView(index)
+          },
+          zoom: ({ zoom }) => {
+            setZoomLevel(zoom)
+          },
+          enterFullscreen: () => {
+            setFullscreenOpen(true)
+            hideActions()
+          },
+          exitFullscreen: () => {
+            setFullscreenOpen(false)
+            showActionButtons()
+          },
+        }}
+        render={{
+          buttonPrev: () => <PrevButton key="prev" showActions={actionsVisible} />,
+          buttonNext: () => <NextButton key="next" showActions={actionsVisible} />,
+          controls: () => (
+            <>
+              {infoOpen && !fullscreenOpen && !isCinematicMode && (
+                <PhotoViewerBlurBackground thumbHash={photos[viewIndex]?.thumbHash} />
+              )}
+              {infoOpen && !fullscreenOpen && !isCinematicMode && (
+                <PhotoInfoSidebar
+                  photo={photos[viewIndex] ?? null}
+                  activeTab={infoTab}
+                  onTabChange={setInfoTab}
+                  onClose={() => setInfoOpen(false)}
+                  onAlbumOpen={onAlbumOpen ? (photoId) => onAlbumOpen([photoId]) : undefined}
+                  onInsightsOpen={isAdmin ? (photoId) => {
+                    setInsightsPhotoId(photoId)
+                    setInsightsDialogOpen(true)
+                  } : undefined}
                 />
               )}
-              <PhotoSlideImage
-                slide={photoSlide}
-                originalPhoto={originalPhoto}
-                rotate={photoRotates[photoSlide.photoId] ?? 0}
-                fullscreenOpen={fullscreenOpen || isCinematicMode}
-              />
-            </div>
-          )
-        },
-        thumbnail: ({ slide, rect }) => {
-          if (!isImageSlide(slide)) {
-            return null
-          }
-
-          const photoSlide = slide as PhotoSlide
-
-          return (
-            <div
-              className="relative overflow-hidden thumbnail-bg"
-              style={{
-                width: rect.width,
-                height: rect.height,
-              }}
-            >
-              {photoSlide.thumbHashUrl && (
-                <img
-                  src={photoSlide.thumbHashUrl}
-                  alt=""
-                  className="absolute inset-0 h-full w-full scale-110 blur-sm object-cover"
-                  aria-hidden
+              <CloseButton showActions={actionsVisible} />
+              {/* Right-side toolbar */}
+              <div
+                className={[
+                  "absolute top-2 right-2 md:top-3 md:right-4 z-40 flex items-center gap-1.5",
+                  getActionVisibleClass(actionsVisible),
+                ].join(" ")}
+              >
+                {!isCinematicMode && (
+                  <>
+                    {isAdmin && onPhotoDelete && (
+                      <DeleteButton showActions={actionsVisible} onDelete={onPhotoDelete} />
+                    )}
+                    {isAdmin && onAlbumOpen && (
+                      <AddToAlbumButton showActions={actionsVisible} onAlbumOpen={onAlbumOpen} />
+                    )}
+                    <LoadOriginalButton
+                      showActions={actionsVisible}
+                      originalPhoto={originalPhoto}
+                      getPhotoCache={getPhotoCache}
+                      onLoadOriginal={loadOriginalPhoto}
+                    />
+                    <RotateButton showActions={actionsVisible} onRotate={rotatePhoto} />
+                    <ShareButton showActions={actionsVisible} />
+                    <CommentsButton
+                      showActions={actionsVisible}
+                      open={infoOpen && infoTab === "comments"}
+                      onToggle={() => {
+                        if (infoOpen && infoTab === "comments") {
+                          setInfoOpen(false)
+                        } else {
+                          setInfoTab("comments")
+                          setInfoOpen(true)
+                        }
+                      }}
+                    />
+                    <InfoButton
+                      showActions={actionsVisible}
+                      open={infoOpen && infoTab === "info"}
+                      onToggle={() => {
+                        if (infoOpen && infoTab === "info") {
+                          setInfoOpen(false)
+                        } else {
+                          setInfoTab("info")
+                          setInfoOpen(true)
+                        }
+                      }}
+                    />
+                  </>
+                )}
+                <CinematicButton
+                  showActions={actionsVisible}
+                  isCinematicMode={isCinematicMode}
+                  onToggle={toggleCinematicMode}
                 />
+              </div>
+              {showOriginalProgress && !isCinematicMode && (
+                <OriginalProgressButton progress={originalProgress} error={originalError} />
               )}
-              <img
-                src={photoSlide.thumbnail}
-                alt={photoSlide.alt}
-                width={photoSlide.width}
-                height={photoSlide.height}
-                draggable={false}
-                className="h-full w-full select-none object-cover"
-                crossOrigin="anonymous"
-                onError={(event) => {
-                  event.currentTarget.style.display = "none"
+              <AlbumOverlayBadge isCinematicMode={isCinematicMode} />
+            </>
+          ),
+          buttonFullscreen: () => null,
+          buttonZoom: () => null,
+          slide: ({ slide }) => {
+            if (!isImageSlide(slide)) {
+              return null
+            }
+
+            const photoSlide = slide as PhotoSlide
+
+            return (
+              <div
+                className="relative flex h-full w-full items-center justify-center overflow-hidden p-2 md:p-4 pt-[env(safe-area-inset-top,8px)] pb-[env(safe-area-inset-bottom,8px)]"
+                onPointerDown={handleSlidePointerDown}
+                onPointerUp={handleSlidePointerUp}
+                onPointerCancel={handleSlidePointerCancel}
+              >
+                {photoSlide.thumbHashUrl && (
+                  <img
+                    src={photoSlide.thumbHashUrl}
+                    alt=""
+                    className="absolute inset-0 h-full w-full scale-110 blur-sm"
+                    aria-hidden
+                  />
+                )}
+                <PhotoSlideImage
+                  slide={photoSlide}
+                  originalPhoto={originalPhoto}
+                  rotate={photoRotates[photoSlide.photoId] ?? 0}
+                  fullscreenOpen={fullscreenOpen || isCinematicMode}
+                />
+              </div>
+            )
+          },
+          thumbnail: ({ slide, rect }) => {
+            if (!isImageSlide(slide)) {
+              return null
+            }
+
+            const photoSlide = slide as PhotoSlide
+
+            return (
+              <div
+                className="relative overflow-hidden thumbnail-bg"
+                style={{
+                  width: rect.width,
+                  height: rect.height,
                 }}
-              />
-            </div>
-          )
-        }
-      }}
-    />
+              >
+                {photoSlide.thumbHashUrl && (
+                  <img
+                    src={photoSlide.thumbHashUrl}
+                    alt=""
+                    className="absolute inset-0 h-full w-full scale-110 blur-sm object-cover"
+                    aria-hidden
+                  />
+                )}
+                <img
+                  src={photoSlide.thumbnail}
+                  alt={photoSlide.alt}
+                  width={photoSlide.width}
+                  height={photoSlide.height}
+                  draggable={false}
+                  className="h-full w-full select-none object-cover"
+                  crossOrigin="anonymous"
+                  onError={(event) => {
+                    event.currentTarget.style.display = "none"
+                  }}
+                />
+              </div>
+            )
+          }
+        }}
+      />
+      {isAdmin && (
+        <PhotoInsightsDialog
+          open={insightsDialogOpen}
+          onOpenChange={setInsightsDialogOpen}
+          photoId={insightsPhotoId}
+        />
+      )}
+    </>
   )
 }

@@ -16,7 +16,7 @@ import {
   SidebarHeader,
   SidebarRail,
 } from "@/components/ui/sidebar"
-import { Library, MonitorCog, Image, Heart, Trash2, FolderOpen, Database, User, Settings, CopyCheck, MessageSquare } from "lucide-react"
+import { Library, MonitorCog, Image, Heart, Trash2, FolderOpen, Database, Settings, CopyCheck, MessageSquare, BarChart3 } from "lucide-react"
 
 // Determine whether the current browser path hits the menu URL.
 function isUrlMatched(pathname: string, url: string) {
@@ -55,6 +55,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       { title: t("navigation.favorites"), url: "/favorites", icon: <Heart />, isActive: false },
       { title: t("navigation.albums"), url: "/albums", icon: <FolderOpen />, isActive: false },
       { title: t("navigation.comments"), url: "/comments", icon: <MessageSquare />, isActive: false },
+      { title: "Insights", url: "/admin/insights", icon: <BarChart3 />, isActive: false },
       { title: t("navigation.trash"), url: "/trash", icon: <Trash2 />, isActive: false },
     ],
     sysMain: [
