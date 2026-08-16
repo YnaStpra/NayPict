@@ -14,6 +14,7 @@ import { useTapAction } from "@/hooks/use-tap-action"
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { getThumbHashUrl } from "@/lib/thumb-hash"
+import { removePhotoIdFromUrl, setPhotoIdInUrl } from "@/lib/url"
 import { type PhotoVo } from "@/server/entity/vo/photo"
 import { usePhotoStore } from "@/store/photo-store"
 import { useApp } from "@/app/provider"
@@ -999,19 +1000,26 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
     onBrowserBackRef.current = onBrowserBack
   }, [onBrowserBack])
 
+  const photosRef = useRef(photos)
+  photosRef.current = photos
+  const indexRef = useRef(index)
+  indexRef.current = index
+
   useLayoutEffect(() => {
     if (!open) {
+      removePhotoIdFromUrl()
       return
     }
 
     openScrollYRef.current = window.scrollY
 
-    // Push a history when opening the viewer，Close the viewer instead of leaving the page when the browser returns。
+    // Push a history when opening the viewer, close viewer when browser returns.
     function handlePopState() {
-
       if (innerWidth < 768) {
         setInfoOpen(false)
       }
+
+      removePhotoIdFromUrl()
 
       if (!historyPushedRef.current) {
         return
@@ -1021,7 +1029,7 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
       onBrowserBackRef.current?.()
     }
 
-    const initialPhoto = photos[index]
+    const initialPhoto = photosRef.current[indexRef.current]
     if (typeof window !== "undefined") {
       const url = new URL(window.location.href)
       if (initialPhoto?.photoId) {
@@ -1043,8 +1051,9 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
 
     return () => {
       window.removeEventListener("popstate", handlePopState)
+      removePhotoIdFromUrl()
     }
-  }, [open, setInfoOpen, index, photos])
+  }, [open, setInfoOpen])
 
   useEffect(() => {
     if (!open) {
@@ -1072,15 +1081,7 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
     currentPhotoIdRef.current = photo.photoId
 
     // Sync URL query param ?photoId=... smoothly
-    if (typeof window !== "undefined" && photo.photoId) {
-      const url = new URL(window.location.href)
-      url.searchParams.set("photoId", photo.photoId)
-      window.history.replaceState(
-        { ...window.history.state, photoId: photo.photoId },
-        "",
-        url.toString()
-      )
-    }
+    setPhotoIdInUrl(photo.photoId)
 
     if (originalProgressHideTimerRef.current) {
       clearTimeout(originalProgressHideTimerRef.current)
@@ -1195,19 +1196,16 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
     window.scrollTo(0, openScrollYRef.current)
   }
 
-  // Close the viewer and sync clear the browser history written by the viewer。
+  // Close the viewer and sync clear the browser history written by the viewer.
   function closeViewer() {
-    if (typeof window !== "undefined") {
-      const url = new URL(window.location.href)
-      if (url.searchParams.has("photoId")) {
-        url.searchParams.delete("photoId")
-        const cleanUrl = url.pathname + (url.search ? url.search : "") + (url.hash ? url.hash : "")
-        window.history.replaceState({ ...window.history.state, photoId: undefined }, "", cleanUrl)
-      }
-    }
+    removePhotoIdFromUrl()
 
     if (historyPushedRef.current) {
+      historyPushedRef.current = false
       window.history.back()
+      setTimeout(() => {
+        removePhotoIdFromUrl()
+      }, 50)
       return
     }
 

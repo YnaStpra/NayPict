@@ -1,6 +1,6 @@
-// This module provides URL Process related tools and methods。
+// This module provides URL formatting and parsing helper methods.
 
-// format HTTP URL，Returns an empty string when not configured，If no protocol is provided, it will be supplemented by default. https。
+// Format HTTP URL, returning empty string when not configured, adding https:// protocol by default if missing.
 function formatHttpUrl(input?: string | null) {
   const value = input?.trim();
 
@@ -13,7 +13,7 @@ function formatHttpUrl(input?: string | null) {
   return httpUrl.replace(/\/+$/, '');
 }
 
-// store key Convert to a requestable file address, Path fragments are encoded piece by piece to avoid # Truncate special characters URL.
+// Convert storage key to requestable file URL.
 function toMediaUrl(key: string, domain?: string | null) {
   const encodedKey = key.split('/').map((segment) => encodeURIComponent(segment)).join('/');
   const base = formatHttpUrl(domain);
@@ -26,4 +26,33 @@ function toMediaUrl(key: string, domain?: string | null) {
   return `/media/${encodedKey}`;
 }
 
-export { formatHttpUrl, toMediaUrl };
+// Remove photoId query parameter from current browser address bar without page reload.
+function removePhotoIdFromUrl() {
+  if (typeof window === 'undefined') return;
+  try {
+    const url = new URL(window.location.href);
+    if (url.searchParams.has('photoId')) {
+      url.searchParams.delete('photoId');
+      const cleanUrl = url.pathname + (url.search ? url.search : '') + (url.hash ? url.hash : '');
+      window.history.replaceState({ ...window.history.state, photoId: undefined }, '', cleanUrl);
+    }
+  } catch {
+    // Ignore URL parsing errors
+  }
+}
+
+// Set photoId query parameter in current browser address bar without adding extra history stack.
+function setPhotoIdInUrl(photoId?: string | null) {
+  if (typeof window === 'undefined' || !photoId) return;
+  try {
+    const url = new URL(window.location.href);
+    if (url.searchParams.get('photoId') !== photoId) {
+      url.searchParams.set('photoId', photoId);
+      window.history.replaceState({ ...window.history.state, photoId }, '', url.toString());
+    }
+  } catch {
+    // Ignore URL parsing errors
+  }
+}
+
+export { formatHttpUrl, toMediaUrl, removePhotoIdFromUrl, setPhotoIdInUrl };
