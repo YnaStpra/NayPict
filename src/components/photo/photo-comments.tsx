@@ -76,6 +76,9 @@ export function PhotoComments({ photoId }: PhotoCommentsProps) {
   // Comment ID currently being deleted.
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
+  // References to input elements for focus management.
+  const nameInputRef = useRef<HTMLInputElement>(null);
+  const contentInputRef = useRef<HTMLTextAreaElement>(null);
   // Reference to the scrollable comment list container.
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
@@ -106,18 +109,20 @@ export function PhotoComments({ photoId }: PhotoCommentsProps) {
     };
   }, [photoId]);
 
-  // Handle comment form submission.
+  // Handle comment form submission with strict mandatory field enforcement.
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const trimmedName = name.trim();
     const trimmedContent = content.trim();
 
     if (!trimmedName) {
-      toast.error(locale === "zh" ? "请输入您的昵称" : "Please enter your name");
+      nameInputRef.current?.focus();
+      toast.error(locale === "zh" ? "请输入您的姓名 / 昵称（必填）" : "Nama wajib diisi untuk memberikan komentar!");
       return;
     }
     if (!trimmedContent) {
-      toast.error(locale === "zh" ? "请输入评论内容" : "Please write a comment");
+      contentInputRef.current?.focus();
+      toast.error(locale === "zh" ? "评论内容不能为空（必填）" : "Komentar tidak boleh kosong!");
       return;
     }
 
@@ -240,13 +245,19 @@ export function PhotoComments({ photoId }: PhotoCommentsProps) {
       </div>
 
       {/* Comment submission form */}
-      <form onSubmit={handleSubmit} className="mt-auto shrink-0 pt-3 space-y-2.5 border-t border-white/15">
+      <form onSubmit={handleSubmit} className="mt-auto shrink-0 pt-3 space-y-2 border-t border-white/15">
         <div>
+          <div className="flex items-center justify-between pb-1 text-[11px] font-medium text-white/70">
+            <span>{locale === "zh" ? "您的姓名 / 昵称" : "Your Name"}</span>
+            <span className="text-amber-300 text-[10px]">* {locale === "zh" ? "必填" : "Required"}</span>
+          </div>
           <input
+            ref={nameInputRef}
             type="text"
+            required
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder={locale === "zh" ? "您的昵称 / 名字" : "Your name"}
+            placeholder={locale === "zh" ? "请输入您的姓名 / 昵称 (必填)" : "Enter your name (Required)"}
             maxLength={50}
             disabled={isSubmitting}
             className="w-full rounded-lg border border-white/20 bg-white/10 px-3 py-1.5 text-xs text-white placeholder:text-white/40 focus:border-white/40 focus:outline-none focus:ring-1 focus:ring-white/40 disabled:opacity-50 transition-all"
@@ -254,10 +265,16 @@ export function PhotoComments({ photoId }: PhotoCommentsProps) {
         </div>
 
         <div>
+          <div className="flex items-center justify-between pb-1 text-[11px] font-medium text-white/70">
+            <span>{locale === "zh" ? "评论内容" : "Comment"}</span>
+            <span className="text-amber-300 text-[10px]">* {locale === "zh" ? "必填" : "Required"}</span>
+          </div>
           <textarea
+            ref={contentInputRef}
+            required
             value={content}
             onChange={(e) => setContent(e.target.value)}
-            placeholder={locale === "zh" ? "写下您的评论... (Ctrl+Enter 发送)" : "Write a comment... (Ctrl+Enter to send)"}
+            placeholder={locale === "zh" ? "写下您的评论 (必填)... (Ctrl+Enter 发送)" : "Write your comment (Required)... (Ctrl+Enter to send)"}
             maxLength={500}
             rows={2}
             disabled={isSubmitting}
@@ -266,11 +283,11 @@ export function PhotoComments({ photoId }: PhotoCommentsProps) {
                 handleSubmit(e);
               }
             }}
-            className="w-full rounded-lg border border-white/20 bg-white/10 px-3 py-2 text-xs text-white placeholder:text-white/40 focus:border-white/40 focus:outline-none focus:ring-1 focus:ring-white/40 resize-none min-h-[60px] disabled:opacity-50 transition-all"
+            className="w-full rounded-lg border border-white/20 bg-white/10 px-3 py-2 text-xs text-white placeholder:text-white/40 focus:border-white/40 focus:outline-none focus:ring-1 focus:ring-white/40 resize-none min-h-[58px] disabled:opacity-50 transition-all"
           />
         </div>
 
-        <div className="flex justify-end">
+        <div className="flex justify-end pt-0.5">
           <Button
             type="submit"
             size="sm"
