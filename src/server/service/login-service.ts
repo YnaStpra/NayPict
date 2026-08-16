@@ -16,9 +16,6 @@ import { type LoginVo } from '@/server/entity/vo/login';
 import { totpService } from '@/server/service/totp-service';
 import { userService } from '@/server/service/user-service';
 
-import { type ClientInfo } from '@/server/lib/device';
-import { loginLogService } from '@/server/service/login-log-service';
-
 // This module handles login authentication related services.
 
 const loginService = {
@@ -43,8 +40,8 @@ const loginService = {
     return uuid
   },
 
-  // Verify username and password, with optional 2FA code verification and audit logging.
-  async login(params: LoginBo, clientInfo?: ClientInfo): Promise<LoginVo> {
+  // Verify username and password, with optional 2FA code verification.
+  async login(params: LoginBo): Promise<LoginVo> {
     if (params.tempToken) {
       const cachedUserId = await cache.get<string>(`temp_2fa_${params.tempToken}`);
       if (!cachedUserId) {
@@ -64,22 +61,6 @@ const loginService = {
       const uuid = await this.saveAuthInfo(user);
       const token = await createLoginToken(user.userId, uuid);
       const userVo = await userService.getById(user.userId);
-
-      if (clientInfo) {
-        await loginLogService.recordLog({
-          userId: user.userId,
-          username: user.username,
-          uuid,
-          ip: clientInfo.ip,
-          location: clientInfo.location,
-          device: clientInfo.device,
-          browser: clientInfo.browser,
-          os: clientInfo.os,
-          userAgent: clientInfo.userAgent,
-          status: 1,
-        });
-      }
-
       return { token, user: userVo };
     }
 
@@ -128,22 +109,6 @@ const loginService = {
     const uuid = await this.saveAuthInfo(user);
     const token = await createLoginToken(user.userId, uuid);
     const userVo = await userService.getById(user.userId);
-
-    if (clientInfo) {
-      await loginLogService.recordLog({
-        userId: user.userId,
-        username: user.username,
-        uuid,
-        ip: clientInfo.ip,
-        location: clientInfo.location,
-        device: clientInfo.device,
-        browser: clientInfo.browser,
-        os: clientInfo.os,
-        userAgent: clientInfo.userAgent,
-        status: 1,
-      });
-    }
-
     return { token, user: userVo };
   },
 
