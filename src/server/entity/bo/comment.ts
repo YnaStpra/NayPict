@@ -14,4 +14,24 @@ interface CommentDeleteBo {
   commentId: string;
 }
 
-export type { CommentAddBo, CommentDeleteBo };
+interface CommentReplyBo {
+  // Target comment ID.
+  commentId: string;
+  // Admin reply text.
+  replyContent: string;
+}
+
+interface CommentListAdminBo {
+  // Current page number (1-based).
+  page?: number;
+  // Number of items per page.
+  size?: number;
+  // Optional photo ID filter.
+  photoId?: string;
+  // Search keyword (commenter name, content, photo name).
+  keyword?: string;
+  // Status filter ('all' | 'replied' | 'unreplied').
+  status?: 'all' | 'replied' | 'unreplied';
+}
+
+export type { CommentAddBo, CommentDeleteBo, CommentReplyBo, CommentListAdminBo };

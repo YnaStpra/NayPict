@@ -1,7 +1,7 @@
 import { Hono, Context } from "hono";
 import result from '@/server/model/result';
 import { commentService } from '@/server/service/comment-service';
-import { type CommentAddBo, type CommentDeleteBo } from '@/server/entity/bo/comment';
+import { type CommentAddBo, type CommentDeleteBo, type CommentListAdminBo, type CommentReplyBo } from '@/server/entity/bo/comment';
 import type { HonoEnv } from '../hono/type';
 
 // This module registers public and administrative photo comment interfaces.
@@ -51,6 +51,27 @@ export function registerCommentApi(app: Hono<HonoEnv>) {
 
     const data = await commentService.add(body, clientIp);
     return c.json(result.ok(data));
+  });
+
+  // Query all comments for Admin management (Admin only).
+  app.post('/photo/comment/admin/list', async (c: Context) => {
+    const body = await c.req.json<CommentListAdminBo>().catch(() => ({}));
+    const data = await commentService.listAllForAdmin(body);
+    return c.json(result.ok(data));
+  });
+
+  // Admin replies to a comment (Admin only).
+  app.post('/photo/comment/reply', async (c: Context) => {
+    const body = await c.req.json<CommentReplyBo>().catch(() => ({ commentId: '', replyContent: '' }));
+    const data = await commentService.reply(body);
+    return c.json(result.ok(data));
+  });
+
+  // Admin deletes a reply from a comment (Admin only).
+  app.post('/photo/comment/reply/delete', async (c: Context) => {
+    const body = await c.req.json<{ commentId: string }>().catch(() => ({ commentId: '' }));
+    await commentService.deleteReply(body.commentId);
+    return c.json(result.ok());
   });
 
   // Delete a comment (Admin only).

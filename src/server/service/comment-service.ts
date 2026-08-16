@@ -1,15 +1,15 @@
-import { and, desc, eq, inArray } from 'drizzle-orm';
+import { and, desc, eq, ilike, inArray, isNotNull, isNull, or, sql } from 'drizzle-orm';
 import { commentTab } from '@/server/entity/comment';
 import { photoTab } from '@/server/entity/photo';
 import { PhotoStatusEnum } from '@/server/enums/photo-enum';
-import { type CommentAddBo } from '@/server/entity/bo/comment';
-import { type CommentVo } from '@/server/entity/vo/comment';
+import { type CommentAddBo, type CommentListAdminBo, type CommentReplyBo } from '@/server/entity/bo/comment';
+import { type CommentAdminPageVo, type CommentVo } from '@/server/entity/vo/comment';
 import BizError from '@/server/error/biz-error';
 import { cache } from '@/server/infra/cache';
 import { orm } from '@/server/infra/db';
 import { createId } from '@/server/lib/id';
 
-// This module handles business logic and storage operations for photo comments.
+// This module handles business logic and storage operations for photo comments and admin replies.
 
 const commentService = {
 
@@ -32,12 +32,104 @@ const commentService = {
         photoId: row.photoId,
         name: row.name,
         content: row.content,
+        replyContent: row.replyContent,
+        replyTime: row.replyTime,
         createTime: row.createTime,
       }));
     } catch (err) {
       // Return empty comments list gracefully if table is empty or not yet provisioned
       console.warn('[COMMENT] Could not retrieve comments for photoId:', cleanPhotoId, err);
       return [];
+    }
+  },
+
+  // Query all comments across all photos with photo info and pagination for Admin moderation.
+  async listAllForAdmin(params: CommentListAdminBo = {}): Promise<CommentAdminPageVo> {
+    const page = Math.max(1, params.page || 1);
+    const size = Math.max(1, Math.min(100, params.size || 20));
+    const offset = (page - 1) * size;
+    const keyword = params.keyword?.trim();
+    const photoId = params.photoId?.trim();
+    const status = params.status || 'all';
+
+    try {
+      const conditions = [];
+
+      if (photoId) {
+        conditions.push(eq(commentTab.photoId, photoId));
+      }
+
+      if (keyword) {
+        const pattern = `%${keyword}%`;
+        conditions.push(
+          or(
+            ilike(commentTab.name, pattern),
+            ilike(commentTab.content, pattern),
+            ilike(photoTab.name, pattern)
+          )
+        );
+      }
+
+      if (status === 'replied') {
+        conditions.push(isNotNull(commentTab.replyContent));
+      } else if (status === 'unreplied') {
+        conditions.push(isNull(commentTab.replyContent));
+      }
+
+      const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+      // Count total matching comments
+      const [countRow] = await orm
+        .select({ count: sql<number>`count(*)::int` })
+        .from(commentTab)
+        .leftJoin(photoTab, eq(commentTab.photoId, photoTab.photoId))
+        .where(whereClause);
+
+      const total = Number(countRow?.count || 0);
+
+      if (total === 0) {
+        return { list: [], total: 0 };
+      }
+
+      // Fetch paginated comments joined with photo info
+      const rows = await orm
+        .select({
+          commentId: commentTab.commentId,
+          photoId: commentTab.photoId,
+          name: commentTab.name,
+          content: commentTab.content,
+          replyContent: commentTab.replyContent,
+          replyTime: commentTab.replyTime,
+          createTime: commentTab.createTime,
+          photoName: photoTab.name,
+          thumbHash: photoTab.thumbHash,
+          typeDesc: photoTab.typeDesc,
+        })
+        .from(commentTab)
+        .leftJoin(photoTab, eq(commentTab.photoId, photoTab.photoId))
+        .where(whereClause)
+        .orderBy(desc(commentTab.createTime))
+        .limit(size)
+        .offset(offset);
+
+      return {
+        list: rows.map((r) => ({
+          commentId: r.commentId,
+          photoId: r.photoId,
+          photoName: r.photoName || undefined,
+          thumbHash: r.thumbHash,
+          typeDesc: r.typeDesc || 'jpg',
+          name: r.name,
+          content: r.content,
+          replyContent: r.replyContent,
+          replyTime: r.replyTime,
+          createTime: r.createTime,
+        })),
+        total,
+      };
+    } catch (err) {
+      console.warn('[COMMENT] Error fetching admin comments list:', err);
+      return { list: [], total: 0 };
     }
   },
 
@@ -112,6 +204,8 @@ const commentService = {
               "photo_id" text NOT NULL,
               "name" text NOT NULL,
               "content" text NOT NULL,
+              "reply_content" text,
+              "reply_time" timestamp,
               "create_time" timestamp DEFAULT now() NOT NULL
             );
           `;
@@ -137,8 +231,74 @@ const commentService = {
       photoId,
       name,
       content,
+      replyContent: null,
+      replyTime: null,
       createTime: now,
     };
+  },
+
+  // Admin replies to a comment.
+  async reply(params: CommentReplyBo): Promise<CommentVo> {
+    const commentId = params.commentId?.trim();
+    const replyContent = params.replyContent?.trim();
+
+    if (!commentId) {
+      throw new BizError('comment.selectRequired');
+    }
+
+    if (!replyContent) {
+      throw new BizError('comment.contentRequired');
+    }
+
+    if (replyContent.length > 500) {
+      throw new BizError('comment.contentTooLong');
+    }
+
+    const [existing] = await orm
+      .select()
+      .from(commentTab)
+      .where(eq(commentTab.commentId, commentId))
+      .limit(1);
+
+    if (!existing) {
+      throw new BizError('comment.selectRequired');
+    }
+
+    const now = new Date().toISOString();
+
+    await orm
+      .update(commentTab)
+      .set({
+        replyContent,
+        replyTime: now,
+      })
+      .where(eq(commentTab.commentId, commentId));
+
+    return {
+      commentId: existing.commentId,
+      photoId: existing.photoId,
+      name: existing.name,
+      content: existing.content,
+      replyContent,
+      replyTime: now,
+      createTime: existing.createTime,
+    };
+  },
+
+  // Delete admin reply from a comment.
+  async deleteReply(commentId: string): Promise<void> {
+    const cleanCommentId = commentId?.trim();
+    if (!cleanCommentId) {
+      throw new BizError('comment.selectRequired');
+    }
+
+    await orm
+      .update(commentTab)
+      .set({
+        replyContent: null,
+        replyTime: null,
+      })
+      .where(eq(commentTab.commentId, cleanCommentId));
   },
 
   // Delete a specific comment by ID (Admin moderation).

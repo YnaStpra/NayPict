@@ -41,8 +41,16 @@ export async function migrate(): Promise<void> {
         "photo_id" text NOT NULL,
         "name" text NOT NULL,
         "content" text NOT NULL,
+        "reply_content" text,
+        "reply_time" timestamp,
         "create_time" timestamp DEFAULT now() NOT NULL
       );
+    `;
+    await sql`
+      ALTER TABLE "comment" ADD COLUMN IF NOT EXISTS "reply_content" text;
+    `;
+    await sql`
+      ALTER TABLE "comment" ADD COLUMN IF NOT EXISTS "reply_time" timestamp;
     `;
     await sql`
       CREATE INDEX IF NOT EXISTS "comment_photo_id_idx" ON "comment" ("photo_id");
