@@ -5,6 +5,7 @@ import { registerStorageApi } from '../api/storage-api';
 import { registerUserApi } from '../api/user-api';
 import { registerLoginApi } from '../api/login-api';
 import { registerSettingApi } from '../api/setting-api';
+import { registerTotpApi } from '../api/totp-api';
 
 // This module creates a fresh Hono application instance with all API routes attached per request handler.
 
@@ -16,6 +17,7 @@ export function getApp() {
   registerUserApi(instance);
   registerLoginApi(instance);
   registerSettingApi(instance);
+  registerTotpApi(instance);
   return instance;
 }
 

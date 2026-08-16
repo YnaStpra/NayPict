@@ -12,8 +12,8 @@ type CacheSetOptions = {
 // SQLite Cache implementation。
 const dbCache = {
 
-  // write cache，same key then cover。
-  async set(key: string, data: object, options?: CacheSetOptions): Promise<void> {
+  // write cache, same key then cover.
+  async set(key: string, data: unknown, options?: CacheSetOptions): Promise<void> {
     const value = JSON.stringify(data)
     const expireTime = options?.ttl
       ? Math.floor(Date.now() / 1000) + options.ttl
@@ -69,8 +69,8 @@ const dbCache = {
 }
 
 const cache = {
-  // write cache。
-  async set(key: string, data: object, options?: CacheSetOptions): Promise<void> {
+  // write cache.
+  async set(key: string, data: unknown, options?: CacheSetOptions): Promise<void> {
     return dbCache.set(key, data, options)
   },
 

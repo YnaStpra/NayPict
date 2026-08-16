@@ -12,21 +12,20 @@ import type { HonoEnv } from '../hono/type';
 // This module registers and logs in related interfaces.
 
 export function registerLoginApi(app: Hono<HonoEnv>) {
-  // User login, Return after success JWT and user info.
+  // User login, Return after success JWT and user info or 2FA prompt.
   app.post('/login', async (c: Context) => {
     const params = await c.req.json<LoginBo>();
-    const token = await loginService.login(params);
-    const { userId } = await getLoginInfo(`token=${token}`);
-    const user = userId ? await userService.getById(userId) : null;
-    const data: LoginVo = { token, user };
+    const data = await loginService.login(params);
 
-    setCookie(c, TOKEN_COOKIE_NAME, token, {
-      path: '/',
-      maxAge: TOKEN_COOKIE_MAX_AGE,
-      sameSite: process.env.NODE_ENV === 'production' ? 'None' : 'Lax',
-      secure: process.env.NODE_ENV === 'production',
-      httpOnly: true,
-    });
+    if (data.token) {
+      setCookie(c, TOKEN_COOKIE_NAME, data.token, {
+        path: '/',
+        maxAge: TOKEN_COOKIE_MAX_AGE,
+        sameSite: process.env.NODE_ENV === 'production' ? 'None' : 'Lax',
+        secure: process.env.NODE_ENV === 'production',
+        httpOnly: true,
+      });
+    }
 
     return c.json(result.ok(data));
   });

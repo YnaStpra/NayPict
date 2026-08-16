@@ -12,11 +12,15 @@ import { cache } from '@/server/infra/cache';
 import { AUTH_CACHE_TTL } from '@/server/const/global';
 import { AUTH_CACHE_KEY } from '@/server/const/cache';
 
-// This module handles login authentication related services。
+import { type LoginVo } from '@/server/entity/vo/login';
+import { totpService } from '@/server/service/totp-service';
+import { userService } from '@/server/service/user-service';
+
+// This module handles login authentication related services.
 
 const loginService = {
 
-  // Write user information to login cache，and return to this session uuid。
+  // Write user information to login cache, and return to this session uuid.
   async saveAuthInfo(user: { userId: string, username: string, avatar: string, type: number }): Promise<string> {
     const uuid = createId()
     const oldAuthInfo = await cache.get<AuthInfo>(AUTH_CACHE_KEY + user.userId)
@@ -33,8 +37,29 @@ const loginService = {
     return uuid
   },
 
-  // Verify username and password，Generated after successful login JWT。
-  async login(params: LoginBo): Promise<string> {
+  // Verify username and password, with optional 2FA code verification.
+  async login(params: LoginBo): Promise<LoginVo> {
+    if (params.tempToken) {
+      const cachedUserId = await cache.get<string>(`temp_2fa_${params.tempToken}`);
+      if (!cachedUserId) {
+        throw new BizError('totp.sessionExpired');
+      }
+
+      if (!params.code) {
+        throw new BizError('totp.codeRequired');
+      }
+
+      await totpService.verifyLoginTotp(cachedUserId, params.code);
+      await cache.delete(`temp_2fa_${params.tempToken}`);
+
+      const [user] = await orm.select().from(userTab).where(eq(userTab.userId, cachedUserId)).limit(1);
+      if (!user) throw new BizError('login.invalidCredentials');
+
+      const uuid = await this.saveAuthInfo(user);
+      const token = await createLoginToken(user.userId, uuid);
+      const userVo = await userService.getById(user.userId);
+      return { token, user: userVo };
+    }
 
     if (!params.username?.trim() || !params.password?.trim()) {
       throw new BizError("login.credentialsRequired");
@@ -56,12 +81,32 @@ const loginService = {
       throw new BizError('login.invalidCredentials');
     }
 
+    // Check if Google Authenticator 2FA is enabled for this Admin/User
+    const totpStatus = await totpService.getTotpStatus(user.userId);
+    if (totpStatus.enabled) {
+      if (params.code) {
+        await totpService.verifyLoginTotp(user.userId, params.code);
+      } else {
+        const tempToken = createId();
+        await cache.set(`temp_2fa_${tempToken}`, user.userId, { ttl: 300 }); // 5 mins TTL
+        return {
+          token: null,
+          require2Fa: true,
+          tempToken,
+        };
+      }
+    }
+
     if (user.username === process.env.NEXT_PUBLIC_DEMO_USERNAME) {
-      return createLoginToken(user.userId, 'demo');
+      const token = await createLoginToken(user.userId, 'demo');
+      const userVo = await userService.getById(user.userId);
+      return { token, user: userVo };
     }
 
     const uuid = await this.saveAuthInfo(user);
-    return createLoginToken(user.userId, uuid);
+    const token = await createLoginToken(user.userId, uuid);
+    const userVo = await userService.getById(user.userId);
+    return { token, user: userVo };
   },
 
   // Remove current session from cache when logging out uuid。
