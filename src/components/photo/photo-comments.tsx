@@ -90,12 +90,12 @@ export function PhotoComments({ photoId }: PhotoCommentsProps) {
 
     if (!trimmedName) {
       nameInputRef.current?.focus();
-      toast.error(locale === "zh" ? "请输入您的姓名 / 昵称（必填）" : "Nama wajib diisi untuk memberikan komentar!");
+      toast.error("Name is required to post a comment!");
       return;
     }
     if (!trimmedContent) {
       contentInputRef.current?.focus();
-      toast.error(locale === "zh" ? "评论内容不能为空（必填）" : "Komentar tidak boleh kosong!");
+      toast.error("Comment content cannot be empty!");
       return;
     }
 
@@ -117,7 +117,7 @@ export function PhotoComments({ photoId }: PhotoCommentsProps) {
       // Add new comment to the top of the list immediately.
       setComments((prev) => [newComment, ...prev]);
       setContent("");
-      toast.success(locale === "zh" ? "评论已发送" : "Comment posted");
+      toast.success("Comment posted successfully");
 
       // Smoothly scroll to the top of comment list.
       if (scrollContainerRef.current) {
@@ -138,7 +138,7 @@ export function PhotoComments({ photoId }: PhotoCommentsProps) {
     try {
       await commentDelete({ commentId });
       setComments((prev) => prev.filter((item) => item.commentId !== commentId));
-      toast.success(locale === "zh" ? "评论已删除" : "Comment deleted");
+      toast.success("Comment deleted");
     } catch {
       // Handled by request wrapper.
     } finally {
@@ -162,7 +162,7 @@ export function PhotoComments({ photoId }: PhotoCommentsProps) {
   const handleSubmitReply = async (commentId: string) => {
     const trimmed = replyText.trim();
     if (!trimmed) {
-      toast.error(locale === "zh" ? "回复内容不能为空" : "Reply content cannot be empty");
+      toast.error("Reply content cannot be empty");
       return;
     }
 
@@ -180,7 +180,7 @@ export function PhotoComments({ photoId }: PhotoCommentsProps) {
             : c
         )
       );
-      toast.success(locale === "zh" ? "已回复评论" : "Reply posted");
+      toast.success("Reply posted");
       setReplyingCommentId(null);
       setReplyText("");
     } catch {
@@ -201,7 +201,7 @@ export function PhotoComments({ photoId }: PhotoCommentsProps) {
             : c
         )
       );
-      toast.success(locale === "zh" ? "回复已删除" : "Reply removed");
+      toast.success("Reply removed");
     } catch {
       // Handled by request wrapper
     }
@@ -213,7 +213,7 @@ export function PhotoComments({ photoId }: PhotoCommentsProps) {
       <div className="flex items-center justify-between pb-2 shrink-0">
         <div className="flex items-center gap-1.5 text-xs font-semibold text-white/50 tracking-wider uppercase">
           <MessageSquareIcon className="size-3.5 text-white/60" />
-          <span>{locale === "zh" ? "照片评论" : "Comments"}</span>
+          <span>Comments</span>
         </div>
         <span className="text-[11px] font-medium text-white/60 bg-white/10 px-2 py-0.5 rounded-full">
           {comments.length}
@@ -228,14 +228,14 @@ export function PhotoComments({ photoId }: PhotoCommentsProps) {
         {isLoading && (
           <div className="flex items-center justify-center py-10 text-white/50 gap-2">
             <Loader2Icon className="size-4 animate-spin" />
-            <span>{locale === "zh" ? "正在加载评论..." : "Loading comments..."}</span>
+            <span>Loading comments...</span>
           </div>
         )}
 
         {!isLoading && comments.length === 0 && (
           <div className="flex flex-col items-center justify-center py-12 text-center text-white/40 gap-2">
             <MessageSquareIcon className="size-8 stroke-1 text-white/25" />
-            <p className="text-xs italic">{locale === "zh" ? "暂无评论，来留下第一条评论吧！" : "No comments yet. Be the first to share your thoughts!"}</p>
+            <p className="text-xs italic">No comments yet. Be the first to share your thoughts!</p>
           </div>
         )}
 
@@ -281,7 +281,7 @@ export function PhotoComments({ photoId }: PhotoCommentsProps) {
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-1 text-[11px] font-semibold text-emerald-400">
                       <ShieldCheckIcon className="size-3" />
-                      <span>{locale === "zh" ? "管理员回复" : "Reply by Admin"}</span>
+                      <span>Reply by Admin</span>
                       {item.replyTime && (
                         <span className="text-[9px] text-white/40 font-normal ml-1">
                           ({formatRelativeTime(item.replyTime, locale)})
@@ -320,12 +320,12 @@ export function PhotoComments({ photoId }: PhotoCommentsProps) {
                 <div className="mt-2 pl-2.5 border-l-2 border-emerald-500 bg-white/10 p-2.5 rounded-r-lg space-y-2">
                   <div className="flex items-center gap-1.5 text-xs font-semibold text-emerald-400">
                     <CornerDownRightIcon className="size-3.5" />
-                    <span>{item.replyContent ? (locale === "zh" ? "编辑管理员回复" : "Edit Admin Reply") : (locale === "zh" ? "回复此评论" : "Reply by Admin")}</span>
+                    <span>{item.replyContent ? "Edit Admin Reply" : "Reply by Admin"}</span>
                   </div>
                   <textarea
                     value={replyText}
                     onChange={(e) => setReplyText(e.target.value)}
-                    placeholder={locale === "zh" ? "输入回复内容..." : "Write your admin reply..."}
+                    placeholder="Write your admin reply..."
                     maxLength={500}
                     rows={2}
                     disabled={isSubmittingReply}
@@ -340,7 +340,7 @@ export function PhotoComments({ photoId }: PhotoCommentsProps) {
                       disabled={isSubmittingReply}
                       onClick={handleCancelReply}
                     >
-                      {locale === "zh" ? "取消" : "Cancel"}
+                      Cancel
                     </Button>
                     <Button
                       type="button"
@@ -354,7 +354,7 @@ export function PhotoComments({ photoId }: PhotoCommentsProps) {
                       ) : (
                         <SendIcon className="size-3" />
                       )}
-                      <span>{locale === "zh" ? "发送回复" : "Reply"}</span>
+                      <span>Reply</span>
                     </Button>
                   </div>
                 </div>
@@ -369,7 +369,7 @@ export function PhotoComments({ photoId }: PhotoCommentsProps) {
                     className="flex items-center gap-1 text-[11px] text-white/50 hover:text-emerald-400 transition-colors cursor-pointer"
                   >
                     <CornerDownRightIcon className="size-3" />
-                    <span>{locale === "zh" ? "回复" : "Reply"}</span>
+                    <span>Reply</span>
                   </button>
                 </div>
               )}
@@ -381,8 +381,8 @@ export function PhotoComments({ photoId }: PhotoCommentsProps) {
       <form onSubmit={handleSubmit} className="mt-auto shrink-0 pt-3 space-y-2 border-t border-white/15">
         <div>
           <div className="flex items-center justify-between pb-1 text-[11px] font-medium text-white/70">
-            <span>{locale === "zh" ? "您的姓名 / 昵称" : "Your Name"}</span>
-            <span className="text-amber-300 text-[10px]">* {locale === "zh" ? "必填" : "Required"}</span>
+            <span>Your Name</span>
+            <span className="text-amber-300 text-[10px]">* Required</span>
           </div>
           <input
             ref={nameInputRef}
@@ -390,7 +390,7 @@ export function PhotoComments({ photoId }: PhotoCommentsProps) {
             required
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder={locale === "zh" ? "请输入您的姓名 / 昵称 (必填)" : "Enter your name (Required)"}
+            placeholder="Enter your name (Required)"
             maxLength={50}
             disabled={isSubmitting}
             className="w-full rounded-lg border border-white/20 bg-white/10 px-3 py-1.5 text-xs text-white placeholder:text-white/40 focus:border-white/40 focus:outline-none focus:ring-1 focus:ring-white/40 disabled:opacity-50 transition-all"
@@ -399,15 +399,15 @@ export function PhotoComments({ photoId }: PhotoCommentsProps) {
 
         <div>
           <div className="flex items-center justify-between pb-1 text-[11px] font-medium text-white/70">
-            <span>{locale === "zh" ? "评论内容" : "Comment"}</span>
-            <span className="text-amber-300 text-[10px]">* {locale === "zh" ? "必填" : "Required"}</span>
+            <span>Comment</span>
+            <span className="text-amber-300 text-[10px]">* Required</span>
           </div>
           <textarea
             ref={contentInputRef}
             required
             value={content}
             onChange={(e) => setContent(e.target.value)}
-            placeholder={locale === "zh" ? "写下您的评论 (必填)... (Ctrl+Enter 发送)" : "Write your comment (Required)... (Ctrl+Enter to send)"}
+            placeholder="Write your comment (Required)... (Ctrl+Enter to send)"
             maxLength={500}
             rows={2}
             disabled={isSubmitting}
@@ -430,12 +430,12 @@ export function PhotoComments({ photoId }: PhotoCommentsProps) {
             {isSubmitting ? (
               <>
                 <Loader2Icon className="size-3.5 animate-spin" />
-                <span>{locale === "zh" ? "发送中..." : "Sending..."}</span>
+                <span>Sending...</span>
               </>
             ) : (
               <>
                 <SendIcon className="size-3.5" />
-                <span>{locale === "zh" ? "发送" : "Send"}</span>
+                <span>Send</span>
               </>
             )}
           </Button>

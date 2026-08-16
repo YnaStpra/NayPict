@@ -19,7 +19,7 @@ import { PhotoFavoriteEnum } from "@/server/enums/photo-enum"
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'react'
 import { PhotoMasonry } from "@/components/photo/photo-masonry"
-import { photoFavorite, photoRecycle } from "@/request/photo"
+import { photoFavorite, photoList, photoRecycle } from "@/request/photo"
 import { albumAddPhoto } from "@/request/album"
 import { useAlbumStore } from "@/store/album-store"
 import { useFavoriteContext } from "@/app/favorites/provider"
@@ -76,6 +76,40 @@ export default function Page() {
       window.history.scrollRestoration = previousScrollRestoration
     }
   }, [])
+
+  // Automatically open photo if ?photoId=... is in the URL (direct share link)
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const targetPhotoId = new URLSearchParams(window.location.search).get('photoId')
+    if (!targetPhotoId) return
+
+    const existingIndex = photos.findIndex((p) => p.photoId === targetPhotoId)
+    if (existingIndex !== -1) {
+      queueMicrotask(() => {
+        setModelPhotoIndex(existingIndex)
+        setShowPhotoViewer(true)
+      })
+      return
+    }
+
+    photoList({ photoIds: [targetPhotoId], size: 1 })
+      .then((res) => {
+        if (res?.list && res.list.length > 0) {
+          const targetPhoto = res.list[0]
+          setPhotos((prev) => {
+            if (prev.some((p) => p.photoId === targetPhoto.photoId)) {
+              return prev
+            }
+            return [targetPhoto, ...prev]
+          })
+          setModelPhotoIndex(0)
+          setShowPhotoViewer(true)
+        }
+      })
+      .catch((err) => {
+        console.error('Failed to load shared photo in favorites:', err)
+      })
+  }, [photos, setPhotos])
 
   // Open favorite photo details model。
   const openPhoto = useCallback((index: number) => {

@@ -22,7 +22,7 @@ import { toast } from 'sonner'
 import { PhotoMasonry } from "@/components/photo/photo-masonry"
 import { PHOTO_LIST_PAGE_SIZE } from "@/server/const/global"
 import { PhotoFavoriteEnum } from "@/server/enums/photo-enum"
-import { photoFavorite, photoRecycle } from "@/request/photo"
+import { photoFavorite, photoList, photoRecycle } from "@/request/photo"
 import { albumAddPhoto } from "@/request/album"
 import { usePhotoStore } from "@/store/photo-store"
 import { useAlbumStore } from "@/store/album-store"
@@ -146,6 +146,42 @@ export default function Page() {
     })
   }, [prependPhotos, uploadedPhotos])
 
+  // Automatically open photo if ?photoId=... is in the URL (direct share link)
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const targetPhotoId = new URLSearchParams(window.location.search).get('photoId')
+    if (!targetPhotoId) return
+
+    // 1. If photo already exists in list, open it
+    const existingIndex = photos.findIndex((p) => p.photoId === targetPhotoId)
+    if (existingIndex !== -1) {
+      queueMicrotask(() => {
+        setModelPhotoIndex(existingIndex)
+        setShowPhotoViewer(true)
+      })
+      return
+    }
+
+    // 2. Otherwise fetch the shared photo directly from backend and open it
+    photoList({ photoIds: [targetPhotoId], size: 1 })
+      .then((res) => {
+        if (res?.list && res.list.length > 0) {
+          const targetPhoto = res.list[0]
+          setPhotos((prev) => {
+            if (prev.some((p) => p.photoId === targetPhoto.photoId)) {
+              return prev
+            }
+            return [targetPhoto, ...prev]
+          })
+          setModelPhotoIndex(0)
+          setShowPhotoViewer(true)
+        }
+      })
+      .catch((err) => {
+        console.error('Failed to load shared photo:', err)
+      })
+  }, [photos, setPhotos])
+
   const openPhoto = useCallback((index: number) => {
     setModelPhotoIndex(index)
     setShowPhotoViewer(true)
@@ -205,17 +241,17 @@ export default function Page() {
 
         const allAlbums = useAlbumStore.getState().albums
         const selectedAlbumObjs = allAlbums
-          .filter((a: any) => albumIds.includes(a.albumId))
-          .map((a: any) => ({ albumId: a.albumId, name: a.name }))
+          .filter((a) => albumIds.includes(a.albumId))
+          .map((a) => ({ albumId: a.albumId, name: a.name }))
 
-        setPhotos((prevPhotos: any[]) =>
-          prevPhotos.map((photo: any) => {
+        setPhotos((prevPhotos) =>
+          prevPhotos.map((photo) => {
             if (albumPhotoIds.includes(photo.photoId)) {
               const existingAlbums = photo.albums ?? []
               const combinedMap = new Map<string, { albumId: string; name: string }>()
 
-              existingAlbums.forEach((a: any) => combinedMap.set(a.albumId, a))
-              selectedAlbumObjs.forEach((a: any) => combinedMap.set(a.albumId, a))
+              existingAlbums.forEach((a) => combinedMap.set(a.albumId, a))
+              selectedAlbumObjs.forEach((a) => combinedMap.set(a.albumId, a))
 
               return {
                 ...photo,
@@ -377,7 +413,7 @@ export default function Page() {
                   {!hasMore && photos.length > 0 && (
                     <div className="py-12 pb-16 text-center select-none">
                       <p className="text-sm font-medium text-muted-foreground/80 tracking-wide">
-                        That's all the photos for now, stay tuned for the next photo hunt!
+                        That&apos;s all the photos for now, stay tuned for the next photo hunt!
                       </p>
                     </div>
                   )}

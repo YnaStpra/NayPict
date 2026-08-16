@@ -147,7 +147,7 @@ export default function CommentsManagementPage() {
   // Handle delete comment
   const handleDeleteComment = async (commentId: string) => {
     if (!isAdmin || deletingCommentId) return
-    if (!window.confirm(locale === 'zh' ? '确定要删除这条评论吗？' : 'Are you sure you want to delete this comment?')) {
+    if (!window.confirm('Are you sure you want to delete this comment?')) {
       return
     }
 
@@ -156,7 +156,7 @@ export default function CommentsManagementPage() {
       await commentDelete({ commentId })
       setComments((prev) => prev.filter((item) => item.commentId !== commentId))
       setTotal((prev) => Math.max(0, prev - 1))
-      toast.success(locale === 'zh' ? '评论已删除' : 'Comment deleted successfully')
+      toast.success('Comment deleted successfully')
     } catch {
       // Handled by request wrapper
     } finally {
@@ -180,7 +180,7 @@ export default function CommentsManagementPage() {
   const handleSubmitReply = async (commentId: string) => {
     const trimmed = replyText.trim()
     if (!trimmed) {
-      toast.error(locale === 'zh' ? '回复内容不能为空' : 'Reply content cannot be empty')
+      toast.error('Reply content cannot be empty')
       return
     }
 
@@ -198,7 +198,7 @@ export default function CommentsManagementPage() {
             : item
         )
       )
-      toast.success(locale === 'zh' ? '已回复评论' : 'Reply posted successfully')
+      toast.success('Reply posted successfully')
       setReplyingCommentId(null)
       setReplyText('')
     } catch {
@@ -210,7 +210,7 @@ export default function CommentsManagementPage() {
 
   // Delete Admin Reply
   const handleDeleteReply = async (commentId: string) => {
-    if (!window.confirm(locale === 'zh' ? '确定要删除此回复吗？' : 'Are you sure you want to remove this reply?')) {
+    if (!window.confirm('Are you sure you want to remove this reply?')) {
       return
     }
 
@@ -223,7 +223,7 @@ export default function CommentsManagementPage() {
             : item
         )
       )
-      toast.success(locale === 'zh' ? '回复已删除' : 'Reply removed')
+      toast.success('Reply removed')
     } catch {
       // Handled by request wrapper
     }
@@ -312,7 +312,7 @@ export default function CommentsManagementPage() {
                   <BreadcrumbItem>
                     <BreadcrumbPage className="flex items-center gap-1.5 font-semibold">
                       <MessageSquare className="size-4 text-primary" />
-                      <span>{locale === 'zh' ? '评论管理' : 'Comments Management'}</span>
+                      <span>Comments Management</span>
                     </BreadcrumbPage>
                   </BreadcrumbItem>
                 </BreadcrumbList>
@@ -328,7 +328,7 @@ export default function CommentsManagementPage() {
                 disabled={loading}
               >
                 <RefreshCw className={`size-3.5 ${loading ? 'animate-spin' : ''}`} />
-                <span className="hidden sm:inline">{locale === 'zh' ? '刷新' : 'Refresh'}</span>
+                <span className="hidden sm:inline">Refresh</span>
               </Button>
             </div>
           </header>
@@ -351,7 +351,7 @@ export default function CommentsManagementPage() {
                       : 'text-muted-foreground hover:text-foreground'
                   }`}
                 >
-                  {locale === 'zh' ? '全部' : 'All'} ({total})
+                  All ({total})
                 </button>
                 <button
                   type="button"
@@ -365,7 +365,7 @@ export default function CommentsManagementPage() {
                       : 'text-muted-foreground hover:text-foreground'
                   }`}
                 >
-                  {locale === 'zh' ? '待回复' : 'Unreplied'}
+                  Unreplied
                 </button>
                 <button
                   type="button"
@@ -379,7 +379,7 @@ export default function CommentsManagementPage() {
                       : 'text-muted-foreground hover:text-foreground'
                   }`}
                 >
-                  {locale === 'zh' ? '已回复' : 'Replied'}
+                  Replied
                 </button>
               </div>
 
@@ -391,7 +391,7 @@ export default function CommentsManagementPage() {
                     type="text"
                     value={keyword}
                     onChange={(e) => setKeyword(e.target.value)}
-                    placeholder={locale === 'zh' ? '搜索姓名、评论或照片...' : 'Search comment, name, photo...'}
+                    placeholder="Search comment, name, photo..."
                     className="w-full h-8 pl-8 pr-7 text-xs rounded-lg border bg-background placeholder:text-muted-foreground focus:outline-hidden focus:ring-1 focus:ring-primary"
                   />
                   {keyword && (
@@ -409,7 +409,7 @@ export default function CommentsManagementPage() {
                   )}
                 </div>
                 <Button type="submit" size="sm" variant="secondary" className="h-8 text-xs px-3">
-                  {locale === 'zh' ? '搜索' : 'Search'}
+                  Search
                 </Button>
               </form>
             </div>
@@ -419,7 +419,7 @@ export default function CommentsManagementPage() {
               <div className="flex flex-col items-center justify-center py-20 gap-3 text-muted-foreground">
                 <Loader2 className="size-8 animate-spin text-primary" />
                 <span className="text-sm font-medium">
-                  {locale === 'zh' ? '正在加载评论列表...' : 'Loading comments...'}
+                  Loading comments...
                 </span>
               </div>
             ) : comments.length === 0 ? (
@@ -429,13 +429,13 @@ export default function CommentsManagementPage() {
                 </div>
                 <h3 className="text-base font-semibold">
                   {searchQuery || statusFilter !== 'all'
-                    ? locale === 'zh' ? '未找到符合条件的评论' : 'No comments found'
-                    : locale === 'zh' ? '暂无任何照片评论' : 'No comments yet'}
+                    ? 'No comments found'
+                    : 'No comments yet'}
                 </h3>
                 <p className="text-xs text-muted-foreground mt-1 max-w-sm">
                   {searchQuery || statusFilter !== 'all'
-                    ? locale === 'zh' ? '尝试调整搜索词或重置筛选条件。' : 'Try clearing your search keyword or changing status filters.'
-                    : locale === 'zh' ? '当访客在照片页面留下评论时，会显示在此处。' : 'When visitors leave comments on photos, they will appear here.'}
+                    ? 'Try clearing your search keyword or changing status filters.'
+                    : 'When visitors leave comments on photos, they will appear here.'}
                 </p>
               </div>
             ) : (
@@ -518,7 +518,7 @@ export default function CommentsManagementPage() {
                           <div className="flex items-center justify-between gap-2">
                             <div className="flex items-center gap-1.5 text-xs font-semibold text-primary">
                               <ShieldCheck className="size-3.5" />
-                              <span>{locale === 'zh' ? '管理员回复' : 'Reply by Admin'}</span>
+                              <span>Reply by Admin</span>
                               {item.replyTime && (
                                 <span className="text-[10px] font-normal text-muted-foreground ml-1">
                                   ({formatRelativeTime(item.replyTime, locale)})
@@ -531,7 +531,7 @@ export default function CommentsManagementPage() {
                                 size="icon"
                                 className="size-6 text-muted-foreground hover:text-primary rounded"
                                 onClick={() => handleOpenReplyBox(item)}
-                                title={locale === 'zh' ? '编辑回复' : 'Edit reply'}
+                                title="Edit reply"
                               >
                                 <Pencil className="size-3" />
                               </Button>
@@ -540,7 +540,7 @@ export default function CommentsManagementPage() {
                                 size="icon"
                                 className="size-6 text-muted-foreground hover:text-destructive rounded"
                                 onClick={() => handleDeleteReply(item.commentId)}
-                                title={locale === 'zh' ? '删除回复' : 'Delete reply'}
+                                title="Delete reply"
                               >
                                 <Trash2 className="size-3" />
                               </Button>
@@ -559,14 +559,14 @@ export default function CommentsManagementPage() {
                             <MessageSquareReply className="size-3.5" />
                             <span>
                               {item.replyContent
-                                ? locale === 'zh' ? '修改管理员回复' : 'Edit Admin Reply'
-                                : locale === 'zh' ? '回复此评论' : 'Reply to Comment'}
+                                ? 'Edit Admin Reply'
+                                : 'Reply to Comment'}
                             </span>
                           </div>
                           <textarea
                             value={replyText}
                             onChange={(e) => setReplyText(e.target.value)}
-                            placeholder={locale === 'zh' ? '写下您的管理员回复...' : 'Write your admin reply...'}
+                            placeholder="Write your admin reply..."
                             maxLength={500}
                             rows={2}
                             disabled={submittingReply}
@@ -581,7 +581,7 @@ export default function CommentsManagementPage() {
                               disabled={submittingReply}
                               onClick={handleCancelReply}
                             >
-                              {locale === 'zh' ? '取消' : 'Cancel'}
+                              Cancel
                             </Button>
                             <Button
                               type="button"
@@ -595,7 +595,7 @@ export default function CommentsManagementPage() {
                               ) : (
                                 <CornerDownRight className="size-3" />
                               )}
-                              <span>{locale === 'zh' ? '发布回复' : 'Post Reply'}</span>
+                              <span>Post Reply</span>
                             </Button>
                           </div>
                         </div>
@@ -613,7 +613,7 @@ export default function CommentsManagementPage() {
                                 onClick={() => handleOpenReplyBox(item)}
                               >
                                 <MessageSquareReply className="size-3" />
-                                <span>{locale === 'zh' ? '回复' : 'Reply'}</span>
+                                <span>Reply</span>
                               </Button>
                             )}
                           </div>
@@ -631,7 +631,7 @@ export default function CommentsManagementPage() {
                               ) : (
                                 <Trash2 className="size-3" />
                               )}
-                              <span>{locale === 'zh' ? '删除评论' : 'Delete'}</span>
+                              <span>Delete</span>
                             </Button>
                           </div>
                         </div>
@@ -646,9 +646,7 @@ export default function CommentsManagementPage() {
             {!loading && totalPages > 1 && (
               <div className="flex items-center justify-between border-t pt-4 text-xs text-muted-foreground">
                 <span>
-                  {locale === 'zh'
-                    ? `第 ${page} / ${totalPages} 页 (共 ${total} 条)`
-                    : `Page ${page} of ${totalPages} (${total} total)`}
+                  {`Page ${page} of ${totalPages} (${total} total)`}
                 </span>
                 <div className="flex items-center gap-1.5">
                   <Button
@@ -659,7 +657,7 @@ export default function CommentsManagementPage() {
                     onClick={() => setPage((p) => Math.max(1, p - 1))}
                   >
                     <ChevronLeft className="size-3.5 mr-1" />
-                    <span>{locale === 'zh' ? '上一页' : 'Previous'}</span>
+                    <span>Previous</span>
                   </Button>
                   <Button
                     variant="outline"
@@ -668,7 +666,7 @@ export default function CommentsManagementPage() {
                     disabled={page >= totalPages}
                     onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                   >
-                    <span>{locale === 'zh' ? '下一页' : 'Next'}</span>
+                    <span>Next</span>
                     <ChevronRight className="size-3.5 ml-1" />
                   </Button>
                 </div>

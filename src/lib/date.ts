@@ -25,8 +25,8 @@ function parseUtcTime(value: string) {
   return time
 }
 
-// Format photo shooting time as local date，for list display。
-function formatPhotoTakenDate(takenTime: string | null | undefined, locale = "zh") {
+// Format photo shooting time as local date, for list display.
+function formatPhotoTakenDate(takenTime: string | null | undefined, locale = "en") {
   if (!takenTime) {
     return null
   }
@@ -44,8 +44,8 @@ function formatPhotoTakenDate(takenTime: string | null | undefined, locale = "zh
   }).format(date)
 }
 
-// Format photo shooting time as local date and time，for detailed display。
-function formatPhotoTakenDateTime(takenTime: string | null | undefined, locale = "zh") {
+// Format photo shooting time as local date and time, for detailed display.
+function formatPhotoTakenDateTime(takenTime: string | null | undefined, locale = "en") {
   if (!takenTime) {
     return null
   }
@@ -66,8 +66,8 @@ function formatPhotoTakenDateTime(takenTime: string | null | undefined, locale =
   }).format(date)
 }
 
-// Format recycling time as relative description。
-function formatRecycleTime(recycleTime?: string | null, locale = "zh") {
+// Format recycling time as relative description.
+function formatRecycleTime(recycleTime?: string | null, locale = "en") {
   if (!recycleTime) {
     return ""
   }
@@ -82,7 +82,7 @@ function formatRecycleTime(recycleTime?: string | null, locale = "zh") {
   const day = 24 * hour
 
   if (diff < hour) {
-    return locale === "zh" ? "1 within hours" : "Within 1 hour"
+    return "Within 1 hour"
   }
 
   if (diff < day) {
@@ -110,19 +110,19 @@ function formatRelativeTime(dateStr?: string | null, locale = "en"): string {
   const diffDay = Math.floor(diffHour / 24)
 
   if (diffSec < 60) {
-    return locale === "zh" ? "刚刚" : "Just now"
+    return "Just now"
   }
 
   if (diffMin < 60) {
-    return locale === "zh" ? `${diffMin}分钟前` : `${diffMin}m ago`
+    return `${diffMin}m ago`
   }
 
   if (diffHour < 24) {
-    return locale === "zh" ? `${diffHour}小时前` : `${diffHour}h ago`
+    return `${diffHour}h ago`
   }
 
   if (diffDay < 30) {
-    return locale === "zh" ? `${diffDay}天前` : `${diffDay}d ago`
+    return `${diffDay}d ago`
   }
 
   const date = new Date(time)
