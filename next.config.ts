@@ -43,7 +43,25 @@ const nextConfig: NextConfig = {
       }
     : {}),
   async headers() {
+    // Global security headers applied to all routes (HIGH-04)
+    const securityHeaders = [
+      // Prevent clickjacking via iframes
+      { key: 'X-Frame-Options', value: 'DENY' },
+      // Prevent MIME-type sniffing
+      { key: 'X-Content-Type-Options', value: 'nosniff' },
+      // Limit referrer information leakage
+      { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+      // Disable browser features not required by this app
+      { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=(), interest-cohort=()' },
+      // Force HTTPS (only meaningful in production behind HTTPS)
+      { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains; preload' },
+    ];
+
     return [
+      {
+        source: '/:path*',
+        headers: securityHeaders,
+      },
       {
         source: '/logo.png',
         headers: [

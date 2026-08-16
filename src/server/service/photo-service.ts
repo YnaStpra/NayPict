@@ -780,11 +780,60 @@ const photoService = {
 
   // Read photos from uploaded files buffer and name, size, type.
   async readPhotoUpload(file: File): Promise<{ buffer: Buffer; name: string; size: number; type: string }> {
+    // Enforce file size limit to prevent DoS via oversized uploads (MED-02)
+    const MAX_FILE_SIZE = 200 * 1024 * 1024; // 200MB
+    if (file.size > MAX_FILE_SIZE) {
+      throw new BizError('photo.fileTooLarge');
+    }
+
+    const buffer = Buffer.from(await file.arrayBuffer());
+
+    // Allowed MIME types (server-side allowlist — do not trust client Content-Type)
+    const ALLOWED_MIME_TYPES = new Set([
+      'image/jpeg', 'image/jpg', 'image/png', 'image/gif',
+      'image/webp', 'image/avif', 'image/heic', 'image/heif',
+      'image/tiff', 'image/bmp',
+    ]);
+
+    // Magic byte signatures for supported image types (CRIT-02)
+    const MAGIC_SIGNATURES: [number[], string][] = [
+      [[0xFF, 0xD8, 0xFF], 'image/jpeg'],
+      [[0x89, 0x50, 0x4E, 0x47], 'image/png'],
+      [[0x47, 0x49, 0x46], 'image/gif'],
+      [[0x52, 0x49, 0x46, 0x46], 'image/webp'], // RIFF....WEBP
+      [[0x00, 0x00, 0x00], 'image/heic'],         // ftyp box (loose check)
+      [[0x49, 0x49, 0x2A, 0x00], 'image/tiff'],   // TIFF little-endian
+      [[0x4D, 0x4D, 0x00, 0x2A], 'image/tiff'],   // TIFF big-endian
+      [[0x42, 0x4D], 'image/bmp'],
+    ];
+
+    // Detect MIME type from magic bytes
+    const detectedMime = MAGIC_SIGNATURES.find(([sig]) =>
+      sig.every((byte, i) => buffer[i] === byte)
+    )?.[1] ?? null;
+
+    // Special check for WebP: must have WEBP marker at offset 8
+    const isWebP = detectedMime === 'image/webp' &&
+      buffer.length >= 12 &&
+      buffer.toString('ascii', 8, 12) === 'WEBP';
+
+    const isValidMagic = detectedMime !== null && (detectedMime !== 'image/webp' || isWebP);
+
+    if (!isValidMagic) {
+      throw new BizError('photo.invalidFileType');
+    }
+
+    // Also reject if client-declared MIME is not in allowlist (defense in depth)
+    const declaredMime = (file.type || '').toLowerCase().split(';')[0].trim();
+    if (declaredMime && !ALLOWED_MIME_TYPES.has(declaredMime)) {
+      throw new BizError('photo.invalidFileType');
+    }
+
     return {
-      buffer: Buffer.from(await file.arrayBuffer()),
+      buffer,
       name: file.name.trim(),
       size: file.size,
-      type: file.type || 'application/octet-stream',
+      type: detectedMime || declaredMime || 'application/octet-stream',
     };
   },
 

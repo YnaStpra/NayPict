@@ -55,8 +55,13 @@ const storageService = {
     const list = storageList.map((storage: any) => {
       const photoStat = photoStatList.find((stat: any) => stat.storageId === storage.storageId);
 
+      // Strip sensitive cloud credentials — never expose to client (CRIT-03)
+      const safeStorage = { ...storage };
+      delete safeStorage.accessKey;
+      delete safeStorage.secretKey;
+
       return {
-        ...storage,
+        ...safeStorage,
         photoTotal: Number(photoStat?.photoTotal ?? 0),
         usedCapacity: Number(photoStat?.usedCapacity ?? 0)
       };
