@@ -1,7 +1,6 @@
 'use client';
 import dynamic from "next/dynamic"
 import { useParams, useRouter } from "next/navigation"
-import { useTranslations } from "next-intl"
 import { toast } from "sonner"
 
 import { AppSidebar } from "@/components/layout/app-sidebar"
@@ -25,7 +24,7 @@ import { PHOTO_LIST_PAGE_SIZE } from "@/server/const/global"
 import { PhotoFavoriteEnum } from "@/server/enums/photo-enum"
 import { photoFavorite, photoList, photoRecycle } from "@/request/photo"
 import { removePhotoIdFromUrl } from "@/lib/url"
-import { albumAddPhoto, albumRemovePhoto } from "@/request/album"
+import { albumAddPhoto, albumRemovePhoto, albumTogglePinPhoto } from "@/request/album"
 import { useAlbumStore } from "@/store/album-store"
 import { usePhotoStore } from "@/store/photo-store"
 import { ArrowLeftIcon, ArrowUpDown, ChevronDown, ImageIcon, LayoutGrid, PlusIcon, Sparkles } from "lucide-react"
@@ -84,7 +83,6 @@ const emptySubscribe = () => () => {}
 
 export default function Page() {
   const isBrowser = useSyncExternalStore(emptySubscribe, () => true, () => false)
-  const t = useTranslations("albums")
   const router = useRouter()
   const { albumId } = useParams<{ albumId: string }>()
   const { initialPhotos } = useAlbumPhotoContext()
@@ -297,6 +295,44 @@ export default function Page() {
     }
   }
 
+  // Toggle photo pin status in this album (admin only, max 3 photos)
+  const handleTogglePin = useCallback(async (photoId: string) => {
+    try {
+      const res = await albumTogglePinPhoto({ albumId, photoId })
+      const isPinned = res.isPinned
+
+      setPhotos((prev) => {
+        const targetPhoto = prev.find((p) => p.photoId === photoId)
+        if (!targetPhoto) return prev
+
+        const updatedPhoto = { ...targetPhoto, isPinned }
+        const otherPhotos = prev.filter((p) => p.photoId !== photoId)
+
+        if (isPinned) {
+          // Place newly pinned photo at top, followed by existing pinned photos, then unpinned
+          const existingPinned = otherPhotos.filter((p) => p.isPinned)
+          const unpinnedList = otherPhotos.filter((p) => !p.isPinned)
+          return [updatedPhoto, ...existingPinned, ...unpinnedList]
+        } else {
+          // If unpinned, keep remaining pinned at top, then unpinned photos
+          const pinnedList = otherPhotos.filter((p) => p.isPinned)
+          const unpinnedList = otherPhotos.filter((p) => !p.isPinned)
+          return [...pinnedList, updatedPhoto, ...unpinnedList]
+        }
+      })
+
+      if (isPinned) {
+        toast.success("Foto berhasil disematkan di paling atas album!")
+      } else {
+        toast.success("Pin foto berhasil dilepas dari album.")
+      }
+    } catch (err: unknown) {
+      console.error("Failed to toggle pin photo:", err)
+      const errorMsg = err instanceof Error ? err.message : "Gagal menyematkan foto. Maksimal hanya 3 foto yang dapat di-pin."
+      toast.error(errorMsg)
+    }
+  }, [albumId, setPhotos])
+
   // Save the currently selected album photo time range，And filter the trigger list by shooting time。
   function changePhotoTime(range: { startDate: Date, endDate: Date }) {
     refreshPhotoList({
@@ -318,64 +354,69 @@ export default function Page() {
                 type="button"
                 variant="ghost"
                 size="icon-sm"
-                className="-ml-1"
-                onClick={() => router.back()}
+                className="shrink-0"
+                onClick={() => router.push("/albums")}
+                aria-label="Back to albums"
               >
-                <ArrowLeftIcon />
-                <span className="sr-only">Back</span>
+                <ArrowLeftIcon className="size-4" />
               </Button>
-              <Separator
-                orientation="vertical"
-                className="mr-2 data-vertical:h-4 data-vertical:self-auto"
-              />
+              <Separator orientation="vertical" className="mr-2 h-4" />
               <Breadcrumb>
                 <BreadcrumbList>
                   <BreadcrumbItem>
-                    <BreadcrumbPage>{currentAlbumName || t("title")}</BreadcrumbPage>
+                    <BreadcrumbPage className="line-clamp-1 max-w-[200px] text-sm md:max-w-none">
+                      {currentAlbumName || "..."}
+                    </BreadcrumbPage>
                   </BreadcrumbItem>
                 </BreadcrumbList>
               </Breadcrumb>
             </div>
-            <div className="flex items-center gap-1.5 px-4 z-30">
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      type="button"
-                      size="icon"
-                      variant={viewMode === "infinite" ? "secondary" : "ghost"}
-                      className="size-8 rounded-lg"
-                      onClick={() => setViewMode((prev) => (prev === "masonry" ? "infinite" : "masonry"))}
-                    >
-                      {viewMode === "infinite" ? <LayoutGrid className="size-4 text-primary" /> : <Sparkles className="size-4" />}
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom">
-                    {viewMode === "infinite" ? "Switch to Masonry Grid View" : "Switch to Infinite Canvas View"}
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+            <div className="flex items-center gap-2 px-4">
+              {/* View Mode Toggle: Masonry vs 3D Infinite Canvas */}
+              <div className="flex items-center rounded-lg border bg-muted/40 p-0.5">
+                <Button
+                  type="button"
+                  size="icon-sm"
+                  variant={viewMode === "masonry" ? "secondary" : "ghost"}
+                  className="size-7 rounded-md"
+                  onClick={() => setViewMode("masonry")}
+                  aria-label="Masonry grid view"
+                  title="Masonry Grid"
+                >
+                  <LayoutGrid className="size-3.5" />
+                </Button>
+                <Button
+                  type="button"
+                  size="icon-sm"
+                  variant={viewMode === "infinite" ? "secondary" : "ghost"}
+                  className="size-7 rounded-md"
+                  onClick={() => setViewMode("infinite")}
+                  aria-label="3D Infinite gallery view"
+                  title="3D Canvas (Infinite)"
+                >
+                  <Sparkles className="size-3.5 text-amber-500" />
+                </Button>
+              </div>
 
-              {/* Photo Count Badge beside Grid Icon */}
+              {/* Photo Count Badge */}
               <div
-                className="flex items-center gap-1.5 bg-muted/70 text-foreground text-xs font-semibold px-2.5 py-1 rounded-lg border border-border/50 select-none shadow-2xs"
+                className="hidden sm:flex items-center gap-1.5 bg-muted/70 text-foreground text-xs font-semibold px-2.5 py-1 rounded-lg border border-border/50 select-none shadow-2xs"
                 title={`${totalCount} Photos`}
               >
                 <ImageIcon className="size-3.5 text-primary" />
                 <span>{totalCount}</span>
               </div>
 
-              {/* Sort By Dropdown Menu */}
+              {/* Sort Dropdown */}
               <DropdownMenu>
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <DropdownMenuTrigger asChild>
                         <Button
-                          type="button"
                           variant="outline"
                           size="sm"
-                          className="h-8 gap-1.5 px-2.5 text-xs font-semibold rounded-lg shadow-2xs border-border/60"
+                          className="h-8 gap-1.5 px-2.5 text-xs font-medium bg-background/80 backdrop-blur-sm border-dashed hover:border-solid hover:bg-accent/60 transition-all shadow-xs"
                         >
                           <ArrowUpDown className="size-3.5 text-primary shrink-0" />
                           <span className="hidden md:inline-block max-w-[140px] truncate">
@@ -443,6 +484,7 @@ export default function Page() {
                   onPhotoDelete={isAdmin ? recyclePhotos : undefined}
                   onAlbumOpen={isAdmin ? openAlbumDialog : undefined}
                   onAlbumRemove={isAdmin ? removeAlbumPhotos : undefined}
+                  onPhotoPin={isAdmin ? handleTogglePin : undefined}
                 />
               )
             ) : (

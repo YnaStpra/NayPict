@@ -24,6 +24,7 @@ interface PhotoMasonryProps {
   onPhotoRestore?: (photoIds: string[]) => void
   onAlbumOpen?: (photoIds: string[]) => void
   onAlbumRemove?: (photoIds: string[]) => void
+  onPhotoPin?: (photoId: string, isPinned: boolean) => void
 }
 
 // Bundle rem The unit is converted to the current root font size px。
@@ -84,6 +85,7 @@ const PhotoMasonry = memo(function PhotoMasonry({
   onPhotoRestore,
   onAlbumOpen,
   onAlbumRemove,
+  onPhotoPin,
 }: PhotoMasonryProps) {
   const { sidebarOpen } = useApp()
   // isMobile Determine whether the current viewport is the mobile terminal。
@@ -355,6 +357,7 @@ const PhotoMasonry = memo(function PhotoMasonry({
               onOpen={() => onPhotoOpen?.(props.index)}
               onFavoriteChange={onPhotoFavorite}
               onSelectedChange={changePhotoSelected}
+              onPhotoPin={onPhotoPin}
               touchHoverCloseRef={touchHoverCloseRef}
             />
           )}

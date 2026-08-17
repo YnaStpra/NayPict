@@ -5,7 +5,16 @@ import { albumPhotoTab } from '@/server/entity/album-photo';
 import { photoTab } from '@/server/entity/photo';
 import { orm } from '@/server/infra/db';
 import BizError from '@/server/error/biz-error';
-import { type AlbumAddBo, type AlbumAddPhotoBo, type AlbumDeleteBo, type AlbumRemovePhotoBo, type AlbumSetCoverBo, type AlbumSetNameBo, type AlbumSetTopBo } from '@/server/entity/bo/album';
+import {
+  type AlbumAddBo,
+  type AlbumAddPhotoBo,
+  type AlbumDeleteBo,
+  type AlbumRemovePhotoBo,
+  type AlbumSetCoverBo,
+  type AlbumSetNameBo,
+  type AlbumSetTopBo,
+  type AlbumTogglePinPhotoBo,
+} from '@/server/entity/bo/album';
 import { PhotoFavoriteEnum, PhotoStatusEnum } from '@/server/enums/photo-enum';
 import { type AlbumVo } from '@/server/entity/vo/album';
 import { storageService } from '@/server/service/storage-service';
@@ -437,6 +446,59 @@ const albumService = {
         eq(albumTab.albumId, params.albumId),
         eq(albumTab.userId, userId)
       ));
+  },
+
+  // Toggle photo pin status in a specific album (Max 3 pinned photos per album).
+  async togglePinPhoto(params: AlbumTogglePinPhotoBo, userId: string): Promise<{ isPinned: boolean }> {
+    if (!params.albumId) {
+      throw new BizError('album.selectRequired');
+    }
+    if (!params.photoId) {
+      throw new BizError('photo.selectRequired');
+    }
+
+    const [albumPhoto] = await orm
+      .select({
+        id: albumPhotoTab.id,
+        isPinned: albumPhotoTab.isPinned,
+      })
+      .from(albumPhotoTab)
+      .where(and(
+        eq(albumPhotoTab.albumId, params.albumId),
+        eq(albumPhotoTab.photoId, params.photoId)
+      ))
+      .limit(1);
+
+    if (!albumPhoto) {
+      throw new BizError('photo.notFound');
+    }
+
+    const nextPinned = albumPhoto.isPinned === 1 ? 0 : 1;
+
+    if (nextPinned === 1) {
+      // Validate that the album currently has less than 3 pinned photos
+      const [pinnedCountRow] = await orm
+        .select({ total: count() })
+        .from(albumPhotoTab)
+        .where(and(
+          eq(albumPhotoTab.albumId, params.albumId),
+          eq(albumPhotoTab.isPinned, 1)
+        ));
+
+      const pinnedTotal = Number(pinnedCountRow?.total ?? 0);
+      if (pinnedTotal >= 3) {
+        throw new BizError('Maksimal hanya 3 foto yang dapat di-pin dalam satu album.');
+      }
+    }
+
+    await orm.update(albumPhotoTab)
+      .set({
+        isPinned: nextPinned,
+        pinnedAt: nextPinned === 1 ? new Date() : null,
+      })
+      .where(eq(albumPhotoTab.id, albumPhoto.id));
+
+    return { isPinned: nextPinned === 1 };
   },
 
   // Delete album.
