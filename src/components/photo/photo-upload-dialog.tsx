@@ -705,11 +705,11 @@ export function PhotoUploadDialog() {
               </Select>
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button type="button" variant="ghost" size="icon" aria-label="Upload settings" className="size-9">
+                  <Button type="button" variant="ghost" size="icon" aria-label="Upload settings" className="size-9 cursor-pointer hover:bg-muted">
                     <SettingsIcon className="size-4" />
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent side="top" align="start" className="w-64">
+                <PopoverContent side="top" align="start" className="w-80 p-4">
                   <PhotoUploadSettings onChange={runNext} />
                 </PopoverContent>
               </Popover>
