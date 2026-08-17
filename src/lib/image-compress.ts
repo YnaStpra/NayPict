@@ -120,21 +120,22 @@ async function preserveExifMetadata(originalFile: File, compressedBlob: Blob): P
 }
 
 /**
- * Compresses an image file in the browser while maintaining high visual quality and 100% EXIF metadata.
+ * Compresses an image file in the browser while maintaining high visual quality, EXIF metadata,
+ * and ensuring the payload never exceeds Vercel Serverless Function 4.5MB limit.
  */
 export async function compressImageFile(
   file: File,
   options: CompressImageOptions = {}
 ): Promise<File> {
-  const { maxDimension = 3840, quality = 0.85 } = options;
+  const { maxDimension = 2560, quality = 0.82 } = options;
 
   // 1. Skip non-image or vector files (SVG, GIF animations)
   if (!file.type.startsWith('image/') || file.type === 'image/svg+xml' || file.type === 'image/gif') {
     return file;
   }
 
-  // 2. Skip files smaller than 500KB to avoid unnecessary processing
-  if (file.size < 500 * 1024) {
+  // 2. Skip small files (< 400KB) unless it is a large dimension file
+  if (file.size < 400 * 1024) {
     return file;
   }
 
@@ -149,14 +150,17 @@ export async function compressImageFile(
 
           let { width, height } = img;
 
+          // Adaptive target dimension based on original file size
+          const targetDimension = file.size > 8 * 1024 * 1024 ? Math.min(maxDimension, 2048) : maxDimension;
+
           // Calculate scaling maintaining original aspect ratio
-          if (width > maxDimension || height > maxDimension) {
+          if (width > targetDimension || height > targetDimension) {
             if (width > height) {
-              height = Math.round((height * maxDimension) / width);
-              width = maxDimension;
+              height = Math.round((height * targetDimension) / width);
+              width = targetDimension;
             } else {
-              width = Math.round((width * maxDimension) / height);
-              height = maxDimension;
+              width = Math.round((width * targetDimension) / height);
+              height = targetDimension;
             }
           }
 
@@ -174,20 +178,43 @@ export async function compressImageFile(
           ctx.imageSmoothingQuality = 'high';
           ctx.drawImage(img, 0, 0, width, height);
 
-          const outputMime = file.type === 'image/png' ? 'image/png' : 'image/jpeg';
+          // Standardize photo upload to JPEG with EXIF preservation for maximum quality/size ratio
+          const outputMime = 'image/jpeg';
 
           canvas.toBlob(
             async (blob) => {
               try {
-                if (!blob || blob.size >= file.size) {
+                if (!blob) {
                   resolve(file);
                   return;
                 }
 
-                // Restore complete original EXIF metadata back into compressed Blob
-                const finalBlob = await preserveExifMetadata(file, blob);
+                // If blob is still > 3.8MB, perform a quick secondary pass
+                let finalBlob = blob;
+                if (blob.size > 3.8 * 1024 * 1024) {
+                  const secondaryCanvas = document.createElement('canvas');
+                  const sWidth = Math.round(width * 0.8);
+                  const sHeight = Math.round(height * 0.8);
+                  secondaryCanvas.width = sWidth;
+                  secondaryCanvas.height = sHeight;
+                  const sCtx = secondaryCanvas.getContext('2d');
+                  if (sCtx) {
+                    sCtx.drawImage(canvas, 0, 0, sWidth, sHeight);
+                    const reducedBlob = await new Promise<Blob | null>((res) =>
+                      secondaryCanvas.toBlob(res, 'image/jpeg', 0.78)
+                    );
+                    if (reducedBlob && reducedBlob.size < blob.size) {
+                      finalBlob = reducedBlob;
+                    }
+                  }
+                }
 
-                const compressedFile = new File([finalBlob], file.name, {
+                // Restore complete original EXIF metadata back into compressed Blob
+                const exifPreservedBlob = await preserveExifMetadata(file, finalBlob);
+
+                const finalOutputName = file.name.replace(/\.[^/.]+$/, "") + ".jpg";
+
+                const compressedFile = new File([exifPreservedBlob], finalOutputName, {
                   type: outputMime,
                   lastModified: file.lastModified,
                 });

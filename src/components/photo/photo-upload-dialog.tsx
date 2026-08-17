@@ -97,14 +97,33 @@ function getUploadErrorMessage(xhr: XMLHttpRequest): string {
 
   try {
     const json = JSON.parse(xhr.responseText)
-    if (json.message) {
-      return json.message
-    }
+    if (json.message) return json.message
+    if (json.error) return json.error
   } catch {
     // Ignore JSON error
   }
 
-  return xhr.statusText || "Upload failed"
+  if (xhr.status === 413 || xhr.responseText?.includes("FUNCTION_PAYLOAD_TOO_LARGE") || xhr.responseText?.includes("Payload Too Large")) {
+    return "Ukuran berkas melebihi batas server Vercel (4.5MB). Mengompres berkas otomatis..."
+  }
+  if (xhr.status === 401) {
+    return "Sesi login telah berakhir. Silakan login kembali."
+  }
+  if (xhr.status === 403) {
+    return "Akses ditolak (hanya Admin yang dapat mengunggah foto)."
+  }
+  if (xhr.status === 504 || xhr.status === 502) {
+    return "Waktu proses server habis. Silakan coba lagi."
+  }
+  if (xhr.status === 500) {
+    return "Terjadi kesalahan server saat menyimpan foto ke penyimpanan."
+  }
+
+  if (xhr.responseText && xhr.responseText.length > 0 && xhr.responseText.length < 150) {
+    return xhr.responseText.trim()
+  }
+
+  return xhr.statusText || `Upload gagal (HTTP ${xhr.status || "Error"})`
 }
 
 function uploadPhotoAdd(
@@ -129,7 +148,7 @@ function uploadPhotoAdd(
       try {
         const result = JSON.parse(request.responseText)
         if (result.code !== 200) {
-          reject(new Error(result.message || "Upload failed"))
+          reject(new Error(result.message || "Upload gagal"))
           return
         }
         resolve(result.data)
@@ -138,7 +157,7 @@ function uploadPhotoAdd(
       }
     }
 
-    request.onerror = () => reject(new Error("Network error during upload"))
+    request.onerror = () => reject(new Error("Gagal terhubung ke server (Network error)"))
     request.open("POST", "/api/photo/add")
     request.withCredentials = true
     onAbort?.(() => request.abort())
@@ -344,10 +363,10 @@ export function PhotoUploadDialog() {
       const uploadSettings = readPhotoUploadSettings()
       let fileToUpload = item.file
 
-      if (uploadSettings.compressImage) {
+      if (uploadSettings.compressImage || fileToUpload.size > 3.8 * 1024 * 1024) {
         fileToUpload = await compressImageFile(item.file, {
-          maxDimension: 3840,
-          quality: 0.85,
+          maxDimension: 2560,
+          quality: 0.82,
         })
       }
 

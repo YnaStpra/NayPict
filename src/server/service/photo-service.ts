@@ -800,7 +800,7 @@ const photoService = {
 
     // Magic byte signatures for supported image types (CRIT-02)
     const MAGIC_SIGNATURES: [number[], string][] = [
-      [[0xFF, 0xD8, 0xFF], 'image/jpeg'],
+      [[0xFF, 0xD8], 'image/jpeg'],
       [[0x89, 0x50, 0x4E, 0x47], 'image/png'],
       [[0x47, 0x49, 0x46], 'image/gif'],
       [[0x52, 0x49, 0x46, 0x46], 'image/webp'], // RIFF....WEBP
@@ -811,9 +811,14 @@ const photoService = {
     ];
 
     // Detect MIME type from magic bytes
-    const detectedMime = MAGIC_SIGNATURES.find(([sig]) =>
+    let detectedMime = MAGIC_SIGNATURES.find(([sig]) =>
       sig.every((byte, i) => buffer[i] === byte)
     )?.[1] ?? null;
+
+    // Check for AVIF ftyp header
+    if (!detectedMime && buffer.length >= 12 && buffer.toString('ascii', 4, 12).includes('ftyp')) {
+      detectedMime = 'image/avif';
+    }
 
     // Special check for WebP: must have WEBP marker at offset 8
     const isWebP = detectedMime === 'image/webp' &&
