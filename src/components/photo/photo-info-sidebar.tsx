@@ -1,18 +1,19 @@
 "use client"
 
 import { FolderPlusIcon, InfoIcon, MessageSquareIcon, TrendingUp, XIcon } from "lucide-react"
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
 
 import { Button } from "@/components/ui/button"
 import { useTapAction } from "@/hooks/use-tap-action"
 import { formatPhotoTakenDateTime } from "@/lib/date"
 import { getThumbHashUrl } from "@/lib/thumb-hash"
-import { formatPhotoLocation, getPhotoDeviceParams, getPhotoShootingParams, getPhotoSoftware, getPhotoTimezone } from "@/lib/viewer-field"
+import { getPhotoDeviceParams, getPhotoShootingParams, getPhotoSoftware, getPhotoTimezone } from "@/lib/viewer-field"
 import { type PhotoVo } from "@/server/entity/vo/photo"
 import { useLocale, useTranslations } from "next-intl"
 import { useApp } from "@/app/provider"
 import { UserTypeEnum } from "@/server/enums/user-enum"
 import { PhotoComments } from "@/components/photo/photo-comments"
+import { PhotoLocationMap } from "@/components/photo/photo-location-map"
 
 type PhotoInfoSidebarProps = {
   // Currently viewing photos.
@@ -120,14 +121,14 @@ export function PhotoViewerBlurBackground({ thumbHash }: PhotoViewerBlurBackgrou
   }
 
   return (
-    <div className="fixed inset-0 z-[-10] h-full w-full overflow-hidden">
+    <div className="fixed inset-0 z-[-10] h-full w-full overflow-hidden pointer-events-none select-none">
       <img
         src={thumbHashUrl}
         alt=""
-        className="h-full w-full scale-110 blur-sm object-cover"
+        className="h-full w-full scale-110 blur-sm object-cover pointer-events-none select-none"
         aria-hidden
       />
-      <div className="absolute inset-0 bg-black/50" />
+      <div className="absolute inset-0 bg-black/50 pointer-events-none" />
     </div>
   )
 }
@@ -173,6 +174,31 @@ export function PhotoInfoSidebar({
   const [internalTab, setInternalTab] = useState<"info" | "comments">("info")
   const currentTab = controlledTab ?? internalTab
 
+  const asideRef = useRef<HTMLElement>(null)
+  const infoScrollRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const asideEl = asideRef.current
+    if (!asideEl) return
+
+    // Stop propagation at capture phase so Lightbox zoom / carousel never intercepts wheel or touch scroll
+    const stopPropagationCapture = (e: Event) => {
+      e.stopPropagation()
+    }
+
+    asideEl.addEventListener("wheel", stopPropagationCapture, { capture: true, passive: true })
+    asideEl.addEventListener("touchstart", stopPropagationCapture, { capture: true, passive: true })
+    asideEl.addEventListener("touchmove", stopPropagationCapture, { capture: true, passive: true })
+    asideEl.addEventListener("pointerdown", stopPropagationCapture, { capture: true })
+
+    return () => {
+      asideEl.removeEventListener("wheel", stopPropagationCapture, { capture: true })
+      asideEl.removeEventListener("touchstart", stopPropagationCapture, { capture: true })
+      asideEl.removeEventListener("touchmove", stopPropagationCapture, { capture: true })
+      asideEl.removeEventListener("pointerdown", stopPropagationCapture, { capture: true })
+    }
+  }, [])
+
   const handleTabChange = (tab: "info" | "comments") => {
     setInternalTab(tab)
     onTabChange?.(tab)
@@ -180,13 +206,14 @@ export function PhotoInfoSidebar({
 
   return (
     <aside
-      className="fixed top-0 right-0 z-[41] flex h-full w-full flex-col overflow-y-auto bg-transparent backdrop-blur-xl text-white shadow-photo-sidebar md:w-84 md:shrink-0"
-      onPointerDown={(event) => event.stopPropagation()}
+      ref={asideRef}
+      className="fixed top-0 right-0 z-[41] flex h-full w-full flex-col overflow-hidden bg-transparent backdrop-blur-xl text-white shadow-photo-sidebar md:w-84 md:shrink-0 pointer-events-auto touch-pan-y"
+      style={{ touchAction: "pan-y" }}
     >
       {onClose && <SidebarCloseButton onClose={onClose} />}
 
       {photo && (
-        <div className="flex flex-col h-full text-left pb-6">
+        <div className="flex flex-col h-full text-left min-h-0">
           {/* Segmented Tab Navigation: Info vs Comments */}
           <div className="pl-4 pr-12 pt-3.5 shrink-0">
             <div className="flex items-center p-1 rounded-xl bg-white/10 border border-white/15 backdrop-blur-md">
@@ -219,7 +246,11 @@ export function PhotoInfoSidebar({
 
           {/* TAB 1: Information */}
           {currentTab === "info" && (
-            <div className="flex-1 overflow-y-auto px-4 py-3 space-y-4">
+            <div
+              ref={infoScrollRef}
+              className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-4 py-3 pb-32 space-y-4 overscroll-contain pointer-events-auto touch-pan-y"
+              style={{ touchAction: "pan-y" }}
+            >
               {/* Admin Actions: Add to Album & Photo Insights */}
               {isAdmin && (
                 <div className="flex flex-col gap-2">
@@ -270,11 +301,6 @@ export function PhotoInfoSidebar({
                   <PhotoInfoRow label={t("megapixels")} value={formatMegapixels(photo.width, photo.height)} />
                   <PhotoInfoRow label={t("dateTime")} value={formatPhotoTakenDateTime(photo.takenTime, locale)} />
                   <PhotoInfoRow label={t("timeZone")} value={getPhotoTimezone(photo.exif)} />
-                  <PhotoInfoRow
-                    label={t("location")}
-                    value={formatPhotoLocation(photo.latitude, photo.longitude, photo.altitude)}
-                    wrap
-                  />
                   <PhotoInfoRow label={t("software")} value={getPhotoSoftware(photo.exif)} wrap />
                   {photo.albums && photo.albums.length > 0 && (
                     <PhotoInfoRow
@@ -313,6 +339,23 @@ export function PhotoInfoSidebar({
                       <PhotoInfoRow key={item.key} label={t(item.key)} value={item.value} wrap={item.wrap} />
                     ))}
                   </div>
+                </div>
+              )}
+
+              {/* Visual Google Map Location Card (Positioned at the very bottom of photo info) */}
+              {photo.latitude != null && photo.longitude != null && (
+                <div>
+                  <div className="pb-2 text-xs font-semibold text-white/50 tracking-wider uppercase">
+                    {t("location")}
+                  </div>
+                  <PhotoLocationMap
+                    latitude={photo.latitude}
+                    longitude={photo.longitude}
+                    altitude={photo.altitude}
+                    thumbnail={photo.thumbnail}
+                    preview={photo.preview}
+                    photoName={photo.name}
+                  />
                 </div>
               )}
             </div>

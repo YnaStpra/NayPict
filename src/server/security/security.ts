@@ -44,7 +44,8 @@ const PUBLIC_API_PATHS = [
   '/photo/comment/list',
   '/photo/comment/add',
   '/photo/view',
-  '/photo/share'
+  '/photo/share',
+  '/location'
 ];
 
 // Determine whether the current path hits the specified interface or its subpath.
