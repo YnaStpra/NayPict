@@ -286,23 +286,6 @@ export function PhotoInfoSidebar({
                 </div>
               </div>
 
-              {/* Visual Google Map Location Card (Only displayed if coordinates exist) */}
-              {photo.latitude != null && photo.longitude != null && (
-                <div>
-                  <div className="pb-2 text-xs font-semibold text-white/50 tracking-wider uppercase">
-                    {t("location")}
-                  </div>
-                  <PhotoLocationMap
-                    latitude={photo.latitude}
-                    longitude={photo.longitude}
-                    altitude={photo.altitude}
-                    thumbnail={photo.thumbnail}
-                    preview={photo.preview}
-                    photoName={photo.name}
-                  />
-                </div>
-              )}
-
               {shootingParams.length > 0 && (
                 <div>
                   <div className="pb-2 text-xs font-semibold text-white/50 tracking-wider uppercase">
@@ -326,6 +309,23 @@ export function PhotoInfoSidebar({
                       <PhotoInfoRow key={item.key} label={t(item.key)} value={item.value} wrap={item.wrap} />
                     ))}
                   </div>
+                </div>
+              )}
+
+              {/* Visual Google Map Location Card (Positioned at the very bottom of photo info) */}
+              {photo.latitude != null && photo.longitude != null && (
+                <div>
+                  <div className="pb-2 text-xs font-semibold text-white/50 tracking-wider uppercase">
+                    {t("location")}
+                  </div>
+                  <PhotoLocationMap
+                    latitude={photo.latitude}
+                    longitude={photo.longitude}
+                    altitude={photo.altitude}
+                    thumbnail={photo.thumbnail}
+                    preview={photo.preview}
+                    photoName={photo.name}
+                  />
                 </div>
               )}
             </div>
