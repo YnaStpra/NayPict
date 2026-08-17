@@ -1,37 +1,24 @@
 "use client"
 
-import { useLayoutEffect, useState } from "react"
-import { useRouter, useServerInsertedHTML } from "next/navigation"
+import Link from "next/link"
+import { useState } from "react"
+import { useRouter } from "next/navigation"
+import { ArrowLeft } from "lucide-react"
 import { LoginForm } from "@/components/login/login-form"
 import { login } from "@/request/login"
 import { userInfo } from "@/request/user"
 import { type LoginBo } from "@/server/entity/bo/login"
 import { useApp } from "@/app/provider"
+import { ThemeSwitcher } from "@/components/layout/theme-switcher"
 
 import { toast } from "sonner"
 
 export default function LoginPage() {
-  const { refreshAlbums, refreshStorages, setUserInfo, theme, setTheme } = useApp()
+  const { setUserInfo } = useApp()
   const [loading, setLoading] = useState(false)
   const [require2Fa, setRequire2Fa] = useState(false)
   const [tempToken, setTempToken] = useState("")
   const router = useRouter()
-
-  useServerInsertedHTML(() => (
-    <script
-      dangerouslySetInnerHTML={{
-        __html: `(function(){var el=document.documentElement;el.classList.remove("dark");el.style.colorScheme="light";})();`,
-      }}
-    />
-  ))
-
-  useLayoutEffect(() => {
-    document.documentElement.classList.remove("dark")
-    document.documentElement.style.colorScheme = "light"
-    return () => {
-      setTheme(theme)
-    }
-  }, [])
 
   function handleLogin(params: LoginBo) {
     setLoading(true)
@@ -45,9 +32,6 @@ export default function LoginPage() {
           return
         }
 
-        if (res?.token) {
-          // Token set in HTTP-only cookie by server
-        }
         if (res?.user) {
           setUserInfo(res.user)
           router.replace('/admin')
@@ -70,16 +54,31 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="relative isolate flex min-h-screen w-full flex-col items-center justify-center gap-6 overflow-hidden bg-[#fefcff] p-6 md:p-10">
-      {/* Dreamy Sky Pink Glow */}
+    <div className="relative isolate flex min-h-screen w-full flex-col items-center justify-center gap-6 overflow-hidden bg-background p-4 sm:p-6 md:p-10">
+      {/* Ambient gradient glow */}
       <div
-        className="absolute inset-0 z-0"
+        className="absolute inset-0 z-0 opacity-40 dark:opacity-20 pointer-events-none"
         style={{
           backgroundImage: `
-            radial-gradient(circle at 30% 70%, rgba(173, 216, 230, 0.35), transparent 60%),
-            radial-gradient(circle at 70% 30%, rgba(255, 182, 193, 0.4), transparent 60%)`,
+            radial-gradient(circle at 30% 70%, rgba(99, 102, 241, 0.25), transparent 60%),
+            radial-gradient(circle at 70% 30%, rgba(236, 72, 153, 0.2), transparent 60%)`,
         }}
       />
+
+      {/* Top action bar: Back to Gallery & Theme Switcher */}
+      <div className="relative z-10 w-full max-w-sm flex items-center justify-between">
+        <Link
+          href="/photos"
+          className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <ArrowLeft className="size-3.5" />
+          <span>Back to Gallery</span>
+        </Link>
+        <div className="w-36">
+          <ThemeSwitcher />
+        </div>
+      </div>
+
       <div className="relative z-10 flex w-full max-w-sm flex-col gap-6">
         <LoginForm
           loading={loading}

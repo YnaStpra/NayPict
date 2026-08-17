@@ -17,11 +17,12 @@ import { usePhotoList } from "@/hooks/use-photo-list"
 import { PHOTO_LIST_PAGE_SIZE } from "@/server/const/global"
 import { PhotoFavoriteEnum } from "@/server/enums/photo-enum"
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
+import { toast } from "sonner"
 import { PhotoMasonry } from "@/components/photo/photo-masonry"
 import { photoFavorite, photoList, photoRecycle } from "@/request/photo"
 import { removePhotoIdFromUrl } from "@/lib/url"
-import { albumAddPhoto } from "@/request/album"
+import { albumAddPhoto, albumRemovePhoto } from "@/request/album"
 import { useAlbumStore } from "@/store/album-store"
 import { useFavoriteContext } from "@/app/favorites/provider"
 import { useApp } from "@/app/provider"
@@ -40,13 +41,14 @@ const PhotoViewer = dynamic(
   { ssr: false }
 )
 
+const emptySubscribe = () => () => {}
+
 export default function Page() {
+  const isBrowser = useSyncExternalStore(emptySubscribe, () => true, () => false)
   const t = useTranslations("favorites")
   const { initialPhotos } = useFavoriteContext()
   const { userInfo, sidebarOpen, setSidebarOpen, refreshAlbums } = useApp()
   const isAdmin = userInfo?.type === UserTypeEnum.ADMIN
-  // isBrowser Mark whether you are currently in the browser environment，SSR Stage display skeleton screen。
-  const [isBrowser, setIsBrowser] = useState(false)
   const {
     photos,
     masonryKey,
@@ -61,10 +63,6 @@ export default function Page() {
   const [albumDialogOpen, setAlbumDialogOpen] = useState(false)
   // albumPhotoIds Save the photos to be added to the album this time id。
   const [albumPhotoIds, setAlbumPhotoIds] = useState<string[]>([])
-
-  useLayoutEffect(() => {
-    setIsBrowser(true)
-  }, [])
 
   useEffect(() => {
     // Disable browser scroll recovery when refreshing favorites，and go back to the top of the photo list。
@@ -164,33 +162,45 @@ export default function Page() {
   }, [albumPhotoIds, photos])
 
   // After selecting the album, add the favorite photos to the album。
-  function changePhotoAlbum(albumIds: string[]) {
-    albumAddPhoto({ albumIds, photoIds: albumPhotoIds }).then(() => {
+  async function changePhotoAlbum(albumIds: string[]) {
+    if (!albumPhotoIds.length) return
+
+    const addedAlbumIds = albumIds.filter((id) => !initialAlbumIds.includes(id))
+    const removedAlbumIds = initialAlbumIds.filter((id) => !albumIds.includes(id))
+
+    try {
+      if (addedAlbumIds.length > 0) {
+        await albumAddPhoto({ albumIds: addedAlbumIds, photoIds: albumPhotoIds })
+      }
+      if (removedAlbumIds.length > 0) {
+        for (const remAlbumId of removedAlbumIds) {
+          await albumRemovePhoto({ albumId: remAlbumId, photoIds: albumPhotoIds })
+        }
+      }
+
+      toast.success("Album foto berhasil diperbarui!")
       void refreshAlbums()
 
       const allAlbums = useAlbumStore.getState().albums
       const selectedAlbumObjs = allAlbums
-        .filter((a: any) => albumIds.includes(a.albumId))
-        .map((a: any) => ({ albumId: a.albumId, name: a.name }))
+        .filter((a) => albumIds.includes(a.albumId))
+        .map((a) => ({ albumId: a.albumId, name: a.name }))
 
-      setPhotos((prevPhotos: any[]) =>
-        prevPhotos.map((photo: any) => {
+      setPhotos((prevPhotos) =>
+        prevPhotos.map((photo) => {
           if (albumPhotoIds.includes(photo.photoId)) {
-            const existingAlbums = photo.albums ?? []
-            const combinedMap = new Map<string, { albumId: string; name: string }>()
-
-            existingAlbums.forEach((a: any) => combinedMap.set(a.albumId, a))
-            selectedAlbumObjs.forEach((a: any) => combinedMap.set(a.albumId, a))
-
             return {
               ...photo,
-              albums: Array.from(combinedMap.values()),
+              albums: selectedAlbumObjs,
             }
           }
           return photo
         })
       )
-    })
+    } catch (err) {
+      console.error("Failed to update photo albums:", err)
+      toast.error("Gagal memperbarui album foto.")
+    }
   }
 
   // Save the currently selected time range of favorite photos，And filter the trigger list by shooting time。

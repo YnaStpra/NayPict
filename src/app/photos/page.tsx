@@ -17,14 +17,14 @@ import {
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { usePhotoList } from "@/hooks/use-photo-list"
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { toast } from 'sonner'
 import { PhotoMasonry } from "@/components/photo/photo-masonry"
 import { PHOTO_LIST_PAGE_SIZE } from "@/server/const/global"
 import { PhotoFavoriteEnum } from "@/server/enums/photo-enum"
 import { photoFavorite, photoList, photoRecycle } from "@/request/photo"
 import { removePhotoIdFromUrl } from "@/lib/url"
-import { albumAddPhoto } from "@/request/album"
+import { albumAddPhoto, albumRemovePhoto } from "@/request/album"
 import { usePhotoStore } from "@/store/photo-store"
 import { useAlbumStore } from "@/store/album-store"
 import { ArrowUpDown, ChevronDown, ImageIcon, LayoutGrid, Plus, Sparkles } from "lucide-react"
@@ -74,6 +74,8 @@ const SORT_OPTIONS: { key: SortOptionKey; label: string; sortBy?: 'takenTime' | 
   { key: 'name_desc', label: 'Name (Z - A)', sortBy: 'name', sortOrder: 'desc', shuffle: false },
 ]
 
+const emptySubscribe = () => () => {}
+
 // Render photo list page with Masonry & Infinite Canvas mode support.
 export default function Page() {
   const t = useTranslations("photos")
@@ -81,7 +83,7 @@ export default function Page() {
   const { userInfo, sidebarOpen, setSidebarOpen, refreshAlbums } = useApp()
   const isAdmin = userInfo?.type === UserTypeEnum.ADMIN
 
-  const [isBrowser, setIsBrowser] = useState(false)
+  const isBrowser = useSyncExternalStore(emptySubscribe, () => true, () => false)
   const [viewMode, setViewMode] = useState<"masonry" | "infinite">("masonry")
   const [sortKey, setSortKey] = useState<SortOptionKey>("none")
 
@@ -115,10 +117,6 @@ export default function Page() {
   const [albumPhotoIds, setAlbumPhotoIds] = useState<string[]>([])
   const openUpload = usePhotoStore((state) => state.openUpload)
   const uploadedPhotos = usePhotoStore((state) => state.uploadedPhotos)
-
-  useLayoutEffect(() => {
-    setIsBrowser(true)
-  }, [])
 
   useEffect(() => {
     const previousScrollRestoration = window.history.scrollRestoration
@@ -239,40 +237,45 @@ export default function Page() {
     return []
   }, [albumPhotoIds, photos])
 
-  function changePhotoAlbum(albumIds: string[]) {
-    if (!albumIds.length || !albumPhotoIds.length) return
-    albumAddPhoto({ albumIds, photoIds: albumPhotoIds })
-      .then(() => {
-        toast.success("Foto berhasil ditambahkan ke album!")
-        void refreshAlbums()
+  async function changePhotoAlbum(albumIds: string[]) {
+    if (!albumPhotoIds.length) return
 
-        const allAlbums = useAlbumStore.getState().albums
-        const selectedAlbumObjs = allAlbums
-          .filter((a) => albumIds.includes(a.albumId))
-          .map((a) => ({ albumId: a.albumId, name: a.name }))
+    const addedAlbumIds = albumIds.filter((id) => !initialAlbumIds.includes(id))
+    const removedAlbumIds = initialAlbumIds.filter((id) => !albumIds.includes(id))
 
-        setPhotos((prevPhotos) =>
-          prevPhotos.map((photo) => {
-            if (albumPhotoIds.includes(photo.photoId)) {
-              const existingAlbums = photo.albums ?? []
-              const combinedMap = new Map<string, { albumId: string; name: string }>()
+    try {
+      if (addedAlbumIds.length > 0) {
+        await albumAddPhoto({ albumIds: addedAlbumIds, photoIds: albumPhotoIds })
+      }
+      if (removedAlbumIds.length > 0) {
+        for (const remAlbumId of removedAlbumIds) {
+          await albumRemovePhoto({ albumId: remAlbumId, photoIds: albumPhotoIds })
+        }
+      }
 
-              existingAlbums.forEach((a) => combinedMap.set(a.albumId, a))
-              selectedAlbumObjs.forEach((a) => combinedMap.set(a.albumId, a))
+      toast.success("Album foto berhasil diperbarui!")
+      void refreshAlbums()
 
-              return {
-                ...photo,
-                albums: Array.from(combinedMap.values()),
-              }
+      const allAlbums = useAlbumStore.getState().albums
+      const selectedAlbumObjs = allAlbums
+        .filter((a) => albumIds.includes(a.albumId))
+        .map((a) => ({ albumId: a.albumId, name: a.name }))
+
+      setPhotos((prevPhotos) =>
+        prevPhotos.map((photo) => {
+          if (albumPhotoIds.includes(photo.photoId)) {
+            return {
+              ...photo,
+              albums: selectedAlbumObjs,
             }
-            return photo
-          })
-        )
-      })
-      .catch((err) => {
-        console.error("Failed to add photos to album:", err)
-        toast.error("Gagal memperbarui album foto.")
-      })
+          }
+          return photo
+        })
+      )
+    } catch (err) {
+      console.error("Failed to update photo albums:", err)
+      toast.error("Gagal memperbarui album foto.")
+    }
   }
 
   function changePhotoTime(range: { startDate: Date, endDate: Date }) {
@@ -445,6 +448,7 @@ export default function Page() {
         open={albumDialogOpen}
         onOpenChange={setAlbumDialogOpen}
         onAlbumSelect={changePhotoAlbum}
+        initialSelectedAlbumIds={initialAlbumIds}
       />
       <BackToTopButton />
     </>

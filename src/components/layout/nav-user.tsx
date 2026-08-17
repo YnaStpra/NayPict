@@ -1,5 +1,6 @@
 "use client"
 
+import Link from "next/link"
 import { useEffect, useRef, useState, type ChangeEvent } from "react"
 import dynamic from "next/dynamic"
 import { useRouter } from "next/navigation"
@@ -137,6 +138,22 @@ export function NavUser({
   // Open the change password pop-up box。
   function openUpdatePassword() {
     setPasswordOpen(true)
+  }
+
+  // Render guest theme switcher & login button for public non-admin visitors
+  if (!userInfo) {
+    return (
+      <div className="flex flex-col gap-2 p-1.5 rounded-xl bg-sidebar-accent/50 border border-sidebar-border/60 text-xs">
+        <ThemeSwitcher />
+        <Link
+          href="/login"
+          className="flex items-center justify-center gap-1.5 w-full py-1.5 px-3 rounded-lg bg-primary text-primary-foreground font-medium hover:bg-primary/90 transition-colors shadow-2xs cursor-pointer"
+        >
+          <LogIn className="size-3.5" />
+          <span>Admin Login</span>
+        </Link>
+      </div>
+    )
   }
 
   return (
