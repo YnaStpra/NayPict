@@ -1,7 +1,7 @@
 "use client"
 
 import { useMemo, useState, type MouseEvent } from "react"
-import { HeartIcon, FolderIcon } from "lucide-react"
+import { HeartIcon, FolderIcon, PinIcon } from "lucide-react"
 import { type RenderComponentProps } from "masonic"
 import { useIsMobile } from "@/hooks/use-mobile"
 import { Button } from "@/components/ui/button"
@@ -24,10 +24,11 @@ type PhotoCardProps = RenderComponentProps<PhotoVo> & {
   onOpen?: () => void
   onFavoriteChange?: (index: number, setFavorite: (favorite: boolean) => void) => void
   onSelectedChange?: (photoId: string, selected: boolean) => void
+  onPhotoPin?: (photoId: string, isPinned: boolean) => void
   touchHoverCloseRef?: TouchHoverCloseRef
 }
 
-// Format photo file size。
+// Format photo file size.
 function formatPhotoSize(size: number) {
   if (size < 1024) {
     return `${size}B`
@@ -40,14 +41,14 @@ function formatPhotoSize(size: number) {
   return `${(size / 1024 / 1024).toFixed(1)}MB`
 }
 
-// Format photo display name，Remove file extension。
+// Format photo display name, remove file extension.
 function formatPhotoName(name: string) {
   const index = name.lastIndexOf('.')
 
   return index > 0 ? name.slice(0, index) : name
 }
 
-// Rendering a single photo card in a waterfall flow。
+// Rendering a single photo card in a waterfall flow.
 export function PhotoCard({
   data,
   index,
@@ -57,6 +58,7 @@ export function PhotoCard({
   onOpen,
   onFavoriteChange,
   onSelectedChange,
+  onPhotoPin,
   touchHoverCloseRef,
 }: PhotoCardProps) {
   const { userInfo } = useApp()
@@ -185,6 +187,16 @@ export function PhotoCard({
       {selected && (
         <div className="pointer-events-none absolute inset-0 bg-black/60" />
       )}
+      {/* Pinned Photo Badge (Visible to all in album view) */}
+      {data.isPinned && (
+        <div
+          className="absolute top-2 left-2 z-10 flex items-center gap-1 rounded-full bg-primary/90 text-primary-foreground backdrop-blur-md px-2 py-0.5 text-[11px] font-semibold shadow-md border border-primary/20"
+          title="Pinned di album (Urutan teratas)"
+        >
+          <PinIcon className="size-3 fill-current rotate-45" />
+          <span>Pinned</span>
+        </div>
+      )}
       {data.status === PhotoStatusEnum.DELETE && (
         <div
           className="pointer-events-none absolute top-[7px] left-[7px] z-10 text-base font-semibold text-white"
@@ -218,6 +230,28 @@ export function PhotoCard({
             showHover ? "opacity-100" : "",
           ].join(" ")}
         />
+      )}
+      {/* Admin Pin/Unpin Action Button (In Album View) */}
+      {isAdmin && onPhotoPin && !selectionActive && !selected && (
+        <Button
+          type="button"
+          size="icon-sm"
+          className={[
+            "absolute right-8 bottom-1 z-10 rounded-full bg-black/40 backdrop-blur-md opacity-0 transition-all duration-200 hover:bg-black/60 group-hover:opacity-100 cursor-pointer",
+            data.isPinned
+              ? "text-amber-400 opacity-100 bg-black/60"
+              : ["text-white/90", isMobile ? "pointer-events-none" : ""].join(" "),
+            showHover ? "opacity-100 pointer-events-auto" : "",
+          ].join(" ")}
+          onClick={(event) => {
+            event.stopPropagation()
+            onPhotoPin(data.photoId, Boolean(data.isPinned))
+          }}
+          aria-label={data.isPinned ? `Unpin ${data.name} from album` : `Pin ${data.name} to album top`}
+          title={data.isPinned ? "Lepas pin foto dari album" : "Sematkan foto ke paling atas album (Maksimal 3 foto)"}
+        >
+          <PinIcon className={`size-3.5 rotate-45 ${data.isPinned ? "fill-amber-400 text-amber-400" : "text-white"}`} />
+        </Button>
       )}
       {isAdmin && onFavoriteChange && !selectionActive && !selected && (
         <Button

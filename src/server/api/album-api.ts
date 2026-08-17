@@ -2,7 +2,16 @@ import { Hono, Context } from 'hono';
 import result from '@/server/model/result';
 import { getUserId } from '@/server/security/context';
 import { albumService } from '@/server/service/album-service';
-import { type AlbumAddBo, type AlbumAddPhotoBo, type AlbumDeleteBo, type AlbumRemovePhotoBo, type AlbumSetCoverBo, type AlbumSetNameBo, type AlbumSetTopBo } from '@/server/entity/bo/album';
+import {
+  type AlbumAddBo,
+  type AlbumAddPhotoBo,
+  type AlbumDeleteBo,
+  type AlbumRemovePhotoBo,
+  type AlbumSetCoverBo,
+  type AlbumSetNameBo,
+  type AlbumSetTopBo,
+  type AlbumTogglePinPhotoBo,
+} from '@/server/entity/bo/album';
 import type { HonoEnv } from '../hono/type';
 
 // This module registers album-related interfaces.
@@ -53,6 +62,13 @@ export function registerAlbumApi(app: Hono<HonoEnv>) {
     const body = await c.req.json<AlbumRemovePhotoBo>();
     await albumService.removePhoto(body, getUserId());
     return c.json(result.ok());
+  });
+
+  // Toggle photo pin status in album (Max 3 pinned photos per album).
+  app.post('/album/togglePinPhoto', async (c: Context) => {
+    const body = await c.req.json<AlbumTogglePinPhotoBo>();
+    const data = await albumService.togglePinPhoto(body, getUserId());
+    return c.json(result.ok(data));
   });
 
   // Modify album name.

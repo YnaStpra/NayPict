@@ -91,6 +91,18 @@ export async function migrate(): Promise<void> {
     } catch (viewErr) {
       console.warn('[MIGRATE] Error ensuring photo_view table:', viewErr);
     }
+
+    // Ensure album_photo table has is_pinned and pinned_at columns.
+    try {
+      await sql`
+        ALTER TABLE "album_photo" ADD COLUMN IF NOT EXISTS "is_pinned" integer DEFAULT 0 NOT NULL;
+      `;
+      await sql`
+        ALTER TABLE "album_photo" ADD COLUMN IF NOT EXISTS "pinned_at" timestamp;
+      `;
+    } catch (albumPhotoErr) {
+      console.warn('[MIGRATE] Error updating album_photo columns:', albumPhotoErr);
+    }
   } catch (err) {
     console.warn('[MIGRATE] Could not run migration automatically:', err);
   }

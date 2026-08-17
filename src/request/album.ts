@@ -1,6 +1,15 @@
 import { http } from "@/request/request";
 import { type Album } from "@/server/entity/album";
-import { type AlbumAddBo, type AlbumAddPhotoBo, type AlbumDeleteBo, type AlbumRemovePhotoBo, type AlbumSetCoverBo, type AlbumSetNameBo, type AlbumSetTopBo } from "@/server/entity/bo/album";
+import {
+  type AlbumAddBo,
+  type AlbumAddPhotoBo,
+  type AlbumDeleteBo,
+  type AlbumRemovePhotoBo,
+  type AlbumSetCoverBo,
+  type AlbumSetNameBo,
+  type AlbumSetTopBo,
+  type AlbumTogglePinPhotoBo,
+} from "@/server/entity/bo/album";
 import { type AlbumVo } from "@/server/entity/vo/album";
 
 export interface AlbumCoverCandidate {
@@ -42,6 +51,11 @@ export function albumAddPhoto(params: AlbumAddPhotoBo) {
 // Remove photos from album.
 export function albumRemovePhoto(params: AlbumRemovePhotoBo) {
   return http.post<void>('/album/removePhoto', params);
+}
+
+// Toggle pinned status of a photo in an album (Max 3 pinned photos per album).
+export function albumTogglePinPhoto(params: AlbumTogglePinPhotoBo) {
+  return http.post<{ isPinned: boolean }>('/album/togglePinPhoto', params);
 }
 
 // Delete album.

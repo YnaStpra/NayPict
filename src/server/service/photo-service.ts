@@ -104,7 +104,11 @@ const photoService = {
 
     const list = params.albumId
       ? await orm
-        .select(getTableColumns(photoTab))
+        .select({
+          ...getTableColumns(photoTab),
+          isPinned: albumPhotoTab.isPinned,
+          pinnedAt: albumPhotoTab.pinnedAt,
+        })
         .from(photoTab)
         .innerJoin(albumPhotoTab, eq(photoTab.photoId, albumPhotoTab.photoId))
         .where(and(
@@ -112,6 +116,8 @@ const photoService = {
           eq(albumPhotoTab.albumId, params.albumId)
         ))
         .orderBy(
+          desc(albumPhotoTab.isPinned),
+          desc(albumPhotoTab.pinnedAt),
           params.photoIds?.length
             ? sql`CASE ${photoTab.photoId} ${params.photoIds.map((id, i) => sql`WHEN ${id} THEN ${i}`).reduce((a, b) => sql`${a} ${b}`)} END`
             : (params.shuffle && !params.sortBy && !params.cursorPhotoId ? sql`RANDOM()` : sortFn(orderColumn)),
@@ -138,7 +144,7 @@ const photoService = {
       albumService.listAlbumMapByPhotoIds(photoIds),
     ]);
 
-    let result = list.map((photo: any) => {
+    const result = list.map((photo: any) => {
       const fileStorage = fileStorageList.find((item: any) => item.storageId === photo.storageId);
       const domain = formatHttpUrl(fileStorage?.domain);
 
@@ -149,7 +155,8 @@ const photoService = {
         domain,
         exifMap.get(photo.photoId) ?? null,
         userId,
-        albumMap.get(photo.photoId) ?? []
+        albumMap.get(photo.photoId) ?? [],
+        Boolean(photo.isPinned === 1)
       );
     });
 
@@ -198,7 +205,11 @@ const photoService = {
         .from(photoTab)
         .innerJoin(albumPhotoTab, eq(photoTab.photoId, albumPhotoTab.photoId))
         .where(and(...whereList, eq(albumPhotoTab.albumId, params.albumId)))
-        .orderBy(sql`RANDOM()`)
+        .orderBy(
+          desc(albumPhotoTab.isPinned),
+          desc(albumPhotoTab.pinnedAt),
+          sql`RANDOM()`
+        )
       : await orm
         .select({ photoId: photoTab.photoId })
         .from(photoTab)
@@ -753,7 +764,8 @@ const photoService = {
     domain?: string,
     exifRow: Exif | null = null,
     currentUserId?: string,
-    albums?: { albumId: string; name: string }[]
+    albums?: { albumId: string; name: string }[],
+    isPinned?: boolean
   ): PhotoVo {
     const rawKey = this.getFileKey(files, FileTypeEnum.ORIGINAL) ?? '';
     const preview = this.getFileKey(files, FileTypeEnum.PREVIEW) ?? '';
@@ -778,6 +790,7 @@ const photoService = {
         ? StorageTypeOptions.find((item: any) => item.value === fileStorage.type)?.label ?? null
         : null,
       albums: albums ?? [],
+      isPinned: isPinned ?? Boolean((photo as any).isPinned === 1 || (photo as any).isPinned === true),
     };
   },
 

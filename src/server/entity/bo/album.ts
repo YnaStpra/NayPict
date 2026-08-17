@@ -33,4 +33,19 @@ interface AlbumSetTopBo {
   albumId: string;
 }
 
-export type { AlbumAddBo, AlbumAddPhotoBo, AlbumDeleteBo, AlbumRemovePhotoBo, AlbumSetCoverBo, AlbumSetNameBo, AlbumSetTopBo };
+interface AlbumTogglePinPhotoBo {
+  albumId: string;
+  photoId: string;
+}
+
+export type {
+  AlbumAddBo,
+  AlbumAddPhotoBo,
+  AlbumDeleteBo,
+  AlbumRemovePhotoBo,
+  AlbumSetCoverBo,
+  AlbumSetNameBo,
+  AlbumSetTopBo,
+  AlbumTogglePinPhotoBo,
+};
+
