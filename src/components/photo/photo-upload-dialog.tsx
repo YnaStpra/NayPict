@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState, type ChangeEvent } from "react"
-import { CheckIcon, CircleAlertIcon, PlusIcon, RedoDot, SettingsIcon, Trash2Icon, CopyIcon, ShieldAlertIcon, CheckCircle2Icon } from "lucide-react"
+import { CheckIcon, CircleAlertIcon, PlusIcon, SettingsIcon, Trash2Icon, CopyIcon, ShieldAlertIcon, CheckCircle2Icon, Loader2, UploadCloud, X } from "lucide-react"
 import { toast } from "sonner"
 import { sha1 } from "hash-wasm"
 
@@ -33,6 +33,7 @@ import { useStorageStore } from "@/store/storage-store"
 import { usePhotoStore } from "@/store/photo-store"
 import { photoExists, photoRecycle } from "@/request/photo"
 import { albumAddPhoto } from "@/request/album"
+import { storageSelect } from "@/request/storage"
 import { type PhotoAddResultVo, type PhotoVo } from "@/server/entity/vo/photo"
 import { useTranslations } from "next-intl"
 
@@ -62,10 +63,27 @@ function formatPhotoSize(size: number) {
   return `${(size / 1024 / 1024).toFixed(1)}MB`
 }
 
-// Calculate browser SHA-1 Checksum
-async function getFileChecksum(file: File) {
-  const buffer = await file.arrayBuffer()
-  return sha1(new Uint8Array(buffer))
+let uploadItemCounter = 0
+
+function createUploadItemId(file: File): string {
+  uploadItemCounter += 1
+  return `${file.name}-${file.size}-${file.lastModified}-${uploadItemCounter}`
+}
+
+// Calculate browser SHA-1 Checksum using Web Crypto API with hash-wasm fallback
+async function getFileChecksum(file: File): Promise<string> {
+  try {
+    const buffer = await file.arrayBuffer()
+    if (typeof crypto !== "undefined" && crypto.subtle) {
+      const hashBuffer = await crypto.subtle.digest("SHA-1", buffer)
+      const hashArray = Array.from(new Uint8Array(hashBuffer))
+      return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("")
+    }
+    return await sha1(new Uint8Array(buffer))
+  } catch (err) {
+    console.warn("Checksum calculation fallback:", err)
+    return `${file.name}-${file.size}-${file.lastModified}`
+  }
 }
 
 function getUploadErrorMessage(xhr: XMLHttpRequest): string {
@@ -120,8 +138,9 @@ function uploadPhotoAdd(
       }
     }
 
-    request.onerror = () => reject(new Error("Network error"))
+    request.onerror = () => reject(new Error("Network error during upload"))
     request.open("POST", "/api/photo/add")
+    request.withCredentials = true
     onAbort?.(() => request.abort())
     request.send(formData)
   })
@@ -141,9 +160,10 @@ export function PhotoUploadDialog() {
   // Track detected duplicate pairs during upload batch
   const detectedDuplicatesRef = useRef<DuplicateReviewPair[]>([])
 
+  const [previews, setPreviewsState] = useState<UploadPreview[]>([])
   const [uploading, setUploading] = useState(false)
   const [storageId, setStorageId] = useState<string | null>(null)
-  const [, setPreviewTick] = useState(0)
+  const [isDragging, setIsDragging] = useState(false)
 
   // Duplicate Review Modal States
   const [duplicatePairs, setDuplicatePairs] = useState<DuplicateReviewPair[]>([])
@@ -156,15 +176,34 @@ export function PhotoUploadDialog() {
   const addUploadedPhoto = usePhotoStore((state) => state.addUploadedPhoto)
   const selectedStorageId = storageId ?? storages[0]?.storageId ?? null
 
+  // Ensure storage list is available when upload modal opens
+  useEffect(() => {
+    if (open && storages.length === 0) {
+      void storageSelect().then((res) => {
+        if (res && res.length > 0) {
+          useStorageStore.getState().setStorages(res)
+        }
+      })
+    }
+  }, [open, storages.length])
+
   useEffect(() => {
     return () => {
       previewsRef.current.forEach((preview) => URL.revokeObjectURL(preview.cover))
     }
   }, [])
 
-  function setPreviews(next: UploadPreview[]) {
-    previewsRef.current = next
-    setPreviewTick((tick) => tick + 1)
+  function setPreviews(next: UploadPreview[] | ((prev: UploadPreview[]) => UploadPreview[])) {
+    if (typeof next === "function") {
+      setPreviewsState((prev) => {
+        const computed = next(prev)
+        previewsRef.current = computed
+        return computed
+      })
+    } else {
+      previewsRef.current = next
+      setPreviewsState(next)
+    }
   }
 
   function openFilePicker() {
@@ -184,9 +223,18 @@ export function PhotoUploadDialog() {
     setPreviews([])
   }
 
+  function removePreview(id: string) {
+    if (uploadingRef.current) return
+    const item = previewsRef.current.find((p) => p.id === id)
+    if (item) {
+      URL.revokeObjectURL(item.cover)
+    }
+    setPreviews((prev) => prev.filter((p) => p.id !== id))
+  }
+
   function handleOpenChange(next: boolean) {
     if (uploadingRef.current) {
-      toast.warning("Uploading in progress")
+      toast.warning("Upload sedang berlangsung...")
       return
     }
 
@@ -205,7 +253,7 @@ export function PhotoUploadDialog() {
 
     const nextPreviews = previewsRef.current.map((preview) => {
       if (preview.status === "waiting" || (preview.status === "uploading" && abortingIds.has(preview.id))) {
-        return { ...preview, progress: 100, status: "new" as UploadStatus }
+        return { ...preview, progress: 0, status: "new" as UploadStatus }
       }
       return preview
     })
@@ -215,41 +263,55 @@ export function PhotoUploadDialog() {
     setUploading(false)
   }
 
-  async function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
-    const files = Array.from(event.target.files ?? [])
+  async function addFilesToPreviews(files: File[]) {
     if (!files.length) return
 
-    const nextPreviews = [...previewsRef.current]
+    const newItems: UploadPreview[] = []
 
     for (const file of files) {
-      const cover = await createPhotoCover(file)
-      nextPreviews.push({
-        id: `${file.name}-${file.size}-${file.lastModified}-${Math.random()}`,
-        file,
-        cover,
-        status: "new",
-        progress: 0,
-        albumId: uploadAlbumId ?? undefined,
-      })
+      try {
+        const cover = await createPhotoCover(file)
+        newItems.push({
+          id: createUploadItemId(file),
+          file,
+          cover,
+          status: "new",
+          progress: 0,
+          albumId: uploadAlbumId ?? undefined,
+        })
+      } catch (err) {
+        console.warn("Cover creation fallback for file:", file.name, err)
+        newItems.push({
+          id: createUploadItemId(file),
+          file,
+          cover: URL.createObjectURL(file),
+          status: "new",
+          progress: 0,
+          albumId: uploadAlbumId ?? undefined,
+        })
+      }
     }
 
+    const nextPreviews = [...previewsRef.current, ...newItems]
     setPreviews(nextPreviews)
+
     if (fileInputRef.current) fileInputRef.current.value = ""
 
     if (uploadingRef.current) {
-      const newItems = nextPreviews.filter((p) => p.status === "new")
-      if (newItems.length) {
-        const newIds = new Set(newItems.map((p) => p.id))
-        uploadQueueRef.current.push(...newItems)
-        setPreviews(previewsRef.current.map((p) => (
-          newIds.has(p.id) ? { ...p, status: "waiting" } : p
-        )))
-        runNext()
-      }
+      const newItemsWaiting = newItems.map((p) => ({ ...p, status: "waiting" as UploadStatus }))
+      uploadQueueRef.current.push(...newItemsWaiting)
+      const newIds = new Set(newItemsWaiting.map((p) => p.id))
+      setPreviews((prev) => prev.map((p) => (newIds.has(p.id) ? { ...p, status: "waiting" } : p)))
+      runNext()
     }
   }
 
-  function enqueueUploadItems() {
+  async function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(event.target.files ?? [])
+    await addFilesToPreviews(files)
+  }
+
+  function enqueueUploadItems(): number {
     const uploadList = previewsRef.current.filter((preview) => (
       preview.status === "new" || preview.status === "failed"
     ))
@@ -270,9 +332,9 @@ export function PhotoUploadDialog() {
   }
 
   async function uploadPhoto(preview: UploadPreview) {
-    const currentStorageId = uploadStorageIdRef.current!
+    const currentStorageId = uploadStorageIdRef.current || selectedStorageId
 
-    setPreviews(previewsRef.current.map((p) => (
+    setPreviews((prev) => prev.map((p) => (
       p.id === preview.id ? { ...p, progress: 0, status: "uploading" } : p
     )))
 
@@ -293,8 +355,9 @@ export function PhotoUploadDialog() {
       const existsResult = await photoExists({ checksum, name: fileToUpload.name })
 
       if (existsResult.duplicate) {
-        if (item.albumId && (existsResult as any).photoId) {
-          await albumAddPhoto({ albumIds: [item.albumId], photoIds: [(existsResult as any).photoId] })
+        const dupPhotoId = existsResult.photoId
+        if (item.albumId && dupPhotoId) {
+          await albumAddPhoto({ albumIds: [item.albumId], photoIds: [dupPhotoId] })
           toast.success("Foto sudah ada di galeri, otomatis ditautkan ke album!")
         }
 
@@ -302,25 +365,27 @@ export function PhotoUploadDialog() {
         detectedDuplicatesRef.current.push({
           id: item.id,
           uploadPreview: item,
-          existingPhoto: (existsResult as any).photo ?? null,
-          photoId: (existsResult as any).photoId ?? null,
+          existingPhoto: null,
+          photoId: dupPhotoId ?? null,
         })
 
-        setPreviews(previewsRef.current.map((p) => (
+        setPreviews((prev) => prev.map((p) => (
           p.id === item.id ? { ...p, progress: 100, status: "skipped" } : p
         )))
         return
       }
 
       if (pausedRef.current) {
-        setPreviews(previewsRef.current.map((p) => (
-          p.id === item.id ? { ...p, progress: 100, status: "new" } : p
+        setPreviews((prev) => prev.map((p) => (
+          p.id === item.id ? { ...p, progress: 0, status: "new" } : p
         )))
         return
       }
 
       const formData = new FormData()
-      formData.set("storageId", currentStorageId)
+      if (currentStorageId) {
+        formData.set("storageId", currentStorageId)
+      }
       formData.set("file", fileToUpload)
       formData.set("lastModified", String(item.file.lastModified))
       formData.set("allowDownload", String(uploadSettings.allowDownload))
@@ -328,18 +393,21 @@ export function PhotoUploadDialog() {
         formData.set("albumId", item.albumId)
       }
 
-      const result = await uploadPhotoAdd(formData, (progress) => {
-        setPreviews(previewsRef.current.map((p) => (
-          p.id === item.id ? { ...p, progress } : p
-        )))
-      }, (abort) => abortMapRef.current.set(preview.id, abort))
+      const result = await uploadPhotoAdd(
+        formData,
+        (progress) => {
+          setPreviews((prev) => prev.map((p) => (
+            p.id === item.id ? { ...p, progress } : p
+          )))
+        },
+        (abort) => abortMapRef.current.set(preview.id, abort)
+      )
 
       if (result.duplicate) {
         if (result.photo && item.albumId) {
           addUploadedPhoto(result.photo, item.albumId)
         }
 
-        // Record duplicate pair for end-of-upload review modal
         detectedDuplicatesRef.current.push({
           id: item.id,
           uploadPreview: item,
@@ -348,7 +416,7 @@ export function PhotoUploadDialog() {
           photoId: result.photo?.photoId ?? null,
         })
 
-        setPreviews(previewsRef.current.map((p) => (
+        setPreviews((prev) => prev.map((p) => (
           p.id === item.id ? { ...p, progress: 100, status: "skipped" } : p
         )))
         return
@@ -358,25 +426,24 @@ export function PhotoUploadDialog() {
         addUploadedPhoto(result.photo, item.albumId ?? null)
       }
 
-      setPreviews(previewsRef.current.map((p) => (
+      setPreviews((prev) => prev.map((p) => (
         p.id === item.id ? { ...p, progress: 100, status: "success" } : p
       )))
 
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") return
-      if (error instanceof Error) {
-        toast.error(error.message)
-      }
+      const errMsg = error instanceof Error ? error.message : "Upload gagal"
+      toast.error(errMsg)
 
       if (readPhotoUploadSettings().retryOnFail) {
         uploadQueueRef.current.push(item)
-        setPreviews(previewsRef.current.map((p) => (
+        setPreviews((prev) => prev.map((p) => (
           p.id === item.id ? { ...p, progress: 0, status: "waiting" } : p
         )))
         return
       }
 
-      setPreviews(previewsRef.current.map((p) => (
+      setPreviews((prev) => prev.map((p) => (
         p.id === item.id ? { ...p, progress: 100, status: "failed" } : p
       )))
     } finally {
@@ -390,6 +457,11 @@ export function PhotoUploadDialog() {
     if (!uploadQueueRef.current.length && activeCountRef.current === 0) {
       uploadingRef.current = false
       setUploading(false)
+
+      const successCount = previewsRef.current.filter((p) => p.status === "success").length
+      if (successCount > 0) {
+        toast.success(`Upload selesai: ${successCount} foto berhasil diunggah!`)
+      }
 
       // Open Duplicate Review Dialog if duplicates were detected during batch upload
       if (detectedDuplicatesRef.current.length > 0) {
@@ -423,7 +495,7 @@ export function PhotoUploadDialog() {
       return
     }
 
-    if (!selectedStorageId && previewsRef.current.length > 0) {
+    if (!selectedStorageId && storages.length === 0) {
       toast.error(t("invalidStorage"))
       return
     }
@@ -459,7 +531,7 @@ export function PhotoUploadDialog() {
       }
       setDuplicatePairs((prev) => prev.filter((p) => p.id !== pair.id))
       toast.success("Foto duplikat baru berhasil dipindahkan ke Tong Sampah.")
-    } catch (err: any) {
+    } catch {
       toast.error("Gagal menghapus foto duplikat.")
     }
   }
@@ -482,7 +554,7 @@ export function PhotoUploadDialog() {
       setDuplicatePairs([])
       setShowDuplicateModal(false)
       toast.success(`Berhasil menghapus ${photoIdsToDelete.length} foto duplikat baru!`)
-    } catch (err: any) {
+    } catch {
       toast.error("Gagal menghapus foto duplikat massal.")
     }
   }
@@ -490,18 +562,50 @@ export function PhotoUploadDialog() {
   return (
     <>
       <Dialog open={open} onOpenChange={handleOpenChange}>
-        <DialogContent className="grid h-[80vh] max-h-[720px] min-h-0 grid-rows-[auto_minmax(0,1fr)_auto] sm:max-w-2xl">
+        <DialogContent className="grid h-[85vh] max-h-[760px] min-h-0 grid-rows-[auto_minmax(0,1fr)_auto] sm:max-w-2xl p-6">
           <DialogHeader>
-            <DialogTitle>{t("title")}</DialogTitle>
-            <DialogDescription className="sr-only">
-              Select photos to upload to the current photo list.
+            <div className="flex items-center gap-2">
+              <UploadCloud className="size-5 text-primary" />
+              <DialogTitle className="text-lg font-bold">{t("title")}</DialogTitle>
+            </div>
+            <DialogDescription className="text-xs text-muted-foreground">
+              Pilih atau seret foto ke dalam area ini untuk mengunggah ke galeri.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="min-h-0 overflow-y-auto [scrollbar-width:thin]">
-            <div className="grid grid-cols-3 content-start gap-1 md:grid-cols-4">
-              {previewsRef.current.map((preview) => (
-                <div key={preview.id} className="relative aspect-square w-full overflow-hidden bg-muted [contain-intrinsic-size:160px_160px] [content-visibility:auto]">
+          {/* Upload Drop Zone & Preview Grid */}
+          <div
+            className={`relative min-h-0 overflow-y-auto rounded-xl border-2 border-dashed p-3 transition-colors ${
+              isDragging
+                ? "border-primary bg-primary/5"
+                : "border-border/60 bg-muted/20 hover:border-border"
+            }`}
+            onDragOver={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              setIsDragging(true)
+            }}
+            onDragLeave={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              setIsDragging(false)
+            }}
+            onDrop={async (e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              setIsDragging(false)
+              const files = Array.from(e.dataTransfer.files).filter((f) => f.type.startsWith("image/"))
+              if (files.length > 0) {
+                await addFilesToPreviews(files)
+              }
+            }}
+          >
+            <div className="grid grid-cols-3 sm:grid-cols-4 content-start gap-2.5">
+              {previews.map((preview) => (
+                <div
+                  key={preview.id}
+                  className="group relative aspect-square w-full overflow-hidden rounded-xl bg-muted border border-border/60 shadow-2xs"
+                >
                   <img
                     src={preview.cover}
                     alt={preview.file.name}
@@ -509,41 +613,71 @@ export function PhotoUploadDialog() {
                     loading="lazy"
                     className="h-full w-full object-cover"
                   />
-                  {preview.progress < 100 && (
+
+                  {/* Dark Progress Overlay */}
+                  {preview.status === "uploading" && (
                     <div
-                      className="pointer-events-none absolute inset-x-0 bottom-0 bg-black/60 transition-[height] duration-200"
-                      style={{ height: `${100 - preview.progress}%` }}
-                    />
+                      className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center text-white gap-1"
+                    >
+                      <Loader2 className="size-5 animate-spin text-primary" />
+                      <span className="text-[11px] font-bold">{preview.progress}%</span>
+                    </div>
                   )}
+
+                  {/* Waiting Queue Overlay */}
+                  {preview.status === "waiting" && (
+                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center text-white text-[10px] font-semibold">
+                      Antrean...
+                    </div>
+                  )}
+
+                  {/* Delete Button (Pre-upload) */}
+                  {!uploading && preview.status === "new" && (
+                    <button
+                      type="button"
+                      onClick={() => removePreview(preview.id)}
+                      className="absolute top-1 right-1 flex size-6 items-center justify-center rounded-full bg-black/60 text-white hover:bg-destructive transition-colors opacity-80 group-hover:opacity-100 cursor-pointer"
+                      title="Hapus foto"
+                    >
+                      <X className="size-3.5" />
+                    </button>
+                  )}
+
+                  {/* Status Badges */}
                   {preview.status === "success" && (
-                    <div className="absolute right-1 bottom-1 flex size-5 items-center justify-center rounded-full bg-black/60 text-white">
+                    <div className="absolute right-1 bottom-1 flex size-5 items-center justify-center rounded-full bg-emerald-500 text-white shadow-xs">
                       <CheckIcon className="size-3.5" />
                     </div>
                   )}
                   {preview.status === "failed" && (
-                    <div className="absolute right-1 bottom-1 flex size-5 items-center justify-center rounded-full bg-black/60 text-white">
+                    <div className="absolute right-1 bottom-1 flex size-5 items-center justify-center rounded-full bg-destructive text-white shadow-xs">
                       <CircleAlertIcon className="size-3.5" />
                     </div>
                   )}
                   {preview.status === "skipped" && (
-                    <div className="absolute right-1 bottom-1 flex size-5 items-center justify-center rounded-full bg-amber-500/90 text-white" title="Foto duplikat terdeteksi">
+                    <div
+                      className="absolute right-1 bottom-1 flex size-5 items-center justify-center rounded-full bg-amber-500 text-white shadow-xs"
+                      title="Foto duplikat terdeteksi"
+                    >
                       <CopyIcon className="size-3.5" />
                     </div>
                   )}
                 </div>
               ))}
+
+              {/* Add More Photos Card Button */}
               <button
                 type="button"
-                className="flex aspect-square w-full items-center justify-center bg-muted text-muted-foreground hover:bg-muted/80"
+                className="flex aspect-square w-full flex-col items-center justify-center gap-1.5 rounded-xl border-2 border-dashed border-border/80 bg-muted/40 text-muted-foreground hover:bg-muted hover:text-foreground hover:border-primary/50 transition-all cursor-pointer select-none"
                 onClick={openFilePicker}
               >
-                <PlusIcon />
-                <span className="sr-only">Add photos</span>
+                <PlusIcon className="size-6" />
+                <span className="text-[11px] font-medium">Tambah Foto</span>
               </button>
             </div>
           </div>
 
-          <DialogFooter className="flex-row items-center justify-between gap-3 sm:justify-between">
+          <DialogFooter className="flex-row items-center justify-between gap-3 sm:justify-between pt-2">
             <input
               ref={fileInputRef}
               type="file"
@@ -558,12 +692,12 @@ export function PhotoUploadDialog() {
                 onValueChange={setStorageId}
                 disabled={uploading}
               >
-                <SelectTrigger className="w-40">
+                <SelectTrigger className="w-40 h-9 text-xs">
                   <SelectValue placeholder={t("selectStorage")} />
                 </SelectTrigger>
                 <SelectContent>
                   {storages.map((storage) => (
-                    <SelectItem key={storage.storageId} value={storage.storageId}>
+                    <SelectItem key={storage.storageId} value={storage.storageId} className="text-xs">
                       {storage.name}
                     </SelectItem>
                   ))}
@@ -571,7 +705,7 @@ export function PhotoUploadDialog() {
               </Select>
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button type="button" variant="ghost" size="icon" aria-label="Upload settings">
+                  <Button type="button" variant="ghost" size="icon" aria-label="Upload settings" className="size-9">
                     <SettingsIcon className="size-4" />
                   </Button>
                 </PopoverTrigger>
@@ -580,14 +714,28 @@ export function PhotoUploadDialog() {
                 </PopoverContent>
               </Popover>
             </div>
+
             <div className="flex items-center gap-2">
-              {!uploading && (
-                <Button type="button" variant="secondary" onClick={resetUpload}>
+              {!uploading && previews.length > 0 && (
+                <Button type="button" variant="outline" size="sm" onClick={resetUpload} className="text-xs h-9">
                   {t("clear")}
                 </Button>
               )}
-              <Button type="button" onClick={handleUploadAction}>
-                {uploading ? t("pause") : t("start")}
+              <Button
+                type="button"
+                size="sm"
+                className="text-xs h-9 px-4 font-semibold cursor-pointer"
+                onClick={handleUploadAction}
+                disabled={previews.length === 0}
+              >
+                {uploading ? (
+                  <span className="flex items-center gap-1.5">
+                    <Loader2 className="size-3.5 animate-spin" />
+                    {t("pause")}
+                  </span>
+                ) : (
+                  t("start")
+                )}
               </Button>
             </div>
           </DialogFooter>
@@ -648,7 +796,7 @@ export function PhotoUploadDialog() {
                       <Button
                         size="sm"
                         variant="ghost"
-                        className="h-7 text-xs gap-1 text-muted-foreground hover:text-foreground"
+                        className="h-7 text-xs gap-1 text-muted-foreground hover:text-foreground cursor-pointer"
                         onClick={() => handleKeepPair(pair.id)}
                       >
                         <CheckIcon className="size-3.5" />
@@ -657,7 +805,7 @@ export function PhotoUploadDialog() {
                       <Button
                         size="sm"
                         variant="destructive"
-                        className="h-7 text-xs gap-1"
+                        className="h-7 text-xs gap-1 cursor-pointer"
                         onClick={() => handleDeleteNewDuplicatePair(pair)}
                       >
                         <Trash2Icon className="size-3.5" />

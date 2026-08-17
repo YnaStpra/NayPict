@@ -143,58 +143,68 @@ export async function compressImageFile(
       const img = new Image();
       const objectUrl = URL.createObjectURL(file);
 
-      img.onload = async () => {
-        URL.revokeObjectURL(objectUrl);
+      img.onload = () => {
+        try {
+          URL.revokeObjectURL(objectUrl);
 
-        let { width, height } = img;
+          let { width, height } = img;
 
-        // Calculate scaling maintaining original aspect ratio
-        if (width > maxDimension || height > maxDimension) {
-          if (width > height) {
-            height = Math.round((height * maxDimension) / width);
-            width = maxDimension;
-          } else {
-            width = Math.round((width * maxDimension) / height);
-            height = maxDimension;
-          }
-        }
-
-        const canvas = document.createElement('canvas');
-        canvas.width = width;
-        canvas.height = height;
-
-        const ctx = canvas.getContext('2d');
-        if (!ctx) {
-          resolve(file);
-          return;
-        }
-
-        ctx.imageSmoothingEnabled = true;
-        ctx.imageSmoothingQuality = 'high';
-        ctx.drawImage(img, 0, 0, width, height);
-
-        const outputMime = file.type === 'image/png' ? 'image/png' : 'image/jpeg';
-
-        canvas.toBlob(
-          async (blob) => {
-            if (!blob || blob.size >= file.size) {
-              resolve(file);
-              return;
+          // Calculate scaling maintaining original aspect ratio
+          if (width > maxDimension || height > maxDimension) {
+            if (width > height) {
+              height = Math.round((height * maxDimension) / width);
+              width = maxDimension;
+            } else {
+              width = Math.round((width * maxDimension) / height);
+              height = maxDimension;
             }
+          }
 
-            // Restore complete original EXIF metadata back into compressed Blob
-            const finalBlob = await preserveExifMetadata(file, blob);
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
 
-            const compressedFile = new File([finalBlob], file.name, {
-              type: outputMime,
-              lastModified: file.lastModified,
-            });
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            resolve(file);
+            return;
+          }
 
-            resolve(compressedFile);
-          },
-          outputMime,
-          quality
-        );
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = 'high';
+          ctx.drawImage(img, 0, 0, width, height);
+
+          const outputMime = file.type === 'image/png' ? 'image/png' : 'image/jpeg';
+
+          canvas.toBlob(
+            async (blob) => {
+              try {
+                if (!blob || blob.size >= file.size) {
+                  resolve(file);
+                  return;
+                }
+
+                // Restore complete original EXIF metadata back into compressed Blob
+                const finalBlob = await preserveExifMetadata(file, blob);
+
+                const compressedFile = new File([finalBlob], file.name, {
+                  type: outputMime,
+                  lastModified: file.lastModified,
+                });
+
+                resolve(compressedFile);
+              } catch (blobErr) {
+                console.warn('Blob EXIF preservation fallback, using original file:', blobErr);
+                resolve(file);
+              }
+            },
+            outputMime,
+            quality
+          );
+        } catch (loadErr) {
+          console.warn('Image processing error, using original file:', loadErr);
+          resolve(file);
+        }
       };
 
       img.onerror = () => {
