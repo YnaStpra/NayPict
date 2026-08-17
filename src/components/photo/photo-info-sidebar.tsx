@@ -181,13 +181,16 @@ export function PhotoInfoSidebar({
 
   return (
     <aside
-      className="fixed top-0 right-0 z-[41] flex h-full w-full flex-col overflow-y-auto bg-transparent backdrop-blur-xl text-white shadow-photo-sidebar md:w-84 md:shrink-0"
+      className="fixed top-0 right-0 z-[41] flex h-full w-full flex-col overflow-hidden bg-transparent backdrop-blur-xl text-white shadow-photo-sidebar md:w-84 md:shrink-0"
       onPointerDown={(event) => event.stopPropagation()}
+      onWheel={(event) => event.stopPropagation()}
+      onTouchStart={(event) => event.stopPropagation()}
+      onTouchMove={(event) => event.stopPropagation()}
     >
       {onClose && <SidebarCloseButton onClose={onClose} />}
 
       {photo && (
-        <div className="flex flex-col h-full text-left pb-6">
+        <div className="flex flex-col h-full text-left min-h-0">
           {/* Segmented Tab Navigation: Info vs Comments */}
           <div className="pl-4 pr-12 pt-3.5 shrink-0">
             <div className="flex items-center p-1 rounded-xl bg-white/10 border border-white/15 backdrop-blur-md">
@@ -220,7 +223,7 @@ export function PhotoInfoSidebar({
 
           {/* TAB 1: Information */}
           {currentTab === "info" && (
-            <div className="flex-1 overflow-y-auto px-4 py-3 space-y-4">
+            <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-4 py-3 pb-24 space-y-4 overscroll-contain">
               {/* Admin Actions: Add to Album & Photo Insights */}
               {isAdmin && (
                 <div className="flex flex-col gap-2">
