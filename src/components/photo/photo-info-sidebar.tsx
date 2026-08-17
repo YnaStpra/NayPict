@@ -1,7 +1,7 @@
 "use client"
 
 import { FolderPlusIcon, InfoIcon, MessageSquareIcon, TrendingUp, XIcon } from "lucide-react"
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
 
 import { Button } from "@/components/ui/button"
 import { useTapAction } from "@/hooks/use-tap-action"
@@ -121,14 +121,14 @@ export function PhotoViewerBlurBackground({ thumbHash }: PhotoViewerBlurBackgrou
   }
 
   return (
-    <div className="fixed inset-0 z-[-10] h-full w-full overflow-hidden">
+    <div className="fixed inset-0 z-[-10] h-full w-full overflow-hidden pointer-events-none select-none">
       <img
         src={thumbHashUrl}
         alt=""
-        className="h-full w-full scale-110 blur-sm object-cover"
+        className="h-full w-full scale-110 blur-sm object-cover pointer-events-none select-none"
         aria-hidden
       />
-      <div className="absolute inset-0 bg-black/50" />
+      <div className="absolute inset-0 bg-black/50 pointer-events-none" />
     </div>
   )
 }
@@ -174,6 +174,31 @@ export function PhotoInfoSidebar({
   const [internalTab, setInternalTab] = useState<"info" | "comments">("info")
   const currentTab = controlledTab ?? internalTab
 
+  const asideRef = useRef<HTMLElement>(null)
+  const infoScrollRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const asideEl = asideRef.current
+    if (!asideEl) return
+
+    // Stop propagation at capture phase so Lightbox zoom / carousel never intercepts wheel or touch scroll
+    const stopPropagationCapture = (e: Event) => {
+      e.stopPropagation()
+    }
+
+    asideEl.addEventListener("wheel", stopPropagationCapture, { capture: true, passive: true })
+    asideEl.addEventListener("touchstart", stopPropagationCapture, { capture: true, passive: true })
+    asideEl.addEventListener("touchmove", stopPropagationCapture, { capture: true, passive: true })
+    asideEl.addEventListener("pointerdown", stopPropagationCapture, { capture: true })
+
+    return () => {
+      asideEl.removeEventListener("wheel", stopPropagationCapture, { capture: true })
+      asideEl.removeEventListener("touchstart", stopPropagationCapture, { capture: true })
+      asideEl.removeEventListener("touchmove", stopPropagationCapture, { capture: true })
+      asideEl.removeEventListener("pointerdown", stopPropagationCapture, { capture: true })
+    }
+  }, [])
+
   const handleTabChange = (tab: "info" | "comments") => {
     setInternalTab(tab)
     onTabChange?.(tab)
@@ -181,11 +206,9 @@ export function PhotoInfoSidebar({
 
   return (
     <aside
-      className="fixed top-0 right-0 z-[41] flex h-full w-full flex-col overflow-hidden bg-transparent backdrop-blur-xl text-white shadow-photo-sidebar md:w-84 md:shrink-0"
-      onPointerDown={(event) => event.stopPropagation()}
-      onWheel={(event) => event.stopPropagation()}
-      onTouchStart={(event) => event.stopPropagation()}
-      onTouchMove={(event) => event.stopPropagation()}
+      ref={asideRef}
+      className="fixed top-0 right-0 z-[41] flex h-full w-full flex-col overflow-hidden bg-transparent backdrop-blur-xl text-white shadow-photo-sidebar md:w-84 md:shrink-0 pointer-events-auto touch-pan-y"
+      style={{ touchAction: "pan-y" }}
     >
       {onClose && <SidebarCloseButton onClose={onClose} />}
 
@@ -223,7 +246,11 @@ export function PhotoInfoSidebar({
 
           {/* TAB 1: Information */}
           {currentTab === "info" && (
-            <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-4 py-3 pb-24 space-y-4 overscroll-contain">
+            <div
+              ref={infoScrollRef}
+              className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-4 py-3 pb-32 space-y-4 overscroll-contain pointer-events-auto touch-pan-y"
+              style={{ touchAction: "pan-y" }}
+            >
               {/* Admin Actions: Add to Album & Photo Insights */}
               {isAdmin && (
                 <div className="flex flex-col gap-2">
