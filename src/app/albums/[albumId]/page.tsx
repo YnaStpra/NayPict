@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/sidebar"
 import { usePhotoList } from "@/hooks/use-photo-list"
 
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { PhotoMasonry } from "@/components/photo/photo-masonry"
 import { PHOTO_LIST_PAGE_SIZE } from "@/server/const/global"
 import { PhotoFavoriteEnum } from "@/server/enums/photo-enum"
@@ -80,7 +80,10 @@ const SORT_OPTIONS: { key: SortOptionKey; label: string; sortBy?: 'takenTime' | 
   { key: 'name_desc', label: 'Name (Z - A)', sortBy: 'name', sortOrder: 'desc', shuffle: false },
 ]
 
+const emptySubscribe = () => () => {}
+
 export default function Page() {
+  const isBrowser = useSyncExternalStore(emptySubscribe, () => true, () => false)
   const t = useTranslations("albums")
   const router = useRouter()
   const { albumId } = useParams<{ albumId: string }>()
@@ -89,8 +92,6 @@ export default function Page() {
   const isAdmin = userInfo?.type === UserTypeEnum.ADMIN
   const currentAlbumName = useAlbumStore((state) => state.currentAlbumName)
   const albumIdRef = useRef(albumId)
-  // isBrowser Mark whether you are currently in the browser environment, SSR Stage display skeleton screen.
-  const [isBrowser, setIsBrowser] = useState(false)
   const [viewMode, setViewMode] = useState<"masonry" | "infinite">("masonry")
   const [sortKey, setSortKey] = useState<SortOptionKey>("none")
 
@@ -125,10 +126,6 @@ export default function Page() {
   const [albumPhotoIds, setAlbumPhotoIds] = useState<string[]>([])
   const openUpload = usePhotoStore((state) => state.openUpload)
   const uploadedPhotos = usePhotoStore((state) => state.uploadedPhotos)
-
-  useLayoutEffect(() => {
-    setIsBrowser(true)
-  }, [])
 
   useEffect(() => {
     // Disable browser scroll recovery when refreshing album photo page，and go back to the top of the photo list。
@@ -262,22 +259,42 @@ export default function Page() {
     setAlbumDialogOpen(true)
   }, [])
 
-  function changePhotoAlbum(albumIds: string[]) {
-    const targetAlbumIds = albumIds.filter((targetAlbumId) => targetAlbumId !== albumId)
-
-    if (!targetAlbumIds.length || !albumPhotoIds.length) {
-      return
+  const initialAlbumIds = useMemo(() => {
+    if (albumPhotoIds.length === 1) {
+      const p = photos.find((photo) => photo.photoId === albumPhotoIds[0])
+      const existing = p?.albums?.map((a) => a.albumId) ?? []
+      return Array.from(new Set([...existing, albumId]))
     }
+    return [albumId]
+  }, [albumPhotoIds, photos, albumId])
 
-    albumAddPhoto({ albumIds: targetAlbumIds, photoIds: albumPhotoIds })
-      .then(() => {
-        toast.success("Foto berhasil ditambahkan ke album!")
-        void refreshAlbums()
-      })
-      .catch((err) => {
-        console.error("Failed to add photos to album:", err)
-        toast.error("Gagal menambahkan foto ke album.")
-      })
+  async function changePhotoAlbum(albumIds: string[]) {
+    if (!albumPhotoIds.length) return
+
+    const addedAlbumIds = albumIds.filter((id) => !initialAlbumIds.includes(id))
+    const removedAlbumIds = initialAlbumIds.filter((id) => !albumIds.includes(id))
+
+    try {
+      if (addedAlbumIds.length > 0) {
+        await albumAddPhoto({ albumIds: addedAlbumIds, photoIds: albumPhotoIds })
+      }
+      if (removedAlbumIds.length > 0) {
+        for (const remAlbumId of removedAlbumIds) {
+          await albumRemovePhoto({ albumId: remAlbumId, photoIds: albumPhotoIds })
+        }
+      }
+
+      toast.success("Album foto berhasil diperbarui!")
+      void refreshAlbums()
+
+      // If removed from current album, remove from local list
+      if (!albumIds.includes(albumId)) {
+        removePhotos(albumPhotoIds)
+      }
+    } catch (err) {
+      console.error("Failed to update photo albums:", err)
+      toast.error("Gagal memperbarui album foto.")
+    }
   }
 
   // Save the currently selected album photo time range，And filter the trigger list by shooting time。
@@ -446,6 +463,7 @@ export default function Page() {
         open={albumDialogOpen}
         onOpenChange={setAlbumDialogOpen}
         onAlbumSelect={changePhotoAlbum}
+        initialSelectedAlbumIds={initialAlbumIds}
       />
       <BackToTopButton />
     </>

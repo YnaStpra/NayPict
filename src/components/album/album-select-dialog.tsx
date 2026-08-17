@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useState } from "react"
 import { useTranslations } from "next-intl"
 import { PlusIcon, CheckIcon } from "lucide-react"
 import { toast } from "sonner"
@@ -35,22 +35,22 @@ export function AlbumSelectDialog({ open, onOpenChange, onAlbumSelect, initialSe
   const { refreshAlbums } = useApp()
 
   // selectedAlbumIds saves the currently selected album ID list.
+  const [prevOpen, setPrevOpen] = useState(false)
   const [selectedAlbumIds, setSelectedAlbumIds] = useState<string[]>([])
   const [creating, setCreating] = useState(false)
   const [newAlbumName, setNewAlbumName] = useState("")
 
-  // Clear selected albums & creation state after closing popup.
-  useEffect(() => {
+  // Sync state when dialog opens or closes
+  if (open !== prevOpen) {
+    setPrevOpen(open)
     if (open) {
-      if (initialSelectedAlbumIds && initialSelectedAlbumIds.length > 0) {
-        setSelectedAlbumIds(initialSelectedAlbumIds)
-      }
+      setSelectedAlbumIds(initialSelectedAlbumIds ?? [])
     } else {
       setSelectedAlbumIds([])
       setCreating(false)
       setNewAlbumName("")
     }
-  }, [open, initialSelectedAlbumIds])
+  }
 
   // Toggle album selection.
   function changeAlbum(albumId: string) {
@@ -68,11 +68,6 @@ export function AlbumSelectDialog({ open, onOpenChange, onAlbumSelect, initialSe
   }
 
   function saveAlbum() {
-    if (!selectedAlbumIds.length) {
-      onOpenChange(false)
-      return
-    }
-
     selectAlbum(selectedAlbumIds)
   }
 
@@ -84,7 +79,10 @@ export function AlbumSelectDialog({ open, onOpenChange, onAlbumSelect, initialSe
     try {
       const res = await albumAdd({ name })
       await refreshAlbums()
-      const createdId = (res as any)?.data || (res as any)?.albumId || (typeof res === "string" ? res : null)
+      const rawRes = res as Record<string, unknown> | string | null
+      const createdId = (typeof rawRes === "object" && rawRes !== null)
+        ? (rawRes.data || rawRes.albumId)
+        : rawRes
 
       if (createdId) {
         setSelectedAlbumIds((prev) => [...prev, String(createdId)])
@@ -93,8 +91,9 @@ export function AlbumSelectDialog({ open, onOpenChange, onAlbumSelect, initialSe
       toast.success(t("createSuccess", { defaultMessage: `Album "${name}" berhasil dibuat` }))
       setNewAlbumName("")
       setCreating(false)
-    } catch (err: any) {
-      toast.error(err.message || "Gagal membuat album baru")
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Gagal membuat album baru"
+      toast.error(message)
     }
   }
 
@@ -153,39 +152,53 @@ export function AlbumSelectDialog({ open, onOpenChange, onAlbumSelect, initialSe
 
         {!!albums.length && (
           <ItemGroup className="gap-2">
-            {albums.map((album) => (
-              <Item
-                key={album.albumId}
-                variant="outline"
-                role="listitem"
-                className="h-20.5 [contain-intrinsic-size:100%_82px] [content-visibility:auto] cursor-pointer"
-                onClick={() => changeAlbum(album.albumId)}
-              >
-                <ItemMedia variant="image" className="size-14 rounded-md">
-                  {album.thumbnail ? (
-                    <img
-                      src={album.thumbnail}
-                      alt={album.name}
-                      crossOrigin="anonymous"
+            {albums.map((album) => {
+              const isInitiallyInAlbum = initialSelectedAlbumIds?.includes(album.albumId)
+              const isSelected = selectedAlbumIds.includes(album.albumId)
+
+              return (
+                <Item
+                  key={album.albumId}
+                  variant="outline"
+                  role="listitem"
+                  className={`h-20.5 [contain-intrinsic-size:100%_82px] [content-visibility:auto] cursor-pointer transition-all ${
+                    isSelected ? "border-primary/50 bg-primary/5" : ""
+                  }`}
+                  onClick={() => changeAlbum(album.albumId)}
+                >
+                  <ItemMedia variant="image" className="size-14 rounded-md">
+                    {album.thumbnail ? (
+                      <img
+                        src={album.thumbnail}
+                        alt={album.name}
+                        crossOrigin="anonymous"
+                      />
+                    ) : (
+                      <span className="h-full w-full bg-muted" />
+                    )}
+                  </ItemMedia>
+                  <ItemContent>
+                    <div className="flex items-center gap-2">
+                      <ItemTitle className="truncate font-medium">{album.name}</ItemTitle>
+                      {isInitiallyInAlbum && (
+                        <span className="inline-flex items-center gap-1 rounded-md bg-emerald-500/10 px-1.5 py-0.25 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 shrink-0">
+                          In Album
+                        </span>
+                      )}
+                    </div>
+                    <ItemDescription>{album.photoTotal} photos</ItemDescription>
+                  </ItemContent>
+                  <ItemContent className="flex-none">
+                    <Checkbox
+                      checked={isSelected}
+                      aria-label={`Select ${album.name}`}
+                      onClick={(event) => event.stopPropagation()}
+                      onCheckedChange={() => changeAlbum(album.albumId)}
                     />
-                  ) : (
-                    <span className="h-full w-full bg-muted" />
-                  )}
-                </ItemMedia>
-                <ItemContent>
-                  <ItemTitle>{album.name}</ItemTitle>
-                  <ItemDescription>{album.photoTotal}</ItemDescription>
-                </ItemContent>
-                <ItemContent className="flex-none">
-                  <Checkbox
-                    checked={selectedAlbumIds.includes(album.albumId)}
-                    aria-label={`Select ${album.name}`}
-                    onClick={(event) => event.stopPropagation()}
-                    onCheckedChange={() => changeAlbum(album.albumId)}
-                  />
-                </ItemContent>
-              </Item>
-            ))}
+                  </ItemContent>
+                </Item>
+              )
+            })}
           </ItemGroup>
         )}
       </div>
