@@ -7,12 +7,13 @@ import { Button } from "@/components/ui/button"
 import { useTapAction } from "@/hooks/use-tap-action"
 import { formatPhotoTakenDateTime } from "@/lib/date"
 import { getThumbHashUrl } from "@/lib/thumb-hash"
-import { formatPhotoLocation, getPhotoDeviceParams, getPhotoShootingParams, getPhotoSoftware, getPhotoTimezone } from "@/lib/viewer-field"
+import { getPhotoDeviceParams, getPhotoShootingParams, getPhotoSoftware, getPhotoTimezone } from "@/lib/viewer-field"
 import { type PhotoVo } from "@/server/entity/vo/photo"
 import { useLocale, useTranslations } from "next-intl"
 import { useApp } from "@/app/provider"
 import { UserTypeEnum } from "@/server/enums/user-enum"
 import { PhotoComments } from "@/components/photo/photo-comments"
+import { PhotoLocationMap } from "@/components/photo/photo-location-map"
 
 type PhotoInfoSidebarProps = {
   // Currently viewing photos.
@@ -270,11 +271,6 @@ export function PhotoInfoSidebar({
                   <PhotoInfoRow label={t("megapixels")} value={formatMegapixels(photo.width, photo.height)} />
                   <PhotoInfoRow label={t("dateTime")} value={formatPhotoTakenDateTime(photo.takenTime, locale)} />
                   <PhotoInfoRow label={t("timeZone")} value={getPhotoTimezone(photo.exif)} />
-                  <PhotoInfoRow
-                    label={t("location")}
-                    value={formatPhotoLocation(photo.latitude, photo.longitude, photo.altitude)}
-                    wrap
-                  />
                   <PhotoInfoRow label={t("software")} value={getPhotoSoftware(photo.exif)} wrap />
                   {photo.albums && photo.albums.length > 0 && (
                     <PhotoInfoRow
@@ -289,6 +285,23 @@ export function PhotoInfoSidebar({
                   <PhotoInfoRow label="Download" value={photo.allowDownload === 1 ? "↓ Downloadable" : "🔒 Protected"} />
                 </div>
               </div>
+
+              {/* Visual Google Map Location Card (Only displayed if coordinates exist) */}
+              {photo.latitude != null && photo.longitude != null && (
+                <div>
+                  <div className="pb-2 text-xs font-semibold text-white/50 tracking-wider uppercase">
+                    {t("location")}
+                  </div>
+                  <PhotoLocationMap
+                    latitude={photo.latitude}
+                    longitude={photo.longitude}
+                    altitude={photo.altitude}
+                    thumbnail={photo.thumbnail}
+                    preview={photo.preview}
+                    photoName={photo.name}
+                  />
+                </div>
+              )}
 
               {shootingParams.length > 0 && (
                 <div>
