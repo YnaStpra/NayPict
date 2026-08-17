@@ -1,6 +1,6 @@
 import { cookies } from "next/headers"
 import { Geist } from "next/font/google"
-import { type Metadata } from "next"
+import { type Metadata, type Viewport } from "next"
 import { NextIntlClientProvider } from "next-intl"
 import { getLocale, getMessages } from "next-intl/server"
 
@@ -17,6 +17,17 @@ const geist = Geist({
 
 const SIDEBAR_COOKIE_NAME = "sidebar_state"
 const THEME_COOKIE_NAME = "theme"
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
+  userScalable: true,
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
+    { media: "(prefers-color-scheme: dark)", color: "#141414" },
+  ],
+}
 
 export async function generateMetadata(): Promise<Metadata> {
   return {
