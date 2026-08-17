@@ -32,7 +32,7 @@ export function PhotoComments({ photoId }: PhotoCommentsProps) {
   const [name, setName] = useState<string>(() => {
     if (typeof window === "undefined") return "";
     try {
-      return localStorage.getItem("pixtale_comment_name") ?? "";
+      return localStorage.getItem("naypict_comment_name") ?? "";
     } catch {
       return "";
     }
@@ -109,7 +109,7 @@ export function PhotoComments({ photoId }: PhotoCommentsProps) {
 
       // Save valid name to local storage for convenience.
       try {
-        localStorage.setItem("pixtale_comment_name", trimmedName);
+        localStorage.setItem("naypict_comment_name", trimmedName);
       } catch {
         // Ignore local storage write errors.
       }

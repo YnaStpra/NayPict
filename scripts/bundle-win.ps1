@@ -1,8 +1,8 @@
-# Copy Next.js standalone output to D:\pictale\pictale with external node.exe.
+# Copy Next.js standalone output to D:\naypict\naypict with external node.exe.
 
 $Root = Split-Path -Parent $PSScriptRoot
-$Base = "D:\pictale"
-$Out = Join-Path $Base "pictale"
+$Base = "D:\naypict"
+$Out = Join-Path $Base "naypict"
 
 if (-not (Test-Path (Join-Path $Root ".next\standalone\server.js"))) {
   throw "Missing .next/standalone/server.js. Run npm run build first."

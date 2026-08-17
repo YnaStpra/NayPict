@@ -7,10 +7,10 @@ on:
   workflow_dispatch:
 
 env:
-  IMAGE_NAME: pixtale
+  IMAGE_NAME: naypict
 
 jobs:
-  # 各架构在原生 Runner 上分别构建，避免 QEMU 模拟 arm64。
+  # Build on native runners to avoid QEMU arm64 emulation overhead.
   build:
     strategy:
       fail-fast: false
@@ -63,7 +63,7 @@ jobs:
           cache-from: type=gha,scope=${{ matrix.platform }}
           cache-to: type=gha,mode=max,scope=${{ matrix.platform }}
 
-  # 把两个单架构镜像合并成多架构 manifest，并打上最终 tag。
+  # Combine platform images into a multi-arch manifest and apply final tags.
   merge:
     needs: build
     runs-on: ubuntu-latest
@@ -111,7 +111,7 @@ jobs:
           GHCR_AMD64="ghcr.io/${{ env.IMAGE_OWNER }}/${{ env.IMAGE_NAME }}:amd64-${{ github.sha }}"
           GHCR_ARM64="ghcr.io/${{ env.IMAGE_OWNER }}/${{ env.IMAGE_NAME }}:arm64-${{ github.sha }}"
 
-          # metadata-action 输出的 tags 可能是多行，逐个创建 manifest。
+          # Create manifest for each tag output by metadata-action.
           while IFS= read -r tag; do
             [ -z "$tag" ] && continue
             case "$tag" in

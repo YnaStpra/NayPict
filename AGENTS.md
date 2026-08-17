@@ -27,6 +27,6 @@ A web-based photo gallery application.
 
 # Database Location
 
-`data/pictale.sqlite`
+`data/naypict.sqlite`
 
 <!-- END:nextjs-agent-rules -->

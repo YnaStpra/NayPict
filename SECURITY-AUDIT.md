@@ -1,4 +1,4 @@
-# NayPict / Pixtale — Comprehensive Security Audit Report
+# NayPict — Comprehensive Security Audit Report
 
 **Audit Date:** 2026-08-16  
 **Branch:** `security/automated-security-audit`  
