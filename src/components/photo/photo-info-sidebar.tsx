@@ -343,15 +343,15 @@ export function PhotoInfoSidebar({
               )}
 
               {/* Visual Google Map Location Card (Positioned at the very bottom of photo info) */}
-              {photo.latitude != null && photo.longitude != null && (
+              {photo.latitude != null && photo.longitude != null && !isNaN(Number(photo.latitude)) && !isNaN(Number(photo.longitude)) && (
                 <div>
                   <div className="pb-2 text-xs font-semibold text-white/50 tracking-wider uppercase">
                     {t("location")}
                   </div>
                   <PhotoLocationMap
-                    latitude={photo.latitude}
-                    longitude={photo.longitude}
-                    altitude={photo.altitude}
+                    latitude={Number(photo.latitude)}
+                    longitude={Number(photo.longitude)}
+                    altitude={photo.altitude != null ? Number(photo.altitude) : null}
                     thumbnail={photo.thumbnail}
                     preview={photo.preview}
                     photoName={photo.name}

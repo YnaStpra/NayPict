@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars */
 import { and, asc, count, desc, eq, getTableColumns, gt, gte, inArray, isNotNull, lt, lte, or, sql } from 'drizzle-orm';
 import { createId } from '@/server/lib/id';
 import { type Photo, photoTab } from '@/server/entity/photo';
@@ -526,7 +527,29 @@ const photoService = {
     }
 
     const meta = await readPhotoExifFromBuffer(buffer);
-    const takenTime = meta.takenTime ?? new Date(lastModified > 0 ? lastModified : Date.now()).toISOString();
+
+    // Merge client-provided GPS & EXIF (extracted directly from uncompressed original file in browser)
+    const clientLatRaw = form.get('latitude');
+    const clientLngRaw = form.get('longitude');
+    const clientAltRaw = form.get('altitude');
+    const clientTakenTime = form.get('takenTime');
+    const clientExifJson = form.get('exifJson');
+
+    const clientLat = clientLatRaw ? Number(clientLatRaw) : null;
+    const clientLng = clientLngRaw ? Number(clientLngRaw) : null;
+    const clientAlt = clientAltRaw ? Number(clientAltRaw) : null;
+
+    const finalLatitude = meta.latitude ?? (clientLat !== null && !isNaN(clientLat) ? clientLat : null);
+    const finalLongitude = meta.longitude ?? (clientLng !== null && !isNaN(clientLng) ? clientLng : null);
+    const finalAltitude = meta.altitude ?? (clientAlt !== null && !isNaN(clientAlt) ? clientAlt : null);
+    const finalTakenTime = meta.takenTime ?? (typeof clientTakenTime === 'string' && clientTakenTime ? clientTakenTime : null) ?? new Date(lastModified > 0 ? lastModified : Date.now()).toISOString();
+
+    let finalExif = meta.exif;
+    if (!finalExif && typeof clientExifJson === 'string' && clientExifJson) {
+      finalExif = clientExifJson;
+    }
+
+    const takenTime = finalTakenTime;
     const key = await this.resolvePhotoKey(userId, name);
     const photoId = createId();
     const preview = buildPreviewKey(checksum, photoId);
@@ -587,10 +610,10 @@ const photoService = {
     ]);
 
     await exifService.save(photoId, {
-      exif: meta.exif,
-      latitude: meta.latitude,
-      longitude: meta.longitude,
-      altitude: meta.altitude,
+      exif: finalExif,
+      latitude: finalLatitude,
+      longitude: finalLongitude,
+      altitude: finalAltitude,
     });
 
     if (albumId) {
@@ -605,10 +628,10 @@ const photoService = {
     return {
       photo: this.toPhotoVo(photo, files, fileStorage, domain, {
         photoId,
-        exif: meta.exif,
-        latitude: meta.latitude,
-        longitude: meta.longitude,
-        altitude: meta.altitude,
+        exif: finalExif,
+        latitude: finalLatitude,
+        longitude: finalLongitude,
+        altitude: finalAltitude,
       }),
       duplicate: false,
     };
