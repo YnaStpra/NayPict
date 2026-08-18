@@ -36,6 +36,7 @@ const PUBLIC_API_PATHS = [
   '/photo/list',
   '/photo/randomIdList',
   '/photo/takenDateList',
+  '/photo/onThisDay',
   '/photo/download',
   '/album/list',
   '/storage/select',
