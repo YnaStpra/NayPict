@@ -92,18 +92,18 @@ export function OnThisDayBanner({ onPhotoClick }: OnThisDayBannerProps) {
       }`}
       onClick={isCollapsed ? toggleCollapse : undefined}
     >
-      {/* Header with Title, Date Badge & Minimize/Expand Button */}
+      {/* Header with Title, Date Badge & Visible Minimize/Expand Button */}
       <div className={`flex items-center justify-between gap-3 ${isCollapsed ? "" : "mb-3.5"}`}>
         <div className="flex items-center gap-2 min-w-0">
           <div className="min-w-0">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <h2 className="text-base sm:text-lg font-bold tracking-tight text-foreground flex items-center gap-1.5 truncate">
                 <span>{t("title")}</span>
                 <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/20">
                   {todayLabel}
                 </span>
                 {isCollapsed && (
-                  <span className="text-xs text-muted-foreground font-normal ml-1">
+                  <span className="text-xs text-muted-foreground font-normal ml-0.5">
                     ({photos.length})
                   </span>
                 )}
@@ -117,21 +117,21 @@ export function OnThisDayBanner({ onPhotoClick }: OnThisDayBannerProps) {
           </div>
         </div>
 
-        {/* Minimize / Expand Toggle Button */}
+        {/* Clearly Visible Minimize / Expand Toggle Button */}
         <div className="flex items-center gap-1 shrink-0">
           <Button
             type="button"
-            size="icon"
-            variant="ghost"
-            className="size-7 rounded-full bg-background/60 hover:bg-amber-500/15 text-muted-foreground hover:text-foreground cursor-pointer transition-colors"
+            variant="outline"
+            size="sm"
+            className="h-7.5 px-3 rounded-full text-xs font-semibold gap-1.5 bg-amber-500/10 border-amber-500/30 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20 hover:text-amber-500 shadow-2xs cursor-pointer transition-all active:scale-95"
             onClick={(e) => {
               e.stopPropagation()
               toggleCollapse()
             }}
             aria-label={isCollapsed ? "Expand On This Day" : "Minimize On This Day"}
-            title={isCollapsed ? "Expand" : "Minimize"}
           >
-            {isCollapsed ? <ChevronDown className="size-4" /> : <ChevronUp className="size-4" />}
+            {isCollapsed ? <ChevronDown className="size-3.5 stroke-[2.5]" /> : <ChevronUp className="size-3.5 stroke-[2.5]" />}
+            <span>{isCollapsed ? t("show") : t("hide")}</span>
           </Button>
         </div>
       </div>
@@ -140,7 +140,7 @@ export function OnThisDayBanner({ onPhotoClick }: OnThisDayBannerProps) {
       {!isCollapsed && (
         <div
           ref={scrollContainerRef}
-          className="flex gap-3 overflow-x-auto pb-1 pt-0.5 scrollbar-none snap-x snap-mandatory overscroll-x-contain"
+          className="flex gap-3 overflow-x-auto pb-1 pt-0.5 pr-4 scrollbar-none snap-x snap-mandatory overscroll-x-contain"
           style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
         >
           {photos.map((photo, index) => {
@@ -163,7 +163,7 @@ export function OnThisDayBanner({ onPhotoClick }: OnThisDayBannerProps) {
                 role="button"
                 tabIndex={0}
                 aria-label={`View photo ${photo.name} from ${yearsAgoText}`}
-                className="group relative flex-none w-[200px] sm:w-[240px] md:w-[260px] aspect-[4/3] rounded-xl overflow-hidden bg-muted cursor-pointer border border-border/50 hover:border-amber-500/50 shadow-xs hover:shadow-md transition-all duration-300 snap-start focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary select-none"
+                className="group relative flex-none w-[240px] sm:w-[260px] md:w-[280px] aspect-[4/3] rounded-xl overflow-hidden bg-muted cursor-pointer border border-border/50 hover:border-amber-500/50 shadow-xs hover:shadow-md transition-all duration-300 snap-start focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary select-none"
               >
                 {/* ThumbHash Blur Placeholder */}
                 {thumbHash && (
@@ -188,16 +188,17 @@ export function OnThisDayBanner({ onPhotoClick }: OnThisDayBannerProps) {
                 {/* Dark Gradient Overlay for Readability */}
                 <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/80 via-black/25 to-black/40 group-hover:from-black/85 transition-colors duration-300" />
 
-                {/* Top-Left Floating Badge: Years Ago */}
-                <div className="absolute top-2.5 left-2.5 z-10 flex items-center gap-1.5 rounded-full bg-amber-500/90 text-black dark:text-neutral-950 px-2.5 py-0.5 text-[11px] font-bold shadow-md backdrop-blur-md border border-amber-300/40">
-                  <History className="size-3 stroke-[2.5]" />
-                  <span>{yearsAgoText}</span>
-                </div>
+                {/* Top Badges Row: Years Ago on Left, Year on Right without clipping */}
+                <div className="absolute top-2.5 inset-x-2.5 z-10 flex items-center justify-between gap-1.5 pointer-events-none">
+                  <div className="flex items-center gap-1.5 rounded-full bg-amber-500 text-black dark:text-neutral-950 px-2.5 py-0.5 text-[11px] font-bold shadow-md backdrop-blur-md border border-amber-300/40 shrink-0">
+                    <History className="size-3 stroke-[2.5]" />
+                    <span>{yearsAgoText}</span>
+                  </div>
 
-                {/* Top-Right Year Pill */}
-                <div className="absolute top-2.5 right-2.5 z-10 flex items-center gap-1 rounded-full bg-black/60 text-white/90 px-2 py-0.5 text-[10px] font-semibold backdrop-blur-md border border-white/20">
-                  <Calendar className="size-2.5" />
-                  <span>{photo.year}</span>
+                  <div className="flex items-center gap-1 rounded-full bg-black/60 text-white/90 px-2 py-0.5 text-[10px] font-semibold backdrop-blur-md border border-white/20 shrink-0">
+                    <Calendar className="size-2.5" />
+                    <span>{photo.year}</span>
+                  </div>
                 </div>
 
                 {/* Bottom Caption Overlay */}

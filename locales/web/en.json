@@ -9,6 +9,8 @@
   "photos.onThisDay.subtitle": "Photographs captured on this day in previous years",
   "photos.onThisDay.yearsAgoSingle": "{count} year ago",
   "photos.onThisDay.yearsAgoPlural": "{count} years ago",
+  "photos.onThisDay.hide": "Minimize",
+  "photos.onThisDay.show": "Expand",
   "photos.viewer.loading": "Loading",
   "photos.viewer.loadFailed": "Load failed",
   "photos.viewer.share": "Share photo",

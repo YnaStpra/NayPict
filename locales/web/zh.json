@@ -9,6 +9,8 @@
   "photos.onThisDay.subtitle": "往年今日所定格的精彩瞬间",
   "photos.onThisDay.yearsAgoSingle": "{count}年前",
   "photos.onThisDay.yearsAgoPlural": "{count}年前",
+  "photos.onThisDay.hide": "折叠",
+  "photos.onThisDay.show": "展开",
   "photos.viewer.loading": "Loading",
   "photos.viewer.loadFailed": "Load failed",
   "photos.viewer.share": "Share photo",
