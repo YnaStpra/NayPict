@@ -304,7 +304,7 @@ export default function Page() {
     <>
       <SidebarProvider open={sidebarOpen} onOpenChange={setSidebarOpen}>
         <AppSidebar />
-        <SidebarInset>
+        <SidebarInset className="min-w-0 max-w-full overflow-x-hidden">
           <header
             className="sticky top-0 z-20 flex h-12 shrink-0 items-center justify-between gap-2 bg-background transition-[width,height] ease-linear">
             <div className="flex min-w-0 items-center gap-2 px-4">
@@ -408,7 +408,7 @@ export default function Page() {
               )}
             </div>
           </header>
-          <div className="px-1 md:pl-1 md:pr-0">
+          <div className="px-1 md:pl-1 md:pr-0 min-w-0 max-w-full overflow-x-hidden">
             {isBrowser ? (
               viewMode === "infinite" ? (
                 <div className="relative w-full h-[calc(100vh-3.5rem)] rounded-xl overflow-hidden border bg-background/50">

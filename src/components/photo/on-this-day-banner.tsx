@@ -87,16 +87,16 @@ export function OnThisDayBanner({ onPhotoClick }: OnThisDayBannerProps) {
   return (
     <section
       aria-label="On This Day in Previous Years"
-      className={`relative mb-6 mx-1 md:mx-0 rounded-2xl border border-amber-500/20 bg-gradient-to-r from-amber-500/[0.07] via-primary/[0.04] to-background shadow-xs transition-all duration-300 backdrop-blur-xs ${
+      className={`relative mb-6 mx-1 md:mx-0 rounded-2xl border border-amber-500/20 bg-gradient-to-r from-amber-500/[0.07] via-primary/[0.04] to-background shadow-xs transition-all duration-300 backdrop-blur-xs w-full max-w-full min-w-0 overflow-hidden box-border ${
         isCollapsed ? "p-3 sm:px-4 sm:py-3 cursor-pointer hover:border-amber-500/40 hover:bg-amber-500/[0.09]" : "p-4 sm:p-5"
       }`}
       onClick={isCollapsed ? toggleCollapse : undefined}
     >
       {/* Header with Title, Date Badge & Visible Minimize/Expand Button */}
-      <div className={`flex items-center justify-between gap-3 ${isCollapsed ? "" : "mb-3.5"}`}>
+      <div className={`flex items-center justify-between gap-3 min-w-0 w-full ${isCollapsed ? "" : "mb-3.5"}`}>
         <div className="flex items-center gap-2 min-w-0">
           <div className="min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex items-center gap-2 flex-wrap min-w-0">
               <h2 className="text-base sm:text-lg font-bold tracking-tight text-foreground flex items-center gap-1.5 truncate">
                 <span>{t("title")}</span>
                 <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/20">
@@ -123,7 +123,7 @@ export function OnThisDayBanner({ onPhotoClick }: OnThisDayBannerProps) {
             type="button"
             variant="outline"
             size="sm"
-            className="h-7.5 px-3 rounded-full text-xs font-semibold gap-1.5 bg-amber-500/10 border-amber-500/30 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20 hover:text-amber-500 shadow-2xs cursor-pointer transition-all active:scale-95"
+            className="h-7.5 px-3 rounded-full text-xs font-semibold gap-1.5 bg-amber-500/10 border-amber-500/30 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20 hover:text-amber-500 shadow-2xs cursor-pointer transition-all active:scale-95 shrink-0"
             onClick={(e) => {
               e.stopPropagation()
               toggleCollapse()
@@ -140,7 +140,7 @@ export function OnThisDayBanner({ onPhotoClick }: OnThisDayBannerProps) {
       {!isCollapsed && (
         <div
           ref={scrollContainerRef}
-          className="flex gap-3 overflow-x-auto pb-1 pt-0.5 pr-4 scrollbar-none snap-x snap-mandatory overscroll-x-contain"
+          className="flex gap-3 overflow-x-auto pb-1 pt-0.5 pr-4 scrollbar-none snap-x snap-mandatory overscroll-x-contain w-full max-w-full min-w-0"
           style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
         >
           {photos.map((photo, index) => {
