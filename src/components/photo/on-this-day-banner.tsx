@@ -85,13 +85,14 @@ export function OnThisDayBanner({ onPhotoClick }: OnThisDayBannerProps) {
   }).format(new Date())
 
   return (
-    <section
-      aria-label="On This Day in Previous Years"
-      className={`relative mb-6 mx-1 md:mx-0 rounded-2xl border border-amber-500/20 bg-gradient-to-r from-amber-500/[0.07] via-primary/[0.04] to-background shadow-xs transition-all duration-300 backdrop-blur-xs w-full max-w-full min-w-0 overflow-hidden box-border ${
-        isCollapsed ? "p-3 sm:px-4 sm:py-3 cursor-pointer hover:border-amber-500/40 hover:bg-amber-500/[0.09]" : "p-4 sm:p-5"
-      }`}
-      onClick={isCollapsed ? toggleCollapse : undefined}
-    >
+    <div className="w-full px-3 sm:px-4 md:px-5 pb-4 box-border min-w-0">
+      <section
+        aria-label="On This Day in Previous Years"
+        className={`relative mx-auto w-full rounded-2xl border border-amber-500/20 bg-gradient-to-r from-amber-500/[0.07] via-primary/[0.04] to-background shadow-xs transition-all duration-300 backdrop-blur-xs min-w-0 overflow-hidden box-border ${
+          isCollapsed ? "p-3 sm:px-4 sm:py-3 cursor-pointer hover:border-amber-500/40 hover:bg-amber-500/[0.09]" : "p-4 sm:p-5"
+        }`}
+        onClick={isCollapsed ? toggleCollapse : undefined}
+      >
       {/* Header with Title, Date Badge & Visible Minimize/Expand Button */}
       <div className={`flex items-center justify-between gap-3 min-w-0 w-full ${isCollapsed ? "" : "mb-3.5"}`}>
         <div className="flex items-center gap-2 min-w-0">
@@ -224,6 +225,7 @@ export function OnThisDayBanner({ onPhotoClick }: OnThisDayBannerProps) {
           })}
         </div>
       )}
-    </section>
+      </section>
+    </div>
   )
 }
