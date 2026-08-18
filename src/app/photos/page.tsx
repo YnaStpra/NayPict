@@ -44,6 +44,7 @@ import { usePhotoContext } from "@/app/photos/provider"
 import { useApp } from "@/app/provider"
 import { UserTypeEnum } from "@/server/enums/user-enum"
 import { useTranslations } from "next-intl"
+import { type PhotoOnThisDayItemVo, type PhotoVo } from "@/server/entity/vo/photo"
 
 const AlbumSelectDialog = dynamic(
   () => import("@/components/album/album-select-dialog").then((mod) => mod.AlbumSelectDialog),
@@ -57,6 +58,11 @@ const PhotoViewer = dynamic(
 
 const InfiniteGallery = dynamic(
   () => import("@/components/gallery/infinite-gallery").then((mod) => mod.InfiniteGallery),
+  { ssr: false }
+)
+
+const OnThisDayBanner = dynamic(
+  () => import("@/components/photo/on-this-day-banner").then((mod) => mod.OnThisDayBanner),
   { ssr: false }
 )
 
@@ -113,6 +119,7 @@ export default function Page() {
 
   const [modelPhotoIndex, setModelPhotoIndex] = useState(0)
   const [showPhotoViewer, setShowPhotoViewer] = useState(false)
+  const [viewerCustomPhotos, setViewerCustomPhotos] = useState<PhotoVo[] | null>(null)
   const [albumDialogOpen, setAlbumDialogOpen] = useState(false)
   const [albumPhotoIds, setAlbumPhotoIds] = useState<string[]>([])
   const openUpload = usePhotoStore((state) => state.openUpload)
@@ -187,12 +194,20 @@ export default function Page() {
   }, [])
 
   const openPhoto = useCallback((index: number) => {
+    setViewerCustomPhotos(null)
+    setModelPhotoIndex(index)
+    setShowPhotoViewer(true)
+  }, [])
+
+  const handleOnThisDayPhotoClick = useCallback((_photo: PhotoOnThisDayItemVo, index: number, list: PhotoOnThisDayItemVo[]) => {
+    setViewerCustomPhotos(list)
     setModelPhotoIndex(index)
     setShowPhotoViewer(true)
   }, [])
 
   const closePhoto = useCallback(() => {
     setShowPhotoViewer(false)
+    setViewerCustomPhotos(null)
     removePhotoIdFromUrl()
   }, [])
 
@@ -411,6 +426,7 @@ export default function Page() {
                 </div>
               ) : (
                 <>
+                  <OnThisDayBanner onPhotoClick={handleOnThisDayPhotoClick} />
                   <PhotoMasonry
                     photos={photos}
                     resetKey={masonryKey}
@@ -438,7 +454,7 @@ export default function Page() {
       <PhotoViewer
         open={showPhotoViewer}
         index={modelPhotoIndex}
-        photos={photos}
+        photos={viewerCustomPhotos ?? photos}
         onBack={closePhoto}
         onBrowserBack={closePhoto}
         onPhotoDelete={(photoId) => recyclePhotos([photoId])}

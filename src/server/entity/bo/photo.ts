@@ -63,4 +63,23 @@ interface PhotoSetAllowDownloadBo {
   allowDownload: boolean;
 }
 
-export type { PhotoDeleteBo, PhotoExistsBo, PhotoFavoriteBo, PhotoListBo, PhotoRandomIdListBo, PhotoRecycleBo, PhotoRestoreBo, PhotoSetAllowDownloadBo, PhotoTakenDateListBo };
+interface PhotoOnThisDayBo {
+  month?: number | null;
+  day?: number | null;
+  year?: number | null;
+  tzOffset?: number | null;
+}
+
+export type {
+  PhotoDeleteBo,
+  PhotoExistsBo,
+  PhotoFavoriteBo,
+  PhotoListBo,
+  PhotoOnThisDayBo,
+  PhotoRandomIdListBo,
+  PhotoRecycleBo,
+  PhotoRestoreBo,
+  PhotoSetAllowDownloadBo,
+  PhotoTakenDateListBo,
+};
+

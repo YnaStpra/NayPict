@@ -10,6 +10,7 @@ import {
   type PhotoExistsBo,
   type PhotoFavoriteBo,
   type PhotoListBo,
+  type PhotoOnThisDayBo,
   type PhotoRandomIdListBo,
   type PhotoRecycleBo,
   type PhotoRestoreBo,
@@ -20,7 +21,15 @@ import { PHOTO_LIST_PAGE_SIZE } from '@/server/const/global';
 import { PhotoFavoriteEnum, PhotoStatusEnum } from '@/server/enums/photo-enum';
 import { StorageStatusEnum, StorageTypeOptions } from '@/server/enums/storage-enum';
 import { type PageVo } from '@/server/entity/vo/common';
-import { type PhotoAddResultVo, type PhotoDuplicateGroupVo, type PhotoExistsVo, type PhotoTakenDateVo, type PhotoVo } from '@/server/entity/vo/photo';
+import {
+  type PhotoAddResultVo,
+  type PhotoDuplicateGroupVo,
+  type PhotoExistsVo,
+  type PhotoOnThisDayItemVo,
+  type PhotoOnThisDayVo,
+  type PhotoTakenDateVo,
+  type PhotoVo,
+} from '@/server/entity/vo/photo';
 import { type Storage } from '@/server/entity/storage';
 import { storageService } from '@/server/service/storage-service';
 import { buildContentDisposition, formatFileTimestamp, splitFileName } from '@/server/lib/file';
@@ -260,6 +269,100 @@ const photoService = {
       date: item.date,
       count: Number(item.count),
     }));
+  },
+
+  // Query photos taken on this day (month & day) in previous years.
+  async onThisDay(params: PhotoOnThisDayBo = {}, userId?: string): Promise<PhotoOnThisDayVo> {
+    const now = new Date();
+    // If tzOffset (minutes) is provided, calculate client's local date
+    if (typeof params.tzOffset === 'number' && !isNaN(params.tzOffset)) {
+      const utcMs = now.getTime() + (now.getTimezoneOffset() * 60000);
+      const clientDate = new Date(utcMs + (params.tzOffset * 60000));
+      now.setTime(clientDate.getTime());
+    }
+
+    const currentYear = params.year ?? now.getFullYear();
+    const currentMonth = params.month ?? (now.getMonth() + 1);
+    const currentDay = params.day ?? now.getDate();
+
+    const monthStr = String(currentMonth).padStart(2, '0');
+    const dayStr = String(currentDay).padStart(2, '0');
+    const targetMonthDay = `${monthStr}-${dayStr}`;
+    const currentYearStr = String(currentYear);
+
+    try {
+      const baseWhereList = [
+        eq(photoTab.status, PhotoStatusEnum.NORMAL),
+        isNotNull(photoTab.takenTime),
+        sql`length(${photoTab.takenTime}) >= 10`,
+        sql`substr(${photoTab.takenTime}, 6, 5) = ${targetMonthDay}`,
+        sql`substr(${photoTab.takenTime}, 1, 4) < ${currentYearStr}`,
+      ];
+
+      const list = await orm
+        .select()
+        .from(photoTab)
+        .where(and(...baseWhereList))
+        .orderBy(
+          desc(sql`substr(${photoTab.takenTime}, 1, 4)`),
+          desc(photoTab.takenTime),
+          desc(photoTab.photoId)
+        )
+        .limit(30);
+
+      if (!list.length) {
+        return {
+          date: targetMonthDay,
+          total: 0,
+          list: [],
+        };
+      }
+
+      const fileStorageList = await storageService.getStorageList();
+      const photoIds = list.map((photo: Photo) => photo.photoId);
+      const [exifMap, fileMap, albumMap] = await Promise.all([
+        exifService.listByPhotoIds(photoIds),
+        fileService.listByPhotoIds(photoIds),
+        albumService.listAlbumMapByPhotoIds(photoIds),
+      ]);
+
+      const result: PhotoOnThisDayItemVo[] = list.map((photo: Photo) => {
+        const fileStorage = fileStorageList.find((item: Storage) => item.storageId === photo.storageId);
+        const domain = formatHttpUrl(fileStorage?.domain);
+
+        const vo = this.toPhotoVo(
+          photo,
+          fileMap.get(photo.photoId) ?? [],
+          fileStorage,
+          domain,
+          exifMap.get(photo.photoId) ?? null,
+          userId,
+          albumMap.get(photo.photoId) ?? []
+        );
+
+        const photoYear = parseInt((photo.takenTime || '').substring(0, 4), 10);
+        const yearsAgo = isNaN(photoYear) ? 1 : Math.max(1, currentYear - photoYear);
+
+        return {
+          ...vo,
+          year: isNaN(photoYear) ? currentYear - 1 : photoYear,
+          yearsAgo,
+        };
+      });
+
+      return {
+        date: targetMonthDay,
+        total: result.length,
+        list: result,
+      };
+    } catch (err) {
+      console.warn('[photoService.onThisDay] Graceful fallback on database error:', err);
+      return {
+        date: targetMonthDay,
+        total: 0,
+        list: [],
+      };
+    }
   },
 
   // Generate storage based on original file name key，like key If it already exists, append a timestamp before the extension.。

@@ -2,7 +2,18 @@ import { Hono, Context } from "hono";
 import result from '@/server/model/result';
 import { photoService } from '@/server/service/photo-service';
 import { getUserId } from "@/server/security/context";
-import { type PhotoDeleteBo, type PhotoExistsBo, type PhotoFavoriteBo, type PhotoListBo, type PhotoRandomIdListBo, type PhotoRecycleBo, type PhotoRestoreBo, type PhotoSetAllowDownloadBo, type PhotoTakenDateListBo } from '@/server/entity/bo/photo';
+import {
+  type PhotoDeleteBo,
+  type PhotoExistsBo,
+  type PhotoFavoriteBo,
+  type PhotoListBo,
+  type PhotoOnThisDayBo,
+  type PhotoRandomIdListBo,
+  type PhotoRecycleBo,
+  type PhotoRestoreBo,
+  type PhotoSetAllowDownloadBo,
+  type PhotoTakenDateListBo,
+} from '@/server/entity/bo/photo';
 import type { HonoEnv } from '../hono/type';
 
 // This module registers photo-related interfaces.
@@ -19,6 +30,22 @@ export function registerPhotoApi(app: Hono<HonoEnv>) {
   app.post('/photo/randomIdList', async (c: Context) => {
     const body = await c.req.json<PhotoRandomIdListBo>();
     const data = await photoService.randomIdList(body, getUserId());
+    return c.json(result.ok(data));
+  });
+
+  // Query photos taken on this day in previous years.
+  app.post('/photo/onThisDay', async (c: Context) => {
+    const body = await c.req.json<PhotoOnThisDayBo>().catch(() => ({} as PhotoOnThisDayBo));
+    const data = await photoService.onThisDay(body, getUserId());
+    return c.json(result.ok(data));
+  });
+
+  app.get('/photo/onThisDay', async (c: Context) => {
+    const month = Number(c.req.query('month')) || undefined;
+    const day = Number(c.req.query('day')) || undefined;
+    const year = Number(c.req.query('year')) || undefined;
+    const tzOffset = Number(c.req.query('tzOffset')) || undefined;
+    const data = await photoService.onThisDay({ month, day, year, tzOffset }, getUserId());
     return c.json(result.ok(data));
   });
 
