@@ -81,6 +81,8 @@
   "settings.syncDeleteDescription": "Delete the saved file when a photo is deleted.",
   "settings.photoDeduplication": "Skip duplicate photos",
   "settings.photoDeduplicationDescription": "Skip uploads that have the same file name and hash.",
+  "settings.onThisDay": "On This Day memories banner",
+  "settings.onThisDayDescription": "Show the nostalgic photo memories showcase in the main gallery and for public visitors.",
   "settings.enabled": "On",
   "settings.disabled": "Off",
   "settings.save": "Save",

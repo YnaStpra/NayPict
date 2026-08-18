@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm';
 import { SETTING_KEY } from '@/server/const/global';
 import { settingTab, type Setting } from '@/server/entity/setting';
-import { SettingPhotoDedupEnum, SettingSyncDeleteEnum } from '@/server/enums/setting-enum';
+import { SettingOnThisDayEnum, SettingPhotoDedupEnum, SettingSyncDeleteEnum } from '@/server/enums/setting-enum';
 import { orm } from '@/server/infra/db';
 
 // This module handles system settings configuration query and update operations.
@@ -10,6 +10,7 @@ const defaultSetting: Setting = {
   syncDelete: SettingSyncDeleteEnum.ENABLE,
   clearLast: 7,
   photoDedup: SettingPhotoDedupEnum.ENABLE,
+  onThisDay: SettingOnThisDayEnum.ENABLE,
 };
 
 const settingService = {

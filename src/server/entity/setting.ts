@@ -10,6 +10,7 @@ export interface SettingConfig {
   syncDelete: number;
   clearLast: number;
   photoDedup: number;
+  onThisDay?: number;
 }
 
 export type Setting = SettingConfig;
