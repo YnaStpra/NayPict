@@ -36,7 +36,7 @@ import { storageService } from '@/server/service/storage-service';
 import { buildContentDisposition, formatFileTimestamp, splitFileName } from '@/server/lib/file';
 import { albumService } from '@/server/service/album-service';
 import { settingService } from '@/server/service/setting-service';
-import { SettingPhotoDedupEnum, SettingSyncDeleteEnum } from '@/server/enums/setting-enum';
+import { SettingOnThisDayEnum, SettingPhotoDedupEnum, SettingSyncDeleteEnum } from '@/server/enums/setting-enum';
 import { formatHttpUrl, toMediaUrl } from '@/lib/url';
 import { fileChecksum } from '@/server/lib/crypto';
 import { processPhotoImages } from '@/server/lib/photo-process';
@@ -292,6 +292,16 @@ const photoService = {
     const currentYearStr = String(currentYear);
 
     try {
+      // If admin disabled On This Day feature in settings, return clean empty list immediately
+      const setting = await settingService.get();
+      if (setting.onThisDay === SettingOnThisDayEnum.DISABLE) {
+        return {
+          date: targetMonthDay,
+          total: 0,
+          list: [],
+        };
+      }
+
       const baseWhereList = [
         eq(photoTab.status, PhotoStatusEnum.NORMAL),
         isNotNull(photoTab.takenTime),

@@ -81,6 +81,8 @@
   "settings.syncDeleteDescription": "While deleting photos，Delete saved files",
   "settings.photoDeduplication": "Remove duplicate photos",
   "settings.photoDeduplicationDescription": "Skip duplicate uploads based on image name and file hash",
+  "settings.onThisDay": "「那年今日」回忆横幅",
+  "settings.onThisDayDescription": "在主画廊及公开页面展示往年同日的摄影回忆横幅",
   "settings.enabled": "turn on",
   "settings.disabled": "closure",
   "settings.save": "save",

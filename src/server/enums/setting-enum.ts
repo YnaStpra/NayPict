@@ -1,5 +1,3 @@
-// This module defines system settings related enumeration values。
-
 const SettingSyncDeleteEnum = {
   ENABLE: 1,
   DISABLE: 2
@@ -10,4 +8,9 @@ const SettingPhotoDedupEnum = {
   DISABLE: 2
 } as const;
 
-export { SettingSyncDeleteEnum, SettingPhotoDedupEnum };
+const SettingOnThisDayEnum = {
+  ENABLE: 1,
+  DISABLE: 2
+} as const;
+
+export { SettingSyncDeleteEnum, SettingPhotoDedupEnum, SettingOnThisDayEnum };
