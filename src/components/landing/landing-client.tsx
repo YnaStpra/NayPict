@@ -1,11 +1,12 @@
 'use client'
 
-import { useEffect, useTransition } from 'react'
+import { useEffect, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
 import { Camera, FolderHeart, Image as ImageIcon, ArrowRight, Loader2 } from 'lucide-react'
 import { type PhotoVo } from '@/server/entity/vo/photo'
+import { photoList } from '@/request/photo'
 
 // Dynamic import InfiniteGallery with ssr: false for smooth client canvas initialization
 const InfiniteGallery = dynamic(
@@ -20,6 +21,7 @@ interface LandingClientProps {
 export function LandingClient({ initialPhotos }: LandingClientProps) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
+  const [photos, setPhotos] = useState<PhotoVo[]>(initialPhotos || [])
 
   // Handle direct photo share URL redirect (e.g. /?photoId=123 -> /photos?photoId=123)
   useEffect(() => {
@@ -36,6 +38,25 @@ export function LandingClient({ initialPhotos }: LandingClientProps) {
     router.prefetch('/albums')
   }, [router])
 
+  // Fetch client-side if initialPhotos was empty
+  useEffect(() => {
+    if (initialPhotos && initialPhotos.length > 0) {
+      return
+    }
+
+    photoList({ size: 40, shuffle: true })
+      .then((res) => {
+        if (res?.list && res.list.length > 0) {
+          setPhotos(res.list)
+        }
+      })
+      .catch((err) => {
+        console.error('[Landing] Failed to fetch gallery photos:', err)
+      })
+  }, [initialPhotos])
+
+  const displayPhotos = photos.length > 0 ? photos : initialPhotos
+
   const handleNavigate = (href: string) => {
     startTransition(() => {
       router.push(href)
@@ -44,10 +65,10 @@ export function LandingClient({ initialPhotos }: LandingClientProps) {
 
   return (
     <main className="relative w-screen h-screen overflow-hidden bg-black select-none">
-      {/* Dynamic Infinite Canvas Background using Server-Fetched Real Photos */}
+      {/* Dynamic Infinite Canvas Background using Real Photos */}
       <div className="absolute inset-0 z-0">
         <InfiniteGallery
-          photos={initialPhotos}
+          photos={displayPhotos}
           driftAmount={0.3}
           dragSpeed={0.8}
           className="w-full h-full"

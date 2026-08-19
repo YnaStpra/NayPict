@@ -15,6 +15,10 @@ function formatHttpUrl(input?: string | null) {
 
 // Convert storage key to requestable file URL.
 function toMediaUrl(key: string, domain?: string | null) {
+  if (!key || !key.trim()) {
+    return '';
+  }
+
   const encodedKey = key.split('/').map((segment) => encodeURIComponent(segment)).join('/');
   const base = formatHttpUrl(domain);
 
