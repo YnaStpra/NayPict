@@ -103,6 +103,7 @@ export default function Page() {
     refreshPhotoList,
     prependPhotos,
     removePhotos,
+    updatePhoto,
   } = usePhotoList({}, PHOTO_LIST_PAGE_SIZE, initialPhotos)
 
   const handleSortChange = (key: SortOptionKey) => {
@@ -458,6 +459,7 @@ export default function Page() {
         onBack={closePhoto}
         onBrowserBack={closePhoto}
         onPhotoDelete={(photoId) => recyclePhotos([photoId])}
+        onPhotoUpdate={updatePhoto}
         onAlbumOpen={isAdmin ? openAlbumDialog : undefined}
       />
       <AlbumSelectDialog

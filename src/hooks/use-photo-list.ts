@@ -34,7 +34,7 @@ function usePhotoList(params: Partial<PhotoListBo> = {}, pageSize = PHOTO_LIST_P
   const paramsKey = JSON.stringify(params)
   const initialParams = useMemo<Partial<PhotoListBo>>(() => JSON.parse(paramsKey) as Partial<PhotoListBo>, [paramsKey])
   const paramsRef = useRef<Partial<PhotoListBo>>(initialParams) // Save current list request parameters, updated by explicit refresh method.
-  const sortField: PhotoSortField = paramsRef.current.status === PhotoStatusEnum.DELETE ? "recycleTime" : "takenTime"
+  const sortField: PhotoSortField = initialParams.status === PhotoStatusEnum.DELETE ? "recycleTime" : "takenTime"
   const initialUsedRef = useRef(false) // Mark whether the first screen data of the server has been used for the initialization list.
   const loadingRef = useRef(false) // Flag whether the photo list is currently loading.
 
@@ -322,6 +322,15 @@ function usePhotoList(params: Partial<PhotoListBo> = {}, pageSize = PHOTO_LIST_P
     }
   }, [loadPhotoList, refreshMasonry])
 
+  // Update in-memory photo fields (e.g. visibility, favorite, allowDownload).
+  const updatePhoto = useCallback((updatedPhoto: Partial<PhotoVo> & { photoId: string }) => {
+    setPhotos((prev) => {
+      const next = prev.map((p) => (p.photoId === updatedPhoto.photoId ? { ...p, ...updatedPhoto } : p))
+      photosRef.current = next
+      return next
+    })
+  }, [])
+
   return {
     photos,
     totalCount,
@@ -332,6 +341,7 @@ function usePhotoList(params: Partial<PhotoListBo> = {}, pageSize = PHOTO_LIST_P
     refreshPhotoList,
     prependPhotos,
     removePhotos,
+    updatePhoto,
     refreshMasonry,
   }
 }

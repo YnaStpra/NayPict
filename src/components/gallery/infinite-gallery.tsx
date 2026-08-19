@@ -141,15 +141,17 @@ export function InfiniteGallery(props: InfiniteGalleryProps) {
 
   const safeImages: GalleryImage[] = useMemo(() => {
     if (photos && photos.length > 0) {
-      return photos.map((photo, idx) => ({
-        src: photo.thumbnail || photo.preview || photo.key || "",
-        alt: photo.name || `Photo ${idx + 1}`,
-        photoId: photo.photoId,
-        photoIndex: idx,
-      }))
+      return photos
+        .map((photo, idx) => ({
+          src: photo.thumbnail || photo.preview || photo.key || "",
+          alt: photo.name || `Photo ${idx + 1}`,
+          photoId: photo.photoId,
+          photoIndex: idx,
+        }))
+        .filter((item) => Boolean(item.src))
     }
     if (Array.isArray(images) && images.length > 0) {
-      return images
+      return images.filter((item) => Boolean(item.src))
     }
     return []
   }, [photos, images])
@@ -812,6 +814,7 @@ export function InfiniteGallery(props: InfiniteGalleryProps) {
   }, [
     isStatic,
     safeDragSpeed,
+    generateCell,
     targetX,
     targetY,
     velX,

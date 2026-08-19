@@ -16,6 +16,7 @@ interface PhotoListBo {
   favorite?: number | null;
   status?: number | null;
   albumId?: string | null;
+  visibility?: number | null;
   shuffle?: boolean;
   // Filter by specific photo IDs (used for random-order pagination)
   photoIds?: string[] | null;
@@ -28,6 +29,7 @@ interface PhotoRandomIdListBo {
   favorite?: number | null;
   status?: number | null;
   albumId?: string | null;
+  visibility?: number | null;
   startTakenTime?: string | null;
   endTakenTime?: string | null;
 }
@@ -63,6 +65,11 @@ interface PhotoSetAllowDownloadBo {
   allowDownload: boolean;
 }
 
+interface PhotoSetVisibilityBo {
+  photoIds: string[];
+  visibility: number;
+}
+
 interface PhotoOnThisDayBo {
   month?: number | null;
   day?: number | null;
@@ -80,6 +87,7 @@ export type {
   PhotoRecycleBo,
   PhotoRestoreBo,
   PhotoSetAllowDownloadBo,
+  PhotoSetVisibilityBo,
   PhotoTakenDateListBo,
 };
 

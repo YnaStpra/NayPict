@@ -12,6 +12,7 @@ import {
   type PhotoRecycleBo,
   type PhotoRestoreBo,
   type PhotoSetAllowDownloadBo,
+  type PhotoSetVisibilityBo,
   type PhotoTakenDateListBo,
 } from '@/server/entity/bo/photo';
 import type { HonoEnv } from '../hono/type';
@@ -19,6 +20,12 @@ import type { HonoEnv } from '../hono/type';
 // This module registers photo-related interfaces.
 
 export function registerPhotoApi(app: Hono<HonoEnv>) {
+  // Set photo display scope / visibility (Both, Gallery Only, Album Only, Archived).
+  app.post('/photo/setVisibility', async (c: Context) => {
+    const body = await c.req.json<PhotoSetVisibilityBo>();
+    await photoService.setVisibility(body, getUserId());
+    return c.json(result.ok());
+  });
   // Query the photo list by pagination and conditions.
   app.post('/photo/list', async (c: Context) => {
     const body = await c.req.json<PhotoListBo>();

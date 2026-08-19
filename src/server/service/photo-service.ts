@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars */
-import { and, asc, count, desc, eq, getTableColumns, gt, gte, inArray, isNotNull, lt, lte, or, sql } from 'drizzle-orm';
+import { and, asc, count, desc, eq, getTableColumns, gt, gte, inArray, isNotNull, isNull, lt, lte, or, sql } from 'drizzle-orm';
 import { createId } from '@/server/lib/id';
 import { type Photo, photoTab } from '@/server/entity/photo';
 import { albumPhotoTab } from '@/server/entity/album-photo';
@@ -16,10 +16,11 @@ import {
   type PhotoRecycleBo,
   type PhotoRestoreBo,
   type PhotoSetAllowDownloadBo,
+  type PhotoSetVisibilityBo,
   type PhotoTakenDateListBo,
 } from '@/server/entity/bo/photo';
 import { PHOTO_LIST_PAGE_SIZE } from '@/server/const/global';
-import { PhotoFavoriteEnum, PhotoStatusEnum } from '@/server/enums/photo-enum';
+import { PhotoFavoriteEnum, PhotoStatusEnum, PhotoVisibilityEnum } from '@/server/enums/photo-enum';
 import { StorageStatusEnum, StorageTypeOptions } from '@/server/enums/storage-enum';
 import { type PageVo } from '@/server/entity/vo/common';
 import {
@@ -90,6 +91,27 @@ const photoService = {
 
     if (params.endTakenTime) {
       baseWhereList.push(lte(photoTab.takenTime, params.endTakenTime));
+    }
+
+    // Scoped visibility filtering (Both, Gallery Only, Album Only, Archived):
+    if (params.visibility) {
+      baseWhereList.push(eq(photoTab.visibility, params.visibility));
+    } else if (status === PhotoStatusEnum.NORMAL && (!params.photoIds || params.photoIds.length === 0)) {
+      if (params.albumId) {
+        baseWhereList.push(
+          or(
+            inArray(photoTab.visibility, [PhotoVisibilityEnum.BOTH, PhotoVisibilityEnum.ALBUM_ONLY]),
+            isNull(photoTab.visibility)
+          )!
+        );
+      } else {
+        baseWhereList.push(
+          or(
+            inArray(photoTab.visibility, [PhotoVisibilityEnum.BOTH, PhotoVisibilityEnum.GALLERY_ONLY]),
+            isNull(photoTab.visibility)
+          )!
+        );
+      }
     }
 
     const whereList = [...baseWhereList];
@@ -209,6 +231,26 @@ const photoService = {
       whereList.push(lte(photoTab.takenTime, params.endTakenTime));
     }
 
+    if (params.visibility) {
+      whereList.push(eq(photoTab.visibility, params.visibility));
+    } else if (status === PhotoStatusEnum.NORMAL) {
+      if (params.albumId) {
+        whereList.push(
+          or(
+            inArray(photoTab.visibility, [PhotoVisibilityEnum.BOTH, PhotoVisibilityEnum.ALBUM_ONLY]),
+            isNull(photoTab.visibility)
+          )!
+        );
+      } else {
+        whereList.push(
+          or(
+            inArray(photoTab.visibility, [PhotoVisibilityEnum.BOTH, PhotoVisibilityEnum.GALLERY_ONLY]),
+            isNull(photoTab.visibility)
+          )!
+        );
+      }
+    }
+
     const rows = params.albumId
       ? await orm
         .select({ photoId: photoTab.photoId })
@@ -239,6 +281,22 @@ const photoService = {
 
     if (params.favorite) {
       whereList.push(eq(photoTab.favorite, params.favorite));
+    }
+
+    if (params.albumId) {
+      whereList.push(
+        or(
+          inArray(photoTab.visibility, [PhotoVisibilityEnum.BOTH, PhotoVisibilityEnum.ALBUM_ONLY]),
+          isNull(photoTab.visibility)
+        )!
+      );
+    } else {
+      whereList.push(
+        or(
+          inArray(photoTab.visibility, [PhotoVisibilityEnum.BOTH, PhotoVisibilityEnum.GALLERY_ONLY]),
+          isNull(photoTab.visibility)
+        )!
+      );
     }
 
     // Group by calendar day (YYYY-MM-DD) from takenTime ISO timestamp string.
@@ -308,6 +366,10 @@ const photoService = {
         sql`length(${photoTab.takenTime}) >= 10`,
         sql`substr(${photoTab.takenTime}, 6, 5) = ${targetMonthDay}`,
         sql`substr(${photoTab.takenTime}, 1, 4) < ${currentYearStr}`,
+        or(
+          inArray(photoTab.visibility, [PhotoVisibilityEnum.BOTH, PhotoVisibilityEnum.GALLERY_ONLY]),
+          isNull(photoTab.visibility)
+        )!,
       ];
 
       const list = await orm
@@ -699,6 +761,28 @@ const photoService = {
     await orm.update(photoTab)
       .set({
         favorite: params.favorite
+      })
+      .where(and(...whereList));
+  },
+
+  // Set the display scope / visibility of specified photos (Both, Gallery Only, Album Only, Archived).
+  async setVisibility(params: PhotoSetVisibilityBo, userId?: string): Promise<void> {
+    if (!params.photoIds?.length) {
+      throw new BizError('photo.selectRequired');
+    }
+
+    if (!params.visibility) {
+      throw new BizError('photo.visibilityRequired');
+    }
+
+    const whereList = [inArray(photoTab.photoId, params.photoIds)];
+    if (userId) {
+      whereList.push(eq(photoTab.userId, userId));
+    }
+
+    await orm.update(photoTab)
+      .set({
+        visibility: params.visibility
       })
       .where(and(...whereList));
   },

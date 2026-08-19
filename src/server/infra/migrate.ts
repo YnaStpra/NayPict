@@ -103,6 +103,15 @@ export async function migrate(): Promise<void> {
     } catch (albumPhotoErr) {
       console.warn('[MIGRATE] Error updating album_photo columns:', albumPhotoErr);
     }
+
+    // Ensure photo table has visibility column for display scope control.
+    try {
+      await sql`
+        ALTER TABLE "photo" ADD COLUMN IF NOT EXISTS "visibility" integer DEFAULT 1 NOT NULL;
+      `;
+    } catch (photoVisErr) {
+      console.warn('[MIGRATE] Error updating photo visibility column:', photoVisErr);
+    }
   } catch (err) {
     console.warn('[MIGRATE] Could not run migration automatically:', err);
   }

@@ -8,7 +8,7 @@ import { cache } from '@/server/infra/cache';
 
 // This module proxy page routing，Jump to login page when not logged in。
 
-const SYSTEM_PATHS = ['/users', '/settings', '/storage'];
+const SYSTEM_PATHS = ['/users', '/settings', '/storage', '/archive'];
 const PUBLIC_FILE_REG = /\.(?:png|jpg|jpeg|gif|webp|svg|ico)$/i;
 
 // Determine whether the current path allows unlogged access.
