@@ -1,6 +1,6 @@
 import { sql } from 'drizzle-orm';
 import { integer, pgTable, text, timestamp } from 'drizzle-orm/pg-core';
-import { PhotoFavoriteEnum, PhotoStatusEnum } from '@/server/enums/photo-enum';
+import { PhotoFavoriteEnum, PhotoStatusEnum, PhotoVisibilityEnum } from '@/server/enums/photo-enum';
 
 // photo
 export const photoTab = pgTable('photo', {
@@ -21,6 +21,7 @@ export const photoTab = pgTable('photo', {
   favorite: integer('favorite').notNull().default(PhotoFavoriteEnum.NO),
   storageId: text('storage_id'),
   allowDownload: integer('allow_download').notNull().default(0),
+  visibility: integer('visibility').notNull().default(PhotoVisibilityEnum.BOTH),
 });
 
 export type Photo = typeof photoTab.$inferSelect;

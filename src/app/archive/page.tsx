@@ -1,4 +1,5 @@
 'use client';
+
 import dynamic from "next/dynamic"
 import { AppSidebar } from "@/components/layout/app-sidebar"
 import {
@@ -15,7 +16,7 @@ import {
 } from "@/components/ui/sidebar"
 import { usePhotoList } from "@/hooks/use-photo-list"
 import { PHOTO_LIST_PAGE_SIZE } from "@/server/const/global"
-import { PhotoFavoriteEnum } from "@/server/enums/photo-enum"
+import { PhotoFavoriteEnum, PhotoVisibilityEnum } from "@/server/enums/photo-enum"
 
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { toast } from "sonner"
@@ -23,12 +24,11 @@ import { PhotoMasonry } from "@/components/photo/photo-masonry"
 import { photoFavorite, photoList, photoRecycle } from "@/request/photo"
 import { removePhotoIdFromUrl } from "@/lib/url"
 import { albumAddPhoto, albumRemovePhoto } from "@/request/album"
-import { useAlbumStore } from "@/store/album-store"
-import { useFavoriteContext } from "@/app/favorites/provider"
+import { useArchiveContext } from "@/app/archive/provider"
 import { useApp } from "@/app/provider"
 import { UserTypeEnum } from "@/server/enums/user-enum"
-import { PhotoDateDrawer } from "@/components/photo/photo-date-drawer"
 import { PhotoMasonrySkeleton } from "@/components/photo/photo-masonry-skeleton"
+import { Archive, ShieldAlert } from "lucide-react"
 import { useTranslations } from "next-intl"
 
 const AlbumSelectDialog = dynamic(
@@ -43,35 +43,31 @@ const PhotoViewer = dynamic(
 
 const emptySubscribe = () => () => {}
 
-export default function Page() {
+export default function ArchivePage() {
   const isBrowser = useSyncExternalStore(emptySubscribe, () => true, () => false)
-  const t = useTranslations("favorites")
-  const { initialPhotos } = useFavoriteContext()
+  const t = useTranslations()
+  const { initialPhotos } = useArchiveContext()
   const { userInfo, sidebarOpen, setSidebarOpen, refreshAlbums } = useApp()
   const isAdmin = userInfo?.type === UserTypeEnum.ADMIN
+
   const {
     photos,
     masonryKey,
     loadMorePhotos,
-    refreshPhotoList,
     removePhotos,
     updatePhoto,
     setPhotos,
-  } = usePhotoList({ favorite: PhotoFavoriteEnum.YES }, PHOTO_LIST_PAGE_SIZE, initialPhotos)
+  } = usePhotoList({ visibility: PhotoVisibilityEnum.ARCHIVED }, PHOTO_LIST_PAGE_SIZE, initialPhotos)
+
   const [modelPhotoIndex, setModelPhotoIndex] = useState(0)
   const [showPhotoViewer, setShowPhotoViewer] = useState(false)
-  // albumDialogOpen Control the opening status of the add album pop-up box。
   const [albumDialogOpen, setAlbumDialogOpen] = useState(false)
-  // albumPhotoIds Save the photos to be added to the album this time id。
   const [albumPhotoIds, setAlbumPhotoIds] = useState<string[]>([])
 
   useEffect(() => {
-    // Disable browser scroll recovery when refreshing favorites，and go back to the top of the photo list。
     const previousScrollRestoration = window.history.scrollRestoration
-
     window.history.scrollRestoration = 'manual'
     window.scrollTo(0, 0)
-
     return () => {
       window.history.scrollRestoration = previousScrollRestoration
     }
@@ -79,14 +75,12 @@ export default function Page() {
 
   const initialDeepLinkHandledRef = useRef(false)
 
-  // Automatically open photo once on initial load if ?photoId=... is in the URL (direct share link)
   useEffect(() => {
     if (typeof window === 'undefined' || initialDeepLinkHandledRef.current) return
     const targetPhotoId = new URLSearchParams(window.location.search).get('photoId')
     if (!targetPhotoId) return
 
     initialDeepLinkHandledRef.current = true
-
     const existingIndex = photos.findIndex((p) => p.photoId === targetPhotoId)
     if (existingIndex !== -1) {
       queueMicrotask(() => {
@@ -99,56 +93,58 @@ export default function Page() {
     photoList({ photoIds: [targetPhotoId], size: 1 })
       .then((res) => {
         if (res?.list && res.list.length > 0) {
-          const targetPhoto = res.list[0]
           setPhotos((prev) => {
-            if (prev.some((p) => p.photoId === targetPhoto.photoId)) {
-              return prev
-            }
-            return [targetPhoto, ...prev]
+            if (prev.some((p) => p.photoId === targetPhotoId)) return prev
+            return [res.list[0], ...prev]
           })
           setModelPhotoIndex(0)
           setShowPhotoViewer(true)
         }
       })
       .catch((err) => {
-        console.error('Failed to load shared photo in favorites:', err)
+        console.error("Failed to fetch photo for deep link in archive:", err)
       })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [photos, setPhotos])
 
-  // Open favorite photo details model.
   const openPhoto = useCallback((index: number) => {
     setModelPhotoIndex(index)
     setShowPhotoViewer(true)
   }, [])
 
-  // Close photo details model.
   const closePhoto = useCallback(() => {
     setShowPhotoViewer(false)
     removePhotoIdFromUrl()
   }, [])
 
-  // Switch the collection status of a single photo based on the photo subscript。
   const changePhotoFavorite = useCallback((index: number, setFavorite: (favorite: boolean) => void) => {
     const photo = photos[index]
+    if (!photo) return
     const favorite = photo.favorite === PhotoFavoriteEnum.YES
       ? PhotoFavoriteEnum.NO
       : PhotoFavoriteEnum.YES
 
-    photoFavorite({ photoIds: [photo.photoId], favorite }).then(() => {
-      setFavorite(favorite === PhotoFavoriteEnum.YES)
-      photo.favorite = favorite
-    })
+    photoFavorite({ photoIds: [photo.photoId], favorite })
+      .then(() => {
+        setFavorite(favorite === PhotoFavoriteEnum.YES)
+        photo.favorite = favorite
+      })
+      .catch((err) => {
+        console.error("Failed to update favorite:", err)
+      })
   }, [photos])
 
-  // Recycle selected collection photos in batches。
   const recyclePhotos = useCallback((photoIds: string[]) => {
-    photoRecycle({ photoIds }).then(() => {
-      removePhotos(photoIds)
-    })
-  }, [removePhotos])
+    if (!photoIds || !photoIds.length) return
+    photoRecycle({ photoIds })
+      .then(() => {
+        removePhotos(photoIds)
+        toast.success(t("photos.recycled") || "Moved to trash")
+      })
+      .catch((err) => {
+        console.error("Failed to recycle photos:", err)
+      })
+  }, [removePhotos, t])
 
-  // Open the pop-up box for adding collected photos to albums in batches。
   const openAlbumDialog = useCallback((photoIds: string[]) => {
     setAlbumPhotoIds(photoIds)
     setAlbumDialogOpen(true)
@@ -162,55 +158,45 @@ export default function Page() {
     return []
   }, [albumPhotoIds, photos])
 
-  // After selecting the album, add the favorite photos to the album。
   async function changePhotoAlbum(albumIds: string[]) {
     if (!albumPhotoIds.length) return
 
-    const addedAlbumIds = albumIds.filter((id) => !initialAlbumIds.includes(id))
-    const removedAlbumIds = initialAlbumIds.filter((id) => !albumIds.includes(id))
+    const addedAlbumIds = albumIds.filter((id: string) => !initialAlbumIds.includes(id))
+    const removedAlbumIds = initialAlbumIds.filter((id: string) => !albumIds.includes(id))
 
     try {
+      const tasks: Promise<unknown>[] = []
       if (addedAlbumIds.length > 0) {
-        await albumAddPhoto({ albumIds: addedAlbumIds, photoIds: albumPhotoIds })
+        tasks.push(albumAddPhoto({ albumIds: addedAlbumIds, photoIds: albumPhotoIds }))
       }
       if (removedAlbumIds.length > 0) {
         for (const remAlbumId of removedAlbumIds) {
-          await albumRemovePhoto({ albumId: remAlbumId, photoIds: albumPhotoIds })
+          tasks.push(albumRemovePhoto({ albumId: remAlbumId, photoIds: albumPhotoIds }))
         }
       }
-
-      toast.success("Album foto berhasil diperbarui!")
-      void refreshAlbums()
-
-      const allAlbums = useAlbumStore.getState().albums
-      const selectedAlbumObjs = allAlbums
-        .filter((a) => albumIds.includes(a.albumId))
-        .map((a) => ({ albumId: a.albumId, name: a.name }))
-
-      setPhotos((prevPhotos) =>
-        prevPhotos.map((photo) => {
-          if (albumPhotoIds.includes(photo.photoId)) {
-            return {
-              ...photo,
-              albums: selectedAlbumObjs,
-            }
-          }
-          return photo
-        })
-      )
+      await Promise.all(tasks)
+      toast.success(t("albums.updated") || "Albums updated")
+      refreshAlbums()
     } catch (err) {
       console.error("Failed to update photo albums:", err)
-      toast.error("Gagal memperbarui album foto.")
     }
   }
 
-  // Save the currently selected time range of favorite photos，And filter the trigger list by shooting time。
-  function changePhotoTime(range: { startDate: Date, endDate: Date }) {
-    refreshPhotoList({
-      favorite: PhotoFavoriteEnum.YES,
-      startTakenTime: range.startDate.toISOString(),
-      endTakenTime: range.endDate.toISOString(),
-    })
+  if (!isAdmin) {
+    return (
+      <SidebarProvider open={sidebarOpen} onOpenChange={setSidebarOpen}>
+        <AppSidebar />
+        <SidebarInset>
+          <div className="flex h-[80vh] flex-col items-center justify-center gap-3 text-center px-4">
+            <ShieldAlert className="size-12 text-muted-foreground" />
+            <h2 className="text-xl font-bold">Admin Access Required</h2>
+            <p className="text-sm text-muted-foreground max-w-sm">
+              The Archive area is restricted to gallery administrators.
+            </p>
+          </div>
+        </SidebarInset>
+      </SidebarProvider>
+    )
   }
 
   return (
@@ -218,8 +204,7 @@ export default function Page() {
       <SidebarProvider open={sidebarOpen} onOpenChange={setSidebarOpen}>
         <AppSidebar />
         <SidebarInset>
-          <header
-            className="sticky top-0 z-20 flex h-12 shrink-0 items-center justify-between gap-2 bg-background transition-[width,height] ease-linear">
+          <header className="flex h-13 shrink-0 items-center justify-between gap-2 bg-background">
             <div className="flex min-w-0 items-center gap-2 px-4">
               <SidebarTrigger className="-ml-1" />
               <Separator
@@ -229,43 +214,57 @@ export default function Page() {
               <Breadcrumb>
                 <BreadcrumbList>
                   <BreadcrumbItem>
-                    <BreadcrumbPage className="flex items-center gap-2">
-                      <span>{t("title")}</span>
+                    <BreadcrumbPage className="flex items-center gap-1.5">
+                      <Archive className="size-4 text-amber-500" />
+                      <span>{t("archive.title") || "Archive"}</span>
                     </BreadcrumbPage>
                   </BreadcrumbItem>
                 </BreadcrumbList>
               </Breadcrumb>
             </div>
-            <div className="fixed left-[calc(100vw-3.5rem)]  md:left-[calc(100vw-4rem)] top-0 flex h-12 items-center gap-1 px-4">
-              <PhotoDateDrawer favorite={PhotoFavoriteEnum.YES} onRangeChange={changePhotoTime} />
-            </div>
           </header>
-          <div className="px-1 md:pl-1 md:pr-0">
+
+          <div className="px-3 md:pl-3 md:pr-2 pb-12">
             {isBrowser ? (
-              <PhotoMasonry
-                photos={photos}
-                resetKey={masonryKey}
-                onReachBottom={loadMorePhotos}
-                onPhotoOpen={openPhoto}
-                onPhotoFavorite={changePhotoFavorite}
-                onPhotoDelete={recyclePhotos}
-                onAlbumOpen={openAlbumDialog}
-              />
+              photos.length === 0 ? (
+                <div className="flex h-[60vh] flex-col items-center justify-center gap-3 text-center px-4">
+                  <div className="size-16 rounded-3xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center">
+                    <Archive className="size-8 text-amber-500" />
+                  </div>
+                  <h3 className="text-lg font-bold">{t("archive.emptyTitle") || "No Archived Photos"}</h3>
+                  <p className="text-xs text-muted-foreground max-w-sm">
+                    {t("archive.emptyDescription") || "Photos hidden from both Main Gallery and Albums will appear here."}
+                  </p>
+                </div>
+              ) : (
+                <PhotoMasonry
+                  photos={photos}
+                  resetKey={masonryKey}
+                  onReachBottom={loadMorePhotos}
+                  onPhotoOpen={openPhoto}
+                  onPhotoFavorite={changePhotoFavorite}
+                  onPhotoDelete={recyclePhotos}
+                  onAlbumOpen={openAlbumDialog}
+                />
+              )
             ) : (
               <PhotoMasonrySkeleton photos={initialPhotos} />
             )}
           </div>
         </SidebarInset>
       </SidebarProvider>
+
       <PhotoViewer
         open={showPhotoViewer}
         index={modelPhotoIndex}
         photos={photos}
         onBack={closePhoto}
         onBrowserBack={closePhoto}
+        onPhotoDelete={(photoId) => recyclePhotos([photoId])}
         onPhotoUpdate={updatePhoto}
-        onAlbumOpen={isAdmin ? openAlbumDialog : undefined}
+        onAlbumOpen={openAlbumDialog}
       />
+
       <AlbumSelectDialog
         open={albumDialogOpen}
         onOpenChange={setAlbumDialogOpen}

@@ -36,6 +36,8 @@ interface PhotoViewerProps {
   onBrowserBack?: () => void
   // Executed on photo delete.
   onPhotoDelete?: (photoId: string) => void
+  // Executed on photo update (e.g. visibility change).
+  onPhotoUpdate?: (photo: PhotoVo) => void
   // Executed on album select open.
   onAlbumOpen?: (photoIds: string[]) => void
 }
@@ -820,7 +822,7 @@ function PhotoSlideImage({
 }
 
 // Render photo detail viewer，The parent component is responsible for passing in the current photo and list data。
-export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhotoDelete, onAlbumOpen }: PhotoViewerProps) {
+export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhotoDelete, onPhotoUpdate, onAlbumOpen }: PhotoViewerProps) {
   const { userInfo } = useApp()
   const isAdmin = userInfo?.type === UserTypeEnum.ADMIN
   // current lightbox Viewed photo index。
@@ -1316,6 +1318,7 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
                   activeTab={infoTab}
                   onTabChange={setInfoTab}
                   onClose={() => setInfoOpen(false)}
+                  onPhotoUpdate={onPhotoUpdate}
                   onAlbumOpen={onAlbumOpen ? (photoId) => onAlbumOpen([photoId]) : undefined}
                   onInsightsOpen={isAdmin ? (photoId) => {
                     setInsightsPhotoId(photoId)

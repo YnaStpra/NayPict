@@ -9,6 +9,7 @@ import {
   type PhotoRecycleBo,
   type PhotoRestoreBo,
   type PhotoSetAllowDownloadBo,
+  type PhotoSetVisibilityBo,
   type PhotoTakenDateListBo,
 } from "@/server/entity/bo/photo";
 import { type PageVo } from "@/server/entity/vo/common";
@@ -22,6 +23,11 @@ import {
 } from "@/server/entity/vo/photo";
 
 // This module encapsulates photo-related interface requests.
+
+// Update photo display scope / visibility (Both, Gallery Only, Album Only, Archived).
+export function photoSetVisibility(params: PhotoSetVisibilityBo) {
+  return http.post<void>('/photo/setVisibility', params);
+}
 
 // Query the photo list by pagination and conditions.
 export function photoList(params: PhotoListBo) {
