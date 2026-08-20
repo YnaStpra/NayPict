@@ -22,8 +22,9 @@ interface AlbumMasonryProps {
   onAlbumChangeCover?: (album: AlbumVo) => void
 }
 
-// Bundle rem The unit is converted to the current root font size px.
+// Convert rem unit to current root font size px safely.
 function remToPx(rem: number) {
+  if (typeof window === "undefined") return rem * 16
   const rootFontSize = parseFloat(
     getComputedStyle(document.documentElement).fontSize
   )
@@ -33,6 +34,7 @@ function remToPx(rem: number) {
 
 // Calculate the initial width of the album list based on the sidebar status.
 function getInitialWrapWidth(sidebarOpen: boolean) {
+  if (typeof window === "undefined") return 1200
   const width = window.innerWidth
 
   if (width < 768) {
@@ -70,21 +72,19 @@ function syncAlbumPositioner(items: AlbumVo[], columnWidth: number, positioner: 
 // Rendering a virtual scrolling list of photo albums.
 export function AlbumMasonry({ albums, resetKey = 0, onAlbumRename, onAlbumTop, onAlbumDelete, onAlbumChangeCover }: AlbumMasonryProps) {
   const { sidebarOpen } = useApp()
-  // wrapRef Used to monitor the real visual width of the outer layer of the album list.
   const wrapRef = useRef<HTMLDivElement | null>(null)
-  // windowHeight used to tell masonic Current virtual scroll visible height.
-  const [windowHeight, setWindowHeight] = useState(() => window.innerHeight)
-  // wrapPosition Record the page position and layout width of the outer container of the album list.
+  const [windowHeight, setWindowHeight] = useState(() => (typeof window !== "undefined" ? window.innerHeight : 800))
   const [wrapPosition, setWrapPosition] = useState({ offset: 0, width: getInitialWrapWidth(sidebarOpen) })
 
   const width = wrapPosition.width
-  const columnWidth = innerWidth < 768 ? (width - 12) / 2 : 240
+  const isSmallScreen = width < 768
+  const columnWidth = isSmallScreen ? (width - 12) / 2 : 240
   const positioner = usePositioner(
     {
       width,
       columnWidth,
-      columnGutter: innerWidth < 768 ? 8 : 12,
-      rowGutter: innerWidth < 768 ? 8 : 12,
+      columnGutter: isSmallScreen ? 8 : 12,
+      rowGutter: isSmallScreen ? 8 : 12,
     },
     [resetKey]
   )

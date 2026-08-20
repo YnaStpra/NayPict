@@ -27,8 +27,9 @@ interface PhotoMasonryProps {
   onPhotoPin?: (photoId: string, isPinned: boolean) => void
 }
 
-// Bundle rem The unit is converted to the current root font size px。
+// Convert rem unit to current root font size px safely.
 function remToPx(rem: number) {
+  if (typeof window === "undefined") return rem * 16
   const rootFontSize = parseFloat(
     getComputedStyle(document.documentElement).fontSize
   )
@@ -36,8 +37,9 @@ function remToPx(rem: number) {
   return rem * rootFontSize
 }
 
-// Calculate waterfall initialization width based on sidebar status。
+// Calculate waterfall initialization width based on sidebar status.
 function getInitialWrapWidth(sidebarOpen: boolean) {
+  if (typeof window === "undefined") return 1200
   const width = window.innerWidth
 
   if (width < 768) {
@@ -47,14 +49,14 @@ function getInitialWrapWidth(sidebarOpen: boolean) {
   return width - remToPx(sidebarOpen ? 14.25 : 3.25)
 }
 
-// Calculate the true height of the photo at the current column width。
+// Calculate the true height of the photo at the current column width.
 function getPhotoHeight(photo: PhotoVo, columnWidth: number) {
   const ratio = photo.width && photo.height ? photo.height / photo.width : 1
 
   return Math.max(1, Math.round(columnWidth * ratio))
 }
 
-// Sync the height of each photo to masonic positioner。
+// Sync the height of each photo to masonic positioner.
 function syncPhotoPositioner(items: PhotoVo[], columnWidth: number, positioner: Positioner) {
   const updates: number[] = []
 
@@ -74,7 +76,7 @@ function syncPhotoPositioner(items: PhotoVo[], columnWidth: number, positioner: 
   }
 }
 
-// Render photo waterfall，And notify the parent component to load more when the window bottoms out。
+// Render photo waterfall, and notify parent component to load more when reaching bottom.
 const PhotoMasonry = memo(function PhotoMasonry({
   photos,
   resetKey = 0,
@@ -88,22 +90,15 @@ const PhotoMasonry = memo(function PhotoMasonry({
   onPhotoPin,
 }: PhotoMasonryProps) {
   const { sidebarOpen } = useApp()
-  // isMobile Determine whether the current viewport is the mobile terminal。
   const isMobile = useIsMobile()
-  // wrapRef Used to monitor the real visual width of the outer layer of waterfall flow。
   const wrapRef = useRef<HTMLDivElement | null>(null)
-  // onReachBottomRef Used to save the latest bottoming callback。
   const onReachBottomRef = useRef(onReachBottom)
-  // windowHeight used to tell masonic Current virtual scroll visible height。
-  const [windowHeight, setWindowHeight] = useState(() => window.innerHeight)
-  // wrapPosition Record the page position and layout width of the outer container of the waterfall flow。
+  const [windowHeight, setWindowHeight] = useState(() => (typeof window !== "undefined" ? window.innerHeight : 800))
   const [wrapPosition, setWrapPosition] = useState({ offset: 0, width: getInitialWrapWidth(sidebarOpen) })
-  // selectedPhotoIds Record the currently selected photo id。
   const [selectedPhotoIds, setSelectedPhotoIds] = useState<string[]>([])
-  // touchHoverCloseRef Record the closing method of the currently displayed floating information photo。
   const touchHoverCloseRef = useRef<(() => void) | null>(null)
   const width = wrapPosition.width
-  const columnWidth = innerWidth < 768 ? (width - 4) / 2 : 240
+  const columnWidth = isMobile ? (width - 4) / 2 : 240
   const positioner = usePositioner(
     {
       width,
@@ -168,13 +163,12 @@ const PhotoMasonry = memo(function PhotoMasonry({
       }
     }
 
-    // Force synchronization of the position and width of the outer layer of the waterfall flow。
+    // Force synchronization of the position and width of the outer layer of the waterfall flow.
     function syncWrapPosition() {
-      console.log(wrapPosition.width);
       setWrapPosition(getWrapPosition())
     }
 
-    // Measure the position and width of the outer layer of the waterfall，After the first synchronization is completed, force reading again.。
+    // Measure the position and width of the outer layer of the waterfall, after the first synchronization is completed.
     function measureWrapPosition() {
       const nextPosition = getWrapPosition()
       let needSync = false
@@ -198,7 +192,7 @@ const PhotoMasonry = memo(function PhotoMasonry({
       }
     }
 
-    // Bundle ResizeObserver Notifications shake to stop changing 300ms Post-processing。
+    // Debounce ResizeObserver updates
     function updateWrapPosition() {
       if (timerId !== null) {
         window.clearTimeout(timerId)
@@ -252,12 +246,12 @@ const PhotoMasonry = memo(function PhotoMasonry({
     }
 
     window.addEventListener("scroll", checkAutoLoad, { passive: true })
-    const interval = setInterval(checkAutoLoad, 400)
+    window.addEventListener("resize", checkAutoLoad, { passive: true })
     checkAutoLoad()
 
     return () => {
       window.removeEventListener("scroll", checkAutoLoad)
-      clearInterval(interval)
+      window.removeEventListener("resize", checkAutoLoad)
     }
   }, [isMobile, photos.length])
 

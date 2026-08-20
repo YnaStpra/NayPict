@@ -298,8 +298,11 @@ async function parseExifWithExifr(buffer: Buffer) {
     if (dateVal instanceof Date && !isNaN(dateVal.getTime())) {
       takenTime = dateVal.toISOString()
     } else if (typeof dateVal === "string") {
-      const d = new Date(dateVal)
-      if (!isNaN(d.getTime())) takenTime = d.toISOString()
+      const normalized = dateVal.trim().replace(/^(\d{4}):(\d{2}):(\d{2})/, "$1-$2-$3")
+      const d = new Date(normalized)
+      if (!isNaN(d.getTime())) {
+        takenTime = d.toISOString()
+      }
     }
 
     const latitude = getCoordinate(rawTags.latitude ?? rawTags.GPSLatitude, rawTags.GPSLatitudeRef)

@@ -175,7 +175,9 @@ function usePhotoList(params: Partial<PhotoListBo> = {}, pageSize = PHOTO_LIST_P
           setHasMore(more)
           if (!append) {
             refreshMasonry()
-            window.scrollTo(0, 0)
+            if (typeof window !== "undefined") {
+              window.scrollTo(0, 0)
+            }
           }
         })
         .catch((err) => {
@@ -230,12 +232,19 @@ function usePhotoList(params: Partial<PhotoListBo> = {}, pageSize = PHOTO_LIST_P
         if (append) {
           // loadMorePhotos called before IDs were ready — load next page
           const nextIds = remainingIds.slice(0, pageSize)
-          pageOffsetRef.current = allIds.indexOf(nextIds[nextIds.length - 1]) + 1
+          if (!nextIds.length) {
+            hasMoreRef.current = false
+            setHasMore(false)
+            loadingRef.current = false
+            return
+          }
+          const lastId = nextIds[nextIds.length - 1]
+          const lastIdx = allIds.indexOf(lastId)
+          pageOffsetRef.current = lastIdx !== -1 ? lastIdx + 1 : allIds.length
           const more = pageOffsetRef.current < allIds.length
           hasMoreRef.current = more
           setHasMore(more)
-          if (nextIds.length) loadPhotosByIds(nextIds, true)
-          else { hasMoreRef.current = false; setHasMore(false); loadingRef.current = false }
+          loadPhotosByIds(nextIds, true)
         } else {
           // Fresh load: replace everything with first page from shuffled IDs
           const firstPageIds = allIds.slice(0, pageSize)
@@ -243,8 +252,11 @@ function usePhotoList(params: Partial<PhotoListBo> = {}, pageSize = PHOTO_LIST_P
           const more = allIds.length > pageSize
           hasMoreRef.current = more
           setHasMore(more)
-          if (firstPageIds.length) loadPhotosByIds(firstPageIds, false)
-          else loadingRef.current = false
+          if (firstPageIds.length) {
+            loadPhotosByIds(firstPageIds, false)
+          } else {
+            loadingRef.current = false
+          }
         }
       })
       .catch((err) => {

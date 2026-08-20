@@ -1,4 +1,5 @@
-import { and, count, desc, eq, inArray, max } from 'drizzle-orm';
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars */
+import { and, count, desc, eq, inArray, isNull, max, or } from 'drizzle-orm';
 import { createId } from '@/server/lib/id';
 import { type Album, albumTab } from '@/server/entity/album';
 import { albumPhotoTab } from '@/server/entity/album-photo';
@@ -15,7 +16,7 @@ import {
   type AlbumSetTopBo,
   type AlbumTogglePinPhotoBo,
 } from '@/server/entity/bo/album';
-import { PhotoFavoriteEnum, PhotoStatusEnum } from '@/server/enums/photo-enum';
+import { PhotoFavoriteEnum, PhotoStatusEnum, PhotoVisibilityEnum } from '@/server/enums/photo-enum';
 import { type AlbumVo } from '@/server/entity/vo/album';
 import { storageService } from '@/server/service/storage-service';
 import { formatHttpUrl, toMediaUrl } from '@/lib/url';
@@ -96,7 +97,11 @@ const albumService = {
     const fileStorageList = await storageService.list();
 
     const wherePhotoList = [
-      eq(photoTab.status, PhotoStatusEnum.NORMAL)
+      eq(photoTab.status, PhotoStatusEnum.NORMAL),
+      or(
+        inArray(photoTab.visibility, [PhotoVisibilityEnum.BOTH, PhotoVisibilityEnum.ALBUM_ONLY]),
+        isNull(photoTab.visibility)
+      )!
     ];
     if (userId) {
       wherePhotoList.push(eq(photoTab.userId, userId));

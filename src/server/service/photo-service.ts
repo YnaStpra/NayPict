@@ -168,6 +168,13 @@ const photoService = {
         )
         .limit(size);
 
+    if (!list.length) {
+      return {
+        list: [],
+        total: 0,
+      };
+    }
+
     const fileStorageList = await storageService.getStorageList();
     const photoIds = list.map((photo: any) => photo.photoId);
     const [exifMap, fileMap, albumMap] = await Promise.all([

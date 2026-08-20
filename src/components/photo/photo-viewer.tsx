@@ -1030,7 +1030,7 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
 
     // Push a history when opening the viewer, close viewer when browser returns.
     function handlePopState() {
-      if (innerWidth < 768) {
+      if (typeof window !== "undefined" && window.innerWidth < 768) {
         setInfoOpen(false)
       }
 
