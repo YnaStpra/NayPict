@@ -1,5 +1,6 @@
 import { http } from "@/request/request";
 import {
+  type PhotoBatchEditBo,
   type PhotoDeleteBo,
   type PhotoExistsBo,
   type PhotoFavoriteBo,
@@ -23,6 +24,11 @@ import {
 } from "@/server/entity/vo/photo";
 
 // This module encapsulates photo-related interface requests.
+
+// Batch edit photo metadata (visibility, allowDownload, takenTime, favorite).
+export function photoBatchEdit(params: PhotoBatchEditBo) {
+  return http.post<void>('/photo/batchEdit', params);
+}
 
 // Update photo display scope / visibility (Both, Gallery Only, Album Only, Archived).
 export function photoSetVisibility(params: PhotoSetVisibilityBo) {

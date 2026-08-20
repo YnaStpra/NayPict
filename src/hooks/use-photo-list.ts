@@ -343,6 +343,17 @@ function usePhotoList(params: Partial<PhotoListBo> = {}, pageSize = PHOTO_LIST_P
     })
   }, [])
 
+  // Batch update in-memory photo fields across multiple photo IDs.
+  const updatePhotos = useCallback((photoIds: string[], updatedFields: Partial<PhotoVo>) => {
+    const idSet = new Set(photoIds)
+    setPhotos((prev) => {
+      const next = prev.map((p) => (idSet.has(p.photoId) ? { ...p, ...updatedFields } : p))
+      photosRef.current = next
+      return next
+    })
+    refreshMasonry()
+  }, [refreshMasonry])
+
   return {
     photos,
     totalCount,
@@ -354,6 +365,7 @@ function usePhotoList(params: Partial<PhotoListBo> = {}, pageSize = PHOTO_LIST_P
     prependPhotos,
     removePhotos,
     updatePhoto,
+    updatePhotos,
     refreshMasonry,
   }
 }

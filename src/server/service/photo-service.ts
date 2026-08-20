@@ -7,6 +7,7 @@ import { orm } from '@/server/infra/db';
 import BizError from '@/server/error/biz-error';
 import { storage } from '@/server/storage/storage';
 import {
+  type PhotoBatchEditBo,
   type PhotoDeleteBo,
   type PhotoExistsBo,
   type PhotoFavoriteBo,
@@ -975,6 +976,45 @@ const photoService = {
     await orm
       .update(photoTab)
       .set({ allowDownload: params.allowDownload ? 1 : 0 })
+      .where(and(...whereList));
+  },
+
+  // Batch update photo metadata (visibility, allowDownload, takenTime, favorite).
+  async batchEdit(params: PhotoBatchEditBo, userId?: string): Promise<void> {
+    if (!params.photoIds?.length) {
+      throw new BizError('photo.selectRequired');
+    }
+
+    const whereList = [inArray(photoTab.photoId, params.photoIds)];
+    if (userId) {
+      whereList.push(eq(photoTab.userId, userId));
+    }
+
+    const updates: Record<string, any> = {};
+
+    if (params.visibility !== undefined && params.visibility !== null) {
+      updates.visibility = params.visibility;
+    }
+
+    if (params.allowDownload !== undefined && params.allowDownload !== null) {
+      updates.allowDownload = params.allowDownload ? 1 : 0;
+    }
+
+    if (params.takenTime !== undefined) {
+      updates.takenTime = params.takenTime ? params.takenTime : null;
+    }
+
+    if (params.favorite !== undefined && params.favorite !== null) {
+      updates.favorite = params.favorite;
+    }
+
+    if (Object.keys(updates).length === 0) {
+      return;
+    }
+
+    await orm
+      .update(photoTab)
+      .set(updates)
       .where(and(...whereList));
   },
 

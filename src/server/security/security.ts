@@ -22,6 +22,7 @@ const SYSTEM_PATHS = [
   '/storage',
   '/photo/setVisibility',
   '/photo/setAllowDownload',
+  '/photo/batchEdit',
   '/photo/recycle',
   '/photo/restore',
   '/photo/delete',

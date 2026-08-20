@@ -773,8 +773,8 @@ sequenceDiagram
    - Lakukan upgrade berkala ke Next.js 16.3+ dan Sharp 0.35+ saat rilis patch keamanan telah teruji stabil.
 6. **Replace Admin `<img>` with Next.js `<Image />`** *(Performance)*:
    - Ganti sisa tag `<img>` di `/admin/insights` dan `/comments` dengan komponen `<Image />` untuk optimasi caching browser maksimal.
-7. **Batch Photo Metadata Editing UI** *(Admin UX)*:
-   - Berikan fitur multiselect untuk mengubah visibilitas, tanggal, atau izin unduh bagi puluhan foto sekaligus dalam satu kali klik.
+7. **Batch Photo Metadata Editing UI** *(Admin UX)* - **[SELESAI / IMPLEMENTED]**:
+   - Fitur multiselect batch metadata editor tersedia langsung di selection drawer & masonry grid, memungkinkan admin mengubah visibilitas (Both, Gallery Only, Album Only, Archived), izin unduh, tanggal/jam pengambilan, serta status favorit secara massal dalam satu klik dengan update in-memory instan.
 8. **Automated Trash Retention Purge via Vercel Cron** *(Automation)*:
    - Daftarkan endpoint `/api/cron/cleanup` dengan secret token yang dipanggil berkala oleh Vercel Cron untuk membersihkan tempat sampah otomatis sesuai hari yang disetel di Settings.
 9. **OpenGraph Dynamic Meta Image Generator** *(SEO & Social)*:

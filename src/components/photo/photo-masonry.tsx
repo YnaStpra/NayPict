@@ -8,11 +8,17 @@ import {
   usePositioner,
 } from "masonic"
 
+import dynamic from "next/dynamic"
 import { useApp } from "@/app/provider"
 import { useIsMobile } from "@/hooks/use-mobile"
 import { PhotoCard } from "@/components/photo/photo-card"
 import { PhotoSelectionDrawer } from "@/components/photo/photo-selection-drawer"
 import { type PhotoVo } from "@/server/entity/vo/photo"
+
+const PhotoBatchEditDialog = dynamic(
+  () => import("@/components/photo/photo-batch-edit-dialog").then((mod) => mod.PhotoBatchEditDialog),
+  { ssr: false }
+)
 
 interface PhotoMasonryProps {
   photos: PhotoVo[]
@@ -25,6 +31,7 @@ interface PhotoMasonryProps {
   onAlbumOpen?: (photoIds: string[]) => void
   onAlbumRemove?: (photoIds: string[]) => void
   onPhotoPin?: (photoId: string, isPinned: boolean) => void
+  onPhotosUpdated?: (photoIds: string[], changes: Partial<PhotoVo>) => void
 }
 
 // Convert rem unit to current root font size px safely.
@@ -88,14 +95,17 @@ const PhotoMasonry = memo(function PhotoMasonry({
   onAlbumOpen,
   onAlbumRemove,
   onPhotoPin,
+  onPhotosUpdated,
 }: PhotoMasonryProps) {
-  const { sidebarOpen } = useApp()
+  const { sidebarOpen, userInfo } = useApp()
+  const isAdmin = userInfo?.type === 1
   const isMobile = useIsMobile()
   const wrapRef = useRef<HTMLDivElement | null>(null)
   const onReachBottomRef = useRef(onReachBottom)
   const [windowHeight, setWindowHeight] = useState(() => (typeof window !== "undefined" ? window.innerHeight : 800))
   const [wrapPosition, setWrapPosition] = useState({ offset: 0, width: getInitialWrapWidth(sidebarOpen) })
   const [selectedPhotoIds, setSelectedPhotoIds] = useState<string[]>([])
+  const [batchEditDialogOpen, setBatchEditDialogOpen] = useState(false)
   const touchHoverCloseRef = useRef<(() => void) | null>(null)
   const width = wrapPosition.width
   const columnWidth = isMobile ? (width - 4) / 2 : 240
@@ -323,17 +333,33 @@ const PhotoMasonry = memo(function PhotoMasonry({
     onAlbumRemove?.(photoIds)
   }
 
+  // Handle batch edit success and propagate in-memory updates.
+  function handleBatchEditSuccess(photoIds: string[], changes: Partial<PhotoVo>) {
+    clearSelectedPhotos()
+    onPhotosUpdated?.(photoIds, changes)
+  }
+
   return (
     <>
       <PhotoSelectionDrawer
         open={visibleSelectedPhotoIds.length > 0}
+        selectedCount={visibleSelectedPhotoIds.length}
         onClose={clearSelectedPhotos}
         onDelete={deleteSelectedPhotos}
         onSelectAll={selectFirstPhotos}
         onRestore={onPhotoRestore ? restoreSelectedPhotos : undefined}
         onAlbumOpen={onAlbumOpen ? openAlbumDialog : undefined}
         onAlbumRemove={onAlbumRemove ? removeAlbumPhotos : undefined}
+        onBatchEdit={isAdmin ? () => setBatchEditDialogOpen(true) : undefined}
       />
+      {isAdmin && (
+        <PhotoBatchEditDialog
+          open={batchEditDialogOpen}
+          onOpenChange={setBatchEditDialogOpen}
+          photoIds={visibleSelectedPhotoIds}
+          onSuccess={handleBatchEditSuccess}
+        />
+      )}
       <div ref={wrapRef} className="w-full overflow-x-hidden">
         <MasonryScroller
           className="outline-transparent"

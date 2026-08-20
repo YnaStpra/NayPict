@@ -56,6 +56,7 @@ export default function Page() {
     refreshPhotoList,
     removePhotos,
     updatePhoto,
+    updatePhotos,
     setPhotos,
   } = usePhotoList({ favorite: PhotoFavoriteEnum.YES }, PHOTO_LIST_PAGE_SIZE, initialPhotos)
   const [modelPhotoIndex, setModelPhotoIndex] = useState(0)
@@ -250,6 +251,7 @@ export default function Page() {
                 onPhotoFavorite={changePhotoFavorite}
                 onPhotoDelete={recyclePhotos}
                 onAlbumOpen={openAlbumDialog}
+                onPhotosUpdated={isAdmin ? updatePhotos : undefined}
               />
             ) : (
               <PhotoMasonrySkeleton photos={initialPhotos} />
