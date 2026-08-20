@@ -113,7 +113,7 @@ export default function AdminPage() {
     <SidebarProvider open={sidebarOpen} onOpenChange={setSidebarOpen}>
       <AppSidebar />
       <SidebarInset>
-        <header className="sticky top-0 z-20 flex h-12 shrink-0 items-center justify-between gap-2 bg-background/80 backdrop-blur-md px-4 border-b">
+        <header className="sticky top-0 z-30 flex h-12 shrink-0 items-center justify-between gap-2 bg-background/95 backdrop-blur-md px-4 border-b">
           <div className="flex items-center gap-2">
             <SidebarTrigger className="-ml-1" />
             <Separator orientation="vertical" className="h-4" />

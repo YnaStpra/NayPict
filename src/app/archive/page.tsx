@@ -204,7 +204,7 @@ export default function ArchivePage() {
       <SidebarProvider open={sidebarOpen} onOpenChange={setSidebarOpen}>
         <AppSidebar />
         <SidebarInset>
-          <header className="flex h-13 shrink-0 items-center justify-between gap-2 bg-background">
+          <header className="sticky top-0 z-30 flex h-12 shrink-0 items-center justify-between gap-2 bg-background/95 backdrop-blur-md border-b transition-[width,height] ease-linear">
             <div className="flex min-w-0 items-center gap-2 px-4">
               <SidebarTrigger className="-ml-1" />
               <Separator

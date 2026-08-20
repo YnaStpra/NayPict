@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/set-state-in-effect */
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
@@ -157,7 +158,7 @@ export default function DuplicatesPage() {
       <SidebarProvider open={sidebarOpen} onOpenChange={setSidebarOpen}>
         <AppSidebar />
         <SidebarInset>
-          <header className="sticky top-0 z-20 flex h-12 shrink-0 items-center justify-between gap-2 bg-background/95 backdrop-blur-md border-b px-4 transition-[width,height] ease-linear">
+          <header className="sticky top-0 z-30 flex h-12 shrink-0 items-center justify-between gap-2 bg-background/95 backdrop-blur-md border-b px-4 transition-[width,height] ease-linear">
             <div className="flex items-center gap-2">
               <SidebarTrigger className="-ml-1" />
               <Separator orientation="vertical" className="mr-2 data-vertical:h-4" />

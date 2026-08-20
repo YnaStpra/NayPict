@@ -80,9 +80,9 @@ export default function Page() {
         toast.success(`Album "${name}" berhasil dibuat!`)
         void refreshAlbumData()
       })
-      .catch((err: any) => {
+      .catch((err: unknown) => {
         console.error("Failed to add album:", err)
-        toast.error(err?.message || "Gagal membuat album baru.")
+        toast.error((err as Error)?.message || "Gagal membuat album baru.")
       })
   }
 
@@ -190,7 +190,7 @@ export default function Page() {
         <AppSidebar />
         <SidebarInset>
           <header
-            className="sticky top-0 z-20 flex h-12 shrink-0 items-center justify-between gap-2 bg-background transition-[width,height] ease-linear">
+            className="sticky top-0 z-30 flex h-12 shrink-0 items-center justify-between gap-2 bg-background/95 backdrop-blur-md border-b transition-[width,height] ease-linear">
             <div className="flex min-w-0 items-center gap-2 px-4">
               <SidebarTrigger className="-ml-1" />
               <Separator

@@ -304,7 +304,7 @@ export default function CommentsManagementPage() {
         <AppSidebar />
         <SidebarInset>
           {/* Top Bar Header */}
-          <header className="flex h-12 shrink-0 items-center justify-between gap-2 border-b bg-background px-4">
+          <header className="sticky top-0 z-30 flex h-12 shrink-0 items-center justify-between gap-2 border-b bg-background/95 backdrop-blur-md px-4 transition-[width,height] ease-linear">
             <div className="flex min-w-0 items-center gap-2">
               <SidebarTrigger className="-ml-1" />
               <Separator orientation="vertical" className="mr-2 data-vertical:h-4" />
