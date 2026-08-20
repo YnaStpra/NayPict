@@ -1,13 +1,15 @@
 import { cookies } from "next/headers"
 import { TrashProvider } from "@/app/trash/provider"
 import { getLoginInfo } from "@/lib/cookie"
-import { albumService } from "@/server/service/album-service"
+import { PHOTO_LIST_PAGE_SIZE } from "@/server/const/global"
+import { PhotoStatusEnum } from "@/server/enums/photo-enum"
+import { photoService } from "@/server/service/photo-service"
 
 interface TrashLayoutProps {
   children: React.ReactNode
 }
 
-// Server side query recycle bin virtual photo album，and provided to /trash Page initialization entry。
+// Server side prefetch recycled photos for /trash page.
 export default async function TrashLayout({ children }: TrashLayoutProps) {
   const cookieStore = await cookies()
   const { userId } = await getLoginInfo(cookieStore.toString())
@@ -16,10 +18,17 @@ export default async function TrashLayout({ children }: TrashLayoutProps) {
     return null
   }
 
-  const data = await albumService.trash(userId)
+  const data = await photoService.list({
+    size: PHOTO_LIST_PAGE_SIZE,
+    cursorPhotoId: null,
+    cursorTime: null,
+    favorite: null,
+    status: PhotoStatusEnum.DELETE,
+    albumId: null,
+  }, userId)
 
   return (
-    <TrashProvider initialAlbum={data}>
+    <TrashProvider initialPhotos={data.list}>
       {children}
     </TrashProvider>
   )

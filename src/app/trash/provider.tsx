@@ -1,38 +1,31 @@
 "use client"
 
 import { createContext, useContext } from "react"
-
-import { type AlbumVo } from "@/server/entity/vo/album"
+import { type PhotoVo } from "@/server/entity/vo/photo"
 
 interface TrashContextValue {
-  // initialAlbum Save the recycle bin virtual album queried by the server。
-  initialAlbum: AlbumVo
+  // initialPhotos holds the first page of recycled photos queried on the server.
+  initialPhotos: PhotoVo[]
 }
 
 interface TrashProviderProps {
-  // children yes /trash Page content under routing。
   children: React.ReactNode
-  // initialAlbum Save the recycle bin virtual album queried by the server。
-  initialAlbum: AlbumVo
+  initialPhotos: PhotoVo[]
 }
 
-const TrashContext = createContext<TrashContextValue | null>(null)
+const TrashContext = createContext<TrashContextValue>({
+  initialPhotos: [],
+})
 
-// read /trash The recycle bin album prefetched by the server under routing。
+// Read the recycled photos prefetched by the server under /trash.
 function useTrashContext() {
-  const context = useContext(TrashContext)
-
-  if (!context) {
-    throw new Error("useTrashContext must be used within TrashProvider.")
-  }
-
-  return context
+  return useContext(TrashContext)
 }
 
-// Give /trash The client component under routing provides server-side prefetching of the recycle bin album.。
-function TrashProvider({ children, initialAlbum }: TrashProviderProps) {
+// Provides server-prefetched recycled photos to the client.
+function TrashProvider({ children, initialPhotos }: TrashProviderProps) {
   return (
-    <TrashContext.Provider value={{ initialAlbum }}>
+    <TrashContext.Provider value={{ initialPhotos }}>
       {children}
     </TrashContext.Provider>
   )

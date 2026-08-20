@@ -69,6 +69,8 @@
   "archive.emptyTitle": "No Archived Photos",
   "archive.emptyDescription": "Photos hidden from both Main Gallery and Albums will appear here.",
   "trash.title": "Trash",
+  "trash.emptyTitle": "Trash is Empty",
+  "trash.emptyDescription": "Photos you move to trash will appear here.",
   "trash.clearing": "Emptying trash",
   "trash.cleared": "Trash emptied",
   "trash.deletePhotosTitle": "Permanently Delete These Photos?",
