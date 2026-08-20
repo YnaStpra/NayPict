@@ -3,6 +3,7 @@ import result from '@/server/model/result';
 import { photoService } from '@/server/service/photo-service';
 import { getUserId } from "@/server/security/context";
 import {
+  type PhotoBatchEditBo,
   type PhotoDeleteBo,
   type PhotoExistsBo,
   type PhotoFavoriteBo,
@@ -20,6 +21,13 @@ import type { HonoEnv } from '../hono/type';
 // This module registers photo-related interfaces.
 
 export function registerPhotoApi(app: Hono<HonoEnv>) {
+  // Batch edit photo metadata (visibility, allowDownload, takenTime, favorite).
+  app.post('/photo/batchEdit', async (c: Context) => {
+    const body = await c.req.json<PhotoBatchEditBo>();
+    await photoService.batchEdit(body, getUserId());
+    return c.json(result.ok());
+  });
+
   // Set photo display scope / visibility (Both, Gallery Only, Album Only, Archived).
   app.post('/photo/setVisibility', async (c: Context) => {
     const body = await c.req.json<PhotoSetVisibilityBo>();

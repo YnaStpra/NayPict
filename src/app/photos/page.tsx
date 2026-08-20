@@ -104,6 +104,7 @@ export default function Page() {
     prependPhotos,
     removePhotos,
     updatePhoto,
+    updatePhotos,
   } = usePhotoList({}, PHOTO_LIST_PAGE_SIZE, initialPhotos)
 
   const handleSortChange = (key: SortOptionKey) => {
@@ -436,6 +437,7 @@ export default function Page() {
                     onPhotoFavorite={isAdmin ? changePhotoFavorite : undefined}
                     onPhotoDelete={recyclePhotos}
                     onAlbumOpen={openAlbumDialog}
+                    onPhotosUpdated={isAdmin ? updatePhotos : undefined}
                   />
                   {!hasMore && photos.length > 0 && (
                     <div className="py-12 pb-16 text-center select-none">

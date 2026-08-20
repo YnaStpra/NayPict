@@ -56,6 +56,7 @@ export default function ArchivePage() {
     loadMorePhotos,
     removePhotos,
     updatePhoto,
+    updatePhotos,
     setPhotos,
   } = usePhotoList({ visibility: PhotoVisibilityEnum.ARCHIVED }, PHOTO_LIST_PAGE_SIZE, initialPhotos)
 
@@ -245,6 +246,7 @@ export default function ArchivePage() {
                   onPhotoFavorite={changePhotoFavorite}
                   onPhotoDelete={recyclePhotos}
                   onAlbumOpen={openAlbumDialog}
+                  onPhotosUpdated={isAdmin ? updatePhotos : undefined}
                 />
               )
             ) : (

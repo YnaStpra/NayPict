@@ -102,6 +102,7 @@ export default function Page() {
     prependPhotos,
     removePhotos,
     updatePhoto,
+    updatePhotos,
     setPhotos,
   } = usePhotoList({ albumId }, PHOTO_LIST_PAGE_SIZE, initialPhotos)
 
@@ -486,6 +487,7 @@ export default function Page() {
                   onAlbumOpen={isAdmin ? openAlbumDialog : undefined}
                   onAlbumRemove={isAdmin ? removeAlbumPhotos : undefined}
                   onPhotoPin={isAdmin ? handleTogglePin : undefined}
+                  onPhotosUpdated={isAdmin ? updatePhotos : undefined}
                 />
               )
             ) : (

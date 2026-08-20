@@ -77,7 +77,16 @@ interface PhotoOnThisDayBo {
   tzOffset?: number | null;
 }
 
+interface PhotoBatchEditBo {
+  photoIds: string[];
+  visibility?: number | null;
+  allowDownload?: boolean | null;
+  takenTime?: string | null;
+  favorite?: number | null;
+}
+
 export type {
+  PhotoBatchEditBo,
   PhotoDeleteBo,
   PhotoExistsBo,
   PhotoFavoriteBo,
