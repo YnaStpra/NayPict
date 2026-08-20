@@ -499,7 +499,7 @@ erDiagram
 
 | Severity | Area | File | Problem / Kondisi Aktual | Rekomendasi Hardening |
 |---|---|---|---|---|
-| 🟡 **MEDIUM** | Auth Secret Fallback | `src/server/lib/jwt.ts` | Jika `JWT_SECRET` tidak disetel di `.env`, sistem menggunakan fallback string bawaan. | Wajibkan aplikasi melempar *fatal startup error* jika `JWT_SECRET` kosong di environment production. |
+| 🟢 **RESOLVED** | Auth Secret Validation | `src/instrumentation.ts` & `src/server/lib/jwt.ts` | Validasi fail-fast saat startup aktif; aplikasi menolak boot jika `JWT_SECRET` kosong/kurang dari 16 karakter di mode produksi. | Sudah diimplementasikan dan diverifikasi (Hardened). |
 | 🟡 **MEDIUM** | Password Hash Algorithm | `src/server/lib/crypto.ts` | Password hashing saat ini menggunakan `SHA-256(password + salt)`. | Tingkatkan ke `Argon2id` atau `bcrypt` untuk ketahanan terhadap brute-force GPU berskala besar. |
 | 🟢 **LOW** | External Geocode API | `src/server/service/location-service.ts` | Memanggil OSM Nominatim publik tanpa API key berbayar. | Pertahankan rate limit in-memory caching (sudah ada) atau sediakan opsi provider Mapbox/Google Maps. |
 | 🟢 **LOW** | Public Comments Spam | `src/server/service/comment-service.ts` | Belum ada captcha (Turnstile) pada pengiriman komentar publik. | Tambahkan Cloudflare Turnstile pada form komentar publik untuk mencegah bot spam. |
@@ -761,8 +761,8 @@ sequenceDiagram
 
 ## 30. TOP 10 PRIORITIES FOR FUTURE DEVELOPMENT
 
-1. **Enforce Strict `JWT_SECRET` Validation on Startup** *(Security)*:
-   - Pastikan aplikasi gagal start dengan pesan error yang jelas jika `JWT_SECRET` belum disetel di `.env` produksi.
+1. **Enforce Strict `JWT_SECRET` Validation on Startup** *(Security)* - **[SELESAI / HARDENED]**:
+   - Validasi ketat aktif di `src/instrumentation.ts` dan `src/server/lib/jwt.ts`. Server langsung menolak start jika `JWT_SECRET` kosong/pendek di produksi.
 2. **Cloudflare Turnstile on Public Comments** *(Security & Spam Prevention)*:
    - Tambahkan widget verifikasi bot pada form komentar publik di sidebar foto.
 3. **Upgrade Password Hashing to Argon2id** *(Security)*:

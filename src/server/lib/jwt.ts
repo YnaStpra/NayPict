@@ -8,11 +8,11 @@ interface LoginTokenPayload extends JWTPayload {
   uuid: string;
 }
 
-// Retrieve JWT secret from environment and fail fast if missing in production.
+// Retrieve JWT secret from environment and fail fast if missing.
 function getJwtSecret(): string {
-  const secret = process.env.JWT_SECRET;
+  const secret = process.env.JWT_SECRET?.trim();
   if (!secret) {
-    throw new Error('JWT_SECRET environment variable is required but not set.');
+    throw new Error('FATAL: [SECURITY] JWT_SECRET environment variable is required for authentication but not set in environment.');
   }
   return secret;
 }
@@ -37,9 +37,9 @@ async function verifyLoginToken(token: string | undefined): Promise<LoginTokenPa
     return null;
   }
 
-  const secret = process.env.JWT_SECRET;
+  const secret = process.env.JWT_SECRET?.trim();
   if (!secret) {
-    console.error('[AUTH] JWT_SECRET is not set — cannot verify token.');
+    console.error('FATAL: [SECURITY] JWT_SECRET is not configured — token verification rejected.');
     return null;
   }
 
