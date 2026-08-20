@@ -664,7 +664,7 @@ Hasil eksekusi `npm audit` menunjukkan 3 advisory dependensi teridentifikasi:
 |---|---|---|---|---|
 | 🟡 **Medium** | Migrasi SQLite Lokal ke Neon | `src/server/infra/db.ts` | Konfigurasi awal memiliki sisa referensi `better-sqlite3` untuk local dev. | Pastikan seluruh runtime production menggunakan client Neon Serverless murni. |
 | 🟡 **Medium** | Upstream Next.js CVEs | `package.json` | Advisory npm audit pada Next.js `16.2.10`. | Rencanakan bump versi ke Next.js patch terbaru saat stabil. |
-| 🟢 **Low** | Unused `<img>` in Admin Tables | `src/app/admin/insights/page.tsx` | Peringatan ESLint terkait LCP bandwidth pada tabel internal admin. | Ganti tag `<img>` di admin insights dengan komponen `<Image />` Next.js. |
+| 🟢 **Resolved** | Image Component Optimization | `src/app/admin/insights/page.tsx`, `/comments`, `/duplicates` | Seluruh sisa tag `<img>` pada panel admin telah digantikan dengan komponen `<Image />` Next.js dengan sizing eksplisit. | Sudah diimplementasikan dan diverifikasi. |
 
 ---
 
@@ -771,8 +771,8 @@ sequenceDiagram
    - Tambahkan sliding window rate limiter in-memory untuk mencegah brute-force login dan pengunduhan massal tak wajar.
 5. **Next.js & Sharp Dependency Bump** *(Maintenance)*:
    - Lakukan upgrade berkala ke Next.js 16.3+ dan Sharp 0.35+ saat rilis patch keamanan telah teruji stabil.
-6. **Replace Admin `<img>` with Next.js `<Image />`** *(Performance)*:
-   - Ganti sisa tag `<img>` di `/admin/insights` dan `/comments` dengan komponen `<Image />` untuk optimasi caching browser maksimal.
+6. **Replace Admin `<img>` with Next.js `<Image />`** *(Performance)* - **[SELESAI / IMPLEMENTED]**:
+   - Seluruh sisa tag `<img>` di panel admin (`/admin/insights`, `/comments`, `/duplicates`, dan `PhotoInsightsDialog`) telah dimigrasikan ke komponen `<Image />` Next.js dengan dimensi eksplisit dan optimasi caching/layout shift.
 7. **Batch Photo Metadata Editing UI** *(Admin UX)* - **[SELESAI / IMPLEMENTED]**:
    - Fitur multiselect batch metadata editor tersedia langsung di selection drawer & masonry grid, memungkinkan admin mengubah visibilitas (Both, Gallery Only, Album Only, Archived), izin unduh, tanggal/jam pengambilan, serta status favorit secara massal dalam satu klik dengan update in-memory instan.
 8. **Automated Trash Retention Purge via Vercel Cron** *(Automation)*:

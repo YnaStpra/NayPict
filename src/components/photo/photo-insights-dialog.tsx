@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import Image from "next/image"
 import {
   Dialog,
   DialogContent,
@@ -106,9 +107,12 @@ export function PhotoInsightsDialog({ photoId, open, onOpenChange }: PhotoInsigh
           <div className="space-y-5 pt-2">
             {/* Photo Preview & Key Summary */}
             <div className="flex items-center gap-4 p-3 rounded-xl bg-muted/40 border border-border/50">
-              <img
+              <Image
                 src={detail.thumbnail || detail.preview}
                 alt={detail.name}
+                width={64}
+                height={64}
+                unoptimized
                 className="size-16 rounded-lg object-cover shrink-0 border border-border/60"
               />
               <div className="min-w-0 flex-1">

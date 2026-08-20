@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
+import Image from "next/image"
 import dynamic from "next/dynamic"
 import {
   Breadcrumb,
@@ -531,9 +532,12 @@ export default function AdminInsightsPage() {
                             <span className="text-xs font-bold text-muted-foreground w-4 text-center">
                               {index + 1}
                             </span>
-                            <img
+                            <Image
                               src={photo.thumbnail}
                               alt={photo.name}
+                              width={48}
+                              height={48}
+                              unoptimized
                               className="size-12 rounded-lg object-cover shrink-0 border border-border/60"
                             />
                             <div className="min-w-0 flex-1">
@@ -602,9 +606,12 @@ export default function AdminInsightsPage() {
                             <span className="text-xs font-bold text-muted-foreground w-4 text-center">
                               {index + 1}
                             </span>
-                            <img
+                            <Image
                               src={photo.thumbnail}
                               alt={photo.name}
+                              width={48}
+                              height={48}
+                              unoptimized
                               className="size-12 rounded-lg object-cover shrink-0 border border-border/60"
                             />
                             <div className="min-w-0 flex-1">
