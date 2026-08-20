@@ -26,7 +26,7 @@ export function registerLoginApi(app: Hono<HonoEnv>) {
       setCookie(c, TOKEN_COOKIE_NAME, data.token, {
         path: '/',
         maxAge: TOKEN_COOKIE_MAX_AGE,
-        sameSite: process.env.NODE_ENV === 'production' ? 'None' : 'Lax',
+        sameSite: 'Lax',
         secure: process.env.NODE_ENV === 'production',
         httpOnly: true,
       });

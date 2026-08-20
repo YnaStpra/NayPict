@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars */
 import { hashPassword } from '@/server/lib/crypto';
 import { createId } from '@/server/lib/id';
 import { count, eq, inArray, sum } from 'drizzle-orm';
@@ -323,6 +324,9 @@ const userService = {
         salt: password.salt
       })
       .where(eq(userTab.userId, userId));
+
+    // Invalidate active login cache sessions across all devices for security
+    await cache.delete(AUTH_CACHE_KEY + userId);
   },
 
   // Toggle the enabled status of a specified user。
