@@ -147,7 +147,18 @@ function formatRelativeTime(dateStr?: string | null, locale = "en"): string {
   }).format(date)
 }
 
-// Read the current browser relative UTC offset minutes，East Eighth District is 480。
+// Format "X years ago" description with localization support.
+function formatYearsAgo(yearsAgo: number, locale = "en"): string {
+  if (locale.startsWith("id")) {
+    return `${yearsAgo} tahun lalu`;
+  }
+  if (locale.startsWith("zh")) {
+    return `${yearsAgo}年前`;
+  }
+  return yearsAgo === 1 ? "1 year ago" : `${yearsAgo} years ago`;
+}
+
+// Read the current browser relative UTC offset minutes, East Eighth District is 480.
 function getLocalTzOffsetMin() {
   return -new Date().getTimezoneOffset()
 }
@@ -157,7 +168,9 @@ export {
   formatPhotoTakenDateTime,
   formatRecycleTime,
   formatRelativeTime,
+  formatYearsAgo,
   getLocalTzOffsetMin,
   parseTime,
   parseUtcTime,
 }
+

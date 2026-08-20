@@ -29,6 +29,7 @@ import {
 import { PhotoUploadSettings, readPhotoUploadSettings } from "@/components/photo/photo-upload-settings"
 import { createPhotoCover } from "@/lib/upload-cover"
 import { compressImageFile } from "@/lib/image-compress"
+import { extractClientExif } from "@/lib/photo-client-exif"
 import { useStorageStore } from "@/store/storage-store"
 import { usePhotoStore } from "@/store/photo-store"
 import { photoExists, photoRecycle } from "@/request/photo"
@@ -394,6 +395,9 @@ export function PhotoUploadDialog() {
         return
       }
 
+      // Extract EXIF/GPS directly from original file in browser as guaranteed fallback
+      const clientExif = await extractClientExif(item.file);
+
       if (pausedRef.current) {
         setPreviews((prev) => prev.map((p) => (
           p.id === item.id ? { ...p, progress: 0, status: "new" } : p
@@ -410,6 +414,21 @@ export function PhotoUploadDialog() {
       formData.set("allowDownload", String(uploadSettings.allowDownload))
       if (item.albumId) {
         formData.set("albumId", item.albumId)
+      }
+      if (clientExif.latitude != null) {
+        formData.set("latitude", String(clientExif.latitude))
+      }
+      if (clientExif.longitude != null) {
+        formData.set("longitude", String(clientExif.longitude))
+      }
+      if (clientExif.altitude != null) {
+        formData.set("altitude", String(clientExif.altitude))
+      }
+      if (clientExif.takenTime) {
+        formData.set("takenTime", clientExif.takenTime)
+      }
+      if (clientExif.exif) {
+        formData.set("exifJson", clientExif.exif)
       }
 
       const result = await uploadPhotoAdd(

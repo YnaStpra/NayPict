@@ -32,7 +32,7 @@ import { SettingItem } from "@/components/setting/setting-item"
 import { TotpSettingsCard } from "@/components/setting/totp-settings-card"
 import { settingSet } from "@/request/setting"
 import { type Setting } from "@/server/entity/setting"
-import { SettingPhotoDedupEnum, SettingSyncDeleteEnum } from "@/server/enums/setting-enum"
+import { SettingOnThisDayEnum, SettingPhotoDedupEnum, SettingSyncDeleteEnum } from "@/server/enums/setting-enum"
 import { useTranslations } from "next-intl"
 
 export default function Page() {
@@ -55,6 +55,14 @@ export default function Page() {
     setSetting((prev) => ({
       ...prev,
       photoDedup: checked ? SettingPhotoDedupEnum.ENABLE : SettingPhotoDedupEnum.DISABLE,
+    }))
+  }
+
+  // Modify On This Day memories showcase switch value。
+  function changeOnThisDay(checked: boolean) {
+    setSetting((prev) => ({
+      ...prev,
+      onThisDay: checked ? SettingOnThisDayEnum.ENABLE : SettingOnThisDayEnum.DISABLE,
     }))
   }
 
@@ -135,6 +143,12 @@ export default function Page() {
               <Switch
                 checked={setting.photoDedup === SettingPhotoDedupEnum.ENABLE}
                 onCheckedChange={changePhotoDedup}
+              />
+            </SettingItem>
+            <SettingItem title={t("onThisDay")} description={t("onThisDayDescription")}>
+              <Switch
+                checked={setting.onThisDay !== SettingOnThisDayEnum.DISABLE}
+                onCheckedChange={changeOnThisDay}
               />
             </SettingItem>
             <TotpSettingsCard />

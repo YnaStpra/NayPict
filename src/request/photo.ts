@@ -1,13 +1,42 @@
 import { http } from "@/request/request";
-import { type PhotoDeleteBo, type PhotoExistsBo, type PhotoFavoriteBo, type PhotoListBo, type PhotoRandomIdListBo, type PhotoRecycleBo, type PhotoRestoreBo, type PhotoSetAllowDownloadBo, type PhotoTakenDateListBo } from "@/server/entity/bo/photo";
+import {
+  type PhotoDeleteBo,
+  type PhotoExistsBo,
+  type PhotoFavoriteBo,
+  type PhotoListBo,
+  type PhotoOnThisDayBo,
+  type PhotoRandomIdListBo,
+  type PhotoRecycleBo,
+  type PhotoRestoreBo,
+  type PhotoSetAllowDownloadBo,
+  type PhotoSetVisibilityBo,
+  type PhotoTakenDateListBo,
+} from "@/server/entity/bo/photo";
 import { type PageVo } from "@/server/entity/vo/common";
-import { type PhotoAddResultVo, type PhotoDuplicateGroupVo, type PhotoExistsVo, type PhotoTakenDateVo, type PhotoVo } from "@/server/entity/vo/photo";
+import {
+  type PhotoAddResultVo,
+  type PhotoDuplicateGroupVo,
+  type PhotoExistsVo,
+  type PhotoOnThisDayVo,
+  type PhotoTakenDateVo,
+  type PhotoVo,
+} from "@/server/entity/vo/photo";
 
 // This module encapsulates photo-related interface requests.
+
+// Update photo display scope / visibility (Both, Gallery Only, Album Only, Archived).
+export function photoSetVisibility(params: PhotoSetVisibilityBo) {
+  return http.post<void>('/photo/setVisibility', params);
+}
 
 // Query the photo list by pagination and conditions.
 export function photoList(params: PhotoListBo) {
   return http.post<PageVo<PhotoVo>>('/photo/list', params);
+}
+
+// Query photos taken on this day in previous years.
+export function photoOnThisDay(params: PhotoOnThisDayBo = {}) {
+  return http.post<PhotoOnThisDayVo>('/photo/onThisDay', params);
 }
 
 // Fetch all photo IDs in random order for client-side random pagination.

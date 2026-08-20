@@ -1,4 +1,5 @@
-import { and, asc, count, desc, eq, getTableColumns, gt, gte, inArray, isNotNull, lt, lte, or, sql } from 'drizzle-orm';
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars */
+import { and, asc, count, desc, eq, getTableColumns, gt, gte, inArray, isNotNull, isNull, lt, lte, or, sql } from 'drizzle-orm';
 import { createId } from '@/server/lib/id';
 import { type Photo, photoTab } from '@/server/entity/photo';
 import { albumPhotoTab } from '@/server/entity/album-photo';
@@ -10,23 +11,33 @@ import {
   type PhotoExistsBo,
   type PhotoFavoriteBo,
   type PhotoListBo,
+  type PhotoOnThisDayBo,
   type PhotoRandomIdListBo,
   type PhotoRecycleBo,
   type PhotoRestoreBo,
   type PhotoSetAllowDownloadBo,
+  type PhotoSetVisibilityBo,
   type PhotoTakenDateListBo,
 } from '@/server/entity/bo/photo';
 import { PHOTO_LIST_PAGE_SIZE } from '@/server/const/global';
-import { PhotoFavoriteEnum, PhotoStatusEnum } from '@/server/enums/photo-enum';
+import { PhotoFavoriteEnum, PhotoStatusEnum, PhotoVisibilityEnum } from '@/server/enums/photo-enum';
 import { StorageStatusEnum, StorageTypeOptions } from '@/server/enums/storage-enum';
 import { type PageVo } from '@/server/entity/vo/common';
-import { type PhotoAddResultVo, type PhotoDuplicateGroupVo, type PhotoExistsVo, type PhotoTakenDateVo, type PhotoVo } from '@/server/entity/vo/photo';
+import {
+  type PhotoAddResultVo,
+  type PhotoDuplicateGroupVo,
+  type PhotoExistsVo,
+  type PhotoOnThisDayItemVo,
+  type PhotoOnThisDayVo,
+  type PhotoTakenDateVo,
+  type PhotoVo,
+} from '@/server/entity/vo/photo';
 import { type Storage } from '@/server/entity/storage';
 import { storageService } from '@/server/service/storage-service';
 import { buildContentDisposition, formatFileTimestamp, splitFileName } from '@/server/lib/file';
 import { albumService } from '@/server/service/album-service';
 import { settingService } from '@/server/service/setting-service';
-import { SettingPhotoDedupEnum, SettingSyncDeleteEnum } from '@/server/enums/setting-enum';
+import { SettingOnThisDayEnum, SettingPhotoDedupEnum, SettingSyncDeleteEnum } from '@/server/enums/setting-enum';
 import { formatHttpUrl, toMediaUrl } from '@/lib/url';
 import { fileChecksum } from '@/server/lib/crypto';
 import { processPhotoImages } from '@/server/lib/photo-process';
@@ -80,6 +91,27 @@ const photoService = {
 
     if (params.endTakenTime) {
       baseWhereList.push(lte(photoTab.takenTime, params.endTakenTime));
+    }
+
+    // Scoped visibility filtering (Both, Gallery Only, Album Only, Archived):
+    if (params.visibility) {
+      baseWhereList.push(eq(photoTab.visibility, params.visibility));
+    } else if (status === PhotoStatusEnum.NORMAL && (!params.photoIds || params.photoIds.length === 0)) {
+      if (params.albumId) {
+        baseWhereList.push(
+          or(
+            inArray(photoTab.visibility, [PhotoVisibilityEnum.BOTH, PhotoVisibilityEnum.ALBUM_ONLY]),
+            isNull(photoTab.visibility)
+          )!
+        );
+      } else {
+        baseWhereList.push(
+          or(
+            inArray(photoTab.visibility, [PhotoVisibilityEnum.BOTH, PhotoVisibilityEnum.GALLERY_ONLY]),
+            isNull(photoTab.visibility)
+          )!
+        );
+      }
     }
 
     const whereList = [...baseWhereList];
@@ -199,6 +231,26 @@ const photoService = {
       whereList.push(lte(photoTab.takenTime, params.endTakenTime));
     }
 
+    if (params.visibility) {
+      whereList.push(eq(photoTab.visibility, params.visibility));
+    } else if (status === PhotoStatusEnum.NORMAL) {
+      if (params.albumId) {
+        whereList.push(
+          or(
+            inArray(photoTab.visibility, [PhotoVisibilityEnum.BOTH, PhotoVisibilityEnum.ALBUM_ONLY]),
+            isNull(photoTab.visibility)
+          )!
+        );
+      } else {
+        whereList.push(
+          or(
+            inArray(photoTab.visibility, [PhotoVisibilityEnum.BOTH, PhotoVisibilityEnum.GALLERY_ONLY]),
+            isNull(photoTab.visibility)
+          )!
+        );
+      }
+    }
+
     const rows = params.albumId
       ? await orm
         .select({ photoId: photoTab.photoId })
@@ -231,6 +283,22 @@ const photoService = {
       whereList.push(eq(photoTab.favorite, params.favorite));
     }
 
+    if (params.albumId) {
+      whereList.push(
+        or(
+          inArray(photoTab.visibility, [PhotoVisibilityEnum.BOTH, PhotoVisibilityEnum.ALBUM_ONLY]),
+          isNull(photoTab.visibility)
+        )!
+      );
+    } else {
+      whereList.push(
+        or(
+          inArray(photoTab.visibility, [PhotoVisibilityEnum.BOTH, PhotoVisibilityEnum.GALLERY_ONLY]),
+          isNull(photoTab.visibility)
+        )!
+      );
+    }
+
     // Group by calendar day (YYYY-MM-DD) from takenTime ISO timestamp string.
     const takenDate = sql<string>`substr(${photoTab.takenTime}, 1, 10)`;
     const selectColumns = {
@@ -260,6 +328,114 @@ const photoService = {
       date: item.date,
       count: Number(item.count),
     }));
+  },
+
+  // Query photos taken on this day (month & day) in previous years.
+  async onThisDay(params: PhotoOnThisDayBo = {}, userId?: string): Promise<PhotoOnThisDayVo> {
+    const now = new Date();
+    // If tzOffset (minutes) is provided, calculate client's local date
+    if (typeof params.tzOffset === 'number' && !isNaN(params.tzOffset)) {
+      const utcMs = now.getTime() + (now.getTimezoneOffset() * 60000);
+      const clientDate = new Date(utcMs + (params.tzOffset * 60000));
+      now.setTime(clientDate.getTime());
+    }
+
+    const currentYear = params.year ?? now.getFullYear();
+    const currentMonth = params.month ?? (now.getMonth() + 1);
+    const currentDay = params.day ?? now.getDate();
+
+    const monthStr = String(currentMonth).padStart(2, '0');
+    const dayStr = String(currentDay).padStart(2, '0');
+    const targetMonthDay = `${monthStr}-${dayStr}`;
+    const currentYearStr = String(currentYear);
+
+    try {
+      // If admin disabled On This Day feature in settings, return clean empty list immediately
+      const setting = await settingService.get();
+      if (setting.onThisDay === SettingOnThisDayEnum.DISABLE) {
+        return {
+          date: targetMonthDay,
+          total: 0,
+          list: [],
+        };
+      }
+
+      const baseWhereList = [
+        eq(photoTab.status, PhotoStatusEnum.NORMAL),
+        isNotNull(photoTab.takenTime),
+        sql`length(${photoTab.takenTime}) >= 10`,
+        sql`substr(${photoTab.takenTime}, 6, 5) = ${targetMonthDay}`,
+        sql`substr(${photoTab.takenTime}, 1, 4) < ${currentYearStr}`,
+        or(
+          inArray(photoTab.visibility, [PhotoVisibilityEnum.BOTH, PhotoVisibilityEnum.GALLERY_ONLY]),
+          isNull(photoTab.visibility)
+        )!,
+      ];
+
+      const list = await orm
+        .select()
+        .from(photoTab)
+        .where(and(...baseWhereList))
+        .orderBy(
+          desc(sql`substr(${photoTab.takenTime}, 1, 4)`),
+          desc(photoTab.takenTime),
+          desc(photoTab.photoId)
+        )
+        .limit(30);
+
+      if (!list.length) {
+        return {
+          date: targetMonthDay,
+          total: 0,
+          list: [],
+        };
+      }
+
+      const fileStorageList = await storageService.getStorageList();
+      const photoIds = list.map((photo: Photo) => photo.photoId);
+      const [exifMap, fileMap, albumMap] = await Promise.all([
+        exifService.listByPhotoIds(photoIds),
+        fileService.listByPhotoIds(photoIds),
+        albumService.listAlbumMapByPhotoIds(photoIds),
+      ]);
+
+      const result: PhotoOnThisDayItemVo[] = list.map((photo: Photo) => {
+        const fileStorage = fileStorageList.find((item: Storage) => item.storageId === photo.storageId);
+        const domain = formatHttpUrl(fileStorage?.domain);
+
+        const vo = this.toPhotoVo(
+          photo,
+          fileMap.get(photo.photoId) ?? [],
+          fileStorage,
+          domain,
+          exifMap.get(photo.photoId) ?? null,
+          userId,
+          albumMap.get(photo.photoId) ?? []
+        );
+
+        const photoYear = parseInt((photo.takenTime || '').substring(0, 4), 10);
+        const yearsAgo = isNaN(photoYear) ? 1 : Math.max(1, currentYear - photoYear);
+
+        return {
+          ...vo,
+          year: isNaN(photoYear) ? currentYear - 1 : photoYear,
+          yearsAgo,
+        };
+      });
+
+      return {
+        date: targetMonthDay,
+        total: result.length,
+        list: result,
+      };
+    } catch (err) {
+      console.warn('[photoService.onThisDay] Graceful fallback on database error:', err);
+      return {
+        date: targetMonthDay,
+        total: 0,
+        list: [],
+      };
+    }
   },
 
   // Generate storage based on original file name key，like key If it already exists, append a timestamp before the extension.。
@@ -423,7 +599,29 @@ const photoService = {
     }
 
     const meta = await readPhotoExifFromBuffer(buffer);
-    const takenTime = meta.takenTime ?? new Date(lastModified > 0 ? lastModified : Date.now()).toISOString();
+
+    // Merge client-provided GPS & EXIF (extracted directly from uncompressed original file in browser)
+    const clientLatRaw = form.get('latitude');
+    const clientLngRaw = form.get('longitude');
+    const clientAltRaw = form.get('altitude');
+    const clientTakenTime = form.get('takenTime');
+    const clientExifJson = form.get('exifJson');
+
+    const clientLat = clientLatRaw ? Number(clientLatRaw) : null;
+    const clientLng = clientLngRaw ? Number(clientLngRaw) : null;
+    const clientAlt = clientAltRaw ? Number(clientAltRaw) : null;
+
+    const finalLatitude = meta.latitude ?? (clientLat !== null && !isNaN(clientLat) ? clientLat : null);
+    const finalLongitude = meta.longitude ?? (clientLng !== null && !isNaN(clientLng) ? clientLng : null);
+    const finalAltitude = meta.altitude ?? (clientAlt !== null && !isNaN(clientAlt) ? clientAlt : null);
+    const finalTakenTime = meta.takenTime ?? (typeof clientTakenTime === 'string' && clientTakenTime ? clientTakenTime : null) ?? new Date(lastModified > 0 ? lastModified : Date.now()).toISOString();
+
+    let finalExif = meta.exif;
+    if (!finalExif && typeof clientExifJson === 'string' && clientExifJson) {
+      finalExif = clientExifJson;
+    }
+
+    const takenTime = finalTakenTime;
     const key = await this.resolvePhotoKey(userId, name);
     const photoId = createId();
     const preview = buildPreviewKey(checksum, photoId);
@@ -484,10 +682,10 @@ const photoService = {
     ]);
 
     await exifService.save(photoId, {
-      exif: meta.exif,
-      latitude: meta.latitude,
-      longitude: meta.longitude,
-      altitude: meta.altitude,
+      exif: finalExif,
+      latitude: finalLatitude,
+      longitude: finalLongitude,
+      altitude: finalAltitude,
     });
 
     if (albumId) {
@@ -502,10 +700,10 @@ const photoService = {
     return {
       photo: this.toPhotoVo(photo, files, fileStorage, domain, {
         photoId,
-        exif: meta.exif,
-        latitude: meta.latitude,
-        longitude: meta.longitude,
-        altitude: meta.altitude,
+        exif: finalExif,
+        latitude: finalLatitude,
+        longitude: finalLongitude,
+        altitude: finalAltitude,
       }),
       duplicate: false,
     };
@@ -563,6 +761,28 @@ const photoService = {
     await orm.update(photoTab)
       .set({
         favorite: params.favorite
+      })
+      .where(and(...whereList));
+  },
+
+  // Set the display scope / visibility of specified photos (Both, Gallery Only, Album Only, Archived).
+  async setVisibility(params: PhotoSetVisibilityBo, userId?: string): Promise<void> {
+    if (!params.photoIds?.length) {
+      throw new BizError('photo.selectRequired');
+    }
+
+    if (!params.visibility) {
+      throw new BizError('photo.visibilityRequired');
+    }
+
+    const whereList = [inArray(photoTab.photoId, params.photoIds)];
+    if (userId) {
+      whereList.push(eq(photoTab.userId, userId));
+    }
+
+    await orm.update(photoTab)
+      .set({
+        visibility: params.visibility
       })
       .where(and(...whereList));
   },

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-require-imports */
 // This module reads shooting EXIF metadata from photo buffers.
 
 import { mkdtemp, rm, writeFile } from "node:fs/promises"
@@ -129,28 +130,88 @@ function getTakenTime(tags: any) {
   return null
 }
 
-function getCoordinate(value: unknown) {
+function getCoordinate(value: unknown, ref?: unknown) {
   if (value === undefined || value === null || value === "") {
     return null
   }
 
+  const refStr = typeof ref === "string" ? ref.trim().toUpperCase() : ""
+
+  // 1. Direct finite number
   if (typeof value === "number") {
-    return Number.isFinite(value) ? value : null
+    if (!Number.isFinite(value)) return null
+    if (refStr === "S" || refStr === "W" || refStr === "-1" || refStr === "SOUTH" || refStr === "WEST") {
+      return value > 0 ? -value : value
+    }
+    return value
   }
 
-  const num = Number(value)
-  return Number.isNaN(num) ? null : num
+  // 2. Array of DMS numbers [deg, min, sec]
+  if (Array.isArray(value) && value.length >= 1) {
+    const deg = Number(value[0]) || 0
+    const min = Number(value[1]) || 0
+    const sec = Number(value[2]) || 0
+    let dec = deg + min / 60 + sec / 3600
+    if (refStr === "S" || refStr === "W" || refStr === "-1" || refStr === "SOUTH" || refStr === "WEST") {
+      dec = -Math.abs(dec)
+    }
+    return Number.isFinite(dec) ? dec : null
+  }
+
+  // 3. Object with { degrees, minutes, seconds }
+  if (typeof value === "object" && value !== null) {
+    const obj = value as Record<string, unknown>
+    if ("degrees" in obj || "deg" in obj) {
+      const deg = Number(obj.degrees ?? obj.deg) || 0
+      const min = Number(obj.minutes ?? obj.min) || 0
+      const sec = Number(obj.seconds ?? obj.sec) || 0
+      let dec = deg + min / 60 + sec / 3600
+      if (refStr === "S" || refStr === "W" || refStr === "-1" || refStr === "SOUTH" || refStr === "WEST") {
+        dec = -Math.abs(dec)
+      }
+      return Number.isFinite(dec) ? dec : null
+    }
+  }
+
+  // 4. String format (e.g. "-6.2088" or "6 deg 12' 31.68\" S" or "106° 50' 44\" E")
+  if (typeof value === "string") {
+    const str = value.trim()
+    const directNum = Number(str)
+    if (!Number.isNaN(directNum) && Number.isFinite(directNum)) {
+      if (refStr === "S" || refStr === "W") {
+        return directNum > 0 ? -directNum : directNum
+      }
+      return directNum
+    }
+
+    const dmsMatch = str.match(/([0-9.]+)\s*(?:deg|°)\s*([0-9.]+)?\s*(?:'|min)?\s*([0-9.]+)?\s*(?:"|sec)?\s*([NSEW])?/i)
+    if (dmsMatch) {
+      const deg = parseFloat(dmsMatch[1]) || 0
+      const min = parseFloat(dmsMatch[2]) || 0
+      const sec = parseFloat(dmsMatch[3]) || 0
+      const dir = (dmsMatch[4] || refStr).toUpperCase()
+      let dec = deg + min / 60 + sec / 3600
+      if (dir === "S" || dir === "W") {
+        dec = -Math.abs(dec)
+      }
+      return Number.isFinite(dec) ? dec : null
+    }
+  }
+
+  return null
 }
 
 function getAltitude(tags: any) {
-  const num = getCoordinate(tags.GPSAltitude)
+  if (!tags) return null
+  const rawAlt = tags.altitude ?? tags.GPSAltitude
+  const num = getCoordinate(rawAlt)
   if (num === null) {
     return null
   }
 
-  const ref = tags.GPSAltitudeRef
-  if (ref === 1) {
-    return -num
+  const ref = tags.altitudeRef ?? tags.GPSAltitudeRef
+  if (ref === 1 || ref === "1" || ref === "Below Sea Level") {
+    return -Math.abs(num)
   }
 
   return num
@@ -241,9 +302,9 @@ async function parseExifWithExifr(buffer: Buffer) {
       if (!isNaN(d.getTime())) takenTime = d.toISOString()
     }
 
-    const latitude = getCoordinate(rawTags.latitude ?? rawTags.GPSLatitude)
-    const longitude = getCoordinate(rawTags.longitude ?? rawTags.GPSLongitude)
-    const altitude = getCoordinate(rawTags.altitude ?? rawTags.GPSAltitude)
+    const latitude = getCoordinate(rawTags.latitude ?? rawTags.GPSLatitude, rawTags.GPSLatitudeRef)
+    const longitude = getCoordinate(rawTags.longitude ?? rawTags.GPSLongitude, rawTags.GPSLongitudeRef)
+    const altitude = getAltitude(rawTags)
 
     const exifJson = Object.keys(data).length ? JSON.stringify(data) : null
 
@@ -273,8 +334,8 @@ export async function readPhotoExifFromBuffer(input: ArrayBuffer | Buffer) {
         const tags = await tool.read(filePath, { readArgs })
         const result = {
           takenTime: getTakenTime(tags),
-          latitude: getCoordinate(tags.GPSLatitude),
-          longitude: getCoordinate(tags.GPSLongitude),
+          latitude: getCoordinate(tags.GPSLatitude, tags.GPSLatitudeRef),
+          longitude: getCoordinate(tags.GPSLongitude, tags.GPSLongitudeRef),
           altitude: getAltitude(tags),
           exif: buildExifJson(tags),
         }

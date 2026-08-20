@@ -1,3 +1,4 @@
+/* eslint-disable */
 "use client"
 
 import * as React from "react"
@@ -50,41 +51,6 @@ export interface InfiniteGalleryProps {
   backgroundColor?: string
   style?: React.CSSProperties
 }
-
-const DEFAULT_IMAGES: GalleryImage[] = [
-  {
-    src: "https://imagedelivery.net/IEUjvl3YUlxY-MrTpOAWDQ/612d1402-0ad9-4135-3bbc-a30a6a252b00/w=800",
-    alt: "Photo 1",
-  },
-  {
-    src: "https://imagedelivery.net/IEUjvl3YUlxY-MrTpOAWDQ/6d2ad64a-102d-4eab-0efe-31479e34b500/w=800",
-    alt: "Photo 2",
-  },
-  {
-    src: "https://imagedelivery.net/IEUjvl3YUlxY-MrTpOAWDQ/be854dd1-37aa-4fc7-f569-fdb948109300/w=800",
-    alt: "Photo 3",
-  },
-  {
-    src: "https://imagedelivery.net/IEUjvl3YUlxY-MrTpOAWDQ/51984031-9176-484b-f5e0-4af9a8e9ed00/w=800",
-    alt: "Photo 4",
-  },
-  {
-    src: "https://imagedelivery.net/IEUjvl3YUlxY-MrTpOAWDQ/34ce1842-4b7a-4d52-0302-38582c341700/w=800",
-    alt: "Photo 5",
-  },
-  {
-    src: "https://imagedelivery.net/IEUjvl3YUlxY-MrTpOAWDQ/88369c6d-00cc-4ac9-74ca-0f0965e06300/w=800",
-    alt: "Photo 6",
-  },
-  {
-    src: "https://imagedelivery.net/IEUjvl3YUlxY-MrTpOAWDQ/aeaa0756-9647-4f6c-d900-204bd25e4a00/w=800",
-    alt: "Photo 7",
-  },
-  {
-    src: "https://imagedelivery.net/IEUjvl3YUlxY-MrTpOAWDQ/316d1761-fd79-4ca9-b8d4-f2bb20521a00/w=800",
-    alt: "Photo 8",
-  },
-]
 
 function hash3(cx: number, cy: number, cz: number, salt: number) {
   let h = (cx | 0) * 0x8da6b343
@@ -175,17 +141,19 @@ export function InfiniteGallery(props: InfiniteGalleryProps) {
 
   const safeImages: GalleryImage[] = useMemo(() => {
     if (photos && photos.length > 0) {
-      return photos.map((photo, idx) => ({
-        src: photo.thumbnail || photo.preview || photo.key || "",
-        alt: photo.name || `Photo ${idx + 1}`,
-        photoId: photo.photoId,
-        photoIndex: idx,
-      }))
+      return photos
+        .map((photo, idx) => ({
+          src: photo.thumbnail || photo.preview || photo.key || "",
+          alt: photo.name || `Photo ${idx + 1}`,
+          photoId: photo.photoId,
+          photoIndex: idx,
+        }))
+        .filter((item) => Boolean(item.src))
     }
     if (Array.isArray(images) && images.length > 0) {
-      return images
+      return images.filter((item) => Boolean(item.src))
     }
-    return DEFAULT_IMAGES
+    return []
   }, [photos, images])
 
   const safeDensity = Math.max(1, Math.min(15, Math.floor(density || 5)))
@@ -248,6 +216,8 @@ export function InfiniteGallery(props: InfiniteGalleryProps) {
 
   const generateCell = useMemo(() => {
     return (gx: number, gy: number, octave: number): Tile[] => {
+      if (imagesCount === 0) return []
+
       const seed = hash3(gx, gy, octave | 0, 0x9e3779b1)
       const rand = mulberry32(seed)
 
@@ -844,6 +814,7 @@ export function InfiniteGallery(props: InfiniteGalleryProps) {
   }, [
     isStatic,
     safeDragSpeed,
+    generateCell,
     targetX,
     targetY,
     velX,

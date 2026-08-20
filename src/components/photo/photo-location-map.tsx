@@ -72,7 +72,9 @@ export function PhotoLocationMap({
   className = "",
 }: PhotoLocationMapProps) {
   const [locationData, setLocationData] = useState<LocationReverseVo | null>(null)
-  const hasCoords = typeof latitude === "number" && typeof longitude === "number" && !isNaN(latitude) && !isNaN(longitude)
+  const latNum = latitude != null ? Number(latitude) : NaN
+  const lngNum = longitude != null ? Number(longitude) : NaN
+  const hasCoords = !isNaN(latNum) && !isNaN(lngNum) && isFinite(latNum) && isFinite(lngNum)
   const [loading, setLoading] = useState(hasCoords)
 
   useEffect(() => {
@@ -82,7 +84,7 @@ export function PhotoLocationMap({
 
     let isMounted = true
 
-    getReverseGeocode(latitude, longitude)
+    getReverseGeocode(latNum, lngNum)
       .then((res) => {
         if (isMounted) {
           setLocationData(res)
@@ -97,19 +99,19 @@ export function PhotoLocationMap({
     return () => {
       isMounted = false
     }
-  }, [latitude, longitude, hasCoords])
+  }, [latNum, lngNum, hasCoords])
 
   const tiles = useMemo(() => {
     if (!hasCoords) return []
-    return getMapTilePositions(latitude, longitude, 15, 340, 130)
-  }, [latitude, longitude, hasCoords])
+    return getMapTilePositions(latNum, lngNum, 15, 340, 130)
+  }, [latNum, lngNum, hasCoords])
 
   // If no GPS coordinates exist, hide the entire map & location block
   if (!hasCoords) {
     return null
   }
 
-  const mapsUrl = `https://www.google.com/maps?q=${latitude},${longitude}`
+  const mapsUrl = `https://www.google.com/maps?q=${latNum},${lngNum}`
   const imageSrc = thumbnail || preview || ""
 
   const handleOpenGoogleMaps = () => {
@@ -200,7 +202,7 @@ export function PhotoLocationMap({
           </div>
         ) : (
           <p className="text-xs text-white/90 leading-relaxed line-clamp-2 font-normal">
-            {locationData?.address || `${latitude.toFixed(4)}°, ${longitude.toFixed(4)}°`}
+            {locationData?.address || `${latNum.toFixed(4)}°, ${lngNum.toFixed(4)}°`}
           </p>
         )}
       </div>

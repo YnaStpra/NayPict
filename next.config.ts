@@ -55,6 +55,21 @@ const nextConfig: NextConfig = {
       { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=(), interest-cohort=()' },
       // Force HTTPS (only meaningful in production behind HTTPS)
       { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains; preload' },
+      // Content Security Policy (CSP) mitigating XSS and data injection
+      {
+        key: 'Content-Security-Policy',
+        value: [
+          "default-src 'self'",
+          "script-src 'self' 'unsafe-eval' 'unsafe-inline'",
+          "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com",
+          "img-src 'self' data: blob: https: http:",
+          "font-src 'self' data: https://fonts.gstatic.com",
+          "connect-src 'self' https: wss: http:",
+          "frame-ancestors 'none'",
+          "object-src 'none'",
+          "base-uri 'self'",
+        ].join('; '),
+      },
     ];
 
     return [

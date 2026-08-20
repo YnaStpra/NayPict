@@ -37,4 +37,25 @@ interface PhotoDuplicateGroupVo {
   photos: PhotoVo[];
 }
 
-export type { PhotoVo, PhotoTakenDateVo, PhotoAddResultVo, PhotoExistsVo, PhotoDuplicateGroupVo };
+type PhotoOnThisDayItemVo = PhotoVo & {
+  year: number;
+  yearsAgo: number;
+  locationName?: string | null;
+};
+
+interface PhotoOnThisDayVo {
+  date: string;
+  list: PhotoOnThisDayItemVo[];
+  total: number;
+}
+
+export type {
+  PhotoVo,
+  PhotoTakenDateVo,
+  PhotoAddResultVo,
+  PhotoExistsVo,
+  PhotoDuplicateGroupVo,
+  PhotoOnThisDayItemVo,
+  PhotoOnThisDayVo,
+};
+

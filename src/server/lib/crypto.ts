@@ -40,8 +40,29 @@ export async function fileChecksum(file: Blob) {
   return hashToHex(hashBuffer);
 }
 
-// Verify that the entered password matches the saved hash。
+// Constant-time string equality comparison to prevent timing attacks.
+export function timingSafeEqual(a: string, b: string): boolean {
+  if (typeof a !== 'string' || typeof b !== 'string') {
+    return false;
+  }
+
+  const bufA = encoder.encode(a);
+  const bufB = encoder.encode(b);
+
+  if (bufA.length !== bufB.length) {
+    return false;
+  }
+
+  let result = 0;
+  for (let i = 0; i < bufA.length; i++) {
+    result |= bufA[i] ^ bufB[i];
+  }
+
+  return result === 0;
+}
+
+// Verify that the entered password matches the saved hash using constant-time comparison.
 export async function verifyPassword(inputPassword: string, salt: string, storedHash: string): Promise<boolean> {
   const hash = await genHashPassword(inputPassword, salt);
-  return hash === storedHash;
+  return timingSafeEqual(hash, storedHash);
 }

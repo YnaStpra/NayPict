@@ -1,7 +1,8 @@
 "use client"
 
-import { FolderPlusIcon, InfoIcon, MessageSquareIcon, TrendingUp, XIcon } from "lucide-react"
+import { Archive, Eye, FolderHeart, FolderPlusIcon, Globe, Image as ImageIcon, InfoIcon, MessageSquareIcon, TrendingUp, XIcon } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
+import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
 import { useTapAction } from "@/hooks/use-tap-action"
@@ -12,6 +13,8 @@ import { type PhotoVo } from "@/server/entity/vo/photo"
 import { useLocale, useTranslations } from "next-intl"
 import { useApp } from "@/app/provider"
 import { UserTypeEnum } from "@/server/enums/user-enum"
+import { PhotoVisibilityEnum } from "@/server/enums/photo-enum"
+import { photoSetVisibility } from "@/request/photo"
 import { PhotoComments } from "@/components/photo/photo-comments"
 import { PhotoLocationMap } from "@/components/photo/photo-location-map"
 
@@ -24,6 +27,8 @@ type PhotoInfoSidebarProps = {
   onAlbumOpen?: (photoId: string) => void
   // Trigger open insights dialog (Admin only).
   onInsightsOpen?: (photoId: string) => void
+  // Callback when photo is updated (e.g. visibility change)
+  onPhotoUpdate?: (photo: PhotoVo) => void
   // Initial active tab ("info" | "comments")
   defaultTab?: "info" | "comments"
 }
@@ -157,6 +162,7 @@ export function PhotoInfoSidebar({
   onClose,
   onAlbumOpen,
   onInsightsOpen,
+  onPhotoUpdate,
   activeTab: controlledTab,
   onTabChange,
 }: PhotoInfoSidebarProps & {
@@ -172,10 +178,33 @@ export function PhotoInfoSidebar({
   const shootingParams = photo ? getPhotoShootingParams(photo.exif) : []
 
   const [internalTab, setInternalTab] = useState<"info" | "comments">("info")
+  const [isUpdatingVisibility, setIsUpdatingVisibility] = useState(false)
   const currentTab = controlledTab ?? internalTab
 
   const asideRef = useRef<HTMLElement>(null)
   const infoScrollRef = useRef<HTMLDivElement>(null)
+
+  const handleVisibilityChange = async (newVisibility: number) => {
+    if (!photo || isUpdatingVisibility) return
+    setIsUpdatingVisibility(true)
+    try {
+      await photoSetVisibility({
+        photoIds: [photo.photoId],
+        visibility: newVisibility,
+      })
+      const updatedPhoto: PhotoVo = {
+        ...photo,
+        visibility: newVisibility,
+      }
+      onPhotoUpdate?.(updatedPhoto)
+      toast.success(t("visibilityUpdated") || "Display scope updated")
+    } catch (err) {
+      console.error("Failed to update photo visibility:", err)
+      toast.error(t("visibilityUpdateFailed") || "Failed to update display scope")
+    } finally {
+      setIsUpdatingVisibility(false)
+    }
+  }
 
   useEffect(() => {
     const asideEl = asideRef.current
@@ -251,41 +280,128 @@ export function PhotoInfoSidebar({
               className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-4 py-3 pb-32 space-y-4 overscroll-contain pointer-events-auto touch-pan-y"
               style={{ touchAction: "pan-y" }}
             >
-              {/* Admin Actions: Add to Album & Photo Insights */}
+              {/* Admin Actions: Add to Album, Photo Insights & Display Scope */}
               {isAdmin && (
-                <div className="flex flex-col gap-2">
-                  {onAlbumOpen && (
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      size="sm"
-                      className="w-full justify-center gap-2 bg-white/10 text-white hover:bg-white/20 border border-white/20 text-xs font-medium cursor-pointer pointer-events-auto"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        e.preventDefault()
-                        onAlbumOpen(photo.photoId)
-                      }}
-                    >
-                      <FolderPlusIcon className="size-3.5" />
-                      <span>+ Add to Album</span>
-                    </Button>
-                  )}
-                  {onInsightsOpen && (
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      size="sm"
-                      className="w-full justify-center gap-2 bg-primary/20 text-white hover:bg-primary/30 border border-primary/30 text-xs font-medium cursor-pointer pointer-events-auto"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        e.preventDefault()
-                        onInsightsOpen(photo.photoId)
-                      }}
-                    >
-                      <TrendingUp className="size-3.5 text-primary" />
-                      <span>Photo Insights</span>
-                    </Button>
-                  )}
+                <div className="flex flex-col gap-2.5">
+                  <div className="flex items-center gap-2">
+                    {onAlbumOpen && (
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        className="flex-1 justify-center gap-1.5 bg-white/10 text-white hover:bg-white/20 border border-white/20 text-xs font-medium cursor-pointer pointer-events-auto"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          e.preventDefault()
+                          onAlbumOpen(photo.photoId)
+                        }}
+                      >
+                        <FolderPlusIcon className="size-3.5" />
+                        <span>+ Album</span>
+                      </Button>
+                    )}
+                    {onInsightsOpen && (
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        className="flex-1 justify-center gap-1.5 bg-primary/20 text-white hover:bg-primary/30 border border-primary/30 text-xs font-medium cursor-pointer pointer-events-auto"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          e.preventDefault()
+                          onInsightsOpen(photo.photoId)
+                        }}
+                      >
+                        <TrendingUp className="size-3.5 text-primary" />
+                        <span>Insights</span>
+                      </Button>
+                    )}
+                  </div>
+
+                  {/* Admin Display Scope / Visibility Switcher */}
+                  <div className="rounded-2xl border border-white/15 bg-white/5 p-3 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-semibold text-white/70 uppercase tracking-wider flex items-center gap-1.5">
+                        <Eye className="size-3.5 text-amber-400" />
+                        <span>{t("displayScope") || "Display Scope"}</span>
+                      </span>
+                      <span className="text-[11px] font-medium text-white/50 bg-white/10 px-2 py-0.5 rounded-full">
+                        {photo.visibility === PhotoVisibilityEnum.GALLERY_ONLY
+                          ? (t("visibilityGalleryOnly") || "Gallery Only")
+                          : photo.visibility === PhotoVisibilityEnum.ALBUM_ONLY
+                          ? (t("visibilityAlbumOnly") || "Album Only")
+                          : photo.visibility === PhotoVisibilityEnum.ARCHIVED
+                          ? (t("visibilityArchived") || "Archived")
+                          : (t("visibilityBoth") || "Both")}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-1.5 pt-0.5">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        disabled={isUpdatingVisibility}
+                        className={`h-8 text-xs font-medium rounded-xl justify-start gap-1.5 px-2.5 transition-all cursor-pointer ${
+                          photo.visibility === PhotoVisibilityEnum.BOTH || !photo.visibility
+                            ? "bg-white/20 text-white font-semibold shadow-xs border border-white/25"
+                            : "bg-black/30 text-white/70 hover:text-white hover:bg-white/10 border border-white/10"
+                        }`}
+                        onClick={() => handleVisibilityChange(PhotoVisibilityEnum.BOTH)}
+                      >
+                        <Globe className="size-3.5 text-emerald-400" />
+                        <span className="truncate">{t("visibilityBoth") || "Both"}</span>
+                      </Button>
+
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        disabled={isUpdatingVisibility}
+                        className={`h-8 text-xs font-medium rounded-xl justify-start gap-1.5 px-2.5 transition-all cursor-pointer ${
+                          photo.visibility === PhotoVisibilityEnum.GALLERY_ONLY
+                            ? "bg-white/20 text-white font-semibold shadow-xs border border-white/25"
+                            : "bg-black/30 text-white/70 hover:text-white hover:bg-white/10 border border-white/10"
+                        }`}
+                        onClick={() => handleVisibilityChange(PhotoVisibilityEnum.GALLERY_ONLY)}
+                      >
+                        <ImageIcon className="size-3.5 text-sky-400" />
+                        <span className="truncate">{t("visibilityGalleryOnly") || "Gallery Only"}</span>
+                      </Button>
+
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        disabled={isUpdatingVisibility}
+                        className={`h-8 text-xs font-medium rounded-xl justify-start gap-1.5 px-2.5 transition-all cursor-pointer ${
+                          photo.visibility === PhotoVisibilityEnum.ALBUM_ONLY
+                            ? "bg-white/20 text-white font-semibold shadow-xs border border-white/25"
+                            : "bg-black/30 text-white/70 hover:text-white hover:bg-white/10 border border-white/10"
+                        }`}
+                        onClick={() => handleVisibilityChange(PhotoVisibilityEnum.ALBUM_ONLY)}
+                      >
+                        <FolderHeart className="size-3.5 text-pink-400" />
+                        <span className="truncate">{t("visibilityAlbumOnly") || "Album Only"}</span>
+                      </Button>
+
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        disabled={isUpdatingVisibility}
+                        className={`h-8 text-xs font-medium rounded-xl justify-start gap-1.5 px-2.5 transition-all cursor-pointer ${
+                          photo.visibility === PhotoVisibilityEnum.ARCHIVED
+                            ? "bg-amber-500/30 text-amber-200 font-semibold shadow-xs border border-amber-400/40"
+                            : "bg-black/30 text-white/70 hover:text-white hover:bg-white/10 border border-white/10"
+                        }`}
+                        onClick={() => handleVisibilityChange(PhotoVisibilityEnum.ARCHIVED)}
+                      >
+                        <Archive className="size-3.5 text-amber-400" />
+                        <span className="truncate">{t("visibilityArchived") || "Archive / Hide"}</span>
+                      </Button>
+                    </div>
+                  </div>
                 </div>
               )}
 
@@ -343,15 +459,15 @@ export function PhotoInfoSidebar({
               )}
 
               {/* Visual Google Map Location Card (Positioned at the very bottom of photo info) */}
-              {photo.latitude != null && photo.longitude != null && (
+              {photo.latitude != null && photo.longitude != null && !isNaN(Number(photo.latitude)) && !isNaN(Number(photo.longitude)) && (
                 <div>
                   <div className="pb-2 text-xs font-semibold text-white/50 tracking-wider uppercase">
                     {t("location")}
                   </div>
                   <PhotoLocationMap
-                    latitude={photo.latitude}
-                    longitude={photo.longitude}
-                    altitude={photo.altitude}
+                    latitude={Number(photo.latitude)}
+                    longitude={Number(photo.longitude)}
+                    altitude={photo.altitude != null ? Number(photo.altitude) : null}
                     thumbnail={photo.thumbnail}
                     preview={photo.preview}
                     photoName={photo.name}
