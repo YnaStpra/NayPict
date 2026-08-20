@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Image from 'next/image'
 import dynamic from 'next/dynamic'
 import {
   Breadcrumb,
@@ -462,11 +463,13 @@ export default function CommentsManagementPage() {
                       }
                     >
                       {item.photoThumbnail || item.photoPreview ? (
-                        <img
-                          src={item.photoThumbnail || item.photoPreview}
+                        <Image
+                          src={(item.photoThumbnail || item.photoPreview)!}
                           alt={item.photoName || 'Photo'}
+                          width={96}
+                          height={96}
+                          unoptimized
                           className="size-full object-cover group-hover:scale-105 transition-transform duration-300"
-                          loading="lazy"
                         />
                       ) : (
                         <div className="size-full flex items-center justify-center bg-muted text-muted-foreground text-[10px]">

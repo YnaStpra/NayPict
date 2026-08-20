@@ -1,8 +1,9 @@
-/* eslint-disable react-hooks/set-state-in-effect */
+/* eslint-disable react-hooks/set-state-in-effect, @typescript-eslint/no-unused-vars */
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Image from 'next/image'
 import { AppSidebar } from '@/components/layout/app-sidebar'
 import { Button } from '@/components/ui/button'
 import {
@@ -328,11 +329,13 @@ export default function DuplicatesPage() {
                                 className="relative aspect-4/3 w-full bg-muted cursor-pointer overflow-hidden"
                                 onClick={() => handlePreviewPhoto(photo, group.photos)}
                               >
-                                <img
+                                <Image
                                   src={photo.thumbnail || photo.preview}
                                   alt={photo.name}
+                                  width={300}
+                                  height={225}
+                                  unoptimized
                                   className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-                                  loading="lazy"
                                 />
                                 <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                                   <span className="flex items-center gap-1 rounded-full bg-black/60 px-3 py-1 text-xs text-white backdrop-blur-xs font-medium">
