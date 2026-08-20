@@ -777,7 +777,7 @@ sequenceDiagram
    - Fitur multiselect batch metadata editor tersedia langsung di selection drawer & masonry grid, memungkinkan admin mengubah visibilitas (Both, Gallery Only, Album Only, Archived), izin unduh, tanggal/jam pengambilan, serta status favorit secara massal dalam satu klik dengan update in-memory instan.
 8. **Automated Trash Retention Purge via Vercel Cron** *(Automation)*:
    - Daftarkan endpoint `/api/cron/cleanup` dengan secret token yang dipanggil berkala oleh Vercel Cron untuk membersihkan tempat sampah otomatis sesuai hari yang disetel di Settings.
-9. **OpenGraph Dynamic Meta Image Generator** *(SEO & Social)*:
-   - Buat handler `opengraph-image.tsx` per foto sehingga tautan yang dibagikan ke WhatsApp/Twitter langsung menampilkan thumbnail foto yang elegan.
+9. **OpenGraph Dynamic Meta Image Generator** *(SEO & Social)* - **[SELESAI / IMPLEMENTED]**:
+   - Generator gambar OpenGraph dinamis berbasis Next.js ImageResponse (`src/app/photo/[photoId]/opengraph-image.tsx`) dan `generateMetadata` telah aktif, menghasilkan kartu pratinjau sosial beresolusi tinggi (1200x630) dengan thumbnail foto, metadata EXIF, kamera, ISO, dan branding otomatis saat tautan dibagikan ke WhatsApp, Twitter/X, Telegram, Discord, dan iMessage.
 10. **Progressive Web App (PWA) Manifest** *(Mobile UX)*:
     - Tambahkan `manifest.json` dan service worker dasar agar galeri foto dapat di-*install* langsung ke layar utama smartphone seperti aplikasi native.
