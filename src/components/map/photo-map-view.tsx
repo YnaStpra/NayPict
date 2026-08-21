@@ -212,6 +212,18 @@ export default function PhotoMapView() {
     tileLayerRef.current.setUrl(tileUrl)
   }, [resolvedTheme])
 
+  // Handle container resize when sidebar toggles or viewport changes
+  useEffect(() => {
+    if (!mapReady || !mapContainerRef.current) return
+    const ro = new ResizeObserver(() => {
+      mapInstanceRef.current?.invalidateSize()
+    })
+    ro.observe(mapContainerRef.current)
+    return () => {
+      ro.disconnect()
+    }
+  }, [mapReady])
+
   // Automatically render grouped cluster markers whenever map is ready or clusters update
   useEffect(() => {
     if (!mapReady || !mapInstanceRef.current || !markersLayerRef.current) return
@@ -353,7 +365,7 @@ export default function PhotoMapView() {
   }
 
   return (
-    <div className="relative w-full h-[calc(100vh-4rem)] overflow-hidden bg-background">
+    <div className="relative w-full h-full overflow-hidden bg-background">
       {/* Fullscreen Map Canvas */}
       <div ref={mapContainerRef} className="w-full h-full z-0" />
 
