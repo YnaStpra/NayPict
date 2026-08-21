@@ -762,23 +762,23 @@ sequenceDiagram
 
 ## 30. TOP 10 PRIORITIES FOR FUTURE DEVELOPMENT
 
-1. **Enforce Strict `JWT_SECRET` Validation on Startup** *(Security)* - **[SELESAI / HARDENED]**:
-   - Validasi ketat aktif di `src/instrumentation.ts` dan `src/server/lib/jwt.ts`. Server langsung menolak start jika `JWT_SECRET` kosong/pendek di produksi.
-2. **Cloudflare Turnstile on Public Comments** *(Security & Spam Prevention)*:
-   - Tambahkan widget verifikasi bot pada form komentar publik di sidebar foto.
-3. **Upgrade Password Hashing to Argon2id** *(Security)* - **[SELESAI / HARDENED]**:
-   - Algoritma hashing password telah dimigrasikan ke Argon2id berbasis WASM (`hash-wasm`) dengan parameter OWASP rekomendasi. Menggunakan skema transisi bertahap (*transparent rehash on login*) sehingga akun lama dengan hash SHA-256 otomatis terupgrade saat berhasil login.
-4. **Application-level Rate Limiting on `/api/login` & `/api/photo/download`** *(Stability)* - **[SELESAI / HARDENED]**:
-   - Sliding window in-memory rate limiter aktif di `/api/login` (maksimal 5 percobaan gagal per IP per 15 menit) dan `/api/photo/download` (maksimal 30 unduhan per IP per 5 menit) dengan header standar `Retry-After` dan `X-RateLimit-*`.
-5. **Next.js & Sharp Dependency Bump** *(Maintenance)*:
-   - Lakukan upgrade berkala ke Next.js 16.3+ dan Sharp 0.35+ saat rilis patch keamanan telah teruji stabil.
-6. **Replace Admin `<img>` with Next.js `<Image />`** *(Performance)* - **[SELESAI / IMPLEMENTED]**:
-   - Seluruh sisa tag `<img>` di panel admin (`/admin/insights`, `/comments`, `/duplicates`, dan `PhotoInsightsDialog`) telah dimigrasikan ke komponen `<Image />` Next.js dengan dimensi eksplisit dan optimasi caching/layout shift.
-7. **Batch Photo Metadata Editing UI** *(Admin UX)* - **[SELESAI / IMPLEMENTED]**:
-   - Fitur multiselect batch metadata editor tersedia langsung di selection drawer & masonry grid, memungkinkan admin mengubah visibilitas (Both, Gallery Only, Album Only, Archived), izin unduh, tanggal/jam pengambilan, serta status favorit secara massal dalam satu klik dengan update in-memory instan.
-8. **Automated Trash Retention Purge via Vercel Cron** *(Automation)*:
-   - Daftarkan endpoint `/api/cron/cleanup` dengan secret token yang dipanggil berkala oleh Vercel Cron untuk membersihkan tempat sampah otomatis sesuai hari yang disetel di Settings.
-9. **OpenGraph Dynamic Meta Image Generator** *(SEO & Social)* - **[SELESAI / IMPLEMENTED]**:
-   - Generator gambar OpenGraph dinamis berbasis Next.js ImageResponse (`src/app/photo/[photoId]/opengraph-image.tsx`) dan `generateMetadata` telah aktif, menghasilkan kartu pratinjau sosial beresolusi tinggi (1200x630) dengan thumbnail foto, metadata EXIF, kamera, ISO, dan branding otomatis saat tautan dibagikan ke WhatsApp, Twitter/X, Telegram, Discord, dan iMessage.
-10. **Progressive Web App (PWA) Manifest** *(Mobile UX)*:
-    - Tambahkan `manifest.json` dan service worker dasar agar galeri foto dapat di-*install* langsung ke layar utama smartphone seperti aplikasi native.
+1. **Cloudflare Turnstile on Public Comments** *(Security & Spam Prevention)*:
+   - Tambahkan widget verifikasi bot Cloudflare Turnstile pada form komentar publik di sidebar foto untuk mencegah bot spam secara non-intrusif tanpa captcha yang mengganggu pengunjung.
+2. **Automated Trash Retention Purge via Vercel Cron** *(Automation & Storage Maintenance)*:
+   - Daftarkan route handler `src/app/api/cron/cleanup/route.ts` yang dilindungi token rahasia `CRON_SECRET` untuk membersihkan foto tempat sampah yang telah melewati batas hari retensi secara otomatis via Vercel Cron.
+3. **Progressive Web App (PWA) Manifest & Offline Shell** *(Mobile UX)*:
+   - Tambahkan `manifest.json`, icon app PWA, theme color, dan service worker ringan untuk caching shell aplikasi agar galeri foto dapat di-*install* langsung ke layar utama smartphone (iOS & Android) seperti aplikasi native.
+4. **AI-Powered Image Tagging & Semantic Search (CLIP / Vision Model)** *(Smart Features)*:
+   - Integrasi pengenalan objek/tema otomatis (misal: "pantai", "sunset", "kucing", "arsitektur") pada foto yang diunggah menggunakan embeddings model ringan untuk pencarian cerdas berbasis teks alami.
+5. **Interactive Global Photo Map Explorer (`/map`)** *(Discovery UX)*:
+   - Halaman eksplorasi peta dunia layar penuh interaktif (menggunakan Leaflet / MapLibre) dengan cluster pin foto berdasarkan koordinat GPS EXIF sehingga pengunjung dapat menjelajahi foto berdasarkan lokasi geografis pengambilan.
+6. **Multi-Resolution Image Derivatives & AVIF Support** *(Performance & Bandwidth)*:
+   - Hasilkan varian ukuran responsif otomatis (200w, 600w, 1200w, 2400w) dalam format AVIF/WebP modern untuk menghemat bandwidth pengunjung seluler hingga 50% lebih hemat dan mempercepat LCP.
+7. **Client-Side EXIF Privacy Redaction Option** *(Privacy & Compliance)*:
+   - Sediakan opsi pada dialog unggah foto untuk menghapus (*strip*) koordinat GPS atau nomor seri kamera sebelum foto dipublikasikan, guna melindungi privasi lokasi fotografer.
+8. **Real-time Live Comment Updates via WebSockets / SSE** *(Engagement)*:
+   - Integrasi Server-Sent Events (SSE) pada sidebar komentar foto agar komentar baru yang disetujui langsung muncul secara instan tanpa perlu refresh halaman manual.
+9. **Public Photo RSS / Atom Feed Generator (`/feed.xml`)** *(Content Syndication)*:
+   - Endpoint RSS/Atom feed dinamis untuk galeri foto sehingga audiens fotografi dan agregator konten dapat berlangganan pembaruan foto terbaru secara otomatis.
+10. **Next.js & Sharp Dependency Security Bump** *(Infrastructure & Maintenance)*:
+    - Bump versi patch Next.js ke versi terbaru dan Sharp ke 0.35+ guna menutup potensi advisory npm audit dan memastikan performa kompresi serverless maksimal.
