@@ -1,16 +1,19 @@
 "use client"
 
-import { useEffect, useRef, useState, useCallback } from "react"
+import { useEffect, useRef, useState, useCallback, useMemo } from "react"
 import { useTheme } from "next-themes"
 import Image from "next/image"
 import Link from "next/link"
 import {
   Calendar,
+  ChevronLeft,
+  ChevronRight,
   Compass,
   Expand,
   Eye,
   Filter,
   Image as ImageIcon,
+  Images,
   Loader2,
   LocateFixed,
   MapPin,
@@ -26,6 +29,61 @@ import { Button } from "@/components/ui/button"
 import { formatRelativeTime } from "@/lib/date"
 import { useLocale } from "next-intl"
 
+export interface PhotoCluster {
+  id: string
+  latitude: number
+  longitude: number
+  photos: PhotoVo[]
+}
+
+// Calculate geographical distance in kilometers using Haversine formula
+function getDistanceInKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371 // Radius of earth in km
+  const dLat = ((lat2 - lat1) * Math.PI) / 180
+  const dLon = ((lon2 - lon1) * Math.PI) / 180
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2)
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+  return R * c
+}
+
+// Cluster photos that share the same or very close coordinates (< 150m) into a single grouped marker
+function clusterNearbyPhotos(photos: PhotoVo[], thresholdKm = 0.15): PhotoCluster[] {
+  const clusters: PhotoCluster[] = []
+
+  for (const photo of photos) {
+    if (
+      typeof photo.latitude !== "number" ||
+      typeof photo.longitude !== "number" ||
+      isNaN(photo.latitude) ||
+      isNaN(photo.longitude)
+    ) {
+      continue
+    }
+
+    const matchedCluster = clusters.find((c) => {
+      return getDistanceInKm(photo.latitude!, photo.longitude!, c.latitude, c.longitude) <= thresholdKm
+    })
+
+    if (matchedCluster) {
+      matchedCluster.photos.push(photo)
+    } else {
+      clusters.push({
+        id: photo.photoId,
+        latitude: photo.latitude,
+        longitude: photo.longitude,
+        photos: [photo],
+      })
+    }
+  }
+
+  return clusters
+}
+
 export default function PhotoMapView() {
   const locale = useLocale()
   const { resolvedTheme } = useTheme()
@@ -36,8 +94,14 @@ export default function PhotoMapView() {
 
   const [photos, setPhotos] = useState<PhotoVo[]>([])
   const [loading, setLoading] = useState<boolean>(true)
-  const [selectedPhoto, setSelectedPhoto] = useState<PhotoVo | null>(null)
+  const [selectedCluster, setSelectedCluster] = useState<PhotoCluster | null>(null)
+  const [activePhotoIndex, setActivePhotoIndex] = useState<number>(0)
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(true)
+
+  // Cluster photos into groups so identical/nearby coordinates don't overlap
+  const clusters = useMemo(() => {
+    return clusterNearbyPhotos(photos, 0.15)
+  }, [photos])
 
   // Fetch all geotagged photos on mount
   useEffect(() => {
@@ -46,7 +110,11 @@ export default function PhotoMapView() {
       .then((data) => {
         if (isMounted) {
           const validCoords = (data ?? []).filter(
-            (p) => typeof p.latitude === "number" && typeof p.longitude === "number" && !isNaN(p.latitude) && !isNaN(p.longitude)
+            (p) =>
+              typeof p.latitude === "number" &&
+              typeof p.longitude === "number" &&
+              !isNaN(p.latitude) &&
+              !isNaN(p.longitude)
           )
           setPhotos(validCoords)
         }
@@ -81,9 +149,10 @@ export default function PhotoMapView() {
       }
 
       // Default world view or center on first photo
-      const defaultCenter: [number, number] = photos.length > 0 && photos[0].latitude && photos[0].longitude
-        ? [photos[0].latitude, photos[0].longitude]
-        : [20, 0]
+      const defaultCenter: [number, number] =
+        photos.length > 0 && photos[0].latitude && photos[0].longitude
+          ? [photos[0].latitude, photos[0].longitude]
+          : [20, 0]
       const defaultZoom = photos.length > 0 ? 5 : 2
 
       const map = L.map(mapContainerRef.current, {
@@ -113,9 +182,7 @@ export default function PhotoMapView() {
 
       // If photos exist, fit bounds to show all markers
       if (photos.length > 0) {
-        const bounds = L.latLngBounds(
-          photos.map((p) => [p.latitude!, p.longitude!])
-        )
+        const bounds = L.latLngBounds(photos.map((p) => [p.latitude!, p.longitude!]))
         map.fitBounds(bounds, { padding: [50, 50], maxZoom: 14 })
       }
     }
@@ -131,7 +198,7 @@ export default function PhotoMapView() {
     }
   }, [resolvedTheme, photos])
 
-  // Update map markers when photos change
+  // Update grouped cluster map markers
   useEffect(() => {
     if (!mapInstanceRef.current || !markersLayerRef.current) return
 
@@ -144,27 +211,48 @@ export default function PhotoMapView() {
       markersLayerRef.current.clearLayers()
       markerMapRef.current.clear()
 
-      photos.forEach((photo) => {
-        if (typeof photo.latitude !== "number" || typeof photo.longitude !== "number") return
+      clusters.forEach((cluster) => {
+        const topPhoto = cluster.photos[0]
+        if (!topPhoto) return
 
-        const imgUrl = photo.thumbnail || photo.preview || ""
-        const isSelected = selectedPhoto?.photoId === photo.photoId
+        const imgUrl = topPhoto.thumbnail || topPhoto.preview || ""
+        const isSelected = selectedCluster?.id === cluster.id
+        const count = cluster.photos.length
 
-        // Custom HTML pin with clean image thumbnail and pointer
+        // Custom HTML pin marker with grouped stack styling if multiple photos exist
         const customIcon = L.divIcon({
           className: "photo-marker-icon",
           html: `
             <div class="relative group cursor-pointer transition-transform duration-300 transform hover:scale-125 ${
               isSelected ? "scale-125 z-50 ring-4 ring-emerald-400" : ""
             }">
+              ${
+                count > 1
+                  ? `
+                <!-- Stacked background cards for group depth -->
+                <div class="absolute -inset-0.5 rounded-2xl bg-neutral-800 border-2 border-white/60 dark:border-black/60 rotate-6 shadow-md pointer-events-none"></div>
+                <div class="absolute -inset-0.5 rounded-2xl bg-neutral-700 border-2 border-white/60 dark:border-black/60 -rotate-3 shadow-md pointer-events-none"></div>
+              `
+                  : ""
+              }
               <div class="relative w-11 h-11 rounded-2xl overflow-hidden shadow-2xl border-2 border-white/90 dark:border-black/90 bg-neutral-900 flex items-center justify-center">
                 ${
                   imgUrl
-                    ? `<img src="${imgUrl}" alt="${photo.name}" class="w-full h-full object-cover" />`
+                    ? `<img src="${imgUrl}" alt="${topPhoto.name}" class="w-full h-full object-cover" />`
                     : `<div class="w-full h-full bg-emerald-600 flex items-center justify-center text-white text-xs">📷</div>`
                 }
               </div>
               <div class="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-3 h-3 rotate-45 bg-white/90 dark:bg-black/90 border-r border-b border-white/50 dark:border-black/50"></div>
+              ${
+                count > 1
+                  ? `
+                <!-- Count badge pill on top right -->
+                <div class="absolute -top-2 -right-2 px-1.5 py-0.5 min-w-5 h-5 rounded-full bg-emerald-500 text-white font-black text-[10px] leading-none flex items-center justify-center shadow-lg ring-2 ring-white dark:ring-neutral-900 pointer-events-none">
+                  ${count}
+                </div>
+              `
+                  : ""
+              }
             </div>
           `,
           iconSize: [44, 52],
@@ -172,18 +260,19 @@ export default function PhotoMapView() {
           popupAnchor: [0, -48],
         })
 
-        const marker = L.marker([photo.latitude, photo.longitude], { icon: customIcon })
+        const marker = L.marker([cluster.latitude, cluster.longitude], { icon: customIcon })
 
-        // Bind click popup
+        // Click marker -> select cluster and open preview card
         marker.on("click", () => {
-          setSelectedPhoto(photo)
-          mapInstanceRef.current?.flyTo([photo.latitude!, photo.longitude!], 14, {
+          setSelectedCluster(cluster)
+          setActivePhotoIndex(0)
+          mapInstanceRef.current?.flyTo([cluster.latitude, cluster.longitude], 14, {
             duration: 0.8,
           })
         })
 
         markersLayerRef.current?.addLayer(marker)
-        markerMapRef.current.set(photo.photoId, marker)
+        markerMapRef.current.set(cluster.id, marker)
       })
     }
 
@@ -192,26 +281,55 @@ export default function PhotoMapView() {
     return () => {
       isDisposed = true
     }
-  }, [photos, selectedPhoto?.photoId])
+  }, [clusters, selectedCluster?.id])
 
-  // Center map on a specific photo
-  const handleFlyToPhoto = useCallback((photo: PhotoVo) => {
-    if (typeof photo.latitude !== "number" || typeof photo.longitude !== "number") return
-    setSelectedPhoto(photo)
-    mapInstanceRef.current?.flyTo([photo.latitude, photo.longitude], 15, {
-      duration: 1.2,
-    })
-  }, [])
+  // Center map on a specific photo from bottom carousel
+  const handleFlyToPhoto = useCallback(
+    (photo: PhotoVo) => {
+      if (typeof photo.latitude !== "number" || typeof photo.longitude !== "number") return
+
+      // Find the cluster this photo belongs to
+      const matchedCluster = clusters.find((c) =>
+        c.photos.some((p) => p.photoId === photo.photoId)
+      )
+
+      if (matchedCluster) {
+        setSelectedCluster(matchedCluster)
+        const photoIdx = matchedCluster.photos.findIndex((p) => p.photoId === photo.photoId)
+        setActivePhotoIndex(photoIdx >= 0 ? photoIdx : 0)
+        mapInstanceRef.current?.flyTo([matchedCluster.latitude, matchedCluster.longitude], 15, {
+          duration: 1.2,
+        })
+      }
+    },
+    [clusters]
+  )
 
   // Fit bounds to all photos
   const handleFitAll = useCallback(async () => {
     if (!mapInstanceRef.current || photos.length === 0) return
     const L = (await import("leaflet")).default
-    const bounds = L.latLngBounds(
-      photos.map((p) => [p.latitude!, p.longitude!])
-    )
+    const bounds = L.latLngBounds(photos.map((p) => [p.latitude!, p.longitude!]))
     mapInstanceRef.current.fitBounds(bounds, { padding: [60, 60], maxZoom: 15 })
   }, [photos])
+
+  // Get active photo from selected cluster
+  const currentPhoto = selectedCluster
+    ? selectedCluster.photos[activePhotoIndex] || selectedCluster.photos[0]
+    : null
+
+  // Next / Prev handlers for clustered photo browsing
+  const handleNextPhoto = () => {
+    if (!selectedCluster || selectedCluster.photos.length <= 1) return
+    setActivePhotoIndex((prev) => (prev + 1) % selectedCluster.photos.length)
+  }
+
+  const handlePrevPhoto = () => {
+    if (!selectedCluster || selectedCluster.photos.length <= 1) return
+    setActivePhotoIndex((prev) =>
+      prev === 0 ? selectedCluster.photos.length - 1 : prev - 1
+    )
+  }
 
   return (
     <div className="relative w-full h-[calc(100vh-4rem)] overflow-hidden bg-background">
@@ -224,7 +342,7 @@ export default function PhotoMapView() {
           <MapPin className="size-4 text-emerald-500 animate-pulse" />
           <span className="font-bold text-xs sm:text-sm">Photo Map Explorer</span>
           <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-500 border border-emerald-500/30 ml-1">
-            {photos.length} foto
+            {photos.length} foto • {clusters.length} titik lokasi
           </span>
         </div>
 
@@ -256,40 +374,100 @@ export default function PhotoMapView() {
         </Button>
       </div>
 
-      {/* Floating Photo Preview Card (When a marker is clicked) */}
-      {selectedPhoto && (
+      {/* Floating Photo Preview Card (When a marker/cluster is clicked) */}
+      {selectedCluster && currentPhoto && (
         <div className="absolute top-20 right-4 z-20 w-80 max-w-[calc(100vw-2rem)] rounded-3xl overflow-hidden backdrop-blur-2xl bg-background/90 dark:bg-neutral-900/90 border border-border/80 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
-          <div className="relative aspect-4/3 w-full bg-neutral-950 overflow-hidden">
-            {selectedPhoto.thumbnail || selectedPhoto.preview ? (
+          {/* Main Photo Image with Cluster Carousel Controls */}
+          <div className="relative aspect-4/3 w-full bg-neutral-950 overflow-hidden group">
+            {currentPhoto.thumbnail || currentPhoto.preview ? (
               <Image
-                src={selectedPhoto.preview || selectedPhoto.thumbnail || ""}
-                alt={selectedPhoto.name}
+                src={currentPhoto.preview || currentPhoto.thumbnail || ""}
+                alt={currentPhoto.name}
                 fill
                 unoptimized
-                className="object-cover"
+                className="object-cover transition-all duration-300"
               />
             ) : (
               <div className="w-full h-full flex items-center justify-center text-muted-foreground">
                 <ImageIcon className="size-10 opacity-40" />
               </div>
             )}
+
+            {/* Close Button */}
             <button
-              onClick={() => setSelectedPhoto(null)}
-              className="absolute top-3 right-3 p-1.5 rounded-full bg-black/60 text-white hover:bg-black/80 backdrop-blur-md transition-colors cursor-pointer"
+              onClick={() => setSelectedCluster(null)}
+              className="absolute top-3 right-3 p-1.5 rounded-full bg-black/60 text-white hover:bg-black/80 backdrop-blur-md transition-colors cursor-pointer z-10"
             >
               <X className="size-4" />
             </button>
+
+            {/* Cluster Multi-Photo Badge */}
+            {selectedCluster.photos.length > 1 && (
+              <div className="absolute top-3 left-3 px-2.5 py-1 rounded-full bg-emerald-500/90 text-white text-[11px] font-bold shadow-lg backdrop-blur-md flex items-center gap-1.5">
+                <Images className="size-3" />
+                <span>
+                  {activePhotoIndex + 1} / {selectedCluster.photos.length} Foto di Titik Ini
+                </span>
+              </div>
+            )}
+
+            {/* Left/Right Arrows if multiple photos in cluster */}
+            {selectedCluster.photos.length > 1 && (
+              <div className="absolute inset-y-0 inset-x-2 flex items-center justify-between pointer-events-none">
+                <button
+                  type="button"
+                  onClick={handlePrevPhoto}
+                  className="pointer-events-auto p-1.5 rounded-full bg-black/50 text-white hover:bg-black/80 backdrop-blur-md transition-all cursor-pointer hover:scale-110"
+                  title="Foto Sebelumnya"
+                >
+                  <ChevronLeft className="size-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={handleNextPhoto}
+                  className="pointer-events-auto p-1.5 rounded-full bg-black/50 text-white hover:bg-black/80 backdrop-blur-md transition-all cursor-pointer hover:scale-110"
+                  title="Foto Berikutnya"
+                >
+                  <ChevronRight className="size-4" />
+                </button>
+              </div>
+            )}
           </div>
+
+          {/* Group Photo Strip (Horizontal miniature selector) */}
+          {selectedCluster.photos.length > 1 && (
+            <div className="flex items-center gap-1.5 px-3 py-2 bg-muted/40 border-b border-border/50 overflow-x-auto scrollbar-none">
+              {selectedCluster.photos.map((p, idx) => (
+                <button
+                  key={p.photoId}
+                  onClick={() => setActivePhotoIndex(idx)}
+                  className={`relative shrink-0 w-9 h-9 rounded-lg overflow-hidden border-2 transition-all cursor-pointer ${
+                    activePhotoIndex === idx
+                      ? "border-emerald-500 scale-105 ring-1 ring-emerald-400"
+                      : "border-transparent opacity-60 hover:opacity-100"
+                  }`}
+                >
+                  <Image
+                    src={p.thumbnail || p.preview || ""}
+                    alt={p.name}
+                    fill
+                    unoptimized
+                    className="object-cover"
+                  />
+                </button>
+              ))}
+            </div>
+          )}
 
           <div className="p-4 space-y-2.5">
             <div>
-              <h3 className="font-bold text-sm text-foreground truncate" title={selectedPhoto.name}>
-                {selectedPhoto.name}
+              <h3 className="font-bold text-sm text-foreground truncate" title={currentPhoto.name}>
+                {currentPhoto.name}
               </h3>
-              {selectedPhoto.takenTime && (
+              {currentPhoto.takenTime && (
                 <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-0.5">
                   <Calendar className="size-3 text-primary" />
-                  <span>{formatRelativeTime(selectedPhoto.takenTime, locale)}</span>
+                  <span>{formatRelativeTime(currentPhoto.takenTime, locale)}</span>
                 </div>
               )}
             </div>
@@ -299,7 +477,7 @@ export default function PhotoMapView() {
               <div className="flex items-center gap-1.5 text-muted-foreground font-mono truncate">
                 <Compass className="size-3.5 text-emerald-500 shrink-0" />
                 <span>
-                  {selectedPhoto.latitude?.toFixed(4)}°, {selectedPhoto.longitude?.toFixed(4)}°
+                  {selectedCluster.latitude?.toFixed(4)}°, {selectedCluster.longitude?.toFixed(4)}°
                 </span>
               </div>
               <span className="text-[10px] font-semibold text-emerald-500 uppercase tracking-wider">
@@ -310,7 +488,7 @@ export default function PhotoMapView() {
             {/* Action Buttons */}
             <div className="flex items-center gap-2 pt-1">
               <Button asChild size="sm" className="flex-1 h-8.5 text-xs rounded-xl gap-1.5 font-semibold">
-                <Link href={`/photo/${selectedPhoto.photoId}`}>
+                <Link href={`/photo/${currentPhoto.photoId}`}>
                   <Eye className="size-3.5" />
                   <span>Buka Foto</span>
                 </Link>
@@ -319,7 +497,13 @@ export default function PhotoMapView() {
                 type="button"
                 variant="outline"
                 size="sm"
-                onClick={() => handleFlyToPhoto(selectedPhoto)}
+                onClick={() =>
+                  mapInstanceRef.current?.flyTo(
+                    [selectedCluster.latitude, selectedCluster.longitude],
+                    16,
+                    { duration: 1 }
+                  )
+                }
                 className="h-8.5 text-xs rounded-xl gap-1.5"
                 title="Fokuskan Kamera"
               >
@@ -354,7 +538,7 @@ export default function PhotoMapView() {
           ) : (
             <div className="flex items-center gap-2.5 overflow-x-auto pb-1 scrollbar-thin scrollbar-thumb-muted scrollbar-track-transparent">
               {photos.map((photo) => {
-                const isSelected = selectedPhoto?.photoId === photo.photoId
+                const isSelected = currentPhoto?.photoId === photo.photoId
                 return (
                   <div
                     key={photo.photoId}
