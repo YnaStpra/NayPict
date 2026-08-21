@@ -518,7 +518,7 @@ export function PhotoInfoSidebar({
                       {t("location")}
                     </div>
                     <div className="rounded-xl border border-dashed border-white/20 bg-white/5 p-3.5 text-center space-y-2">
-                      <p className="text-xs text-white/60">Foto ini belum memiliki koordinat GPS.</p>
+                      <p className="text-xs text-white/60">This photo does not have GPS coordinates.</p>
                       <Button
                         type="button"
                         size="sm"
@@ -527,7 +527,7 @@ export function PhotoInfoSidebar({
                         className="h-7 text-xs rounded-lg border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20 gap-1.5 cursor-pointer"
                       >
                         <MapPin className="size-3" />
-                        <span>Tambahkan Lokasi GPS</span>
+                        <span>Add GPS Location</span>
                       </Button>
                     </div>
                   </div>

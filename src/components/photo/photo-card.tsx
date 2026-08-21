@@ -248,7 +248,7 @@ export function PhotoCard({
             onPhotoPin(data.photoId, Boolean(data.isPinned))
           }}
           aria-label={data.isPinned ? `Unpin ${data.name} from album` : `Pin ${data.name} to album top`}
-          title={data.isPinned ? "Lepas pin foto dari album" : "Sematkan foto ke paling atas album (Maksimal 3 foto)"}
+          title={data.isPinned ? "Unpin photo from album" : "Pin photo to the top of album (Maximum 3 photos)"}
         >
           <PinIcon className={`size-3.5 rotate-45 ${data.isPinned ? "fill-amber-400 text-amber-400" : "text-white"}`} />
         </Button>

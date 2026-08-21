@@ -83,50 +83,50 @@ export interface MapStyleOption {
 export const MAP_STYLE_OPTIONS: MapStyleOption[] = [
   {
     key: "google-streets",
-    label: "Google Standar",
-    subtitle: "Peta jalan & bangunan resmi Google Maps",
+    label: "Google Streets",
+    subtitle: "Official Google Maps streets & buildings",
     icon: "🗺️",
-    badge: "Populer",
+    badge: "Popular",
     tileUrl: "https://mt{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}",
     subdomains: ["0", "1", "2", "3"],
     maxZoom: 20,
   },
   {
     key: "google-hybrid",
-    label: "Satelit Hibrid",
-    subtitle: "Citra satelit bumi + label kota & jalan",
+    label: "Satellite Hybrid",
+    subtitle: "High-resolution satellite view with street labels",
     icon: "🛰️",
-    badge: "Satelit",
+    badge: "Satellite",
     tileUrl: "https://mt{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}",
     subdomains: ["0", "1", "2", "3"],
     maxZoom: 20,
   },
   {
     key: "google-terrain",
-    label: "Medan & Relief",
-    subtitle: "Topografi, kontur gunung & ketinggian alam",
+    label: "Terrain & Relief",
+    subtitle: "Topography, mountain contours & elevation data",
     icon: "⛰️",
-    badge: "Topografi",
+    badge: "Topography",
     tileUrl: "https://mt{s}.google.com/vt/lyrs=p&x={x}&y={y}&z={z}",
     subdomains: ["0", "1", "2", "3"],
     maxZoom: 20,
   },
   {
     key: "carto-dark",
-    label: "Mode Gelap",
-    subtitle: "Nuansa malam gelap kontras tinggi (CartoDB)",
+    label: "Dark Mode",
+    subtitle: "High-contrast dark night mode (CartoDB)",
     icon: "🌙",
-    badge: "Gelap",
+    badge: "Dark",
     tileUrl: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
     subdomains: "abcd",
     maxZoom: 19,
   },
   {
     key: "carto-light",
-    label: "Terang Minimalis",
-    subtitle: "Tampilan monokrom bersih & halus (Voyager)",
+    label: "Light Minimal",
+    subtitle: "Clean & smooth monochrome aesthetic (Voyager)",
     icon: "☀️",
-    badge: "Terang",
+    badge: "Light",
     tileUrl: "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",
     subdomains: "abcd",
     maxZoom: 19,
@@ -284,7 +284,7 @@ export default function PhotoMapView() {
     return {}
   })
 
-  // Bottom drawer panel state (defaults to closed as requested)
+  // Bottom drawer panel state (defaults to closed)
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(false)
   const [drawerTab, setDrawerTab] = useState<"spots" | "map" | "untagged">("spots")
 
@@ -543,7 +543,7 @@ export default function PhotoMapView() {
       })
       setActivePhotoIndex(0)
 
-      toast.success(`Foto "${photo.name}" dijadikan sebagai sampul pin lokasi!`)
+      toast.success(`Photo "${photo.name}" set as map pin cover!`)
     },
     []
   )
@@ -798,7 +798,7 @@ export default function PhotoMapView() {
           <MapPin className="size-4 text-emerald-500 animate-pulse" />
           <span className="font-bold text-xs sm:text-sm">Photo Map Explorer</span>
           <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-500 border border-emerald-500/30 ml-1">
-            {photos.length} foto • {geoSpots.length} titik lokasi
+            {photos.length} photos • {geoSpots.length} spots
           </span>
         </div>
 
@@ -814,7 +814,7 @@ export default function PhotoMapView() {
                 ? "bg-primary/20 border-primary text-primary"
                 : "bg-background/80 dark:bg-neutral-900/80 border-border/70"
             }`}
-            title="Ganti tampilan peta (Google Standar, Satelit Hibrid, Medan, Mode Gelap)"
+            title="Switch map style (Google Streets, Satellite, Terrain, Dark Mode)"
           >
             <Layers className="size-3.5 text-emerald-500" />
             <span className="font-semibold">{currentMapStyleOption.label}</span>
@@ -826,7 +826,7 @@ export default function PhotoMapView() {
               <div className="px-2 py-1 flex items-center justify-between border-b border-border/50 pb-2">
                 <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
                   <Globe className="size-3.5 text-primary" />
-                  <span>Gaya & Lapisan Peta</span>
+                  <span>Map Styles & Layers</span>
                 </span>
                 <span className="text-[10px] text-muted-foreground font-medium">Google Maps</span>
               </div>
@@ -875,10 +875,10 @@ export default function PhotoMapView() {
             size="sm"
             onClick={() => setAllSpotsDialogOpen(true)}
             className="h-9 px-3 text-xs rounded-2xl backdrop-blur-xl bg-background/80 dark:bg-neutral-900/80 border-border/70 shadow-xl gap-1.5 cursor-pointer hover:scale-105 transition-all text-emerald-600 dark:text-emerald-400 font-semibold"
-            title="Buka daftar dan kelola semua titik lokasi foto"
+            title="Open and manage all photo map spots"
           >
             <ListFilter className="size-3.5 text-emerald-500" />
-            <span>Kelola Semua Titik ({geoSpots.length})</span>
+            <span>Manage All Spots ({geoSpots.length})</span>
           </Button>
         )}
 
@@ -890,10 +890,10 @@ export default function PhotoMapView() {
             size="sm"
             onClick={handleFitAll}
             className="h-9 px-3 text-xs rounded-2xl backdrop-blur-xl bg-background/80 dark:bg-neutral-900/80 border-border/70 shadow-xl gap-1.5 cursor-pointer hover:scale-105 transition-all"
-            title="Tampilkan seluruh foto"
+            title="Fit view to show all mapped photos"
           >
             <LocateFixed className="size-3.5 text-primary" />
-            <span className="hidden sm:inline">Lihat Semua</span>
+            <span className="hidden sm:inline">View All</span>
           </Button>
         )}
 
@@ -907,15 +907,15 @@ export default function PhotoMapView() {
                 size="sm"
                 onClick={() => setUntaggedDialogOpen(true)}
                 className="h-9 px-3 text-xs rounded-2xl backdrop-blur-xl bg-amber-500/10 dark:bg-amber-500/20 border-amber-500/35 text-amber-700 dark:text-amber-300 shadow-xl gap-1.5 cursor-pointer hover:bg-amber-500/25 transition-all hover:scale-105"
-                title="Kelola foto yang belum memiliki titik koordinat lokasi GPS"
+                title="Manage photos missing GPS location coordinates"
               >
                 <AlertCircle className="size-3.5 text-amber-500 animate-bounce" />
-                <span className="font-bold">{untaggedPhotos.length} Foto Tanpa Koordinat</span>
+                <span className="font-bold">{untaggedPhotos.length} Untagged Photos</span>
               </Button>
             ) : (
               <div className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 rounded-2xl backdrop-blur-xl bg-background/80 dark:bg-neutral-900/80 border border-emerald-500/30 text-emerald-500 text-xs font-semibold shadow-xl">
                 <CheckCircle2 className="size-3.5" />
-                <span>Semua Foto Berkoordinat</span>
+                <span>All Photos Geotagged</span>
               </div>
             )}
           </>
@@ -930,7 +930,7 @@ export default function PhotoMapView() {
           className="h-9 px-3 text-xs rounded-2xl backdrop-blur-xl bg-background/80 dark:bg-neutral-900/80 border-border/70 shadow-xl gap-1.5 cursor-pointer"
         >
           <Filter className="size-3.5" />
-          <span className="hidden sm:inline">{isSidebarOpen ? "Tutup Panel" : "Buka Panel"}</span>
+          <span className="hidden sm:inline">{isSidebarOpen ? "Close Panel" : "Open Panel"}</span>
         </Button>
       </div>
 
@@ -949,7 +949,7 @@ export default function PhotoMapView() {
               <div
                 className="relative aspect-4/3 w-full bg-neutral-950 overflow-hidden group cursor-pointer"
                 onClick={() => handleOpenPhotoViewer(selectedCluster.photos, activePhotoIndex)}
-                title="Klik untuk membuka foto layar penuh"
+                title="Click to open full photo view"
               >
                 {placeholder && (
                   <img
@@ -980,7 +980,7 @@ export default function PhotoMapView() {
                     setSelectedCluster(null)
                   }}
                   className="absolute top-3 right-3 p-1.5 rounded-full bg-black/60 text-white hover:bg-black/80 backdrop-blur-md transition-colors cursor-pointer z-10"
-                  title="Tutup Preview"
+                  title="Close Preview"
                 >
                   <X className="size-4" />
                 </button>
@@ -1000,12 +1000,12 @@ export default function PhotoMapView() {
                     }`}
                     title={
                       isCoverPhoto
-                        ? "Foto ini adalah sampul pin lokasi saat ini"
-                        : "Jadikan foto ini sebagai sampul yang tampil di pin peta"
+                        ? "This photo is the active pin cover"
+                        : "Set this photo as the map pin cover"
                     }
                   >
                     <Sparkles className={`size-3 ${isCoverPhoto ? "fill-current text-black" : "text-amber-300"}`} />
-                    <span>{isCoverPhoto ? "Sampul Pin" : "Jadikan Sampul"}</span>
+                    <span>{isCoverPhoto ? "Pin Cover" : "Set as Cover"}</span>
                   </button>
                 )}
 
@@ -1014,7 +1014,7 @@ export default function PhotoMapView() {
                   <div className="absolute top-3 left-3 px-2.5 py-1 rounded-full bg-emerald-500/90 text-white text-[11px] font-bold shadow-lg backdrop-blur-md flex items-center gap-1.5">
                     <Images className="size-3" />
                     <span>
-                      {activePhotoIndex + 1} / {selectedCluster.photos.length} Foto di Titik Ini
+                      {activePhotoIndex + 1} / {selectedCluster.photos.length} Photos at This Spot
                     </span>
                   </div>
                 )}
@@ -1029,7 +1029,7 @@ export default function PhotoMapView() {
                         handlePrevPhoto()
                       }}
                       className="pointer-events-auto p-1.5 rounded-full bg-black/50 text-white hover:bg-black/80 backdrop-blur-md transition-all cursor-pointer hover:scale-110"
-                      title="Foto Sebelumnya"
+                      title="Previous Photo"
                     >
                       <ChevronLeft className="size-4" />
                     </button>
@@ -1040,7 +1040,7 @@ export default function PhotoMapView() {
                         handleNextPhoto()
                       }}
                       className="pointer-events-auto p-1.5 rounded-full bg-black/50 text-white hover:bg-black/80 backdrop-blur-md transition-all cursor-pointer hover:scale-110"
-                      title="Foto Berikutnya"
+                      title="Next Photo"
                     >
                       <ChevronRight className="size-4" />
                     </button>
@@ -1076,7 +1076,7 @@ export default function PhotoMapView() {
                           ? "border-amber-400/80 opacity-90 hover:opacity-100"
                           : "border-transparent opacity-60 hover:opacity-100"
                       }`}
-                      title={isCover ? `Sampul Pin: ${p.name}` : p.name}
+                      title={isCover ? `Pin Cover: ${p.name}` : p.name}
                     >
                       {ph && (
                         <img
@@ -1133,10 +1133,10 @@ export default function PhotoMapView() {
                   type="button"
                   onClick={() => setEditSpotDialogOpen(true)}
                   className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 hover:text-emerald-500 hover:underline flex items-center gap-1 cursor-pointer"
-                  title="Ubah titik lokasi untuk semua foto di pin ini"
+                  title="Edit location coordinates for all photos in this pin"
                 >
                   <MapPin className="size-3 text-emerald-500" />
-                  <span>Ubah Titik ({selectedCluster.photos.length})</span>
+                  <span>Edit Spot ({selectedCluster.photos.length})</span>
                 </button>
               ) : (
                 <span className="text-[10px] font-semibold text-emerald-500 uppercase tracking-wider">
@@ -1152,10 +1152,10 @@ export default function PhotoMapView() {
                 size="sm"
                 onClick={() => handleOpenPhotoViewer(selectedCluster.photos, activePhotoIndex)}
                 className="flex-1 h-8.5 text-xs rounded-xl gap-1.5 font-semibold bg-emerald-600 hover:bg-emerald-500 text-white cursor-pointer shadow-xs"
-                title="Buka foto dalam tampilan penuh"
+                title="Open photo in full viewer"
               >
                 <Eye className="size-3.5" />
-                <span>Buka Foto</span>
+                <span>Open Photo</span>
               </Button>
               {isAdmin && (
                 <Button
@@ -1164,10 +1164,10 @@ export default function PhotoMapView() {
                   size="sm"
                   onClick={() => setEditSpotDialogOpen(true)}
                   className="h-8.5 px-2.5 text-xs rounded-xl gap-1.5 border-emerald-500/40 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 cursor-pointer"
-                  title="Ubah titik koordinat lokasi semua foto di pin ini"
+                  title="Edit GPS location for all photos in this pin"
                 >
-                  <MapPin className="size-3.5 text-emerald-500" />
-                  <span>Edit Titik</span>
+                  <MapPin className="size-3 text-emerald-500" />
+                  <span>Edit Spot</span>
                 </Button>
               )}
               <Button
@@ -1182,10 +1182,10 @@ export default function PhotoMapView() {
                   )
                 }
                 className="h-8.5 px-2.5 text-xs rounded-xl gap-1.5"
-                title="Fokuskan Kamera"
+                title="Focus Camera"
               >
                 <Expand className="size-3.5" />
-                <span>Fokus</span>
+                <span>Focus</span>
               </Button>
             </div>
           </div>
@@ -1208,7 +1208,7 @@ export default function PhotoMapView() {
                 }`}
               >
                 <MapPin className="size-3.5 text-emerald-500" />
-                <span>Daftar Titik ({geoSpots.length})</span>
+                <span>Spots List ({geoSpots.length})</span>
               </button>
 
               <button
@@ -1221,7 +1221,7 @@ export default function PhotoMapView() {
                 }`}
               >
                 <Sparkles className="size-3.5 text-emerald-500" />
-                <span>Semua Foto ({photos.length})</span>
+                <span>All Photos ({photos.length})</span>
               </button>
 
               {isAdmin && untaggedPhotos.length > 0 && (
@@ -1235,7 +1235,7 @@ export default function PhotoMapView() {
                   }`}
                 >
                   <AlertCircle className="size-3.5 text-amber-500" />
-                  <span>Tanpa Koordinat ({untaggedPhotos.length})</span>
+                  <span>Untagged ({untaggedPhotos.length})</span>
                 </button>
               )}
             </div>
@@ -1247,13 +1247,13 @@ export default function PhotoMapView() {
                   onClick={() => setAllSpotsDialogOpen(true)}
                   className="text-xs text-emerald-600 dark:text-emerald-400 hover:underline font-semibold cursor-pointer hidden sm:inline"
                 >
-                  Kelola Semua ({geoSpots.length} Titik)
+                  Manage All ({geoSpots.length} Spots)
                 </button>
               )}
               <button
                 onClick={() => setIsSidebarOpen(false)}
                 className="text-muted-foreground hover:text-foreground text-xs cursor-pointer p-1"
-                title="Tutup Panel"
+                title="Close Panel"
               >
                 <X className="size-3.5" />
               </button>
@@ -1265,7 +1265,7 @@ export default function PhotoMapView() {
             <>
               {geoSpots.length === 0 ? (
                 <div className="py-6 text-center text-xs text-muted-foreground">
-                  Belum ada titik lokasi foto.
+                  No photo spots yet.
                 </div>
               ) : (
                 <div className="flex items-center gap-2.5 overflow-x-auto pb-1 scrollbar-thin scrollbar-thumb-muted scrollbar-track-transparent">
@@ -1313,7 +1313,7 @@ export default function PhotoMapView() {
                         <div className="relative z-10 flex items-center justify-between">
                           <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-500 text-white shadow-md flex items-center gap-0.5">
                             <MapPin className="size-2.5" />
-                            <span>{spot.photos.length} Foto</span>
+                            <span>{spot.photos.length} Photos</span>
                           </span>
                           {isAdmin && (
                             <button
@@ -1323,7 +1323,7 @@ export default function PhotoMapView() {
                                 setSpotToEdit(spot)
                               }}
                               className="p-1 rounded-md bg-black/60 hover:bg-emerald-600 text-white transition-colors"
-                              title="Ubah titik lokasi grup ini"
+                              title="Edit location for this spot"
                             >
                               <MapPin className="size-3" />
                             </button>
@@ -1352,7 +1352,7 @@ export default function PhotoMapView() {
             <>
               {photos.length === 0 ? (
                 <div className="py-6 text-center text-xs text-muted-foreground">
-                  Belum ada foto yang memiliki koordinat GPS.
+                  No photos have GPS coordinates yet.
                 </div>
               ) : (
                 <div className="flex items-center gap-2.5 overflow-x-auto pb-1 scrollbar-thin scrollbar-thumb-muted scrollbar-track-transparent">
@@ -1445,7 +1445,7 @@ export default function PhotoMapView() {
                         onClick={() => setSingleGeotagPhotoId(photo.photoId)}
                         className="w-full h-6 text-[10px] rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold p-0 shadow-md cursor-pointer"
                       >
-                        + Setel Lokasi
+                        + Set Location
                       </Button>
                     </div>
                   </div>
@@ -1559,7 +1559,7 @@ export default function PhotoMapView() {
       {loading && (
         <div className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-background/80 backdrop-blur-md gap-3">
           <Loader2 className="size-8 animate-spin text-emerald-500" />
-          <p className="text-sm font-semibold text-foreground">Memuat Peta & Lokasi Foto...</p>
+          <p className="text-sm font-semibold text-foreground">Loading Map & Photo Locations...</p>
         </div>
       )}
 
@@ -1569,9 +1569,9 @@ export default function PhotoMapView() {
           <div className="size-12 rounded-2xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center mx-auto">
             <MapPin className="size-6" />
           </div>
-          <h3 className="font-bold text-base text-foreground">Belum Ada Foto Berkoordinat GPS</h3>
+          <h3 className="font-bold text-base text-foreground">No Geotagged Photos Yet</h3>
           <p className="text-xs text-muted-foreground leading-relaxed">
-            Foto yang Anda unggah belum memiliki data metadata lokasi GPS EXIF. Anda dapat menambahkan koordinat lokasi melalui tombol di bawah.
+            Your uploaded photos do not contain GPS location EXIF metadata yet. You can add coordinates to your photos using the button below.
           </p>
           {isAdmin && untaggedPhotos.length > 0 ? (
             <Button
@@ -1580,11 +1580,11 @@ export default function PhotoMapView() {
               onClick={() => setUntaggedDialogOpen(true)}
               className="rounded-xl mt-2 text-xs bg-emerald-600 hover:bg-emerald-500 text-white font-semibold cursor-pointer"
             >
-              Kelola {untaggedPhotos.length} Foto Tanpa Lokasi
+              Manage {untaggedPhotos.length} Untagged Photos
             </Button>
           ) : (
             <Button asChild size="sm" className="rounded-xl mt-2 text-xs">
-              <Link href="/photos">Kembali ke Galeri</Link>
+              <Link href="/photos">Back to Gallery</Link>
             </Button>
           )}
         </div>

@@ -150,7 +150,7 @@ export function PhotoBatchEditDialog({
   // Get current device GPS location
   const handleGetCurrentLocation = () => {
     if (typeof window === "undefined" || !navigator.geolocation) {
-      toast.error("Geolokasi tidak didukung oleh peramban ini.")
+      toast.error("Geolocation is not supported by this browser.")
       return
     }
 
@@ -163,11 +163,11 @@ export function PhotoBatchEditDialog({
         setLongitude(lng.toString())
         setCoordInput(decimalToDms(lat, lng))
         setIsLocating(false)
-        toast.success("Berhasil mendeteksi koordinat GPS perangkat!")
+        toast.success("Successfully detected device GPS coordinates!")
       },
       (err) => {
         setIsLocating(false)
-        toast.error(`Gagal mendapatkan lokasi GPS: ${err.message}`)
+        toast.error(`Failed to obtain GPS location: ${err.message}`)
       },
       { enableHighAccuracy: true, timeout: 10000 }
     )
@@ -179,7 +179,7 @@ export function PhotoBatchEditDialog({
     if (!photoIds.length) return
 
     if (!hasChanges) {
-      toast.warning("Silakan pilih setidaknya satu kategori metadata untuk diubah.")
+      toast.warning("Please select at least one metadata category to update.")
       return
     }
 
@@ -265,7 +265,7 @@ export function PhotoBatchEditDialog({
           finalLng < -180 ||
           finalLng > 180
         ) {
-          toast.error("Format koordinat tidak valid! Masukkan format DMS (contoh: 8°20'43.0\"S 116°31'58.9\"E) atau desimal.")
+          toast.error("Invalid coordinates format! Enter DMS format (e.g. 8°20'43.0\"S 116°31'58.9\"E) or decimal format.")
           return
         }
 
@@ -279,12 +279,12 @@ export function PhotoBatchEditDialog({
     setLoading(true)
     try {
       await photoBatchEdit(payload)
-      toast.success(`Berhasil memperbarui metadata untuk ${photoIds.length} foto.`)
+      toast.success(`Successfully updated metadata for ${photoIds.length} photo(s).`)
       onSuccess?.(photoIds, clientUpdates)
       handleOpenChange(false)
     } catch (err: unknown) {
       console.error("Batch edit failed:", err)
-      toast.error("Gagal memperbarui metadata foto.")
+      toast.error("Failed to update photo metadata.")
     } finally {
       setLoading(false)
     }
@@ -297,140 +297,140 @@ export function PhotoBatchEditDialog({
           <div className="flex items-center gap-2">
             <Sparkles className="size-5 text-primary" />
             <DialogTitle className="text-lg font-bold">
-              Edit Metadata {photoIds.length === 1 ? "Foto" : `Massal (${photoIds.length} Foto)`}
+              Edit Metadata {photoIds.length === 1 ? "Photo" : `Batch (${photoIds.length} Photos)`}
             </DialogTitle>
           </div>
           <DialogDescription className="text-xs text-muted-foreground">
-            Pilih nilai baru untuk kategori yang ingin diubah. Opsi yang disetel ke &quot;Tidak Diubah&quot; akan mempertahankan metadata asli foto.
+            Select new values for the categories you want to change. Options set to &quot;Keep Current&quot; will preserve original photo metadata.
           </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="flex-1 min-h-0 overflow-y-auto space-y-3 pr-1 py-1">
-          {/* 1. Tipe Visibilitas / Display Scope */}
+          {/* 1. Visibility / Display Scope */}
           <div className="rounded-xl border border-border/80 bg-card p-3.5 space-y-2 shadow-2xs">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 text-sm font-semibold">
                 <Eye className="size-4 text-primary" />
-                <span>1. Visibilitas & Ruang Tampil</span>
+                <span>1. Visibility & Display Scope</span>
               </div>
               {isVisModified && (
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
-                  Akan Diubah
+                  Will Change
                 </span>
               )}
             </div>
             <Select value={visibility} onValueChange={setVisibility}>
               <SelectTrigger className="w-full text-xs h-9 bg-muted/30">
-                <SelectValue placeholder="Pilih Visibilitas..." />
+                <SelectValue placeholder="Select Visibility..." />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="unchanged" className="text-xs text-muted-foreground">
-                  ⚪ — Biarkan Sekarang (Tidak Diubah) —
+                  ⚪ — Keep Current (Unchanged) —
                 </SelectItem>
                 <SelectItem value={String(PhotoVisibilityEnum.BOTH)} className="text-xs">
-                  🌐 Tampilkan di Semua (Galeri Utama & Album)
+                  🌐 Show Everywhere (Main Gallery & Albums)
                 </SelectItem>
                 <SelectItem value={String(PhotoVisibilityEnum.GALLERY_ONLY)} className="text-xs">
-                  🖼️ Hanya Galeri Utama
+                  🖼️ Main Gallery Only
                 </SelectItem>
                 <SelectItem value={String(PhotoVisibilityEnum.ALBUM_ONLY)} className="text-xs">
-                  📁 Hanya di Album
+                  📁 Album Only
                 </SelectItem>
                 <SelectItem value={String(PhotoVisibilityEnum.ARCHIVED)} className="text-xs text-amber-500 font-medium">
-                  📦 Arsipkan (Sembunyikan dari Publik)
+                  📦 Archive / Hide from Public
                 </SelectItem>
               </SelectContent>
             </Select>
           </div>
 
-          {/* 2. Izin Unduh Publik */}
+          {/* 2. Public Download Permission */}
           <div className="rounded-xl border border-border/80 bg-card p-3.5 space-y-2 shadow-2xs">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 text-sm font-semibold">
                 <Download className="size-4 text-primary" />
-                <span>2. Izin Pengunduhan Publik</span>
+                <span>2. Public Download Permission</span>
               </div>
               {isDlModified && (
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
-                  Akan Diubah
+                  Will Change
                 </span>
               )}
             </div>
             <Select value={allowDownload} onValueChange={setAllowDownload}>
               <SelectTrigger className="w-full text-xs h-9 bg-muted/30">
-                <SelectValue placeholder="Pilih Izin Unduh..." />
+                <SelectValue placeholder="Select Download Permission..." />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="unchanged" className="text-xs text-muted-foreground">
-                  ⚪ — Biarkan Sekarang (Tidak Diubah) —
+                  ⚪ — Keep Current (Unchanged) —
                 </SelectItem>
                 <SelectItem value="allow" className="text-xs text-emerald-500 font-medium">
-                  ⬇️ Izinkan Unduh Publik (Original File)
+                  ⬇️ Allow Public Download (Original File)
                 </SelectItem>
                 <SelectItem value="deny" className="text-xs text-rose-500 font-medium">
-                  🔒 Lindungi / Kunci Unduhan Publik
+                  🔒 Protect / Disable Public Download
                 </SelectItem>
               </SelectContent>
             </Select>
           </div>
 
-          {/* 3. Status Favorit */}
+          {/* 3. Favorite Status */}
           <div className="rounded-xl border border-border/80 bg-card p-3.5 space-y-2 shadow-2xs">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 text-sm font-semibold">
                 <Heart className="size-4 text-primary" />
-                <span>3. Status Foto Favorit</span>
+                <span>3. Favorite Status</span>
               </div>
               {isFavModified && (
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
-                  Akan Diubah
+                  Will Change
                 </span>
               )}
             </div>
             <Select value={favorite} onValueChange={setFavorite}>
               <SelectTrigger className="w-full text-xs h-9 bg-muted/30">
-                <SelectValue placeholder="Pilih Status Favorit..." />
+                <SelectValue placeholder="Select Favorite Status..." />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="unchanged" className="text-xs text-muted-foreground">
-                  ⚪ — Biarkan Sekarang (Tidak Diubah) —
+                  ⚪ — Keep Current (Unchanged) —
                 </SelectItem>
                 <SelectItem value="1" className="text-xs text-amber-500 font-medium">
-                  ⭐ Tandai Sebagai Favorit (Starred)
+                  ⭐ Mark as Favorite (Starred)
                 </SelectItem>
                 <SelectItem value="0" className="text-xs text-muted-foreground">
-                  🤍 Hapus dari Favorit (Unstar)
+                  🤍 Remove from Favorites (Unstar)
                 </SelectItem>
               </SelectContent>
             </Select>
           </div>
 
-          {/* 4. Tanggal & Waktu Pengambilan */}
+          {/* 4. Date & Time Taken */}
           <div className="rounded-xl border border-border/80 bg-card p-3.5 space-y-2 shadow-2xs">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 text-sm font-semibold">
                 <Calendar className="size-4 text-primary" />
-                <span>4. Tanggal & Waktu Pengambilan</span>
+                <span>4. Date & Time Taken</span>
               </div>
               {isDateModified && (
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
-                  Akan Diubah
+                  Will Change
                 </span>
               )}
             </div>
             <Select value={takenTimeMode} onValueChange={setTakenTimeMode}>
               <SelectTrigger className="w-full text-xs h-9 bg-muted/30">
-                <SelectValue placeholder="Pilih Pengaturan Tanggal..." />
+                <SelectValue placeholder="Select Date Settings..." />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="unchanged" className="text-xs text-muted-foreground">
-                  ⚪ — Biarkan Sekarang (Tidak Diubah) —
+                  ⚪ — Keep Current (Unchanged) —
                 </SelectItem>
                 <SelectItem value="set" className="text-xs">
-                  📅 Setel Tanggal & Waktu Baru
+                  📅 Set New Date & Time
                 </SelectItem>
                 <SelectItem value="clear" className="text-xs text-destructive">
-                  🗑️ Kosongkan / Hapus Tanggal Pengambilan
+                  🗑️ Clear / Remove Taken Date
                 </SelectItem>
               </SelectContent>
             </Select>
@@ -448,32 +448,32 @@ export function PhotoBatchEditDialog({
             )}
           </div>
 
-          {/* 5. Koordinat Lokasi GPS (Format DMS & Desimal) */}
+          {/* 5. GPS Location Coordinates (DMS & Decimal Formats) */}
           <div className="rounded-xl border border-border/80 bg-card p-3.5 space-y-2 shadow-2xs">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 text-sm font-semibold">
                 <MapPin className="size-4 text-emerald-500" />
-                <span>5. Koordinat Lokasi GPS (DMS / Google Maps)</span>
+                <span>5. GPS Coordinates (DMS / Google Maps)</span>
               </div>
               {isLocModified && (
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-500 border border-emerald-500/30">
-                  Akan Diubah
+                  Will Change
                 </span>
               )}
             </div>
             <Select value={locationMode} onValueChange={setLocationMode}>
               <SelectTrigger className="w-full text-xs h-9 bg-muted/30">
-                <SelectValue placeholder="Pilih Pengaturan Lokasi GPS..." />
+                <SelectValue placeholder="Select GPS Location Setting..." />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="unchanged" className="text-xs text-muted-foreground">
-                  ⚪ — Biarkan Sekarang (Tidak Diubah) —
+                  ⚪ — Keep Current (Unchanged) —
                 </SelectItem>
                 <SelectItem value="set" className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">
-                  📍 Setel Koordinat GPS Baru
+                  📍 Set New GPS Coordinates
                 </SelectItem>
                 <SelectItem value="clear" className="text-xs text-destructive font-medium">
-                  🗑️ Kosongkan / Hapus Lokasi GPS
+                  🗑️ Clear / Remove GPS Location
                 </SelectItem>
               </SelectContent>
             </Select>
@@ -485,7 +485,7 @@ export function PhotoBatchEditDialog({
                   <label className="text-[11px] font-medium text-foreground flex items-center justify-between">
                     <span className="flex items-center gap-1">
                       <Compass className="size-3 text-emerald-500" />
-                      <span>Tempel / Ketik Koordinat (Format DMS):</span>
+                      <span>Paste / Type Coordinates (DMS Format):</span>
                     </span>
                     <span className="text-[10px] text-muted-foreground font-mono">
                       e.g. 8°20&apos;43.0&quot;S 116°31&apos;58.9&quot;E
@@ -493,7 +493,7 @@ export function PhotoBatchEditDialog({
                   </label>
                   <Input
                     type="text"
-                    placeholder={`8°20'43.0"S 116°31'58.9"E atau -8.345278, 116.533028`}
+                    placeholder={`8°20'43.0"S 116°31'58.9"E or -8.345278, 116.533028`}
                     value={coordInput}
                     onChange={(e) => handleCoordInputChange(e.target.value)}
                     className="text-xs h-9 bg-background font-mono"
@@ -510,7 +510,7 @@ export function PhotoBatchEditDialog({
                           {parsedCoord.dmsString}
                         </p>
                         <p className="text-[10px] text-muted-foreground font-mono">
-                          Desimal: {parsedCoord.latitude}°, {parsedCoord.longitude}°
+                          Decimal: {parsedCoord.latitude}°, {parsedCoord.longitude}°
                         </p>
                       </div>
                     </div>
@@ -524,7 +524,7 @@ export function PhotoBatchEditDialog({
                 <div className="grid grid-cols-2 gap-2 pt-0.5">
                   <div className="space-y-1">
                     <label className="text-[11px] font-medium text-muted-foreground flex items-center gap-1">
-                      <span>Latitude (Lintang Desimal)</span>
+                      <span>Latitude (Decimal)</span>
                     </label>
                     <Input
                       type="number"
@@ -537,7 +537,7 @@ export function PhotoBatchEditDialog({
                   </div>
                   <div className="space-y-1">
                     <label className="text-[11px] font-medium text-muted-foreground flex items-center gap-1">
-                      <span>Longitude (Bujur Desimal)</span>
+                      <span>Longitude (Decimal)</span>
                     </label>
                     <Input
                       type="number"
@@ -552,7 +552,7 @@ export function PhotoBatchEditDialog({
 
                 <div className="flex items-center justify-between pt-1">
                   <span className="text-[10px] text-muted-foreground">
-                    Foto akan otomatis muncul pada Peta Interaktif (/map).
+                    Photos will automatically appear on the Interactive Map (/map).
                   </span>
                   <Button
                     type="button"
@@ -567,7 +567,7 @@ export function PhotoBatchEditDialog({
                     ) : (
                       <LocateFixed className="size-3" />
                     )}
-                    <span>Gunakan GPS Perangkat</span>
+                    <span>Use Device GPS</span>
                   </Button>
                 </div>
               </div>
@@ -584,7 +584,7 @@ export function PhotoBatchEditDialog({
               disabled={loading}
               className="text-xs h-9"
             >
-              Batal
+              Cancel
             </Button>
             <Button
               type="submit"
@@ -595,8 +595,8 @@ export function PhotoBatchEditDialog({
               {loading && <LoaderCircle className="size-3.5 animate-spin" />}
               <span>
                 {hasChanges
-                  ? `Terapkan (${modifiedCount} Kategori)`
-                  : "Pilih Kategori untuk Mengubah"}
+                  ? `Apply Changes (${modifiedCount} Categories)`
+                  : "Select Categories to Change"}
               </span>
             </Button>
           </DialogFooter>

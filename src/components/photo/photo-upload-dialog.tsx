@@ -104,26 +104,26 @@ function getUploadErrorMessage(xhr: XMLHttpRequest): string {
   }
 
   if (xhr.status === 413 || xhr.responseText?.includes("FUNCTION_PAYLOAD_TOO_LARGE") || xhr.responseText?.includes("Payload Too Large")) {
-    return "Ukuran berkas melebihi batas server Vercel (4.5MB). Mengompres berkas otomatis..."
+    return "File size exceeds Vercel server limit (4.5MB). Compressing file automatically..."
   }
   if (xhr.status === 401) {
-    return "Sesi login telah berakhir. Silakan login kembali."
+    return "Login session has expired. Please log in again."
   }
   if (xhr.status === 403) {
-    return "Akses ditolak (hanya Admin yang dapat mengunggah foto)."
+    return "Access denied (only Admin can upload photos)."
   }
   if (xhr.status === 504 || xhr.status === 502) {
-    return "Waktu proses server habis. Silakan coba lagi."
+    return "Server request timed out. Please try again."
   }
   if (xhr.status === 500) {
-    return "Terjadi kesalahan server saat menyimpan foto ke penyimpanan."
+    return "Server error while saving photo to storage."
   }
 
   if (xhr.responseText && xhr.responseText.length > 0 && xhr.responseText.length < 150) {
     return xhr.responseText.trim()
   }
 
-  return xhr.statusText || `Upload gagal (HTTP ${xhr.status || "Error"})`
+  return xhr.statusText || `Upload failed (HTTP ${xhr.status || "Error"})`
 }
 
 function uploadPhotoAdd(
@@ -148,7 +148,7 @@ function uploadPhotoAdd(
       try {
         const result = JSON.parse(request.responseText)
         if (result.code !== 200) {
-          reject(new Error(result.message || "Upload gagal"))
+          reject(new Error(result.message || "Upload failed"))
           return
         }
         resolve(result.data)
@@ -157,7 +157,7 @@ function uploadPhotoAdd(
       }
     }
 
-    request.onerror = () => reject(new Error("Gagal terhubung ke server (Network error)"))
+    request.onerror = () => reject(new Error("Failed to connect to server (Network error)"))
     request.open("POST", "/api/photo/add")
     request.withCredentials = true
     onAbort?.(() => request.abort())
@@ -253,7 +253,7 @@ export function PhotoUploadDialog() {
 
   function handleOpenChange(next: boolean) {
     if (uploadingRef.current) {
-      toast.warning("Upload sedang berlangsung...")
+      toast.warning("Upload is currently in progress...")
       return
     }
 
@@ -361,7 +361,7 @@ export function PhotoUploadDialog() {
         const dupPhotoId = existsResult.photoId
         if (item.albumId && dupPhotoId) {
           await albumAddPhoto({ albumIds: [item.albumId], photoIds: [dupPhotoId] })
-          toast.success("Foto sudah ada di galeri, otomatis ditautkan ke album!")
+          toast.success("Photo already exists in gallery, automatically linked to album!")
         }
 
         // Record duplicate pair for end-of-upload review modal
@@ -453,7 +453,7 @@ export function PhotoUploadDialog() {
 
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") return
-      const errMsg = error instanceof Error ? error.message : "Upload gagal"
+      const errMsg = error instanceof Error ? error.message : "Upload failed"
       toast.error(errMsg)
 
       if (readPhotoUploadSettings().retryOnFail) {
@@ -481,7 +481,7 @@ export function PhotoUploadDialog() {
 
       const successCount = previewsRef.current.filter((p) => p.status === "success").length
       if (successCount > 0) {
-        toast.success(`Upload selesai: ${successCount} foto berhasil diunggah!`)
+        toast.success(`Upload complete: ${successCount} photo(s) uploaded successfully!`)
       }
 
       // Open Duplicate Review Dialog if duplicates were detected during batch upload
@@ -489,7 +489,7 @@ export function PhotoUploadDialog() {
         const dups = [...detectedDuplicatesRef.current]
         setDuplicatePairs(dups)
         setShowDuplicateModal(true)
-        toast.warning(`Terdeteksi ${dups.length} foto duplikat. Silakan tentukan tindakan di bawah!`)
+        toast.warning(`Detected ${dups.length} duplicate photo(s). Please review them below!`)
       }
       return
     }
@@ -541,7 +541,7 @@ export function PhotoUploadDialog() {
   // Duplicate Review Decision Handlers
   const handleKeepPair = (pairId: string) => {
     setDuplicatePairs((prev) => prev.filter((p) => p.id !== pairId))
-    toast.success("Foto duplikat dibiarkan tetap ada di galeri.")
+    toast.success("Duplicate photo kept in gallery.")
   }
 
   const handleDeleteNewDuplicatePair = async (pair: DuplicateReviewPair) => {
@@ -551,16 +551,16 @@ export function PhotoUploadDialog() {
         await photoRecycle({ photoIds: [pId] })
       }
       setDuplicatePairs((prev) => prev.filter((p) => p.id !== pair.id))
-      toast.success("Foto duplikat baru berhasil dipindahkan ke Tong Sampah.")
+      toast.success("New duplicate photo moved to Trash.")
     } catch {
-      toast.error("Gagal menghapus foto duplikat.")
+      toast.error("Failed to delete duplicate photo.")
     }
   }
 
   const handleKeepAllDuplicates = () => {
     setDuplicatePairs([])
     setShowDuplicateModal(false)
-    toast.success("Semua foto duplikat dibiarkan tetap ada.")
+    toast.success("All duplicate photos kept in gallery.")
   }
 
   const handleDeleteAllDuplicates = async () => {
@@ -574,9 +574,9 @@ export function PhotoUploadDialog() {
       }
       setDuplicatePairs([])
       setShowDuplicateModal(false)
-      toast.success(`Berhasil menghapus ${photoIdsToDelete.length} foto duplikat baru!`)
+      toast.success(`Successfully deleted ${photoIdsToDelete.length} duplicate photo(s)!`)
     } catch {
-      toast.error("Gagal menghapus foto duplikat massal.")
+      toast.error("Failed to delete duplicate photos.")
     }
   }
 
@@ -595,7 +595,7 @@ export function PhotoUploadDialog() {
                 <DialogTitle className="text-lg font-bold">{t("title")}</DialogTitle>
                 {previews.length > 0 && (
                   <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
-                    {previews.length.toLocaleString()} foto • {formatPhotoSize(totalSelectedSize)}
+                    {previews.length.toLocaleString()} photos • {formatPhotoSize(totalSelectedSize)}
                   </span>
                 )}
               </div>
@@ -614,8 +614,8 @@ export function PhotoUploadDialog() {
             </div>
             <DialogDescription className="text-xs text-muted-foreground">
               {uploading
-                ? `Mengunggah foto massal: ${completedCount} dari ${previews.length} selesai (${progressPercent}%)`
-                : "Pilih atau seret hingga ribuan foto ke dalam area ini untuk mengunggah ke galeri tanpa batasan."}
+                ? `Batch uploading: ${completedCount} of ${previews.length} completed (${progressPercent}%)`
+                : "Select or drag and drop photos into this area to upload to your gallery."}
             </DialogDescription>
           </DialogHeader>
 
@@ -683,7 +683,7 @@ export function PhotoUploadDialog() {
                       type="button"
                       onClick={() => removePreview(preview.id)}
                       className="absolute top-1 right-1 flex size-6 items-center justify-center rounded-full bg-black/60 text-white hover:bg-destructive transition-colors opacity-80 group-hover:opacity-100 cursor-pointer"
-                      title="Hapus foto"
+                      title="Remove photo"
                     >
                       <X className="size-3.5" />
                     </button>
@@ -703,7 +703,7 @@ export function PhotoUploadDialog() {
                   {preview.status === "skipped" && (
                     <div
                       className="absolute right-1 bottom-1 flex size-5 items-center justify-center rounded-full bg-amber-500 text-white shadow-xs"
-                      title="Foto duplikat terdeteksi"
+                      title="Duplicate photo detected"
                     >
                       <CopyIcon className="size-3.5" />
                     </div>
@@ -718,7 +718,7 @@ export function PhotoUploadDialog() {
                 onClick={openFilePicker}
               >
                 <PlusIcon className="size-6" />
-                <span className="text-[11px] font-medium">Tambah Foto</span>
+                <span className="text-[11px] font-medium">Add Photos</span>
               </button>
             </div>
           </div>
@@ -797,16 +797,16 @@ export function PhotoUploadDialog() {
             <DialogHeader>
               <div className="flex items-center gap-2 text-amber-500">
                 <ShieldAlertIcon className="size-6" />
-                <DialogTitle className="text-xl font-bold">Peringatan Foto Duplikat Terdeteksi</DialogTitle>
+                <DialogTitle className="text-xl font-bold">Duplicate Photos Detected</DialogTitle>
               </div>
               <DialogDescription className="text-sm text-muted-foreground mt-1">
-                Terdapat <span className="font-semibold text-foreground">{duplicatePairs.length} foto</span> yang terdeteksi duplikat selama proses upload. Silakan tentukan keputusan Admin untuk membiarkan atau menghapusnya.
+                Found <span className="font-semibold text-foreground">{duplicatePairs.length} photo(s)</span> detected as duplicates during upload. Please choose whether to keep or remove them.
               </DialogDescription>
             </DialogHeader>
 
             {/* Batch Decision Bar */}
             <div className="flex flex-wrap items-center justify-between gap-2 p-3 bg-muted/50 rounded-xl border border-border/80 my-2">
-              <span className="text-xs font-medium text-muted-foreground">Tindakan Massal Admin:</span>
+              <span className="text-xs font-medium text-muted-foreground">Admin Batch Actions:</span>
               <div className="flex items-center gap-2">
                 <Button
                   size="sm"
@@ -815,7 +815,7 @@ export function PhotoUploadDialog() {
                   onClick={handleKeepAllDuplicates}
                 >
                   <CheckCircle2Icon className="size-3.5" />
-                  <span>Biarkan Semua Duplikat</span>
+                  <span>Keep All Duplicates</span>
                 </Button>
                 <Button
                   size="sm"
@@ -824,7 +824,7 @@ export function PhotoUploadDialog() {
                   onClick={handleDeleteAllDuplicates}
                 >
                   <Trash2Icon className="size-3.5" />
-                  <span>Hapus Semua Foto Baru Duplikat</span>
+                  <span>Delete All New Duplicates</span>
                 </Button>
               </div>
             </div>
@@ -836,7 +836,7 @@ export function PhotoUploadDialog() {
                   <div className="flex items-center justify-between border-b pb-2">
                     <span className="text-xs font-semibold text-amber-500 flex items-center gap-1.5">
                       <CopyIcon className="size-3.5" />
-                      <span>Pasangan Duplikat #{idx + 1}</span>
+                      <span>Duplicate Pair #{idx + 1}</span>
                     </span>
                     <div className="flex items-center gap-2">
                       <Button
@@ -846,7 +846,7 @@ export function PhotoUploadDialog() {
                         onClick={() => handleKeepPair(pair.id)}
                       >
                         <CheckIcon className="size-3.5" />
-                        <span>Biarkan</span>
+                        <span>Keep</span>
                       </Button>
                       <Button
                         size="sm"
@@ -855,7 +855,7 @@ export function PhotoUploadDialog() {
                         onClick={() => handleDeleteNewDuplicatePair(pair)}
                       >
                         <Trash2Icon className="size-3.5" />
-                        <span>Hapus Duplikat Baru</span>
+                        <span>Delete New Duplicate</span>
                       </Button>
                     </div>
                   </div>
@@ -865,15 +865,15 @@ export function PhotoUploadDialog() {
                     <div className="p-3 rounded-xl bg-amber-500/5 border border-amber-500/20 flex gap-3 items-center">
                       <img
                         src={pair.uploadPreview.cover}
-                        alt="Foto Baru"
+                        alt="New Photo"
                         className="size-16 object-cover rounded-lg shrink-0 border"
                       />
                       <div className="min-w-0 text-xs space-y-1">
                         <div className="inline-block px-2 py-0.5 rounded bg-amber-500/20 text-amber-600 dark:text-amber-300 font-semibold text-[10px]">
-                          FOTO BARU (DIUPLOAD)
+                          NEW PHOTO (UPLOADED)
                         </div>
                         <div className="font-semibold truncate text-foreground">{pair.uploadPreview.file.name}</div>
-                        <div className="text-muted-foreground">Ukuran: {formatPhotoSize(pair.uploadPreview.file.size)}</div>
+                        <div className="text-muted-foreground">Size: {formatPhotoSize(pair.uploadPreview.file.size)}</div>
                       </div>
                     </div>
 
@@ -882,22 +882,22 @@ export function PhotoUploadDialog() {
                       {pair.existingPhoto?.thumbnail || pair.existingPhoto?.preview ? (
                         <img
                           src={pair.existingPhoto.thumbnail || pair.existingPhoto.preview}
-                          alt="Foto di Galeri"
+                          alt="Photo in Gallery"
                           className="size-16 object-cover rounded-lg shrink-0 border"
                           crossOrigin="anonymous"
                         />
                       ) : (
                         <div className="size-16 rounded-lg bg-muted flex items-center justify-center text-[10px] text-muted-foreground shrink-0 border">
-                          Galeri
+                          Gallery
                         </div>
                       )}
                       <div className="min-w-0 text-xs space-y-1">
                         <div className="inline-block px-2 py-0.5 rounded bg-muted text-muted-foreground font-semibold text-[10px]">
-                          FOTO DI GALERI (EKSISTING)
+                          EXISTING IN GALLERY
                         </div>
                         <div className="font-semibold truncate text-foreground">{pair.existingPhoto?.name || pair.uploadPreview.file.name}</div>
                         <div className="text-muted-foreground">
-                          {pair.existingPhoto ? `${pair.existingPhoto.width} × ${pair.existingPhoto.height} • ${formatPhotoSize(pair.existingPhoto.size)}` : 'Sudah tersimpan di galeri'}
+                          {pair.existingPhoto ? `${pair.existingPhoto.width} × ${pair.existingPhoto.height} • ${formatPhotoSize(pair.existingPhoto.size)}` : 'Already saved in gallery'}
                         </div>
                       </div>
                     </div>
@@ -908,7 +908,7 @@ export function PhotoUploadDialog() {
 
             <DialogFooter className="mt-2">
               <Button type="button" onClick={() => setShowDuplicateModal(false)}>
-                Selesai Peninjauan
+                Done Reviewing
               </Button>
             </DialogFooter>
           </DialogContent>

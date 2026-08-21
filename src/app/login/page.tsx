@@ -28,7 +28,7 @@ export default function LoginPage() {
         if (res?.require2Fa && res?.tempToken) {
           setRequire2Fa(true)
           setTempToken(res.tempToken)
-          toast.info("Masukkan 6 digit kode Google Authenticator Anda")
+          toast.info("Enter your 6-digit Google Authenticator code")
           return
         }
 
@@ -46,7 +46,7 @@ export default function LoginPage() {
       })
       .catch((err) => {
         console.error('Login failed:', err)
-        toast.error(err?.message || "Login gagal. Periksa kembali kredensial atau kode 2FA Anda.")
+        toast.error(err?.message || "Login failed. Please check your credentials or 2FA code.")
       })
       .finally(() => {
         setLoading(false)

@@ -77,12 +77,12 @@ export default function Page() {
   function addAlbum(name: string) {
     albumAdd({ name })
       .then(() => {
-        toast.success(`Album "${name}" berhasil dibuat!`)
+        toast.success(`Album "${name}" created successfully!`)
         void refreshAlbumData()
       })
       .catch((err: unknown) => {
         console.error("Failed to add album:", err)
-        toast.error((err as Error)?.message || "Gagal membuat album baru.")
+        toast.error((err as Error)?.message || "Failed to create album.")
       })
   }
 

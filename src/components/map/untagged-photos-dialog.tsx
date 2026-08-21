@@ -97,13 +97,13 @@ export function UntaggedPhotosDialog({
               </div>
               <div>
                 <DialogTitle className="text-lg font-bold flex items-center gap-2">
-                  <span>Foto Belum Memiliki Koordinat GPS</span>
+                  <span>Photos Missing GPS Coordinates</span>
                   <span className="px-2 py-0.5 text-xs font-bold rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30">
-                    {untaggedPhotos.length} Foto
+                    {untaggedPhotos.length} Photos
                   </span>
                 </DialogTitle>
                 <DialogDescription className="text-xs text-muted-foreground mt-0.5">
-                  Tambahkan titik koordinat lokasi (format DMS seperti <code>8°20&apos;43.0&quot;S 116°31&apos;58.9&quot;E</code> atau GPS perangkat) agar foto dapat tampil di peta dunia.
+                  Add location coordinates (DMS format such as <code>8°20&apos;43.0&quot;S 116°31&apos;58.9&quot;E</code> or device GPS) so photos appear on the interactive map.
                 </DialogDescription>
               </div>
             </div>
@@ -115,7 +115,7 @@ export function UntaggedPhotosDialog({
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
               <Input
                 type="text"
-                placeholder="Cari foto berdasarkan nama..."
+                placeholder="Search photos by name..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-8 text-xs h-9 bg-muted/40 rounded-xl"
@@ -140,7 +140,7 @@ export function UntaggedPhotosDialog({
                   onClick={toggleSelectAll}
                   className="text-xs h-9 rounded-xl border-border/80"
                 >
-                  {isAllSelected ? "Batal Pilih Semua" : "Pilih Semua"}
+                  {isAllSelected ? "Deselect All" : "Select All"}
                 </Button>
 
                 {selectedIds.length > 0 && (
@@ -151,7 +151,7 @@ export function UntaggedPhotosDialog({
                     className="text-xs h-9 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white gap-1.5 font-semibold shadow-md animate-in fade-in duration-200"
                   >
                     <MapPin className="size-3.5" />
-                    <span>Setel Lokasi ({selectedIds.length})</span>
+                    <span>Set Location ({selectedIds.length})</span>
                   </Button>
                 )}
               </div>
@@ -167,16 +167,16 @@ export function UntaggedPhotosDialog({
                 </div>
                 <div>
                   <h4 className="font-bold text-sm text-foreground">
-                    Semua Foto Sudah Memiliki Titik Koordinat!
+                    All Photos Have Coordinates!
                   </h4>
                   <p className="text-xs text-muted-foreground mt-1 max-w-sm">
-                    Seluruh foto galeri Anda telah terpetakan dengan sempurna di Peta Interaktif.
+                    All photos in your gallery are mapped to the Interactive Photo Map.
                   </p>
                 </div>
               </div>
             ) : filteredPhotos.length === 0 ? (
               <div className="py-10 text-center text-xs text-muted-foreground">
-                Tidak ada foto yang cocok dengan pencarian &quot;{searchQuery}&quot;.
+                No photos match your search &quot;{searchQuery}&quot;.
               </div>
             ) : (
               filteredPhotos.map((photo) => {
@@ -266,7 +266,7 @@ export function UntaggedPhotosDialog({
                       className="h-8 text-xs px-3 rounded-xl gap-1.5 font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/20 shrink-0 cursor-pointer ml-2"
                     >
                       <Compass className="size-3.5" />
-                      <span>Setel Lokasi</span>
+                      <span>Set Location</span>
                     </Button>
                   </div>
                 )

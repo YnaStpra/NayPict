@@ -88,11 +88,11 @@ export function AlbumSelectDialog({ open, onOpenChange, onAlbumSelect, initialSe
         setSelectedAlbumIds((prev) => [...prev, String(createdId)])
       }
 
-      toast.success(t("createSuccess", { defaultMessage: `Album "${name}" berhasil dibuat` }))
+      toast.success(t("createSuccess", { defaultMessage: `Album "${name}" created successfully` }))
       setNewAlbumName("")
       setCreating(false)
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Gagal membuat album baru"
+      const message = err instanceof Error ? err.message : "Failed to create new album"
       toast.error(message)
     }
   }
@@ -119,14 +119,14 @@ export function AlbumSelectDialog({ open, onOpenChange, onAlbumSelect, initialSe
             onClick={() => setCreating(true)}
           >
             <PlusIcon className="size-4" />
-            <span>+ Create New Album / Album Baru</span>
+            <span>+ Create New Album</span>
           </Button>
         ) : (
           <div className="flex items-center gap-2 p-2 rounded-lg border bg-muted/30">
             <Input
               autoFocus
               value={newAlbumName}
-              placeholder={t("namePlaceholder", { defaultMessage: "Nama album baru..." })}
+              placeholder={t("namePlaceholder", { defaultMessage: "New album name..." })}
               className="h-9 text-sm bg-background"
               onChange={(e) => setNewAlbumName(e.target.value)}
               onKeyDown={(e) => {
@@ -136,10 +136,10 @@ export function AlbumSelectDialog({ open, onOpenChange, onAlbumSelect, initialSe
             />
             <Button size="sm" className="h-9 shrink-0 gap-1" onClick={handleCreateNewAlbum}>
               <CheckIcon className="size-3.5" />
-              <span>Buat</span>
+              <span>Create</span>
             </Button>
             <Button size="sm" variant="ghost" className="h-9 shrink-0" onClick={() => setCreating(false)}>
-              Batal
+              Cancel
             </Button>
           </div>
         )}

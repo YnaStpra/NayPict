@@ -51,7 +51,7 @@ export default function MapPage() {
             <Button asChild variant="ghost" size="sm" className="h-8 gap-1.5 text-xs rounded-xl text-muted-foreground hover:text-foreground">
               <Link href="/photos">
                 <ArrowLeft className="size-3.5" />
-                <span className="hidden sm:inline">Galeri Foto</span>
+                <span className="hidden sm:inline">Photo Gallery</span>
               </Link>
             </Button>
           </div>

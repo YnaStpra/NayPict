@@ -492,7 +492,7 @@ const albumService = {
 
       const pinnedTotal = Number(pinnedCountRow?.total ?? 0);
       if (pinnedTotal >= 3) {
-        throw new BizError('Maksimal hanya 3 foto yang dapat di-pin dalam satu album.');
+        throw new BizError('A maximum of 3 photos can be pinned in an album.');
       }
     }
 

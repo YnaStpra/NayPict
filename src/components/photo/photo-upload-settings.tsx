@@ -81,20 +81,20 @@ export function PhotoUploadSettings({ onChange }: { onChange?: () => void }) {
       {/* Photo Compression Setting */}
       <div className="flex flex-col gap-2 pb-2 border-b border-border">
         <div className="flex items-center justify-between text-sm font-medium">
-          <span>Kompres Ukuran Foto</span>
+          <span>Compress Photo Size</span>
           <span className="text-xs font-semibold px-2 py-0.5 rounded bg-muted text-foreground">
-            {settings.compressImage ? "Kualitas Tinggi (WebP/JPEG 85%)" : "Original"}
+            {settings.compressImage ? "High Quality (WebP/JPEG 85%)" : "Original"}
           </span>
         </div>
         <div className="flex items-center justify-between gap-2">
-          <span className="text-xs text-muted-foreground">Kompres otomatis sebelum upload</span>
+          <span className="text-xs text-muted-foreground">Auto-compress before upload</span>
           <Switch
             checked={settings.compressImage}
             onCheckedChange={(compressImage) => updateSettings({ compressImage })}
           />
         </div>
         <p className="text-[11px] text-muted-foreground leading-snug mt-0.5">
-          Memperkecil ukuran berkas 60%-85% secara signifikan dengan tetap menjaga kejernihan visual foto.
+          Significantly reduces file size by 60%-85% while preserving visual photo clarity.
         </p>
       </div>
 
@@ -102,7 +102,7 @@ export function PhotoUploadSettings({ onChange }: { onChange?: () => void }) {
         <div className="flex items-center justify-between text-sm font-medium">
           <span>{t("concurrentUploads")}</span>
           <span className="text-xs font-bold px-2 py-0.5 rounded bg-muted text-foreground">
-            {settings.concurrency} worker paralel
+            {settings.concurrency} parallel workers
           </span>
         </div>
         <Slider
@@ -113,7 +113,7 @@ export function PhotoUploadSettings({ onChange }: { onChange?: () => void }) {
           onValueChange={(value) => updateSettings({ concurrency: value[0] })}
         />
         <p className="text-[10px] text-muted-foreground">
-          Tingkatkan worker paralel untuk mempercepat unggahan massal hingga ribuan foto.
+          Increase parallel workers for faster batch uploads of large photo sets.
         </p>
       </div>
       <div className="flex flex-col gap-2">

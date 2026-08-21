@@ -125,16 +125,16 @@ export function AllSpotsDialog({
               <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-500">
                 <MapPin className="size-5" />
               </div>
-              <span>Kelola Semua Titik Lokasi Peta</span>
+              <span>Manage All Photo Map Spots</span>
             </DialogTitle>
             <div className="flex items-center gap-2">
               <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">
-                {spots.length} Titik • {totalPhotosCount} Foto
+                {spots.length} Spots • {totalPhotosCount} Photos
               </span>
             </div>
           </div>
           <DialogDescription className="text-xs text-muted-foreground">
-            Daftar seluruh titik koordinat fisik yang terpetakan. Admin dapat langsung memilih foto sampul pin (cover photo), memindahkan lokasi seluruh foto dalam satu titik sekaligus, atau memfokuskan peta ke titik tersebut.
+            Directory of all mapped geographic coordinates. Admin can choose pin cover photos, move all photos in a spot simultaneously, or fly camera to the spot.
           </DialogDescription>
         </DialogHeader>
 
@@ -145,7 +145,7 @@ export function AllSpotsDialog({
             <Input
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Cari berdasarkan nama foto, koordinat (DMS/desimal)..."
+              placeholder="Search by photo name, coordinates (DMS/decimal)..."
               className="pl-9 h-9 text-xs rounded-xl bg-muted/40 border-border/70"
             />
             {searchQuery && (
@@ -161,15 +161,15 @@ export function AllSpotsDialog({
 
           <div className="flex items-center gap-1.5 shrink-0">
             <SlidersHorizontal className="size-3.5 text-muted-foreground" />
-            <span className="text-xs text-muted-foreground font-medium mr-1">Urutan:</span>
+            <span className="text-xs text-muted-foreground font-medium mr-1">Sort:</span>
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value as SortOption)}
               className="h-9 px-2.5 text-xs rounded-xl bg-muted/40 border border-border/70 text-foreground cursor-pointer outline-hidden"
             >
-              <option value="most-photos">Foto Terbanyak</option>
-              <option value="newest">Foto Terbaru</option>
-              <option value="oldest">Foto Terlama</option>
+              <option value="most-photos">Most Photos</option>
+              <option value="newest">Newest Photos</option>
+              <option value="oldest">Oldest Photos</option>
             </select>
           </div>
         </div>
@@ -179,14 +179,14 @@ export function AllSpotsDialog({
           {spots.length === 0 ? (
             <div className="py-14 text-center space-y-2">
               <MapPin className="size-8 text-muted-foreground/50 mx-auto" />
-              <p className="text-sm font-semibold text-foreground">Belum ada titik lokasi</p>
+              <p className="text-sm font-semibold text-foreground">No location spots yet</p>
               <p className="text-xs text-muted-foreground">
-                Belum ada foto yang memiliki titik koordinat GPS.
+                No uploaded photos have GPS coordinates yet.
               </p>
             </div>
           ) : filteredAndSortedSpots.length === 0 ? (
             <div className="py-12 text-center text-xs text-muted-foreground">
-              Tidak ada titik lokasi yang cocok dengan pencarian &quot;{searchQuery}&quot;.
+              No location spots match your search &quot;{searchQuery}&quot;.
             </div>
           ) : (
             filteredAndSortedSpots.map((spot, spotIndex) => {
@@ -208,7 +208,7 @@ export function AllSpotsDialog({
                       <div
                         className="relative shrink-0 w-16 h-16 rounded-2xl overflow-hidden bg-neutral-900 border border-white/40 shadow-md cursor-pointer group"
                         onClick={() => onOpenViewer(spot.photos, 0)}
-                        title="Buka foto titik ini"
+                        title="Open photos at this spot"
                       >
                         {topPhoto && (
                           <>
@@ -239,7 +239,7 @@ export function AllSpotsDialog({
                             })()}
                           </>
                         )}
-                        <div className="absolute top-1 left-1 px-1 rounded-md bg-amber-500 text-black text-[9px] font-black leading-tight flex items-center gap-0.5 shadow-sm" title="Sampul Pin Peta">
+                        <div className="absolute top-1 left-1 px-1 rounded-md bg-amber-500 text-black text-[9px] font-black leading-tight flex items-center gap-0.5 shadow-sm" title="Pin Cover Photo">
                           ★
                         </div>
                         {spot.photos.length > 1 && (
@@ -257,7 +257,7 @@ export function AllSpotsDialog({
                             {topPhoto?.name}
                           </span>
                           <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">
-                            {spot.photos.length} Foto
+                            {spot.photos.length} Photos
                           </span>
                         </div>
 
@@ -288,10 +288,10 @@ export function AllSpotsDialog({
                         size="sm"
                         onClick={() => onOpenViewer(spot.photos, 0)}
                         className="h-8.5 px-2.5 text-xs rounded-xl gap-1 text-muted-foreground hover:text-foreground cursor-pointer"
-                        title="Buka foto layar penuh"
+                        title="Open photo fullscreen"
                       >
                         <Eye className="size-3.5" />
-                        <span className="hidden md:inline">Buka</span>
+                        <span className="hidden md:inline">Open</span>
                       </Button>
 
                       {/* Fly / Focus in Map */}
@@ -304,10 +304,10 @@ export function AllSpotsDialog({
                           onOpenChange(false)
                         }}
                         className="h-8.5 px-2.5 text-xs rounded-xl gap-1.5 border-border/80 hover:bg-muted cursor-pointer"
-                        title="Arahkan kamera peta ke titik ini"
+                        title="Fly camera to this spot"
                       >
                         <LocateFixed className="size-3.5 text-primary" />
-                        <span>Lihat di Peta</span>
+                        <span>View on Map</span>
                       </Button>
 
                       {/* Edit Coordinates for all photos in this spot */}
@@ -318,10 +318,10 @@ export function AllSpotsDialog({
                           onEditSpot(spot)
                         }}
                         className="h-8.5 px-3 text-xs rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold gap-1.5 shadow-xs cursor-pointer"
-                        title="Ubah titik koordinat semua foto di titik ini"
+                        title="Edit location coordinates for all photos at this spot"
                       >
                         <MapPin className="size-3.5" />
-                        <span>Ubah Titik</span>
+                        <span>Edit Spot</span>
                       </Button>
                     </div>
                   </div>
@@ -332,10 +332,10 @@ export function AllSpotsDialog({
                       <div className="flex items-center justify-between pb-1.5">
                         <span className="text-[11px] font-semibold text-muted-foreground flex items-center gap-1">
                           <Sparkles className="size-3 text-amber-500" />
-                          <span>Pilih Foto Sampul Pin (Cover):</span>
+                          <span>Select Pin Cover Photo:</span>
                         </span>
                         <span className="text-[10px] text-muted-foreground">
-                          Klik foto untuk dijadikan sampul
+                          Click a photo to set as cover
                         </span>
                       </div>
 
@@ -357,8 +357,8 @@ export function AllSpotsDialog({
                               }`}
                               title={
                                 isCover
-                                  ? `Foto "${photo.name}" adalah sampul aktif`
-                                  : `Jadikan "${photo.name}" sebagai sampul pin`
+                                  ? `Photo "${photo.name}" is active cover`
+                                  : `Set "${photo.name}" as pin cover`
                               }
                             >
                               {ph && (

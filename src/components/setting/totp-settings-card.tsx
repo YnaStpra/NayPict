@@ -57,7 +57,7 @@ export function TotpSettingsCard() {
         }
       })
       .catch((err) => {
-        toast.error("Gagal menyiapkan Google Authenticator: " + (err?.message || "Error server"))
+        toast.error("Failed to setup Google Authenticator: " + (err?.message || "Server error"))
       })
       .finally(() => {
         setSubmitting(false)
@@ -74,12 +74,12 @@ export function TotpSettingsCard() {
       code: verificationCode.trim(),
     })
       .then(() => {
-        toast.success("Google Authenticator (2FA) Berhasil Diaktifkan!")
+        toast.success("Google Authenticator (2FA) successfully enabled!")
         setDialogOpen(false)
         fetchStatus()
       })
       .catch((err) => {
-        toast.error(err?.message || "Kode 2FA tidak valid. Periksa kembali aplikasi Google Authenticator Anda.")
+        toast.error(err?.message || "Invalid 2FA code. Please verify your Google Authenticator app.")
       })
       .finally(() => {
         setSubmitting(false)
@@ -88,16 +88,16 @@ export function TotpSettingsCard() {
 
   // Disable 2FA
   function handleDisable2Fa() {
-    if (!confirm("Apakah Anda yakin ingin menonaktifkan keamanan Google Authenticator 2FA?")) return
+    if (!confirm("Are you sure you want to disable Google Authenticator 2FA security?")) return
     setSubmitting(true)
 
     disableTotp()
       .then(() => {
-        toast.success("Google Authenticator 2FA berhasil dinonaktifkan")
+        toast.success("Google Authenticator 2FA successfully disabled")
         fetchStatus()
       })
       .catch((err) => {
-        toast.error("Gagal menonaktifkan 2FA: " + (err?.message || "Error server"))
+        toast.error("Failed to disable 2FA: " + (err?.message || "Server error"))
       })
       .finally(() => {
         setSubmitting(false)
@@ -109,15 +109,15 @@ export function TotpSettingsCard() {
     if (!setupData?.secret) return
     navigator.clipboard.writeText(setupData.secret)
     setCopiedSecret(true)
-    toast.success("Kunci rahasia 2FA berhasil disalin!")
+    toast.success("2FA secret key copied to clipboard!")
     setTimeout(() => setCopiedSecret(false), 2000)
   }
 
   return (
     <>
       <SettingItem
-        title="Otentikasi Dua Langkah (Google Authenticator 2FA)"
-        description="Amankan login Admin dengan verifikasi kode 6-digit dari aplikasi Google Authenticator"
+        title="Two-Factor Authentication (Google Authenticator 2FA)"
+        description="Secure Admin login with a 6-digit verification code from the Google Authenticator app"
       >
         <div className="flex items-center gap-3">
           {loadingStatus ? (
@@ -126,7 +126,7 @@ export function TotpSettingsCard() {
             <div className="flex items-center gap-2">
               <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
                 <ShieldCheck className="size-3.5" />
-                Aktif (Terlindungi)
+                Active (Protected)
               </span>
               <Button
                 type="button"
@@ -135,14 +135,14 @@ export function TotpSettingsCard() {
                 onClick={handleDisable2Fa}
                 disabled={submitting}
               >
-                Nonaktifkan 2FA
+                Disable 2FA
               </Button>
             </div>
           ) : (
             <div className="flex items-center gap-2">
               <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
                 <ShieldAlert className="size-3.5" />
-                Belum Aktif
+                Not Enabled
               </span>
               <Button
                 type="button"
@@ -153,7 +153,7 @@ export function TotpSettingsCard() {
               >
                 {submitting && <LoaderCircle className="size-3.5 animate-spin mr-1.5" />}
                 <QrCode className="size-3.5 mr-1.5" />
-                Aktifkan Google Authenticator
+                Enable Google Authenticator
               </Button>
             </div>
           )}
@@ -166,10 +166,10 @@ export function TotpSettingsCard() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-lg font-semibold">
               <ShieldCheck className="size-5 text-purple-600" />
-              Menyiapkan Google Authenticator (2FA)
+              Set Up Google Authenticator (2FA)
             </DialogTitle>
             <DialogDescription>
-              Pindai QR Code menggunakan aplikasi Google Authenticator di HP Anda.
+              Scan this QR Code using the Google Authenticator app on your phone.
             </DialogDescription>
           </DialogHeader>
 
@@ -187,7 +187,7 @@ export function TotpSettingsCard() {
               {/* Secret Key Text fallback */}
               <div className="w-full flex flex-col gap-1.5">
                 <label className="text-xs font-medium text-muted-foreground text-center">
-                  Atau masukkan kunci rahasia ini secara manual di aplikasi:
+                  Or enter this secret key manually into your app:
                 </label>
                 <div className="flex items-center gap-2">
                   <code className="flex-1 px-3 py-1.5 bg-muted rounded-md text-xs font-mono text-center tracking-wider select-all border">
@@ -208,7 +208,7 @@ export function TotpSettingsCard() {
               {/* 6-Digit OTP Verification Field */}
               <div className="w-full flex flex-col gap-2 pt-2 border-t mt-1">
                 <label className="text-xs font-semibold text-foreground text-center">
-                  Masukkan 6 digit kode dari Google Authenticator untuk mengonfirmasi:
+                  Enter the 6-digit code from Google Authenticator to confirm:
                 </label>
                 <Input
                   type="text"
@@ -232,7 +232,7 @@ export function TotpSettingsCard() {
               onClick={() => setDialogOpen(false)}
               disabled={submitting}
             >
-              Batal
+              Cancel
             </Button>
             <Button
               type="button"
@@ -241,7 +241,7 @@ export function TotpSettingsCard() {
               className="bg-purple-600 hover:bg-purple-700 text-white"
             >
               {submitting && <LoaderCircle className="size-4 animate-spin mr-2" />}
-              Verifikasi & Aktifkan
+              Verify & Enable
             </Button>
           </DialogFooter>
         </DialogContent>

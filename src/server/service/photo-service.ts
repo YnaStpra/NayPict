@@ -1275,9 +1275,9 @@ const photoService = {
       if (pIds.length >= 2) {
         for (let i = 1; i < pIds.length; i++) {
           union(pIds[0], pIds[i]);
-          addReason(pIds[i], 'Checksum Identik');
+          addReason(pIds[i], 'Identical Checksum');
         }
-        addReason(pIds[0], 'Checksum Identik');
+        addReason(pIds[0], 'Identical Checksum');
       }
     }
 
@@ -1285,9 +1285,9 @@ const photoService = {
       if (pIds.length >= 2) {
         for (let i = 1; i < pIds.length; i++) {
           union(pIds[0], pIds[i]);
-          addReason(pIds[i], 'Tampilan Visual Identik');
+          addReason(pIds[i], 'Identical Visual Appearance');
         }
-        addReason(pIds[0], 'Tampilan Visual Identik');
+        addReason(pIds[0], 'Identical Visual Appearance');
       }
     }
 
@@ -1295,9 +1295,9 @@ const photoService = {
       if (pIds.length >= 2) {
         for (let i = 1; i < pIds.length; i++) {
           union(pIds[0], pIds[i]);
-          addReason(pIds[i], 'Resolusi & Ukuran Sama');
+          addReason(pIds[i], 'Same Resolution & File Size');
         }
-        addReason(pIds[0], 'Resolusi & Ukuran Sama');
+        addReason(pIds[0], 'Same Resolution & File Size');
       }
     }
 
@@ -1305,9 +1305,9 @@ const photoService = {
       if (pIds.length >= 2) {
         for (let i = 1; i < pIds.length; i++) {
           union(pIds[0], pIds[i]);
-          addReason(pIds[i], 'Nama & Resolusi Sama');
+          addReason(pIds[i], 'Same File Name & Resolution');
         }
-        addReason(pIds[0], 'Nama & Resolusi Sama');
+        addReason(pIds[0], 'Same File Name & Resolution');
       }
     }
 
@@ -1315,9 +1315,9 @@ const photoService = {
       if (pIds.length >= 2) {
         for (let i = 1; i < pIds.length; i++) {
           union(pIds[0], pIds[i]);
-          addReason(pIds[i], 'Nama & Ukuran Mirip');
+          addReason(pIds[i], 'Similar File Name & Size');
         }
-        addReason(pIds[0], 'Nama & Ukuran Mirip');
+        addReason(pIds[0], 'Similar File Name & Size');
       }
     }
 
@@ -1325,9 +1325,9 @@ const photoService = {
       if (pIds.length >= 2) {
         for (let i = 1; i < pIds.length; i++) {
           union(pIds[0], pIds[i]);
-          addReason(pIds[i], 'Waktu Foto & Resolusi Sama');
+          addReason(pIds[i], 'Identical Date & Resolution');
         }
-        addReason(pIds[0], 'Waktu Foto & Resolusi Sama');
+        addReason(pIds[0], 'Identical Date & Resolution');
       }
     }
 

@@ -97,7 +97,7 @@ export function LoginForm({
           </CardTitle>
           <CardDescription>
             {require2Fa
-              ? "Masukkan 6 digit kode dari aplikasi Google Authenticator Anda"
+              ? "Enter the 6-digit verification code from your Google Authenticator app"
               : "Enter your admin credentials to manage your gallery"}
           </CardDescription>
         </CardHeader>
@@ -108,7 +108,7 @@ export function LoginForm({
                 <Field>
                   <div className="flex flex-col gap-2">
                     <label className="text-xs font-medium text-muted-foreground">
-                      Kode Verifikasi Google Authenticator (6 Digit)
+                      Google Authenticator Verification Code (6 Digits)
                     </label>
                     <Input
                       type="text"
@@ -127,7 +127,7 @@ export function LoginForm({
                 <Field className="mt-2 flex flex-col gap-2">
                   <Button type="submit" disabled={loading || totpCode.length !== 6}>
                     {loading && <LoaderCircle className="animate-spin mr-2" />}
-                    Verifikasi & Masuk
+                    Verify & Sign In
                   </Button>
                   {onBackToLogin && (
                     <Button
@@ -136,7 +136,7 @@ export function LoginForm({
                       onClick={onBackToLogin}
                       disabled={loading}
                     >
-                      Kembali ke Login
+                      Back to Login
                     </Button>
                   )}
                 </Field>

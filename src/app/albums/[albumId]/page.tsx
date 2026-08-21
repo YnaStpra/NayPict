@@ -284,7 +284,7 @@ export default function Page() {
         }
       }
 
-      toast.success("Album foto berhasil diperbarui!")
+      toast.success("Photo albums updated successfully!")
       void refreshAlbums()
 
       // If removed from current album, remove from local list
@@ -293,7 +293,7 @@ export default function Page() {
       }
     } catch (err) {
       console.error("Failed to update photo albums:", err)
-      toast.error("Gagal memperbarui album foto.")
+      toast.error("Failed to update photo albums.")
     }
   }
 
@@ -324,13 +324,13 @@ export default function Page() {
       })
 
       if (isPinned) {
-        toast.success("Foto berhasil disematkan di paling atas album!")
+        toast.success("Photo pinned to the top of album!")
       } else {
-        toast.success("Pin foto berhasil dilepas dari album.")
+        toast.success("Photo unpinned from album.")
       }
     } catch (err: unknown) {
       console.error("Failed to toggle pin photo:", err)
-      const errorMsg = err instanceof Error ? err.message : "Gagal menyematkan foto. Maksimal hanya 3 foto yang dapat di-pin."
+      const errorMsg = err instanceof Error ? err.message : "Failed to pin photo. Maximum 3 pinned photos allowed."
       toast.error(errorMsg)
     }
   }, [albumId, setPhotos])

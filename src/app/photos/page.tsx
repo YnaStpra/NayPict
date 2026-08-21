@@ -271,7 +271,7 @@ export default function Page() {
         }
       }
 
-      toast.success("Album foto berhasil diperbarui!")
+      toast.success("Photo albums updated successfully!")
       void refreshAlbums()
 
       const allAlbums = useAlbumStore.getState().albums
@@ -292,7 +292,7 @@ export default function Page() {
       )
     } catch (err) {
       console.error("Failed to update photo albums:", err)
-      toast.error("Gagal memperbarui album foto.")
+      toast.error("Failed to update photo albums.")
     }
   }
 
