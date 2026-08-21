@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from "react"
 import dynamic from "next/dynamic"
 import Link from "next/link"
+import { toast } from "sonner"
 
 const PhotoViewer = dynamic(
   () => import("@/components/photo/photo-viewer").then((mod) => mod.PhotoViewer),
@@ -148,7 +149,12 @@ function getDistanceInKm(lat1: number, lon1: number, lat2: number, lon2: number)
 }
 
 // 1. Group photos that are physically co-located at the EXACT same spot (<= 8 meters, e.g. burst/batch geotag)
-function groupExactGeoSpots(photos: PhotoVo[], maxDistanceKm = 0.008): GeoSpot[] {
+// and sort custom chosen cover photo to the front of the spot array
+function groupExactGeoSpots(
+  photos: PhotoVo[],
+  maxDistanceKm = 0.008,
+  covers: Record<string, string> = {}
+): GeoSpot[] {
   const spots: GeoSpot[] = []
 
   for (const photo of photos) {
@@ -176,6 +182,19 @@ function groupExactGeoSpots(photos: PhotoVo[], maxDistanceKm = 0.008): GeoSpot[]
       })
     }
   }
+
+  // If a custom cover photo is configured for this spot, sort it to the front (index 0)
+  spots.forEach((spot) => {
+    const key = `${spot.latitude.toFixed(5)}_${spot.longitude.toFixed(5)}`
+    const coverPhotoId = covers[key] || covers[spot.id]
+    if (coverPhotoId) {
+      const coverIdx = spot.photos.findIndex((p) => p.photoId === coverPhotoId)
+      if (coverIdx > 0) {
+        const [coverPhoto] = spot.photos.splice(coverIdx, 1)
+        spot.photos.unshift(coverPhoto)
+      }
+    }
+  })
 
   return spots
 }
@@ -252,6 +271,19 @@ export default function PhotoMapView() {
   const [selectedCluster, setSelectedCluster] = useState<GeoSpot | null>(null)
   const [activePhotoIndex, setActivePhotoIndex] = useState<number>(0)
 
+  // Custom spot cover photos dictionary (mapping spot coordinate key -> chosen photoId)
+  const [spotCovers, setSpotCovers] = useState<Record<string, string>>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const saved = localStorage.getItem("naypict_spot_covers")
+        if (saved) return JSON.parse(saved)
+      } catch (e) {
+        console.error("Failed to parse spot covers:", e)
+      }
+    }
+    return {}
+  })
+
   // Bottom drawer panel state (defaults to closed as requested)
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(false)
   const [drawerTab, setDrawerTab] = useState<"spots" | "map" | "untagged">("spots")
@@ -299,10 +331,10 @@ export default function PhotoMapView() {
     }
   }, [isLayerMenuOpen])
 
-  // Group photos that are at the exact same physical spot
+  // Group photos that are at the exact same physical spot, prioritizing custom cover photo
   const geoSpots = useMemo(() => {
-    return groupExactGeoSpots(photos, 0.008)
-  }, [photos])
+    return groupExactGeoSpots(photos, 0.008, spotCovers)
+  }, [photos, spotCovers])
 
   // Preload thumbnails of all photos in the selected cluster into memory cache for 0ms transitions
   useEffect(() => {
@@ -482,6 +514,39 @@ export default function PhotoMapView() {
       ro.disconnect()
     }
   }, [mapReady])
+
+  // Set custom pin cover photo for a spot
+  const handleSetSpotCover = useCallback(
+    (spot: GeoSpot, photo: PhotoVo) => {
+      const key = `${spot.latitude.toFixed(5)}_${spot.longitude.toFixed(5)}`
+      setSpotCovers((prev) => {
+        const next = { ...prev, [key]: photo.photoId, [spot.id]: photo.photoId }
+        if (typeof window !== "undefined") {
+          localStorage.setItem("naypict_spot_covers", JSON.stringify(next))
+        }
+        return next
+      })
+
+      // Also update selectedCluster in-place so chosen photo moves to index 0
+      setSelectedCluster((prev) => {
+        if (!prev || prev.id !== spot.id) return prev
+        const photosCopy = [...prev.photos]
+        const targetIdx = photosCopy.findIndex((p) => p.photoId === photo.photoId)
+        if (targetIdx > 0) {
+          const [chosen] = photosCopy.splice(targetIdx, 1)
+          photosCopy.unshift(chosen)
+        }
+        return {
+          ...prev,
+          photos: photosCopy,
+        }
+      })
+      setActivePhotoIndex(0)
+
+      toast.success(`Foto "${photo.name}" dijadikan sebagai sampul pin lokasi!`)
+    },
+    []
+  )
 
   // Dynamically render screen-level clusters whenever map is panned, zoomed, or spots update
   const renderMarkers = useCallback(async () => {
@@ -879,6 +944,10 @@ export default function PhotoMapView() {
           {(() => {
             const previewSrc = currentPhoto.thumbnail || currentPhoto.preview || ""
             const placeholder = getThumbHashUrl(currentPhoto.thumbHash)
+            const spotKey = `${selectedCluster.latitude.toFixed(5)}_${selectedCluster.longitude.toFixed(5)}`
+            const activeCoverId = spotCovers[spotKey] || spotCovers[selectedCluster.id] || selectedCluster.photos[0]?.photoId
+            const isCoverPhoto = currentPhoto.photoId === activeCoverId
+
             return (
               <div
                 className="relative aspect-4/3 w-full bg-neutral-950 overflow-hidden group cursor-pointer"
@@ -914,9 +983,34 @@ export default function PhotoMapView() {
                     setSelectedCluster(null)
                   }}
                   className="absolute top-3 right-3 p-1.5 rounded-full bg-black/60 text-white hover:bg-black/80 backdrop-blur-md transition-colors cursor-pointer z-10"
+                  title="Tutup Preview"
                 >
                   <X className="size-4" />
                 </button>
+
+                {/* Admin Set Cover Button (When spot has > 1 photo) */}
+                {isAdmin && selectedCluster.photos.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleSetSpotCover(selectedCluster, currentPhoto)
+                    }}
+                    className={`absolute top-3 right-11 px-2.5 py-1 rounded-full backdrop-blur-md text-[11px] font-bold shadow-lg transition-all cursor-pointer flex items-center gap-1 z-10 ${
+                      isCoverPhoto
+                        ? "bg-amber-500 text-black ring-2 ring-amber-300 shadow-amber-500/40"
+                        : "bg-black/60 text-white hover:bg-black/80 hover:text-amber-300"
+                    }`}
+                    title={
+                      isCoverPhoto
+                        ? "Foto ini adalah sampul pin lokasi saat ini"
+                        : "Jadikan foto ini sebagai sampul yang tampil di pin peta"
+                    }
+                  >
+                    <Sparkles className={`size-3 ${isCoverPhoto ? "fill-current text-black" : "text-amber-300"}`} />
+                    <span>{isCoverPhoto ? "Sampul Pin" : "Jadikan Sampul"}</span>
+                  </button>
+                )}
 
                 {/* Cluster Multi-Photo Badge */}
                 {selectedCluster.photos.length > 1 && (
@@ -965,39 +1059,54 @@ export default function PhotoMapView() {
               ref={thumbnailStripRef}
               className="flex items-center gap-1.5 px-3 py-2 bg-muted/40 border-b border-border/50 overflow-x-auto scrollbar-none scroll-smooth"
             >
-              {selectedCluster.photos.map((p, idx) => {
-                const thumb = p.thumbnail || p.preview || ""
-                const ph = getThumbHashUrl(p.thumbHash)
-                return (
-                  <button
-                    key={p.photoId}
-                    onClick={() => setActivePhotoIndex(idx)}
-                    className={`relative shrink-0 w-9 h-9 rounded-lg overflow-hidden border-2 transition-all cursor-pointer bg-neutral-900 ${
-                      activePhotoIndex === idx
-                        ? "border-emerald-500 scale-105 ring-1 ring-emerald-400"
-                        : "border-transparent opacity-60 hover:opacity-100"
-                    }`}
-                  >
-                    {ph && (
-                      <img
-                        src={ph}
-                        alt=""
-                        className="absolute inset-0 h-full w-full object-cover blur-xs scale-110"
-                        aria-hidden
-                      />
-                    )}
-                    {thumb && (
-                      <img
-                        src={thumb}
-                        alt={p.name}
-                        loading="lazy"
-                        decoding="async"
-                        className="absolute inset-0 h-full w-full object-cover"
-                      />
-                    )}
-                  </button>
-                )
-              })}
+              {(() => {
+                const spotKey = `${selectedCluster.latitude.toFixed(5)}_${selectedCluster.longitude.toFixed(5)}`
+                const activeCoverId = spotCovers[spotKey] || spotCovers[selectedCluster.id] || selectedCluster.photos[0]?.photoId
+
+                return selectedCluster.photos.map((p, idx) => {
+                  const thumb = p.thumbnail || p.preview || ""
+                  const ph = getThumbHashUrl(p.thumbHash)
+                  const isCover = p.photoId === activeCoverId
+
+                  return (
+                    <button
+                      key={p.photoId}
+                      onClick={() => setActivePhotoIndex(idx)}
+                      className={`relative shrink-0 w-9 h-9 rounded-lg overflow-hidden border-2 transition-all cursor-pointer bg-neutral-900 ${
+                        activePhotoIndex === idx
+                          ? "border-emerald-500 scale-105 ring-1 ring-emerald-400"
+                          : isCover
+                          ? "border-amber-400/80 opacity-90 hover:opacity-100"
+                          : "border-transparent opacity-60 hover:opacity-100"
+                      }`}
+                      title={isCover ? `Sampul Pin: ${p.name}` : p.name}
+                    >
+                      {ph && (
+                        <img
+                          src={ph}
+                          alt=""
+                          className="absolute inset-0 h-full w-full object-cover blur-xs scale-110"
+                          aria-hidden
+                        />
+                      )}
+                      {thumb && (
+                        <img
+                          src={thumb}
+                          alt={p.name}
+                          loading="lazy"
+                          decoding="async"
+                          className="absolute inset-0 h-full w-full object-cover"
+                        />
+                      )}
+                      {isCover && (
+                        <div className="absolute top-0.5 right-0.5 size-3 rounded-full bg-amber-500 text-black flex items-center justify-center text-[7px] font-black shadow-xs pointer-events-none">
+                          ★
+                        </div>
+                      )}
+                    </button>
+                  )
+                })
+              })()}
             </div>
           )}
 
@@ -1356,6 +1465,7 @@ export default function PhotoMapView() {
           open={allSpotsDialogOpen}
           onOpenChange={setAllSpotsDialogOpen}
           spots={geoSpots}
+          spotCovers={spotCovers}
           onSelectSpot={(spot) => {
             setSelectedCluster(spot)
             setActivePhotoIndex(0)
@@ -1367,6 +1477,7 @@ export default function PhotoMapView() {
             setSpotToEdit(spot)
             setAllSpotsDialogOpen(false)
           }}
+          onSetSpotCover={handleSetSpotCover}
           onOpenViewer={(photoList, startIdx) => {
             handleOpenPhotoViewer(photoList, startIdx)
           }}
