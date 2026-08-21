@@ -8,6 +8,8 @@ import BizError from '@/server/error/biz-error';
 import { cache } from '@/server/infra/cache';
 import { orm } from '@/server/infra/db';
 import { createId } from '@/server/lib/id';
+import { verifyTurnstileToken } from '@/server/lib/turnstile';
+import { commentEventHub } from '@/server/lib/comment-event-hub';
 import { type Storage } from '@/server/entity/storage';
 import { type File as PhotoFile } from '@/server/entity/file';
 import { fileService } from '@/server/service/file-service';
@@ -193,7 +195,13 @@ const commentService = {
       throw new BizError('comment.contentTooLong');
     }
 
-    // 4. Rate Limiting Protection: max 10 comments per minute per IP
+    // 4. Cloudflare Turnstile Bot Verification (if TURNSTILE_SECRET_KEY is configured)
+    const isHuman = await verifyTurnstileToken(params.turnstileToken || '', clientIp);
+    if (!isHuman) {
+      throw new BizError('comment.captchaFailed');
+    }
+
+    // 5. Rate Limiting Protection: max 10 comments per minute per IP
     if (clientIp) {
       const rateLimitKey = `comment_ratelimit_${clientIp}`;
       const attempts = (await cache.get<number>(rateLimitKey)) ?? 0;
@@ -203,7 +211,7 @@ const commentService = {
       await cache.set(rateLimitKey, attempts + 1, { ttl: 60 });
     }
 
-    // 5. Insert new comment record
+    // 6. Insert new comment record
     const commentId = createId();
     const now = new Date().toISOString();
 
@@ -249,7 +257,7 @@ const commentService = {
       }
     }
 
-    return {
+    const newCommentVo: CommentVo = {
       commentId,
       photoId,
       name,
@@ -258,6 +266,15 @@ const commentService = {
       replyTime: null,
       createTime: now,
     };
+
+    // Broadcast real-time SSE event to all connected viewers of this photo
+    commentEventHub.publish(photoId, {
+      type: 'comment_added',
+      photoId,
+      comment: newCommentVo,
+    });
+
+    return newCommentVo;
   },
 
   // Admin replies to a comment.
@@ -297,7 +314,7 @@ const commentService = {
       })
       .where(eq(commentTab.commentId, commentId));
 
-    return {
+    const updatedCommentVo: CommentVo = {
       commentId: existing.commentId,
       photoId: existing.photoId,
       name: existing.name,
@@ -306,6 +323,15 @@ const commentService = {
       replyTime: now,
       createTime: existing.createTime,
     };
+
+    // Broadcast real-time SSE reply event
+    commentEventHub.publish(existing.photoId, {
+      type: 'reply_added',
+      photoId: existing.photoId,
+      comment: updatedCommentVo,
+    });
+
+    return updatedCommentVo;
   },
 
   // Delete admin reply from a comment.
@@ -315,6 +341,12 @@ const commentService = {
       throw new BizError('comment.selectRequired');
     }
 
+    const [existing] = await orm
+      .select()
+      .from(commentTab)
+      .where(eq(commentTab.commentId, cleanCommentId))
+      .limit(1);
+
     await orm
       .update(commentTab)
       .set({
@@ -322,6 +354,14 @@ const commentService = {
         replyTime: null,
       })
       .where(eq(commentTab.commentId, cleanCommentId));
+
+    if (existing) {
+      commentEventHub.publish(existing.photoId, {
+        type: 'reply_deleted',
+        photoId: existing.photoId,
+        commentId: cleanCommentId,
+      });
+    }
   },
 
   // Delete a specific comment by ID (Admin moderation).
@@ -331,7 +371,21 @@ const commentService = {
       throw new BizError('comment.selectRequired');
     }
 
+    const [existing] = await orm
+      .select()
+      .from(commentTab)
+      .where(eq(commentTab.commentId, cleanCommentId))
+      .limit(1);
+
     await orm.delete(commentTab).where(eq(commentTab.commentId, cleanCommentId));
+
+    if (existing) {
+      commentEventHub.publish(existing.photoId, {
+        type: 'comment_deleted',
+        photoId: existing.photoId,
+        commentId: cleanCommentId,
+      });
+    }
   },
 
   // Batch delete all comments associated with specific photo IDs (called on photo deletion).

@@ -25,6 +25,7 @@ const nextConfig: NextConfig = {
     ignoreBuildErrors: true,
   },
   images: {
+    formats: ['image/avif', 'image/webp'],
     remotePatterns: [
       // Allow images served from Cloudflare R2 public URL.
       ...(r2Hostname
@@ -55,16 +56,17 @@ const nextConfig: NextConfig = {
       { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=(), interest-cohort=()' },
       // Force HTTPS (only meaningful in production behind HTTPS)
       { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains; preload' },
-      // Content Security Policy (CSP) mitigating XSS and data injection
+      // Content Security Policy (CSP) mitigating XSS and data injection (with Cloudflare Turnstile support)
       {
         key: 'Content-Security-Policy',
         value: [
           "default-src 'self'",
-          "script-src 'self' 'unsafe-eval' 'unsafe-inline'",
+          "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://challenges.cloudflare.com",
+          "frame-src 'self' https://challenges.cloudflare.com",
           "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com",
           "img-src 'self' data: blob: https: http:",
           "font-src 'self' data: https://fonts.gstatic.com",
-          "connect-src 'self' https: wss: http:",
+          "connect-src 'self' https: wss: http: https://challenges.cloudflare.com",
           "frame-ancestors 'none'",
           "object-src 'none'",
           "base-uri 'self'",

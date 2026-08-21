@@ -26,6 +26,7 @@ export function commentAdd(params: CommentAddBo) {
   return http.post<CommentVo>(`/photos/${encodeURIComponent(params.photoId)}/comments`, {
     name: params.name,
     content: params.content,
+    turnstileToken: params.turnstileToken,
   });
 }
 
