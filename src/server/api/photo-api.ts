@@ -16,6 +16,7 @@ import {
   type PhotoSetVisibilityBo,
   type PhotoTakenDateListBo,
 } from '@/server/entity/bo/photo';
+import { downloadRateLimiter } from '@/server/lib/rate-limiter';
 import type { HonoEnv } from '../hono/type';
 
 // This module registers photo-related interfaces.
@@ -71,10 +72,31 @@ export function registerPhotoApi(app: Hono<HonoEnv>) {
     return c.json(result.ok(data));
   });
 
-  // Download original photo file with server-side protection validation.
+  // Download original photo file with server-side protection and sliding window rate limiting.
   app.get('/photo/download/:id', async (c: Context) => {
     const photoId = c.req.param('id') ?? '';
     const userId = getUserId();
+
+    // Rate limiting for public/unauthenticated requests (max 30 downloads per 5 mins per IP)
+    if (!userId) {
+      const clientIp =
+        c.req.header('x-forwarded-for')?.split(',')[0].trim() ||
+        c.req.header('x-real-ip') ||
+        'unknown';
+      const rateLimit = downloadRateLimiter.consume(clientIp);
+      if (!rateLimit.allowed) {
+        return c.json({
+          code: 429,
+          error: "TOO_MANY_REQUESTS",
+          message: "Download rate limit exceeded. Please wait a few minutes before downloading more photos."
+        }, 429, {
+          'Retry-After': String(Math.ceil(rateLimit.resetMs / 1000)),
+          'X-RateLimit-Limit': String(downloadRateLimiter.limit),
+          'X-RateLimit-Remaining': String(rateLimit.remaining),
+        });
+      }
+    }
+
     const photo = await photoService.getById(photoId, userId);
 
     if (!photo) {
@@ -99,6 +121,27 @@ export function registerPhotoApi(app: Hono<HonoEnv>) {
   app.post('/photo/download', async (c: Context) => {
     const { photoId } = await c.req.json<{ photoId: string }>();
     const userId = getUserId();
+
+    // Rate limiting for public/unauthenticated requests (max 30 downloads per 5 mins per IP)
+    if (!userId) {
+      const clientIp =
+        c.req.header('x-forwarded-for')?.split(',')[0].trim() ||
+        c.req.header('x-real-ip') ||
+        'unknown';
+      const rateLimit = downloadRateLimiter.consume(clientIp);
+      if (!rateLimit.allowed) {
+        return c.json({
+          code: 429,
+          error: "TOO_MANY_REQUESTS",
+          message: "Download rate limit exceeded. Please wait a few minutes before downloading more photos."
+        }, 429, {
+          'Retry-After': String(Math.ceil(rateLimit.resetMs / 1000)),
+          'X-RateLimit-Limit': String(downloadRateLimiter.limit),
+          'X-RateLimit-Remaining': String(rateLimit.remaining),
+        });
+      }
+    }
+
     const photo = await photoService.getById(photoId, userId);
 
     if (!photo) {

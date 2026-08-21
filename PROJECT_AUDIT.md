@@ -500,7 +500,8 @@ erDiagram
 | Severity | Area | File | Problem / Kondisi Aktual | Rekomendasi Hardening |
 |---|---|---|---|---|
 | 🟢 **RESOLVED** | Auth Secret Validation | `src/instrumentation.ts` & `src/server/lib/jwt.ts` | Validasi fail-fast saat startup aktif; aplikasi menolak boot jika `JWT_SECRET` kosong/kurang dari 16 karakter di mode produksi. | Sudah diimplementasikan dan diverifikasi (Hardened). |
-| 🟡 **MEDIUM** | Password Hash Algorithm | `src/server/lib/crypto.ts` | Password hashing saat ini menggunakan `SHA-256(password + salt)`. | Tingkatkan ke `Argon2id` atau `bcrypt` untuk ketahanan terhadap brute-force GPU berskala besar. |
+| 🟢 **RESOLVED** | Password Hash Algorithm | `src/server/lib/crypto.ts` & `login-service.ts` | Hashing password telah diupgrade ke Argon2id berbasis WASM (`hash-wasm`) dengan migrasi otomatis transparan saat login. | Sudah diimplementasikan dan diverifikasi (Hardened). |
+| 🟢 **RESOLVED** | Application Rate Limiting | `src/server/lib/rate-limiter.ts` & `photo-api.ts` | Sliding window in-memory rate limiter aktif pada `/api/login` (5/15m) dan `/api/photo/download` (30/5m). | Sudah diimplementasikan dan diverifikasi (Hardened). |
 | 🟢 **LOW** | External Geocode API | `src/server/service/location-service.ts` | Memanggil OSM Nominatim publik tanpa API key berbayar. | Pertahankan rate limit in-memory caching (sudah ada) atau sediakan opsi provider Mapbox/Google Maps. |
 | 🟢 **LOW** | Public Comments Spam | `src/server/service/comment-service.ts` | Belum ada captcha (Turnstile) pada pengiriman komentar publik. | Tambahkan Cloudflare Turnstile pada form komentar publik untuk mencegah bot spam. |
 | ℹ️ **INFO** | CSP Headers | `next.config.ts` | Content-Security-Policy sudah aktif dan ketat (`default-src 'self'`, `frame-ancestors 'none'`). | Sudah sangat baik (Hardened). |
@@ -765,10 +766,10 @@ sequenceDiagram
    - Validasi ketat aktif di `src/instrumentation.ts` dan `src/server/lib/jwt.ts`. Server langsung menolak start jika `JWT_SECRET` kosong/pendek di produksi.
 2. **Cloudflare Turnstile on Public Comments** *(Security & Spam Prevention)*:
    - Tambahkan widget verifikasi bot pada form komentar publik di sidebar foto.
-3. **Upgrade Password Hashing to Argon2id** *(Security)*:
-   - Transisi bertahap dari SHA-256 ber-salt ke Argon2id untuk hashing password admin yang lebih tahan serangan hardware khusus.
-4. **Application-level Rate Limiting on `/api/login` & `/api/photo/download`** *(Stability)*:
-   - Tambahkan sliding window rate limiter in-memory untuk mencegah brute-force login dan pengunduhan massal tak wajar.
+3. **Upgrade Password Hashing to Argon2id** *(Security)* - **[SELESAI / HARDENED]**:
+   - Algoritma hashing password telah dimigrasikan ke Argon2id berbasis WASM (`hash-wasm`) dengan parameter OWASP rekomendasi. Menggunakan skema transisi bertahap (*transparent rehash on login*) sehingga akun lama dengan hash SHA-256 otomatis terupgrade saat berhasil login.
+4. **Application-level Rate Limiting on `/api/login` & `/api/photo/download`** *(Stability)* - **[SELESAI / HARDENED]**:
+   - Sliding window in-memory rate limiter aktif di `/api/login` (maksimal 5 percobaan gagal per IP per 15 menit) dan `/api/photo/download` (maksimal 30 unduhan per IP per 5 menit) dengan header standar `Retry-After` dan `X-RateLimit-*`.
 5. **Next.js & Sharp Dependency Bump** *(Maintenance)*:
    - Lakukan upgrade berkala ke Next.js 16.3+ dan Sharp 0.35+ saat rilis patch keamanan telah teruji stabil.
 6. **Replace Admin `<img>` with Next.js `<Image />`** *(Performance)* - **[SELESAI / IMPLEMENTED]**:

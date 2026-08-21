@@ -2,7 +2,7 @@ import { orm } from '@/server/infra/db'
 import { userTab } from "@/server/entity/user";
 import { eq } from "drizzle-orm";
 import BizError from "@/server/error/biz-error";
-import { verifyPassword } from '@/server/lib/crypto';
+import { hashPassword, verifyPasswordDetailed } from '@/server/lib/crypto';
 import { createId } from '@/server/lib/id';
 import { createLoginToken } from '@/server/lib/jwt';
 import { type LoginBo } from '@/server/entity/bo/login';
@@ -15,6 +15,7 @@ import { AUTH_CACHE_KEY } from '@/server/const/cache';
 import { type LoginVo } from '@/server/entity/vo/login';
 import { totpService } from '@/server/service/totp-service';
 import { userService } from '@/server/service/user-service';
+import { loginRateLimiter } from '@/server/lib/rate-limiter';
 
 // This module handles login authentication related services.
 
@@ -42,15 +43,10 @@ const loginService = {
 
   // Verify username and password, with optional 2FA code verification.
   async login(params: LoginBo, clientIp: string): Promise<LoginVo> {
-    // Rate limiting: max 10 login attempts per minute per IP (HIGH-02)
-    const rateLimitKey = `login_ratelimit_${clientIp}`;
-    const attempts = (await cache.get<number>(rateLimitKey)) ?? 0;
-    if (attempts >= 10) {
+    // Sliding window in-memory rate limiting: max 5 failed attempts per 15 minutes per IP
+    const rateLimit = loginRateLimiter.check(clientIp);
+    if (!rateLimit.allowed) {
       throw new BizError('login.tooManyAttempts');
-    }
-    // Increment attempt counter (TTL=60s window; only increment on non-2FA paths)
-    if (!params.tempToken) {
-      await cache.set(rateLimitKey, attempts + 1, { ttl: 60 });
     }
 
     if (params.tempToken) {
@@ -70,20 +66,23 @@ const loginService = {
         // Lockout: invalidate tempToken after 3 failed guesses
         await cache.delete(`temp_2fa_${params.tempToken}`);
         await cache.delete(attemptKey);
+        loginRateLimiter.consume(clientIp);
         throw new BizError('totp.sessionExpired');
       }
 
       try {
         await totpService.verifyLoginTotp(cachedUserId, params.code);
       } catch {
-        // Increment failure counter, delete tempToken to prevent further attempts on success-then-replay
+        // Increment failure counter
         await cache.set(attemptKey, totpAttempts + 1, { ttl: 300 });
+        loginRateLimiter.consume(clientIp);
         throw new BizError('totp.invalidCode');
       }
 
       // Success: clean up both tempToken and attempt counter
       await cache.delete(`temp_2fa_${params.tempToken}`);
       await cache.delete(attemptKey);
+      loginRateLimiter.reset(clientIp);
 
       const [user] = await orm.select().from(userTab).where(eq(userTab.userId, cachedUserId)).limit(1);
       if (!user) throw new BizError('login.invalidCredentials');
@@ -101,6 +100,7 @@ const loginService = {
     const [user] = await orm.select().from(userTab).where(eq(userTab.username, params.username)).limit(1);
 
     if (!user) {
+      loginRateLimiter.consume(clientIp);
       throw new BizError("login.invalidCredentials");
     }
 
@@ -108,17 +108,40 @@ const loginService = {
       throw new BizError("user.disabled");
     }
 
-    const isValidPassword = await verifyPassword(params.password, user.salt, user.password);
+    const { valid: isValidPassword, needsRehash } = await verifyPasswordDetailed(params.password, user.salt, user.password);
 
     if (!isValidPassword) {
+      loginRateLimiter.consume(clientIp);
       throw new BizError('login.invalidCredentials');
+    }
+
+    // Transparent gradual migration: upgrade legacy SHA-256 to Argon2id upon successful authentication
+    if (needsRehash) {
+      try {
+        const newHash = await hashPassword(params.password);
+        await orm
+          .update(userTab)
+          .set({
+            password: newHash.hash,
+            salt: newHash.salt,
+          })
+          .where(eq(userTab.userId, user.userId));
+        console.log(`[SECURITY] Transparently upgraded password hash to Argon2id for user: ${user.username}`);
+      } catch (err) {
+        console.warn('[SECURITY] Failed to auto-upgrade password to Argon2id:', err);
+      }
     }
 
     // Check if Google Authenticator 2FA is enabled for this Admin/User
     const totpStatus = await totpService.getTotpStatus(user.userId);
     if (totpStatus.enabled) {
       if (params.code) {
-        await totpService.verifyLoginTotp(user.userId, params.code);
+        try {
+          await totpService.verifyLoginTotp(user.userId, params.code);
+        } catch {
+          loginRateLimiter.consume(clientIp);
+          throw new BizError('totp.invalidCode');
+        }
       } else {
         const tempToken = createId();
         await cache.set(`temp_2fa_${tempToken}`, user.userId, { ttl: 300 }); // 5 mins TTL
@@ -129,6 +152,9 @@ const loginService = {
         };
       }
     }
+
+    // Reset rate limiter on successful authentication
+    loginRateLimiter.reset(clientIp);
 
     if (user.username === process.env.NEXT_PUBLIC_DEMO_USERNAME) {
       const token = await createLoginToken(user.userId, 'demo');
