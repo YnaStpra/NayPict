@@ -1,12 +1,12 @@
 "use client"
 
 import { useEffect, useRef, useState, useCallback, useMemo } from "react"
-import { useTheme } from "next-themes"
 import Image from "next/image"
 import Link from "next/link"
 import {
   AlertCircle,
   Calendar,
+  Check,
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
@@ -14,8 +14,10 @@ import {
   Expand,
   Eye,
   Filter,
+  Globe,
   Image as ImageIcon,
   Images,
+  Layers,
   Loader2,
   LocateFixed,
   MapPin,
@@ -41,6 +43,77 @@ export interface PhotoCluster {
   longitude: number
   photos: PhotoVo[]
 }
+
+export type MapStyleKey =
+  | "google-streets"
+  | "google-hybrid"
+  | "google-terrain"
+  | "carto-dark"
+  | "carto-light"
+
+export interface MapStyleOption {
+  key: MapStyleKey
+  label: string
+  subtitle: string
+  icon: string
+  badge: string
+  tileUrl: string
+  subdomains: string | string[]
+  maxZoom: number
+}
+
+export const MAP_STYLE_OPTIONS: MapStyleOption[] = [
+  {
+    key: "google-streets",
+    label: "Google Standar",
+    subtitle: "Peta jalan & bangunan resmi Google Maps",
+    icon: "🗺️",
+    badge: "Populer",
+    tileUrl: "https://mt{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}",
+    subdomains: ["0", "1", "2", "3"],
+    maxZoom: 20,
+  },
+  {
+    key: "google-hybrid",
+    label: "Satelit Hibrid",
+    subtitle: "Citra satelit bumi + label kota & jalan",
+    icon: "🛰️",
+    badge: "Satelit",
+    tileUrl: "https://mt{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}",
+    subdomains: ["0", "1", "2", "3"],
+    maxZoom: 20,
+  },
+  {
+    key: "google-terrain",
+    label: "Medan & Relief",
+    subtitle: "Topografi, kontur gunung & ketinggian alam",
+    icon: "⛰️",
+    badge: "Topografi",
+    tileUrl: "https://mt{s}.google.com/vt/lyrs=p&x={x}&y={y}&z={z}",
+    subdomains: ["0", "1", "2", "3"],
+    maxZoom: 20,
+  },
+  {
+    key: "carto-dark",
+    label: "Mode Gelap",
+    subtitle: "Nuansa malam gelap kontras tinggi (CartoDB)",
+    icon: "🌙",
+    badge: "Gelap",
+    tileUrl: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
+    subdomains: "abcd",
+    maxZoom: 19,
+  },
+  {
+    key: "carto-light",
+    label: "Terang Minimalis",
+    subtitle: "Tampilan monokrom bersih & halus (Voyager)",
+    icon: "☀️",
+    badge: "Terang",
+    tileUrl: "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",
+    subdomains: "abcd",
+    maxZoom: 19,
+  },
+]
 
 // Calculate geographical distance in kilometers using Haversine formula
 function getDistanceInKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
@@ -92,7 +165,6 @@ function clusterNearbyPhotos(photos: PhotoVo[], thresholdKm = 0.15): PhotoCluste
 
 export default function PhotoMapView() {
   const locale = useLocale()
-  const { resolvedTheme } = useTheme()
   const { userInfo } = useApp()
   const isAdmin = userInfo?.type === UserTypeEnum.ADMIN
 
@@ -102,6 +174,7 @@ export default function PhotoMapView() {
   const markersLayerRef = useRef<LType.LayerGroup | null>(null)
   const markerMapRef = useRef<Map<string, LType.Marker>>(new Map())
   const hasFitBoundsInitialRef = useRef<boolean>(false)
+  const layerMenuRef = useRef<HTMLDivElement>(null)
 
   const [photos, setPhotos] = useState<PhotoVo[]>([])
   const [untaggedPhotos, setUntaggedPhotos] = useState<PhotoVo[]>([])
@@ -112,9 +185,34 @@ export default function PhotoMapView() {
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(true)
   const [drawerTab, setDrawerTab] = useState<"map" | "untagged">("map")
 
+  // Map layer/style switcher state
+  const [mapStyle, setMapStyle] = useState<MapStyleKey>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("naypict_map_style") as MapStyleKey
+      if (saved && MAP_STYLE_OPTIONS.some((o) => o.key === saved)) return saved
+    }
+    return "google-streets"
+  })
+  const [isLayerMenuOpen, setIsLayerMenuOpen] = useState<boolean>(false)
+
   // Untagged photos dialog state
   const [untaggedDialogOpen, setUntaggedDialogOpen] = useState<boolean>(false)
   const [singleGeotagPhotoId, setSingleGeotagPhotoId] = useState<string | null>(null)
+
+  // Close layer menu on outside click
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (layerMenuRef.current && !layerMenuRef.current.contains(e.target as Node)) {
+        setIsLayerMenuOpen(false)
+      }
+    }
+    if (isLayerMenuOpen) {
+      document.addEventListener("mousedown", handleClickOutside)
+    }
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside)
+    }
+  }, [isLayerMenuOpen])
 
   // Cluster photos into groups so identical/nearby coordinates don't overlap
   const clusters = useMemo(() => {
@@ -168,10 +266,15 @@ export default function PhotoMapView() {
     }
   }, [isAdmin])
 
-  const themeRef = useRef(resolvedTheme)
+  // Active map style definition
+  const currentMapStyleOption = useMemo(() => {
+    return MAP_STYLE_OPTIONS.find((s) => s.key === mapStyle) || MAP_STYLE_OPTIONS[0]
+  }, [mapStyle])
+
+  const styleRef = useRef(currentMapStyleOption)
   useEffect(() => {
-    themeRef.current = resolvedTheme
-  }, [resolvedTheme])
+    styleRef.current = currentMapStyleOption
+  }, [currentMapStyleOption])
 
   // Initialize Leaflet map once on container mount
   useEffect(() => {
@@ -203,15 +306,10 @@ export default function PhotoMapView() {
       // Add custom zoom control in bottom right
       L.control.zoom({ position: "bottomright" }).addTo(map)
 
-      // Choose tile layer based on current theme
-      const isDark = themeRef.current === "dark"
-      const tileUrl = isDark
-        ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-        : "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
-
-      const tileLayer = L.tileLayer(tileUrl, {
-        maxZoom: 19,
-        subdomains: "abcd",
+      const initialStyle = styleRef.current
+      const tileLayer = L.tileLayer(initialStyle.tileUrl, {
+        maxZoom: initialStyle.maxZoom,
+        subdomains: initialStyle.subdomains,
       }).addTo(map)
       tileLayerRef.current = tileLayer
 
@@ -236,15 +334,45 @@ export default function PhotoMapView() {
     }
   }, [])
 
-  // Update tile layer smoothly when resolvedTheme changes without recreating map
+  // Switch tile layer smoothly when mapStyle changes
   useEffect(() => {
-    if (!tileLayerRef.current) return
-    const isDark = resolvedTheme === "dark"
-    const tileUrl = isDark
-      ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-      : "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
-    tileLayerRef.current.setUrl(tileUrl)
-  }, [resolvedTheme])
+    if (!mapInstanceRef.current || !mapReady) return
+
+    let isDisposed = false
+
+    async function switchTileLayer() {
+      const L = (await import("leaflet")).default
+      if (isDisposed || !mapInstanceRef.current) return
+
+      if (tileLayerRef.current) {
+        mapInstanceRef.current.removeLayer(tileLayerRef.current)
+      }
+
+      const newTileLayer = L.tileLayer(currentMapStyleOption.tileUrl, {
+        maxZoom: currentMapStyleOption.maxZoom,
+        subdomains: currentMapStyleOption.subdomains,
+      }).addTo(mapInstanceRef.current)
+
+      // Ensure tile layer stays beneath the markers
+      newTileLayer.bringToBack()
+      tileLayerRef.current = newTileLayer
+    }
+
+    switchTileLayer()
+
+    return () => {
+      isDisposed = true
+    }
+  }, [mapStyle, currentMapStyleOption.tileUrl, currentMapStyleOption.maxZoom, currentMapStyleOption.subdomains, mapReady])
+
+  // Handle map style change & save to localStorage
+  const handleSelectMapStyle = (key: MapStyleKey) => {
+    setMapStyle(key)
+    setIsLayerMenuOpen(false)
+    if (typeof window !== "undefined") {
+      localStorage.setItem("naypict_map_style", key)
+    }
+  }
 
   // Handle container resize when sidebar toggles or viewport changes
   useEffect(() => {
@@ -443,6 +571,71 @@ export default function PhotoMapView() {
           <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-500 border border-emerald-500/30 ml-1">
             {photos.length} foto • {clusters.length} titik lokasi
           </span>
+        </div>
+
+        {/* Google Maps Style / Layer Switcher Dropdown */}
+        <div ref={layerMenuRef} className="relative">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setIsLayerMenuOpen((prev) => !prev)}
+            className={`h-9 px-3 text-xs rounded-2xl backdrop-blur-xl border shadow-xl gap-1.5 cursor-pointer transition-all hover:scale-105 ${
+              isLayerMenuOpen
+                ? "bg-primary/20 border-primary text-primary"
+                : "bg-background/80 dark:bg-neutral-900/80 border-border/70"
+            }`}
+            title="Ganti tampilan peta (Google Standar, Satelit Hibrid, Medan, Mode Gelap)"
+          >
+            <Layers className="size-3.5 text-emerald-500" />
+            <span className="font-semibold">{currentMapStyleOption.label}</span>
+          </Button>
+
+          {/* Layer Selector Popover Card */}
+          {isLayerMenuOpen && (
+            <div className="absolute top-11 left-0 z-50 w-72 p-2.5 rounded-3xl backdrop-blur-2xl bg-background/95 dark:bg-neutral-900/95 border border-border/80 shadow-2xl animate-in fade-in zoom-in-95 duration-150 space-y-1.5">
+              <div className="px-2 py-1 flex items-center justify-between border-b border-border/50 pb-2">
+                <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                  <Globe className="size-3.5 text-primary" />
+                  <span>Gaya & Lapisan Peta</span>
+                </span>
+                <span className="text-[10px] text-muted-foreground font-medium">Google Maps</span>
+              </div>
+
+              <div className="space-y-1 pt-1">
+                {MAP_STYLE_OPTIONS.map((opt) => {
+                  const isActive = opt.key === mapStyle
+                  return (
+                    <button
+                      key={opt.key}
+                      type="button"
+                      onClick={() => handleSelectMapStyle(opt.key)}
+                      className={`w-full flex items-center justify-between p-2 rounded-2xl transition-all text-left cursor-pointer border ${
+                        isActive
+                          ? "bg-emerald-500/15 border-emerald-500/40 text-foreground ring-1 ring-emerald-500/30"
+                          : "border-transparent hover:bg-muted/60 text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <span className="text-base shrink-0">{opt.icon}</span>
+                        <div className="min-w-0">
+                          <p className="font-bold text-xs leading-tight truncate">{opt.label}</p>
+                          <p className="text-[10px] text-muted-foreground truncate leading-tight mt-0.5">
+                            {opt.subtitle}
+                          </p>
+                        </div>
+                      </div>
+                      {isActive && (
+                        <div className="size-5 rounded-full bg-emerald-500 text-white flex items-center justify-center shrink-0 ml-1 shadow-xs">
+                          <Check className="size-3 stroke-[3]" />
+                        </div>
+                      )}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Fit All Photos Button */}
