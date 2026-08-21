@@ -43,11 +43,20 @@ import { UserTypeEnum } from "@/server/enums/user-enum"
 import { UntaggedPhotosDialog } from "@/components/map/untagged-photos-dialog"
 import { PhotoBatchEditDialog } from "@/components/photo/photo-batch-edit-dialog"
 
-export interface PhotoCluster {
+export interface GeoSpot {
   id: string
   latitude: number
   longitude: number
   photos: PhotoVo[]
+}
+
+export interface MapClusterMarker {
+  id: string
+  latitude: number
+  longitude: number
+  spots: GeoSpot[]
+  photos: PhotoVo[]
+  isMultiLocation: boolean
 }
 
 export type MapStyleKey =
@@ -136,9 +145,9 @@ function getDistanceInKm(lat1: number, lon1: number, lat2: number, lon2: number)
   return R * c
 }
 
-// Cluster photos that share the same or very close coordinates (< 150m) into a single grouped marker
-function clusterNearbyPhotos(photos: PhotoVo[], thresholdKm = 0.15): PhotoCluster[] {
-  const clusters: PhotoCluster[] = []
+// 1. Group photos that are physically co-located at the EXACT same spot (<= 8 meters, e.g. burst/batch geotag)
+function groupExactGeoSpots(photos: PhotoVo[], maxDistanceKm = 0.008): GeoSpot[] {
+  const spots: GeoSpot[] = []
 
   for (const photo of photos) {
     if (
@@ -150,20 +159,71 @@ function clusterNearbyPhotos(photos: PhotoVo[], thresholdKm = 0.15): PhotoCluste
       continue
     }
 
-    const matchedCluster = clusters.find((c) => {
-      return getDistanceInKm(photo.latitude!, photo.longitude!, c.latitude, c.longitude) <= thresholdKm
-    })
+    const matched = spots.find(
+      (s) => getDistanceInKm(photo.latitude!, photo.longitude!, s.latitude, s.longitude) <= maxDistanceKm
+    )
 
-    if (matchedCluster) {
-      matchedCluster.photos.push(photo)
+    if (matched) {
+      matched.photos.push(photo)
     } else {
-      clusters.push({
+      spots.push({
         id: photo.photoId,
         latitude: photo.latitude,
         longitude: photo.longitude,
         photos: [photo],
       })
     }
+  }
+
+  return spots
+}
+
+// 2. Compute dynamic screen-level clusters based on current map zoom and pixel collision distance
+function computeScreenClusters(
+  spots: GeoSpot[],
+  map: LType.Map,
+  pixelRadius = 42
+): MapClusterMarker[] {
+  const clusters: MapClusterMarker[] = []
+  const visited = new Set<string>()
+
+  for (let i = 0; i < spots.length; i++) {
+    const spot = spots[i]
+    if (visited.has(spot.id)) continue
+
+    const pA = map.latLngToLayerPoint([spot.latitude, spot.longitude])
+    const clusterSpots: GeoSpot[] = [spot]
+    visited.add(spot.id)
+
+    for (let j = i + 1; j < spots.length; j++) {
+      const other = spots[j]
+      if (visited.has(other.id)) continue
+
+      const pB = map.latLngToLayerPoint([other.latitude, other.longitude])
+      const dist = Math.hypot(pA.x - pB.x, pA.y - pB.y)
+
+      if (dist <= pixelRadius) {
+        visited.add(other.id)
+        clusterSpots.push(other)
+      }
+    }
+
+    const allPhotos = clusterSpots.flatMap((s) => s.photos)
+    const isMultiLocation = clusterSpots.length > 1
+
+    // For single spots, preserve exact geographic coordinate.
+    // For multi-spot clusters, center marker at geographical centroid.
+    const avgLat = clusterSpots.reduce((sum, s) => sum + s.latitude, 0) / clusterSpots.length
+    const avgLon = clusterSpots.reduce((sum, s) => sum + s.longitude, 0) / clusterSpots.length
+
+    clusters.push({
+      id: spot.id,
+      latitude: isMultiLocation ? avgLat : spot.latitude,
+      longitude: isMultiLocation ? avgLon : spot.longitude,
+      spots: clusterSpots,
+      photos: allPhotos,
+      isMultiLocation,
+    })
   }
 
   return clusters
@@ -186,7 +246,7 @@ export default function PhotoMapView() {
   const [untaggedPhotos, setUntaggedPhotos] = useState<PhotoVo[]>([])
   const [loading, setLoading] = useState<boolean>(true)
   const [mapReady, setMapReady] = useState<boolean>(false)
-  const [selectedCluster, setSelectedCluster] = useState<PhotoCluster | null>(null)
+  const [selectedCluster, setSelectedCluster] = useState<GeoSpot | null>(null)
   const [activePhotoIndex, setActivePhotoIndex] = useState<number>(0)
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(true)
   const [drawerTab, setDrawerTab] = useState<"map" | "untagged">("map")
@@ -231,9 +291,9 @@ export default function PhotoMapView() {
     }
   }, [isLayerMenuOpen])
 
-  // Cluster photos into groups so identical/nearby coordinates don't overlap
-  const clusters = useMemo(() => {
-    return clusterNearbyPhotos(photos, 0.15)
+  // Group photos that are at the exact same physical spot
+  const geoSpots = useMemo(() => {
+    return groupExactGeoSpots(photos, 0.008)
   }, [photos])
 
   // Fetch all geotagged photos on mount
@@ -403,127 +463,147 @@ export default function PhotoMapView() {
     }
   }, [mapReady])
 
-  // Automatically render grouped cluster markers whenever map is ready or clusters update
-  useEffect(() => {
+  // Dynamically render screen-level clusters whenever map is panned, zoomed, or spots update
+  const renderMarkers = useCallback(async () => {
     if (!mapReady || !mapInstanceRef.current || !markersLayerRef.current) return
 
-    let isDisposed = false
+    const L = (await import("leaflet")).default
+    const map = mapInstanceRef.current
+    if (!map || !markersLayerRef.current) return
 
-    async function renderMarkers() {
-      const L = (await import("leaflet")).default
-      if (isDisposed || !mapInstanceRef.current || !markersLayerRef.current) return
+    markersLayerRef.current.clearLayers()
+    markerMapRef.current.clear()
 
-      markersLayerRef.current.clearLayers()
-      markerMapRef.current.clear()
+    const screenClusters = computeScreenClusters(geoSpots, map, 44)
 
-      clusters.forEach((cluster) => {
-        const topPhoto = cluster.photos[0]
-        if (!topPhoto) return
+    screenClusters.forEach((cluster) => {
+      const topPhoto = cluster.photos[0]
+      if (!topPhoto) return
 
-        const imgUrl = topPhoto.thumbnail || topPhoto.preview || ""
-        const isSelected = selectedCluster?.id === cluster.id
-        const count = cluster.photos.length
+      const imgUrl = topPhoto.thumbnail || topPhoto.preview || ""
+      const isSelected = selectedCluster?.id === cluster.id
+      const count = cluster.photos.length
+      const isMulti = count > 1
 
-        // Custom HTML pin marker with grouped stack styling if multiple photos exist
-        const customIcon = L.divIcon({
-          className: "photo-marker-icon",
-          html: `
-            <div class="relative group cursor-pointer transition-transform duration-300 transform hover:scale-125 ${
-              isSelected ? "scale-125 z-50 ring-4 ring-emerald-400" : ""
-            }">
+      // Custom HTML pin marker with grouped stack styling if multiple photos exist
+      const customIcon = L.divIcon({
+        className: "photo-marker-icon",
+        html: `
+          <div class="relative group cursor-pointer transition-transform duration-300 transform hover:scale-125 ${
+            isSelected ? "scale-125 z-50 ring-4 ring-emerald-400" : ""
+          }">
+            ${
+              isMulti
+                ? `
+              <!-- Stacked background cards for group depth -->
+              <div class="absolute -inset-0.5 rounded-2xl bg-neutral-800 border-2 border-white/60 dark:border-black/60 rotate-6 shadow-md pointer-events-none"></div>
+              <div class="absolute -inset-0.5 rounded-2xl bg-neutral-700 border-2 border-white/60 dark:border-black/60 -rotate-3 shadow-md pointer-events-none"></div>
+            `
+                : ""
+            }
+            <div class="relative w-11 h-11 rounded-2xl overflow-hidden shadow-2xl border-2 border-white/90 dark:border-black/90 bg-neutral-900 flex items-center justify-center">
               ${
-                count > 1
-                  ? `
-                <!-- Stacked background cards for group depth -->
-                <div class="absolute -inset-0.5 rounded-2xl bg-neutral-800 border-2 border-white/60 dark:border-black/60 rotate-6 shadow-md pointer-events-none"></div>
-                <div class="absolute -inset-0.5 rounded-2xl bg-neutral-700 border-2 border-white/60 dark:border-black/60 -rotate-3 shadow-md pointer-events-none"></div>
-              `
-                  : ""
-              }
-              <div class="relative w-11 h-11 rounded-2xl overflow-hidden shadow-2xl border-2 border-white/90 dark:border-black/90 bg-neutral-900 flex items-center justify-center">
-                ${
-                  imgUrl
-                    ? `<img src="${imgUrl}" alt="${topPhoto.name}" class="w-full h-full object-cover" />`
-                    : `<div class="w-full h-full bg-emerald-600 flex items-center justify-center text-white text-xs">📷</div>`
-                }
-              </div>
-              <div class="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-3 h-3 rotate-45 bg-white/90 dark:bg-black/90 border-r border-b border-white/50 dark:border-black/50"></div>
-              ${
-                count > 1
-                  ? `
-                <!-- Count badge pill on top right -->
-                <div class="absolute -top-2 -right-2 px-1.5 py-0.5 min-w-5 h-5 rounded-full bg-emerald-500 text-white font-black text-[10px] leading-none flex items-center justify-center shadow-lg ring-2 ring-white dark:ring-neutral-900 pointer-events-none">
-                  ${count}
-                </div>
-              `
-                  : ""
+                imgUrl
+                  ? `<img src="${imgUrl}" alt="${topPhoto.name}" class="w-full h-full object-cover" />`
+                  : `<div class="w-full h-full bg-emerald-600 flex items-center justify-center text-white text-xs">📷</div>`
               }
             </div>
-          `,
-          iconSize: [44, 52],
-          iconAnchor: [22, 50],
-          popupAnchor: [0, -48],
-        })
-
-        const marker = L.marker([cluster.latitude, cluster.longitude], { icon: customIcon })
-
-        // Click marker -> select cluster and open preview card
-        marker.on("click", () => {
-          setSelectedCluster(cluster)
-          setActivePhotoIndex(0)
-          mapInstanceRef.current?.flyTo([cluster.latitude, cluster.longitude], 14, {
-            duration: 0.8,
-          })
-        })
-
-        markersLayerRef.current?.addLayer(marker)
-        markerMapRef.current.set(cluster.id, marker)
+            <div class="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-3 h-3 rotate-45 bg-white/90 dark:bg-black/90 border-r border-b border-white/50 dark:border-black/50"></div>
+            ${
+              isMulti
+                ? `
+              <!-- Count badge pill on top right -->
+              <div class="absolute -top-2 -right-2 px-1.5 py-0.5 min-w-5 h-5 rounded-full ${
+                cluster.isMultiLocation ? "bg-sky-500" : "bg-emerald-500"
+              } text-white font-black text-[10px] leading-none flex items-center justify-center shadow-lg ring-2 ring-white dark:ring-neutral-900 pointer-events-none">
+                ${count}
+              </div>
+            `
+                : ""
+            }
+          </div>
+        `,
+        iconSize: [44, 52],
+        iconAnchor: [22, 50],
+        popupAnchor: [0, -48],
       })
 
-      // Automatically fit map bounds to show all markers on initial load
-      if (!hasFitBoundsInitialRef.current && clusters.length > 0 && mapInstanceRef.current) {
-        const bounds = L.latLngBounds(clusters.map((c) => [c.latitude, c.longitude]))
-        mapInstanceRef.current.fitBounds(bounds, { padding: [60, 60], maxZoom: 14 })
-        hasFitBoundsInitialRef.current = true
-      }
+      const marker = L.marker([cluster.latitude, cluster.longitude], { icon: customIcon })
+
+      // Marker click:
+      // If multi-location cluster at lower zoom -> zoom in and separate pins!
+      // If single spot or max zoom -> select spot and open preview card!
+      marker.on("click", () => {
+        if (cluster.isMultiLocation && map.getZoom() < 18) {
+          const bounds = L.latLngBounds(cluster.spots.map((s) => [s.latitude, s.longitude]))
+          map.fitBounds(bounds, { padding: [80, 80], maxZoom: 18 })
+        } else {
+          const spotToSelect = cluster.spots[0]
+          setSelectedCluster(spotToSelect)
+          setActivePhotoIndex(0)
+          map.flyTo([spotToSelect.latitude, spotToSelect.longitude], Math.max(map.getZoom(), 16), {
+            duration: 0.8,
+          })
+        }
+      })
+
+      markersLayerRef.current?.addLayer(marker)
+      markerMapRef.current.set(cluster.id, marker)
+    })
+
+    // Automatically fit map bounds to show all markers on initial load
+    if (!hasFitBoundsInitialRef.current && geoSpots.length > 0 && mapInstanceRef.current) {
+      const bounds = L.latLngBounds(geoSpots.map((c) => [c.latitude, c.longitude]))
+      mapInstanceRef.current.fitBounds(bounds, { padding: [60, 60], maxZoom: 14 })
+      hasFitBoundsInitialRef.current = true
     }
+  }, [mapReady, geoSpots, selectedCluster?.id])
+
+  // Re-calculate screen clusters on map zoom/pan/ready/spots change
+  useEffect(() => {
+    if (!mapReady || !mapInstanceRef.current) return
+    const map = mapInstanceRef.current
 
     renderMarkers()
 
+    map.on("zoomend", renderMarkers)
+    map.on("moveend", renderMarkers)
+
     return () => {
-      isDisposed = true
+      map.off("zoomend", renderMarkers)
+      map.off("moveend", renderMarkers)
     }
-  }, [mapReady, clusters, selectedCluster?.id])
+  }, [mapReady, renderMarkers])
 
   // Center map on a specific photo from bottom carousel
   const handleFlyToPhoto = useCallback(
     (photo: PhotoVo) => {
       if (typeof photo.latitude !== "number" || typeof photo.longitude !== "number") return
 
-      // Find the cluster this photo belongs to
-      const matchedCluster = clusters.find((c) =>
-        c.photos.some((p) => p.photoId === photo.photoId)
+      // Find the exact geo spot this photo belongs to
+      const matchedSpot = geoSpots.find((s) =>
+        s.photos.some((p) => p.photoId === photo.photoId)
       )
 
-      if (matchedCluster) {
-        setSelectedCluster(matchedCluster)
-        const photoIdx = matchedCluster.photos.findIndex((p) => p.photoId === photo.photoId)
+      if (matchedSpot) {
+        setSelectedCluster(matchedSpot)
+        const photoIdx = matchedSpot.photos.findIndex((p) => p.photoId === photo.photoId)
         setActivePhotoIndex(photoIdx >= 0 ? photoIdx : 0)
-        mapInstanceRef.current?.flyTo([matchedCluster.latitude, matchedCluster.longitude], 15, {
+        mapInstanceRef.current?.flyTo([matchedSpot.latitude, matchedSpot.longitude], 17, {
           duration: 1.2,
         })
       }
     },
-    [clusters]
+    [geoSpots]
   )
 
   // Fit bounds to all photos
   const handleFitAll = useCallback(async () => {
-    if (!mapInstanceRef.current || clusters.length === 0) return
+    if (!mapInstanceRef.current || geoSpots.length === 0) return
     const L = (await import("leaflet")).default
-    const bounds = L.latLngBounds(clusters.map((c) => [c.latitude, c.longitude]))
+    const bounds = L.latLngBounds(geoSpots.map((c) => [c.latitude, c.longitude]))
     mapInstanceRef.current.fitBounds(bounds, { padding: [60, 60], maxZoom: 15 })
-  }, [clusters])
+  }, [geoSpots])
 
   // Callback when untagged photos are successfully geotagged
   const handleGeotagSuccess = useCallback(
@@ -549,7 +629,7 @@ export default function PhotoMapView() {
         setPhotos((prev) => [...prev, ...updatedMapped])
 
         // Fly camera to the new coordinate
-        mapInstanceRef.current?.flyTo([changes.latitude, changes.longitude], 15, {
+        mapInstanceRef.current?.flyTo([changes.latitude, changes.longitude], 16, {
           duration: 1.2,
         })
       }
@@ -557,7 +637,7 @@ export default function PhotoMapView() {
     [untaggedPhotos]
   )
 
-  // Get active photo from selected cluster
+  // Get active photo from selected spot
   const currentPhoto = selectedCluster
     ? selectedCluster.photos[activePhotoIndex] || selectedCluster.photos[0]
     : null
@@ -586,7 +666,7 @@ export default function PhotoMapView() {
           <MapPin className="size-4 text-emerald-500 animate-pulse" />
           <span className="font-bold text-xs sm:text-sm">Photo Map Explorer</span>
           <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-500 border border-emerald-500/30 ml-1">
-            {photos.length} foto • {clusters.length} titik lokasi
+            {photos.length} foto • {geoSpots.length} titik lokasi
           </span>
         </div>
 
@@ -707,7 +787,7 @@ export default function PhotoMapView() {
         </Button>
       </div>
 
-      {/* Floating Photo Preview Card (When a marker/cluster is clicked) */}
+      {/* Floating Photo Preview Card (When a marker/spot is clicked) */}
       {selectedCluster && currentPhoto && (
         <div className="absolute top-20 right-4 z-20 w-80 max-w-[calc(100vw-2rem)] rounded-3xl overflow-hidden backdrop-blur-2xl bg-background/90 dark:bg-neutral-900/90 border border-border/80 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
           {/* Main Photo Image with Cluster Carousel Controls */}
@@ -850,7 +930,7 @@ export default function PhotoMapView() {
                 onClick={() =>
                   mapInstanceRef.current?.flyTo(
                     [selectedCluster.latitude, selectedCluster.longitude],
-                    16,
+                    17,
                     { duration: 1 }
                   )
                 }
