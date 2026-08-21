@@ -1,7 +1,18 @@
 "use client"
 
 import { useState } from "react"
-import { Calendar, Compass, Download, Eye, Heart, LoaderCircle, LocateFixed, MapPin, Sparkles } from "lucide-react"
+import {
+  Calendar,
+  CheckCircle2,
+  Compass,
+  Download,
+  Eye,
+  Heart,
+  LoaderCircle,
+  LocateFixed,
+  MapPin,
+  Sparkles,
+} from "lucide-react"
 import { toast } from "sonner"
 
 import {
@@ -24,6 +35,7 @@ import {
 import { PhotoVisibilityEnum } from "@/server/enums/photo-enum"
 import { photoBatchEdit } from "@/request/photo"
 import { type PhotoVo } from "@/server/entity/vo/photo"
+import { decimalToDms, parseCoordinateString } from "@/lib/geo"
 
 interface PhotoBatchEditDialogProps {
   open: boolean
@@ -51,6 +63,7 @@ export function PhotoBatchEditDialog({
 
   // Location state values
   const [locationMode, setLocationMode] = useState<string>("unchanged")
+  const [coordInput, setCoordInput] = useState<string>("")
   const [latitude, setLatitude] = useState<string>("")
   const [longitude, setLongitude] = useState<string>("")
   const [isLocating, setIsLocating] = useState<boolean>(false)
@@ -67,6 +80,39 @@ export function PhotoBatchEditDialog({
   const modifiedCount = [isVisModified, isDlModified, isFavModified, isDateModified, isLocModified].filter(Boolean).length
   const hasChanges = modifiedCount > 0
 
+  // Live parsed coordinate from coordInput
+  const parsedCoord = parseCoordinateString(coordInput)
+
+  // Handle DMS or Decimal input change
+  const handleCoordInputChange = (val: string) => {
+    setCoordInput(val)
+    const res = parseCoordinateString(val)
+    if (res) {
+      setLatitude(res.latitude.toString())
+      setLongitude(res.longitude.toString())
+    }
+  }
+
+  // Handle individual Latitude change
+  const handleLatitudeChange = (val: string) => {
+    setLatitude(val)
+    const latNum = parseFloat(val)
+    const lngNum = parseFloat(longitude)
+    if (!isNaN(latNum) && !isNaN(lngNum)) {
+      setCoordInput(decimalToDms(latNum, lngNum))
+    }
+  }
+
+  // Handle individual Longitude change
+  const handleLongitudeChange = (val: string) => {
+    setLongitude(val)
+    const latNum = parseFloat(latitude)
+    const lngNum = parseFloat(val)
+    if (!isNaN(latNum) && !isNaN(lngNum)) {
+      setCoordInput(decimalToDms(latNum, lngNum))
+    }
+  }
+
   // Reset fields when dialog closes
   const handleOpenChange = (nextOpen: boolean) => {
     onOpenChange(nextOpen)
@@ -76,6 +122,7 @@ export function PhotoBatchEditDialog({
       setFavorite("unchanged")
       setTakenTimeMode("unchanged")
       setLocationMode("unchanged")
+      setCoordInput("")
       setLatitude("")
       setLongitude("")
       setLoading(false)
@@ -92,8 +139,11 @@ export function PhotoBatchEditDialog({
     setIsLocating(true)
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        setLatitude(pos.coords.latitude.toFixed(6))
-        setLongitude(pos.coords.longitude.toFixed(6))
+        const lat = Number(pos.coords.latitude.toFixed(6))
+        const lng = Number(pos.coords.longitude.toFixed(6))
+        setLatitude(lat.toString())
+        setLongitude(lng.toString())
+        setCoordInput(decimalToDms(lat, lng))
         setIsLocating(false)
         toast.success("Berhasil mendeteksi koordinat GPS perangkat!")
       },
@@ -165,18 +215,46 @@ export function PhotoBatchEditDialog({
         clientUpdates.latitude = null
         clientUpdates.longitude = null
       } else if (locationMode === "set") {
-        const latNum = parseFloat(latitude.trim())
-        const lngNum = parseFloat(longitude.trim())
+        let finalLat: number | null = null
+        let finalLng: number | null = null
 
-        if (isNaN(latNum) || isNaN(lngNum) || latNum < -90 || latNum > 90 || lngNum < -180 || lngNum > 180) {
-          toast.error("Koordinat GPS tidak valid! Latitude harus (-90 s/d 90) dan Longitude (-180 s/d 180).")
+        // Try parsed DMS input first, then manual lat/lng fields
+        if (parsedCoord) {
+          finalLat = parsedCoord.latitude
+          finalLng = parsedCoord.longitude
+        } else {
+          const parsedFromInput = parseCoordinateString(coordInput)
+          if (parsedFromInput) {
+            finalLat = parsedFromInput.latitude
+            finalLng = parsedFromInput.longitude
+          } else {
+            const latNum = parseFloat(latitude.trim())
+            const lngNum = parseFloat(longitude.trim())
+            if (!isNaN(latNum) && !isNaN(lngNum)) {
+              finalLat = latNum
+              finalLng = lngNum
+            }
+          }
+        }
+
+        if (
+          finalLat === null ||
+          finalLng === null ||
+          isNaN(finalLat) ||
+          isNaN(finalLng) ||
+          finalLat < -90 ||
+          finalLat > 90 ||
+          finalLng < -180 ||
+          finalLng > 180
+        ) {
+          toast.error("Format koordinat tidak valid! Masukkan format DMS (contoh: 8°20'43.0\"S 116°31'58.9\"E) atau desimal.")
           return
         }
 
-        payload.latitude = latNum
-        payload.longitude = lngNum
-        clientUpdates.latitude = latNum
-        clientUpdates.longitude = lngNum
+        payload.latitude = finalLat
+        payload.longitude = finalLng
+        clientUpdates.latitude = finalLat
+        clientUpdates.longitude = finalLng
       }
     }
 
@@ -188,7 +266,7 @@ export function PhotoBatchEditDialog({
       handleOpenChange(false)
     } catch (err: unknown) {
       console.error("Batch edit failed:", err)
-      toast.error("Gagal memperbarui metadata foto massal.")
+      toast.error("Gagal memperbarui metadata foto.")
     } finally {
       setLoading(false)
     }
@@ -352,12 +430,12 @@ export function PhotoBatchEditDialog({
             )}
           </div>
 
-          {/* 5. Koordinat Lokasi GPS (Latitude & Longitude) */}
+          {/* 5. Koordinat Lokasi GPS (Format DMS & Desimal) */}
           <div className="rounded-xl border border-border/80 bg-card p-3.5 space-y-2 shadow-2xs">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 text-sm font-semibold">
                 <MapPin className="size-4 text-emerald-500" />
-                <span>5. Koordinat Lokasi GPS (Map & Exif)</span>
+                <span>5. Koordinat Lokasi GPS (DMS / Google Maps)</span>
               </div>
               {isLocModified && (
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-500 border border-emerald-500/30">
@@ -383,41 +461,78 @@ export function PhotoBatchEditDialog({
             </Select>
 
             {locationMode === "set" && (
-              <div className="space-y-2 pt-1.5 animate-in fade-in-50 duration-200">
-                <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-3 pt-1.5 animate-in fade-in-50 duration-200">
+                {/* Unified DMS / Google Maps Coordinate String Input */}
+                <div className="space-y-1">
+                  <label className="text-[11px] font-medium text-foreground flex items-center justify-between">
+                    <span className="flex items-center gap-1">
+                      <Compass className="size-3 text-emerald-500" />
+                      <span>Tempel / Ketik Koordinat (Format DMS):</span>
+                    </span>
+                    <span className="text-[10px] text-muted-foreground font-mono">
+                      e.g. 8°20&apos;43.0&quot;S 116°31&apos;58.9&quot;E
+                    </span>
+                  </label>
+                  <Input
+                    type="text"
+                    placeholder={`8°20'43.0"S 116°31'58.9"E atau -8.345278, 116.533028`}
+                    value={coordInput}
+                    onChange={(e) => handleCoordInputChange(e.target.value)}
+                    className="text-xs h-9 bg-background font-mono"
+                  />
+                </div>
+
+                {/* Parsed Coordinate Confirmation Card */}
+                {parsedCoord && (
+                  <div className="flex items-center justify-between p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/25 text-xs text-emerald-700 dark:text-emerald-300">
+                    <div className="flex items-center gap-2 truncate">
+                      <CheckCircle2 className="size-4 text-emerald-500 shrink-0" />
+                      <div className="space-y-0.5 truncate">
+                        <p className="font-semibold text-[11px] truncate">
+                          {parsedCoord.dmsString}
+                        </p>
+                        <p className="text-[10px] text-muted-foreground font-mono">
+                          Desimal: {parsedCoord.latitude}°, {parsedCoord.longitude}°
+                        </p>
+                      </div>
+                    </div>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 shrink-0">
+                      Valid
+                    </span>
+                  </div>
+                )}
+
+                {/* Direct Latitude & Longitude decimal values */}
+                <div className="grid grid-cols-2 gap-2 pt-0.5">
                   <div className="space-y-1">
                     <label className="text-[11px] font-medium text-muted-foreground flex items-center gap-1">
-                      <Compass className="size-3 text-emerald-500" />
-                      <span>Latitude (Lintang)</span>
+                      <span>Latitude (Lintang Desimal)</span>
                     </label>
                     <Input
                       type="number"
                       step="any"
-                      placeholder="e.g. -6.2088"
+                      placeholder="-8.345278"
                       value={latitude}
-                      onChange={(e) => setLatitude(e.target.value)}
-                      className="text-xs h-9 bg-background"
-                      required
+                      onChange={(e) => handleLatitudeChange(e.target.value)}
+                      className="text-xs h-8.5 bg-background font-mono"
                     />
                   </div>
                   <div className="space-y-1">
                     <label className="text-[11px] font-medium text-muted-foreground flex items-center gap-1">
-                      <Compass className="size-3 text-emerald-500" />
-                      <span>Longitude (Bujur)</span>
+                      <span>Longitude (Bujur Desimal)</span>
                     </label>
                     <Input
                       type="number"
                       step="any"
-                      placeholder="e.g. 106.8456"
+                      placeholder="116.533028"
                       value={longitude}
-                      onChange={(e) => setLongitude(e.target.value)}
-                      className="text-xs h-9 bg-background"
-                      required
+                      onChange={(e) => handleLongitudeChange(e.target.value)}
+                      className="text-xs h-8.5 bg-background font-mono"
                     />
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between pt-0.5">
+                <div className="flex items-center justify-between pt-1">
                   <span className="text-[10px] text-muted-foreground">
                     Foto akan otomatis muncul pada Peta Interaktif (/map).
                   </span>

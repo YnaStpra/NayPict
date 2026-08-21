@@ -1,11 +1,10 @@
 "use client"
 
-import { Archive, Eye, FolderHeart, FolderPlusIcon, Globe, Image as ImageIcon, InfoIcon, MapPin, MessageSquareIcon, TrendingUp, XIcon } from "lucide-react"
+import { Archive, Eye, FolderHeart, FolderPlusIcon, Globe, Image as ImageIcon, InfoIcon, MapPin, MessageSquareIcon, Pencil, TrendingUp, XIcon } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
-import { useTapAction } from "@/hooks/use-tap-action"
 import { formatPhotoTakenDateTime } from "@/lib/date"
 import { getThumbHashUrl } from "@/lib/thumb-hash"
 import { getPhotoDeviceParams, getPhotoShootingParams, getPhotoSoftware, getPhotoTimezone } from "@/lib/viewer-field"
@@ -319,9 +318,8 @@ export function PhotoInfoSidebar({
                     )}
                     <Button
                       type="button"
-                      variant="secondary"
                       size="sm"
-                      className="flex-1 justify-center gap-1.5 bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30 border border-emerald-500/30 text-xs font-medium cursor-pointer pointer-events-auto"
+                      className="flex-1 justify-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white border border-emerald-500/50 text-xs font-semibold shadow-md cursor-pointer pointer-events-auto transition-all hover:scale-[1.02]"
                       onClick={(e) => {
                         e.stopPropagation()
                         e.preventDefault()
@@ -329,8 +327,8 @@ export function PhotoInfoSidebar({
                       }}
                       title="Edit metadata, tanggal, dan koordinat lokasi GPS"
                     >
-                      <MapPin className="size-3.5 text-emerald-400" />
-                      <span>Edit Meta</span>
+                      <Pencil className="size-3.5" />
+                      <span>Edit Metadata</span>
                     </Button>
                   </div>
 
@@ -422,8 +420,20 @@ export function PhotoInfoSidebar({
               )}
 
               <div>
-                <div className="pb-2 text-xs font-semibold text-white/50 tracking-wider uppercase">
-                  {t("basicInformation")}
+                <div className="flex items-center justify-between pb-2">
+                  <span className="text-xs font-semibold text-white/50 tracking-wider uppercase">
+                    {t("basicInformation")}
+                  </span>
+                  {isAdmin && (
+                    <button
+                      type="button"
+                      onClick={() => setBatchEditDialogOpen(true)}
+                      className="flex items-center gap-1 text-[11px] font-semibold text-emerald-400 hover:text-emerald-300 hover:underline cursor-pointer"
+                    >
+                      <Pencil className="size-3" />
+                      <span>Edit Metadata</span>
+                    </button>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <PhotoInfoRow label={t("fileName")} value={formatPhotoName(photo.name)} twoLines />
@@ -475,10 +485,22 @@ export function PhotoInfoSidebar({
               )}
 
               {/* Visual Google Map Location Card (Positioned at the very bottom of photo info) */}
-              {photo.latitude != null && photo.longitude != null && !isNaN(Number(photo.latitude)) && !isNaN(Number(photo.longitude)) && (
+              {photo.latitude != null && photo.longitude != null && !isNaN(Number(photo.latitude)) && !isNaN(Number(photo.longitude)) ? (
                 <div>
-                  <div className="pb-2 text-xs font-semibold text-white/50 tracking-wider uppercase">
-                    {t("location")}
+                  <div className="flex items-center justify-between pb-2">
+                    <span className="text-xs font-semibold text-white/50 tracking-wider uppercase">
+                      {t("location")}
+                    </span>
+                    {isAdmin && (
+                      <button
+                        type="button"
+                        onClick={() => setBatchEditDialogOpen(true)}
+                        className="flex items-center gap-1 text-[11px] font-semibold text-emerald-400 hover:text-emerald-300 hover:underline cursor-pointer"
+                      >
+                        <MapPin className="size-3" />
+                        <span>Ubah Lokasi</span>
+                      </button>
+                    )}
                   </div>
                   <PhotoLocationMap
                     latitude={Number(photo.latitude)}
@@ -489,6 +511,27 @@ export function PhotoInfoSidebar({
                     photoName={photo.name}
                   />
                 </div>
+              ) : (
+                isAdmin && (
+                  <div>
+                    <div className="pb-2 text-xs font-semibold text-white/50 tracking-wider uppercase">
+                      {t("location")}
+                    </div>
+                    <div className="rounded-xl border border-dashed border-white/20 bg-white/5 p-3.5 text-center space-y-2">
+                      <p className="text-xs text-white/60">Foto ini belum memiliki koordinat GPS.</p>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setBatchEditDialogOpen(true)}
+                        className="h-7 text-xs rounded-lg border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20 gap-1.5 cursor-pointer"
+                      >
+                        <MapPin className="size-3" />
+                        <span>Tambahkan Lokasi GPS</span>
+                      </Button>
+                    </div>
+                  </div>
+                )
               )}
             </div>
           )}
