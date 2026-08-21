@@ -27,7 +27,6 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { PhotoUploadSettings, readPhotoUploadSettings } from "@/components/photo/photo-upload-settings"
-import { createPhotoCover } from "@/lib/upload-cover"
 import { compressImageFile } from "@/lib/image-compress"
 import { extractClientExif } from "@/lib/photo-client-exif"
 import { useStorageStore } from "@/store/storage-store"
@@ -286,31 +285,15 @@ export function PhotoUploadDialog() {
   async function addFilesToPreviews(files: File[]) {
     if (!files.length) return
 
-    const newItems: UploadPreview[] = []
-
-    for (const file of files) {
-      try {
-        const cover = await createPhotoCover(file)
-        newItems.push({
-          id: createUploadItemId(file),
-          file,
-          cover,
-          status: "new",
-          progress: 0,
-          albumId: uploadAlbumId ?? undefined,
-        })
-      } catch (err) {
-        console.warn("Cover creation fallback for file:", file.name, err)
-        newItems.push({
-          id: createUploadItemId(file),
-          file,
-          cover: URL.createObjectURL(file),
-          status: "new",
-          progress: 0,
-          albumId: uploadAlbumId ?? undefined,
-        })
-      }
-    }
+    // Fast instant object URL mapping for massive batch uploads (supports 1,000+ photos without lag)
+    const newItems: UploadPreview[] = files.map((file) => ({
+      id: createUploadItemId(file),
+      file,
+      cover: URL.createObjectURL(file),
+      status: "new" as UploadStatus,
+      progress: 0,
+      albumId: uploadAlbumId ?? undefined,
+    }))
 
     const nextPreviews = [...previewsRef.current, ...newItems]
     setPreviews(nextPreviews)
@@ -597,17 +580,42 @@ export function PhotoUploadDialog() {
     }
   }
 
+  const totalSelectedSize = previews.reduce((acc, p) => acc + (p.file?.size || 0), 0)
+  const completedCount = previews.filter((p) => p.status === "success" || p.status === "skipped").length
+  const progressPercent = previews.length > 0 ? Math.round((completedCount / previews.length) * 100) : 0
+
   return (
     <>
       <Dialog open={open} onOpenChange={handleOpenChange}>
         <DialogContent className="grid h-[85vh] max-h-[760px] min-h-0 grid-rows-[auto_minmax(0,1fr)_auto] sm:max-w-2xl p-6">
           <DialogHeader>
-            <div className="flex items-center gap-2">
-              <UploadCloud className="size-5 text-primary" />
-              <DialogTitle className="text-lg font-bold">{t("title")}</DialogTitle>
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
+                <UploadCloud className="size-5 text-primary shrink-0" />
+                <DialogTitle className="text-lg font-bold">{t("title")}</DialogTitle>
+                {previews.length > 0 && (
+                  <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
+                    {previews.length.toLocaleString()} foto • {formatPhotoSize(totalSelectedSize)}
+                  </span>
+                )}
+              </div>
+              {!uploading && previews.length > 0 && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={resetUpload}
+                  className="h-7 text-xs text-muted-foreground hover:text-destructive cursor-pointer"
+                >
+                  <Trash2Icon className="size-3.5 mr-1" />
+                  {t("clear")}
+                </Button>
+              )}
             </div>
             <DialogDescription className="text-xs text-muted-foreground">
-              Pilih atau seret foto ke dalam area ini untuk mengunggah ke galeri.
+              {uploading
+                ? `Mengunggah foto massal: ${completedCount} dari ${previews.length} selesai (${progressPercent}%)`
+                : "Pilih atau seret hingga ribuan foto ke dalam area ini untuk mengunggah ke galeri tanpa batasan."}
             </DialogDescription>
           </DialogHeader>
 
