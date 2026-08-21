@@ -22,9 +22,9 @@ const defaultSettings: PhotoUploadSettingsValue = {
   compressImage: true,
 }
 
-// Limit the number of concurrencies to 1 arrive 5 between.
+// Limit the number of concurrencies to 1 arrive 12 between.
 function clampConcurrency(value: number) {
-  return Math.min(5, Math.max(1, Math.round(value)))
+  return Math.min(12, Math.max(1, Math.round(value)))
 }
 
 // Read photo upload settings from local storage, Returns default value when read fails.
@@ -101,15 +101,20 @@ export function PhotoUploadSettings({ onChange }: { onChange?: () => void }) {
       <div className="flex flex-col gap-2">
         <div className="flex items-center justify-between text-sm font-medium">
           <span>{t("concurrentUploads")}</span>
-          <span className="text-muted-foreground">{settings.concurrency}</span>
+          <span className="text-xs font-bold px-2 py-0.5 rounded bg-muted text-foreground">
+            {settings.concurrency} worker paralel
+          </span>
         </div>
         <Slider
           min={1}
-          max={5}
+          max={12}
           step={1}
           value={[settings.concurrency]}
           onValueChange={(value) => updateSettings({ concurrency: value[0] })}
         />
+        <p className="text-[10px] text-muted-foreground">
+          Tingkatkan worker paralel untuk mempercepat unggahan massal hingga ribuan foto.
+        </p>
       </div>
       <div className="flex flex-col gap-2">
         <div className="text-sm font-medium">{t("retryFailedUploads")}</div>
