@@ -498,23 +498,28 @@ export default function PhotoMapView() {
       const count = cluster.photos.length
       const isMulti = count > 1
 
-      // Custom HTML pin marker with grouped stack styling if multiple photos exist
+      // Custom HTML pin marker with sleek border, curved selection ring, and calibrated pointer
       const customIcon = L.divIcon({
         className: "photo-marker-icon",
         html: `
-          <div class="relative group cursor-pointer transition-transform duration-300 transform hover:scale-125 ${
-            isSelected ? "scale-125 z-50 ring-4 ring-emerald-400" : ""
+          <div class="relative cursor-pointer transition-all duration-200 transform hover:scale-110 ${
+            isSelected ? "scale-110 z-50" : ""
           }">
             ${
               isMulti
                 ? `
-              <!-- Stacked background cards for group depth -->
-              <div class="absolute -inset-0.5 rounded-2xl bg-neutral-800 border-2 border-white/60 dark:border-black/60 rotate-6 shadow-md pointer-events-none"></div>
-              <div class="absolute -inset-0.5 rounded-2xl bg-neutral-700 border-2 border-white/60 dark:border-black/60 -rotate-3 shadow-md pointer-events-none"></div>
+              <!-- Sleek stacked cards behind for multi-photo depth -->
+              <div class="absolute inset-0 rounded-2xl bg-neutral-900/80 border border-white/40 rotate-6 scale-95 shadow-sm pointer-events-none"></div>
+              <div class="absolute inset-0 rounded-2xl bg-neutral-800/80 border border-white/40 -rotate-3 scale-95 shadow-sm pointer-events-none"></div>
             `
                 : ""
             }
-            <div class="relative w-11 h-11 rounded-2xl overflow-hidden shadow-2xl border-2 border-white/90 dark:border-black/90 bg-neutral-900 flex items-center justify-center" ${
+            <!-- Main Photo Frame -->
+            <div class="relative w-10 h-10 rounded-2xl overflow-hidden shadow-xl border ${
+              isSelected
+                ? "border-emerald-400 ring-2 ring-emerald-400 ring-offset-2 ring-offset-background/90 shadow-emerald-500/30"
+                : "border-white/90 dark:border-white/40"
+            } bg-neutral-900 flex items-center justify-center" ${
               thumbHashUrl ? `style="background-image: url('${thumbHashUrl}'); background-size: cover;"` : ""
             }>
               ${
@@ -523,14 +528,21 @@ export default function PhotoMapView() {
                   : `<div class="w-full h-full bg-emerald-600 flex items-center justify-center text-white text-xs">📷</div>`
               }
             </div>
-            <div class="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-3 h-3 rotate-45 bg-white/90 dark:bg-black/90 border-r border-b border-white/50 dark:border-black/50"></div>
+
+            <!-- Calibrated bottom anchor pointer tip -->
+            <div class="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2.5 h-2.5 rotate-45 ${
+              isSelected
+                ? "bg-emerald-400 border-r border-b border-emerald-400"
+                : "bg-white dark:bg-neutral-900 border-r border-b border-white/90 dark:border-white/40"
+            } shadow-xs pointer-events-none"></div>
+
             ${
               isMulti
                 ? `
               <!-- Count badge pill on top right -->
-              <div class="absolute -top-2 -right-2 px-1.5 py-0.5 min-w-5 h-5 rounded-full ${
+              <div class="absolute -top-1.5 -right-1.5 px-1.5 py-0.5 min-w-4.5 h-4.5 rounded-full ${
                 cluster.isMultiLocation ? "bg-sky-500" : "bg-emerald-500"
-              } text-white font-black text-[10px] leading-none flex items-center justify-center shadow-lg ring-2 ring-white dark:ring-neutral-900 pointer-events-none">
+              } text-white font-bold text-[10px] leading-none flex items-center justify-center shadow-md border border-white/90 pointer-events-none">
                 ${count}
               </div>
             `
@@ -538,9 +550,9 @@ export default function PhotoMapView() {
             }
           </div>
         `,
-        iconSize: [44, 52],
-        iconAnchor: [22, 50],
-        popupAnchor: [0, -48],
+        iconSize: [40, 48],
+        iconAnchor: [20, 46],
+        popupAnchor: [0, -44],
       })
 
       const marker = L.marker([cluster.latitude, cluster.longitude], { icon: customIcon })
