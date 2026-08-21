@@ -7,6 +7,8 @@ interface CommentAddBo {
   name: string;
   // Comment body text.
   content: string;
+  // Optional Cloudflare Turnstile verification token.
+  turnstileToken?: string;
 }
 
 interface CommentDeleteBo {

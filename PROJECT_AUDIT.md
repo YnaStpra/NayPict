@@ -762,8 +762,8 @@ sequenceDiagram
 
 ## 30. TOP 10 PRIORITIES FOR FUTURE DEVELOPMENT
 
-1. **Cloudflare Turnstile on Public Comments** *(Security & Spam Prevention)*:
-   - Tambahkan widget verifikasi bot Cloudflare Turnstile pada form komentar publik di sidebar foto untuk mencegah bot spam secara non-intrusif tanpa captcha yang mengganggu pengunjung.
+1. **Cloudflare Turnstile on Public Comments** *(Security & Spam Prevention)* - **[SELESAI / IMPLEMENTED]**:
+   - Widget Cloudflare Turnstile resmi terintegrasi pada form komentar publik (`src/components/common/turnstile.tsx` & `photo-comments.tsx`), didukung verifikasi token aman di backend (`src/server/lib/turnstile.ts`) dengan CSP yang telah dikonfigurasi.
 2. **Automated Trash Retention Purge via Vercel Cron** *(Automation & Storage Maintenance)*:
    - Daftarkan route handler `src/app/api/cron/cleanup/route.ts` yang dilindungi token rahasia `CRON_SECRET` untuk membersihkan foto tempat sampah yang telah melewati batas hari retensi secara otomatis via Vercel Cron.
 3. **Progressive Web App (PWA) Manifest & Offline Shell** *(Mobile UX)*:
@@ -772,12 +772,12 @@ sequenceDiagram
    - Integrasi pengenalan objek/tema otomatis (misal: "pantai", "sunset", "kucing", "arsitektur") pada foto yang diunggah menggunakan embeddings model ringan untuk pencarian cerdas berbasis teks alami.
 5. **Interactive Global Photo Map Explorer (`/map`)** *(Discovery UX)*:
    - Halaman eksplorasi peta dunia layar penuh interaktif (menggunakan Leaflet / MapLibre) dengan cluster pin foto berdasarkan koordinat GPS EXIF sehingga pengunjung dapat menjelajahi foto berdasarkan lokasi geografis pengambilan.
-6. **Multi-Resolution Image Derivatives & AVIF Support** *(Performance & Bandwidth)*:
-   - Hasilkan varian ukuran responsif otomatis (200w, 600w, 1200w, 2400w) dalam format AVIF/WebP modern untuk menghemat bandwidth pengunjung seluler hingga 50% lebih hemat dan mempercepat LCP.
+6. **Multi-Resolution Image Derivatives & AVIF Support** *(Performance & Bandwidth)* - **[SELESAI / IMPLEMENTED]**:
+   - Pipeline pemrosesan gambar multi-tier (2400w lightbox preview, 1200w medium responsive, 400w thumbnail WebP) serta dukungan negosiasi format AVIF & WebP otomatis di Next.js Image optimization (`next.config.ts` & `src/server/lib/photo-process.ts`).
 7. **Client-Side EXIF Privacy Redaction Option** *(Privacy & Compliance)*:
    - Sediakan opsi pada dialog unggah foto untuk menghapus (*strip*) koordinat GPS atau nomor seri kamera sebelum foto dipublikasikan, guna melindungi privasi lokasi fotografer.
-8. **Real-time Live Comment Updates via WebSockets / SSE** *(Engagement)*:
-   - Integrasi Server-Sent Events (SSE) pada sidebar komentar foto agar komentar baru yang disetujui langsung muncul secara instan tanpa perlu refresh halaman manual.
+8. **Real-time Live Comment Updates via WebSockets / SSE** *(Engagement)* - **[SELESAI / IMPLEMENTED]**:
+   - Hub event Server-Sent Events terintegrasi (`src/server/lib/comment-event-hub.ts` & `/api/photos/:photoId/comments/sse`), memungkinkan komentar dan balasan admin baru tersinkronisasi langsung secara live di sidebar foto tanpa reload halaman.
 9. **Public Photo RSS / Atom Feed Generator (`/feed.xml`)** *(Content Syndication)*:
    - Endpoint RSS/Atom feed dinamis untuk galeri foto sehingga audiens fotografi dan agregator konten dapat berlangganan pembaruan foto terbaru secara otomatis.
 10. **Next.js & Sharp Dependency Security Bump** *(Infrastructure & Maintenance)*:

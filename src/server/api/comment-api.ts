@@ -1,12 +1,60 @@
 import { Hono, Context } from "hono";
+import { streamSSE } from "hono/streaming";
 import result from '@/server/model/result';
 import { commentService } from '@/server/service/comment-service';
+import { commentEventHub, type CommentEvent } from '@/server/lib/comment-event-hub';
 import { type CommentAddBo, type CommentDeleteBo, type CommentListAdminBo, type CommentReplyBo } from '@/server/entity/bo/comment';
 import type { HonoEnv } from '../hono/type';
 
 // This module registers public and administrative photo comment interfaces.
 
 export function registerCommentApi(app: Hono<HonoEnv>) {
+  // Real-time Server-Sent Events (SSE) endpoint for live comment updates.
+  app.get('/photos/:photoId/comments/sse', async (c: Context) => {
+    const photoId = c.req.param('photoId') ?? '';
+    if (!photoId) {
+      return c.text('photoId is required', 400);
+    }
+
+    return streamSSE(c, async (stream) => {
+      await stream.writeSSE({
+        event: 'connected',
+        data: JSON.stringify({ photoId, status: 'connected' }),
+      });
+
+      const unsubscribe = commentEventHub.subscribe(photoId, async (event: CommentEvent) => {
+        try {
+          await stream.writeSSE({
+            event: event.type,
+            data: JSON.stringify(event),
+          });
+        } catch (err) {
+          console.warn('[SSE] Failed to write event to stream:', err);
+        }
+      });
+
+      const pingInterval = setInterval(async () => {
+        try {
+          await stream.writeSSE({
+            event: 'ping',
+            data: 'heartbeat',
+          });
+        } catch {
+          clearInterval(pingInterval);
+        }
+      }, 15000);
+
+      stream.onAbort(() => {
+        clearInterval(pingInterval);
+        unsubscribe();
+      });
+
+      while (!stream.aborted) {
+        await stream.sleep(1000);
+      }
+    });
+  });
+
   // Query comments for a specific photo (RESTful route).
   app.get('/photos/:photoId/comments', async (c: Context) => {
     const photoId = c.req.param('photoId') ?? '';

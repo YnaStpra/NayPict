@@ -9,6 +9,7 @@ import { type CommentVo } from "@/server/entity/vo/comment";
 import { useApp } from "@/app/provider";
 import { UserTypeEnum } from "@/server/enums/user-enum";
 import { useLocale } from "next-intl";
+import { Turnstile } from "@/components/common/turnstile";
 
 import { formatRelativeTime } from "@/lib/date";
 
@@ -28,6 +29,10 @@ export function PhotoComments({ photoId }: PhotoCommentsProps) {
   const [comments, setComments] = useState<CommentVo[]>([]);
   // Initial loading state while fetching comments.
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  // Real-time Server-Sent Events live status.
+  const [isLiveConnected, setIsLiveConnected] = useState<boolean>(false);
+  // Cloudflare Turnstile token.
+  const [turnstileToken, setTurnstileToken] = useState<string>("");
   // Commenter name input value (initialized from localStorage).
   const [name, setName] = useState<string>(() => {
     if (typeof window === "undefined") return "";
@@ -55,11 +60,12 @@ export function PhotoComments({ photoId }: PhotoCommentsProps) {
   // Reference to the scrollable comment list container.
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
-  // Fetch comments whenever photoId changes.
+  // Fetch comments and establish real-time SSE listener whenever photoId changes.
   useEffect(() => {
     let isMounted = true;
     if (!photoId) return;
 
+    // 1. Initial comments fetch
     commentList(photoId)
       .then((data) => {
         if (isMounted) {
@@ -77,8 +83,84 @@ export function PhotoComments({ photoId }: PhotoCommentsProps) {
         }
       });
 
+    // 2. Real-time Server-Sent Events (SSE) stream
+    let eventSource: EventSource | null = null;
+    try {
+      eventSource = new EventSource(`/api/photos/${encodeURIComponent(photoId)}/comments/sse`);
+
+      eventSource.addEventListener("connected", () => {
+        if (isMounted) setIsLiveConnected(true);
+      });
+
+      eventSource.addEventListener("comment_added", (e: MessageEvent) => {
+        if (!isMounted) return;
+        try {
+          const payload = JSON.parse(e.data);
+          if (payload?.comment) {
+            setComments((prev) => {
+              if (prev.some((c) => c.commentId === payload.comment.commentId)) {
+                return prev;
+              }
+              return [payload.comment, ...prev];
+            });
+          }
+        } catch {}
+      });
+
+      eventSource.addEventListener("reply_added", (e: MessageEvent) => {
+        if (!isMounted) return;
+        try {
+          const payload = JSON.parse(e.data);
+          if (payload?.comment) {
+            setComments((prev) =>
+              prev.map((c) =>
+                c.commentId === payload.comment.commentId
+                  ? { ...c, replyContent: payload.comment.replyContent, replyTime: payload.comment.replyTime }
+                  : c
+              )
+            );
+          }
+        } catch {}
+      });
+
+      eventSource.addEventListener("reply_deleted", (e: MessageEvent) => {
+        if (!isMounted) return;
+        try {
+          const payload = JSON.parse(e.data);
+          if (payload?.commentId) {
+            setComments((prev) =>
+              prev.map((c) =>
+                c.commentId === payload.commentId
+                  ? { ...c, replyContent: null, replyTime: null }
+                  : c
+              )
+            );
+          }
+        } catch {}
+      });
+
+      eventSource.addEventListener("comment_deleted", (e: MessageEvent) => {
+        if (!isMounted) return;
+        try {
+          const payload = JSON.parse(e.data);
+          if (payload?.commentId) {
+            setComments((prev) => prev.filter((c) => c.commentId !== payload.commentId));
+          }
+        } catch {}
+      });
+
+      eventSource.onerror = () => {
+        if (isMounted) setIsLiveConnected(false);
+      };
+    } catch (sseErr) {
+      console.warn("[SSE] EventSource init error:", sseErr);
+    }
+
     return () => {
       isMounted = false;
+      if (eventSource) {
+        eventSource.close();
+      }
     };
   }, [photoId]);
 
@@ -105,6 +187,7 @@ export function PhotoComments({ photoId }: PhotoCommentsProps) {
         photoId,
         name: trimmedName,
         content: trimmedContent,
+        turnstileToken: turnstileToken || undefined,
       });
 
       // Save valid name to local storage for convenience.
@@ -114,8 +197,13 @@ export function PhotoComments({ photoId }: PhotoCommentsProps) {
         // Ignore local storage write errors.
       }
 
-      // Add new comment to the top of the list immediately.
-      setComments((prev) => [newComment, ...prev]);
+      // Add new comment locally if not already received from SSE.
+      setComments((prev) => {
+        if (prev.some((c) => c.commentId === newComment.commentId)) {
+          return prev;
+        }
+        return [newComment, ...prev];
+      });
       setContent("");
       toast.success("Comment posted successfully");
 
@@ -209,11 +297,17 @@ export function PhotoComments({ photoId }: PhotoCommentsProps) {
 
   return (
     <div className="flex flex-col flex-1 h-full min-h-0 px-4 py-2 text-left" onPointerDown={(e) => e.stopPropagation()}>
-      {/* Header with comment count */}
+      {/* Header with comment count & real-time live indicator */}
       <div className="flex items-center justify-between pb-2 shrink-0">
         <div className="flex items-center gap-1.5 text-xs font-semibold text-white/50 tracking-wider uppercase">
           <MessageSquareIcon className="size-3.5 text-white/60" />
           <span>Comments</span>
+          {isLiveConnected && (
+            <span className="inline-flex items-center gap-1 text-[10px] text-emerald-400 font-bold px-1.5 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 ml-1">
+              <span className="size-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              Live
+            </span>
+          )}
         </div>
         <span className="text-[11px] font-medium text-white/60 bg-white/10 px-2 py-0.5 rounded-full">
           {comments.length}
@@ -419,6 +513,13 @@ export function PhotoComments({ photoId }: PhotoCommentsProps) {
             className="w-full rounded-lg border border-white/20 bg-white/10 px-3 py-2 text-xs text-white placeholder:text-white/40 focus:border-white/40 focus:outline-none focus:ring-1 focus:ring-white/40 resize-none min-h-[58px] disabled:opacity-50 transition-all"
           />
         </div>
+
+        {/* Cloudflare Turnstile Bot Protection Widget */}
+        <Turnstile
+          onVerify={(token) => setTurnstileToken(token)}
+          onExpire={() => setTurnstileToken("")}
+          className="my-1.5"
+        />
 
         <div className="flex justify-end pt-0.5">
           <Button
