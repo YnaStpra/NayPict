@@ -1008,14 +1008,21 @@ const photoService = {
       updates.favorite = params.favorite;
     }
 
-    if (Object.keys(updates).length === 0) {
-      return;
+    if (Object.keys(updates).length > 0) {
+      await orm
+        .update(photoTab)
+        .set(updates)
+        .where(and(...whereList));
     }
 
-    await orm
-      .update(photoTab)
-      .set(updates)
-      .where(and(...whereList));
+    // If latitude or longitude is specified in batch edit, update EXIF GPS coordinates
+    if (params.latitude !== undefined || params.longitude !== undefined) {
+      await exifService.updateLocation(
+        params.photoIds,
+        params.latitude !== undefined ? params.latitude : null,
+        params.longitude !== undefined ? params.longitude : null
+      );
+    }
   },
 
   // Get the specified type of storage from the file list key.

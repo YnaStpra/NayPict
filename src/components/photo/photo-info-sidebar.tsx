@@ -1,6 +1,6 @@
 "use client"
 
-import { Archive, Eye, FolderHeart, FolderPlusIcon, Globe, Image as ImageIcon, InfoIcon, MessageSquareIcon, TrendingUp, XIcon } from "lucide-react"
+import { Archive, Eye, FolderHeart, FolderPlusIcon, Globe, Image as ImageIcon, InfoIcon, MapPin, MessageSquareIcon, TrendingUp, XIcon } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 import { toast } from "sonner"
 
@@ -17,6 +17,7 @@ import { PhotoVisibilityEnum } from "@/server/enums/photo-enum"
 import { photoSetVisibility } from "@/request/photo"
 import { PhotoComments } from "@/components/photo/photo-comments"
 import { PhotoLocationMap } from "@/components/photo/photo-location-map"
+import { PhotoBatchEditDialog } from "@/components/photo/photo-batch-edit-dialog"
 
 type PhotoInfoSidebarProps = {
   // Currently viewing photos.
@@ -138,24 +139,6 @@ export function PhotoViewerBlurBackground({ thumbHash }: PhotoViewerBlurBackgrou
   )
 }
 
-// Render sidebar close button.
-function SidebarCloseButton({ onClose }: { onClose: () => void }) {
-  const tap = useTapAction(onClose)
-
-  return (
-    <Button
-      type="button"
-      size="icon"
-      variant="secondary"
-      className="absolute top-3.5 right-3.5 z-20 size-7 rounded-full bg-white/10 border border-white/15 text-white/80 hover:text-white hover:bg-white/20 transition-all cursor-pointer"
-      {...tap}
-    >
-      <XIcon className="size-3.5" />
-      <span className="sr-only">Close</span>
-    </Button>
-  )
-}
-
 // Render photo information & comments sidebar with tab switcher.
 export function PhotoInfoSidebar({
   photo,
@@ -179,6 +162,7 @@ export function PhotoInfoSidebar({
 
   const [internalTab, setInternalTab] = useState<"info" | "comments">("info")
   const [isUpdatingVisibility, setIsUpdatingVisibility] = useState(false)
+  const [batchEditDialogOpen, setBatchEditDialogOpen] = useState(false)
   const currentTab = controlledTab ?? internalTab
 
   const asideRef = useRef<HTMLElement>(null)
@@ -239,13 +223,30 @@ export function PhotoInfoSidebar({
       className="fixed top-0 right-0 z-[41] flex h-full w-full flex-col overflow-hidden bg-neutral-950/90 backdrop-blur-2xl text-white shadow-photo-sidebar md:w-84 md:shrink-0 md:border-l md:border-white/10 pointer-events-auto touch-pan-y"
       style={{ touchAction: "pan-y" }}
     >
-      {onClose && <SidebarCloseButton onClose={onClose} />}
+      <PhotoViewerBlurBackground thumbHash={photo?.thumbHash} />
 
       {photo && (
-        <div className="flex flex-col h-full text-left min-h-0">
-          {/* Segmented Tab Navigation: Info vs Comments */}
-          <div className="pl-4 pr-12 pt-3.5 shrink-0">
-            <div className="flex items-center p-1 rounded-xl bg-white/10 border border-white/15 backdrop-blur-md">
+        <div className="relative z-10 flex flex-col flex-1 h-full min-h-0">
+          {/* Top Header with title and close button */}
+          <div className="flex items-center justify-between px-4 pt-3 pb-2 shrink-0 border-b border-white/10">
+            <h2 className="text-sm font-bold text-white truncate pr-2" title={photo.name}>
+              {formatPhotoName(photo.name)}
+            </h2>
+            {onClose && (
+              <button
+                type="button"
+                onClick={onClose}
+                className="p-1 rounded-lg text-white/60 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+                title="Close"
+              >
+                <XIcon className="size-4" />
+              </button>
+            )}
+          </div>
+
+          {/* Segmented Tab Switcher (Information vs Comments) */}
+          <div className="px-4 pt-2.5 pb-1 shrink-0">
+            <div className="flex rounded-xl bg-white/10 p-1 backdrop-blur-md border border-white/10">
               <button
                 type="button"
                 onClick={() => handleTabChange("info")}
@@ -280,7 +281,7 @@ export function PhotoInfoSidebar({
               className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-4 py-3 pb-32 space-y-4 overscroll-contain pointer-events-auto touch-pan-y"
               style={{ touchAction: "pan-y" }}
             >
-              {/* Admin Actions: Add to Album, Photo Insights & Display Scope */}
+              {/* Admin Actions: Add to Album, Photo Insights, Edit Meta/Location & Display Scope */}
               {isAdmin && (
                 <div className="flex flex-col gap-2.5">
                   <div className="flex items-center gap-2">
@@ -316,6 +317,21 @@ export function PhotoInfoSidebar({
                         <span>Insights</span>
                       </Button>
                     )}
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      className="flex-1 justify-center gap-1.5 bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30 border border-emerald-500/30 text-xs font-medium cursor-pointer pointer-events-auto"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        e.preventDefault()
+                        setBatchEditDialogOpen(true)
+                      }}
+                      title="Edit metadata, tanggal, dan koordinat lokasi GPS"
+                    >
+                      <MapPin className="size-3.5 text-emerald-400" />
+                      <span>Edit Meta</span>
+                    </Button>
                   </div>
 
                   {/* Admin Display Scope / Visibility Switcher */}
@@ -482,6 +498,21 @@ export function PhotoInfoSidebar({
             <div className="flex-1 flex flex-col min-h-0">
               <PhotoComments photoId={photo.photoId} />
             </div>
+          )}
+
+          {/* Edit Metadata & GPS Location Dialog */}
+          {isAdmin && (
+            <PhotoBatchEditDialog
+              open={batchEditDialogOpen}
+              onOpenChange={setBatchEditDialogOpen}
+              photoIds={[photo.photoId]}
+              onSuccess={(_ids, changes) => {
+                onPhotoUpdate?.({
+                  ...photo,
+                  ...changes,
+                })
+              }}
+            />
           )}
         </div>
       )}

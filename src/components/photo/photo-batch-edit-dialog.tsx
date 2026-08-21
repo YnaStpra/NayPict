@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Calendar, Download, Eye, Heart, LoaderCircle, Sparkles } from "lucide-react"
+import { Calendar, Compass, Download, Eye, Heart, LoaderCircle, LocateFixed, MapPin, Sparkles } from "lucide-react"
 import { toast } from "sonner"
 
 import {
@@ -49,6 +49,12 @@ export function PhotoBatchEditDialog({
     return now.toISOString().slice(0, 16)
   })
 
+  // Location state values
+  const [locationMode, setLocationMode] = useState<string>("unchanged")
+  const [latitude, setLatitude] = useState<string>("")
+  const [longitude, setLongitude] = useState<string>("")
+  const [isLocating, setIsLocating] = useState<boolean>(false)
+
   const [loading, setLoading] = useState(false)
 
   // Calculate modified count
@@ -56,8 +62,9 @@ export function PhotoBatchEditDialog({
   const isDlModified = allowDownload !== "unchanged"
   const isFavModified = favorite !== "unchanged"
   const isDateModified = takenTimeMode !== "unchanged"
+  const isLocModified = locationMode !== "unchanged"
 
-  const modifiedCount = [isVisModified, isDlModified, isFavModified, isDateModified].filter(Boolean).length
+  const modifiedCount = [isVisModified, isDlModified, isFavModified, isDateModified, isLocModified].filter(Boolean).length
   const hasChanges = modifiedCount > 0
 
   // Reset fields when dialog closes
@@ -68,8 +75,34 @@ export function PhotoBatchEditDialog({
       setAllowDownload("unchanged")
       setFavorite("unchanged")
       setTakenTimeMode("unchanged")
+      setLocationMode("unchanged")
+      setLatitude("")
+      setLongitude("")
       setLoading(false)
     }
+  }
+
+  // Get current device GPS location
+  const handleGetCurrentLocation = () => {
+    if (typeof window === "undefined" || !navigator.geolocation) {
+      toast.error("Geolokasi tidak didukung oleh peramban ini.")
+      return
+    }
+
+    setIsLocating(true)
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setLatitude(pos.coords.latitude.toFixed(6))
+        setLongitude(pos.coords.longitude.toFixed(6))
+        setIsLocating(false)
+        toast.success("Berhasil mendeteksi koordinat GPS perangkat!")
+      },
+      (err) => {
+        setIsLocating(false)
+        toast.error(`Gagal mendapatkan lokasi GPS: ${err.message}`)
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    )
   }
 
   // Handle batch edit submission
@@ -88,6 +121,8 @@ export function PhotoBatchEditDialog({
       allowDownload?: boolean | null
       takenTime?: string | null
       favorite?: number | null
+      latitude?: number | null
+      longitude?: number | null
     } = {
       photoIds,
     }
@@ -123,6 +158,28 @@ export function PhotoBatchEditDialog({
       }
     }
 
+    if (isLocModified) {
+      if (locationMode === "clear") {
+        payload.latitude = null
+        payload.longitude = null
+        clientUpdates.latitude = null
+        clientUpdates.longitude = null
+      } else if (locationMode === "set") {
+        const latNum = parseFloat(latitude.trim())
+        const lngNum = parseFloat(longitude.trim())
+
+        if (isNaN(latNum) || isNaN(lngNum) || latNum < -90 || latNum > 90 || lngNum < -180 || lngNum > 180) {
+          toast.error("Koordinat GPS tidak valid! Latitude harus (-90 s/d 90) dan Longitude (-180 s/d 180).")
+          return
+        }
+
+        payload.latitude = latNum
+        payload.longitude = lngNum
+        clientUpdates.latitude = latNum
+        clientUpdates.longitude = lngNum
+      }
+    }
+
     setLoading(true)
     try {
       await photoBatchEdit(payload)
@@ -144,7 +201,7 @@ export function PhotoBatchEditDialog({
           <div className="flex items-center gap-2">
             <Sparkles className="size-5 text-primary" />
             <DialogTitle className="text-lg font-bold">
-              Edit Metadata Massal ({photoIds.length} Foto)
+              Edit Metadata {photoIds.length === 1 ? "Foto" : `Massal (${photoIds.length} Foto)`}
             </DialogTitle>
           </div>
           <DialogDescription className="text-xs text-muted-foreground">
@@ -274,7 +331,7 @@ export function PhotoBatchEditDialog({
                   ⚪ — Biarkan Sekarang (Tidak Diubah) —
                 </SelectItem>
                 <SelectItem value="set" className="text-xs">
-                  📅 Setel Tanggal & Waktu Spesifik
+                  📅 Setel Tanggal & Waktu Baru
                 </SelectItem>
                 <SelectItem value="clear" className="text-xs text-destructive">
                   🗑️ Kosongkan / Hapus Tanggal Pengambilan
@@ -291,6 +348,95 @@ export function PhotoBatchEditDialog({
                   className="w-full text-xs h-9 bg-background"
                   required
                 />
+              </div>
+            )}
+          </div>
+
+          {/* 5. Koordinat Lokasi GPS (Latitude & Longitude) */}
+          <div className="rounded-xl border border-border/80 bg-card p-3.5 space-y-2 shadow-2xs">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-sm font-semibold">
+                <MapPin className="size-4 text-emerald-500" />
+                <span>5. Koordinat Lokasi GPS (Map & Exif)</span>
+              </div>
+              {isLocModified && (
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-500 border border-emerald-500/30">
+                  Akan Diubah
+                </span>
+              )}
+            </div>
+            <Select value={locationMode} onValueChange={setLocationMode}>
+              <SelectTrigger className="w-full text-xs h-9 bg-muted/30">
+                <SelectValue placeholder="Pilih Pengaturan Lokasi GPS..." />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="unchanged" className="text-xs text-muted-foreground">
+                  ⚪ — Biarkan Sekarang (Tidak Diubah) —
+                </SelectItem>
+                <SelectItem value="set" className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">
+                  📍 Setel Koordinat GPS Baru
+                </SelectItem>
+                <SelectItem value="clear" className="text-xs text-destructive font-medium">
+                  🗑️ Kosongkan / Hapus Lokasi GPS
+                </SelectItem>
+              </SelectContent>
+            </Select>
+
+            {locationMode === "set" && (
+              <div className="space-y-2 pt-1.5 animate-in fade-in-50 duration-200">
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-medium text-muted-foreground flex items-center gap-1">
+                      <Compass className="size-3 text-emerald-500" />
+                      <span>Latitude (Lintang)</span>
+                    </label>
+                    <Input
+                      type="number"
+                      step="any"
+                      placeholder="e.g. -6.2088"
+                      value={latitude}
+                      onChange={(e) => setLatitude(e.target.value)}
+                      className="text-xs h-9 bg-background"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-medium text-muted-foreground flex items-center gap-1">
+                      <Compass className="size-3 text-emerald-500" />
+                      <span>Longitude (Bujur)</span>
+                    </label>
+                    <Input
+                      type="number"
+                      step="any"
+                      placeholder="e.g. 106.8456"
+                      value={longitude}
+                      onChange={(e) => setLongitude(e.target.value)}
+                      className="text-xs h-9 bg-background"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between pt-0.5">
+                  <span className="text-[10px] text-muted-foreground">
+                    Foto akan otomatis muncul pada Peta Interaktif (/map).
+                  </span>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    onClick={handleGetCurrentLocation}
+                    disabled={isLocating}
+                    className="h-7 text-[11px] gap-1 px-2.5 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/20 cursor-pointer"
+                  >
+                    {isLocating ? (
+                      <LoaderCircle className="size-3 animate-spin" />
+                    ) : (
+                      <LocateFixed className="size-3" />
+                    )}
+                    <span>Gunakan GPS Perangkat</span>
+                  </Button>
+                </div>
               </div>
             )}
           </div>

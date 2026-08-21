@@ -194,7 +194,7 @@ export function PhotoLocationMap({
       </div>
 
       {/* Bottom Address Bar */}
-      <div className="p-3 bg-black/75 backdrop-blur-md border-t border-white/10 text-left">
+      <div className="p-3 bg-black/75 backdrop-blur-md border-t border-white/10 text-left space-y-1.5">
         {loading && !locationData ? (
           <div className="space-y-1 animate-pulse">
             <div className="h-3 w-3/4 rounded bg-white/20" />
@@ -205,6 +205,15 @@ export function PhotoLocationMap({
             {locationData?.address || `${latNum.toFixed(4)}°, ${lngNum.toFixed(4)}°`}
           </p>
         )}
+        <div className="flex items-center justify-between pt-1 border-t border-white/10 text-[10px] text-white/60">
+          <span className="font-mono">
+            {latNum.toFixed(4)}°, {lngNum.toFixed(4)}°
+          </span>
+          <span className="text-emerald-400 group-hover:underline flex items-center gap-1">
+            <span>Buka di Google Maps</span>
+            <ExternalLink className="size-2.5" />
+          </span>
+        </div>
       </div>
     </div>
   )

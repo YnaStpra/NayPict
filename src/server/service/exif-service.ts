@@ -1,4 +1,4 @@
-import { inArray } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 import { type ExifSaveBo } from '@/server/entity/bo/exif';
 import { type Exif, exifTab } from '@/server/entity/exif';
 import { orm } from '@/server/infra/db';
@@ -42,7 +42,30 @@ const exifService = {
       longitude,
       altitude
     });
-  }
+  },
+
+  // Batch update or upsert GPS location coordinates for multiple photos.
+  async updateLocation(photoIds: string[], latitude: number | null, longitude: number | null): Promise<void> {
+    if (!photoIds.length) return;
+
+    for (const photoId of photoIds) {
+      const existing = await this.getByPhotoId(photoId);
+      if (existing) {
+        await orm
+          .update(exifTab)
+          .set({ latitude, longitude })
+          .where(eq(exifTab.photoId, photoId));
+      } else if (latitude != null || longitude != null) {
+        await orm.insert(exifTab).values({
+          photoId,
+          latitude,
+          longitude,
+          exif: null,
+          altitude: null,
+        });
+      }
+    }
+  },
 };
 
 export { exifService };

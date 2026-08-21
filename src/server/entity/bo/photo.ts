@@ -83,6 +83,8 @@ interface PhotoBatchEditBo {
   allowDownload?: boolean | null;
   takenTime?: string | null;
   favorite?: number | null;
+  latitude?: number | null;
+  longitude?: number | null;
 }
 
 export type {
