@@ -241,6 +241,7 @@ export default function PhotoMapView() {
   const markerMapRef = useRef<Map<string, LType.Marker>>(new Map())
   const hasFitBoundsInitialRef = useRef<boolean>(false)
   const layerMenuRef = useRef<HTMLDivElement>(null)
+  const thumbnailStripRef = useRef<HTMLDivElement>(null)
 
   const [photos, setPhotos] = useState<PhotoVo[]>([])
   const [untaggedPhotos, setUntaggedPhotos] = useState<PhotoVo[]>([])
@@ -671,17 +672,52 @@ export default function PhotoMapView() {
     : null
 
   // Next / Prev handlers for clustered photo browsing
-  const handleNextPhoto = () => {
+  const handleNextPhoto = useCallback(() => {
     if (!selectedCluster || selectedCluster.photos.length <= 1) return
     setActivePhotoIndex((prev) => (prev + 1) % selectedCluster.photos.length)
-  }
+  }, [selectedCluster])
 
-  const handlePrevPhoto = () => {
+  const handlePrevPhoto = useCallback(() => {
     if (!selectedCluster || selectedCluster.photos.length <= 1) return
     setActivePhotoIndex((prev) =>
       prev === 0 ? selectedCluster.photos.length - 1 : prev - 1
     )
-  }
+  }, [selectedCluster])
+
+  // Auto-scroll the thumbnail strip to keep the active photo centered and visible
+  useEffect(() => {
+    if (!thumbnailStripRef.current) return
+    const container = thumbnailStripRef.current
+    const activeBtn = container.children[activePhotoIndex] as HTMLElement | undefined
+    if (activeBtn) {
+      activeBtn.scrollIntoView({
+        behavior: "smooth",
+        block: "nearest",
+        inline: "center",
+      })
+    }
+  }, [activePhotoIndex, selectedCluster])
+
+  // Support keyboard navigation (ArrowLeft / ArrowRight / Escape) when spot card is selected
+  useEffect(() => {
+    if (!selectedCluster || viewerOpen || editSpotDialogOpen || untaggedDialogOpen) return
+
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "ArrowRight") {
+        e.preventDefault()
+        handleNextPhoto()
+      } else if (e.key === "ArrowLeft") {
+        e.preventDefault()
+        handlePrevPhoto()
+      } else if (e.key === "Escape") {
+        e.preventDefault()
+        setSelectedCluster(null)
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown)
+    return () => window.removeEventListener("keydown", handleKeyDown)
+  }, [selectedCluster, viewerOpen, editSpotDialogOpen, untaggedDialogOpen, handleNextPhoto, handlePrevPhoto])
 
   return (
     <div className="relative w-full h-full overflow-hidden bg-background">
@@ -904,7 +940,10 @@ export default function PhotoMapView() {
 
           {/* Group Photo Strip (Horizontal miniature selector) */}
           {selectedCluster.photos.length > 1 && (
-            <div className="flex items-center gap-1.5 px-3 py-2 bg-muted/40 border-b border-border/50 overflow-x-auto scrollbar-none">
+            <div
+              ref={thumbnailStripRef}
+              className="flex items-center gap-1.5 px-3 py-2 bg-muted/40 border-b border-border/50 overflow-x-auto scrollbar-none scroll-smooth"
+            >
               {selectedCluster.photos.map((p, idx) => {
                 const thumb = p.thumbnail || p.preview || ""
                 const ph = getThumbHashUrl(p.thumbHash)
