@@ -89,11 +89,14 @@ export default function PhotoMapView() {
   const { resolvedTheme } = useTheme()
   const mapContainerRef = useRef<HTMLDivElement>(null)
   const mapInstanceRef = useRef<LType.Map | null>(null)
+  const tileLayerRef = useRef<LType.TileLayer | null>(null)
   const markersLayerRef = useRef<LType.LayerGroup | null>(null)
   const markerMapRef = useRef<Map<string, LType.Marker>>(new Map())
+  const hasFitBoundsInitialRef = useRef<boolean>(false)
 
   const [photos, setPhotos] = useState<PhotoVo[]>([])
   const [loading, setLoading] = useState<boolean>(true)
+  const [mapReady, setMapReady] = useState<boolean>(false)
   const [selectedCluster, setSelectedCluster] = useState<PhotoCluster | null>(null)
   const [activePhotoIndex, setActivePhotoIndex] = useState<number>(0)
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(true)
@@ -131,7 +134,12 @@ export default function PhotoMapView() {
     }
   }, [])
 
-  // Initialize Leaflet map
+  const themeRef = useRef(resolvedTheme)
+  useEffect(() => {
+    themeRef.current = resolvedTheme
+  }, [resolvedTheme])
+
+  // Initialize Leaflet map once on container mount
   useEffect(() => {
     if (typeof window === "undefined" || !mapContainerRef.current) return
 
@@ -148,12 +156,8 @@ export default function PhotoMapView() {
         mapInstanceRef.current = null
       }
 
-      // Default world view or center on first photo
-      const defaultCenter: [number, number] =
-        photos.length > 0 && photos[0].latitude && photos[0].longitude
-          ? [photos[0].latitude, photos[0].longitude]
-          : [20, 0]
-      const defaultZoom = photos.length > 0 ? 5 : 2
+      const defaultCenter: [number, number] = [-2.5, 118.0] // Center of Indonesia / World view
+      const defaultZoom = 5
 
       const map = L.map(mapContainerRef.current, {
         center: defaultCenter,
@@ -166,24 +170,23 @@ export default function PhotoMapView() {
       L.control.zoom({ position: "bottomright" }).addTo(map)
 
       // Choose tile layer based on current theme
-      const isDark = resolvedTheme === "dark"
+      const isDark = themeRef.current === "dark"
       const tileUrl = isDark
         ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
         : "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
 
-      L.tileLayer(tileUrl, {
+      const tileLayer = L.tileLayer(tileUrl, {
         maxZoom: 19,
         subdomains: "abcd",
       }).addTo(map)
+      tileLayerRef.current = tileLayer
 
       const markersLayer = L.layerGroup().addTo(map)
       markersLayerRef.current = markersLayer
       mapInstanceRef.current = map
 
-      // If photos exist, fit bounds to show all markers
-      if (photos.length > 0) {
-        const bounds = L.latLngBounds(photos.map((p) => [p.latitude!, p.longitude!]))
-        map.fitBounds(bounds, { padding: [50, 50], maxZoom: 14 })
+      if (!isDisposed) {
+        setMapReady(true)
       }
     }
 
@@ -191,16 +194,27 @@ export default function PhotoMapView() {
 
     return () => {
       isDisposed = true
+      setMapReady(false)
       if (mapInstanceRef.current) {
         mapInstanceRef.current.remove()
         mapInstanceRef.current = null
       }
     }
-  }, [resolvedTheme, photos])
+  }, [])
 
-  // Update grouped cluster map markers
+  // Update tile layer smoothly when resolvedTheme changes without recreating map
   useEffect(() => {
-    if (!mapInstanceRef.current || !markersLayerRef.current) return
+    if (!tileLayerRef.current) return
+    const isDark = resolvedTheme === "dark"
+    const tileUrl = isDark
+      ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+      : "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
+    tileLayerRef.current.setUrl(tileUrl)
+  }, [resolvedTheme])
+
+  // Automatically render grouped cluster markers whenever map is ready or clusters update
+  useEffect(() => {
+    if (!mapReady || !mapInstanceRef.current || !markersLayerRef.current) return
 
     let isDisposed = false
 
@@ -274,6 +288,13 @@ export default function PhotoMapView() {
         markersLayerRef.current?.addLayer(marker)
         markerMapRef.current.set(cluster.id, marker)
       })
+
+      // Automatically fit map bounds to show all markers on initial load
+      if (!hasFitBoundsInitialRef.current && clusters.length > 0 && mapInstanceRef.current) {
+        const bounds = L.latLngBounds(clusters.map((c) => [c.latitude, c.longitude]))
+        mapInstanceRef.current.fitBounds(bounds, { padding: [60, 60], maxZoom: 14 })
+        hasFitBoundsInitialRef.current = true
+      }
     }
 
     renderMarkers()
@@ -281,7 +302,7 @@ export default function PhotoMapView() {
     return () => {
       isDisposed = true
     }
-  }, [clusters, selectedCluster?.id])
+  }, [mapReady, clusters, selectedCluster?.id])
 
   // Center map on a specific photo from bottom carousel
   const handleFlyToPhoto = useCallback(
@@ -307,11 +328,11 @@ export default function PhotoMapView() {
 
   // Fit bounds to all photos
   const handleFitAll = useCallback(async () => {
-    if (!mapInstanceRef.current || photos.length === 0) return
+    if (!mapInstanceRef.current || clusters.length === 0) return
     const L = (await import("leaflet")).default
-    const bounds = L.latLngBounds(photos.map((p) => [p.latitude!, p.longitude!]))
+    const bounds = L.latLngBounds(clusters.map((c) => [c.latitude, c.longitude]))
     mapInstanceRef.current.fitBounds(bounds, { padding: [60, 60], maxZoom: 15 })
-  }, [photos])
+  }, [clusters])
 
   // Get active photo from selected cluster
   const currentPhoto = selectedCluster
