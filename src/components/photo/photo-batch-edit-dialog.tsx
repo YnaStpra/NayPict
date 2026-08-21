@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import {
   Calendar,
   CheckCircle2,
@@ -41,6 +41,9 @@ interface PhotoBatchEditDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   photoIds: string[]
+  initialLatitude?: number | null
+  initialLongitude?: number | null
+  defaultLocationMode?: "set" | "unchanged" | "clear"
   onSuccess?: (photoIds: string[], updatedFields: Partial<PhotoVo>) => void
 }
 
@@ -48,6 +51,9 @@ export function PhotoBatchEditDialog({
   open,
   onOpenChange,
   photoIds,
+  initialLatitude,
+  initialLongitude,
+  defaultLocationMode,
   onSuccess,
 }: PhotoBatchEditDialogProps) {
   // Category state values ('unchanged' means keep existing metadata)
@@ -67,6 +73,18 @@ export function PhotoBatchEditDialog({
   const [latitude, setLatitude] = useState<string>("")
   const [longitude, setLongitude] = useState<string>("")
   const [isLocating, setIsLocating] = useState<boolean>(false)
+
+  // Pre-fill coordinates when dialog opens with initial coordinates
+  useEffect(() => {
+    if (open && typeof initialLatitude === "number" && typeof initialLongitude === "number") {
+      queueMicrotask(() => {
+        setLocationMode(defaultLocationMode || "set")
+        setLatitude(initialLatitude.toString())
+        setLongitude(initialLongitude.toString())
+        setCoordInput(decimalToDms(initialLatitude, initialLongitude))
+      })
+    }
+  }, [open, initialLatitude, initialLongitude, defaultLocationMode])
 
   const [loading, setLoading] = useState(false)
 

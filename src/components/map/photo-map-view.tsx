@@ -264,6 +264,7 @@ export default function PhotoMapView() {
   // Untagged photos dialog state
   const [untaggedDialogOpen, setUntaggedDialogOpen] = useState<boolean>(false)
   const [singleGeotagPhotoId, setSingleGeotagPhotoId] = useState<string | null>(null)
+  const [editSpotDialogOpen, setEditSpotDialogOpen] = useState<boolean>(false)
 
   // Fullscreen PhotoViewer state on map
   const [viewerOpen, setViewerOpen] = useState<boolean>(false)
@@ -961,9 +962,21 @@ export default function PhotoMapView() {
                   {selectedCluster.latitude?.toFixed(4)}°, {selectedCluster.longitude?.toFixed(4)}°
                 </span>
               </div>
-              <span className="text-[10px] font-semibold text-emerald-500 uppercase tracking-wider">
-                GPS EXIF
-              </span>
+              {isAdmin ? (
+                <button
+                  type="button"
+                  onClick={() => setEditSpotDialogOpen(true)}
+                  className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 hover:text-emerald-500 hover:underline flex items-center gap-1 cursor-pointer"
+                  title="Ubah titik lokasi untuk semua foto di pin ini"
+                >
+                  <MapPin className="size-3 text-emerald-500" />
+                  <span>Ubah Titik ({selectedCluster.photos.length})</span>
+                </button>
+              ) : (
+                <span className="text-[10px] font-semibold text-emerald-500 uppercase tracking-wider">
+                  GPS EXIF
+                </span>
+              )}
             </div>
 
             {/* Action Buttons */}
@@ -978,6 +991,19 @@ export default function PhotoMapView() {
                 <Eye className="size-3.5" />
                 <span>Buka Foto</span>
               </Button>
+              {isAdmin && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setEditSpotDialogOpen(true)}
+                  className="h-8.5 px-2.5 text-xs rounded-xl gap-1.5 border-emerald-500/40 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 cursor-pointer"
+                  title="Ubah titik koordinat lokasi semua foto di pin ini"
+                >
+                  <MapPin className="size-3.5 text-emerald-500" />
+                  <span>Edit Titik</span>
+                </Button>
+              )}
               <Button
                 type="button"
                 variant="outline"
@@ -989,7 +1015,7 @@ export default function PhotoMapView() {
                     { duration: 1 }
                   )
                 }
-                className="h-8.5 text-xs rounded-xl gap-1.5"
+                className="h-8.5 px-2.5 text-xs rounded-xl gap-1.5"
                 title="Fokuskan Kamera"
               >
                 <Expand className="size-3.5" />
@@ -1236,6 +1262,53 @@ export default function PhotoMapView() {
             setViewerPhotos((prev) =>
               prev.map((p) => (p.photoId === updated.photoId ? { ...p, ...updated } : p))
             )
+          }}
+        />
+      )}
+
+      {/* Admin Edit Spot Location Dialog for all photos in the selected pin */}
+      {isAdmin && editSpotDialogOpen && selectedCluster && (
+        <PhotoBatchEditDialog
+          open={editSpotDialogOpen}
+          onOpenChange={setEditSpotDialogOpen}
+          photoIds={selectedCluster.photos.map((p) => p.photoId)}
+          initialLatitude={selectedCluster.latitude}
+          initialLongitude={selectedCluster.longitude}
+          defaultLocationMode="set"
+          onSuccess={(ids, changes) => {
+            // Update all affected photos in photos state
+            setPhotos((prev) =>
+              prev.map((p) => (ids.includes(p.photoId) ? { ...p, ...changes } : p))
+            )
+
+            // If new coordinates are provided, fly to the new location and update selectedCluster
+            if (
+              typeof changes.latitude === "number" &&
+              typeof changes.longitude === "number" &&
+              !isNaN(changes.latitude) &&
+              !isNaN(changes.longitude)
+            ) {
+              const newLat = changes.latitude
+              const newLon = changes.longitude
+
+              setSelectedCluster((prev) =>
+                prev
+                  ? {
+                      ...prev,
+                      latitude: newLat,
+                      longitude: newLon,
+                      photos: prev.photos.map((p) =>
+                        ids.includes(p.photoId) ? { ...p, ...changes } : p
+                      ),
+                    }
+                  : null
+              )
+
+              mapInstanceRef.current?.flyTo([newLat, newLon], 16, {
+                duration: 1.2,
+              })
+            }
+            setEditSpotDialogOpen(false)
           }}
         />
       )}
