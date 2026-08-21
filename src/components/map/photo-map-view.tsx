@@ -23,6 +23,7 @@ import {
   Image as ImageIcon,
   Images,
   Layers,
+  ListFilter,
   Loader2,
   LocateFixed,
   MapPin,
@@ -41,6 +42,7 @@ import { useLocale } from "next-intl"
 import { useApp } from "@/app/provider"
 import { UserTypeEnum } from "@/server/enums/user-enum"
 import { UntaggedPhotosDialog } from "@/components/map/untagged-photos-dialog"
+import { AllSpotsDialog } from "@/components/map/all-spots-dialog"
 import { PhotoBatchEditDialog } from "@/components/photo/photo-batch-edit-dialog"
 
 export interface GeoSpot {
@@ -249,8 +251,10 @@ export default function PhotoMapView() {
   const [mapReady, setMapReady] = useState<boolean>(false)
   const [selectedCluster, setSelectedCluster] = useState<GeoSpot | null>(null)
   const [activePhotoIndex, setActivePhotoIndex] = useState<number>(0)
-  const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(true)
-  const [drawerTab, setDrawerTab] = useState<"map" | "untagged">("map")
+
+  // Bottom drawer panel state (defaults to closed as requested)
+  const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(false)
+  const [drawerTab, setDrawerTab] = useState<"spots" | "map" | "untagged">("spots")
 
   // Map layer/style switcher state
   const [mapStyle, setMapStyle] = useState<MapStyleKey>(() => {
@@ -262,10 +266,12 @@ export default function PhotoMapView() {
   })
   const [isLayerMenuOpen, setIsLayerMenuOpen] = useState<boolean>(false)
 
-  // Untagged photos dialog state
+  // Dialog states
   const [untaggedDialogOpen, setUntaggedDialogOpen] = useState<boolean>(false)
+  const [allSpotsDialogOpen, setAllSpotsDialogOpen] = useState<boolean>(false)
   const [singleGeotagPhotoId, setSingleGeotagPhotoId] = useState<string | null>(null)
   const [editSpotDialogOpen, setEditSpotDialogOpen] = useState<boolean>(false)
+  const [spotToEdit, setSpotToEdit] = useState<GeoSpot | null>(null)
 
   // Fullscreen PhotoViewer state on map
   const [viewerOpen, setViewerOpen] = useState<boolean>(false)
@@ -700,7 +706,7 @@ export default function PhotoMapView() {
 
   // Support keyboard navigation (ArrowLeft / ArrowRight / Escape) when spot card is selected
   useEffect(() => {
-    if (!selectedCluster || viewerOpen || editSpotDialogOpen || untaggedDialogOpen) return
+    if (!selectedCluster || viewerOpen || editSpotDialogOpen || untaggedDialogOpen || allSpotsDialogOpen) return
 
     function handleKeyDown(e: KeyboardEvent) {
       if (e.key === "ArrowRight") {
@@ -717,7 +723,7 @@ export default function PhotoMapView() {
 
     window.addEventListener("keydown", handleKeyDown)
     return () => window.removeEventListener("keydown", handleKeyDown)
-  }, [selectedCluster, viewerOpen, editSpotDialogOpen, untaggedDialogOpen, handleNextPhoto, handlePrevPhoto])
+  }, [selectedCluster, viewerOpen, editSpotDialogOpen, untaggedDialogOpen, allSpotsDialogOpen, handleNextPhoto, handlePrevPhoto])
 
   return (
     <div className="relative w-full h-full overflow-hidden bg-background">
@@ -798,6 +804,21 @@ export default function PhotoMapView() {
             </div>
           )}
         </div>
+
+        {/* Admin Manage All Spots Button */}
+        {isAdmin && geoSpots.length > 0 && (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setAllSpotsDialogOpen(true)}
+            className="h-9 px-3 text-xs rounded-2xl backdrop-blur-xl bg-background/80 dark:bg-neutral-900/80 border-border/70 shadow-xl gap-1.5 cursor-pointer hover:scale-105 transition-all text-emerald-600 dark:text-emerald-400 font-semibold"
+            title="Buka daftar dan kelola semua titik lokasi foto"
+          >
+            <ListFilter className="size-3.5 text-emerald-500" />
+            <span>Kelola Semua Titik ({geoSpots.length})</span>
+          </Button>
+        )}
 
         {/* Fit All Photos Button */}
         {photos.length > 0 && (
@@ -1067,10 +1088,23 @@ export default function PhotoMapView() {
 
       {/* Bottom Floating Horizontal Carousel Drawer */}
       {isSidebarOpen && (
-        <div className="absolute bottom-4 left-4 right-4 z-10 max-h-48 rounded-3xl backdrop-blur-2xl bg-background/85 dark:bg-neutral-900/85 border border-border/70 p-3 shadow-2xl animate-in slide-in-from-bottom duration-300">
+        <div className="absolute bottom-4 left-4 right-4 z-10 max-h-52 rounded-3xl backdrop-blur-2xl bg-background/85 dark:bg-neutral-900/85 border border-border/70 p-3 shadow-2xl animate-in slide-in-from-bottom duration-300">
           <div className="flex items-center justify-between pb-2 px-1">
             <div className="flex items-center gap-2">
-              {/* Tab Selector: Photos on Map vs Untagged Photos */}
+              {/* Tab Selector: Spots List vs Photos vs Untagged */}
+              <button
+                type="button"
+                onClick={() => setDrawerTab("spots")}
+                className={`flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-xl transition-all cursor-pointer ${
+                  drawerTab === "spots"
+                    ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <MapPin className="size-3.5 text-emerald-500" />
+                <span>Daftar Titik ({geoSpots.length})</span>
+              </button>
+
               <button
                 type="button"
                 onClick={() => setDrawerTab("map")}
@@ -1081,7 +1115,7 @@ export default function PhotoMapView() {
                 }`}
               >
                 <Sparkles className="size-3.5 text-emerald-500" />
-                <span>Foto di Peta ({photos.length})</span>
+                <span>Semua Foto ({photos.length})</span>
               </button>
 
               {isAdmin && untaggedPhotos.length > 0 && (
@@ -1095,31 +1129,119 @@ export default function PhotoMapView() {
                   }`}
                 >
                   <AlertCircle className="size-3.5 text-amber-500" />
-                  <span>Belum Ada Koordinat ({untaggedPhotos.length})</span>
+                  <span>Tanpa Koordinat ({untaggedPhotos.length})</span>
                 </button>
               )}
             </div>
 
-            <div className="flex items-center gap-1.5">
-              {isAdmin && untaggedPhotos.length > 0 && (
+            <div className="flex items-center gap-2">
+              {isAdmin && (
                 <button
                   type="button"
-                  onClick={() => setUntaggedDialogOpen(true)}
-                  className="text-xs text-amber-600 dark:text-amber-400 hover:underline font-semibold cursor-pointer hidden sm:inline"
+                  onClick={() => setAllSpotsDialogOpen(true)}
+                  className="text-xs text-emerald-600 dark:text-emerald-400 hover:underline font-semibold cursor-pointer hidden sm:inline"
                 >
-                  Kelola Semua ({untaggedPhotos.length})
+                  Kelola Semua ({geoSpots.length} Titik)
                 </button>
               )}
               <button
                 onClick={() => setIsSidebarOpen(false)}
                 className="text-muted-foreground hover:text-foreground text-xs cursor-pointer p-1"
+                title="Tutup Panel"
               >
                 <X className="size-3.5" />
               </button>
             </div>
           </div>
 
-          {/* TAB 1: Photos on Map */}
+          {/* TAB 1: Spots List (Grouped Physical Locations) */}
+          {drawerTab === "spots" && (
+            <>
+              {geoSpots.length === 0 ? (
+                <div className="py-6 text-center text-xs text-muted-foreground">
+                  Belum ada titik lokasi foto.
+                </div>
+              ) : (
+                <div className="flex items-center gap-2.5 overflow-x-auto pb-1 scrollbar-thin scrollbar-thumb-muted scrollbar-track-transparent">
+                  {geoSpots.map((spot) => {
+                    const isSelected = selectedCluster?.id === spot.id
+                    const topPhoto = spot.photos[0]
+                    const thumb = topPhoto?.thumbnail || topPhoto?.preview || ""
+                    const ph = getThumbHashUrl(topPhoto?.thumbHash)
+                    return (
+                      <div
+                        key={spot.id}
+                        onClick={() => {
+                          setSelectedCluster(spot)
+                          setActivePhotoIndex(0)
+                          mapInstanceRef.current?.flyTo([spot.latitude, spot.longitude], 17, {
+                            duration: 1.2,
+                          })
+                        }}
+                        className={`group relative shrink-0 w-28 h-28 rounded-2xl overflow-hidden cursor-pointer border-2 transition-all duration-200 hover:scale-105 active:scale-95 bg-neutral-900 flex flex-col justify-between p-1.5 ${
+                          isSelected
+                            ? "border-emerald-500 ring-2 ring-emerald-500/50 shadow-lg"
+                            : "border-border/60 hover:border-emerald-500/50"
+                        }`}
+                      >
+                        {ph && (
+                          <img
+                            src={ph}
+                            alt=""
+                            className="absolute inset-0 h-full w-full object-cover blur-xs scale-110"
+                            aria-hidden
+                          />
+                        )}
+                        {thumb && (
+                          <img
+                            src={thumb}
+                            alt={topPhoto?.name || ""}
+                            loading="lazy"
+                            decoding="async"
+                            className="absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-110"
+                          />
+                        )}
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent" />
+
+                        {/* Top Badge: Photo count in spot */}
+                        <div className="relative z-10 flex items-center justify-between">
+                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-500 text-white shadow-md flex items-center gap-0.5">
+                            <MapPin className="size-2.5" />
+                            <span>{spot.photos.length} Foto</span>
+                          </span>
+                          {isAdmin && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                setSpotToEdit(spot)
+                              }}
+                              className="p-1 rounded-md bg-black/60 hover:bg-emerald-600 text-white transition-colors"
+                              title="Ubah titik lokasi grup ini"
+                            >
+                              <MapPin className="size-3" />
+                            </button>
+                          )}
+                        </div>
+
+                        {/* Bottom Label: Coordinates & Photo Name */}
+                        <div className="relative z-10 space-y-0.5">
+                          <p className="text-[10px] font-bold text-white truncate leading-tight">
+                            {topPhoto?.name}
+                          </p>
+                          <p className="text-[9px] text-white/80 font-mono truncate">
+                            {spot.latitude.toFixed(4)}°, {spot.longitude.toFixed(4)}°
+                          </p>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </>
+          )}
+
+          {/* TAB 2: All Photos List */}
           {drawerTab === "map" && (
             <>
               {photos.length === 0 ? (
@@ -1173,7 +1295,7 @@ export default function PhotoMapView() {
             </>
           )}
 
-          {/* TAB 2: Untagged Photos Carousel */}
+          {/* TAB 3: Untagged Photos Carousel */}
           {drawerTab === "untagged" && (
             <div className="flex items-center gap-2.5 overflow-x-auto pb-1 scrollbar-thin scrollbar-thumb-muted scrollbar-track-transparent">
               {untaggedPhotos.map((photo) => {
@@ -1228,6 +1350,29 @@ export default function PhotoMapView() {
         </div>
       )}
 
+      {/* Admin All Spots Management Dialog */}
+      {isAdmin && (
+        <AllSpotsDialog
+          open={allSpotsDialogOpen}
+          onOpenChange={setAllSpotsDialogOpen}
+          spots={geoSpots}
+          onSelectSpot={(spot) => {
+            setSelectedCluster(spot)
+            setActivePhotoIndex(0)
+            mapInstanceRef.current?.flyTo([spot.latitude, spot.longitude], 17, {
+              duration: 1.2,
+            })
+          }}
+          onEditSpot={(spot) => {
+            setSpotToEdit(spot)
+            setAllSpotsDialogOpen(false)
+          }}
+          onOpenViewer={(photoList, startIdx) => {
+            handleOpenPhotoViewer(photoList, startIdx)
+          }}
+        />
+      )}
+
       {/* Admin Untagged Photos Management Dialog */}
       {isAdmin && (
         <UntaggedPhotosDialog
@@ -1249,6 +1394,55 @@ export default function PhotoMapView() {
           onSuccess={(ids, changes) => {
             handleGeotagSuccess(ids, changes)
             setSingleGeotagPhotoId(null)
+          }}
+        />
+      )}
+
+      {/* Admin Direct Spot Edit Dialog from All Spots List */}
+      {isAdmin && spotToEdit && (
+        <PhotoBatchEditDialog
+          open={Boolean(spotToEdit)}
+          onOpenChange={(next) => {
+            if (!next) setSpotToEdit(null)
+          }}
+          photoIds={spotToEdit.photos.map((p) => p.photoId)}
+          initialLatitude={spotToEdit.latitude}
+          initialLongitude={spotToEdit.longitude}
+          defaultLocationMode="set"
+          onSuccess={(ids, changes) => {
+            // Update all affected photos in photos state
+            setPhotos((prev) =>
+              prev.map((p) => (ids.includes(p.photoId) ? { ...p, ...changes } : p))
+            )
+
+            // If new coordinates are provided, fly to the new location and update selectedCluster
+            if (
+              typeof changes.latitude === "number" &&
+              typeof changes.longitude === "number" &&
+              !isNaN(changes.latitude) &&
+              !isNaN(changes.longitude)
+            ) {
+              const newLat = changes.latitude
+              const newLon = changes.longitude
+
+              setSelectedCluster((prev) =>
+                prev && ids.some((id) => prev.photos.some((p) => p.photoId === id))
+                  ? {
+                      ...prev,
+                      latitude: newLat,
+                      longitude: newLon,
+                      photos: prev.photos.map((p) =>
+                        ids.includes(p.photoId) ? { ...p, ...changes } : p
+                      ),
+                    }
+                  : prev
+              )
+
+              mapInstanceRef.current?.flyTo([newLat, newLon], 16, {
+                duration: 1.2,
+              })
+            }
+            setSpotToEdit(null)
           }}
         />
       )}
