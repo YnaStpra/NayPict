@@ -162,11 +162,10 @@ export default function Page() {
     const targetPhotoId = new URLSearchParams(window.location.search).get('photoId')
     if (!targetPhotoId) return
 
-    initialDeepLinkHandledRef.current = true
-
-    // 1. If photo already exists in list, open it
+    // 1. If photo already exists in list, open it immediately
     const existingIndex = photos.findIndex((p) => p.photoId === targetPhotoId)
     if (existingIndex !== -1) {
+      initialDeepLinkHandledRef.current = true
       queueMicrotask(() => {
         setModelPhotoIndex(existingIndex)
         setShowPhotoViewer(true)
@@ -174,26 +173,28 @@ export default function Page() {
       return
     }
 
-    // 2. Otherwise fetch the shared photo directly from backend and open it
-    photoList({ photoIds: [targetPhotoId], size: 1 })
-      .then((res) => {
-        if (res?.list && res.list.length > 0) {
-          const targetPhoto = res.list[0]
-          setPhotos((prev) => {
-            if (prev.some((p) => p.photoId === targetPhoto.photoId)) {
-              return prev
-            }
-            return [targetPhoto, ...prev]
-          })
-          setModelPhotoIndex(0)
-          setShowPhotoViewer(true)
-        }
-      })
-      .catch((err) => {
-        console.error('Failed to load shared photo:', err)
-      })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+    // 2. Otherwise fetch the shared photo directly from backend once photos list initialized
+    if (photos.length > 0) {
+      initialDeepLinkHandledRef.current = true
+      photoList({ photoIds: [targetPhotoId], size: 1 })
+        .then((res) => {
+          if (res?.list && res.list.length > 0) {
+            const targetPhoto = res.list[0]
+            setPhotos((prev) => {
+              if (prev.some((p) => p.photoId === targetPhoto.photoId)) {
+                return prev
+              }
+              return [targetPhoto, ...prev]
+            })
+            setModelPhotoIndex(0)
+            setShowPhotoViewer(true)
+          }
+        })
+        .catch((err) => {
+          console.error('Failed to load shared photo:', err)
+        })
+    }
+  }, [photos, setPhotos])
 
   const openPhoto = useCallback((index: number) => {
     setViewerCustomPhotos(null)

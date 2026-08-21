@@ -1,8 +1,14 @@
 "use client"
 
 import { useEffect, useRef, useState, useCallback, useMemo } from "react"
+import dynamic from "next/dynamic"
 import Image from "next/image"
 import Link from "next/link"
+
+const PhotoViewer = dynamic(
+  () => import("@/components/photo/photo-viewer").then((mod) => mod.PhotoViewer),
+  { ssr: false }
+)
 import {
   AlertCircle,
   Calendar,
@@ -198,6 +204,17 @@ export default function PhotoMapView() {
   // Untagged photos dialog state
   const [untaggedDialogOpen, setUntaggedDialogOpen] = useState<boolean>(false)
   const [singleGeotagPhotoId, setSingleGeotagPhotoId] = useState<string | null>(null)
+
+  // Fullscreen PhotoViewer state on map
+  const [viewerOpen, setViewerOpen] = useState<boolean>(false)
+  const [viewerIndex, setViewerIndex] = useState<number>(0)
+  const [viewerPhotos, setViewerPhotos] = useState<PhotoVo[]>([])
+
+  const handleOpenPhotoViewer = useCallback((photoList: PhotoVo[], startIdx: number) => {
+    setViewerPhotos(photoList)
+    setViewerIndex(startIdx)
+    setViewerOpen(true)
+  }, [])
 
   // Close layer menu on outside click
   useEffect(() => {
@@ -694,14 +711,18 @@ export default function PhotoMapView() {
       {selectedCluster && currentPhoto && (
         <div className="absolute top-20 right-4 z-20 w-80 max-w-[calc(100vw-2rem)] rounded-3xl overflow-hidden backdrop-blur-2xl bg-background/90 dark:bg-neutral-900/90 border border-border/80 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
           {/* Main Photo Image with Cluster Carousel Controls */}
-          <div className="relative aspect-4/3 w-full bg-neutral-950 overflow-hidden group">
+          <div
+            className="relative aspect-4/3 w-full bg-neutral-950 overflow-hidden group cursor-pointer"
+            onClick={() => handleOpenPhotoViewer(selectedCluster.photos, activePhotoIndex)}
+            title="Klik untuk membuka foto layar penuh"
+          >
             {currentPhoto.thumbnail || currentPhoto.preview ? (
               <Image
                 src={currentPhoto.preview || currentPhoto.thumbnail || ""}
                 alt={currentPhoto.name}
                 fill
                 unoptimized
-                className="object-cover transition-all duration-300"
+                className="object-cover transition-all duration-300 group-hover:scale-105"
               />
             ) : (
               <div className="w-full h-full flex items-center justify-center text-muted-foreground">
@@ -711,7 +732,10 @@ export default function PhotoMapView() {
 
             {/* Close Button */}
             <button
-              onClick={() => setSelectedCluster(null)}
+              onClick={(e) => {
+                e.stopPropagation()
+                setSelectedCluster(null)
+              }}
               className="absolute top-3 right-3 p-1.5 rounded-full bg-black/60 text-white hover:bg-black/80 backdrop-blur-md transition-colors cursor-pointer z-10"
             >
               <X className="size-4" />
@@ -732,7 +756,10 @@ export default function PhotoMapView() {
               <div className="absolute inset-y-0 inset-x-2 flex items-center justify-between pointer-events-none">
                 <button
                   type="button"
-                  onClick={handlePrevPhoto}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    handlePrevPhoto()
+                  }}
                   className="pointer-events-auto p-1.5 rounded-full bg-black/50 text-white hover:bg-black/80 backdrop-blur-md transition-all cursor-pointer hover:scale-110"
                   title="Foto Sebelumnya"
                 >
@@ -740,7 +767,10 @@ export default function PhotoMapView() {
                 </button>
                 <button
                   type="button"
-                  onClick={handleNextPhoto}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    handleNextPhoto()
+                  }}
                   className="pointer-events-auto p-1.5 rounded-full bg-black/50 text-white hover:bg-black/80 backdrop-blur-md transition-all cursor-pointer hover:scale-110"
                   title="Foto Berikutnya"
                 >
@@ -803,11 +833,15 @@ export default function PhotoMapView() {
 
             {/* Action Buttons */}
             <div className="flex items-center gap-2 pt-1">
-              <Button asChild size="sm" className="flex-1 h-8.5 text-xs rounded-xl gap-1.5 font-semibold">
-                <Link href={`/photo/${currentPhoto.photoId}`}>
-                  <Eye className="size-3.5" />
-                  <span>Buka Foto</span>
-                </Link>
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => handleOpenPhotoViewer(selectedCluster.photos, activePhotoIndex)}
+                className="flex-1 h-8.5 text-xs rounded-xl gap-1.5 font-semibold bg-emerald-600 hover:bg-emerald-500 text-white cursor-pointer shadow-xs"
+                title="Buka foto dalam tampilan penuh"
+              >
+                <Eye className="size-3.5" />
+                <span>Buka Foto</span>
               </Button>
               <Button
                 type="button"
@@ -1026,6 +1060,23 @@ export default function PhotoMapView() {
             </Button>
           )}
         </div>
+      )}
+
+      {/* Fullscreen PhotoViewer Lightbox Modal directly on Map */}
+      {viewerOpen && viewerPhotos.length > 0 && (
+        <PhotoViewer
+          open={viewerOpen}
+          index={viewerIndex}
+          photos={viewerPhotos}
+          onBack={() => setViewerOpen(false)}
+          onBrowserBack={() => setViewerOpen(false)}
+          onPhotoUpdate={(updated) => {
+            handleGeotagSuccess([updated.photoId], updated)
+            setViewerPhotos((prev) =>
+              prev.map((p) => (p.photoId === updated.photoId ? { ...p, ...updated } : p))
+            )
+          }}
+        />
       )}
     </div>
   )
