@@ -592,13 +592,16 @@ export default function PhotoMapView() {
               isSelected
                 ? "border-emerald-400 ring-2 ring-emerald-400 ring-offset-2 ring-offset-background/90 shadow-emerald-500/30"
                 : "border-white/90 dark:border-white/40"
-            } bg-neutral-900 flex items-center justify-center" ${
-              thumbHashUrl ? `style="background-image: url('${thumbHashUrl}'); background-size: cover;"` : ""
-            }>
+            } bg-neutral-900">
+              ${
+                thumbHashUrl
+                  ? `<div class="absolute inset-0 w-full h-full bg-cover bg-center" style="background-image: url('${thumbHashUrl}'); filter: blur(4px); transform: scale(1.15);"></div>`
+                  : ""
+              }
               ${
                 imgUrl
-                  ? `<img src="${imgUrl}" alt="${topPhoto.name}" class="w-full h-full object-cover" loading="lazy" decoding="async" />`
-                  : `<div class="w-full h-full bg-emerald-600 flex items-center justify-center text-white text-xs">📷</div>`
+                  ? `<img src="${imgUrl}" alt="${topPhoto.name}" class="absolute inset-0 w-full h-full" style="position: absolute !important; inset: 0 !important; width: 100% !important; height: 100% !important; max-width: 100% !important; max-height: 100% !important; object-fit: cover !important; object-position: center !important; display: block !important;" loading="lazy" decoding="async" />`
+                  : `<div class="absolute inset-0 w-full h-full bg-emerald-600 flex items-center justify-center text-white text-xs">📷</div>`
               }
             </div>
 

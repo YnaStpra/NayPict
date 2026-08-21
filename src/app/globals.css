@@ -218,3 +218,21 @@
 .animate-neon-flicker {
   animation: neon-flicker 4s infinite linear;
 }
+
+/* Photo Map Pin Marker Styles - strictly fill frame without letterbox */
+.photo-marker-icon {
+  background: transparent !important;
+  border: none !important;
+}
+
+.photo-marker-icon img {
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  max-width: 100% !important;
+  max-height: 100% !important;
+  object-fit: cover !important;
+  object-position: center !important;
+  display: block !important;
+}
