@@ -1,7 +1,6 @@
 "use client"
 
 import { useState, useMemo } from "react"
-import Image from "next/image"
 import {
   AlertCircle,
   Calendar,
@@ -26,6 +25,7 @@ import { Input } from "@/components/ui/input"
 import { PhotoBatchEditDialog } from "@/components/photo/photo-batch-edit-dialog"
 import { type PhotoVo } from "@/server/entity/vo/photo"
 import { formatRelativeTime } from "@/lib/date"
+import { getThumbHashUrl } from "@/lib/thumb-hash"
 import { useLocale } from "next-intl"
 
 interface UntaggedPhotosDialogProps {
@@ -208,19 +208,34 @@ export function UntaggedPhotosDialog({
                       </div>
 
                       <div className="relative size-12 rounded-xl overflow-hidden bg-neutral-900 shrink-0 border border-border/50">
-                        {imgUrl ? (
-                          <Image
-                            src={imgUrl}
-                            alt={photo.name}
-                            fill
-                            unoptimized
-                            className="object-cover transition-transform group-hover:scale-105"
-                          />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center text-muted-foreground">
-                            <ImageIcon className="size-5" />
-                          </div>
-                        )}
+                        {(() => {
+                          const ph = getThumbHashUrl(photo.thumbHash)
+                          return (
+                            <>
+                              {ph && (
+                                <img
+                                  src={ph}
+                                  alt=""
+                                  className="absolute inset-0 h-full w-full object-cover blur-xs scale-110"
+                                  aria-hidden
+                                />
+                              )}
+                              {imgUrl ? (
+                                <img
+                                  src={imgUrl}
+                                  alt={photo.name}
+                                  loading="lazy"
+                                  decoding="async"
+                                  className="absolute inset-0 h-full w-full object-cover transition-transform group-hover:scale-105"
+                                />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center text-muted-foreground">
+                                  <ImageIcon className="size-5" />
+                                </div>
+                              )}
+                            </>
+                          )
+                        })()}
                       </div>
 
                       {/* Photo Details */}

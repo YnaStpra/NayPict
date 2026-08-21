@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState, useCallback, useMemo } from "react"
 import dynamic from "next/dynamic"
-import Image from "next/image"
 import Link from "next/link"
 
 const PhotoViewer = dynamic(
@@ -37,6 +36,7 @@ import { photoMapList, photoUntaggedList } from "@/request/photo"
 import { type PhotoVo } from "@/server/entity/vo/photo"
 import { Button } from "@/components/ui/button"
 import { formatRelativeTime } from "@/lib/date"
+import { getThumbHashUrl } from "@/lib/thumb-hash"
 import { useLocale } from "next-intl"
 import { useApp } from "@/app/provider"
 import { UserTypeEnum } from "@/server/enums/user-enum"
@@ -296,6 +296,18 @@ export default function PhotoMapView() {
     return groupExactGeoSpots(photos, 0.008)
   }, [photos])
 
+  // Preload thumbnails of all photos in the selected cluster into memory cache for 0ms transitions
+  useEffect(() => {
+    if (!selectedCluster || typeof window === "undefined") return
+    selectedCluster.photos.forEach((p) => {
+      const url = p.thumbnail || p.preview
+      if (url) {
+        const img = new window.Image()
+        img.src = url
+      }
+    })
+  }, [selectedCluster])
+
   // Fetch all geotagged photos on mount
   useEffect(() => {
     let isMounted = true
@@ -481,6 +493,7 @@ export default function PhotoMapView() {
       if (!topPhoto) return
 
       const imgUrl = topPhoto.thumbnail || topPhoto.preview || ""
+      const thumbHashUrl = getThumbHashUrl(topPhoto.thumbHash)
       const isSelected = selectedCluster?.id === cluster.id
       const count = cluster.photos.length
       const isMulti = count > 1
@@ -501,10 +514,12 @@ export default function PhotoMapView() {
             `
                 : ""
             }
-            <div class="relative w-11 h-11 rounded-2xl overflow-hidden shadow-2xl border-2 border-white/90 dark:border-black/90 bg-neutral-900 flex items-center justify-center">
+            <div class="relative w-11 h-11 rounded-2xl overflow-hidden shadow-2xl border-2 border-white/90 dark:border-black/90 bg-neutral-900 flex items-center justify-center" ${
+              thumbHashUrl ? `style="background-image: url('${thumbHashUrl}'); background-size: cover;"` : ""
+            }>
               ${
                 imgUrl
-                  ? `<img src="${imgUrl}" alt="${topPhoto.name}" class="w-full h-full object-cover" />`
+                  ? `<img src="${imgUrl}" alt="${topPhoto.name}" class="w-full h-full object-cover" loading="lazy" decoding="async" />`
                   : `<div class="w-full h-full bg-emerald-600 flex items-center justify-center text-white text-xs">📷</div>`
               }
             </div>
@@ -790,98 +805,126 @@ export default function PhotoMapView() {
       {/* Floating Photo Preview Card (When a marker/spot is clicked) */}
       {selectedCluster && currentPhoto && (
         <div className="absolute top-20 right-4 z-20 w-80 max-w-[calc(100vw-2rem)] rounded-3xl overflow-hidden backdrop-blur-2xl bg-background/90 dark:bg-neutral-900/90 border border-border/80 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
-          {/* Main Photo Image with Cluster Carousel Controls */}
-          <div
-            className="relative aspect-4/3 w-full bg-neutral-950 overflow-hidden group cursor-pointer"
-            onClick={() => handleOpenPhotoViewer(selectedCluster.photos, activePhotoIndex)}
-            title="Klik untuk membuka foto layar penuh"
-          >
-            {currentPhoto.thumbnail || currentPhoto.preview ? (
-              <Image
-                src={currentPhoto.preview || currentPhoto.thumbnail || ""}
-                alt={currentPhoto.name}
-                fill
-                unoptimized
-                className="object-cover transition-all duration-300 group-hover:scale-105"
-              />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center text-muted-foreground">
-                <ImageIcon className="size-10 opacity-40" />
-              </div>
-            )}
+          {/* Main Photo Image with Instant ThumbHash Blur and Eager Thumbnail Loading */}
+          {(() => {
+            const previewSrc = currentPhoto.thumbnail || currentPhoto.preview || ""
+            const placeholder = getThumbHashUrl(currentPhoto.thumbHash)
+            return (
+              <div
+                className="relative aspect-4/3 w-full bg-neutral-950 overflow-hidden group cursor-pointer"
+                onClick={() => handleOpenPhotoViewer(selectedCluster.photos, activePhotoIndex)}
+                title="Klik untuk membuka foto layar penuh"
+              >
+                {placeholder && (
+                  <img
+                    src={placeholder}
+                    alt=""
+                    className="absolute inset-0 h-full w-full object-cover blur-sm scale-110"
+                    aria-hidden
+                  />
+                )}
+                {previewSrc ? (
+                  <img
+                    src={previewSrc}
+                    alt={currentPhoto.name}
+                    loading="eager"
+                    decoding="async"
+                    className="absolute inset-0 h-full w-full object-cover transition-all duration-300 group-hover:scale-105"
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-muted-foreground">
+                    <ImageIcon className="size-10 opacity-40" />
+                  </div>
+                )}
 
-            {/* Close Button */}
-            <button
-              onClick={(e) => {
-                e.stopPropagation()
-                setSelectedCluster(null)
-              }}
-              className="absolute top-3 right-3 p-1.5 rounded-full bg-black/60 text-white hover:bg-black/80 backdrop-blur-md transition-colors cursor-pointer z-10"
-            >
-              <X className="size-4" />
-            </button>
-
-            {/* Cluster Multi-Photo Badge */}
-            {selectedCluster.photos.length > 1 && (
-              <div className="absolute top-3 left-3 px-2.5 py-1 rounded-full bg-emerald-500/90 text-white text-[11px] font-bold shadow-lg backdrop-blur-md flex items-center gap-1.5">
-                <Images className="size-3" />
-                <span>
-                  {activePhotoIndex + 1} / {selectedCluster.photos.length} Foto di Titik Ini
-                </span>
-              </div>
-            )}
-
-            {/* Left/Right Arrows if multiple photos in cluster */}
-            {selectedCluster.photos.length > 1 && (
-              <div className="absolute inset-y-0 inset-x-2 flex items-center justify-between pointer-events-none">
+                {/* Close Button */}
                 <button
-                  type="button"
                   onClick={(e) => {
                     e.stopPropagation()
-                    handlePrevPhoto()
+                    setSelectedCluster(null)
                   }}
-                  className="pointer-events-auto p-1.5 rounded-full bg-black/50 text-white hover:bg-black/80 backdrop-blur-md transition-all cursor-pointer hover:scale-110"
-                  title="Foto Sebelumnya"
+                  className="absolute top-3 right-3 p-1.5 rounded-full bg-black/60 text-white hover:bg-black/80 backdrop-blur-md transition-colors cursor-pointer z-10"
                 >
-                  <ChevronLeft className="size-4" />
+                  <X className="size-4" />
                 </button>
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    handleNextPhoto()
-                  }}
-                  className="pointer-events-auto p-1.5 rounded-full bg-black/50 text-white hover:bg-black/80 backdrop-blur-md transition-all cursor-pointer hover:scale-110"
-                  title="Foto Berikutnya"
-                >
-                  <ChevronRight className="size-4" />
-                </button>
+
+                {/* Cluster Multi-Photo Badge */}
+                {selectedCluster.photos.length > 1 && (
+                  <div className="absolute top-3 left-3 px-2.5 py-1 rounded-full bg-emerald-500/90 text-white text-[11px] font-bold shadow-lg backdrop-blur-md flex items-center gap-1.5">
+                    <Images className="size-3" />
+                    <span>
+                      {activePhotoIndex + 1} / {selectedCluster.photos.length} Foto di Titik Ini
+                    </span>
+                  </div>
+                )}
+
+                {/* Left/Right Arrows if multiple photos in cluster */}
+                {selectedCluster.photos.length > 1 && (
+                  <div className="absolute inset-y-0 inset-x-2 flex items-center justify-between pointer-events-none">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handlePrevPhoto()
+                      }}
+                      className="pointer-events-auto p-1.5 rounded-full bg-black/50 text-white hover:bg-black/80 backdrop-blur-md transition-all cursor-pointer hover:scale-110"
+                      title="Foto Sebelumnya"
+                    >
+                      <ChevronLeft className="size-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleNextPhoto()
+                      }}
+                      className="pointer-events-auto p-1.5 rounded-full bg-black/50 text-white hover:bg-black/80 backdrop-blur-md transition-all cursor-pointer hover:scale-110"
+                      title="Foto Berikutnya"
+                    >
+                      <ChevronRight className="size-4" />
+                    </button>
+                  </div>
+                )}
               </div>
-            )}
-          </div>
+            )
+          })()}
 
           {/* Group Photo Strip (Horizontal miniature selector) */}
           {selectedCluster.photos.length > 1 && (
             <div className="flex items-center gap-1.5 px-3 py-2 bg-muted/40 border-b border-border/50 overflow-x-auto scrollbar-none">
-              {selectedCluster.photos.map((p, idx) => (
-                <button
-                  key={p.photoId}
-                  onClick={() => setActivePhotoIndex(idx)}
-                  className={`relative shrink-0 w-9 h-9 rounded-lg overflow-hidden border-2 transition-all cursor-pointer ${
-                    activePhotoIndex === idx
-                      ? "border-emerald-500 scale-105 ring-1 ring-emerald-400"
-                      : "border-transparent opacity-60 hover:opacity-100"
-                  }`}
-                >
-                  <Image
-                    src={p.thumbnail || p.preview || ""}
-                    alt={p.name}
-                    fill
-                    unoptimized
-                    className="object-cover"
-                  />
-                </button>
-              ))}
+              {selectedCluster.photos.map((p, idx) => {
+                const thumb = p.thumbnail || p.preview || ""
+                const ph = getThumbHashUrl(p.thumbHash)
+                return (
+                  <button
+                    key={p.photoId}
+                    onClick={() => setActivePhotoIndex(idx)}
+                    className={`relative shrink-0 w-9 h-9 rounded-lg overflow-hidden border-2 transition-all cursor-pointer bg-neutral-900 ${
+                      activePhotoIndex === idx
+                        ? "border-emerald-500 scale-105 ring-1 ring-emerald-400"
+                        : "border-transparent opacity-60 hover:opacity-100"
+                    }`}
+                  >
+                    {ph && (
+                      <img
+                        src={ph}
+                        alt=""
+                        className="absolute inset-0 h-full w-full object-cover blur-xs scale-110"
+                        aria-hidden
+                      />
+                    )}
+                    {thumb && (
+                      <img
+                        src={thumb}
+                        alt={p.name}
+                        loading="lazy"
+                        decoding="async"
+                        className="absolute inset-0 h-full w-full object-cover"
+                      />
+                    )}
+                  </button>
+                )
+              })}
             </div>
           )}
 
@@ -1010,23 +1053,35 @@ export default function PhotoMapView() {
                 <div className="flex items-center gap-2.5 overflow-x-auto pb-1 scrollbar-thin scrollbar-thumb-muted scrollbar-track-transparent">
                   {photos.map((photo) => {
                     const isSelected = currentPhoto?.photoId === photo.photoId
+                    const thumb = photo.thumbnail || photo.preview || ""
+                    const ph = getThumbHashUrl(photo.thumbHash)
                     return (
                       <div
                         key={photo.photoId}
                         onClick={() => handleFlyToPhoto(photo)}
-                        className={`group relative shrink-0 w-24 h-24 sm:w-28 sm:h-28 rounded-2xl overflow-hidden cursor-pointer border-2 transition-all duration-200 hover:scale-105 active:scale-95 ${
+                        className={`group relative shrink-0 w-24 h-24 sm:w-28 sm:h-28 rounded-2xl overflow-hidden cursor-pointer border-2 transition-all duration-200 hover:scale-105 active:scale-95 bg-neutral-900 ${
                           isSelected
                             ? "border-emerald-500 ring-2 ring-emerald-500/50 shadow-lg"
                             : "border-border/60 hover:border-foreground/50"
                         }`}
                       >
-                        <Image
-                          src={photo.thumbnail || photo.preview || ""}
-                          alt={photo.name}
-                          fill
-                          unoptimized
-                          className="object-cover transition-transform duration-300 group-hover:scale-110"
-                        />
+                        {ph && (
+                          <img
+                            src={ph}
+                            alt=""
+                            className="absolute inset-0 h-full w-full object-cover blur-xs scale-110"
+                            aria-hidden
+                          />
+                        )}
+                        {thumb && (
+                          <img
+                            src={thumb}
+                            alt={photo.name}
+                            loading="lazy"
+                            decoding="async"
+                            className="absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-110"
+                          />
+                        )}
                         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-80 group-hover:opacity-100 transition-opacity" />
                         <div className="absolute bottom-1.5 left-1.5 right-1.5">
                           <p className="text-[10px] font-semibold text-white truncate leading-tight">
@@ -1044,39 +1099,53 @@ export default function PhotoMapView() {
           {/* TAB 2: Untagged Photos Carousel */}
           {drawerTab === "untagged" && (
             <div className="flex items-center gap-2.5 overflow-x-auto pb-1 scrollbar-thin scrollbar-thumb-muted scrollbar-track-transparent">
-              {untaggedPhotos.map((photo) => (
-                <div
-                  key={photo.photoId}
-                  className="group relative shrink-0 w-28 h-28 rounded-2xl overflow-hidden border border-amber-500/30 bg-neutral-900 shadow-md flex flex-col justify-between p-1.5"
-                >
-                  <Image
-                    src={photo.thumbnail || photo.preview || ""}
-                    alt={photo.name}
-                    fill
-                    unoptimized
-                    className="object-cover opacity-75 group-hover:opacity-100 transition-opacity"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent" />
-                  <div className="relative z-10 flex items-center justify-between">
-                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-500 text-black">
-                      No GPS
-                    </span>
+              {untaggedPhotos.map((photo) => {
+                const thumb = photo.thumbnail || photo.preview || ""
+                const ph = getThumbHashUrl(photo.thumbHash)
+                return (
+                  <div
+                    key={photo.photoId}
+                    className="group relative shrink-0 w-28 h-28 rounded-2xl overflow-hidden border border-amber-500/30 bg-neutral-900 shadow-md flex flex-col justify-between p-1.5"
+                  >
+                    {ph && (
+                      <img
+                        src={ph}
+                        alt=""
+                        className="absolute inset-0 h-full w-full object-cover blur-xs scale-110 opacity-75"
+                        aria-hidden
+                      />
+                    )}
+                    {thumb && (
+                      <img
+                        src={thumb}
+                        alt={photo.name}
+                        loading="lazy"
+                        decoding="async"
+                        className="absolute inset-0 h-full w-full object-cover opacity-75 group-hover:opacity-100 transition-opacity"
+                      />
+                    )}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent" />
+                    <div className="relative z-10 flex items-center justify-between">
+                      <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-500 text-black">
+                        No GPS
+                      </span>
+                    </div>
+                    <div className="relative z-10 space-y-1">
+                      <p className="text-[10px] font-semibold text-white truncate leading-tight">
+                        {photo.name}
+                      </p>
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={() => setSingleGeotagPhotoId(photo.photoId)}
+                        className="w-full h-6 text-[10px] rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold p-0 shadow-md cursor-pointer"
+                      >
+                        + Setel Lokasi
+                      </Button>
+                    </div>
                   </div>
-                  <div className="relative z-10 space-y-1">
-                    <p className="text-[10px] font-semibold text-white truncate leading-tight">
-                      {photo.name}
-                    </p>
-                    <Button
-                      type="button"
-                      size="sm"
-                      onClick={() => setSingleGeotagPhotoId(photo.photoId)}
-                      className="w-full h-6 text-[10px] rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold p-0 shadow-md cursor-pointer"
-                    >
-                      + Setel Lokasi
-                    </Button>
-                  </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
           )}
         </div>
