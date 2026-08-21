@@ -5,7 +5,9 @@ import { useTheme } from "next-themes"
 import Image from "next/image"
 import Link from "next/link"
 import {
+  AlertCircle,
   Calendar,
+  CheckCircle2,
   ChevronLeft,
   ChevronRight,
   Compass,
@@ -23,11 +25,15 @@ import {
 import type * as LType from "leaflet"
 import "leaflet/dist/leaflet.css"
 
-import { photoMapList } from "@/request/photo"
+import { photoMapList, photoUntaggedList } from "@/request/photo"
 import { type PhotoVo } from "@/server/entity/vo/photo"
 import { Button } from "@/components/ui/button"
 import { formatRelativeTime } from "@/lib/date"
 import { useLocale } from "next-intl"
+import { useApp } from "@/app/provider"
+import { UserTypeEnum } from "@/server/enums/user-enum"
+import { UntaggedPhotosDialog } from "@/components/map/untagged-photos-dialog"
+import { PhotoBatchEditDialog } from "@/components/photo/photo-batch-edit-dialog"
 
 export interface PhotoCluster {
   id: string
@@ -87,6 +93,9 @@ function clusterNearbyPhotos(photos: PhotoVo[], thresholdKm = 0.15): PhotoCluste
 export default function PhotoMapView() {
   const locale = useLocale()
   const { resolvedTheme } = useTheme()
+  const { userInfo } = useApp()
+  const isAdmin = userInfo?.type === UserTypeEnum.ADMIN
+
   const mapContainerRef = useRef<HTMLDivElement>(null)
   const mapInstanceRef = useRef<LType.Map | null>(null)
   const tileLayerRef = useRef<LType.TileLayer | null>(null)
@@ -95,11 +104,17 @@ export default function PhotoMapView() {
   const hasFitBoundsInitialRef = useRef<boolean>(false)
 
   const [photos, setPhotos] = useState<PhotoVo[]>([])
+  const [untaggedPhotos, setUntaggedPhotos] = useState<PhotoVo[]>([])
   const [loading, setLoading] = useState<boolean>(true)
   const [mapReady, setMapReady] = useState<boolean>(false)
   const [selectedCluster, setSelectedCluster] = useState<PhotoCluster | null>(null)
   const [activePhotoIndex, setActivePhotoIndex] = useState<number>(0)
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(true)
+  const [drawerTab, setDrawerTab] = useState<"map" | "untagged">("map")
+
+  // Untagged photos dialog state
+  const [untaggedDialogOpen, setUntaggedDialogOpen] = useState<boolean>(false)
+  const [singleGeotagPhotoId, setSingleGeotagPhotoId] = useState<string | null>(null)
 
   // Cluster photos into groups so identical/nearby coordinates don't overlap
   const clusters = useMemo(() => {
@@ -133,6 +148,25 @@ export default function PhotoMapView() {
       isMounted = false
     }
   }, [])
+
+  // Fetch untagged photos for Admin to manage missing GPS coordinates
+  useEffect(() => {
+    if (!isAdmin) return
+    let isMounted = true
+    photoUntaggedList()
+      .then((data) => {
+        if (isMounted) {
+          setUntaggedPhotos(data ?? [])
+        }
+      })
+      .catch((err) => {
+        console.error("Failed to load untagged photos:", err)
+      })
+
+    return () => {
+      isMounted = false
+    }
+  }, [isAdmin])
 
   const themeRef = useRef(resolvedTheme)
   useEffect(() => {
@@ -346,6 +380,38 @@ export default function PhotoMapView() {
     mapInstanceRef.current.fitBounds(bounds, { padding: [60, 60], maxZoom: 15 })
   }, [clusters])
 
+  // Callback when untagged photos are successfully geotagged
+  const handleGeotagSuccess = useCallback(
+    (geotaggedIds: string[], changes: Partial<PhotoVo>) => {
+      // 1. Find the geotagged photo objects from untagged state
+      const newlyGeotagged = untaggedPhotos.filter((p) => geotaggedIds.includes(p.photoId))
+
+      // 2. Remove them from untaggedPhotos
+      setUntaggedPhotos((prev) => prev.filter((p) => !geotaggedIds.includes(p.photoId)))
+
+      // 3. Add to mapped photos if valid coordinates
+      if (
+        typeof changes.latitude === "number" &&
+        typeof changes.longitude === "number" &&
+        !isNaN(changes.latitude) &&
+        !isNaN(changes.longitude)
+      ) {
+        const updatedMapped: PhotoVo[] = newlyGeotagged.map((p) => ({
+          ...p,
+          ...changes,
+        }))
+
+        setPhotos((prev) => [...prev, ...updatedMapped])
+
+        // Fly camera to the new coordinate
+        mapInstanceRef.current?.flyTo([changes.latitude, changes.longitude], 15, {
+          duration: 1.2,
+        })
+      }
+    },
+    [untaggedPhotos]
+  )
+
   // Get active photo from selected cluster
   const currentPhoto = selectedCluster
     ? selectedCluster.photos[activePhotoIndex] || selectedCluster.photos[0]
@@ -392,6 +458,30 @@ export default function PhotoMapView() {
             <LocateFixed className="size-3.5 text-primary" />
             <span className="hidden sm:inline">Lihat Semua</span>
           </Button>
+        )}
+
+        {/* Admin Untagged Photos Notification Pill */}
+        {isAdmin && (
+          <>
+            {untaggedPhotos.length > 0 ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setUntaggedDialogOpen(true)}
+                className="h-9 px-3 text-xs rounded-2xl backdrop-blur-xl bg-amber-500/10 dark:bg-amber-500/20 border-amber-500/35 text-amber-700 dark:text-amber-300 shadow-xl gap-1.5 cursor-pointer hover:bg-amber-500/25 transition-all hover:scale-105"
+                title="Kelola foto yang belum memiliki titik koordinat lokasi GPS"
+              >
+                <AlertCircle className="size-3.5 text-amber-500 animate-bounce" />
+                <span className="font-bold">{untaggedPhotos.length} Foto Tanpa Koordinat</span>
+              </Button>
+            ) : (
+              <div className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 rounded-2xl backdrop-blur-xl bg-background/80 dark:bg-neutral-900/80 border border-emerald-500/30 text-emerald-500 text-xs font-semibold shadow-xl">
+                <CheckCircle2 className="size-3.5" />
+                <span>Semua Foto Berkoordinat</span>
+              </div>
+            )}
+          </>
         )}
 
         {/* Toggle Photos Drawer Button */}
@@ -550,57 +640,164 @@ export default function PhotoMapView() {
 
       {/* Bottom Floating Horizontal Carousel Drawer */}
       {isSidebarOpen && (
-        <div className="absolute bottom-4 left-4 right-4 z-10 max-h-44 rounded-3xl backdrop-blur-2xl bg-background/80 dark:bg-neutral-900/80 border border-border/70 p-3 shadow-2xl animate-in slide-in-from-bottom duration-300">
+        <div className="absolute bottom-4 left-4 right-4 z-10 max-h-48 rounded-3xl backdrop-blur-2xl bg-background/85 dark:bg-neutral-900/85 border border-border/70 p-3 shadow-2xl animate-in slide-in-from-bottom duration-300">
           <div className="flex items-center justify-between pb-2 px-1">
-            <div className="flex items-center gap-1.5 text-xs font-bold text-foreground">
-              <Sparkles className="size-3.5 text-emerald-500" />
-              <span>Foto Berlokasi ({photos.length})</span>
+            <div className="flex items-center gap-2">
+              {/* Tab Selector: Photos on Map vs Untagged Photos */}
+              <button
+                type="button"
+                onClick={() => setDrawerTab("map")}
+                className={`flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-xl transition-all cursor-pointer ${
+                  drawerTab === "map"
+                    ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <Sparkles className="size-3.5 text-emerald-500" />
+                <span>Foto di Peta ({photos.length})</span>
+              </button>
+
+              {isAdmin && untaggedPhotos.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setDrawerTab("untagged")}
+                  className={`flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-xl transition-all cursor-pointer ${
+                    drawerTab === "untagged"
+                      ? "bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  <AlertCircle className="size-3.5 text-amber-500" />
+                  <span>Belum Ada Koordinat ({untaggedPhotos.length})</span>
+                </button>
+              )}
             </div>
-            <button
-              onClick={() => setIsSidebarOpen(false)}
-              className="text-muted-foreground hover:text-foreground text-xs cursor-pointer p-1"
-            >
-              <X className="size-3.5" />
-            </button>
+
+            <div className="flex items-center gap-1.5">
+              {isAdmin && untaggedPhotos.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setUntaggedDialogOpen(true)}
+                  className="text-xs text-amber-600 dark:text-amber-400 hover:underline font-semibold cursor-pointer hidden sm:inline"
+                >
+                  Kelola Semua ({untaggedPhotos.length})
+                </button>
+              )}
+              <button
+                onClick={() => setIsSidebarOpen(false)}
+                className="text-muted-foreground hover:text-foreground text-xs cursor-pointer p-1"
+              >
+                <X className="size-3.5" />
+              </button>
+            </div>
           </div>
 
-          {photos.length === 0 ? (
-            <div className="py-6 text-center text-xs text-muted-foreground">
-              Belum ada foto yang memiliki koordinat GPS.
-            </div>
-          ) : (
+          {/* TAB 1: Photos on Map */}
+          {drawerTab === "map" && (
+            <>
+              {photos.length === 0 ? (
+                <div className="py-6 text-center text-xs text-muted-foreground">
+                  Belum ada foto yang memiliki koordinat GPS.
+                </div>
+              ) : (
+                <div className="flex items-center gap-2.5 overflow-x-auto pb-1 scrollbar-thin scrollbar-thumb-muted scrollbar-track-transparent">
+                  {photos.map((photo) => {
+                    const isSelected = currentPhoto?.photoId === photo.photoId
+                    return (
+                      <div
+                        key={photo.photoId}
+                        onClick={() => handleFlyToPhoto(photo)}
+                        className={`group relative shrink-0 w-24 h-24 sm:w-28 sm:h-28 rounded-2xl overflow-hidden cursor-pointer border-2 transition-all duration-200 hover:scale-105 active:scale-95 ${
+                          isSelected
+                            ? "border-emerald-500 ring-2 ring-emerald-500/50 shadow-lg"
+                            : "border-border/60 hover:border-foreground/50"
+                        }`}
+                      >
+                        <Image
+                          src={photo.thumbnail || photo.preview || ""}
+                          alt={photo.name}
+                          fill
+                          unoptimized
+                          className="object-cover transition-transform duration-300 group-hover:scale-110"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-80 group-hover:opacity-100 transition-opacity" />
+                        <div className="absolute bottom-1.5 left-1.5 right-1.5">
+                          <p className="text-[10px] font-semibold text-white truncate leading-tight">
+                            {photo.name}
+                          </p>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </>
+          )}
+
+          {/* TAB 2: Untagged Photos Carousel */}
+          {drawerTab === "untagged" && (
             <div className="flex items-center gap-2.5 overflow-x-auto pb-1 scrollbar-thin scrollbar-thumb-muted scrollbar-track-transparent">
-              {photos.map((photo) => {
-                const isSelected = currentPhoto?.photoId === photo.photoId
-                return (
-                  <div
-                    key={photo.photoId}
-                    onClick={() => handleFlyToPhoto(photo)}
-                    className={`group relative shrink-0 w-24 h-24 sm:w-28 sm:h-28 rounded-2xl overflow-hidden cursor-pointer border-2 transition-all duration-200 hover:scale-105 active:scale-95 ${
-                      isSelected
-                        ? "border-emerald-500 ring-2 ring-emerald-500/50 shadow-lg"
-                        : "border-border/60 hover:border-foreground/50"
-                    }`}
-                  >
-                    <Image
-                      src={photo.thumbnail || photo.preview || ""}
-                      alt={photo.name}
-                      fill
-                      unoptimized
-                      className="object-cover transition-transform duration-300 group-hover:scale-110"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-80 group-hover:opacity-100 transition-opacity" />
-                    <div className="absolute bottom-1.5 left-1.5 right-1.5">
-                      <p className="text-[10px] font-semibold text-white truncate leading-tight">
-                        {photo.name}
-                      </p>
-                    </div>
+              {untaggedPhotos.map((photo) => (
+                <div
+                  key={photo.photoId}
+                  className="group relative shrink-0 w-28 h-28 rounded-2xl overflow-hidden border border-amber-500/30 bg-neutral-900 shadow-md flex flex-col justify-between p-1.5"
+                >
+                  <Image
+                    src={photo.thumbnail || photo.preview || ""}
+                    alt={photo.name}
+                    fill
+                    unoptimized
+                    className="object-cover opacity-75 group-hover:opacity-100 transition-opacity"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent" />
+                  <div className="relative z-10 flex items-center justify-between">
+                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-500 text-black">
+                      No GPS
+                    </span>
                   </div>
-                )
-              })}
+                  <div className="relative z-10 space-y-1">
+                    <p className="text-[10px] font-semibold text-white truncate leading-tight">
+                      {photo.name}
+                    </p>
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={() => setSingleGeotagPhotoId(photo.photoId)}
+                      className="w-full h-6 text-[10px] rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold p-0 shadow-md cursor-pointer"
+                    >
+                      + Setel Lokasi
+                    </Button>
+                  </div>
+                </div>
+              ))}
             </div>
           )}
         </div>
+      )}
+
+      {/* Admin Untagged Photos Management Dialog */}
+      {isAdmin && (
+        <UntaggedPhotosDialog
+          open={untaggedDialogOpen}
+          onOpenChange={setUntaggedDialogOpen}
+          untaggedPhotos={untaggedPhotos}
+          onGeotagSuccess={handleGeotagSuccess}
+        />
+      )}
+
+      {/* Single Geotag Direct Dialog from Bottom Drawer */}
+      {singleGeotagPhotoId && (
+        <PhotoBatchEditDialog
+          open={Boolean(singleGeotagPhotoId)}
+          onOpenChange={(next) => {
+            if (!next) setSingleGeotagPhotoId(null)
+          }}
+          photoIds={[singleGeotagPhotoId]}
+          onSuccess={(ids, changes) => {
+            handleGeotagSuccess(ids, changes)
+            setSingleGeotagPhotoId(null)
+          }}
+        />
       )}
 
       {/* Loading Overlay */}
@@ -619,11 +816,22 @@ export default function PhotoMapView() {
           </div>
           <h3 className="font-bold text-base text-foreground">Belum Ada Foto Berkoordinat GPS</h3>
           <p className="text-xs text-muted-foreground leading-relaxed">
-            Foto yang Anda unggah belum memiliki data metadata lokasi GPS EXIF. Anda dapat menambahkan koordinat lokasi melalui menu Edit Meta di informasi foto.
+            Foto yang Anda unggah belum memiliki data metadata lokasi GPS EXIF. Anda dapat menambahkan koordinat lokasi melalui tombol di bawah.
           </p>
-          <Button asChild size="sm" className="rounded-xl mt-2 text-xs">
-            <Link href="/photos">Kembali ke Galeri</Link>
-          </Button>
+          {isAdmin && untaggedPhotos.length > 0 ? (
+            <Button
+              type="button"
+              size="sm"
+              onClick={() => setUntaggedDialogOpen(true)}
+              className="rounded-xl mt-2 text-xs bg-emerald-600 hover:bg-emerald-500 text-white font-semibold cursor-pointer"
+            >
+              Kelola {untaggedPhotos.length} Foto Tanpa Lokasi
+            </Button>
+          ) : (
+            <Button asChild size="sm" className="rounded-xl mt-2 text-xs">
+              <Link href="/photos">Kembali ke Galeri</Link>
+            </Button>
+          )}
         </div>
       )}
     </div>

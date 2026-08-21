@@ -1,0 +1,283 @@
+"use client"
+
+import { useState, useMemo } from "react"
+import Image from "next/image"
+import {
+  AlertCircle,
+  Calendar,
+  Check,
+  CheckCircle2,
+  Compass,
+  Image as ImageIcon,
+  MapPin,
+  Search,
+  X,
+} from "lucide-react"
+
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { PhotoBatchEditDialog } from "@/components/photo/photo-batch-edit-dialog"
+import { type PhotoVo } from "@/server/entity/vo/photo"
+import { formatRelativeTime } from "@/lib/date"
+import { useLocale } from "next-intl"
+
+interface UntaggedPhotosDialogProps {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  untaggedPhotos: PhotoVo[]
+  onGeotagSuccess: (geotaggedIds: string[], changes: Partial<PhotoVo>) => void
+}
+
+export function UntaggedPhotosDialog({
+  open,
+  onOpenChange,
+  untaggedPhotos,
+  onGeotagSuccess,
+}: UntaggedPhotosDialogProps) {
+  const locale = useLocale()
+  const [searchQuery, setSearchQuery] = useState<string>("")
+  const [selectedIds, setSelectedIds] = useState<string[]>([])
+  const [editingPhotoIds, setEditingPhotoIds] = useState<string[]>([])
+  const [editDialogOpen, setEditDialogOpen] = useState<boolean>(false)
+
+  // Filter photos by search query
+  const filteredPhotos = useMemo(() => {
+    if (!searchQuery.trim()) return untaggedPhotos
+    const q = searchQuery.toLowerCase()
+    return untaggedPhotos.filter((p) => p.name.toLowerCase().includes(q))
+  }, [untaggedPhotos, searchQuery])
+
+  // Select all or deselect all
+  const isAllSelected =
+    filteredPhotos.length > 0 && selectedIds.length === filteredPhotos.length
+
+  const toggleSelectAll = () => {
+    if (isAllSelected) {
+      setSelectedIds([])
+    } else {
+      setSelectedIds(filteredPhotos.map((p) => p.photoId))
+    }
+  }
+
+  // Toggle single item selection
+  const toggleSelectPhoto = (photoId: string) => {
+    setSelectedIds((prev) =>
+      prev.includes(photoId) ? prev.filter((id) => id !== photoId) : [...prev, photoId]
+    )
+  }
+
+  // Open edit dialog for a single photo
+  const handleEditSingle = (photoId: string) => {
+    setEditingPhotoIds([photoId])
+    setEditDialogOpen(true)
+  }
+
+  // Open edit dialog for multiple selected photos
+  const handleEditSelected = () => {
+    if (selectedIds.length === 0) return
+    setEditingPhotoIds(selectedIds)
+    setEditDialogOpen(true)
+  }
+
+  return (
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="sm:max-w-2xl max-h-[85vh] flex flex-col p-6 gap-4">
+          <DialogHeader>
+            <div className="flex items-center gap-2">
+              <div className="p-2 rounded-xl bg-amber-500/10 text-amber-500">
+                <AlertCircle className="size-5" />
+              </div>
+              <div>
+                <DialogTitle className="text-lg font-bold flex items-center gap-2">
+                  <span>Foto Belum Memiliki Koordinat GPS</span>
+                  <span className="px-2 py-0.5 text-xs font-bold rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30">
+                    {untaggedPhotos.length} Foto
+                  </span>
+                </DialogTitle>
+                <DialogDescription className="text-xs text-muted-foreground mt-0.5">
+                  Tambahkan titik koordinat lokasi (format DMS seperti <code>8°20&apos;43.0&quot;S 116°31&apos;58.9&quot;E</code> atau GPS perangkat) agar foto dapat tampil di peta dunia.
+                </DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+
+          {/* Search bar & Batch Action Toolbar */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 pt-1">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
+              <Input
+                type="text"
+                placeholder="Cari foto berdasarkan nama..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-8 text-xs h-9 bg-muted/40 rounded-xl"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer"
+                >
+                  <X className="size-3.5" />
+                </button>
+              )}
+            </div>
+
+            {filteredPhotos.length > 0 && (
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={toggleSelectAll}
+                  className="text-xs h-9 rounded-xl border-border/80"
+                >
+                  {isAllSelected ? "Batal Pilih Semua" : "Pilih Semua"}
+                </Button>
+
+                {selectedIds.length > 0 && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={handleEditSelected}
+                    className="text-xs h-9 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white gap-1.5 font-semibold shadow-md animate-in fade-in duration-200"
+                  >
+                    <MapPin className="size-3.5" />
+                    <span>Setel Lokasi ({selectedIds.length})</span>
+                  </Button>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Photo List Container */}
+          <div className="flex-1 min-h-0 overflow-y-auto pr-1 space-y-2">
+            {untaggedPhotos.length === 0 ? (
+              <div className="py-12 flex flex-col items-center justify-center text-center space-y-3">
+                <div className="p-3 rounded-2xl bg-emerald-500/10 text-emerald-500">
+                  <CheckCircle2 className="size-8" />
+                </div>
+                <div>
+                  <h4 className="font-bold text-sm text-foreground">
+                    Semua Foto Sudah Memiliki Titik Koordinat!
+                  </h4>
+                  <p className="text-xs text-muted-foreground mt-1 max-w-sm">
+                    Seluruh foto galeri Anda telah terpetakan dengan sempurna di Peta Interaktif.
+                  </p>
+                </div>
+              </div>
+            ) : filteredPhotos.length === 0 ? (
+              <div className="py-10 text-center text-xs text-muted-foreground">
+                Tidak ada foto yang cocok dengan pencarian &quot;{searchQuery}&quot;.
+              </div>
+            ) : (
+              filteredPhotos.map((photo) => {
+                const isSelected = selectedIds.includes(photo.photoId)
+                const imgUrl = photo.thumbnail || photo.preview || ""
+
+                return (
+                  <div
+                    key={photo.photoId}
+                    className={`group flex items-center justify-between p-2.5 rounded-2xl border transition-all duration-200 ${
+                      isSelected
+                        ? "bg-emerald-500/10 border-emerald-500/40 shadow-xs"
+                        : "bg-card/70 border-border/70 hover:border-border hover:bg-card"
+                    }`}
+                  >
+                    {/* Thumbnail & Select Checkbox */}
+                    <div
+                      className="flex items-center gap-3 min-w-0 cursor-pointer"
+                      onClick={() => toggleSelectPhoto(photo.photoId)}
+                    >
+                      <div
+                        className={`size-4 rounded-md border flex items-center justify-center transition-colors shrink-0 ${
+                          isSelected
+                            ? "bg-emerald-500 border-emerald-500 text-white"
+                            : "border-muted-foreground/40 bg-background"
+                        }`}
+                      >
+                        {isSelected && <Check className="size-3 stroke-[3]" />}
+                      </div>
+
+                      <div className="relative size-12 rounded-xl overflow-hidden bg-neutral-900 shrink-0 border border-border/50">
+                        {imgUrl ? (
+                          <Image
+                            src={imgUrl}
+                            alt={photo.name}
+                            fill
+                            unoptimized
+                            className="object-cover transition-transform group-hover:scale-105"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-muted-foreground">
+                            <ImageIcon className="size-5" />
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Photo Details */}
+                      <div className="min-w-0 space-y-0.5">
+                        <p className="font-semibold text-xs text-foreground truncate" title={photo.name}>
+                          {photo.name}
+                        </p>
+                        <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                          {photo.takenTime && (
+                            <span className="flex items-center gap-1 truncate">
+                              <Calendar className="size-3 text-primary/70 shrink-0" />
+                              <span>{formatRelativeTime(photo.takenTime, locale)}</span>
+                            </span>
+                          )}
+                          <span className="text-[10px] uppercase font-mono px-1.5 py-0.2 rounded bg-muted/60 text-muted-foreground shrink-0">
+                            {photo.typeDesc || "IMG"}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Geotag Button */}
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => handleEditSingle(photo.photoId)}
+                      className="h-8 text-xs px-3 rounded-xl gap-1.5 font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/20 shrink-0 cursor-pointer ml-2"
+                    >
+                      <Compass className="size-3.5" />
+                      <span>Setel Lokasi</span>
+                    </Button>
+                  </div>
+                )
+              })
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Batch Edit Coordinates Dialog */}
+      {editDialogOpen && editingPhotoIds.length > 0 && (
+        <PhotoBatchEditDialog
+          open={editDialogOpen}
+          onOpenChange={(next) => {
+            setEditDialogOpen(next)
+            if (!next) {
+              setEditingPhotoIds([])
+            }
+          }}
+          photoIds={editingPhotoIds}
+          onSuccess={(ids, changes) => {
+            onGeotagSuccess(ids, changes)
+            setSelectedIds((prev) => prev.filter((id) => !ids.includes(id)))
+          }}
+        />
+      )}
+    </>
+  )
+}

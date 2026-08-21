@@ -40,6 +40,11 @@ export function photoMapList() {
   return http.get<PhotoVo[]>('/photos/map');
 }
 
+// Query all photos without GPS coordinates for Admin geotagging.
+export function photoUntaggedList() {
+  return http.get<PhotoVo[]>('/photos/untagged');
+}
+
 // Query the photo list by pagination and conditions.
 export function photoList(params: PhotoListBo) {
   return http.post<PageVo<PhotoVo>>('/photo/list', params);

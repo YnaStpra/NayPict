@@ -1429,6 +1429,67 @@ const photoService = {
       );
     });
   },
+
+  // Query all photos that do NOT have GPS coordinates for Admin geotagging.
+  async getUntaggedPhotos(userId?: string): Promise<PhotoVo[]> {
+    const baseWhere = and(
+      eq(photoTab.status, PhotoStatusEnum.NORMAL),
+      or(isNull(exifTab.latitude), isNull(exifTab.longitude)),
+      userId
+        ? undefined
+        : or(
+            inArray(photoTab.visibility, [PhotoVisibilityEnum.BOTH, PhotoVisibilityEnum.GALLERY_ONLY]),
+            isNull(photoTab.visibility)
+          )
+    );
+
+    const rows = await orm
+      .select({
+        ...getTableColumns(photoTab),
+        latitude: exifTab.latitude,
+        longitude: exifTab.longitude,
+        altitude: exifTab.altitude,
+        exif: exifTab.exif,
+      })
+      .from(photoTab)
+      .leftJoin(exifTab, eq(photoTab.photoId, exifTab.photoId))
+      .where(baseWhere)
+      .orderBy(desc(photoTab.takenTime), desc(photoTab.createTime));
+
+    if (!rows.length) {
+      return [];
+    }
+
+    const fileStorageList = await storageService.getStorageList();
+    const photoIds = rows.map((r: any) => r.photoId);
+    const [fileMap, albumMap] = await Promise.all([
+      fileService.listByPhotoIds(photoIds),
+      albumService.listAlbumMapByPhotoIds(photoIds),
+    ]);
+
+    return rows.map((photo: any) => {
+      const fileStorage = fileStorageList.find((item: any) => item.storageId === photo.storageId);
+      const domain = formatHttpUrl(fileStorage?.domain);
+
+      const exifRow = {
+        exif: photo.exif,
+        latitude: photo.latitude,
+        longitude: photo.longitude,
+        altitude: photo.altitude,
+      };
+
+      return this.toPhotoVo(
+        photo,
+        fileMap.get(photo.photoId) ?? [],
+        fileStorage,
+        domain,
+        exifRow as any,
+        userId,
+        albumMap.get(photo.photoId) ?? [],
+        false
+      );
+    });
+  },
 };
 
 export { photoService };

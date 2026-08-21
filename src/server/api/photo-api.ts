@@ -47,6 +47,18 @@ export function registerPhotoApi(app: Hono<HonoEnv>) {
     return c.json(result.ok(data));
   });
 
+  // Query all photos without GPS coordinates for Admin geotagging (RESTful route).
+  app.get('/photos/untagged', async (c: Context) => {
+    const data = await photoService.getUntaggedPhotos(getUserId());
+    return c.json(result.ok(data));
+  });
+
+  // Query all photos without GPS coordinates for Admin geotagging (POST route).
+  app.post('/photo/untagged/list', async (c: Context) => {
+    const data = await photoService.getUntaggedPhotos(getUserId());
+    return c.json(result.ok(data));
+  });
+
   // Query the photo list by pagination and conditions.
   app.post('/photo/list', async (c: Context) => {
     const body = await c.req.json<PhotoListBo>();
