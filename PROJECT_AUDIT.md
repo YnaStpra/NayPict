@@ -762,23 +762,23 @@ sequenceDiagram
 
 ## 30. TOP 10 PRIORITIES FOR FUTURE DEVELOPMENT
 
-1. **Cloudflare Turnstile on Public Comments** *(Security & Spam Prevention)* - **[SELESAI / IMPLEMENTED]**:
-   - Widget Cloudflare Turnstile resmi terintegrasi pada form komentar publik (`src/components/common/turnstile.tsx` & `photo-comments.tsx`), didukung verifikasi token aman di backend (`src/server/lib/turnstile.ts`) dengan CSP yang telah dikonfigurasi.
-2. **Automated Trash Retention Purge via Vercel Cron** *(Automation & Storage Maintenance)*:
+1. **Automated Trash Retention Purge via Vercel Cron** *(Automation & Storage Maintenance)*:
    - Daftarkan route handler `src/app/api/cron/cleanup/route.ts` yang dilindungi token rahasia `CRON_SECRET` untuk membersihkan foto tempat sampah yang telah melewati batas hari retensi secara otomatis via Vercel Cron.
-3. **Progressive Web App (PWA) Manifest & Offline Shell** *(Mobile UX)*:
+2. **Progressive Web App (PWA) Manifest & Offline Shell** *(Mobile UX)*:
    - Tambahkan `manifest.json`, icon app PWA, theme color, dan service worker ringan untuk caching shell aplikasi agar galeri foto dapat di-*install* langsung ke layar utama smartphone (iOS & Android) seperti aplikasi native.
-4. **AI-Powered Image Tagging & Semantic Search (CLIP / Vision Model)** *(Smart Features)*:
+3. **AI-Powered Image Tagging & Semantic Search (CLIP / Vision Model)** *(Smart Features)*:
    - Integrasi pengenalan objek/tema otomatis (misal: "pantai", "sunset", "kucing", "arsitektur") pada foto yang diunggah menggunakan embeddings model ringan untuk pencarian cerdas berbasis teks alami.
-5. **Interactive Global Photo Map Explorer (`/map`)** *(Discovery UX)* - **[SELESAI / IMPLEMENTED]**:
-   - Halaman eksplorasi peta dunia layar penuh interaktif (`src/app/map/page.tsx` & `src/components/map/photo-map-view.tsx`) berbasis Leaflet dengan visual custom HTML pin foto, flyout preview interaktif, drawer carousel foto, pencarian lokasi/album, dan adaptasi tema gelap/terang otomatis.
-6. **Multi-Resolution Image Derivatives & AVIF Support** *(Performance & Bandwidth)* - **[SELESAI / IMPLEMENTED]**:
-   - Pipeline pemrosesan gambar multi-tier (2400w lightbox preview, 1200w medium responsive, 400w thumbnail WebP) serta dukungan negosiasi format AVIF & WebP otomatis di Next.js Image optimization (`next.config.ts` & `src/server/lib/photo-process.ts`).
-7. **Client-Side EXIF Privacy Redaction Option** *(Privacy & Compliance)*:
+4. **Client-Side EXIF Privacy Redaction Option** *(Privacy & Compliance)*:
    - Sediakan opsi pada dialog unggah foto untuk menghapus (*strip*) koordinat GPS atau nomor seri kamera sebelum foto dipublikasikan, guna melindungi privasi lokasi fotografer.
-8. **Real-time Live Comment Updates via WebSockets / SSE** *(Engagement)* - **[SELESAI / IMPLEMENTED]**:
-   - Hub event Server-Sent Events terintegrasi (`src/server/lib/comment-event-hub.ts` & `/api/photos/:photoId/comments/sse`), memungkinkan komentar dan balasan admin baru tersinkronisasi langsung secara live di sidebar foto tanpa reload halaman.
-9. **Public Photo RSS / Atom Feed Generator (`/feed.xml`)** *(Content Syndication)*:
+5. **Public Photo RSS / Atom Feed Generator (`/feed.xml`)** *(Content Syndication)*:
    - Endpoint RSS/Atom feed dinamis untuk galeri foto sehingga audiens fotografi dan agregator konten dapat berlangganan pembaruan foto terbaru secara otomatis.
+6. **Multi-Album Drag-and-Drop Organization UI** *(Admin Productivity)*:
+   - Fitur seret-dan-lepas (*drag and drop*) interaktif di halaman album untuk mengatur urutan cover album dan memindahkan foto antar album secara instan.
+7. **Automated Database Backup to Object Storage (S3/R2)** *(Disaster Recovery)*:
+   - Backup terjadwal database secara otomatis ke bucket Cloudflare R2 / S3 terenkripsi untuk mencegah kehilangan data akibat kegagalan hosting/database.
+8. **Watermark Engine on Download / Preview** *(Copyright Protection)*:
+   - Fitur penambahan watermark teks atau logo fotografer semi-transparan yang dapat diaktifkan/dinonaktifkan per foto/album saat pengunjung melihat atau mengunduh foto resolusi penuh.
+9. **Public API Key System for Headless Integration** *(Developer Ecosystem)*:
+   - Dukungan pembuatan token API key read-only bagi admin agar pihak ketiga (misal: website portofolio pribadi eksternal) dapat mengambil data galeri secara headless.
 10. **Next.js & Sharp Dependency Security Bump** *(Infrastructure & Maintenance)*:
     - Bump versi patch Next.js ke versi terbaru dan Sharp ke 0.35+ guna menutup potensi advisory npm audit dan memastikan performa kompresi serverless maksimal.
