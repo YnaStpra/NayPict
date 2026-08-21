@@ -570,7 +570,7 @@ export default function PhotoMapView() {
       const count = cluster.photos.length
       const isMulti = count > 1
 
-      // Custom HTML pin marker with sleek border, curved selection ring, and calibrated pointer
+      // Custom HTML pin marker with crisp 2px white stroke (emerald when clicked) and calibrated pointer
       const customIcon = L.divIcon({
         className: "photo-marker-icon",
         html: `
@@ -580,17 +580,17 @@ export default function PhotoMapView() {
             ${
               isMulti
                 ? `
-              <!-- Sleek stacked cards behind for multi-photo depth -->
-              <div class="absolute inset-0 rounded-2xl bg-neutral-900/80 border border-white/40 rotate-6 scale-95 shadow-sm pointer-events-none"></div>
-              <div class="absolute inset-0 rounded-2xl bg-neutral-800/80 border border-white/40 -rotate-3 scale-95 shadow-sm pointer-events-none"></div>
+              <!-- Stacked cards behind for multi-photo depth -->
+              <div class="absolute inset-0 rounded-2xl bg-neutral-900/90 border-2 border-white/80 rotate-6 scale-95 shadow-sm pointer-events-none"></div>
+              <div class="absolute inset-0 rounded-2xl bg-neutral-800/90 border-2 border-white/80 -rotate-3 scale-95 shadow-sm pointer-events-none"></div>
             `
                 : ""
             }
-            <!-- Main Photo Frame (Strictly zoomed to fill frame edge-to-edge) -->
-            <div class="relative w-10 h-10 rounded-2xl overflow-hidden shadow-xl border ${
+            <!-- Main Photo Frame with crisp 2px white stroke (emerald when clicked) -->
+            <div class="relative w-10 h-10 rounded-2xl overflow-hidden shadow-lg shadow-black/35 border-2 ${
               isSelected
-                ? "border-emerald-400 ring-2 ring-emerald-400 ring-offset-2 ring-offset-background/90 shadow-emerald-500/30"
-                : "border-white/90 dark:border-white/40"
+                ? "border-emerald-400 ring-2 ring-emerald-400 ring-offset-2 ring-offset-neutral-950 shadow-emerald-500/40"
+                : "border-white ring-1 ring-black/25"
             } bg-neutral-900">
               ${
                 imgUrl
@@ -602,8 +602,8 @@ export default function PhotoMapView() {
             <!-- Calibrated bottom anchor pointer tip -->
             <div class="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2.5 h-2.5 rotate-45 ${
               isSelected
-                ? "bg-emerald-400 border-r border-b border-emerald-400"
-                : "bg-white dark:bg-neutral-900 border-r border-b border-white/90 dark:border-white/40"
+                ? "bg-emerald-400 border-r-2 border-b-2 border-emerald-400"
+                : "bg-white border-r-2 border-b-2 border-white"
             } shadow-xs pointer-events-none"></div>
 
             ${
@@ -612,7 +612,7 @@ export default function PhotoMapView() {
               <!-- Count badge pill on top right -->
               <div class="absolute -top-1.5 -right-1.5 px-1.5 py-0.5 min-w-4.5 h-4.5 rounded-full ${
                 cluster.isMultiLocation ? "bg-sky-500" : "bg-emerald-500"
-              } text-white font-bold text-[10px] leading-none flex items-center justify-center shadow-md border border-white/90 pointer-events-none">
+              } text-white font-bold text-[10px] leading-none flex items-center justify-center shadow-md border-2 border-white pointer-events-none">
                 ${count}
               </div>
             `
