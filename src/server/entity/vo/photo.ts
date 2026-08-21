@@ -14,6 +14,7 @@ type PhotoVo = Photo & {
   storageTypeDesc: string | null;
   albums?: { albumId: string; name: string }[];
   isPinned?: boolean;
+  isLocationIgnored?: boolean;
 };
 
 interface PhotoTakenDateVo {

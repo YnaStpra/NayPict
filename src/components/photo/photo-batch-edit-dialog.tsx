@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import {
+  Ban,
   Calendar,
   CheckCircle2,
   Compass,
@@ -43,7 +44,7 @@ interface PhotoBatchEditDialogProps {
   photoIds: string[]
   initialLatitude?: number | null
   initialLongitude?: number | null
-  defaultLocationMode?: "set" | "unchanged" | "clear"
+  defaultLocationMode?: "set" | "unchanged" | "clear" | "ignore"
   onSuccess?: (photoIds: string[], updatedFields: Partial<PhotoVo>) => void
 }
 
@@ -68,7 +69,7 @@ export function PhotoBatchEditDialog({
   })
 
   // Location state values
-  const [locationMode, setLocationMode] = useState<string>("unchanged")
+  const [locationMode, setLocationMode] = useState<string>(defaultLocationMode || "unchanged")
   const [coordInput, setCoordInput] = useState<string>("")
   const [latitude, setLatitude] = useState<string>("")
   const [longitude, setLongitude] = useState<string>("")
@@ -76,13 +77,17 @@ export function PhotoBatchEditDialog({
 
   // Pre-fill coordinates when dialog opens with initial coordinates
   useEffect(() => {
-    if (open && typeof initialLatitude === "number" && typeof initialLongitude === "number") {
-      queueMicrotask(() => {
-        setLocationMode(defaultLocationMode || "set")
-        setLatitude(initialLatitude.toString())
-        setLongitude(initialLongitude.toString())
-        setCoordInput(decimalToDms(initialLatitude, initialLongitude))
-      })
+    if (open) {
+      if (typeof initialLatitude === "number" && typeof initialLongitude === "number") {
+        queueMicrotask(() => {
+          setLocationMode(defaultLocationMode || "set")
+          setLatitude(initialLatitude.toString())
+          setLongitude(initialLongitude.toString())
+          setCoordInput(decimalToDms(initialLatitude, initialLongitude))
+        })
+      } else if (defaultLocationMode) {
+        setLocationMode(defaultLocationMode)
+      }
     }
   }, [open, initialLatitude, initialLongitude, defaultLocationMode])
 
@@ -131,9 +136,8 @@ export function PhotoBatchEditDialog({
     }
   }
 
-  // Reset fields when dialog closes
+  // Reset internal state when dialog closes
   const handleOpenChange = (nextOpen: boolean) => {
-    onOpenChange(nextOpen)
     if (!nextOpen) {
       setVisibility("unchanged")
       setAllowDownload("unchanged")
@@ -143,59 +147,55 @@ export function PhotoBatchEditDialog({
       setCoordInput("")
       setLatitude("")
       setLongitude("")
-      setLoading(false)
     }
+    onOpenChange(nextOpen)
   }
 
   // Get current device GPS location
   const handleGetCurrentLocation = () => {
-    if (typeof window === "undefined" || !navigator.geolocation) {
-      toast.error("Geolocation is not supported by this browser.")
+    if (!navigator.geolocation) {
+      toast.error("Geolocation is not supported by your browser.")
       return
     }
 
     setIsLocating(true)
     navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const lat = Number(pos.coords.latitude.toFixed(6))
-        const lng = Number(pos.coords.longitude.toFixed(6))
+      (position) => {
+        setIsLocating(false)
+        const lat = position.coords.latitude
+        const lng = position.coords.longitude
         setLatitude(lat.toString())
         setLongitude(lng.toString())
         setCoordInput(decimalToDms(lat, lng))
-        setIsLocating(false)
-        toast.success("Successfully detected device GPS coordinates!")
+        toast.success("Device GPS coordinates captured successfully!")
       },
-      (err) => {
+      (error) => {
         setIsLocating(false)
-        toast.error(`Failed to obtain GPS location: ${err.message}`)
+        toast.error(`Could not retrieve location: ${error.message}`)
       },
-      { enableHighAccuracy: true, timeout: 10000 }
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
     )
   }
 
   // Handle batch edit submission
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!photoIds.length) return
-
     if (!hasChanges) {
-      toast.warning("Please select at least one metadata category to update.")
+      toast.info("No changes were selected.")
       return
     }
 
     const payload: {
       photoIds: string[]
-      visibility?: number | null
-      allowDownload?: boolean | null
-      takenTime?: string | null
-      favorite?: number | null
+      visibility?: number
+      allowDownload?: boolean
+      takenTime?: string
+      favorite?: number
       latitude?: number | null
       longitude?: number | null
-    } = {
-      photoIds,
-    }
+    } = { photoIds }
 
-    const clientUpdates: Partial<PhotoVo> = {}
+    const clientUpdates: Partial<PhotoVo & { isLocationIgnored: boolean }> = {}
 
     if (isVisModified) {
       const visNum = Number(visibility)
@@ -204,9 +204,9 @@ export function PhotoBatchEditDialog({
     }
 
     if (isDlModified) {
-      const isAllowed = allowDownload === "allow"
-      payload.allowDownload = isAllowed
-      clientUpdates.allowDownload = isAllowed ? 1 : 0
+      const dlBool = allowDownload === "true"
+      payload.allowDownload = dlBool
+      clientUpdates.allowDownload = dlBool ? 1 : 0
     }
 
     if (isFavModified) {
@@ -232,6 +232,13 @@ export function PhotoBatchEditDialog({
         payload.longitude = null
         clientUpdates.latitude = null
         clientUpdates.longitude = null
+        clientUpdates.isLocationIgnored = false
+      } else if (locationMode === "ignore") {
+        payload.latitude = 999
+        payload.longitude = 999
+        clientUpdates.latitude = null
+        clientUpdates.longitude = null
+        clientUpdates.isLocationIgnored = true
       } else if (locationMode === "set") {
         let finalLat: number | null = null
         let finalLng: number | null = null
@@ -241,17 +248,11 @@ export function PhotoBatchEditDialog({
           finalLat = parsedCoord.latitude
           finalLng = parsedCoord.longitude
         } else {
-          const parsedFromInput = parseCoordinateString(coordInput)
-          if (parsedFromInput) {
-            finalLat = parsedFromInput.latitude
-            finalLng = parsedFromInput.longitude
-          } else {
-            const latNum = parseFloat(latitude.trim())
-            const lngNum = parseFloat(longitude.trim())
-            if (!isNaN(latNum) && !isNaN(lngNum)) {
-              finalLat = latNum
-              finalLng = lngNum
-            }
+          const latNum = parseFloat(latitude.trim())
+          const lngNum = parseFloat(longitude.trim())
+          if (!isNaN(latNum) && !isNaN(lngNum)) {
+            finalLat = latNum
+            finalLng = lngNum
           }
         }
 
@@ -273,6 +274,7 @@ export function PhotoBatchEditDialog({
         payload.longitude = finalLng
         clientUpdates.latitude = finalLat
         clientUpdates.longitude = finalLng
+        clientUpdates.isLocationIgnored = false
       }
     }
 
@@ -282,9 +284,8 @@ export function PhotoBatchEditDialog({
       toast.success(`Successfully updated metadata for ${photoIds.length} photo(s).`)
       onSuccess?.(photoIds, clientUpdates)
       handleOpenChange(false)
-    } catch (err: unknown) {
-      console.error("Batch edit failed:", err)
-      toast.error("Failed to update photo metadata.")
+    } catch (err: any) {
+      toast.error(err.message || "Failed to update metadata.")
     } finally {
       setLoading(false)
     }
@@ -292,29 +293,36 @@ export function PhotoBatchEditDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-xl max-h-[90vh] flex flex-col p-6 gap-4">
+      <DialogContent className="sm:max-w-lg max-h-[85vh] flex flex-col p-6 gap-4">
         <DialogHeader>
           <div className="flex items-center gap-2">
-            <Sparkles className="size-5 text-primary" />
-            <DialogTitle className="text-lg font-bold">
-              Edit Metadata {photoIds.length === 1 ? "Photo" : `Batch (${photoIds.length} Photos)`}
-            </DialogTitle>
+            <div className="p-2 rounded-xl bg-primary/10 text-primary">
+              <Sparkles className="size-5" />
+            </div>
+            <div>
+              <DialogTitle className="text-lg font-bold flex items-center gap-2">
+                <span>Batch Edit Photo Metadata</span>
+                <span className="px-2 py-0.5 text-xs font-bold rounded-full bg-primary/15 text-primary border border-primary/30">
+                  {photoIds.length} Selected
+                </span>
+              </DialogTitle>
+              <DialogDescription className="text-xs text-muted-foreground mt-0.5">
+                Update metadata for all selected photos simultaneously.
+              </DialogDescription>
+            </div>
           </div>
-          <DialogDescription className="text-xs text-muted-foreground">
-            Select new values for the categories you want to change. Options set to &quot;Keep Current&quot; will preserve original photo metadata.
-          </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="flex-1 min-h-0 overflow-y-auto space-y-3 pr-1 py-1">
-          {/* 1. Visibility / Display Scope */}
+        <form id="batch-edit-form" onSubmit={handleSubmit} className="flex-1 min-h-0 overflow-y-auto pr-1 space-y-4">
+          {/* 1. Visibility & Scope */}
           <div className="rounded-xl border border-border/80 bg-card p-3.5 space-y-2 shadow-2xs">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 text-sm font-semibold">
                 <Eye className="size-4 text-primary" />
-                <span>1. Visibility & Display Scope</span>
+                <span>1. Visibility & Scope</span>
               </div>
               {isVisModified && (
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/15 text-primary border border-primary/30">
                   Will Change
                 </span>
               )}
@@ -327,31 +335,31 @@ export function PhotoBatchEditDialog({
                 <SelectItem value="unchanged" className="text-xs text-muted-foreground">
                   ⚪ — Keep Current (Unchanged) —
                 </SelectItem>
-                <SelectItem value={String(PhotoVisibilityEnum.BOTH)} className="text-xs">
-                  🌐 Show Everywhere (Main Gallery & Albums)
+                <SelectItem value={PhotoVisibilityEnum.BOTH.toString()} className="text-xs">
+                  🌐 Both Gallery & Albums (Public)
                 </SelectItem>
-                <SelectItem value={String(PhotoVisibilityEnum.GALLERY_ONLY)} className="text-xs">
-                  🖼️ Main Gallery Only
+                <SelectItem value={PhotoVisibilityEnum.GALLERY_ONLY.toString()} className="text-xs">
+                  🖼️ Gallery Only (Hidden from Albums)
                 </SelectItem>
-                <SelectItem value={String(PhotoVisibilityEnum.ALBUM_ONLY)} className="text-xs">
-                  📁 Album Only
+                <SelectItem value={PhotoVisibilityEnum.ALBUM_ONLY.toString()} className="text-xs">
+                  📁 Album Only (Hidden from Main Masonry)
                 </SelectItem>
-                <SelectItem value={String(PhotoVisibilityEnum.ARCHIVED)} className="text-xs text-amber-500 font-medium">
-                  📦 Archive / Hide from Public
+                <SelectItem value={PhotoVisibilityEnum.ARCHIVED.toString()} className="text-xs">
+                  📦 Archived (Admin Only / Hidden Everywhere)
                 </SelectItem>
               </SelectContent>
             </Select>
           </div>
 
-          {/* 2. Public Download Permission */}
+          {/* 2. Download Permission */}
           <div className="rounded-xl border border-border/80 bg-card p-3.5 space-y-2 shadow-2xs">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 text-sm font-semibold">
-                <Download className="size-4 text-primary" />
+                <Download className="size-4 text-blue-500" />
                 <span>2. Public Download Permission</span>
               </div>
               {isDlModified && (
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-500/15 text-blue-500 border border-blue-500/30">
                   Will Change
                 </span>
               )}
@@ -364,11 +372,11 @@ export function PhotoBatchEditDialog({
                 <SelectItem value="unchanged" className="text-xs text-muted-foreground">
                   ⚪ — Keep Current (Unchanged) —
                 </SelectItem>
-                <SelectItem value="allow" className="text-xs text-emerald-500 font-medium">
-                  ⬇️ Allow Public Download (Original File)
+                <SelectItem value="true" className="text-xs">
+                  ✅ Allowed (Guests can download original)
                 </SelectItem>
-                <SelectItem value="deny" className="text-xs text-rose-500 font-medium">
-                  🔒 Protect / Disable Public Download
+                <SelectItem value="false" className="text-xs">
+                  🔒 Protected (Guests cannot download)
                 </SelectItem>
               </SelectContent>
             </Select>
@@ -378,11 +386,11 @@ export function PhotoBatchEditDialog({
           <div className="rounded-xl border border-border/80 bg-card p-3.5 space-y-2 shadow-2xs">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 text-sm font-semibold">
-                <Heart className="size-4 text-primary" />
+                <Heart className="size-4 text-rose-500" />
                 <span>3. Favorite Status</span>
               </div>
               {isFavModified && (
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-500/15 text-rose-500 border border-rose-500/30">
                   Will Change
                 </span>
               )}
@@ -395,65 +403,64 @@ export function PhotoBatchEditDialog({
                 <SelectItem value="unchanged" className="text-xs text-muted-foreground">
                   ⚪ — Keep Current (Unchanged) —
                 </SelectItem>
-                <SelectItem value="1" className="text-xs text-amber-500 font-medium">
-                  ⭐ Mark as Favorite (Starred)
+                <SelectItem value="1" className="text-xs text-rose-500 font-medium">
+                  ❤️ Mark as Favorite
                 </SelectItem>
-                <SelectItem value="0" className="text-xs text-muted-foreground">
-                  🤍 Remove from Favorites (Unstar)
+                <SelectItem value="0" className="text-xs">
+                  🤍 Remove from Favorites
                 </SelectItem>
               </SelectContent>
             </Select>
           </div>
 
-          {/* 4. Date & Time Taken */}
+          {/* 4. Taken Date & Time */}
           <div className="rounded-xl border border-border/80 bg-card p-3.5 space-y-2 shadow-2xs">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 text-sm font-semibold">
-                <Calendar className="size-4 text-primary" />
-                <span>4. Date & Time Taken</span>
+                <Calendar className="size-4 text-amber-500" />
+                <span>4. Taken Date & Time</span>
               </div>
               {isDateModified && (
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-500 border border-amber-500/30">
                   Will Change
                 </span>
               )}
             </div>
             <Select value={takenTimeMode} onValueChange={setTakenTimeMode}>
               <SelectTrigger className="w-full text-xs h-9 bg-muted/30">
-                <SelectValue placeholder="Select Date Settings..." />
+                <SelectValue placeholder="Select Date Setting..." />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="unchanged" className="text-xs text-muted-foreground">
                   ⚪ — Keep Current (Unchanged) —
                 </SelectItem>
                 <SelectItem value="set" className="text-xs">
-                  📅 Set New Date & Time
+                  📅 Set Specific Date & Time
                 </SelectItem>
                 <SelectItem value="clear" className="text-xs text-destructive">
-                  🗑️ Clear / Remove Taken Date
+                  🗑️ Clear / Reset Taken Time
                 </SelectItem>
               </SelectContent>
             </Select>
 
             {takenTimeMode === "set" && (
-              <div className="pt-1">
+              <div className="pt-1.5 animate-in fade-in-50 duration-200">
                 <Input
                   type="datetime-local"
                   value={takenTimeValue}
                   onChange={(e) => setTakenTimeValue(e.target.value)}
                   className="w-full text-xs h-9 bg-background"
-                  required
                 />
               </div>
             )}
           </div>
 
-          {/* 5. GPS Location Coordinates (DMS & Decimal Formats) */}
+          {/* 5. GPS Location */}
           <div className="rounded-xl border border-border/80 bg-card p-3.5 space-y-2 shadow-2xs">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 text-sm font-semibold">
                 <MapPin className="size-4 text-emerald-500" />
-                <span>5. GPS Coordinates (DMS / Google Maps)</span>
+                <span>5. GPS Coordinates</span>
               </div>
               {isLocModified && (
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-500 border border-emerald-500/30">
@@ -472,35 +479,45 @@ export function PhotoBatchEditDialog({
                 <SelectItem value="set" className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">
                   📍 Set New GPS Coordinates
                 </SelectItem>
+                <SelectItem value="ignore" className="text-xs text-amber-600 dark:text-amber-400 font-medium">
+                  🚫 Ignore Location (No GPS Needed)
+                </SelectItem>
                 <SelectItem value="clear" className="text-xs text-destructive font-medium">
-                  🗑️ Clear / Remove GPS Location
+                  🗑️ Clear / Reset GPS Location
                 </SelectItem>
               </SelectContent>
             </Select>
 
+            {locationMode === "ignore" && (
+              <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/25 text-xs text-amber-700 dark:text-amber-300 space-y-1 animate-in fade-in-50 duration-200">
+                <div className="flex items-center gap-1.5 font-semibold">
+                  <Ban className="size-3.5 text-amber-500 shrink-0" />
+                  <span>Mark as Intentionally Without Location</span>
+                </div>
+                <p className="text-[11px] text-muted-foreground leading-relaxed">
+                  These photos will be ignored from geotagging. They will not appear on the map and will not be detected or listed in the untagged photos queue.
+                </p>
+              </div>
+            )}
+
             {locationMode === "set" && (
               <div className="space-y-3 pt-1.5 animate-in fade-in-50 duration-200">
-                {/* Unified DMS / Google Maps Coordinate String Input */}
                 <div className="space-y-1">
                   <label className="text-[11px] font-medium text-foreground flex items-center justify-between">
                     <span className="flex items-center gap-1">
                       <Compass className="size-3 text-emerald-500" />
-                      <span>Paste / Type Coordinates (DMS Format):</span>
-                    </span>
-                    <span className="text-[10px] text-muted-foreground font-mono">
-                      e.g. 8°20&apos;43.0&quot;S 116°31&apos;58.9&quot;E
+                      <span>Paste Coordinates (DMS or Decimal):</span>
                     </span>
                   </label>
                   <Input
                     type="text"
-                    placeholder={`8°20'43.0"S 116°31'58.9"E or -8.345278, 116.533028`}
+                    placeholder={`8°20'43.0"S 116°31'58.9"E or -8.34, 116.53`}
                     value={coordInput}
                     onChange={(e) => handleCoordInputChange(e.target.value)}
                     className="text-xs h-9 bg-background font-mono"
                   />
                 </div>
 
-                {/* Parsed Coordinate Confirmation Card */}
                 {parsedCoord && (
                   <div className="flex items-center justify-between p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/25 text-xs text-emerald-700 dark:text-emerald-300">
                     <div className="flex items-center gap-2 truncate">
@@ -508,9 +525,6 @@ export function PhotoBatchEditDialog({
                       <div className="space-y-0.5 truncate">
                         <p className="font-semibold text-[11px] truncate">
                           {parsedCoord.dmsString}
-                        </p>
-                        <p className="text-[10px] text-muted-foreground font-mono">
-                          Decimal: {parsedCoord.latitude}°, {parsedCoord.longitude}°
                         </p>
                       </div>
                     </div>
@@ -520,7 +534,6 @@ export function PhotoBatchEditDialog({
                   </div>
                 )}
 
-                {/* Direct Latitude & Longitude decimal values */}
                 <div className="grid grid-cols-2 gap-2 pt-0.5">
                   <div className="space-y-1">
                     <label className="text-[11px] font-medium text-muted-foreground flex items-center gap-1">

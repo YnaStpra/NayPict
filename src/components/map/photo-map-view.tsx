@@ -716,7 +716,11 @@ export default function PhotoMapView() {
         typeof changes.latitude === "number" &&
         typeof changes.longitude === "number" &&
         !isNaN(changes.latitude) &&
-        !isNaN(changes.longitude)
+        !isNaN(changes.longitude) &&
+        changes.latitude >= -90 &&
+        changes.latitude <= 90 &&
+        changes.longitude >= -180 &&
+        changes.longitude <= 180
       ) {
         const updatedMapped: PhotoVo[] = newlyGeotagged.map((p) => ({
           ...p,

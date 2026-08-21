@@ -1049,12 +1049,15 @@ const photoService = {
     // mask key as null so the original file URL is NEVER leaked to public clients.
     const isAllowed = photo.allowDownload === 1 || Boolean(currentUserId);
     const key = isAllowed && rawKey ? toMediaUrl(rawKey, domain) : null;
+    const isLocationIgnored = exifRow?.latitude === 999 && exifRow?.longitude === 999;
+    const latitude = isLocationIgnored ? null : (exifRow?.latitude ?? null);
+    const longitude = isLocationIgnored ? null : (exifRow?.longitude ?? null);
 
     return {
       ...photo,
       exif: exifRow?.exif ?? null,
-      latitude: exifRow?.latitude ?? null,
-      longitude: exifRow?.longitude ?? null,
+      latitude,
+      longitude,
       altitude: exifRow?.altitude ?? null,
       key,
       preview: toMediaUrl(preview, domain) ?? '',
@@ -1065,6 +1068,7 @@ const photoService = {
         : null,
       albums: albums ?? [],
       isPinned: isPinned ?? Boolean((photo as any).isPinned === 1 || (photo as any).isPinned === true),
+      isLocationIgnored: isLocationIgnored || undefined,
     };
   },
 
@@ -1374,6 +1378,8 @@ const photoService = {
       eq(photoTab.status, PhotoStatusEnum.NORMAL),
       isNotNull(exifTab.latitude),
       isNotNull(exifTab.longitude),
+      sql`${exifTab.latitude} BETWEEN -90 AND 90`,
+      sql`${exifTab.longitude} BETWEEN -180 AND 180`,
       userId
         ? undefined
         : or(
@@ -1435,6 +1441,7 @@ const photoService = {
     const baseWhere = and(
       eq(photoTab.status, PhotoStatusEnum.NORMAL),
       or(isNull(exifTab.latitude), isNull(exifTab.longitude)),
+      sql`COALESCE(${exifTab.latitude}, 0) != 999`,
       userId
         ? undefined
         : or(

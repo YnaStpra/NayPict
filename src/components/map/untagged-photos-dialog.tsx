@@ -3,15 +3,18 @@
 import { useState, useMemo } from "react"
 import {
   AlertCircle,
+  Ban,
   Calendar,
   Check,
   CheckCircle2,
   Compass,
   Image as ImageIcon,
+  LoaderCircle,
   MapPin,
   Search,
   X,
 } from "lucide-react"
+import { toast } from "sonner"
 
 import {
   Dialog,
@@ -26,6 +29,7 @@ import { PhotoBatchEditDialog } from "@/components/photo/photo-batch-edit-dialog
 import { type PhotoVo } from "@/server/entity/vo/photo"
 import { formatRelativeTime } from "@/lib/date"
 import { getThumbHashUrl } from "@/lib/thumb-hash"
+import { photoBatchEdit } from "@/request/photo"
 import { useLocale } from "next-intl"
 
 interface UntaggedPhotosDialogProps {
@@ -46,6 +50,7 @@ export function UntaggedPhotosDialog({
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [editingPhotoIds, setEditingPhotoIds] = useState<string[]>([])
   const [editDialogOpen, setEditDialogOpen] = useState<boolean>(false)
+  const [ignoring, setIgnoring] = useState<boolean>(false)
 
   // Filter photos by search query
   const filteredPhotos = useMemo(() => {
@@ -86,6 +91,26 @@ export function UntaggedPhotosDialog({
     setEditDialogOpen(true)
   }
 
+  // Quick Ignore location for one or more photos (sets sentinel 999,999)
+  const handleQuickIgnore = async (ids: string[]) => {
+    if (!ids.length) return
+    setIgnoring(true)
+    try {
+      await photoBatchEdit({
+        photoIds: ids,
+        latitude: 999,
+        longitude: 999,
+      })
+      toast.success(`Ignored location for ${ids.length} photo(s).`)
+      onGeotagSuccess(ids, { latitude: null, longitude: null, isLocationIgnored: true })
+      setSelectedIds((prev) => prev.filter((id) => !ids.includes(id)))
+    } catch (err: any) {
+      toast.error(err.message || "Failed to ignore location.")
+    } finally {
+      setIgnoring(false)
+    }
+  }
+
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
@@ -103,7 +128,7 @@ export function UntaggedPhotosDialog({
                   </span>
                 </DialogTitle>
                 <DialogDescription className="text-xs text-muted-foreground mt-0.5">
-                  Add location coordinates (DMS format such as <code>8°20&apos;43.0&quot;S 116°31&apos;58.9&quot;E</code> or device GPS) so photos appear on the interactive map.
+                  Add location coordinates (DMS format such as <code>8°20&apos;43.0&quot;S 116°31&apos;58.9&quot;E</code> or device GPS) so photos appear on the interactive map, or mark them as <strong>Ignore</strong> if intentionally without location.
                 </DialogDescription>
               </div>
             </div>
@@ -144,15 +169,33 @@ export function UntaggedPhotosDialog({
                 </Button>
 
                 {selectedIds.length > 0 && (
-                  <Button
-                    type="button"
-                    size="sm"
-                    onClick={handleEditSelected}
-                    className="text-xs h-9 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white gap-1.5 font-semibold shadow-md animate-in fade-in duration-200"
-                  >
-                    <MapPin className="size-3.5" />
-                    <span>Set Location ({selectedIds.length})</span>
-                  </Button>
+                  <>
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={handleEditSelected}
+                      className="text-xs h-9 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white gap-1.5 font-semibold shadow-md animate-in fade-in duration-200"
+                    >
+                      <MapPin className="size-3.5" />
+                      <span>Set Location ({selectedIds.length})</span>
+                    </Button>
+
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={ignoring}
+                      onClick={() => handleQuickIgnore(selectedIds)}
+                      className="text-xs h-9 rounded-xl border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 gap-1.5 font-semibold shadow-xs animate-in fade-in duration-200"
+                    >
+                      {ignoring ? (
+                        <LoaderCircle className="size-3.5 animate-spin" />
+                      ) : (
+                        <Ban className="size-3.5 text-amber-500" />
+                      )}
+                      <span>Ignore ({selectedIds.length})</span>
+                    </Button>
+                  </>
                 )}
               </div>
             )}
@@ -170,7 +213,7 @@ export function UntaggedPhotosDialog({
                     All Photos Have Coordinates!
                   </h4>
                   <p className="text-xs text-muted-foreground mt-1 max-w-sm">
-                    All photos in your gallery are mapped to the Interactive Photo Map.
+                    All photos in your gallery are either mapped to the Interactive Photo Map or intentionally ignored.
                   </p>
                 </div>
               </div>
@@ -257,17 +300,32 @@ export function UntaggedPhotosDialog({
                       </div>
                     </div>
 
-                    {/* Geotag Button */}
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="secondary"
-                      onClick={() => handleEditSingle(photo.photoId)}
-                      className="h-8 text-xs px-3 rounded-xl gap-1.5 font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/20 shrink-0 cursor-pointer ml-2"
-                    >
-                      <Compass className="size-3.5" />
-                      <span>Set Location</span>
-                    </Button>
+                    {/* Action Buttons */}
+                    <div className="flex items-center gap-1.5 ml-2 shrink-0">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => handleEditSingle(photo.photoId)}
+                        className="h-8 text-xs px-2.5 sm:px-3 rounded-xl gap-1 font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/20 cursor-pointer"
+                      >
+                        <Compass className="size-3.5" />
+                        <span>Set Location</span>
+                      </Button>
+
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        disabled={ignoring}
+                        onClick={() => handleQuickIgnore([photo.photoId])}
+                        className="h-8 text-xs px-2.5 rounded-xl gap-1 text-muted-foreground hover:text-amber-600 hover:bg-amber-500/10 cursor-pointer"
+                        title="Ignore Location (Intentionally without GPS)"
+                      >
+                        <Ban className="size-3.5 text-amber-500/80" />
+                        <span className="hidden sm:inline">Ignore</span>
+                      </Button>
+                    </div>
                   </div>
                 )
               })
