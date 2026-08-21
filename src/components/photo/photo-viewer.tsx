@@ -827,6 +827,17 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
   const isAdmin = userInfo?.type === UserTypeEnum.ADMIN
   // current lightbox Viewed photo index。
   const [viewIndex, setViewIndex] = useState(index)
+
+  // Sync viewIndex whenever the viewer is opened with a new index from the gallery
+  const prevOpenRef = useRef(open)
+  const prevIndexRef = useRef(index)
+  useEffect(() => {
+    if (open && (!prevOpenRef.current || prevIndexRef.current !== index)) {
+      setViewIndex(index)
+    }
+    prevOpenRef.current = open
+    prevIndexRef.current = index
+  }, [open, index])
   // infoOpen Control whether the photo information sidebar on the right is expanded。
   const infoOpen = usePhotoStore((state) => state.infoOpen)
   // setInfoOpen Update information sidebar expansion status。
@@ -1247,7 +1258,7 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
           // Reset zoom on close
           setZoomLevel(1)
         }}
-        index={index}
+        index={viewIndex}
         slides={slides}
         portal={{
           container: {
