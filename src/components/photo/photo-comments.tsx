@@ -29,8 +29,6 @@ export function PhotoComments({ photoId }: PhotoCommentsProps) {
   const [comments, setComments] = useState<CommentVo[]>([]);
   // Initial loading state while fetching comments.
   const [isLoading, setIsLoading] = useState<boolean>(true);
-  // Real-time Server-Sent Events live status.
-  const [isLiveConnected, setIsLiveConnected] = useState<boolean>(false);
   // Cloudflare Turnstile token.
   const [turnstileToken, setTurnstileToken] = useState<string>("");
   // Commenter name input value (initialized from localStorage).
@@ -88,10 +86,6 @@ export function PhotoComments({ photoId }: PhotoCommentsProps) {
     try {
       eventSource = new EventSource(`/api/photos/${encodeURIComponent(photoId)}/comments/sse`);
 
-      eventSource.addEventListener("connected", () => {
-        if (isMounted) setIsLiveConnected(true);
-      });
-
       eventSource.addEventListener("comment_added", (e: MessageEvent) => {
         if (!isMounted) return;
         try {
@@ -148,10 +142,6 @@ export function PhotoComments({ photoId }: PhotoCommentsProps) {
           }
         } catch {}
       });
-
-      eventSource.onerror = () => {
-        if (isMounted) setIsLiveConnected(false);
-      };
     } catch (sseErr) {
       console.warn("[SSE] EventSource init error:", sseErr);
     }
@@ -297,17 +287,11 @@ export function PhotoComments({ photoId }: PhotoCommentsProps) {
 
   return (
     <div className="flex flex-col flex-1 h-full min-h-0 px-4 py-2 text-left" onPointerDown={(e) => e.stopPropagation()}>
-      {/* Header with comment count & real-time live indicator */}
+      {/* Header with comment count */}
       <div className="flex items-center justify-between pb-2 shrink-0">
         <div className="flex items-center gap-1.5 text-xs font-semibold text-white/50 tracking-wider uppercase">
           <MessageSquareIcon className="size-3.5 text-white/60" />
           <span>Comments</span>
-          {isLiveConnected && (
-            <span className="inline-flex items-center gap-1 text-[10px] text-emerald-400 font-bold px-1.5 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 ml-1">
-              <span className="size-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              Live
-            </span>
-          )}
         </div>
         <span className="text-[11px] font-medium text-white/60 bg-white/10 px-2 py-0.5 rounded-full">
           {comments.length}
