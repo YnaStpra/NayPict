@@ -43,6 +43,7 @@ const SYSTEM_PATHS = [
   '/photo/comment/admin',
   '/photo/comment/reply',
   '/photo/comment/delete',
+  '/photo/untagged',
   '/admin/insights',
   '/insights',
   '/totp'
