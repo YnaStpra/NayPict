@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState, useMemo, useCallback } from "react"
+import { useEffect, useRef, useState, useCallback } from "react"
 import { useTheme } from "next-themes"
 import Image from "next/image"
 import Link from "next/link"
@@ -14,7 +14,6 @@ import {
   Loader2,
   LocateFixed,
   MapPin,
-  Search,
   Sparkles,
   X,
 } from "lucide-react"
@@ -24,7 +23,6 @@ import "leaflet/dist/leaflet.css"
 import { photoMapList } from "@/request/photo"
 import { type PhotoVo } from "@/server/entity/vo/photo"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { formatRelativeTime } from "@/lib/date"
 import { useLocale } from "next-intl"
 
@@ -38,7 +36,6 @@ export default function PhotoMapView() {
 
   const [photos, setPhotos] = useState<PhotoVo[]>([])
   const [loading, setLoading] = useState<boolean>(true)
-  const [searchQuery, setSearchQuery] = useState<string>("")
   const [selectedPhoto, setSelectedPhoto] = useState<PhotoVo | null>(null)
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(true)
 
@@ -65,17 +62,6 @@ export default function PhotoMapView() {
       isMounted = false
     }
   }, [])
-
-  // Filtered photos based on search query
-  const filteredPhotos = useMemo(() => {
-    if (!searchQuery.trim()) return photos
-    const q = searchQuery.toLowerCase()
-    return photos.filter(
-      (p) =>
-        p.name.toLowerCase().includes(q) ||
-        p.albums?.some((a) => a.name.toLowerCase().includes(q))
-    )
-  }, [photos, searchQuery])
 
   // Initialize Leaflet map
   useEffect(() => {
@@ -145,7 +131,7 @@ export default function PhotoMapView() {
     }
   }, [resolvedTheme, photos])
 
-  // Update map markers when filtered photos change
+  // Update map markers when photos change
   useEffect(() => {
     if (!mapInstanceRef.current || !markersLayerRef.current) return
 
@@ -158,13 +144,13 @@ export default function PhotoMapView() {
       markersLayerRef.current.clearLayers()
       markerMapRef.current.clear()
 
-      filteredPhotos.forEach((photo) => {
+      photos.forEach((photo) => {
         if (typeof photo.latitude !== "number" || typeof photo.longitude !== "number") return
 
         const imgUrl = photo.thumbnail || photo.preview || ""
         const isSelected = selectedPhoto?.photoId === photo.photoId
 
-        // Custom HTML pin with image thumbnail and glowing border
+        // Custom HTML pin with clean image thumbnail and pointer
         const customIcon = L.divIcon({
           className: "photo-marker-icon",
           html: `
@@ -179,11 +165,6 @@ export default function PhotoMapView() {
                 }
               </div>
               <div class="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-3 h-3 rotate-45 bg-white/90 dark:bg-black/90 border-r border-b border-white/50 dark:border-black/50"></div>
-              ${
-                photo.favorite === 1
-                  ? `<div class="absolute -top-1.5 -right-1.5 size-4 rounded-full bg-amber-500 flex items-center justify-center text-[10px] text-white shadow-md">★</div>`
-                  : ""
-              }
             </div>
           `,
           iconSize: [44, 52],
@@ -211,7 +192,7 @@ export default function PhotoMapView() {
     return () => {
       isDisposed = true
     }
-  }, [filteredPhotos, selectedPhoto?.photoId])
+  }, [photos, selectedPhoto?.photoId])
 
   // Center map on a specific photo
   const handleFlyToPhoto = useCallback((photo: PhotoVo) => {
@@ -224,13 +205,13 @@ export default function PhotoMapView() {
 
   // Fit bounds to all photos
   const handleFitAll = useCallback(async () => {
-    if (!mapInstanceRef.current || filteredPhotos.length === 0) return
+    if (!mapInstanceRef.current || photos.length === 0) return
     const L = (await import("leaflet")).default
     const bounds = L.latLngBounds(
-      filteredPhotos.map((p) => [p.latitude!, p.longitude!])
+      photos.map((p) => [p.latitude!, p.longitude!])
     )
     mapInstanceRef.current.fitBounds(bounds, { padding: [60, 60], maxZoom: 15 })
-  }, [filteredPhotos])
+  }, [photos])
 
   return (
     <div className="relative w-full h-[calc(100vh-4rem)] overflow-hidden bg-background">
@@ -243,32 +224,12 @@ export default function PhotoMapView() {
           <MapPin className="size-4 text-emerald-500 animate-pulse" />
           <span className="font-bold text-xs sm:text-sm">Photo Map Explorer</span>
           <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-500 border border-emerald-500/30 ml-1">
-            {filteredPhotos.length} {filteredPhotos.length === 1 ? "foto" : "foto"}
+            {photos.length} foto
           </span>
         </div>
 
-        {/* Quick Search */}
-        <div className="relative flex-1 sm:w-64">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
-          <Input
-            type="text"
-            placeholder="Cari foto / album..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-8.5 pr-8 h-9 text-xs rounded-2xl backdrop-blur-xl bg-background/80 dark:bg-neutral-900/80 border-border/70 shadow-xl"
-          />
-          {searchQuery && (
-            <button
-              onClick={() => setSearchQuery("")}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer"
-            >
-              <X className="size-3.5" />
-            </button>
-          )}
-        </div>
-
         {/* Fit All Photos Button */}
-        {filteredPhotos.length > 0 && (
+        {photos.length > 0 && (
           <Button
             type="button"
             variant="outline"
@@ -318,11 +279,6 @@ export default function PhotoMapView() {
             >
               <X className="size-4" />
             </button>
-            {selectedPhoto.favorite === 1 && (
-              <div className="absolute top-3 left-3 px-2 py-0.5 rounded-full bg-amber-500 text-white text-[11px] font-bold shadow-md flex items-center gap-1">
-                <span>★ Favorit</span>
-              </div>
-            )}
           </div>
 
           <div className="p-4 space-y-2.5">
@@ -381,7 +337,7 @@ export default function PhotoMapView() {
           <div className="flex items-center justify-between pb-2 px-1">
             <div className="flex items-center gap-1.5 text-xs font-bold text-foreground">
               <Sparkles className="size-3.5 text-emerald-500" />
-              <span>Foto Berlokasi ({filteredPhotos.length})</span>
+              <span>Foto Berlokasi ({photos.length})</span>
             </div>
             <button
               onClick={() => setIsSidebarOpen(false)}
@@ -391,13 +347,13 @@ export default function PhotoMapView() {
             </button>
           </div>
 
-          {filteredPhotos.length === 0 ? (
+          {photos.length === 0 ? (
             <div className="py-6 text-center text-xs text-muted-foreground">
-              Tidak ada foto berkoordinat GPS yang cocok dengan pencarian.
+              Belum ada foto yang memiliki koordinat GPS.
             </div>
           ) : (
             <div className="flex items-center gap-2.5 overflow-x-auto pb-1 scrollbar-thin scrollbar-thumb-muted scrollbar-track-transparent">
-              {filteredPhotos.map((photo) => {
+              {photos.map((photo) => {
                 const isSelected = selectedPhoto?.photoId === photo.photoId
                 return (
                   <div
@@ -446,7 +402,7 @@ export default function PhotoMapView() {
           </div>
           <h3 className="font-bold text-base text-foreground">Belum Ada Foto Berkoordinat GPS</h3>
           <p className="text-xs text-muted-foreground leading-relaxed">
-            Foto yang Anda unggah belum memiliki data metadata lokasi GPS EXIF. Unggah foto langsung dari kamera HP dengan GPS aktif untuk melihat pin lokasi di peta dunia ini.
+            Foto yang Anda unggah belum memiliki data metadata lokasi GPS EXIF. Anda dapat menambahkan koordinat lokasi melalui menu Edit Meta di informasi foto.
           </p>
           <Button asChild size="sm" className="rounded-xl mt-2 text-xs">
             <Link href="/photos">Kembali ke Galeri</Link>
