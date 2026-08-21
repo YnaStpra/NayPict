@@ -4,7 +4,7 @@ import { useEffect, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
-import { Camera, FolderHeart, Image as ImageIcon, ArrowRight, Loader2 } from 'lucide-react'
+import { Camera, FolderHeart, Image as ImageIcon, ArrowRight, Loader2, MapPin } from 'lucide-react'
 import { type PhotoVo } from '@/server/entity/vo/photo'
 import { photoList } from '@/request/photo'
 
@@ -168,6 +168,35 @@ export function LandingClient({ initialPhotos }: LandingClientProps) {
               <div className="flex items-center gap-3">
                 <FolderHeart className="size-5 text-white/90" />
                 <span>Browse Albums</span>
+              </div>
+              <div className="flex items-center">
+                {isPending ? (
+                  <Loader2 className="size-4 animate-spin opacity-80" />
+                ) : (
+                  <ArrowRight className="size-4 opacity-75 group-hover:translate-x-1 transition-transform" />
+                )}
+              </div>
+            </Link>
+
+            <Link
+              href="/map"
+              prefetch={true}
+              onMouseEnter={() => router.prefetch('/map')}
+              onPointerDown={() => router.prefetch('/map')}
+              onClick={(e) => {
+                e.preventDefault()
+                handleNavigate('/map')
+              }}
+              className="group relative flex items-center justify-between w-full h-12 px-5 rounded-2xl bg-white/10 hover:bg-white/20 border border-white/20 text-white font-bold text-sm sm:text-base backdrop-blur-md hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 cursor-pointer"
+              style={{
+                color: '#ffffff',
+                forcedColorAdjust: 'none',
+                colorScheme: 'normal',
+              }}
+            >
+              <div className="flex items-center gap-3">
+                <MapPin className="size-5 text-white/90" />
+                <span>Photo Map Explorer</span>
               </div>
               <div className="flex items-center">
                 {isPending ? (

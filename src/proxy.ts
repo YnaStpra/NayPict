@@ -16,6 +16,8 @@ function isPublicPath(pathname: string) {
   return pathname === '/'
     || pathname.startsWith('/photos')
     || pathname.startsWith('/albums')
+    || pathname.startsWith('/map')
+    || pathname.startsWith('/photo')
     || pathname.startsWith('/login')
     || pathname.startsWith('/api')
     || pathname.startsWith('/media')

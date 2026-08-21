@@ -35,6 +35,18 @@ export function registerPhotoApi(app: Hono<HonoEnv>) {
     await photoService.setVisibility(body, getUserId());
     return c.json(result.ok());
   });
+  // Query all geotagged photos for the interactive map explorer (RESTful route).
+  app.get('/photos/map', async (c: Context) => {
+    const data = await photoService.getMapPhotos(getUserId());
+    return c.json(result.ok(data));
+  });
+
+  // Query all geotagged photos for the interactive map explorer (POST route).
+  app.post('/photo/map/list', async (c: Context) => {
+    const data = await photoService.getMapPhotos(getUserId());
+    return c.json(result.ok(data));
+  });
+
   // Query the photo list by pagination and conditions.
   app.post('/photo/list', async (c: Context) => {
     const body = await c.req.json<PhotoListBo>();

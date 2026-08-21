@@ -16,7 +16,7 @@ import {
   SidebarHeader,
   SidebarRail,
 } from "@/components/ui/sidebar"
-import { Archive, Library, MonitorCog, Image, Heart, Trash2, FolderOpen, Database, Settings, CopyCheck, MessageSquare, BarChart3 } from "lucide-react"
+import { Archive, Library, MonitorCog, Image as ImageIcon, Heart, Trash2, FolderOpen, Database, Settings, CopyCheck, MessageSquare, BarChart3, MapPin } from "lucide-react"
 
 // Determine whether the current browser path hits the menu URL.
 function isUrlMatched(pathname: string, url: string) {
@@ -51,18 +51,19 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       },
     ],
     navMain: [
-      { title: t("navigation.photos"), url: "/photos", icon: <Image />, isActive: false },
-      { title: t("navigation.favorites"), url: "/favorites", icon: <Heart />, isActive: false },
-      { title: t("navigation.albums"), url: "/albums", icon: <FolderOpen />, isActive: false },
-      { title: t("navigation.archive") || "Archive", url: "/archive", icon: <Archive />, isActive: false },
-      { title: t("navigation.comments"), url: "/comments", icon: <MessageSquare />, isActive: false },
-      { title: "Insights", url: "/admin/insights", icon: <BarChart3 />, isActive: false },
-      { title: t("navigation.trash"), url: "/trash", icon: <Trash2 />, isActive: false },
+      { title: t("navigation.photos"), url: "/photos", icon: <ImageIcon />, isActive: isUrlMatched(pathname, "/photos") },
+      { title: t("navigation.favorites"), url: "/favorites", icon: <Heart />, isActive: isUrlMatched(pathname, "/favorites") },
+      { title: t("navigation.albums"), url: "/albums", icon: <FolderOpen />, isActive: isUrlMatched(pathname, "/albums") },
+      { title: t("navigation.map"), url: "/map", icon: <MapPin />, isActive: isUrlMatched(pathname, "/map") },
+      { title: t("navigation.archive") || "Archive", url: "/archive", icon: <Archive />, isActive: isUrlMatched(pathname, "/archive") },
+      { title: t("navigation.comments"), url: "/comments", icon: <MessageSquare />, isActive: isUrlMatched(pathname, "/comments") },
+      { title: "Insights", url: "/admin/insights", icon: <BarChart3 />, isActive: isUrlMatched(pathname, "/admin/insights") },
+      { title: t("navigation.trash"), url: "/trash", icon: <Trash2 />, isActive: isUrlMatched(pathname, "/trash") },
     ],
     sysMain: [
-      { title: t("navigation.storage"), url: "/storage", icon: <Database />, isActive: false },
-      { title: "Duplicate Photos", url: "/duplicates", icon: <CopyCheck />, isActive: false },
-      { title: t("navigation.settings"), url: "/settings", icon: <Settings />, isActive: false },
+      { title: t("navigation.storage"), url: "/storage", icon: <Database />, isActive: isUrlMatched(pathname, "/storage") },
+      { title: "Duplicate Photos", url: "/duplicates", icon: <CopyCheck />, isActive: isUrlMatched(pathname, "/duplicates") },
+      { title: t("navigation.settings"), url: "/settings", icon: <Settings />, isActive: isUrlMatched(pathname, "/settings") },
     ],
   }
   const isAdmin = userInfo?.type === UserTypeEnum.ADMIN
@@ -78,8 +79,9 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     : isAdmin
     ? data.navMain
     : [
-        { title: t("navigation.photos"), url: "/photos", icon: <Image />, isActive: isUrlMatched(pathname, "/photos") },
+        { title: t("navigation.photos"), url: "/photos", icon: <ImageIcon />, isActive: isUrlMatched(pathname, "/photos") },
         { title: t("navigation.albums"), url: "/albums", icon: <FolderOpen />, isActive: isUrlMatched(pathname, "/albums") },
+        { title: t("navigation.map"), url: "/map", icon: <MapPin />, isActive: isUrlMatched(pathname, "/map") },
       ]
   const navUser = {
     ...data.user,

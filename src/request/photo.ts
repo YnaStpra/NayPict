@@ -35,6 +35,11 @@ export function photoSetVisibility(params: PhotoSetVisibilityBo) {
   return http.post<void>('/photo/setVisibility', params);
 }
 
+// Query all geotagged photos for the interactive map explorer.
+export function photoMapList() {
+  return http.get<PhotoVo[]>('/photos/map');
+}
+
 // Query the photo list by pagination and conditions.
 export function photoList(params: PhotoListBo) {
   return http.post<PageVo<PhotoVo>>('/photo/list', params);

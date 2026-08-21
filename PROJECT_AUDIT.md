@@ -770,8 +770,8 @@ sequenceDiagram
    - Tambahkan `manifest.json`, icon app PWA, theme color, dan service worker ringan untuk caching shell aplikasi agar galeri foto dapat di-*install* langsung ke layar utama smartphone (iOS & Android) seperti aplikasi native.
 4. **AI-Powered Image Tagging & Semantic Search (CLIP / Vision Model)** *(Smart Features)*:
    - Integrasi pengenalan objek/tema otomatis (misal: "pantai", "sunset", "kucing", "arsitektur") pada foto yang diunggah menggunakan embeddings model ringan untuk pencarian cerdas berbasis teks alami.
-5. **Interactive Global Photo Map Explorer (`/map`)** *(Discovery UX)*:
-   - Halaman eksplorasi peta dunia layar penuh interaktif (menggunakan Leaflet / MapLibre) dengan cluster pin foto berdasarkan koordinat GPS EXIF sehingga pengunjung dapat menjelajahi foto berdasarkan lokasi geografis pengambilan.
+5. **Interactive Global Photo Map Explorer (`/map`)** *(Discovery UX)* - **[SELESAI / IMPLEMENTED]**:
+   - Halaman eksplorasi peta dunia layar penuh interaktif (`src/app/map/page.tsx` & `src/components/map/photo-map-view.tsx`) berbasis Leaflet dengan visual custom HTML pin foto, flyout preview interaktif, drawer carousel foto, pencarian lokasi/album, dan adaptasi tema gelap/terang otomatis.
 6. **Multi-Resolution Image Derivatives & AVIF Support** *(Performance & Bandwidth)* - **[SELESAI / IMPLEMENTED]**:
    - Pipeline pemrosesan gambar multi-tier (2400w lightbox preview, 1200w medium responsive, 400w thumbnail WebP) serta dukungan negosiasi format AVIF & WebP otomatis di Next.js Image optimization (`next.config.ts` & `src/server/lib/photo-process.ts`).
 7. **Client-Side EXIF Privacy Redaction Option** *(Privacy & Compliance)*:
