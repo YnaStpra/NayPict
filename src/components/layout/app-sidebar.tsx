@@ -16,7 +16,7 @@ import {
   SidebarHeader,
   SidebarRail,
 } from "@/components/ui/sidebar"
-import { Archive, Library, MonitorCog, Image as ImageIcon, Heart, Trash2, FolderOpen, Database, Settings, CopyCheck, MessageSquare, BarChart3, MapPin } from "lucide-react"
+import { Archive, Library, MonitorCog, Image as ImageIcon, Images, Heart, Trash2, FolderOpen, Database, Settings, CopyCheck, MessageSquare, BarChart3, MapPin } from "lucide-react"
 
 // Determine whether the current browser path hits the menu URL.
 function isUrlMatched(pathname: string, url: string) {
@@ -61,6 +61,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       { title: t("navigation.trash"), url: "/trash", icon: <Trash2 />, isActive: isUrlMatched(pathname, "/trash") },
     ],
     sysMain: [
+      { title: t("navigation.photoManage") || "Photo Management", url: "/admin/photos", icon: <Images />, isActive: isUrlMatched(pathname, "/admin/photos") },
       { title: t("navigation.storage"), url: "/storage", icon: <Database />, isActive: isUrlMatched(pathname, "/storage") },
       { title: "Duplicate Photos", url: "/duplicates", icon: <CopyCheck />, isActive: isUrlMatched(pathname, "/duplicates") },
       { title: t("navigation.settings"), url: "/settings", icon: <Settings />, isActive: isUrlMatched(pathname, "/settings") },

@@ -9,6 +9,7 @@ interface PhotoTakenDateListBo {
 
 interface PhotoListBo {
   size: number;
+  offset?: number | null;
   cursorPhotoId?: string | null;
   cursorTime?: string | null;
   startTakenTime?: string | null;
@@ -22,6 +23,9 @@ interface PhotoListBo {
   photoIds?: string[] | null;
   sortBy?: 'takenTime' | 'createTime' | 'size' | 'name' | null;
   sortOrder?: 'asc' | 'desc' | null;
+  keyword?: string | null;
+  allowAllVisibility?: boolean | null;
+  allowDownload?: boolean | null;
 }
 
 // Input params for fetching all photo IDs in random order.

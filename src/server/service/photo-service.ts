@@ -1,5 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars */
-import { and, asc, count, desc, eq, getTableColumns, gt, gte, inArray, isNotNull, isNull, lt, lte, or, sql } from 'drizzle-orm';
+import { and, asc, count, desc, eq, getTableColumns, gt, gte, ilike, inArray, isNotNull, isNull, lt, lte, or, sql } from 'drizzle-orm';
 import { createId } from '@/server/lib/id';
 import { type Photo, photoTab } from '@/server/entity/photo';
 import { albumPhotoTab } from '@/server/entity/album-photo';
@@ -86,6 +85,14 @@ const photoService = {
       baseWhereList.push(eq(photoTab.favorite, params.favorite));
     }
 
+    if (params.keyword?.trim()) {
+      baseWhereList.push(ilike(photoTab.name, `%${params.keyword.trim()}%`));
+    }
+
+    if (params.allowDownload !== undefined && params.allowDownload !== null) {
+      baseWhereList.push(eq(photoTab.allowDownload, params.allowDownload ? 1 : 0));
+    }
+
     if (params.startTakenTime) {
       baseWhereList.push(gte(photoTab.takenTime, params.startTakenTime));
     }
@@ -95,9 +102,9 @@ const photoService = {
     }
 
     // Scoped visibility filtering (Both, Gallery Only, Album Only, Archived):
-    if (params.visibility) {
+    if (params.visibility !== undefined && params.visibility !== null) {
       baseWhereList.push(eq(photoTab.visibility, params.visibility));
-    } else if (status === PhotoStatusEnum.NORMAL && (!params.photoIds || params.photoIds.length === 0)) {
+    } else if (!params.allowAllVisibility && status === PhotoStatusEnum.NORMAL && (!params.photoIds || params.photoIds.length === 0)) {
       if (params.albumId) {
         baseWhereList.push(
           or(
@@ -135,6 +142,8 @@ const photoService = {
       }
     }
 
+    const offset = params.offset && params.offset > 0 ? params.offset : 0;
+
     const list = params.albumId
       ? await orm
         .select({
@@ -156,6 +165,7 @@ const photoService = {
             : (params.shuffle && !params.sortBy && !params.cursorPhotoId ? sql`RANDOM()` : sortFn(orderColumn)),
           sortFn(photoTab.photoId)
         )
+        .offset(offset)
         .limit(size)
       : await orm
         .select()
@@ -167,6 +177,7 @@ const photoService = {
             : (params.shuffle && !params.sortBy && !params.cursorPhotoId ? sql`RANDOM()` : sortFn(orderColumn)),
           sortFn(photoTab.photoId)
         )
+        .offset(offset)
         .limit(size);
 
     if (!list.length) {
