@@ -584,13 +584,17 @@ const photoService = {
 
     const { buffer, name, size, type } = await this.readPhotoUpload(file);
     const checksum = await fileChecksum(new Blob([new Uint8Array(buffer)]));
-    const images = await processPhotoImages(buffer);
+    const images = await processPhotoImages(buffer, type);
+
+    const finalBuffer = images.optimizedOriginalBuffer;
+    const finalSize = images.optimizedOriginalSize;
+    const finalType = images.optimizedOriginalType;
 
     // Multi-Tiered Smart Deduplication Check (Checksum, Visual ThumbHash, Resolution & Size, Normalized Filename)
     const existingCheck = await this.exists({
       checksum,
       name,
-      size,
+      size: finalSize,
       width: images.width,
       height: images.height,
       thumbHash: images.thumbHash,
@@ -642,8 +646,8 @@ const photoService = {
     await storage.put([
       {
         key,
-        body: buffer,
-        type,
+        body: finalBuffer,
+        type: finalType,
         metadata: keyMetadata,
       },
       {
@@ -667,9 +671,9 @@ const photoService = {
       name,
       thumbHash: images.thumbHash,
       checksum,
-      type,
-      typeDesc: type.split('/').pop() || type,
-      size,
+      type: finalType,
+      typeDesc: finalType.split('/').pop() || finalType,
+      size: finalSize,
       width: images.width,
       height: images.height,
       takenTime,
@@ -681,7 +685,7 @@ const photoService = {
     }).returning();
 
     const files = await fileService.save([
-      { fileId: createId(), photoId, key, type: FileTypeEnum.ORIGINAL, fileType: type, size },
+      { fileId: createId(), photoId, key, type: FileTypeEnum.ORIGINAL, fileType: finalType, size: finalSize },
       { fileId: createId(), photoId, key: preview, type: FileTypeEnum.PREVIEW, fileType: 'image/jpeg', size: images.previewBuffer.length },
       { fileId: createId(), photoId, key: thumbnail, type: FileTypeEnum.THUMBNAIL, fileType: 'image/webp', size: images.thumbnailBuffer.length },
     ]);

@@ -349,8 +349,8 @@ export function PhotoUploadDialog() {
 
       if (uploadSettings.compressImage || fileToUpload.size > 3.8 * 1024 * 1024) {
         fileToUpload = await compressImageFile(item.file, {
-          maxDimension: 2560,
-          quality: 0.82,
+          maxDimension: 3840,
+          quality: 0.88,
         })
       }
 

@@ -127,15 +127,15 @@ export async function compressImageFile(
   file: File,
   options: CompressImageOptions = {}
 ): Promise<File> {
-  const { maxDimension = 2560, quality = 0.82 } = options;
+  const { maxDimension = 3840, quality = 0.88 } = options;
 
   // 1. Skip non-image or vector files (SVG, GIF animations)
   if (!file.type.startsWith('image/') || file.type === 'image/svg+xml' || file.type === 'image/gif') {
     return file;
   }
 
-  // 2. Skip small files (< 400KB) unless it is a large dimension file
-  if (file.size < 400 * 1024) {
+  // 2. Skip tiny files (< 150KB) that are already compact
+  if (file.size < 150 * 1024) {
     return file;
   }
 
@@ -150,8 +150,8 @@ export async function compressImageFile(
 
           let { width, height } = img;
 
-          // Adaptive target dimension based on original file size
-          const targetDimension = file.size > 8 * 1024 * 1024 ? Math.min(maxDimension, 2048) : maxDimension;
+          // Preserve crisp high resolution up to 4K UHD (3840px)
+          const targetDimension = maxDimension;
 
           // Calculate scaling maintaining original aspect ratio
           if (width > targetDimension || height > targetDimension) {
@@ -189,19 +189,19 @@ export async function compressImageFile(
                   return;
                 }
 
-                // If blob is still > 3.8MB, perform a quick secondary pass
+                // If blob is still > 4.0MB, perform a quick secondary pass for serverless upload safety
                 let finalBlob = blob;
-                if (blob.size > 3.8 * 1024 * 1024) {
+                if (blob.size > 4.0 * 1024 * 1024) {
                   const secondaryCanvas = document.createElement('canvas');
-                  const sWidth = Math.round(width * 0.8);
-                  const sHeight = Math.round(height * 0.8);
+                  const sWidth = Math.round(width * 0.85);
+                  const sHeight = Math.round(height * 0.85);
                   secondaryCanvas.width = sWidth;
                   secondaryCanvas.height = sHeight;
                   const sCtx = secondaryCanvas.getContext('2d');
                   if (sCtx) {
                     sCtx.drawImage(canvas, 0, 0, sWidth, sHeight);
                     const reducedBlob = await new Promise<Blob | null>((res) =>
-                      secondaryCanvas.toBlob(res, 'image/jpeg', 0.78)
+                      secondaryCanvas.toBlob(res, 'image/jpeg', 0.82)
                     );
                     if (reducedBlob && reducedBlob.size < blob.size) {
                       finalBlob = reducedBlob;
@@ -219,7 +219,12 @@ export async function compressImageFile(
                   lastModified: file.lastModified,
                 });
 
-                resolve(compressedFile);
+                // Strictly adopt compressed file only if it reduces file size
+                if (compressedFile.size < file.size) {
+                  resolve(compressedFile);
+                } else {
+                  resolve(file);
+                }
               } catch (blobErr) {
                 console.warn('Blob EXIF preservation fallback, using original file:', blobErr);
                 resolve(file);
