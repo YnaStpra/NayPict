@@ -468,16 +468,25 @@ const photoService = {
     return key;
   },
 
-  // According to the deduplication settings, SHA-1, visual thumbHash, and dimensions, determine whether duplicate photo exists.
+  // Helper to normalize copy suffixes (e.g. "IMG_1234 (1)" -> "IMG_1234", "photo - Copy" -> "photo").
+  stripCopySuffix(filename: string): string {
+    const base = filename.replace(/\.[^/.]+$/, '');
+    return base
+      .replace(/\s*\((?:copy|\d+)\)$/i, '')
+      .replace(/[\s_-]+(?:copy|salinan)$/i, '')
+      .trim()
+      .toLowerCase();
+  },
+
+  // High-precision deduplication check: uses cryptographic SHA-1 checksum or exact copy metadata matching.
   async exists(params: PhotoExistsBo, userId?: string): Promise<PhotoExistsVo> {
     const checksum = params.checksum?.trim();
     const name = params.name?.trim();
     const size = params.size;
     const width = params.width;
     const height = params.height;
-    const thumbHash = params.thumbHash?.trim();
 
-    if (!checksum && !name && !thumbHash) {
+    if (!checksum && !name) {
       return { duplicate: false };
     }
 
@@ -494,29 +503,12 @@ const photoService = {
       baseConditions.push(eq(photoTab.userId, userId));
     }
 
-    const matchOrList: any[] = [];
+    // 1. Exact Binary Checksum Match (100% Guaranteed Exact File)
     if (checksum) {
-      matchOrList.push(eq(photoTab.checksum, checksum));
-    }
-    if (thumbHash) {
-      matchOrList.push(eq(photoTab.thumbHash, thumbHash));
-    }
-    if (width && height && size) {
-      matchOrList.push(
-        and(
-          eq(photoTab.width, width),
-          eq(photoTab.height, height),
-          gte(photoTab.size, Math.floor(size * 0.95)),
-          lte(photoTab.size, Math.ceil(size * 1.05))
-        )
-      );
-    }
-
-    if (matchOrList.length > 0) {
       const [duplicatePhoto] = await orm
         .select({ photoId: photoTab.photoId })
         .from(photoTab)
-        .where(and(...baseConditions, or(...matchOrList)!))
+        .where(and(...baseConditions, eq(photoTab.checksum, checksum)))
         .limit(1);
 
       if (duplicatePhoto) {
@@ -524,22 +516,32 @@ const photoService = {
       }
     }
 
-    // Normalized name + dimension or size matching fallback
-    if (name) {
-      const cleanName = name.toLowerCase().trim().replace(/\.[^/.]+$/, '').replace(/[\s_–-]+(copy|salinan|\d+)/gi, '').replace(/\(\d+\)/g, '').replace(/[^a-z0-9]/g, '');
-      if (cleanName.length >= 3) {
+    // 2. Exact Duplicate Copy Match (Same base filename copy AND exact identical file size AND exact dimensions)
+    if (name && size && width && height) {
+      const baseClean = this.stripCopySuffix(name);
+      if (baseClean.length >= 3) {
         const candidates = await orm
-          .select({ photoId: photoTab.photoId, name: photoTab.name, size: photoTab.size, width: photoTab.width, height: photoTab.height })
+          .select({
+            photoId: photoTab.photoId,
+            name: photoTab.name,
+            size: photoTab.size,
+            width: photoTab.width,
+            height: photoTab.height
+          })
           .from(photoTab)
-          .where(and(...baseConditions))
-          .limit(100);
+          .where(
+            and(
+              ...baseConditions,
+              eq(photoTab.width, width),
+              eq(photoTab.height, height),
+              eq(photoTab.size, size)
+            )
+          )
+          .limit(20);
 
         const matched = candidates.find((c) => {
-          const cClean = c.name.toLowerCase().trim().replace(/\.[^/.]+$/, '').replace(/[\s_–-]+(copy|salinan|\d+)/gi, '').replace(/\(\d+\)/g, '').replace(/[^a-z0-9]/g, '');
-          if (cClean !== cleanName) return false;
-          if (width && height && c.width === width && c.height === height) return true;
-          if (size && c.size && Math.abs(c.size - size) <= Math.max(1024, size * 0.08)) return true;
-          return false;
+          if (!c.name) return false;
+          return this.stripCopySuffix(c.name) === baseClean;
         });
 
         if (matched) {
@@ -1206,18 +1208,12 @@ const photoService = {
       matchReasonsMap.set(photoId, set);
     }
 
-    // 1. Group by Checksum
+    // 1. Group by Cryptographic Checksum (100% Exact Binary Match)
     const checksumMap = new Map<string, string[]>();
-    // 2. Group by ThumbHash
-    const thumbHashMap = new Map<string, string[]>();
-    // 3. Group by Dimensions + Size (width x height x size)
-    const dimSizeMap = new Map<string, string[]>();
-    // 4. Group by Normalized Name + Dimensions (width x height)
-    const nameDimMap = new Map<string, string[]>();
-    // 5. Group by Normalized Name + Approximate Size (tolerance 5%)
-    const nameApproxSizeMap = new Map<string, string[]>();
-    // 6. Group by EXIF Taken Time + Dimensions
-    const takenTimeDimMap = new Map<string, string[]>();
+    // 2. Group by Exact File Copy (Same Normalized Name + Exact Width + Exact Height + Exact Size)
+    const fileCopyMap = new Map<string, string[]>();
+    // 3. Group by Exact Shooting Timestamp + Dimensions + Exact Size + Visual ThumbHash
+    const perceptualMetaMap = new Map<string, string[]>();
 
     for (const p of list) {
       find(p.photoId); // Register node in DSU
@@ -1228,44 +1224,22 @@ const photoService = {
         checksumMap.set(p.checksum, arr);
       }
 
-      if (p.thumbHash) {
-        const arr = thumbHashMap.get(p.thumbHash) ?? [];
-        arr.push(p.photoId);
-        thumbHashMap.set(p.thumbHash, arr);
-      }
-
-      if (p.width && p.height && p.size) {
-        const dimKey = `${p.width}x${p.height}:${p.size}`;
-        const arr = dimSizeMap.get(dimKey) ?? [];
-        arr.push(p.photoId);
-        dimSizeMap.set(dimKey, arr);
-      }
-
-      if (p.name) {
-        const cleanName = p.name.toLowerCase().trim().replace(/\.[^/.]+$/, '').replace(/[\s_–-]+(copy|salinan|\d+)/gi, '').replace(/\(\d+\)/g, '').replace(/[^a-z0-9]/g, '');
+      if (p.name && p.width && p.height && p.size) {
+        const cleanName = this.stripCopySuffix(p.name);
         if (cleanName.length >= 3) {
-          if (p.width && p.height) {
-            const key = `${cleanName}:${p.width}x${p.height}`;
-            const arr = nameDimMap.get(key) ?? [];
-            arr.push(p.photoId);
-            nameDimMap.set(key, arr);
-          }
-          if (p.size) {
-            const bucketSize = Math.round(p.size / 10240); // 10KB bucket tolerance
-            const key = `${cleanName}:${bucketSize}`;
-            const arr = nameApproxSizeMap.get(key) ?? [];
-            arr.push(p.photoId);
-            nameApproxSizeMap.set(key, arr);
-          }
+          const key = `${cleanName}:${p.width}x${p.height}:${p.size}`;
+          const arr = fileCopyMap.get(key) ?? [];
+          arr.push(p.photoId);
+          fileCopyMap.set(key, arr);
         }
       }
 
-      if (p.takenTime && p.width && p.height) {
+      if (p.takenTime && p.width && p.height && p.size && p.thumbHash) {
         const timeSec = p.takenTime.substring(0, 19); // YYYY-MM-DDTHH:mm:ss
-        const key = `${timeSec}:${p.width}x${p.height}`;
-        const arr = takenTimeDimMap.get(key) ?? [];
+        const key = `${timeSec}:${p.width}x${p.height}:${p.size}:${p.thumbHash}`;
+        const arr = perceptualMetaMap.get(key) ?? [];
         arr.push(p.photoId);
-        takenTimeDimMap.set(key, arr);
+        perceptualMetaMap.set(key, arr);
       }
     }
 
@@ -1280,53 +1254,23 @@ const photoService = {
       }
     }
 
-    for (const [, pIds] of thumbHashMap.entries()) {
+    for (const [, pIds] of fileCopyMap.entries()) {
       if (pIds.length >= 2) {
         for (let i = 1; i < pIds.length; i++) {
           union(pIds[0], pIds[i]);
-          addReason(pIds[i], 'Identical Visual Appearance');
+          addReason(pIds[i], 'Exact Duplicate File Copy');
         }
-        addReason(pIds[0], 'Identical Visual Appearance');
+        addReason(pIds[0], 'Exact Duplicate File Copy');
       }
     }
 
-    for (const [, pIds] of dimSizeMap.entries()) {
+    for (const [, pIds] of perceptualMetaMap.entries()) {
       if (pIds.length >= 2) {
         for (let i = 1; i < pIds.length; i++) {
           union(pIds[0], pIds[i]);
-          addReason(pIds[i], 'Same Resolution & File Size');
+          addReason(pIds[i], 'Identical Timestamp & Visual Signature');
         }
-        addReason(pIds[0], 'Same Resolution & File Size');
-      }
-    }
-
-    for (const [, pIds] of nameDimMap.entries()) {
-      if (pIds.length >= 2) {
-        for (let i = 1; i < pIds.length; i++) {
-          union(pIds[0], pIds[i]);
-          addReason(pIds[i], 'Same File Name & Resolution');
-        }
-        addReason(pIds[0], 'Same File Name & Resolution');
-      }
-    }
-
-    for (const [, pIds] of nameApproxSizeMap.entries()) {
-      if (pIds.length >= 2) {
-        for (let i = 1; i < pIds.length; i++) {
-          union(pIds[0], pIds[i]);
-          addReason(pIds[i], 'Similar File Name & Size');
-        }
-        addReason(pIds[0], 'Similar File Name & Size');
-      }
-    }
-
-    for (const [, pIds] of takenTimeDimMap.entries()) {
-      if (pIds.length >= 2) {
-        for (let i = 1; i < pIds.length; i++) {
-          union(pIds[0], pIds[i]);
-          addReason(pIds[i], 'Identical Date & Resolution');
-        }
-        addReason(pIds[0], 'Identical Date & Resolution');
+        addReason(pIds[0], 'Identical Timestamp & Visual Signature');
       }
     }
 

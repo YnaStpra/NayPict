@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState, type MouseEvent } from "react"
+import { useEffect, useMemo, useState, type MouseEvent } from "react"
 import { FolderIcon, PinIcon } from "lucide-react"
 import { type RenderComponentProps } from "masonic"
 import { useIsMobile } from "@/hooks/use-mobile"
@@ -70,11 +70,30 @@ export function PhotoCard({
   const [showTouchHover, setShowTouchHover] = useState(false)
   // holdHover Momentarily lock hover information when clicking to open viewer，Avoid instant retraction of zoom animation。
   const [holdHover, setHoldHover] = useState(false)
-  // imageError Record whether the current photo thumbnail failed to load。
+  // Multi-tier fallback src state: thumbnail -> preview -> original key
+  const [imageSrc, setImageSrc] = useState<string | null>(() => data.thumbnail || data.preview || data.key || null)
+  // imageError Record whether all photo URLs failed to load.
   const [imageError, setImageError] = useState(false)
   // isMobile Determine whether the current viewport is the mobile terminal。
   const isMobile = useIsMobile()
   const showHover = showTouchHover || holdHover
+
+  // Reset image source when data changes
+  useEffect(() => {
+    setImageSrc(data.thumbnail || data.preview || data.key || null)
+    setImageError(false)
+  }, [data.thumbnail, data.preview, data.key])
+
+  // Handle graceful image fallback
+  function handleImageError() {
+    if (imageSrc === data.thumbnail && data.preview && data.preview !== data.thumbnail) {
+      setImageSrc(data.preview)
+    } else if (imageSrc !== data.key && data.key) {
+      setImageSrc(data.key)
+    } else {
+      setImageError(true)
+    }
+  }
 
   // Toggle the selection status of the current photo。
   function changeSelected(checked: boolean) {
@@ -157,7 +176,7 @@ export function PhotoCard({
         </div>
       ) : (
         <img
-          src={src ?? undefined}
+          src={imageSrc ?? undefined}
           loading="lazy"
           decoding="async"
           crossOrigin="anonymous"
@@ -168,10 +187,7 @@ export function PhotoCard({
             selectionActive ? "" : "group-hover:scale-105",
             showHover && !selectionActive ? "scale-105" : "",
           ].join(" ")}
-          onError={(event) => {
-            event.currentTarget.style.display = "none"
-            setImageError(true)
-          }}
+          onError={handleImageError}
         />
       )}
       {selected && (

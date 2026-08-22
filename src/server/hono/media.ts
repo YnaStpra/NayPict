@@ -62,7 +62,14 @@ media.get('*', async (c: Context, next: Next) => {
 
   const photoFile = await getPhotoFile(key);
 
-  if (!photoFile?.key || !photoFile?.storageId || photoFile.status !== PhotoStatusEnum.NORMAL) {
+  if (!photoFile?.key || !photoFile?.storageId) {
+    return next();
+  }
+
+  const userId = getUserId();
+
+  // If photo is in trash / recycled, only allow authenticated user/admin to view
+  if (photoFile.status === PhotoStatusEnum.DELETE && !userId) {
     return next();
   }
 
