@@ -31,9 +31,10 @@ function handleUnauthorized() {
   }
 }
 
-// send POST Request and return interface data。
+// send POST Request and return interface data.
 async function post<T = unknown>(url: string, params: RequestParams = null) {
   const headers = new Headers();
+  headers.set('X-Requested-With', 'XMLHttpRequest');
   let body: BodyInit | null = null;
 
   if (params instanceof FormData) {

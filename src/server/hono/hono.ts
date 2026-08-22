@@ -4,6 +4,7 @@ import result from '../model/result';
 import { cors } from 'hono/cors';
 import BizError from '../error/biz-error';
 import { security } from '../security/security';
+import { csrfProtection } from '../security/csrf';
 import { i18nMiddleware, t } from '@/server/i18n';
 import type { HonoEnv } from './type';
 
@@ -15,6 +16,7 @@ export function createHonoApp() {
   instance.use('*', cors());
   instance.use('*', contextStorage());
   instance.use('*', i18nMiddleware);
+  instance.use('*', csrfProtection);
   instance.use('*', security);
 
   instance.onError((err, c) => {

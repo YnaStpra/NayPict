@@ -48,5 +48,8 @@
   "comment.rateLimited": "Too many comments sent. Please wait a moment before trying again.",
   "comment.botDetected": "Automated bot activity detected. Submission blocked.",
   "comment.tooFast": "Comment submitted too quickly. Please take a moment before posting.",
-  "comment.captchaFailed": "Security verification failed. Please try again."
+  "comment.captchaFailed": "Security verification failed. Please try again.",
+  "csrf.originMismatch": "Request origin validation failed. Action blocked by CSRF protection.",
+  "csrf.originRequired": "Origin header is required for sensitive administrative operations.",
+  "csrf.invalidHeader": "Invalid request headers for sensitive operation."
 }

@@ -495,6 +495,7 @@ erDiagram
 | 🟢 **RESOLVED** | Password Hash Algorithm | `src/server/lib/crypto.ts` & `login-service.ts` | Password hashing upgraded to Argon2id via WASM with transparent automatic migration. |
 | 🟢 **RESOLVED** | Distributed Rate Limiting | `src/server/lib/rate-limiter.ts` & `cache.ts` | Multi-backend distributed rate limiter supporting Upstash Redis REST API, shared PostgreSQL `cacheTab`, and in-memory fallback. |
 | 🟢 **RESOLVED** | Strict RBAC & IDOR Defense | `album-service.ts` & `photo-service.ts` | Strict tenant ownership verification across all album & photo mutations, plus unauthenticated access guard on recycled/archived items. |
+| 🟢 **RESOLVED** | CSRF Defense (Sensitive Mutations) | `src/server/security/csrf.ts` & `request.ts` | Strict Origin/Referer matching, origin enforcement on sensitive paths, and unforgeable custom request headers. |
 | 🟢 **RESOLVED** | Bot & Spam Protection | `comment-service.ts` & `photo-comments.tsx` | Invisible honeypot field, minimum interaction time (1.5s), and Cloudflare Turnstile integration on public comment forms. |
 | 🟢 **RESOLVED** | UI Language Standardization | All TSX components & JSON locales | All UI text, dialogs, toasts, error messages, and settings converted to fluent English. |
 | 🟢 **LOW** | External Geocode API | `src/server/service/location-service.ts` | Uses OSM Nominatim with robust in-memory LRU caching. |
@@ -604,31 +605,27 @@ Berikut adalah **10 prioritas rekomendasi audit keamanan terbaru** untuk memperk
 - **Kondisi Saat Ini**: Kredensial bucket `accessKey` dan `secretKey` tersimpan sebagai plaintext di tabel `storage`.
 - **Rekomendasi**: Enkripsi kolom `secretKey` dan `accessKey` sebelum disimpan ke database menggunakan algoritma **AES-256-GCM** atau **ChaCha20-Poly1305** dengan kunci master `STORAGE_ENCRYPTION_KEY` dari environment variables.
 
-### 2. **Perketat Proteksi CSRF (Cross-Site Request Forgery) untuk Mutasi Sensitif**
-- **Kondisi Saat Ini**: Cookie session `naypict_token` menggunakan `sameSite: 'Lax'`.
-- **Rekomendasi**: Terapkan validasi ketat `Origin` dan `Referer` matching atau mekanisme *Double Submit Anti-CSRF Token* pada endpoint mutasi sensitif tingkat tinggi (penggantian password, perubahan kredensial R2/S3 storage, dan pengosongan permanen *Recycle Bin*).
-
-### 3. **Sanitasi Ketat Metadata EXIF (Mencegah Stored XSS via File Header)**
+### 2. **Sanitasi Ketat Metadata EXIF (Mencegah Stored XSS via File Header)**
 - **Kondisi Saat Ini**: Metadata EXIF kamera diparsing dan disimpan ke database, kemudian dirender di antarmuka lightbox detail foto.
 - **Rekomendasi**: String bebas pada tag EXIF (seperti `ImageDescription`, `Artist`, `Copyright`, `Software`, dan `UserComment`) wajib melalui sanitasi encoding / HTML escape sebelum dirender ke DOM untuk mencegah payload Stored XSS yang disisipkan melalui file gambar manipulatif.
 
-### 4. **Sandboxed Serving & Strict Security Headers pada Domain CDN / Media Proxy**
+### 3. **Sandboxed Serving & Strict Security Headers pada Domain CDN / Media Proxy**
 - **Kondisi Saat Ini**: File media asli dan thumbnail disajikan melalui CDN atau proxy endpoint.
 - **Rekomendasi**: Pastikan header respons file selalu menyertakan:
   - `X-Content-Type-Options: nosniff` (mencegah MIME-sniffing browser).
   - `Content-Security-Policy: sandbox; default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'` pada domain direct media serving untuk mengisolasi eksekusi skrip berbahaya.
 
-### 5. **Automated Secret Scanning & Dependency Vulnerability Gate di CI/CD**
+### 4. **Automated Secret Scanning & Dependency Vulnerability Gate di CI/CD**
 - **Kondisi Saat Ini**: Pengecekan dependensi dan audit kode dilakukan secara manual.
 - **Rekomendasi**: Tambahkan pipeline GitHub Actions otomatis:
   - `npm audit --audit-level=high` untuk memblokir deployment jika ditemukan dependensi dengan kerentanan kritis.
   - Secret Scanner (**TruffleHog** / **GitGuardian**) untuk memastikan `JWT_SECRET`, database connection string, atau kunci Cloudflare R2 tidak pernah ter-commit ke public repository.
 
-### 6. **Pencegahan Replay Attack & Emergency Backup Codes pada TOTP 2FA**
+### 5. **Pencegahan Replay Attack & Emergency Backup Codes pada TOTP 2FA**
 - **Kondisi Saat Ini**: TOTP memvalidasi kode 6-digit dalam jendela waktu standar RFC 6238.
 - **Rekomendasi**: Sediakan 8-10 *Single-Use Emergency Backup Codes* terenkripsi saat user pertama kali mengaktifkan 2FA jika sewaktu-waktu kehilangan akses ke aplikasi Google Authenticator.
 
-### 7. **Security Audit Trail Logging untuk Aksi Administratif Krusial**
+### 6. **Security Audit Trail Logging untuk Aksi Administratif Krusial**
 - **Kondisi Saat Ini**: Logging aksi administratif belum dicatat ke tabel audit trail khusus.
 - **Rekomendasi**: Buat tabel `security_audit_log` untuk mencatat rekam jejak aktivitas penting:
   - Percobaan login gagal berulang kali (indikasi brute-force).
@@ -637,14 +634,18 @@ Berikut adalah **10 prioritas rekomendasi audit keamanan terbaru** untuk memperk
   - Penghapusan massal atau pengosongan tempat sampah (*Recycle Bin*).
   - Setiap log mencatat: `userId`, `action`, `ipAddress`, `userAgent`, dan `timestamp`.
 
-### 8. **Session Token Rotation & Inactivity Timeout**
+### 7. **Session Token Rotation & Inactivity Timeout**
 - **Kondisi Saat Ini**: Token JWT memiliki masa berlaku statis (7 hari).
 - **Rekomendasi**: Terapkan rotasi token berkala dan pembaruan session identifier (`uuidList`) saat ada aktivitas baru, serta sediakan konfigurasi *inactivity timeout* untuk sesi administrator guna meminimalkan risiko pembajakan sesi (*session hijacking*).
 
-### 9. **Subresource Integrity (SRI) & External Asset Sandboxing**
+### 8. **Subresource Integrity (SRI) & External Asset Sandboxing**
 - **Kondisi Saat Ini**: Beberapa asset eksternal (misal: Leaflet CSS/JS tiles dan Google Fonts) dimuat melalui CDN pihak ketiga.
 - **Rekomendasi**: Terapkan hash Subresource Integrity (`integrity="sha384-..."`) dan perketat directive CSP `connect-src` & `script-src` untuk mencegah *supply-chain attacks* pada library frontend pihak ketiga.
 
-### 10. **ReDoS (Regular Expression Denial of Service) Hardening & Input Length Limits**
+### 9. **ReDoS (Regular Expression Denial of Service) Hardening & Input Length Limits**
 - **Kondisi Saat Ini**: Input pencarian keyword dan parsing URL menggunakan regex standar.
 - **Rekomendasi**: Terapkan batas panjang input yang ketat pada endpoint search/filter dan hindari pola regular expression dengan kompleksitas kuadratik/eksponensial (*catastrophic backtracking*) guna mencegah serangan ReDoS yang dapat melumpuhkan event loop server.
+
+### 10. **Secure Cookie Prefixing (`__Host-`) & Strict Partitioning**
+- **Kondisi Saat Ini**: Cookie session menggunakan nama `naypict_token`.
+- **Rekomendasi**: Di lingkungan production HTTPS, adopsi cookie prefix `__Host-naypict_token` untuk mencegah manipulasi cookie dari subdomain yang tidak terpercaya serta memastikan cookie selalu memiliki atribut `Secure`, `Path=/`, dan tidak terikat subdomain liar.
