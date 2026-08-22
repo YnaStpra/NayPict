@@ -106,7 +106,7 @@ export function registerPhotoApi(app: Hono<HonoEnv>) {
         c.req.header('x-forwarded-for')?.split(',')[0].trim() ||
         c.req.header('x-real-ip') ||
         'unknown';
-      const rateLimit = downloadRateLimiter.consume(clientIp);
+      const rateLimit = await downloadRateLimiter.consume(clientIp);
       if (!rateLimit.allowed) {
         return c.json({
           code: 429,
@@ -151,7 +151,7 @@ export function registerPhotoApi(app: Hono<HonoEnv>) {
         c.req.header('x-forwarded-for')?.split(',')[0].trim() ||
         c.req.header('x-real-ip') ||
         'unknown';
-      const rateLimit = downloadRateLimiter.consume(clientIp);
+      const rateLimit = await downloadRateLimiter.consume(clientIp);
       if (!rateLimit.allowed) {
         return c.json({
           code: 429,

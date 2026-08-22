@@ -16,6 +16,7 @@ import { fileService } from '@/server/service/file-service';
 import { storageService } from '@/server/service/storage-service';
 import { formatHttpUrl, toMediaUrl } from '@/lib/url';
 import { FileTypeEnum } from '@/server/enums/file-enum';
+import { commentRateLimiter } from '@/server/lib/rate-limiter';
 
 // This module handles business logic and storage operations for photo comments and admin replies.
 
@@ -201,14 +202,12 @@ const commentService = {
       throw new BizError('comment.captchaFailed');
     }
 
-    // 5. Rate Limiting Protection: max 10 comments per minute per IP
+    // 5. Distributed Rate Limiting Protection: max 10 comments per minute per IP
     if (clientIp) {
-      const rateLimitKey = `comment_ratelimit_${clientIp}`;
-      const attempts = (await cache.get<number>(rateLimitKey)) ?? 0;
-      if (attempts >= 10) {
+      const rateLimit = await commentRateLimiter.consume(clientIp);
+      if (!rateLimit.allowed) {
         throw new BizError('comment.rateLimited');
       }
-      await cache.set(rateLimitKey, attempts + 1, { ttl: 60 });
     }
 
     // 6. Insert new comment record

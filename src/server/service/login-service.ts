@@ -43,8 +43,8 @@ const loginService = {
 
   // Verify username and password, with optional 2FA code verification.
   async login(params: LoginBo, clientIp: string): Promise<LoginVo> {
-    // Sliding window in-memory rate limiting: max 5 failed attempts per 15 minutes per IP
-    const rateLimit = loginRateLimiter.check(clientIp);
+    // Distributed rate limiting: max 5 failed attempts per 15 minutes per IP
+    const rateLimit = await loginRateLimiter.check(clientIp);
     if (!rateLimit.allowed) {
       throw new BizError('login.tooManyAttempts');
     }
@@ -66,7 +66,7 @@ const loginService = {
         // Lockout: invalidate tempToken after 3 failed guesses
         await cache.delete(`temp_2fa_${params.tempToken}`);
         await cache.delete(attemptKey);
-        loginRateLimiter.consume(clientIp);
+        await loginRateLimiter.consume(clientIp);
         throw new BizError('totp.sessionExpired');
       }
 
@@ -75,14 +75,14 @@ const loginService = {
       } catch {
         // Increment failure counter
         await cache.set(attemptKey, totpAttempts + 1, { ttl: 300 });
-        loginRateLimiter.consume(clientIp);
+        await loginRateLimiter.consume(clientIp);
         throw new BizError('totp.invalidCode');
       }
 
       // Success: clean up both tempToken and attempt counter
       await cache.delete(`temp_2fa_${params.tempToken}`);
       await cache.delete(attemptKey);
-      loginRateLimiter.reset(clientIp);
+      await loginRateLimiter.reset(clientIp);
 
       const [user] = await orm.select().from(userTab).where(eq(userTab.userId, cachedUserId)).limit(1);
       if (!user) throw new BizError('login.invalidCredentials');
@@ -100,7 +100,7 @@ const loginService = {
     const [user] = await orm.select().from(userTab).where(eq(userTab.username, params.username)).limit(1);
 
     if (!user) {
-      loginRateLimiter.consume(clientIp);
+      await loginRateLimiter.consume(clientIp);
       throw new BizError("login.invalidCredentials");
     }
 
@@ -111,7 +111,7 @@ const loginService = {
     const { valid: isValidPassword, needsRehash } = await verifyPasswordDetailed(params.password, user.salt, user.password);
 
     if (!isValidPassword) {
-      loginRateLimiter.consume(clientIp);
+      await loginRateLimiter.consume(clientIp);
       throw new BizError('login.invalidCredentials');
     }
 
@@ -139,7 +139,7 @@ const loginService = {
         try {
           await totpService.verifyLoginTotp(user.userId, params.code);
         } catch {
-          loginRateLimiter.consume(clientIp);
+          await loginRateLimiter.consume(clientIp);
           throw new BizError('totp.invalidCode');
         }
       } else {
@@ -154,7 +154,7 @@ const loginService = {
     }
 
     // Reset rate limiter on successful authentication
-    loginRateLimiter.reset(clientIp);
+    await loginRateLimiter.reset(clientIp);
 
     if (user.username === process.env.NEXT_PUBLIC_DEMO_USERNAME) {
       const token = await createLoginToken(user.userId, 'demo');
