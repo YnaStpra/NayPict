@@ -929,6 +929,15 @@ const photoService = {
       return null;
     }
 
+    // Hide recycled or archived photos from unauthenticated visitors (IDOR / Visibility guard)
+    if (photo.status === PhotoStatusEnum.DELETE && !currentUserId) {
+      return null;
+    }
+
+    if (photo.visibility === PhotoVisibilityEnum.ARCHIVED && !currentUserId) {
+      return null;
+    }
+
     const fileStorageList = await storageService.getStorageList();
     const fileStorage = fileStorageList.find((item: any) => item.storageId === photo.storageId);
     const domain = formatHttpUrl(fileStorage?.domain);
@@ -964,9 +973,20 @@ const photoService = {
       throw new BizError('photo.selectRequired');
     }
 
-    const whereList = [inArray(photoTab.photoId, params.photoIds)];
+    // Strictly verify photo ownership (IDOR prevention)
+    const selectWhere = [inArray(photoTab.photoId, params.photoIds)];
     if (userId) {
-      whereList.push(eq(photoTab.userId, userId));
+      selectWhere.push(eq(photoTab.userId, userId));
+    }
+
+    const userPhotos = await orm
+      .select({ photoId: photoTab.photoId })
+      .from(photoTab)
+      .where(and(...selectWhere));
+
+    const verifiedPhotoIds = userPhotos.map((p) => p.photoId);
+    if (!verifiedPhotoIds.length) {
+      return;
     }
 
     const updates: Record<string, any> = {};
@@ -987,13 +1007,13 @@ const photoService = {
       await orm
         .update(photoTab)
         .set(updates)
-        .where(and(...whereList));
+        .where(inArray(photoTab.photoId, verifiedPhotoIds));
     }
 
-    // If latitude or longitude is specified in batch edit, update EXIF GPS coordinates
+    // If latitude or longitude is specified in batch edit, update EXIF GPS coordinates strictly on verified photos
     if (params.latitude !== undefined || params.longitude !== undefined) {
       await exifService.updateLocation(
-        params.photoIds,
+        verifiedPhotoIds,
         params.latitude !== undefined ? params.latitude : null,
         params.longitude !== undefined ? params.longitude : null
       );

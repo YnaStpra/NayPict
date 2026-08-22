@@ -254,6 +254,22 @@ const albumService = {
     }
 
     if (params.photoId !== undefined) {
+      if (params.photoId) {
+        const [validPhoto] = await orm
+          .select({ photoId: photoTab.photoId })
+          .from(photoTab)
+          .where(and(
+            eq(photoTab.photoId, params.photoId),
+            eq(photoTab.userId, userId),
+            eq(photoTab.status, PhotoStatusEnum.NORMAL)
+          ))
+          .limit(1);
+
+        if (!validPhoto) {
+          throw new BizError('photo.notFound');
+        }
+      }
+
       await orm
         .update(albumTab)
         .set({
@@ -261,7 +277,10 @@ const albumService = {
           isManualCover: 1,
           updateTime: new Date().toISOString()
         })
-        .where(eq(albumTab.albumId, params.albumId));
+        .where(and(
+          eq(albumTab.albumId, params.albumId),
+          eq(albumTab.userId, userId)
+        ));
     }
   },
 
@@ -323,6 +342,7 @@ const albumService = {
       throw new BizError('album.selectRequired');
     }
 
+    // Verify candidate photos belong to the requesting user (IDOR prevention)
     const candidatePhotos = await orm
       .select()
       .from(photoTab)
@@ -335,7 +355,21 @@ const albumService = {
       return;
     }
 
-    for (const albumId of params.albumIds) {
+    // Verify target albums belong to the requesting user (IDOR prevention)
+    const targetAlbums = await orm
+      .select({ albumId: albumTab.albumId })
+      .from(albumTab)
+      .where(and(
+        inArray(albumTab.albumId, params.albumIds),
+        eq(albumTab.userId, userId)
+      ));
+
+    const verifiedAlbumIds = targetAlbums.map((a) => a.albumId);
+    if (!verifiedAlbumIds.length) {
+      return;
+    }
+
+    for (const albumId of verifiedAlbumIds) {
       // Query all existing photos in this album to check for duplicates
       const existingRows = await orm
         .select({
@@ -453,6 +487,20 @@ const albumService = {
       throw new BizError('photo.selectRequired');
     }
 
+    // Verify album ownership (IDOR prevention)
+    const [album] = await orm
+      .select({ albumId: albumTab.albumId })
+      .from(albumTab)
+      .where(and(
+        eq(albumTab.albumId, params.albumId),
+        eq(albumTab.userId, userId)
+      ))
+      .limit(1);
+
+    if (!album) {
+      throw new BizError('album.notFound');
+    }
+
     const [albumPhoto] = await orm
       .select({
         id: albumPhotoTab.id,
@@ -499,6 +547,19 @@ const albumService = {
 
   // Delete album.
   async delete(params: AlbumDeleteBo, userId: string): Promise<void> {
+    // Verify album ownership before deletion (IDOR prevention)
+    const [album] = await orm
+      .select({ albumId: albumTab.albumId })
+      .from(albumTab)
+      .where(and(
+        eq(albumTab.albumId, params.albumId),
+        eq(albumTab.userId, userId)
+      ))
+      .limit(1);
+
+    if (!album) {
+      return;
+    }
 
     await orm.delete(albumPhotoTab)
       .where(eq(albumPhotoTab.albumId, params.albumId));
