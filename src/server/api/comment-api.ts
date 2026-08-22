@@ -72,7 +72,7 @@ export function registerCommentApi(app: Hono<HonoEnv>) {
   // Add a new comment to a photo (RESTful route).
   app.post('/photos/:photoId/comments', async (c: Context) => {
     const photoId = c.req.param('photoId') ?? '';
-    const body = await c.req.json<{ name: string; content: string }>().catch(() => ({ name: '', content: '' }));
+    const body = await c.req.json<CommentAddBo>().catch(() => ({ photoId: '', name: '', content: '' }));
 
     const clientIp =
       c.req.header('x-forwarded-for')?.split(',')[0].trim() ||
@@ -80,9 +80,8 @@ export function registerCommentApi(app: Hono<HonoEnv>) {
       'unknown';
 
     const data = await commentService.add({
+      ...body,
       photoId,
-      name: body.name,
-      content: body.content,
     }, clientIp);
 
     return c.json(result.ok(data));

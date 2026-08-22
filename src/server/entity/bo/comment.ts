@@ -9,6 +9,10 @@ interface CommentAddBo {
   content: string;
   // Optional Cloudflare Turnstile verification token.
   turnstileToken?: string;
+  // Invisible honeypot field (must remain empty for human users).
+  website?: string;
+  // Client interaction timestamp (epoch ms) for minimum interaction time verification.
+  timestamp?: number;
 }
 
 interface CommentDeleteBo {

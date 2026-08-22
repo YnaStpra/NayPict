@@ -495,6 +495,7 @@ erDiagram
 | 🟢 **RESOLVED** | Password Hash Algorithm | `src/server/lib/crypto.ts` & `login-service.ts` | Password hashing upgraded to Argon2id via WASM with transparent automatic migration. |
 | 🟢 **RESOLVED** | Distributed Rate Limiting | `src/server/lib/rate-limiter.ts` & `cache.ts` | Multi-backend distributed rate limiter supporting Upstash Redis REST API, shared PostgreSQL `cacheTab`, and in-memory fallback. |
 | 🟢 **RESOLVED** | Strict RBAC & IDOR Defense | `album-service.ts` & `photo-service.ts` | Strict tenant ownership verification across all album & photo mutations, plus unauthenticated access guard on recycled/archived items. |
+| 🟢 **RESOLVED** | Bot & Spam Protection | `comment-service.ts` & `photo-comments.tsx` | Invisible honeypot field, minimum interaction time (1.5s), and Cloudflare Turnstile integration on public comment forms. |
 | 🟢 **RESOLVED** | UI Language Standardization | All TSX components & JSON locales | All UI text, dialogs, toasts, error messages, and settings converted to fluent English. |
 | 🟢 **LOW** | External Geocode API | `src/server/service/location-service.ts` | Uses OSM Nominatim with robust in-memory LRU caching. |
 | ℹ️ **INFO** | CSP Headers | `next.config.ts` | Content-Security-Policy active and strict (`default-src 'self'`, `frame-ancestors 'none'`). |
@@ -617,21 +618,17 @@ Berikut adalah **10 prioritas rekomendasi audit keamanan terbaru** untuk memperk
   - `X-Content-Type-Options: nosniff` (mencegah MIME-sniffing browser).
   - `Content-Security-Policy: sandbox; default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'` pada domain direct media serving untuk mengisolasi eksekusi skrip berbahaya.
 
-### 5. **Invisible Honeypot & Bot Protection pada Form Komentar Publik (`/comments`)**
-- **Kondisi Saat Ini**: Fitur komentar terbuka untuk pengunjung publik tanpa kewajiban login.
-- **Rekomendasi**: Pasang *invisible honeypot field* dan validasi batas waktu minimum interaksi (penolakan form yang terkirim < 1.5 detik) untuk menangkal bot spamming tanpa mengganggu UX pengunjung asli.
-
-### 6. **Automated Secret Scanning & Dependency Vulnerability Gate di CI/CD**
+### 5. **Automated Secret Scanning & Dependency Vulnerability Gate di CI/CD**
 - **Kondisi Saat Ini**: Pengecekan dependensi dan audit kode dilakukan secara manual.
 - **Rekomendasi**: Tambahkan pipeline GitHub Actions otomatis:
   - `npm audit --audit-level=high` untuk memblokir deployment jika ditemukan dependensi dengan kerentanan kritis.
   - Secret Scanner (**TruffleHog** / **GitGuardian**) untuk memastikan `JWT_SECRET`, database connection string, atau kunci Cloudflare R2 tidak pernah ter-commit ke public repository.
 
-### 7. **Pencegahan Replay Attack & Emergency Backup Codes pada TOTP 2FA**
+### 6. **Pencegahan Replay Attack & Emergency Backup Codes pada TOTP 2FA**
 - **Kondisi Saat Ini**: TOTP memvalidasi kode 6-digit dalam jendela waktu standar RFC 6238.
 - **Rekomendasi**: Sediakan 8-10 *Single-Use Emergency Backup Codes* terenkripsi saat user pertama kali mengaktifkan 2FA jika sewaktu-waktu kehilangan akses ke aplikasi Google Authenticator.
 
-### 8. **Security Audit Trail Logging untuk Aksi Administratif Krusial**
+### 7. **Security Audit Trail Logging untuk Aksi Administratif Krusial**
 - **Kondisi Saat Ini**: Logging aksi administratif belum dicatat ke tabel audit trail khusus.
 - **Rekomendasi**: Buat tabel `security_audit_log` untuk mencatat rekam jejak aktivitas penting:
   - Percobaan login gagal berulang kali (indikasi brute-force).
@@ -640,10 +637,14 @@ Berikut adalah **10 prioritas rekomendasi audit keamanan terbaru** untuk memperk
   - Penghapusan massal atau pengosongan tempat sampah (*Recycle Bin*).
   - Setiap log mencatat: `userId`, `action`, `ipAddress`, `userAgent`, dan `timestamp`.
 
-### 9. **Session Token Rotation & Inactivity Timeout**
+### 8. **Session Token Rotation & Inactivity Timeout**
 - **Kondisi Saat Ini**: Token JWT memiliki masa berlaku statis (7 hari).
 - **Rekomendasi**: Terapkan rotasi token berkala dan pembaruan session identifier (`uuidList`) saat ada aktivitas baru, serta sediakan konfigurasi *inactivity timeout* untuk sesi administrator guna meminimalkan risiko pembajakan sesi (*session hijacking*).
 
-### 10. **Subresource Integrity (SRI) & External Asset Sandboxing**
+### 9. **Subresource Integrity (SRI) & External Asset Sandboxing**
 - **Kondisi Saat Ini**: Beberapa asset eksternal (misal: Leaflet CSS/JS tiles dan Google Fonts) dimuat melalui CDN pihak ketiga.
 - **Rekomendasi**: Terapkan hash Subresource Integrity (`integrity="sha384-..."`) dan perketat directive CSP `connect-src` & `script-src` untuk mencegah *supply-chain attacks* pada library frontend pihak ketiga.
+
+### 10. **ReDoS (Regular Expression Denial of Service) Hardening & Input Length Limits**
+- **Kondisi Saat Ini**: Input pencarian keyword dan parsing URL menggunakan regex standar.
+- **Rekomendasi**: Terapkan batas panjang input yang ketat pada endpoint search/filter dan hindari pola regular expression dengan kompleksitas kuadratik/eksponensial (*catastrophic backtracking*) guna mencegah serangan ReDoS yang dapat melumpuhkan event loop server.

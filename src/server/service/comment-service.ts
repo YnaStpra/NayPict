@@ -196,13 +196,30 @@ const commentService = {
       throw new BizError('comment.contentTooLong');
     }
 
-    // 4. Cloudflare Turnstile Bot Verification (if TURNSTILE_SECRET_KEY is configured)
+    // 4. Invisible Honeypot Bot Detection (Anti-Spam)
+    if (params.website && params.website.trim().length > 0) {
+      console.warn(`[COMMENT BOT BLOCKED] Honeypot field filled by IP ${clientIp || 'unknown'}: "${params.website}"`);
+      throw new BizError('comment.botDetected');
+    }
+
+    // 5. Minimum Interaction Timing Validation (Anti-bot automated submission < 1.5s)
+    if (params.timestamp) {
+      const now = Date.now();
+      const elapsed = now - params.timestamp;
+      // If submitted in less than 1.5 seconds from form initialization, reject as automated bot
+      if (elapsed < 1500 && elapsed >= -5000) {
+        console.warn(`[COMMENT BOT BLOCKED] Form submitted too fast (${elapsed}ms) by IP ${clientIp || 'unknown'}`);
+        throw new BizError('comment.tooFast');
+      }
+    }
+
+    // 6. Cloudflare Turnstile Bot Verification (if TURNSTILE_SECRET_KEY is configured)
     const isHuman = await verifyTurnstileToken(params.turnstileToken || '', clientIp);
     if (!isHuman) {
       throw new BizError('comment.captchaFailed');
     }
 
-    // 5. Distributed Rate Limiting Protection: max 10 comments per minute per IP
+    // 7. Distributed Rate Limiting Protection: max 10 comments per minute per IP
     if (clientIp) {
       const rateLimit = await commentRateLimiter.consume(clientIp);
       if (!rateLimit.allowed) {

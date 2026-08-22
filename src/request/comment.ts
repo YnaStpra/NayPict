@@ -27,6 +27,8 @@ export function commentAdd(params: CommentAddBo) {
     name: params.name,
     content: params.content,
     turnstileToken: params.turnstileToken,
+    website: params.website,
+    timestamp: params.timestamp,
   });
 }
 

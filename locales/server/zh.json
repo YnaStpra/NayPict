@@ -45,5 +45,8 @@
   "comment.contentRequired": "Comment content is required.",
   "comment.contentTooLong": "Comment cannot exceed 500 characters.",
   "comment.selectRequired": "Please select a comment.",
-  "comment.rateLimited": "Too many comments sent. Please wait a moment before trying again."
+  "comment.rateLimited": "Too many comments sent. Please wait a moment before trying again.",
+  "comment.botDetected": "Automated bot activity detected. Submission blocked.",
+  "comment.tooFast": "Comment submitted too quickly. Please take a moment before posting.",
+  "comment.captchaFailed": "Security verification failed. Please try again."
 }

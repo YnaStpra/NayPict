@@ -42,6 +42,10 @@ export function PhotoComments({ photoId }: PhotoCommentsProps) {
   });
   // Comment body input value.
   const [content, setContent] = useState<string>("");
+  // Invisible honeypot field for bot spam defense (must remain empty).
+  const [honeypot, setHoneypot] = useState<string>("");
+  // Form initialization timestamp for minimum interaction time validation.
+  const [formLoadedAt, setFormLoadedAt] = useState<number>(() => Date.now());
   // Submission pending state to prevent duplicate clicks.
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   // Comment ID currently being deleted.
@@ -62,6 +66,9 @@ export function PhotoComments({ photoId }: PhotoCommentsProps) {
   useEffect(() => {
     let isMounted = true;
     if (!photoId) return;
+
+    // Reset form initialization timestamp on photo change
+    setFormLoadedAt(Date.now());
 
     // 1. Initial comments fetch
     commentList(photoId)
@@ -177,6 +184,8 @@ export function PhotoComments({ photoId }: PhotoCommentsProps) {
         photoId,
         name: trimmedName,
         content: trimmedContent,
+        website: honeypot || undefined,
+        timestamp: formLoadedAt,
         turnstileToken: turnstileToken || undefined,
       });
 
@@ -195,6 +204,8 @@ export function PhotoComments({ photoId }: PhotoCommentsProps) {
         return [newComment, ...prev];
       });
       setContent("");
+      setHoneypot("");
+      setFormLoadedAt(Date.now());
       toast.success("Comment posted successfully");
 
       // Smoothly scroll to the top of comment list.
@@ -457,6 +468,20 @@ export function PhotoComments({ photoId }: PhotoCommentsProps) {
 
       {/* Comment submission form */}
       <form onSubmit={handleSubmit} className="mt-auto shrink-0 pt-3 space-y-2 border-t border-white/15">
+        {/* Invisible Honeypot Field for Automated Bot Spam Protection */}
+        <div className="absolute opacity-0 -z-50 pointer-events-none select-none h-0 w-0 overflow-hidden" aria-hidden="true" tabIndex={-1}>
+          <label htmlFor="hp_comment_website">Website</label>
+          <input
+            id="hp_comment_website"
+            type="text"
+            name="website"
+            autoComplete="off"
+            tabIndex={-1}
+            value={honeypot}
+            onChange={(e) => setHoneypot(e.target.value)}
+          />
+        </div>
+
         <div>
           <div className="flex items-center justify-between pb-1 text-[11px] font-medium text-white/70">
             <span>Your Name</span>
