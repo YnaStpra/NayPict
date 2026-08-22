@@ -54,9 +54,9 @@ export function getInsightsChart(range: '7d' | '30d' | '90d' = '7d', photoId?: s
   return http.get<InsightsChartDataVo>(`/admin/insights/chart?${query.toString()}`);
 }
 
-// Fetch top viewed and top favorited photos (Admin only).
-export function getInsightsTopPhotos(limit = 10): Promise<{ mostViewed: InsightsTopPhotoVo[]; mostFavorited: InsightsTopPhotoVo[] }> {
-  return http.get<{ mostViewed: InsightsTopPhotoVo[]; mostFavorited: InsightsTopPhotoVo[] }>(`/admin/insights/top-photos?limit=${limit}`);
+// Fetch top viewed and top commented photos (Admin only).
+export function getInsightsTopPhotos(limit = 10): Promise<{ mostViewed: InsightsTopPhotoVo[]; mostCommented: InsightsTopPhotoVo[] }> {
+  return http.get<{ mostViewed: InsightsTopPhotoVo[]; mostCommented: InsightsTopPhotoVo[] }>(`/admin/insights/top-photos?limit=${limit}`);
 }
 
 // Fetch individual photo insights metrics and 30-day views trend (Admin only).

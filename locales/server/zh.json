@@ -9,7 +9,6 @@
   "album.selectRequired": "Please select an album",
   "photo.selectRequired": "Please select a photo",
   "photo.fileNameRequired": "File name cannot be empty",
-  "photo.favoriteRequired": "Please select collection status",
   "login.credentialsRequired": "Username and password cannot be empty",
   "login.invalidCredentials": "Wrong username or password",
   "user.disabled": "User has been disabled",

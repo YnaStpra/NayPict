@@ -9,7 +9,6 @@ import {
   type PhotoBatchEditBo,
   type PhotoDeleteBo,
   type PhotoExistsBo,
-  type PhotoFavoriteBo,
   type PhotoListBo,
   type PhotoOnThisDayBo,
   type PhotoRandomIdListBo,
@@ -20,7 +19,7 @@ import {
   type PhotoTakenDateListBo,
 } from '@/server/entity/bo/photo';
 import { PHOTO_LIST_PAGE_SIZE } from '@/server/const/global';
-import { PhotoFavoriteEnum, PhotoStatusEnum, PhotoVisibilityEnum } from '@/server/enums/photo-enum';
+import { PhotoStatusEnum, PhotoVisibilityEnum } from '@/server/enums/photo-enum';
 import { StorageStatusEnum, StorageTypeOptions } from '@/server/enums/storage-enum';
 import { type PageVo } from '@/server/entity/vo/common';
 import {
@@ -80,10 +79,6 @@ const photoService = {
     const baseWhereList = [
       eq(photoTab.status, status)
     ];
-
-    if (params.favorite) {
-      baseWhereList.push(eq(photoTab.favorite, params.favorite));
-    }
 
     if (params.keyword?.trim()) {
       baseWhereList.push(ilike(photoTab.name, `%${params.keyword.trim()}%`));
@@ -238,10 +233,6 @@ const photoService = {
       eq(photoTab.status, status)
     ];
 
-    if (params.favorite) {
-      whereList.push(eq(photoTab.favorite, params.favorite));
-    }
-
     if (params.startTakenTime) {
       whereList.push(gte(photoTab.takenTime, params.startTakenTime));
     }
@@ -297,10 +288,6 @@ const photoService = {
       eq(photoTab.status, PhotoStatusEnum.NORMAL),
       isNotNull(photoTab.takenTime),
     ];
-
-    if (params.favorite) {
-      whereList.push(eq(photoTab.favorite, params.favorite));
-    }
 
     if (params.albumId) {
       whereList.push(
@@ -689,7 +676,6 @@ const photoService = {
       createTime: now,
       userId,
       status: PhotoStatusEnum.NORMAL,
-      favorite: PhotoFavoriteEnum.NO,
       storageId: activeStorageId,
       allowDownload: allowDownload ? 1 : 0
     }).returning();
@@ -760,28 +746,6 @@ const photoService = {
         recycleTime: new Date(0).toISOString()
       })
       .where(whereList.length ? and(...whereList) : undefined);
-  },
-
-  // Set the collection status of photos specified by the current user.
-  async favorite(params: PhotoFavoriteBo, userId?: string): Promise<void> {
-    if (!params.photoIds?.length) {
-      throw new BizError('photo.selectRequired');
-    }
-
-    if (!params.favorite) {
-      throw new BizError('photo.favoriteRequired');
-    }
-
-    const whereList = [inArray(photoTab.photoId, params.photoIds)];
-    if (userId) {
-      whereList.push(eq(photoTab.userId, userId));
-    }
-
-    await orm.update(photoTab)
-      .set({
-        favorite: params.favorite
-      })
-      .where(and(...whereList));
   },
 
   // Set the display scope / visibility of specified photos (Both, Gallery Only, Album Only, Archived).
@@ -990,7 +954,7 @@ const photoService = {
       .where(and(...whereList));
   },
 
-  // Batch update photo metadata (visibility, allowDownload, takenTime, favorite).
+  // Batch update photo metadata (visibility, allowDownload, takenTime, GPS location).
   async batchEdit(params: PhotoBatchEditBo, userId?: string): Promise<void> {
     if (!params.photoIds?.length) {
       throw new BizError('photo.selectRequired');
@@ -1013,10 +977,6 @@ const photoService = {
 
     if (params.takenTime !== undefined) {
       updates.takenTime = params.takenTime ? params.takenTime : null;
-    }
-
-    if (params.favorite !== undefined && params.favorite !== null) {
-      updates.favorite = params.favorite;
     }
 
     if (Object.keys(updates).length > 0) {

@@ -9,7 +9,6 @@
   "album.selectRequired": "Select at least one album.",
   "photo.selectRequired": "Select at least one photo.",
   "photo.fileNameRequired": "File name is required.",
-  "photo.favoriteRequired": "Select a favorite status.",
   "login.credentialsRequired": "Username and password are required.",
   "login.invalidCredentials": "Incorrect username or password.",
   "user.disabled": "This user has been disabled.",

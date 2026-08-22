@@ -33,8 +33,8 @@ import { photoList } from "@/request/photo"
 import {
   BarChart3,
   Calendar,
+  Download,
   Eye,
-  Heart,
   Image as ImageIcon,
   Loader2,
   MessageSquare,
@@ -73,8 +73,8 @@ export default function AdminInsightsPage() {
   const [chartRange, setChartRange] = useState<"7d" | "30d" | "90d">("7d")
   const [topPhotos, setTopPhotos] = useState<{
     mostViewed: InsightsTopPhotoVo[]
-    mostFavorited: InsightsTopPhotoVo[]
-  }>({ mostViewed: [], mostFavorited: [] })
+    mostCommented: InsightsTopPhotoVo[]
+  }>({ mostViewed: [], mostCommented: [] })
 
   const [loading, setLoading] = useState(true)
   const [chartLoading, setChartLoading] = useState(false)
@@ -123,7 +123,7 @@ export default function AdminInsightsPage() {
       .then(([overviewRes, chartRes, topPhotosRes]) => {
         setOverview(overviewRes)
         setChartData(chartRes)
-        setTopPhotos(topPhotosRes || { mostViewed: [], mostFavorited: [] })
+        setTopPhotos(topPhotosRes || { mostViewed: [], mostCommented: [] })
       })
       .catch((err) => {
         console.error("Failed to load insights:", err)
@@ -144,7 +144,7 @@ export default function AdminInsightsPage() {
         .then(([overviewRes, chartRes, topPhotosRes]) => {
           setOverview(overviewRes)
           setChartData(chartRes)
-          setTopPhotos(topPhotosRes || { mostViewed: [], mostFavorited: [] })
+          setTopPhotos(topPhotosRes || { mostViewed: [], mostCommented: [] })
         })
         .catch((err) => {
           console.error("Failed to load insights:", err)
@@ -327,22 +327,22 @@ export default function AdminInsightsPage() {
                   </CardContent>
                 </Card>
 
-                {/* 3. Total Favorites Card */}
+                {/* 3. Total Downloads Card */}
                 <Card className="border-border/80 bg-card hover:shadow-sm transition-all">
                   <CardHeader className="p-4 pb-2 flex flex-row items-center justify-between space-y-0">
                     <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                      Favorites
+                      Downloads
                     </CardTitle>
-                    <div className="p-2 rounded-lg bg-pink-500/10 text-pink-500">
-                      <Heart className="size-4" />
+                    <div className="p-2 rounded-lg bg-amber-500/10 text-amber-500">
+                      <Download className="size-4" />
                     </div>
                   </CardHeader>
                   <CardContent className="p-4 pt-1">
                     <div className="text-2xl md:text-3xl font-bold tracking-tight text-foreground">
-                      {overview.totalFavorites.toLocaleString()}
+                      {overview.totalDownloads.toLocaleString()}
                     </div>
                     <p className="text-[11px] text-muted-foreground mt-1">
-                      Featured / starred photos
+                      Original photo downloads
                     </p>
                   </CardContent>
                 </Card>
@@ -503,7 +503,7 @@ export default function AdminInsightsPage() {
                 </CardContent>
               </Card>
 
-              {/* Rankings Grid: Most Viewed & Most Favorited */}
+              {/* Rankings Grid: Most Viewed & Most Discussed */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* 1. Most Viewed Photos */}
                 <Card className="border-border/80 bg-card shadow-xs">
@@ -579,25 +579,25 @@ export default function AdminInsightsPage() {
                   </CardContent>
                 </Card>
 
-                {/* 2. Most Favorited Photos */}
+                {/* 2. Most Discussed Photos */}
                 <Card className="border-border/80 bg-card shadow-xs">
                   <CardHeader className="p-5 pb-3">
                     <CardTitle className="text-base font-bold flex items-center justify-between">
-                      <span>Featured / Favorited Photos</span>
-                      <span className="text-xs font-medium text-muted-foreground">Starred</span>
+                      <span>Most Discussed Photos</span>
+                      <span className="text-xs font-medium text-muted-foreground">Comments</span>
                     </CardTitle>
                     <CardDescription className="text-xs">
-                      Curated favorite photos sorted by views
+                      Photos with highest community responses
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="p-5 pt-0">
-                    {topPhotos.mostFavorited.length === 0 ? (
+                    {topPhotos.mostCommented.length === 0 ? (
                       <div className="py-12 text-center text-xs text-muted-foreground">
-                        No favorited photos found.
+                        No commented photos recorded yet.
                       </div>
                     ) : (
                       <div className="divide-y divide-border/50">
-                        {topPhotos.mostFavorited.map((photo, index) => (
+                        {topPhotos.mostCommented.map((photo, index) => (
                           <div
                             key={photo.photoId}
                             onClick={() => handleOpenPhotoViewer(photo.photoId)}
@@ -619,9 +619,9 @@ export default function AdminInsightsPage() {
                                 {photo.name}
                               </h4>
                               <div className="flex items-center gap-2 mt-1 text-[11px] text-muted-foreground">
-                                <span className="inline-flex items-center gap-1 font-medium text-pink-500">
-                                  <Heart className="size-3 fill-current" />
-                                  Favorited
+                                <span className="inline-flex items-center gap-1 font-semibold text-blue-500">
+                                  <MessageSquare className="size-3" />
+                                  {photo.commentCount.toLocaleString()} comments
                                 </span>
                                 <span>•</span>
                                 <span className="inline-flex items-center gap-1">

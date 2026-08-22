@@ -6,7 +6,6 @@ import {
   type PhotoBatchEditBo,
   type PhotoDeleteBo,
   type PhotoExistsBo,
-  type PhotoFavoriteBo,
   type PhotoListBo,
   type PhotoOnThisDayBo,
   type PhotoRandomIdListBo,
@@ -22,7 +21,7 @@ import type { HonoEnv } from '../hono/type';
 // This module registers photo-related interfaces.
 
 export function registerPhotoApi(app: Hono<HonoEnv>) {
-  // Batch edit photo metadata (visibility, allowDownload, takenTime, favorite).
+  // Batch edit photo metadata (visibility, allowDownload, takenTime, GPS location).
   app.post('/photo/batchEdit', async (c: Context) => {
     const body = await c.req.json<PhotoBatchEditBo>();
     await photoService.batchEdit(body, getUserId());
@@ -211,13 +210,6 @@ export function registerPhotoApi(app: Hono<HonoEnv>) {
   app.post('/photo/recycle', async (c: Context) => {
     const body = await c.req.json<PhotoRecycleBo>();
     await photoService.recycle(body, getUserId());
-    return c.json(result.ok());
-  });
-
-  // Set favorite status of photos.
-  app.post('/photo/favorite', async (c: Context) => {
-    const body = await c.req.json<PhotoFavoriteBo>();
-    await photoService.favorite(body, getUserId());
     return c.json(result.ok());
   });
 

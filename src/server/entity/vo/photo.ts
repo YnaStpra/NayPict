@@ -2,7 +2,7 @@
 
 import { type Photo } from '@/server/entity/photo';
 
-type PhotoVo = Photo & {
+type PhotoVo = Omit<Photo, 'favorite'> & {
   key: string | null;
   preview: string;
   thumbnail: string;

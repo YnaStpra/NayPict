@@ -22,7 +22,6 @@ export default async function AlbumPhotoLayout({ children, params }: AlbumPhotoL
     size: PHOTO_LIST_PAGE_SIZE,
     cursorPhotoId: null,
     cursorTime: null,
-    favorite: null,
     status: null,
     albumId,
     shuffle: true,

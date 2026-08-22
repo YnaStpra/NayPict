@@ -6,7 +6,6 @@ export interface InsightsOverviewVo {
   viewsToday: number;
   viewsThisWeek: number;
   viewsThisMonth: number;
-  totalFavorites: number;
   totalComments: number;
   totalShares: number;
   totalDownloads: number;
@@ -31,8 +30,8 @@ export interface InsightsTopPhotoVo {
   width: number | null;
   height: number | null;
   viewCount: number;
-  favoriteCount: number;
   commentCount: number;
+  downloadCount?: number;
 }
 
 export interface PhotoInsightsDetailVo {
@@ -46,7 +45,6 @@ export interface PhotoInsightsDetailVo {
   viewsToday: number;
   viewsThisWeek: number;
   viewsThisMonth: number;
-  favorites: number;
   comments: number;
   shares: number;
   downloads: number;

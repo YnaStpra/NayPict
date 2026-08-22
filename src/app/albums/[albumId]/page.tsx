@@ -21,8 +21,7 @@ import { usePhotoList } from "@/hooks/use-photo-list"
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { PhotoMasonry } from "@/components/photo/photo-masonry"
 import { PHOTO_LIST_PAGE_SIZE } from "@/server/const/global"
-import { PhotoFavoriteEnum } from "@/server/enums/photo-enum"
-import { photoFavorite, photoList, photoRecycle } from "@/request/photo"
+import { photoList, photoRecycle } from "@/request/photo"
 import { removePhotoIdFromUrl } from "@/lib/url"
 import { albumAddPhoto, albumRemovePhoto, albumTogglePinPhoto } from "@/request/album"
 import { useAlbumStore } from "@/store/album-store"
@@ -212,24 +211,6 @@ export default function Page() {
     setShowPhotoViewer(false)
     removePhotoIdFromUrl()
   }, [])
-
-  // Switch the collection status of a single photo based on the photo subscript。
-  const changePhotoFavorite = useCallback((index: number, setFavorite: (favorite: boolean) => void) => {
-    const photo = photos[index]
-    if (!photo) return
-    const favorite = photo.favorite === PhotoFavoriteEnum.YES
-      ? PhotoFavoriteEnum.NO
-      : PhotoFavoriteEnum.YES
-
-    photoFavorite({ photoIds: [photo.photoId], favorite })
-      .then(() => {
-        setFavorite(favorite === PhotoFavoriteEnum.YES)
-        photo.favorite = favorite
-      })
-      .catch((err) => {
-        console.error("Failed to update favorite:", err)
-      })
-  }, [photos])
 
   const recyclePhotos = useCallback((photoIds: string[]) => {
     if (!photoIds || !photoIds.length) return
@@ -482,7 +463,6 @@ export default function Page() {
                   resetKey={masonryKey}
                   onReachBottom={loadMorePhotos}
                   onPhotoOpen={openPhoto}
-                  onPhotoFavorite={isAdmin ? changePhotoFavorite : undefined}
                   onPhotoDelete={isAdmin ? recyclePhotos : undefined}
                   onAlbumOpen={isAdmin ? openAlbumDialog : undefined}
                   onAlbumRemove={isAdmin ? removeAlbumPhotos : undefined}

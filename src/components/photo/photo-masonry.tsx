@@ -25,7 +25,6 @@ interface PhotoMasonryProps {
   resetKey?: number
   onReachBottom: () => void
   onPhotoOpen?: (index: number) => void
-  onPhotoFavorite?: (index: number, setFavorite: (favorite: boolean) => void) => void
   onPhotoDelete?: (photoIds: string[]) => void
   onPhotoRestore?: (photoIds: string[]) => void
   onAlbumOpen?: (photoIds: string[]) => void
@@ -89,7 +88,6 @@ const PhotoMasonry = memo(function PhotoMasonry({
   resetKey = 0,
   onReachBottom,
   onPhotoOpen,
-  onPhotoFavorite,
   onPhotoDelete,
   onPhotoRestore,
   onAlbumOpen,
@@ -375,7 +373,6 @@ const PhotoMasonry = memo(function PhotoMasonry({
               selected={visibleSelectedPhotoIds.includes(props.data.photoId)}
               selectionActive={visibleSelectedPhotoIds.length > 0}
               onOpen={() => onPhotoOpen?.(props.index)}
-              onFavoriteChange={onPhotoFavorite}
               onSelectedChange={changePhotoSelected}
               onPhotoPin={onPhotoPin}
               touchHoverCloseRef={touchHoverCloseRef}

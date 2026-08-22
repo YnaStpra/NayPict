@@ -16,12 +16,12 @@ import {
 } from "@/components/ui/sidebar"
 import { usePhotoList } from "@/hooks/use-photo-list"
 import { PHOTO_LIST_PAGE_SIZE } from "@/server/const/global"
-import { PhotoFavoriteEnum, PhotoVisibilityEnum } from "@/server/enums/photo-enum"
+import { PhotoVisibilityEnum } from "@/server/enums/photo-enum"
 
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { toast } from "sonner"
 import { PhotoMasonry } from "@/components/photo/photo-masonry"
-import { photoFavorite, photoList, photoRecycle } from "@/request/photo"
+import { photoList, photoRecycle } from "@/request/photo"
 import { removePhotoIdFromUrl } from "@/lib/url"
 import { albumAddPhoto, albumRemovePhoto } from "@/request/album"
 import { useArchiveContext } from "@/app/archive/provider"
@@ -116,23 +116,6 @@ export default function ArchivePage() {
     setShowPhotoViewer(false)
     removePhotoIdFromUrl()
   }, [])
-
-  const changePhotoFavorite = useCallback((index: number, setFavorite: (favorite: boolean) => void) => {
-    const photo = photos[index]
-    if (!photo) return
-    const favorite = photo.favorite === PhotoFavoriteEnum.YES
-      ? PhotoFavoriteEnum.NO
-      : PhotoFavoriteEnum.YES
-
-    photoFavorite({ photoIds: [photo.photoId], favorite })
-      .then(() => {
-        setFavorite(favorite === PhotoFavoriteEnum.YES)
-        photo.favorite = favorite
-      })
-      .catch((err) => {
-        console.error("Failed to update favorite:", err)
-      })
-  }, [photos])
 
   const recyclePhotos = useCallback((photoIds: string[]) => {
     if (!photoIds || !photoIds.length) return
@@ -243,7 +226,6 @@ export default function ArchivePage() {
                   resetKey={masonryKey}
                   onReachBottom={loadMorePhotos}
                   onPhotoOpen={openPhoto}
-                  onPhotoFavorite={changePhotoFavorite}
                   onPhotoDelete={recyclePhotos}
                   onAlbumOpen={openAlbumDialog}
                   onPhotosUpdated={isAdmin ? updatePhotos : undefined}

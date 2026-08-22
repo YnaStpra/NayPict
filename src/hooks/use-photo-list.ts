@@ -215,7 +215,6 @@ function usePhotoList(params: Partial<PhotoListBo> = {}, pageSize = PHOTO_LIST_P
 
     // Initial load: fetch all IDs in random order, then load first page
     photoRandomIdList({
-      favorite: queryParams.favorite ?? null,
       status: queryParams.status ?? null,
       albumId: queryParams.albumId ?? null,
       startTakenTime: queryParams.startTakenTime ?? null,
@@ -334,7 +333,7 @@ function usePhotoList(params: Partial<PhotoListBo> = {}, pageSize = PHOTO_LIST_P
     }
   }, [loadPhotoList, refreshMasonry])
 
-  // Update in-memory photo fields (e.g. visibility, favorite, allowDownload).
+  // Update in-memory photo fields (e.g. visibility, allowDownload).
   const updatePhoto = useCallback((updatedPhoto: Partial<PhotoVo> & { photoId: string }) => {
     setPhotos((prev) => {
       const next = prev.map((p) => (p.photoId === updatedPhoto.photoId ? { ...p, ...updatedPhoto } : p))

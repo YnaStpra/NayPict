@@ -1,7 +1,6 @@
 // This module defines the photo business input parameter object.
 
 interface PhotoTakenDateListBo {
-  favorite?: number | null;
   albumId?: string | null;
   // tzOffset for relative UTC offset minutes, East Eighth District is 480.
   tzOffset: number;
@@ -14,7 +13,6 @@ interface PhotoListBo {
   cursorTime?: string | null;
   startTakenTime?: string | null;
   endTakenTime?: string | null;
-  favorite?: number | null;
   status?: number | null;
   albumId?: string | null;
   visibility?: number | null;
@@ -30,7 +28,6 @@ interface PhotoListBo {
 
 // Input params for fetching all photo IDs in random order.
 interface PhotoRandomIdListBo {
-  favorite?: number | null;
   status?: number | null;
   albumId?: string | null;
   visibility?: number | null;
@@ -49,11 +46,6 @@ interface PhotoExistsBo {
 
 interface PhotoRecycleBo {
   photoIds: string[];
-}
-
-interface PhotoFavoriteBo {
-  photoIds: string[];
-  favorite: number;
 }
 
 interface PhotoRestoreBo {
@@ -86,7 +78,6 @@ interface PhotoBatchEditBo {
   visibility?: number | null;
   allowDownload?: boolean | null;
   takenTime?: string | null;
-  favorite?: number | null;
   latitude?: number | null;
   longitude?: number | null;
 }
@@ -95,7 +86,6 @@ export type {
   PhotoBatchEditBo,
   PhotoDeleteBo,
   PhotoExistsBo,
-  PhotoFavoriteBo,
   PhotoListBo,
   PhotoOnThisDayBo,
   PhotoRandomIdListBo,

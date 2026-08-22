@@ -8,7 +8,6 @@ import {
   Compass,
   Download,
   Eye,
-  Heart,
   LoaderCircle,
   LocateFixed,
   MapPin,
@@ -60,7 +59,6 @@ export function PhotoBatchEditDialog({
   // Category state values ('unchanged' means keep existing metadata)
   const [visibility, setVisibility] = useState<string>("unchanged")
   const [allowDownload, setAllowDownload] = useState<string>("unchanged")
-  const [favorite, setFavorite] = useState<string>("unchanged")
   const [takenTimeMode, setTakenTimeMode] = useState<string>("unchanged")
   const [takenTimeValue, setTakenTimeValue] = useState<string>(() => {
     const now = new Date()
@@ -96,11 +94,10 @@ export function PhotoBatchEditDialog({
   // Calculate modified count
   const isVisModified = visibility !== "unchanged"
   const isDlModified = allowDownload !== "unchanged"
-  const isFavModified = favorite !== "unchanged"
   const isDateModified = takenTimeMode !== "unchanged"
   const isLocModified = locationMode !== "unchanged"
 
-  const modifiedCount = [isVisModified, isDlModified, isFavModified, isDateModified, isLocModified].filter(Boolean).length
+  const modifiedCount = [isVisModified, isDlModified, isDateModified, isLocModified].filter(Boolean).length
   const hasChanges = modifiedCount > 0
 
   // Live parsed coordinate from coordInput
@@ -141,7 +138,6 @@ export function PhotoBatchEditDialog({
     if (!nextOpen) {
       setVisibility("unchanged")
       setAllowDownload("unchanged")
-      setFavorite("unchanged")
       setTakenTimeMode("unchanged")
       setLocationMode("unchanged")
       setCoordInput("")
@@ -190,7 +186,6 @@ export function PhotoBatchEditDialog({
       visibility?: number
       allowDownload?: boolean
       takenTime?: string
-      favorite?: number
       latitude?: number | null
       longitude?: number | null
     } = { photoIds }
@@ -207,12 +202,6 @@ export function PhotoBatchEditDialog({
       const dlBool = allowDownload === "true"
       payload.allowDownload = dlBool
       clientUpdates.allowDownload = dlBool ? 1 : 0
-    }
-
-    if (isFavModified) {
-      const favNum = Number(favorite)
-      payload.favorite = favNum
-      clientUpdates.favorite = favNum
     }
 
     if (isDateModified) {
@@ -382,43 +371,12 @@ export function PhotoBatchEditDialog({
             </Select>
           </div>
 
-          {/* 3. Favorite Status */}
-          <div className="rounded-xl border border-border/80 bg-card p-3.5 space-y-2 shadow-2xs">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-sm font-semibold">
-                <Heart className="size-4 text-rose-500" />
-                <span>3. Favorite Status</span>
-              </div>
-              {isFavModified && (
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-500/15 text-rose-500 border border-rose-500/30">
-                  Will Change
-                </span>
-              )}
-            </div>
-            <Select value={favorite} onValueChange={setFavorite}>
-              <SelectTrigger className="w-full text-xs h-9 bg-muted/30">
-                <SelectValue placeholder="Select Favorite Status..." />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="unchanged" className="text-xs text-muted-foreground">
-                  ⚪ — Keep Current (Unchanged) —
-                </SelectItem>
-                <SelectItem value="1" className="text-xs text-rose-500 font-medium">
-                  ❤️ Mark as Favorite
-                </SelectItem>
-                <SelectItem value="0" className="text-xs">
-                  🤍 Remove from Favorites
-                </SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* 4. Taken Date & Time */}
+          {/* 3. Taken Date & Time */}
           <div className="rounded-xl border border-border/80 bg-card p-3.5 space-y-2 shadow-2xs">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 text-sm font-semibold">
                 <Calendar className="size-4 text-amber-500" />
-                <span>4. Taken Date & Time</span>
+                <span>3. Taken Date & Time</span>
               </div>
               {isDateModified && (
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-500 border border-amber-500/30">
@@ -455,12 +413,12 @@ export function PhotoBatchEditDialog({
             )}
           </div>
 
-          {/* 5. GPS Location */}
+          {/* 4. GPS Location */}
           <div className="rounded-xl border border-border/80 bg-card p-3.5 space-y-2 shadow-2xs">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 text-sm font-semibold">
                 <MapPin className="size-4 text-emerald-500" />
-                <span>5. GPS Coordinates</span>
+                <span>4. GPS Coordinates</span>
               </div>
               {isLocModified && (
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-500 border border-emerald-500/30">

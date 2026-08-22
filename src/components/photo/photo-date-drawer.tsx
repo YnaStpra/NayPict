@@ -19,8 +19,6 @@ import { useTranslations } from "next-intl"
 interface PhotoDateDrawerProps {
   // albumId Filter time range by album when incoming。
   albumId?: string | null
-  // favorite Filter time range by favorite status when incoming。
-  favorite?: number | null
   // onRangeChange Confirm the change in the time range and then pass it to the page。
   onRangeChange?: (range: { startDate: Date, endDate: Date }) => void
 }
@@ -43,7 +41,7 @@ function formatDate(date: Date) {
 }
 
 // Render the right drawer of the photo page to select the time range by day。
-function PhotoDateDrawer({ albumId, favorite, onRangeChange }: PhotoDateDrawerProps) {
+function PhotoDateDrawer({ albumId, onRangeChange }: PhotoDateDrawerProps) {
   const t = useTranslations("photos")
   const [dateList, setDateList] = useState<PhotoTakenDateVo[]>([]) // dateList Save the date and number of existing photos。
   const [open, setOpen] = useState(false) // open Control the time to choose whether the drawer is opened。
@@ -51,11 +49,10 @@ function PhotoDateDrawer({ albumId, favorite, onRangeChange }: PhotoDateDrawerPr
   const [dateRange, setDateRange] = useState([0, 0]) // dateRange Save the currently selected start and end date index。
   const saveCloseRef = useRef(false) // saveCloseRef Record whether this shutdown is triggered by clicking on the mask save。
 
-  // Query the date of existing photos based on album and collection conditions，and initialize the slider range。
+  // Query the date of existing photos based on album conditions，and initialize the slider range。
   useEffect(() => {
     photoTakenDateList({
       albumId,
-      favorite,
       tzOffset: getLocalTzOffsetMin(),
     }).then((data) => {
       const fullRange = [0, Math.max(0, data.length - 1)]
@@ -64,7 +61,7 @@ function PhotoDateDrawer({ albumId, favorite, onRangeChange }: PhotoDateDrawerPr
       setDateRange(fullRange)
       setSavedDateRange(fullRange)
     })
-  }, [albumId, favorite])
+  }, [albumId])
 
   // Toggle drawer open state，Revert to the last confirmed time range when closing without saving。
   function changeOpen(nextOpen: boolean) {

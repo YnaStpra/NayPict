@@ -114,7 +114,7 @@ export function LandingClient({ initialPhotos }: LandingClientProps) {
                 forcedColorAdjust: 'none',
               }}
             >
-              Aesthetic Photo Gallery & Favorite Album Collection
+              Aesthetic Photo Gallery & Curated Album Collection
             </p>
           </div>
 

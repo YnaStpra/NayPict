@@ -80,7 +80,7 @@ pixtale/
 │   └── helpers/                  # Test helpers and login utilities
 ├── src/
 │   ├── app/                      # Next.js App Router (pages, layouts, route handlers)
-│   │   ├── (public & admin pages)# photos, albums, map, archive, favorites, comments, duplicates, admin, trash, etc.
+│   │   ├── (public & admin pages)# photos, albums, map, archive, comments, duplicates, admin, trash, etc.
 │   │   ├── api/[[...route]]/     # Catch-all API Route Handler mounting Hono instance
 │   │   ├── media/[[...path]]/    # Protected / proxied media streaming route handler
 │   │   ├── globals.css           # Tailwind v4 theme variables, Leaflet pin styles, global CSS
@@ -137,8 +137,8 @@ pixtale/
 | `/map` | Public / Admin | Interactive world map explorer with multi-layer tiles (Google Maps / Dark / Light), physical spot grouping, cluster markers, custom pin covers, spot location editing | Client + SSR Layout | `PhotoMapView`, `AllSpotsDialog`, `UntaggedPhotosDialog`, `PhotoViewer` |
 | `/albums` | Public | Dynamic photo albums catalog with smart covers and quick album creation | Client + SSR Layout | `AlbumMasonry`, `AlbumCard`, `AlbumAddDialog` |
 | `/albums/[albumId]` | Public | Album details with pinned photos hierarchy (max 3 pinned), date filters, cover manager | Client + SSR Layout | `PhotoMasonry`, `PhotoViewer`, `AlbumCoverDialog` |
-| `/favorites` | Public | Curated showcase of starred / favorite photos | Client + SSR Layout | `PhotoMasonry`, `PhotoViewer` |
 | `/archive` | Admin Only | Hidden/archived photos not shown in public gallery | Client + SSR Layout | `PhotoMasonry`, `PhotoViewer`, `AlbumSelectDialog` |
+| `/admin/photos` | Admin Only | Admin photo management table & grid view with real-time text search & filtering | Client | Photo management table, grid view, filters |
 | `/trash` | Admin Only | Recycle bin with batch restore, permanent delete, empty trash | Client + SSR Layout | `PhotoMasonry`, `AlertDialogDestructive` |
 | `/comments` | Admin Only | Public comment moderation, inline admin replies, spam deletion | Client | `PhotoComments`, Data table |
 | `/duplicates` | Admin Only | Detection and resolution of duplicate photos with side-by-side comparison | Client | Duplicate group cards, comparison modal |
@@ -219,7 +219,7 @@ pixtale/
 | `POST` | `/api/photo/list` | No (Public/Admin) | Paginated photo query with visibility/date filters | `photoService.list` |
 | `POST` | `/api/photo/mapList` | No (Public) | Lightweight query of all geotagged photos for `/map` | `photoService.mapList` |
 | `POST` | `/api/photo/untaggedList` | **Yes (Admin)** | Query photos missing GPS coordinates for geotagging | `photoService.untaggedList` |
-| `POST` | `/api/photo/batchEdit` | **Yes (Admin)** | Batch update metadata (visibility, download, favorite, date, GPS) | `photoService.batchEdit` |
+| `POST` | `/api/photo/batchEdit` | **Yes (Admin)** | Batch update metadata (visibility, download, date, GPS) | `photoService.batchEdit` |
 | `POST` | `/api/photo/randomIdList` | No (Public/Admin) | Shuffled array of photo IDs for infinite random scrolling | `photoService.randomIdList` |
 | `POST` | `/api/photo/onThisDay` | No (Public) | Photos taken on today's calendar date across past years | `photoService.onThisDay` |
 | `GET` | `/api/photo/onThisDay` | No (Public) | Alternative GET endpoint for On This Day | `photoService.onThisDay` |
@@ -231,7 +231,6 @@ pixtale/
 | `POST` | `/api/photo/add` | **Yes (Admin)** | Upload new photo, generate preview & thumbnail, save EXIF | `photoService.add` |
 | `POST` | `/api/photo/exists` | **Yes (Admin)** | Check photo checksum for upload deduplication | `photoService.exists` |
 | `POST` | `/api/photo/recycle` | **Yes (Admin)** | Move photos to recycle bin (*soft delete*) | `photoService.recycle` |
-| `POST` | `/api/photo/favorite` | **Yes (Admin)** | Toggle star/favorite status on photos | `photoService.favorite` |
 | `POST` | `/api/photo/restore` | **Yes (Admin)** | Restore photos from recycle bin back to gallery | `photoService.restore` |
 | `POST` | `/api/photo/delete` | **Yes (Admin)** | Permanently delete photos from DB and R2 storage | `photoService.delete` |
 | `POST` | `/api/photo/clear` | **Yes (Admin)** | Empty recycle bin permanently | `photoService.clear` |

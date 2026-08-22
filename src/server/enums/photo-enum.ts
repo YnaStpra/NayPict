@@ -3,11 +3,6 @@ const PhotoStatusEnum = {
   DELETE: 2
 } as const;
 
-const PhotoFavoriteEnum = {
-  NO: 1,
-  YES: 2
-} as const;
-
 const PhotoVisibilityEnum = {
   BOTH: 1,         // Visible in both Main Gallery and Albums (Default)
   GALLERY_ONLY: 2, // Visible only in Main Gallery, hidden from Albums
@@ -15,4 +10,4 @@ const PhotoVisibilityEnum = {
   ARCHIVED: 4,     // Archived / Hidden from both Main Gallery and Albums
 } as const;
 
-export { PhotoStatusEnum, PhotoFavoriteEnum, PhotoVisibilityEnum };
+export { PhotoStatusEnum, PhotoVisibilityEnum };

@@ -75,19 +75,19 @@ test.describe('Flow 5, 6, 7, 11, 12, 13, 14 & 15: Photo Lifecycle', () => {
     await page.waitForLoadState('domcontentloaded');
   });
 
-  test('Flow 11 & 12: Search & Favorite photo', async ({ page }) => {
+  test('Flow 11 & 12: Set photo download permission', async ({ page }) => {
     test.skip(!createdPhotoId, 'No test photo created');
 
     await loginAdmin(page);
 
-    // Toggle favorite
-    const favRes = await page.request.post('/api/photo/favorite', {
+    // Toggle download permission
+    const dlRes = await page.request.post('/api/photo/setAllowDownload', {
       data: {
         photoIds: [createdPhotoId],
-        favorite: 2, // FAVORITE = 2
+        allowDownload: true,
       }
     });
-    expect(favRes.status()).toBeLessThan(400);
+    expect(dlRes.status()).toBeLessThan(400);
   });
 
   test('Flow 15: Safe Cleanup — Delete E2E test photo permanently', async ({ page }) => {

@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/dialog"
 import { type PhotoInsightsDetailVo } from "@/server/entity/vo/insights"
 import { getPhotoInsightsDetail } from "@/request/insights"
-import { Eye, Heart, MessageSquare, Share2, TrendingUp, Loader2, Calendar } from "lucide-react"
+import { Eye, Download, MessageSquare, Share2, TrendingUp, Loader2, Calendar } from "lucide-react"
 import {
   AreaChart,
   Area,
@@ -39,76 +39,58 @@ export function PhotoInsightsDialog({ photoId, open, onOpenChange }: PhotoInsigh
 
   useEffect(() => {
     if (!open || !photoId) {
+      setDetail(null)
+      setError(null)
       return
     }
 
-    let isMounted = true
-
+    setLoading(true)
+    setError(null)
     getPhotoInsightsDetail(photoId)
       .then((res) => {
-        if (isMounted) {
+        if (res) {
           setDetail(res)
-          setError(null)
+        } else {
+          setError("Photo analytics not available.")
         }
       })
       .catch((err) => {
-        if (isMounted) {
-          console.error("Failed to fetch photo insights:", err)
-          setError("Unable to load photo insights.")
-        }
+        console.error("Failed to load photo insights:", err)
+        setError("Unable to load insights for this photo.")
       })
       .finally(() => {
-        if (isMounted) {
-          setLoading(false)
-        }
+        setLoading(false)
       })
-
-    return () => {
-      isMounted = false
-    }
   }, [open, photoId])
 
-  const handleOpenChange = (nextOpen: boolean) => {
-    if (!nextOpen) {
-      setDetail(null)
-      setError(null)
-    } else {
-      setLoading(true)
-    }
-    onOpenChange(nextOpen)
-  }
-
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto sm:rounded-2xl p-6">
-        <DialogHeader className="space-y-1 text-left">
-          <div className="flex items-center gap-2 text-xs font-semibold text-primary uppercase tracking-wider">
-            <TrendingUp className="size-3.5" />
-            <span>Photo Insights (Admin Only)</span>
-          </div>
-          <DialogTitle className="text-xl font-bold truncate">
-            {detail?.name || "Photo Analytics"}
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto p-6 rounded-2xl border-border/80 bg-background/95 backdrop-blur-md">
+        <DialogHeader className="pb-3 border-b border-border/60">
+          <DialogTitle className="text-base font-bold flex items-center gap-2">
+            <TrendingUp className="size-4 text-primary" />
+            <span>Photo Insights & Analytics</span>
           </DialogTitle>
           <DialogDescription className="text-xs text-muted-foreground">
-            Public visitor interaction statistics for this photo.
+            Detailed public engagement performance for this photo
           </DialogDescription>
         </DialogHeader>
 
         {loading ? (
-          <div className="flex flex-col items-center justify-center py-16 text-muted-foreground gap-3">
-            <Loader2 className="size-8 animate-spin text-primary" />
-            <p className="text-sm font-medium">Loading photo analytics...</p>
+          <div className="py-20 flex flex-col items-center justify-center gap-2 text-muted-foreground">
+            <Loader2 className="size-6 animate-spin text-primary" />
+            <span className="text-xs">Loading analytics...</span>
           </div>
-        ) : error ? (
-          <div className="py-12 text-center text-sm text-destructive">
-            {error}
+        ) : error || !detail ? (
+          <div className="py-12 text-center text-xs text-muted-foreground">
+            {error || "No data available."}
           </div>
-        ) : detail ? (
-          <div className="space-y-5 pt-2">
-            {/* Photo Preview & Key Summary */}
-            <div className="flex items-center gap-4 p-3 rounded-xl bg-muted/40 border border-border/50">
+        ) : (
+          <div className="space-y-6 pt-2">
+            {/* Photo Header Card */}
+            <div className="flex items-center gap-4 p-3 rounded-xl bg-card border border-border/70">
               <Image
-                src={detail.thumbnail || detail.preview}
+                src={detail.thumbnail}
                 alt={detail.name}
                 width={64}
                 height={64}
@@ -124,8 +106,8 @@ export function PhotoInsightsDialog({ photoId, open, onOpenChange }: PhotoInsigh
                   </span>
                   <span>•</span>
                   <span className="inline-flex items-center gap-1">
-                    <Heart className="size-3 text-pink-500" />
-                    {detail.favorites}
+                    <Download className="size-3 text-amber-500" />
+                    {detail.downloads} downloads
                   </span>
                   <span>•</span>
                   <span className="inline-flex items-center gap-1">
@@ -171,11 +153,11 @@ export function PhotoInsightsDialog({ photoId, open, onOpenChange }: PhotoInsigh
 
             {/* Interaction Badges */}
             <div className="grid grid-cols-3 gap-2.5">
-              <div className="flex items-center gap-2.5 p-2.5 rounded-xl bg-pink-500/10 border border-pink-500/20 text-pink-600 dark:text-pink-400">
-                <Heart className="size-4 shrink-0" />
+              <div className="flex items-center gap-2.5 p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400">
+                <Download className="size-4 shrink-0" />
                 <div className="min-w-0 text-left">
-                  <div className="text-[10px] font-medium uppercase leading-none opacity-80">Favorites</div>
-                  <div className="text-base font-bold leading-tight mt-0.5">{detail.favorites}</div>
+                  <div className="text-[10px] font-medium uppercase leading-none opacity-80">Downloads</div>
+                  <div className="text-base font-bold leading-tight mt-0.5">{detail.downloads}</div>
                 </div>
               </div>
               <div className="flex items-center gap-2.5 p-2.5 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-600 dark:text-blue-400">
@@ -251,7 +233,7 @@ export function PhotoInsightsDialog({ photoId, open, onOpenChange }: PhotoInsigh
               </div>
             </div>
           </div>
-        ) : null}
+        )}
       </DialogContent>
     </Dialog>
   )

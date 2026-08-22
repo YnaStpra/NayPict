@@ -15,7 +15,6 @@ export default async function Home() {
       size: 40,
       cursorPhotoId: null,
       cursorTime: null,
-      favorite: null,
       status: null,
       albumId: null,
       shuffle: true,

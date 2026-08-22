@@ -3,7 +3,6 @@ import {
   type PhotoBatchEditBo,
   type PhotoDeleteBo,
   type PhotoExistsBo,
-  type PhotoFavoriteBo,
   type PhotoListBo,
   type PhotoOnThisDayBo,
   type PhotoRandomIdListBo,
@@ -25,7 +24,7 @@ import {
 
 // This module encapsulates photo-related interface requests.
 
-// Batch edit photo metadata (visibility, allowDownload, takenTime, favorite).
+// Batch edit photo metadata (visibility, allowDownload, takenTime, GPS location).
 export function photoBatchEdit(params: PhotoBatchEditBo) {
   return http.post<void>('/photo/batchEdit', params);
 }
@@ -88,11 +87,6 @@ export function photoDownload(photoId: string) {
 // Move photos to recycle bin.
 export function photoRecycle(params: PhotoRecycleBo) {
   return http.post<void>('/photo/recycle', params);
-}
-
-// Set photo favorite status.
-export function photoFavorite(params: PhotoFavoriteBo) {
-  return http.post<void>('/photo/favorite', params);
 }
 
 // Recover Recycle Bin Photos.

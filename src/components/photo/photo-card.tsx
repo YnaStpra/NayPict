@@ -1,14 +1,14 @@
 "use client"
 
 import { useMemo, useState, type MouseEvent } from "react"
-import { HeartIcon, FolderIcon, PinIcon } from "lucide-react"
+import { FolderIcon, PinIcon } from "lucide-react"
 import { type RenderComponentProps } from "masonic"
 import { useIsMobile } from "@/hooks/use-mobile"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { formatPhotoTakenDate, formatRecycleTime } from "@/lib/date"
 import { getThumbHashUrl } from "@/lib/thumb-hash"
-import { PhotoFavoriteEnum, PhotoStatusEnum } from "@/server/enums/photo-enum"
+import { PhotoStatusEnum } from "@/server/enums/photo-enum"
 import { type PhotoVo } from "@/server/entity/vo/photo"
 import { useLocale, useTranslations } from "next-intl"
 import { useApp } from "@/app/provider"
@@ -22,7 +22,6 @@ type PhotoCardProps = RenderComponentProps<PhotoVo> & {
   selected?: boolean
   selectionActive?: boolean
   onOpen?: () => void
-  onFavoriteChange?: (index: number, setFavorite: (favorite: boolean) => void) => void
   onSelectedChange?: (photoId: string, selected: boolean) => void
   onPhotoPin?: (photoId: string, isPinned: boolean) => void
   touchHoverCloseRef?: TouchHoverCloseRef
@@ -56,7 +55,6 @@ export function PhotoCard({
   selected = false,
   selectionActive = false,
   onOpen,
-  onFavoriteChange,
   onSelectedChange,
   onPhotoPin,
   touchHoverCloseRef,
@@ -74,8 +72,6 @@ export function PhotoCard({
   const [holdHover, setHoldHover] = useState(false)
   // imageError Record whether the current photo thumbnail failed to load。
   const [imageError, setImageError] = useState(false)
-  // favorite Record current photo collection status，Only refresh the current card。
-  const [favorite, setFavorite] = useState(data.favorite === PhotoFavoriteEnum.YES)
   // isMobile Determine whether the current viewport is the mobile terminal。
   const isMobile = useIsMobile()
   const showHover = showTouchHover || holdHover
@@ -134,12 +130,6 @@ export function PhotoCard({
     if (touchHoverCloseRef) {
       touchHoverCloseRef.current = () => setShowTouchHover(false)
     }
-  }
-
-  // Leave the current photo location to the page to switch the collection status。
-  function handleFavoriteClick(event: MouseEvent<HTMLButtonElement>) {
-    event.stopPropagation()
-    onFavoriteChange?.(index, setFavorite)
   }
 
   return (
@@ -237,7 +227,7 @@ export function PhotoCard({
           type="button"
           size="icon-sm"
           className={[
-            "absolute right-8 bottom-1 z-10 rounded-full bg-black/40 backdrop-blur-md opacity-0 transition-all duration-200 hover:bg-black/60 group-hover:opacity-100 cursor-pointer",
+            "absolute right-2.5 bottom-1 z-10 rounded-full bg-black/40 backdrop-blur-md opacity-0 transition-all duration-200 hover:bg-black/60 group-hover:opacity-100 cursor-pointer",
             data.isPinned
               ? "text-amber-400 opacity-100 bg-black/60"
               : ["text-white/90", isMobile ? "pointer-events-none" : ""].join(" "),
@@ -253,25 +243,8 @@ export function PhotoCard({
           <PinIcon className={`size-3.5 rotate-45 ${data.isPinned ? "fill-amber-400 text-amber-400" : "text-white"}`} />
         </Button>
       )}
-      {isAdmin && onFavoriteChange && !selectionActive && !selected && (
-        <Button
-          type="button"
-          size="icon-sm"
-          className={[
-            "absolute right-1 bottom-1 z-10 rounded-full bg-transparent opacity-0 transition-opacity duration-200 hover:bg-transparent group-hover:opacity-100",
-            favorite
-              ? "text-pink-500 opacity-100"
-              : ["text-white/90", isMobile ? "pointer-events-none" : ""].join(" "),
-            showHover ? "opacity-100 pointer-events-auto" : "",
-          ].join(" ")}
-          onClick={handleFavoriteClick}
-          aria-label={favorite ? `Remove ${data.name} from favorites` : `Add ${data.name} to favorites`}
-        >
-          <HeartIcon className="size-[18px] fill-current" />
-        </Button>
-      )}
       {!selectionActive && (
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 p-2.5 pr-11 pb-2.5 text-white">
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 p-2.5 pr-2.5 pb-2.5 text-white">
           <div className="**:duration-300">
             {data.albums && data.albums.length > 0 && (
               <div className={["mb-1.5 flex flex-wrap items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-300", showHover ? "opacity-100" : ""].join(" ")}>

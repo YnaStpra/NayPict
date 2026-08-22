@@ -1,6 +1,6 @@
 import { sql } from 'drizzle-orm';
 import { integer, pgTable, text, timestamp } from 'drizzle-orm/pg-core';
-import { PhotoFavoriteEnum, PhotoStatusEnum, PhotoVisibilityEnum } from '@/server/enums/photo-enum';
+import { PhotoStatusEnum, PhotoVisibilityEnum } from '@/server/enums/photo-enum';
 
 // photo
 export const photoTab = pgTable('photo', {
@@ -18,7 +18,7 @@ export const photoTab = pgTable('photo', {
   recycleTime: text('recycle_time'),
   userId: text('user_id').notNull(),
   status: integer('status').notNull().default(PhotoStatusEnum.NORMAL),
-  favorite: integer('favorite').notNull().default(PhotoFavoriteEnum.NO),
+  favorite: integer('favorite').notNull().default(1),
   storageId: text('storage_id'),
   allowDownload: integer('allow_download').notNull().default(0),
   visibility: integer('visibility').notNull().default(PhotoVisibilityEnum.BOTH),

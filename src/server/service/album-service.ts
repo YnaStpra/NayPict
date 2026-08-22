@@ -16,7 +16,7 @@ import {
   type AlbumSetTopBo,
   type AlbumTogglePinPhotoBo,
 } from '@/server/entity/bo/album';
-import { PhotoFavoriteEnum, PhotoStatusEnum, PhotoVisibilityEnum } from '@/server/enums/photo-enum';
+import { PhotoStatusEnum, PhotoVisibilityEnum } from '@/server/enums/photo-enum';
 import { type AlbumVo } from '@/server/entity/vo/album';
 import { storageService } from '@/server/service/storage-service';
 import { formatHttpUrl, toMediaUrl } from '@/lib/url';
@@ -29,7 +29,6 @@ function calculateAlbumCoverScore(photo: {
   width: number | null;
   height: number | null;
   size: number;
-  favorite?: number | null;
   thumbHash?: string | null;
 }): number {
   let score = 0;
@@ -67,12 +66,7 @@ function calculateAlbumCoverScore(photo: {
     }
   }
 
-  // 4. Favorite bonus
-  if (photo.favorite === PhotoFavoriteEnum.YES) {
-    score += 15;
-  }
-
-  // 5. Valid thumbnail hash
+  // 4. Valid thumbnail hash
   if (photo.thumbHash) {
     score += 5;
   }
@@ -115,7 +109,6 @@ const albumService = {
         width: photoTab.width,
         height: photoTab.height,
         size: photoTab.size,
-        favorite: photoTab.favorite,
         thumbHash: photoTab.thumbHash,
         storageId: photoTab.storageId,
         takenTime: photoTab.takenTime
@@ -237,7 +230,6 @@ const albumService = {
           width: photoTab.width,
           height: photoTab.height,
           size: photoTab.size,
-          favorite: photoTab.favorite,
           thumbHash: photoTab.thumbHash
         })
         .from(albumPhotoTab)
@@ -290,7 +282,6 @@ const albumService = {
         width: photoTab.width,
         height: photoTab.height,
         size: photoTab.size,
-        favorite: photoTab.favorite,
         thumbHash: photoTab.thumbHash,
         storageId: photoTab.storageId
       })

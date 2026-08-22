@@ -18,7 +18,6 @@ export default async function PhotoLayout({ children }: PhotoLayoutProps) {
     size: PHOTO_LIST_PAGE_SIZE,
     cursorPhotoId: null,
     cursorTime: null,
-    favorite: null,
     status: null,
     albumId: null,
     shuffle: true,

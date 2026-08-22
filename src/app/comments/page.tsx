@@ -249,7 +249,6 @@ export default function CommentsManagementPage() {
       recycleTime: null,
       userId: '',
       status: 0,
-      favorite: 0,
       storageId: null,
       allowDownload: 1,
       visibility: 1,

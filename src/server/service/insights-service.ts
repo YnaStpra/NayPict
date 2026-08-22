@@ -6,7 +6,7 @@ import { commentTab } from '@/server/entity/comment';
 import { photoViewTab } from '@/server/entity/insights';
 import { storageTab } from '@/server/entity/storage';
 import { orm } from '@/server/infra/db';
-import { PhotoFavoriteEnum, PhotoStatusEnum } from '@/server/enums/photo-enum';
+import { PhotoStatusEnum } from '@/server/enums/photo-enum';
 import { buildPreviewKey, buildThumbnailKey } from '@/server/lib/photo-path';
 import { toMediaUrl } from '@/lib/url';
 import { type PhotoViewRecordBo } from '@/server/entity/bo/insights';
@@ -129,7 +129,6 @@ const insightsService = {
     const monthStart = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
 
     let totalPhotos = 0;
-    let totalFavorites = 0;
     let totalComments = 0;
     let totalViews = 0;
     let viewsToday = 0;
@@ -146,55 +145,48 @@ const insightsService = {
         .where(eq(photoTab.status, PhotoStatusEnum.NORMAL));
       totalPhotos = photoCountRes?.count ?? 0;
 
-      // 2. Total favorited photos count
-      const [favoriteCountRes] = await orm
-        .select({ count: count() })
-        .from(photoTab)
-        .where(and(eq(photoTab.status, PhotoStatusEnum.NORMAL), eq(photoTab.favorite, PhotoFavoriteEnum.YES)));
-      totalFavorites = favoriteCountRes?.count ?? 0;
-
-      // 3. Total comments count
+      // 2. Total comments count
       const [commentCountRes] = await orm
         .select({ count: count() })
         .from(commentTab);
       totalComments = commentCountRes?.count ?? 0;
 
-      // 4. Total public views
+      // 3. Total public views
       const [totalViewsRes] = await orm
         .select({ count: count() })
         .from(photoViewTab)
         .where(eq(photoViewTab.type, 'view'));
       totalViews = totalViewsRes?.count ?? 0;
 
-      // 5. Views today
+      // 4. Views today
       const [viewsTodayRes] = await orm
         .select({ count: count() })
         .from(photoViewTab)
         .where(and(eq(photoViewTab.type, 'view'), gte(photoViewTab.viewedAt, todayStart)));
       viewsToday = viewsTodayRes?.count ?? 0;
 
-      // 6. Views this week
+      // 5. Views this week
       const [viewsWeekRes] = await orm
         .select({ count: count() })
         .from(photoViewTab)
         .where(and(eq(photoViewTab.type, 'view'), gte(photoViewTab.viewedAt, weekStart)));
       viewsThisWeek = viewsWeekRes?.count ?? 0;
 
-      // 7. Views this month
+      // 6. Views this month
       const [viewsMonthRes] = await orm
         .select({ count: count() })
         .from(photoViewTab)
         .where(and(eq(photoViewTab.type, 'view'), gte(photoViewTab.viewedAt, monthStart)));
       viewsThisMonth = viewsMonthRes?.count ?? 0;
 
-      // 8. Total shares
+      // 7. Total shares
       const [sharesRes] = await orm
         .select({ count: count() })
         .from(photoViewTab)
         .where(eq(photoViewTab.type, 'share'));
       totalShares = sharesRes?.count ?? 0;
 
-      // 9. Total downloads
+      // 8. Total downloads
       const [downloadsRes] = await orm
         .select({ count: count() })
         .from(photoViewTab)
@@ -210,7 +202,6 @@ const insightsService = {
       viewsToday,
       viewsThisWeek,
       viewsThisMonth,
-      totalFavorites,
       totalComments,
       totalShares,
       totalDownloads,
@@ -287,8 +278,8 @@ const insightsService = {
     };
   },
 
-  // Query top photos ranked by public view count and favorite status.
-  async getTopPhotos(limit = 10): Promise<{ mostViewed: InsightsTopPhotoVo[]; mostFavorited: InsightsTopPhotoVo[] }> {
+  // Query top photos ranked by public view count and discussion comments.
+  async getTopPhotos(limit = 10): Promise<{ mostViewed: InsightsTopPhotoVo[]; mostCommented: InsightsTopPhotoVo[] }> {
     await ensurePhotoViewTable();
 
     try {
@@ -301,7 +292,6 @@ const insightsService = {
           width: photoTab.width,
           height: photoTab.height,
           storageId: photoTab.storageId,
-          favorite: photoTab.favorite,
           viewCount: count(photoViewTab.id),
         })
         .from(photoTab)
@@ -316,14 +306,13 @@ const insightsService = {
           photoTab.checksum,
           photoTab.width,
           photoTab.height,
-          photoTab.storageId,
-          photoTab.favorite
+          photoTab.storageId
         )
         .orderBy(desc(count(photoViewTab.id)))
         .limit(limit);
 
-      // 2. Fetch top photos by favorites
-      const mostFavoritedRaw = await orm
+      // 2. Fetch top photos by comments
+      const mostCommentedRaw = await orm
         .select({
           photoId: photoTab.photoId,
           name: photoTab.name,
@@ -331,17 +320,26 @@ const insightsService = {
           width: photoTab.width,
           height: photoTab.height,
           storageId: photoTab.storageId,
-          favorite: photoTab.favorite,
+          commentCount: count(commentTab.commentId),
         })
         .from(photoTab)
-        .where(and(eq(photoTab.status, PhotoStatusEnum.NORMAL), eq(photoTab.favorite, PhotoFavoriteEnum.YES)))
-        .orderBy(desc(photoTab.createTime))
+        .innerJoin(commentTab, eq(commentTab.photoId, photoTab.photoId))
+        .where(eq(photoTab.status, PhotoStatusEnum.NORMAL))
+        .groupBy(
+          photoTab.photoId,
+          photoTab.name,
+          photoTab.checksum,
+          photoTab.width,
+          photoTab.height,
+          photoTab.storageId
+        )
+        .orderBy(desc(count(commentTab.commentId)))
         .limit(limit);
 
       // Collect all referenced storageIds to resolve domain
       const storageIds = Array.from(
         new Set(
-          [...mostViewedRaw, ...mostFavoritedRaw]
+          [...mostViewedRaw, ...mostCommentedRaw]
             .map((p) => p.storageId)
             .filter(Boolean) as string[]
         )
@@ -362,9 +360,9 @@ const insightsService = {
         }
       }
 
-      // Collect all photoIds to fetch comment counts
+      // Collect all photoIds to fetch comment and view counts
       const allPhotoIds = Array.from(
-        new Set([...mostViewedRaw, ...mostFavoritedRaw].map((p) => p.photoId))
+        new Set([...mostViewedRaw, ...mostCommentedRaw].map((p) => p.photoId))
       );
 
       const commentCountMap = new Map<string, number>();
@@ -405,8 +403,8 @@ const insightsService = {
         width: number | null;
         height: number | null;
         storageId: string | null;
-        favorite: number;
         viewCount?: number;
+        commentCount?: number;
       }): InsightsTopPhotoVo => {
         const domain = item.storageId ? storageMap.get(item.storageId) : null;
         const checksum = item.checksum || '';
@@ -421,18 +419,17 @@ const insightsService = {
           width: item.width,
           height: item.height,
           viewCount: item.viewCount !== undefined ? Number(item.viewCount) : viewCountMap.get(item.photoId) ?? 0,
-          favoriteCount: item.favorite === PhotoFavoriteEnum.YES ? 1 : 0,
-          commentCount: commentCountMap.get(item.photoId) ?? 0,
+          commentCount: item.commentCount !== undefined ? Number(item.commentCount) : commentCountMap.get(item.photoId) ?? 0,
         };
       };
 
       return {
         mostViewed: mostViewedRaw.map(formatPhotoItem),
-        mostFavorited: mostFavoritedRaw.map(formatPhotoItem),
+        mostCommented: mostCommentedRaw.map(formatPhotoItem),
       };
     } catch (err) {
       console.error('[INSIGHTS] Error fetching top photos:', err);
-      return { mostViewed: [], mostFavorited: [] };
+      return { mostViewed: [], mostCommented: [] };
     }
   },
 
@@ -449,7 +446,6 @@ const insightsService = {
           width: photoTab.width,
           height: photoTab.height,
           storageId: photoTab.storageId,
-          favorite: photoTab.favorite,
         })
         .from(photoTab)
         .where(and(eq(photoTab.photoId, photoId), eq(photoTab.status, PhotoStatusEnum.NORMAL)))
@@ -559,7 +555,6 @@ const insightsService = {
         viewsToday,
         viewsThisWeek,
         viewsThisMonth,
-        favorites: photo.favorite === PhotoFavoriteEnum.YES ? 1 : 0,
         comments,
         shares,
         downloads,

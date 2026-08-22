@@ -22,7 +22,6 @@ export default async function TrashPhotoLayout({ children }: TrashPhotoLayoutPro
     size: PHOTO_LIST_PAGE_SIZE,
     cursorPhotoId: null,
     cursorTime: null,
-    favorite: null,
     status: PhotoStatusEnum.DELETE,
     albumId: null,
   }, userId)

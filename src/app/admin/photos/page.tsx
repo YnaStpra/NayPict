@@ -21,7 +21,6 @@ import {
   FolderPlus,
   Globe,
   Grid,
-  Heart,
   Image as ImageIcon,
   Images,
   LayoutGrid,
@@ -81,9 +80,9 @@ import {
 
 import { useApp } from '@/app/provider'
 import { UserTypeEnum } from '@/server/enums/user-enum'
-import { PhotoFavoriteEnum, PhotoStatusEnum, PhotoVisibilityEnum } from '@/server/enums/photo-enum'
+import { PhotoStatusEnum, PhotoVisibilityEnum } from '@/server/enums/photo-enum'
 import { type PhotoVo } from '@/server/entity/vo/photo'
-import { photoBatchEdit, photoFavorite, photoList, photoRecycle } from '@/request/photo'
+import { photoBatchEdit, photoList, photoRecycle } from '@/request/photo'
 import { albumAddPhoto } from '@/request/album'
 import { getThumbHashUrl } from '@/lib/thumb-hash'
 import { formatPhotoTakenDate, formatRelativeTime } from '@/lib/date'
@@ -143,7 +142,6 @@ export default function AdminPhotosPage() {
   const [debouncedQuery, setDebouncedQuery] = useState<string>('')
   const [visibilityFilter, setVisibilityFilter] = useState<string>('all')
   const [downloadFilter, setDownloadFilter] = useState<string>('all')
-  const [favoriteFilter, setFavoriteFilter] = useState<string>('all')
   const [locationFilter, setLocationFilter] = useState<string>('all')
   const [sortBy, setSortBy] = useState<'takenTime' | 'createTime' | 'size' | 'name'>('takenTime')
   const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc')
@@ -180,7 +178,6 @@ export default function AdminPhotosPage() {
         keyword: debouncedQuery || undefined,
         visibility: visibilityFilter !== 'all' ? Number(visibilityFilter) : undefined,
         allowDownload: downloadFilter === 'allowed' ? true : downloadFilter === 'protected' ? false : undefined,
-        favorite: favoriteFilter === 'favorite' ? PhotoFavoriteEnum.YES : undefined,
         sortBy,
         sortOrder,
       })
@@ -193,7 +190,7 @@ export default function AdminPhotosPage() {
     } finally {
       setLoading(false)
     }
-  }, [isAdmin, debouncedQuery, visibilityFilter, downloadFilter, favoriteFilter, sortBy, sortOrder])
+  }, [isAdmin, debouncedQuery, visibilityFilter, downloadFilter, sortBy, sortOrder])
 
   useEffect(() => {
     fetchPhotos()
@@ -225,7 +222,6 @@ export default function AdminPhotosPage() {
     const albumOnlyPhotos = photos.filter((p) => p.visibility === PhotoVisibilityEnum.ALBUM_ONLY).length
     const archivedPhotos = photos.filter((p) => p.visibility === PhotoVisibilityEnum.ARCHIVED).length
     const geotaggedPhotos = photos.filter((p) => typeof p.latitude === 'number' && typeof p.longitude === 'number' && p.latitude !== 999).length
-    const favorites = photos.filter((p) => p.favorite === PhotoFavoriteEnum.YES).length
 
     return {
       total,
@@ -234,7 +230,6 @@ export default function AdminPhotosPage() {
       albumOnlyPhotos,
       archivedPhotos,
       geotaggedPhotos,
-      favorites,
     }
   }, [photos])
 
@@ -278,22 +273,6 @@ export default function AdminPhotosPage() {
   const handleAddToAlbumSelected = (targetIds: string[]) => {
     setAlbumTargetIds(targetIds)
     setAlbumDialogOpen(true)
-  }
-
-  const handleToggleFavorite = async (photo: PhotoVo) => {
-    const nextFav = photo.favorite === PhotoFavoriteEnum.YES ? PhotoFavoriteEnum.NO : PhotoFavoriteEnum.YES
-    try {
-      await photoFavorite({
-        photoIds: [photo.photoId],
-        favorite: nextFav,
-      })
-      setPhotos((prev) =>
-        prev.map((p) => (p.photoId === photo.photoId ? { ...p, favorite: nextFav } : p))
-      )
-      toast.success(nextFav === PhotoFavoriteEnum.YES ? 'Photo marked as favorite!' : 'Removed from favorites.')
-    } catch {
-      toast.error('Failed to update favorite status.')
-    }
   }
 
   const handleRecycleSingle = async (photo: PhotoVo) => {
@@ -601,22 +580,8 @@ export default function AdminPhotosPage() {
                 </Select>
               </div>
 
-              {/* Favorites Filter */}
-              <div className="flex items-center gap-1.5 text-xs">
-                <span className="text-muted-foreground font-medium text-[11px]">Favorites:</span>
-                <Select value={favoriteFilter} onValueChange={setFavoriteFilter}>
-                  <SelectTrigger className="h-7 text-xs bg-muted/20 border-border/70 rounded-lg w-auto min-w-[90px]">
-                    <SelectValue placeholder="All" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all" className="text-xs">All</SelectItem>
-                    <SelectItem value="favorite" className="text-xs">⭐ Favorites</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
               {/* Reset filter button if any active */}
-              {(visibilityFilter !== 'all' || downloadFilter !== 'all' || locationFilter !== 'all' || favoriteFilter !== 'all' || searchQuery) && (
+              {(visibilityFilter !== 'all' || downloadFilter !== 'all' || locationFilter !== 'all' || searchQuery) && (
                 <Button
                   variant="ghost"
                   size="sm"
@@ -624,7 +589,6 @@ export default function AdminPhotosPage() {
                     setVisibilityFilter('all')
                     setDownloadFilter('all')
                     setLocationFilter('all')
-                    setFavoriteFilter('all')
                     setSearchQuery('')
                   }}
                   className="h-7 px-2 text-[11px] text-muted-foreground hover:text-foreground"
@@ -777,7 +741,6 @@ export default function AdminPhotosPage() {
                     {filteredPhotos.map((photo) => {
                       const isSelected = selectedIds.includes(photo.photoId)
                       const imgUrl = photo.thumbnail || photo.preview || ''
-                      const isFav = photo.favorite === PhotoFavoriteEnum.YES
                       const thumbHashUrl = getThumbHashUrl(photo.thumbHash)
 
                       return (
@@ -828,11 +791,6 @@ export default function AdminPhotosPage() {
                                 ) : (
                                   <div className="size-full flex items-center justify-center text-muted-foreground">
                                     <ImageIcon className="size-4" />
-                                  </div>
-                                )}
-                                {isFav && (
-                                  <div className="absolute top-0.5 right-0.5 p-0.5 rounded-full bg-black/60 text-rose-500">
-                                    <Heart className="size-2.5 fill-rose-500" />
                                   </div>
                                 )}
                               </div>
@@ -962,21 +920,6 @@ export default function AdminPhotosPage() {
                                 type="button"
                                 variant="ghost"
                                 size="icon"
-                                onClick={() => handleToggleFavorite(photo)}
-                                className={`size-7 rounded-lg ${
-                                  isFav
-                                    ? 'text-rose-500 hover:text-rose-600 hover:bg-rose-500/10'
-                                    : 'text-muted-foreground hover:text-rose-500 hover:bg-rose-500/10'
-                                }`}
-                                title={isFav ? 'Remove Favorite' : 'Mark Favorite'}
-                              >
-                                <Heart className={`size-3.5 ${isFav ? 'fill-rose-500' : ''}`} />
-                              </Button>
-
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
                                 onClick={() => handleEditSingle(photo)}
                                 className="size-7 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted"
                                 title="Edit Metadata"
@@ -1033,7 +976,6 @@ export default function AdminPhotosPage() {
               {filteredPhotos.map((photo) => {
                 const isSelected = selectedIds.includes(photo.photoId)
                 const imgUrl = photo.thumbnail || photo.preview || ''
-                const isFav = photo.favorite === PhotoFavoriteEnum.YES
                 const thumbHashUrl = getThumbHashUrl(photo.thumbHash)
 
                 return (
@@ -1119,39 +1061,27 @@ export default function AdminPhotosPage() {
                       </div>
 
                       {/* Action quick buttons */}
-                      <div className="pt-1.5 flex items-center justify-between border-t border-border/50">
+                      <div className="pt-1.5 flex items-center justify-end gap-1 border-t border-border/50">
                         <Button
                           type="button"
                           variant="ghost"
                           size="icon"
-                          onClick={() => handleToggleFavorite(photo)}
-                          className="size-6 rounded-md text-muted-foreground hover:text-rose-500"
+                          onClick={() => handleEditSingle(photo)}
+                          className="size-6 rounded-md text-muted-foreground hover:text-foreground"
+                          title="Edit"
                         >
-                          <Heart className={`size-3 ${isFav ? 'fill-rose-500 text-rose-500' : ''}`} />
+                          <Pencil className="size-3" />
                         </Button>
-
-                        <div className="flex items-center gap-0.5">
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleEditSingle(photo)}
-                            className="size-6 rounded-md text-muted-foreground hover:text-foreground"
-                            title="Edit"
-                          >
-                            <Pencil className="size-3" />
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleRecycleSingle(photo)}
-                            className="size-6 rounded-md text-muted-foreground hover:text-rose-500"
-                            title="Recycle"
-                          >
-                            <Trash2 className="size-3" />
-                          </Button>
-                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleRecycleSingle(photo)}
+                          className="size-6 rounded-md text-muted-foreground hover:text-rose-500"
+                          title="Recycle"
+                        >
+                          <Trash2 className="size-3" />
+                        </Button>
                       </div>
                     </div>
                   </div>
