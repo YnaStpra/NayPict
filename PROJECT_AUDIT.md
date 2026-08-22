@@ -575,6 +575,7 @@ erDiagram
 9. **2FA Two-Factor Authentication (TOTP)**: Google Authenticator login security.
 10. **Multi-Storage Management (`/storage`)**: Cloudflare R2 / S3 bucket registry.
 11. **Admin Comment Moderation (`/comments`)**: Moderate comments, reply to visitors, and remove spam.
+12. **Admin Photo Inventory & Search (`/admin/photos`)**: Dedicated system dashboard with real-time text search, dual high-density Table / Grid views, multi-criteria filtering, and batch operations.
 
 ---
 
