@@ -585,9 +585,66 @@ erDiagram
 | **Frontend Architecture** | 🟢 | Modern, responsive, React 19 + Next.js 16 App Router, Leaflet interactive map, ThumbHash zero-CLS. |
 | **Backend & API Layer** | 🟢 | Clean separation of Controller (Hono) -> Service -> Drizzle ORM. Full type safety. |
 | **Database Architecture** | 🟢 | PostgreSQL schema with foreign keys, compound indexes, and Neon Serverless connection pooling. |
-| **Storage & Media Pipeline** | 🟢 | Cloudflare R2 integration, client & server WebP compression, fast thumbnailing. |
+| **Storage & Media Pipeline** | 🟢 | Cloudflare R2 integration, smart lossless/MozJPEG 90% compression, fast thumbnailing. |
 | **Authentication & RBAC** | 🟢 | HTTP-only Lax cookies, instant session cache invalidation, Argon2id hashing, 2FA Google Authenticator. |
 | **Defensive Security** | 🟢 | Strict CSP, download protection, rate limiters, input sanitization. |
 | **Internationalization (i18n)** | 🟢 | 100% standardized in English across all UI components, dialogs, map controls, and notifications. |
 | **Testing Coverage** | 🟢 | Comprehensive Playwright E2E test suites covering public and admin workflows. |
 | **Deployment Readiness** | 🟢 | Fully prepared for automated zero-downtime deployment on Vercel + Neon + Cloudflare R2. |
+
+---
+
+## 18. TOP 10 REKOMENDASI AUDIT KEAMANAN (SECURITY AUDIT RECOMMENDATIONS)
+
+Berikut adalah **10 saran audit keamanan komprehensif** yang dirancang khusus untuk memperkuat arsitektur aplikasi (Next.js 16, Hono, Drizzle ORM, Neon PostgreSQL, Cloudflare R2/S3, dan 2FA TOTP):
+
+### 1. **Distributed Rate Limiting (Redis / Upstash KV)**
+- **Kondisi Saat Ini**: Rate limiter berbasis *in-memory cache* (`rate-limiter.ts`), yang ter-reset saat *cold restart* atau jika berjalan di multiple serverless instances (horizontal scaling di Vercel).
+- **Rekomendasi**: Migrasikan rate limiter ke **Upstash Redis / Redis KV** terdistribusi untuk proteksi menyeluruh pada rute sensitif: `/api/login` (brute-force defense), `/api/totp/*` (token guessing defense), `/api/comments` (anti-spam), dan `/api/photo/download` (bandwidth abuse).
+
+### 2. **Perketat Proteksi CSRF (Cross-Site Request Forgery) untuk Mutasi Sensitif**
+- **Kondisi Saat Ini**: Cookie session `naypict_token` menggunakan `sameSite: 'Lax'`.
+- **Rekomendasi**: Terapkan validasi ketat `Origin` dan `Referer` matching atau mekanisme *Double Submit Anti-CSRF Token* pada endpoint mutasi sensitif tingkat tinggi (penggantian password, perubahan kredensial R2/S3 storage, dan pengosongan permanen *Recycle Bin*).
+
+### 3. **Enkripsi Kredensial Storage At-Rest (Database Column Encryption)**
+- **Kondisi Saat Ini**: Kredensial bucket `accessKey` dan `secretKey` tersimpan sebagai plaintext di tabel `storage`.
+- **Rekomendasi**: Enkripsi kolom `secretKey` dan `accessKey` sebelum disimpan ke database menggunakan algoritma **AES-256-GCM** atau **ChaCha20-Poly1305** dengan kunci rahasia `STORAGE_ENCRYPTION_KEY` yang tersimpan aman di environment variables.
+
+### 4. **Sanitasi Ketat Metadata EXIF (Mencegah Stored XSS via File Header)**
+- **Kondisi Saat Ini**: Metadata EXIF kamera diparsing dan disimpan ke database, kemudian dirender di antarmuka lightbox detail foto.
+- **Rekomendasi**: String bebas pada tag EXIF (seperti `ImageDescription`, `Artist`, `Copyright`, `Software`, dan `UserComment`) wajib melalui sanitasi encoding / HTML escape sebelum dirender ke DOM untuk mencegah payload Stored XSS yang disisipkan melalui file gambar manipulatif.
+
+### 5. **Sandboxed Serving & Strict Headers pada Domain CDN / Media Proxy**
+- **Kondisi Saat Ini**: File media asli dan thumbnail disajikan melalui CDN atau proxy endpoint.
+- **Rekomendasi**: Pastikan header respons file selalu menyertakan:
+  - `X-Content-Type-Options: nosniff` (mencegah MIME-sniffing browser).
+  - `Content-Security-Policy: sandbox; default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'` pada domain direct media serving untuk mengisolasi eksekusi skrip berbahaya.
+
+### 6. **Invisible Honeypot & Bot Protection pada Form Komentar Publik (`/comments`)**
+- **Kondisi Saat Ini**: Fitur komentar terbuka untuk pengunjung publik tanpa kewajiban login.
+- **Rekomendasi**: Pasang *invisible honeypot field*, validasi batas waktu minimum interaksi (misal: penolakan form yang terkirim < 1.5 detik), serta sediakan opsi integrasi **Cloudflare Turnstile** atau **hCaptcha** tanpa mengganggu kenyamanan pengguna asli.
+
+### 7. **Automated Secret Scanning & Dependency Vulnerability Gate di CI/CD**
+- **Kondisi Saat Ini**: Pengecekan dependensi dan audit kode dilakukan secara manual.
+- **Rekomendasi**: Tambahkan pipeline GitHub Actions otomatis:
+  - `npm audit --audit-level=high` untuk memblokir deployment jika ditemukan dependensi dengan kerentanan kritis.
+  - Secret Scanner (**TruffleHog** / **GitGuardian**) untuk memastikan `JWT_SECRET`, database connection string, atau kunci Cloudflare R2 tidak pernah ter-commit ke public repository.
+
+### 8. **Pencegahan Replay Attack & Emergency Backup Codes pada TOTP 2FA**
+- **Kondisi Saat Ini**: TOTP memvalidasi kode 6-digit dalam jendela waktu standar RFC 6238.
+- **Rekomendasi**:
+  - Simpan timestamp kode TOTP yang baru saja berhasil digunakan di cache selama 60 detik untuk mencegah serangan *replay* dalam window validitas yang sama.
+  - Sediakan 8-10 *Single-Use Emergency Backup Codes* terenkripsi saat user pertama kali mengaktifkan 2FA jika sewaktu-waktu kehilangan akses ke aplikasi Google Authenticator.
+
+### 9. **Strict RBAC & Tenant Ownership Verification (IDOR Defense)**
+- **Kondisi Saat Ini**: Sebagian besar verifikasi hak akses menggunakan filter `getUserId()`.
+- **Rekomendasi**: Terapkan pemeriksaan kepemilikan resource eksplisit (`where(and(eq(photoTab.photoId, id), eq(photoTab.userId, currentUserId)))`) pada seluruh service layer untuk mencegah kerentanan **IDOR (Insecure Direct Object Reference)** apabila sistem di masa depan mengaktifkan registrasi multi-user / kontributor publik.
+
+### 10. **Audit Trail & Alerting untuk Aksi Administratif Krusial (Security Log)**
+- **Kondisi Saat Ini**: Logging aksi administratif belum dicatat ke tabel audit trail khusus.
+- **Rekomendasi**: Buat tabel `security_audit_log` untuk mencatat rekam jejak aktivitas penting:
+  - Percobaan login gagal berulang kali (indikasi brute-force).
+  - Penambahan / pengeditan akun user lain.
+  - Perubahan konfigurasi bucket storage & domain media.
+  - Penghapusan massal atau pengosongan tempat sampah (*Recycle Bin*).
+  - Setiap log mencatat: `userId`, `action`, `ipAddress`, `userAgent`, dan `timestamp`.
