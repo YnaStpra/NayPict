@@ -645,46 +645,46 @@ erDiagram
 
 ---
 
-## 18. TOP 10 REKOMENDASI AUDIT PERFORMA & EFISIENSI TERBARU (PERFORMANCE AUDIT RECOMMENDATIONS)
+## 18. TOP 10 REKOMENDASI AUDIT PERFORMA & EFISIENSI PENGUNJUNG PUBLIK (PUBLIC USER PERFORMANCE PRIORITIES)
 
-Berikut adalah **10 prioritas rekomendasi audit performa dan efisiensi terbaru** untuk mempercepat waktu respon, menghemat sumber daya bandwidth/storage, dan menciptakan pengalaman pengguna yang instan (0ms latency) pada Pixtale:
+Berikut adalah **10 prioritas rekomendasi audit performa dan efisiensi khusus untuk pengunjung publik** guna menciptakan pengalaman eksplorasi galeri yang instan (0ms perceived latency), super responsif di perangkat mobile, hemat kuota bandwidth, dan visual terkunci di 120 FPS:
 
-### 1. **Parallel S3 Multipart Direct Uploads untuk Video & Ultra-High-Res RAW Files**
-- **Kondisi Saat Ini**: Direct upload saat ini menggunakan presigned `PutObject` tunggal (maksimal 100MB per file).
-- **Rekomendasi**: Sediakan dukungan S3 Multipart Upload (`CreateMultipartUpload`, `UploadPart`, `CompleteMultipartUpload`) langsung dari browser dengan upload paralel 4-part simultan untuk file video atau foto RAW berukuran ratusan megabyte.
+### 1. **Adaptive Pre-Fetching Berdasarkan Network Information API (`save-data` & Effective Type)**
+- **Kondisi Saat Ini**: Pre-fetching rute galeri dan album dieksekusi secara seragam tanpa mendeteksi preferensi hemat kuota pengunjung.
+- **Rekomendasi**: Periksa `navigator.connection?.saveData` dan `navigator.connection?.effectiveType` ('4g', '3g', '2g') sebelum memicu background prefetch rute atau HD preview untuk menghemat kuota pengunjung seluler dengan paket data terbatas.
 
-### 2. **Font Subsetting & Glyph Optimization untuk Font Teks**
-- **Kondisi Saat Ini**: Seluruh karakter glyph font dimuat secara lengkap di browser.
-- **Rekomendasi**: Terapkan font subsetting untuk hanya memuat karakter Latin/Unicode umum (`subset: ['latin']`) pada font web Next.js, memangkas ukuran font bundle dari 250KB menjadi <30KB.
+### 2. **Font Subsetting & Glyph Optimization untuk Font Web Geist**
+- **Kondisi Saat Ini**: Seluruh karakter glyph font dimuat secara lengkap di browser pengunjung.
+- **Rekomendasi**: Terapkan font subsetting untuk hanya memuat karakter Latin/Unicode umum (`subset: ['latin']`) pada font web Next.js, memangkas ukuran font bundle dari 250KB menjadi <30KB guna mempercepat *First Contentful Paint* (FCP).
 
-### 3. **Adaptive Pre-Fetching Berdasarkan Network Information API (`save-data`)**
-- **Kondisi Saat Ini**: Pre-fetching rute dieksekusi secara seragam di semua kondisi jaringan.
-- **Rekomendasi**: Periksa `navigator.connection.saveData` dan `navigator.connection.effectiveType` sebelum memicu background prefetch untuk menghemat kuota pengguna yang menggunakan koneksi 2G/3G atau mengaktifkan mode hemat data.
+### 3. **Dynamic Low-Power Mode Throttling pada Layar Mobile & Tab Inactive**
+- **Kondisi Saat Ini**: Animasi canvas galeri 2.5D tetap berjalan pada framerate maksimum bahkan saat tab di-minimize atau baterai perangkat menipis.
+- **Rekomendasi**: Dengarkan Page Visibility API (`document.hidden`) dan Battery Status API (`navigator.getBattery`) untuk menurunkan frame rate animasi secara cerdas ke 30 FPS / pause saat perangkat berada di mode hemat baterai (<20%) atau tab tidak aktif.
 
-### 4. **Database Read Replicas & Connection Partitioning untuk Skala Kunjungan Tinggi**
-- **Kondisi Saat Ini**: Seluruh query pembacaan dan penulisan diarahkan ke primary database instance.
-- **Rekomendasi**: Pisahkan pool koneksi query `SELECT` publik ke Neon Read Replica endpoint terpisah untuk mencegah lock kontensi saat administrator melakukan batch upload atau modifikasi inventaris besar-besaran.
+### 4. **Lossless WebP/AVIF Palette Compression untuk UI Icons & Graphic Badges**
+- **Kondisi Saat Ini**: Ikon dan logo statis disajikan dalam format PNG standar.
+- **Rekomendasi**: Konversikan seluruh ikon dan logo statis menjadi format WebP Lossless / AVIF Palette, menghemat ukuran aset visual antarmuka hingga 60% dan mempercepat waktu rendering UI pertama.
 
-### 5. **Dynamic Low-Power Mode Throttling pada Layar Mobile**
-- **Kondisi Saat Ini**: Animasi canvas galeri 2.5D tetap berjalan pada framerate maksimum.
-- **Rekomendasi**: Dengarkan event visibilitas halaman dan API status baterai (`navigator.getBattery`) untuk menurunkan frame rate animasi secara cerdas saat baterai perangkat di bawah 20% atau tab di-minimize.
+### 5. **Shared IntersectionObserver Batch Micro-Tasking untuk Masonry Virtualization**
+- **Kondisi Saat Ini**: Setiap kartu galeri foto di viewport membuat pengamatan terpisah saat scrolling.
+- **Rekomendasi**: Satukan pengamatan kartu foto ke dalam satu shared root `IntersectionObserver` dengan batch micro-task queue untuk memangkas thread overhead hingga 70% saat pengunjung melakukan scrolling cepat di galeri ribuan foto.
 
-### 6. **Lossless WebP/AVIF Palette Compression untuk UI Icons & Badges**
-- **Kondisi Saat Ini**: Ikon dan elemen grafis kecil disajikan dalam format PNG standar.
-- **Rekomendasi**: Konversikan seluruh ikon dan logo statis menjadi WebP Lossless / AVIF Palette format, menghemat ukuran aset visual antarmuka hingga 60%.
+### 6. **Instant Fullscreen Lightbox Image Pre-warming (Adjacent Slide Buffering)**
+- **Kondisi Saat Ini**: Saat pengunjung membuka foto dalam mode lightbox, foto berikutnya (next/prev) baru mulai diunduh saat tombol panah ditekan.
+- **Rekomendasi**: Terapkan pre-warming otomatis untuk 1 foto sebelum dan 1 foto sesudah (`preloadAdjacent = 1`) di background saat lightbox terbuka, menghasilkan transisi slide foto instan tanpa jeda loading (0ms perceived latency).
 
-### 7. **IntersectionObserver Batch Micro-Tasking untuk Masonry Virtualization**
-- **Kondisi Saat Ini**: Setiap kartu galeri mengamati viewport secara terpisah.
-- **Rekomendasi**: Satukan pengamatan kartu foto ke dalam satu shared root `IntersectionObserver` dengan batch micro-task queue untuk memangkas thread overhead saat scrolling cepat.
+### 7. **Dynamic Viewport Cluster Resolution pada Interactive Photo Map (`/map`)**
+- **Kondisi Saat Ini**: Saat pengunjung melakukan zoom out drastis pada peta dunia, ratusan cluster pin marker dihitung ulang secara serentak.
+- **Rekomendasi**: Terapkan algoritma *Supercluster quadtree spatial partitioning* dengan batas resolusi dinamis per level zoom, menjaga interaksi drag dan zoom peta tetap stabil di 60 FPS pada perangkat mobile berdaya rendah.
 
-### 8. **WASM-Powered Client-Side Perceptual Hash (pHash) untuk Deduplikasi Instan**
-- **Kondisi Saat Ini**: Pengecekan duplikat visual memerlukan kalkulasi hash di server.
-- **Rekomendasi**: Implementasikan algoritma DCT Perceptual Hash (pHash) via WebAssembly di browser untuk mendeteksi foto duplikat sebelum proses upload dimulai.
+### 8. **Zero-Overhead CSS Sub-Pixel Antialiasing pada Infinite 2.5D Canvas (`/`)**
+- **Kondisi Saat Ini**: Canvas interaktif pada halaman beranda me-render thumbnail foto dengan scale transform dinamis yang dapat memicu antialiasing blur pada GPU seluler.
+- **Rekomendasi**: Sisipkan rendering hints `image-rendering: -webkit-optimize-contrast` dan sub-pixel snapping pada tile aktif, menghasilkan tampilan thumbnail foto yang tajam dan jernih tanpa overhead komputasi tambahan.
 
-### 9. **Dynamic Turbo JPEG Decompression via WebAssembly SIMD**
-- **Kondisi Saat Ini**: Dekompresi JPEG resolusi ultra-tinggi bergantung pada decoder bawaan browser.
-- **Rekomendasi**: Integrasikan libjpeg-turbo WASM dengan SIMD vector extensions untuk mempercepat proses dekompresi foto RAW/JPEG 4K hingga 3x lebih cepat di perangkat klien.
+### 9. **Edge-Side Includes (ESI) / Edge Middleware Geo-Routing untuk Media CDN Terdekat**
+- **Kondisi Saat Ini**: Pengunjung global mengakses domain CDN foto melalui rute default.
+- **Rekomendasi**: Manfaatkan Edge Middleware berbasis header geo-location (`CF-IPCountry`) untuk mengarahkan pengguna secara otomatis ke edge pop CDN Cloudflare terdekat, memangkas round-trip time (RTT) hingga 40ms bagi pengunjung lintas benua.
 
-### 10. **Edge-Side Includes (ESI) / Edge Middleware Geo-Routing**
-- **Kondisi Saat Ini**: Penentuan region server terdekat ditangani melalui routing standar.
-- **Rekomendasi**: Manfaatkan Vercel/Cloudflare Edge Middleware untuk mengarahkan pengguna secara otomatis ke bucket storage R2 region terdekat berbasis header `CF-IPCountry`.
+### 10. **Database Read Replicas & Connection Partitioning untuk Skala Kunjungan Tinggi**
+- **Kondisi Saat Ini**: Seluruh query pembacaan publik dan operasi penulisan admin diarahkan ke primary database instance.
+- **Rekomendasi**: Pisahkan pool koneksi query `SELECT` publik ke Neon Read Replica endpoint terpisah untuk memastikan galeri publik selalu merespon seketika (<10ms) bahkan saat terjadi lonjakan traffic ribuan pengunjung bersamaan.
