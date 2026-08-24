@@ -239,3 +239,24 @@
   object-position: center center !important;
   display: block !important;
 }
+
+/* Hardware-Accelerated Smooth Scroll Interpolation (Targeting 120 FPS on ProMotion Displays) */
+html {
+  scroll-behavior: smooth;
+  overscroll-behavior-y: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+body {
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.hardware-accelerated-scroll {
+  will-change: scroll-position;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  overscroll-behavior: contain;
+}
+

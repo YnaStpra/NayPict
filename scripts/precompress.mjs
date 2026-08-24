@@ -9,7 +9,7 @@ const brotli = promisify(zlib.brotliCompress);
 // Compress a single static asset to .gz and .br
 async function compressFile(filePath) {
   const ext = path.extname(filePath).toLowerCase();
-  if (!['.js', '.css', '.svg', '.json', '.html', '.txt'].includes(ext)) {
+  if (!['.js', '.css', '.svg', '.json', '.geojson', '.html', '.txt'].includes(ext)) {
     return;
   }
 

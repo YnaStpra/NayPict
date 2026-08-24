@@ -35,8 +35,8 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     title: process.env.TITLE || "NayPict",
     icons: {
-      icon: "/logo.png",
-      apple: "/logo.png",
+      icon: "/logo.webp",
+      apple: "/logo.webp",
     },
   }
 }
