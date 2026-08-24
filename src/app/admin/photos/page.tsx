@@ -173,7 +173,7 @@ export default function AdminPhotosPage() {
 
     try {
       const res = await photoList({
-        size: 500, // Retrieve up to 500 photos for high-density admin management
+        size: 10000, // Retrieve full inventory without artificial 500 limit
         allowAllVisibility: true,
         keyword: debouncedQuery || undefined,
         visibility: visibilityFilter !== 'all' ? Number(visibilityFilter) : undefined,
@@ -193,6 +193,7 @@ export default function AdminPhotosPage() {
   }, [isAdmin, debouncedQuery, visibilityFilter, downloadFilter, sortBy, sortOrder])
 
   useEffect(() => {
+    setSelectedIds([])
     fetchPhotos()
   }, [fetchPhotos])
 
@@ -216,7 +217,7 @@ export default function AdminPhotosPage() {
 
   // Summary Metrics calculations
   const metrics = useMemo(() => {
-    const total = photos.length
+    const total = totalCount || photos.length
     const totalBytes = photos.reduce((acc, p) => acc + (p.size || 0), 0)
     const publicPhotos = photos.filter((p) => p.visibility === PhotoVisibilityEnum.BOTH || p.visibility === PhotoVisibilityEnum.GALLERY_ONLY).length
     const albumOnlyPhotos = photos.filter((p) => p.visibility === PhotoVisibilityEnum.ALBUM_ONLY).length
@@ -231,7 +232,7 @@ export default function AdminPhotosPage() {
       archivedPhotos,
       geotaggedPhotos,
     }
-  }, [photos])
+  }, [photos, totalCount])
 
   // Selection helpers
   const isAllSelected = filteredPhotos.length > 0 && selectedIds.length === filteredPhotos.length
@@ -310,6 +311,7 @@ export default function AdminPhotosPage() {
       setPhotos((prev) =>
         prev.map((p) => (selectedIds.includes(p.photoId) ? { ...p, visibility: vis } : p))
       )
+      setSelectedIds([])
       toast.success(`Updated visibility for ${selectedIds.length} photo(s).`)
     } catch {
       toast.error('Failed to update visibility.')
@@ -320,6 +322,7 @@ export default function AdminPhotosPage() {
     setPhotos((prev) =>
       prev.map((p) => (ids.includes(p.photoId) ? { ...p, ...updates } : p))
     )
+    setSelectedIds([])
     fetchPhotos()
   }
 
@@ -329,6 +332,7 @@ export default function AdminPhotosPage() {
       await albumAddPhoto({ albumIds, photoIds: albumTargetIds })
       toast.success(`Added ${albumTargetIds.length} photo(s) to ${albumIds.length} album(s).`)
       setAlbumDialogOpen(false)
+      setSelectedIds([])
       fetchPhotos()
     } catch {
       toast.error('Failed to add photos to album.')
@@ -384,7 +388,10 @@ export default function AdminPhotosPage() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => fetchPhotos()}
+              onClick={() => {
+                setSelectedIds([])
+                fetchPhotos()
+              }}
               disabled={loading}
               className="h-8 text-xs rounded-xl gap-1.5 border-border/80"
               title="Refresh photo inventory"
