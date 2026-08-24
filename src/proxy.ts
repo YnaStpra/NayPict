@@ -42,7 +42,15 @@ function clearLoginCookies(response: NextResponse) {
   response.cookies.set(TOKEN_COOKIE_NAME, '', {
     path: '/',
     maxAge: 0,
+    secure: process.env.NODE_ENV === 'production',
   });
+
+  if (TOKEN_COOKIE_NAME !== 'token') {
+    response.cookies.set('token', '', {
+      path: '/',
+      maxAge: 0,
+    });
+  }
 
   return response;
 }

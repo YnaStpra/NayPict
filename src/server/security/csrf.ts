@@ -78,6 +78,12 @@ export async function csrfProtection(c: Context, next: Next) {
   }
 
   const path = c.req.path.replace(/^\/api/, '');
+
+  // Exempt browser telemetry / CSP reporting endpoints from CSRF
+  if (path === '/csp-report') {
+    return next();
+  }
+
   const origin = c.req.header('origin') || '';
   const referer = c.req.header('referer') || '';
   const host = c.req.header('x-forwarded-host') || c.req.header('host') || '';

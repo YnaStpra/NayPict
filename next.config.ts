@@ -56,20 +56,25 @@ const nextConfig: NextConfig = {
       { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=(), interest-cohort=()' },
       // Force HTTPS (only meaningful in production behind HTTPS)
       { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains; preload' },
-      // Content Security Policy (CSP) mitigating XSS and data injection (with Cloudflare Turnstile support)
+      // Reporting API configuration for modern CSP violation reporting
+      { key: 'Reporting-Endpoints', value: 'csp-endpoint="/api/csp-report"' },
+      // Content Security Policy (CSP) mitigating XSS and data injection with active violation telemetry
       {
         key: 'Content-Security-Policy',
         value: [
           "default-src 'self'",
           "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://challenges.cloudflare.com",
           "frame-src 'self' https://challenges.cloudflare.com",
-          "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com",
+          "style-src 'self' 'unsafe-inline'",
           "img-src 'self' data: blob: https: http:",
-          "font-src 'self' data: https://fonts.gstatic.com",
+          "font-src 'self' data:",
           "connect-src 'self' https: wss: http: https://challenges.cloudflare.com",
           "frame-ancestors 'none'",
           "object-src 'none'",
           "base-uri 'self'",
+          "form-action 'self'",
+          "report-uri /api/csp-report",
+          "report-to csp-endpoint",
         ].join('; '),
       },
     ];

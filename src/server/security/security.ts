@@ -65,7 +65,8 @@ const PUBLIC_API_PATHS = [
   '/photo/comment/add',
   '/photo/view',
   '/photo/share',
-  '/location'
+  '/location',
+  '/csp-report'
 ];
 
 // Determine whether the current path hits the specified interface or its subpath.
@@ -87,7 +88,11 @@ function isSystemPath(path: string) {
 function clearLoginCookies(c: Context) {
   deleteCookie(c, TOKEN_COOKIE_NAME, {
     path: '/',
+    secure: process.env.NODE_ENV === 'production',
   });
+  if (TOKEN_COOKIE_NAME !== 'token') {
+    deleteCookie(c, 'token', { path: '/' });
+  }
 }
 
 // Verify login information and session uuid, Write context after passing; Direct release via public path.

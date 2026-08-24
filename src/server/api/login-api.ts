@@ -30,6 +30,11 @@ export function registerLoginApi(app: Hono<HonoEnv>) {
         secure: process.env.NODE_ENV === 'production',
         httpOnly: true,
       });
+
+      // If in production with __Host- prefix, clear any legacy un-prefixed token
+      if (TOKEN_COOKIE_NAME !== 'token') {
+        deleteCookie(c, 'token', { path: '/' });
+      }
     }
 
     return c.json(result.ok(data));
@@ -42,7 +47,12 @@ export function registerLoginApi(app: Hono<HonoEnv>) {
 
     deleteCookie(c, TOKEN_COOKIE_NAME, {
       path: '/',
+      secure: process.env.NODE_ENV === 'production',
     });
+
+    if (TOKEN_COOKIE_NAME !== 'token') {
+      deleteCookie(c, 'token', { path: '/' });
+    }
 
     return c.json(result.ok());
   });

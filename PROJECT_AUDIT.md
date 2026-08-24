@@ -500,6 +500,8 @@ erDiagram
 | 🟢 **RESOLVED** | High-Precision Deduplication | `src/server/service/photo-service.ts` | Eliminated false positive duplicate detections; strictly requires exact cryptographic checksum or exact copy signature. |
 | 🟢 **RESOLVED** | Media Proxy Authorization & Fallback | `src/server/hono/media.ts` & `photo-card.tsx` | Allowed authenticated users to view trash media while blocking public access, with multi-tier thumbnail/preview fallbacks. |
 | 🟢 **RESOLVED** | Batch Renaming & Full Inventory Scaling | `photo-batch-edit-dialog.tsx` & `admin/photos/page.tsx` | Category 5 file renaming with auto-numbering, 10,000-item inventory loading, and automatic selection deselection. |
+| 🟢 **RESOLVED** | Secure Cookie Prefixing (`__Host-`) | `global.ts`, `cookie.ts`, `login-api.ts`, `proxy.ts` | Adopted RFC 6265bis `__Host-` prefix in production HTTPS environments to prevent subdomain injection and cookie tossing attacks. |
+| 🟢 **RESOLVED** | CSP Violation Telemetry & Hardened Directives | `next.config.ts`, `csp-api.ts`, `csrf.ts`, `web.ts` | Configured `report-uri /api/csp-report` and modern `Reporting-Endpoints` with dedicated Hono reporting handler and strict domain directives. |
 | 🟢 **RESOLVED** | UI Language Standardization | All TSX components & JSON locales | All UI text, dialogs, toasts, error messages, and settings converted to fluent English. |
 | 🟢 **LOW** | External Geocode API | `src/server/service/location-service.ts` | Uses OSM Nominatim with robust in-memory LRU caching. |
 | ℹ️ **INFO** | CSP Headers | `next.config.ts` | Content-Security-Policy active and strict (`default-src 'self'`, `frame-ancestors 'none'`). |
@@ -592,8 +594,8 @@ erDiagram
 | **Backend & API Layer** | 🟢 | Clean separation of Controller (Hono) -> Service -> Drizzle ORM. Full type safety. |
 | **Database Architecture** | 🟢 | PostgreSQL schema with foreign keys, compound indexes, and Neon Serverless connection pooling. |
 | **Storage & Media Pipeline** | 🟢 | Cloudflare R2 integration, smart lossless/MozJPEG 90% compression, fast thumbnailing. |
-| **Authentication & RBAC** | 🟢 | HTTP-only Lax cookies, instant session cache invalidation, Argon2id hashing, 2FA Google Authenticator. |
-| **Defensive Security** | 🟢 | Strict CSP, download protection, rate limiters, input sanitization. |
+| **Authentication & RBAC** | 🟢 | HTTP-only Lax cookies with `__Host-` prefixing in prod, instant session cache invalidation, Argon2id hashing, 2FA. |
+| **Defensive Security** | 🟢 | Strict CSP with reporting telemetry, download protection, rate limiters, input sanitization. |
 | **Internationalization (i18n)** | 🟢 | 100% standardized in English across all UI components, dialogs, map controls, and notifications. |
 | **Testing Coverage** | 🟢 | Comprehensive Playwright E2E test suites covering public and admin workflows. |
 | **Deployment Readiness** | 🟢 | Fully prepared for automated zero-downtime deployment on Vercel + Neon + Cloudflare R2. |
@@ -641,10 +643,10 @@ Berikut adalah **10 prioritas rekomendasi audit keamanan terbaru** untuk memperk
 - **Kondisi Saat Ini**: Endpoint pencarian kata kunci (`/api/photo/list`), filtering nama file, dan regex deduplikasi memproses input pengguna.
 - **Rekomendasi**: Terapkan validasi batas panjang karakter maksimum (`max: 100` untuk search keyword, `max: 255` untuk nama file) dan hindari pola regular expression bertingkat (*catastrophic backtracking*) guna mencegah serangan ReDoS yang dapat melumpuhkan Node.js event loop.
 
-### 9. **Secure Cookie Prefixing (`__Host-`) & Strict Partitioning pada Environment Production**
-- **Kondisi Saat Ini**: Cookie session saat ini menggunakan nama standar `naypict_token`.
-- **Rekomendasi**: Di lingkungan production HTTPS, adopsi cookie prefix `__Host-naypict_token` untuk mencegah manipulasi cookie dari subdomain yang tidak terpercaya serta memastikan cookie selalu memiliki atribut `Secure`, `SameSite=Lax`, `Path=/`, dan tidak terikat subdomain liar.
+### 9. **Direct-to-Storage Presigned Upload URLs (Mencegah Server Memory Exhaustion)**
+- **Kondisi Saat Ini**: Upload foto diproses melalui buffer memory server Node.js sebelum dikirim ke Cloudflare R2 / S3.
+- **Rekomendasi**: Implementasikan arsitektur Presigned S3/R2 PutObject URL di mana browser mengunggah file langsung ke storage bucket, membebaskan server dari beban I/O dan memory spike saat upload ratusan foto berukuran besar secara paralel.
 
-### 10. **Subresource Integrity (SRI) & Content Security Policy (CSP) Reporting**
-- **Kondisi Saat Ini**: Asset pihak ketiga (seperti Leaflet tiles dan Google Fonts) dimuat secara dinamis.
-- **Rekomendasi**: Terapkan hash Subresource Integrity (`integrity="sha384-..."`) pada stylesheet/script eksternal dan tambahkan endpoint `report-uri` / `report-to` pada header CSP untuk mendeteksi dini upaya injeksi script atau pelanggaran kebijakan konten dari klien.
+### 10. **IP & Device Fingerprint Anomaly Detection pada Admin Login**
+- **Kondisi Saat Ini**: Login admin hanya mencocokkan password dan 2FA tanpa mendeteksi perubahan drastis pada fingerprint perangkat / geolokasi IP.
+- **Rekomendasi**: Tambahkan deteksi anomali login (misal login dari IP subnet atau User-Agent yang belum pernah dikenali sebelumnya) dan kirimkan alert notifikasi keamanan atau paksa re-autentikasi 2FA guna mencegah pengambilalihan akun credential stuffing.

@@ -31,14 +31,20 @@ function getCookieValueFromString(cookie: string | null | undefined, name: strin
 
 // from incoming Cookie Verify login in string token，and returns the user id with session uuid。
 async function getLoginInfo(cookie: string | null = null): Promise<LoginCookie> {
-  const token = getCookieValueFromString(cookie, TOKEN_COOKIE_NAME)
-  const { verifyLoginToken } = await import("@/server/lib/jwt")
-  const payload = await verifyLoginToken(token)
+  const token =
+    getCookieValueFromString(cookie, TOKEN_COOKIE_NAME) ||
+    getCookieValueFromString(cookie, '__Host-token') ||
+    getCookieValueFromString(cookie, 'token') ||
+    getCookieValueFromString(cookie, '__Host-naypict_token') ||
+    getCookieValueFromString(cookie, 'naypict_token');
+
+  const { verifyLoginToken } = await import("@/server/lib/jwt");
+  const payload = await verifyLoginToken(token);
 
   return {
     userId: payload?.userId ?? null,
     uuid: payload?.uuid ?? null,
-  }
+  };
 }
 
 export { getCookieValue, getCookieValueFromString, getLoginInfo }
