@@ -19,6 +19,14 @@ import type { HonoEnv } from '../hono/type';
 export function registerAlbumApi(app: Hono<HonoEnv>) {
   // Query the photo album list.
   app.post('/album/list', async (c: Context) => {
+    const userId = getUserId();
+    if (userId) {
+      c.header('Cache-Control', 'no-store, private');
+    } else {
+      c.header('Cache-Control', 'public, max-age=15, s-maxage=60, stale-while-revalidate=300');
+      c.header('CDN-Cache-Control', 'public, s-maxage=60, stale-while-revalidate=300');
+      c.header('Vary', 'Accept-Encoding, Cookie');
+    }
     const data = await albumService.list();
     return c.json(result.ok(data));
   });

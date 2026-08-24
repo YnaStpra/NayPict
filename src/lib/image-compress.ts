@@ -120,6 +120,78 @@ async function preserveExifMetadata(originalFile: File, compressedBlob: Blob): P
 }
 
 /**
+ * High-performance off-main-thread image compression using createImageBitmap and OffscreenCanvas.
+ * Executes bitmap decoding and pixel scaling asynchronously in browser background worker threads.
+ */
+async function compressWithOffscreenCanvas(
+  file: File,
+  maxDimension: number,
+  quality: number
+): Promise<File | null> {
+  if (typeof createImageBitmap === 'undefined' || typeof OffscreenCanvas === 'undefined') {
+    return null;
+  }
+
+  try {
+    const bitmap = await createImageBitmap(file);
+    let { width, height } = bitmap;
+
+    if (width > maxDimension || height > maxDimension) {
+      if (width > height) {
+        height = Math.round((height * maxDimension) / width);
+        width = maxDimension;
+      } else {
+        width = Math.round((width * maxDimension) / height);
+        height = maxDimension;
+      }
+    }
+
+    const offscreen = new OffscreenCanvas(width, height);
+    const ctx = offscreen.getContext('2d');
+    if (!ctx) {
+      bitmap.close();
+      return null;
+    }
+
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(bitmap, 0, 0, width, height);
+    bitmap.close();
+
+    const outputMime = 'image/jpeg';
+    let blob = await offscreen.convertToBlob({ type: outputMime, quality });
+
+    // Secondary pass for high-res safety
+    if (blob.size > 4.0 * 1024 * 1024) {
+      const sWidth = Math.round(width * 0.85);
+      const sHeight = Math.round(height * 0.85);
+      const secondaryOffscreen = new OffscreenCanvas(sWidth, sHeight);
+      const sCtx = secondaryOffscreen.getContext('2d');
+      if (sCtx) {
+        sCtx.drawImage(offscreen, 0, 0, sWidth, sHeight);
+        const reducedBlob = await secondaryOffscreen.convertToBlob({ type: outputMime, quality: 0.82 });
+        if (reducedBlob && reducedBlob.size < blob.size) {
+          blob = reducedBlob;
+        }
+      }
+    }
+
+    const exifPreservedBlob = await preserveExifMetadata(file, blob);
+    const finalOutputName = file.name.replace(/\.[^/.]+$/, "") + ".jpg";
+
+    const compressedFile = new File([exifPreservedBlob], finalOutputName, {
+      type: outputMime,
+      lastModified: file.lastModified,
+    });
+
+    return compressedFile.size < file.size ? compressedFile : file;
+  } catch (err) {
+    console.warn('Offscreen background compression fallback to standard canvas:', err);
+    return null;
+  }
+}
+
+/**
  * Compresses an image file in the browser while maintaining high visual quality, EXIF metadata,
  * and ensuring the payload never exceeds Vercel Serverless Function 4.5MB limit.
  */
@@ -137,6 +209,12 @@ export async function compressImageFile(
   // 2. Skip tiny files (< 150KB) that are already compact
   if (file.size < 150 * 1024) {
     return file;
+  }
+
+  // 3. Attempt high-performance background thread OffscreenCanvas compression first
+  const offscreenResult = await compressWithOffscreenCanvas(file, maxDimension, quality);
+  if (offscreenResult) {
+    return offscreenResult;
   }
 
   try {

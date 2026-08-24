@@ -20,6 +20,17 @@ import type { HonoEnv } from '../hono/type';
 
 // This module registers photo-related interfaces.
 
+// Helper to apply Edge CDN Caching & Stale-While-Revalidate headers for public visitors
+function applyPublicCacheHeaders(c: Context, userId?: string) {
+  if (userId) {
+    c.header('Cache-Control', 'no-store, private');
+  } else {
+    c.header('Cache-Control', 'public, max-age=15, s-maxage=60, stale-while-revalidate=300');
+    c.header('CDN-Cache-Control', 'public, s-maxage=60, stale-while-revalidate=300');
+    c.header('Vary', 'Accept-Encoding, Cookie');
+  }
+}
+
 export function registerPhotoApi(app: Hono<HonoEnv>) {
   // Generate presigned PUT URL for direct-to-storage upload (S3 / Cloudflare R2).
   app.post('/photo/presignedUploadUrl', async (c: Context) => {
@@ -43,13 +54,17 @@ export function registerPhotoApi(app: Hono<HonoEnv>) {
   });
   // Query all geotagged photos for the interactive map explorer (RESTful route).
   app.get('/photos/map', async (c: Context) => {
-    const data = await photoService.getMapPhotos(getUserId());
+    const userId = getUserId();
+    applyPublicCacheHeaders(c, userId);
+    const data = await photoService.getMapPhotos(userId);
     return c.json(result.ok(data));
   });
 
   // Query all geotagged photos for the interactive map explorer (POST route).
   app.post('/photo/map/list', async (c: Context) => {
-    const data = await photoService.getMapPhotos(getUserId());
+    const userId = getUserId();
+    applyPublicCacheHeaders(c, userId);
+    const data = await photoService.getMapPhotos(userId);
     return c.json(result.ok(data));
   });
 
@@ -67,31 +82,39 @@ export function registerPhotoApi(app: Hono<HonoEnv>) {
 
   // Query the photo list by pagination and conditions.
   app.post('/photo/list', async (c: Context) => {
+    const userId = getUserId();
+    applyPublicCacheHeaders(c, userId);
     const body = await c.req.json<PhotoListBo>();
-    const data = await photoService.list(body, getUserId());
+    const data = await photoService.list(body, userId);
     return c.json(result.ok(data));
   });
 
   // Return all photo IDs in random order for client-side random pagination.
   app.post('/photo/randomIdList', async (c: Context) => {
+    const userId = getUserId();
+    applyPublicCacheHeaders(c, userId);
     const body = await c.req.json<PhotoRandomIdListBo>();
-    const data = await photoService.randomIdList(body, getUserId());
+    const data = await photoService.randomIdList(body, userId);
     return c.json(result.ok(data));
   });
 
   // Query photos taken on this day in previous years.
   app.post('/photo/onThisDay', async (c: Context) => {
+    const userId = getUserId();
+    applyPublicCacheHeaders(c, userId);
     const body = await c.req.json<PhotoOnThisDayBo>().catch(() => ({} as PhotoOnThisDayBo));
-    const data = await photoService.onThisDay(body, getUserId());
+    const data = await photoService.onThisDay(body, userId);
     return c.json(result.ok(data));
   });
 
   app.get('/photo/onThisDay', async (c: Context) => {
+    const userId = getUserId();
+    applyPublicCacheHeaders(c, userId);
     const month = Number(c.req.query('month')) || undefined;
     const day = Number(c.req.query('day')) || undefined;
     const year = Number(c.req.query('year')) || undefined;
     const tzOffset = Number(c.req.query('tzOffset')) || undefined;
-    const data = await photoService.onThisDay({ month, day, year, tzOffset }, getUserId());
+    const data = await photoService.onThisDay({ month, day, year, tzOffset }, userId);
     return c.json(result.ok(data));
   });
 
