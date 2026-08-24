@@ -497,6 +497,9 @@ erDiagram
 | 🟢 **RESOLVED** | Strict RBAC & IDOR Defense | `album-service.ts` & `photo-service.ts` | Strict tenant ownership verification across all album & photo mutations, plus unauthenticated access guard on recycled/archived items. |
 | 🟢 **RESOLVED** | CSRF Defense (Sensitive Mutations) | `src/server/security/csrf.ts` & `request.ts` | Strict Origin/Referer matching, origin enforcement on sensitive paths, and unforgeable custom request headers. |
 | 🟢 **RESOLVED** | Bot & Spam Protection | `comment-service.ts` & `photo-comments.tsx` | Invisible honeypot field, minimum interaction time (1.5s), and Cloudflare Turnstile integration on public comment forms. |
+| 🟢 **RESOLVED** | High-Precision Deduplication | `src/server/service/photo-service.ts` | Eliminated false positive duplicate detections; strictly requires exact cryptographic checksum or exact copy signature. |
+| 🟢 **RESOLVED** | Media Proxy Authorization & Fallback | `src/server/hono/media.ts` & `photo-card.tsx` | Allowed authenticated users to view trash media while blocking public access, with multi-tier thumbnail/preview fallbacks. |
+| 🟢 **RESOLVED** | Batch Renaming & Full Inventory Scaling | `photo-batch-edit-dialog.tsx` & `admin/photos/page.tsx` | Category 5 file renaming with auto-numbering, 10,000-item inventory loading, and automatic selection deselection. |
 | 🟢 **RESOLVED** | UI Language Standardization | All TSX components & JSON locales | All UI text, dialogs, toasts, error messages, and settings converted to fluent English. |
 | 🟢 **LOW** | External Geocode API | `src/server/service/location-service.ts` | Uses OSM Nominatim with robust in-memory LRU caching. |
 | ℹ️ **INFO** | CSP Headers | `next.config.ts` | Content-Security-Policy active and strict (`default-src 'self'`, `frame-ancestors 'none'`). |
@@ -564,20 +567,20 @@ erDiagram
 
 ### Admin Features
 1. **Batch Upload & Compression**: High-speed parallel upload with client-side WebP compression and EXIF extraction.
-2. **Duplicate Photo Review**: Post-upload side-by-side comparison modal and dedicated `/duplicates` manager.
-3. **Batch Metadata Editor**: Multi-category bulk editor for Visibility, Download Permission, Star Status, Taken Date, and DMS GPS Coordinates.
+2. **Duplicate Photo Review**: Post-upload side-by-side comparison modal and dedicated `/duplicates` manager with high-precision deduplication.
+3. **Batch Metadata & File Name Editor**: Multi-category bulk editor for Visibility, Public Download Permission, Taken Date, DMS GPS Coordinates, and File Name Renaming (Single & Batch with auto-numbering `{n}`, prefix, suffix, and find/replace).
 4. **Interactive Map Management (`/map`)**:
    - *All Spots Dialog*: Search, sort, and manage all physical spots, designate custom pin covers, and edit spot coordinates.
    - *Untagged Photos Dialog*: Rapidly locate and assign coordinates to photos missing GPS data.
    - *Custom Pin Covers*: Designate any photo within a multi-photo pin as the primary cover thumbnail.
 5. **Display Scope Control**: 4-tier visibility (*Both Gallery & Album, Gallery Only, Album Only, Archived*).
-6. **Recycle Bin (`/trash`)**: Centralized trash management with restore, permanent deletion, and empty trash.
+6. **Recycle Bin (`/trash`)**: Centralized trash management with restore, permanent deletion, empty trash, and authenticated media viewing.
 7. **Album Cover Scoring & Pinning**: Automatic cover scoring and priority pinning (up to 3 photos per album).
 8. **Visitor Insights (`/admin/insights`)**: Analytics dashboard with view/share metrics, daily trend graphs, and top photos.
 9. **2FA Two-Factor Authentication (TOTP)**: Google Authenticator login security.
 10. **Multi-Storage Management (`/storage`)**: Cloudflare R2 / S3 bucket registry.
 11. **Admin Comment Moderation (`/comments`)**: Moderate comments, reply to visitors, and remove spam.
-12. **Admin Photo Inventory & Search (`/admin/photos`)**: Dedicated system dashboard with real-time text search, dual high-density Table / Grid views, multi-criteria filtering, and batch operations.
+12. **Admin Photo Inventory & Search (`/admin/photos`)**: Dedicated system dashboard with real-time text search, dual high-density Table / Grid views, multi-criteria filtering, full inventory loading without arbitrary limit, auto-deselect on batch action/refresh, and batch operations.
 
 ---
 
@@ -599,53 +602,49 @@ erDiagram
 
 ## 18. TOP 10 REKOMENDASI AUDIT KEAMANAN TERBARU (SECURITY AUDIT RECOMMENDATIONS)
 
-Berikut adalah **10 prioritas rekomendasi audit keamanan terbaru** untuk memperkuat ketahanan aplikasi Pixtale:
+Berikut adalah **10 prioritas rekomendasi audit keamanan terbaru** untuk memperkuat ketahanan dan perlindungan sistem Pixtale:
 
 ### 1. **Enkripsi Kredensial Storage S3/R2 At-Rest (Database Column-Level Encryption)**
 - **Kondisi Saat Ini**: Kredensial bucket `accessKey` dan `secretKey` tersimpan sebagai plaintext di tabel `storage`.
-- **Rekomendasi**: Enkripsi kolom `secretKey` dan `accessKey` sebelum disimpan ke database menggunakan algoritma **AES-256-GCM** atau **ChaCha20-Poly1305** dengan kunci master `STORAGE_ENCRYPTION_KEY` dari environment variables.
+- **Rekomendasi**: Enkripsi kolom `secretKey` dan `accessKey` sebelum disimpan ke database menggunakan algoritma **AES-256-GCM** dengan salt dan Initialization Vector (IV) dinamis serta kunci master `STORAGE_ENCRYPTION_KEY` dari environment variables.
 
-### 2. **Sanitasi Ketat Metadata EXIF (Mencegah Stored XSS via File Header)**
-- **Kondisi Saat Ini**: Metadata EXIF kamera diparsing dan disimpan ke database, kemudian dirender di antarmuka lightbox detail foto.
-- **Rekomendasi**: String bebas pada tag EXIF (seperti `ImageDescription`, `Artist`, `Copyright`, `Software`, dan `UserComment`) wajib melalui sanitasi encoding / HTML escape sebelum dirender ke DOM untuk mencegah payload Stored XSS yang disisipkan melalui file gambar manipulatif.
+### 2. **Sanitasi Ketat Metadata EXIF & Title (Mencegah Stored XSS via File Header & User Input)**
+- **Kondisi Saat Ini**: Metadata EXIF kamera diparsing dan disimpan ke database, kemudian dirender di antarmuka lightbox, sidebar info, dan dialog edit.
+- **Rekomendasi**: Sanitasi dan HTML-escape seluruh string bebas pada tag EXIF (`ImageDescription`, `Artist`, `Copyright`, `Software`, `UserComment`, `Make`, `Model`) serta nama file foto (`photoTab.name`) sebelum dirender ke DOM untuk mencegah payload Stored XSS dari file gambar manipulatif.
 
-### 3. **Sandboxed Serving & Strict Security Headers pada Domain CDN / Media Proxy**
-- **Kondisi Saat Ini**: File media asli dan thumbnail disajikan melalui CDN atau proxy endpoint.
+### 3. **Sandboxed Serving & Strict Security Headers pada Media Proxy (`/media/*`)**
+- **Kondisi Saat Ini**: File media asli dan thumbnail disajikan melalui proxy endpoint `/media/{key}`.
 - **Rekomendasi**: Pastikan header respons file selalu menyertakan:
-  - `X-Content-Type-Options: nosniff` (mencegah MIME-sniffing browser).
-  - `Content-Security-Policy: sandbox; default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'` pada domain direct media serving untuk mengisolasi eksekusi skrip berbahaya.
+  - `X-Content-Type-Options: nosniff` (mencegah browser melakukan MIME-sniffing eksekusi script).
+  - `Content-Security-Policy: sandbox; default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'` pada domain direct media serving untuk mengisolasi eksekusi file berbahaya.
+  - `Cache-Control: public, max-age=31536000, immutable` dengan `ETag` untuk efisiensi caching yang aman.
 
-### 4. **Automated Secret Scanning & Dependency Vulnerability Gate di CI/CD**
-- **Kondisi Saat Ini**: Pengecekan dependensi dan audit kode dilakukan secara manual.
-- **Rekomendasi**: Tambahkan pipeline GitHub Actions otomatis:
-  - `npm audit --audit-level=high` untuk memblokir deployment jika ditemukan dependensi dengan kerentanan kritis.
-  - Secret Scanner (**TruffleHog** / **GitGuardian**) untuk memastikan `JWT_SECRET`, database connection string, atau kunci Cloudflare R2 tidak pernah ter-commit ke public repository.
+### 4. **Emergency One-Time Backup Codes & Rate Limiting pada Verifikasi 2FA (TOTP)**
+- **Kondisi Saat Ini**: TOTP 2FA memvalidasi 6-digit token tanpa mekanisme pemulihan darurat jika pengguna kehilangan perangkat authenticator.
+- **Rekomendasi**: Sediakan 8-10 *Single-Use Emergency Backup Codes* (dihash dengan Argon2id) saat pertama kali mengaktifkan 2FA, serta terapkan strict rate limiting (maksimal 5 kali salah berturut-turut lalu lockout 15 menit) untuk mencegah automated brute-force guessing token 6-digit.
 
-### 5. **Pencegahan Replay Attack & Emergency Backup Codes pada TOTP 2FA**
-- **Kondisi Saat Ini**: TOTP memvalidasi kode 6-digit dalam jendela waktu standar RFC 6238.
-- **Rekomendasi**: Sediakan 8-10 *Single-Use Emergency Backup Codes* terenkripsi saat user pertama kali mengaktifkan 2FA jika sewaktu-waktu kehilangan akses ke aplikasi Google Authenticator.
+### 5. **Security Audit Trail Logging untuk Aksi Administratif Sensitif (`/admin/*`)**
+- **Kondisi Saat Ini**: Aksi administratif (seperti modifikasi kredensial R2, reset password user, pengosongan Recycle Bin, dan batch visibility) belum memiliki log audit tersentralisasi.
+- **Rekomendasi**: Buat tabel `security_audit_log` untuk mencatat rekam jejak aktivitas penting: `userId`, `action` (misal `STORAGE_UPDATE`, `USER_PASSWORD_CHANGE`, `TRASH_CLEAR`, `BATCH_METADATA_EDIT`), `ipAddress`, `userAgent`, `status`, dan `createdAt` untuk keperluan forensik dan audit kepatuhan.
 
-### 6. **Security Audit Trail Logging untuk Aksi Administratif Krusial**
-- **Kondisi Saat Ini**: Logging aksi administratif belum dicatat ke tabel audit trail khusus.
-- **Rekomendasi**: Buat tabel `security_audit_log` untuk mencatat rekam jejak aktivitas penting:
-  - Percobaan login gagal berulang kali (indikasi brute-force).
-  - Penambahan / pengeditan akun user lain.
-  - Perubahan konfigurasi bucket storage & domain media.
-  - Penghapusan massal atau pengosongan tempat sampah (*Recycle Bin*).
-  - Setiap log mencatat: `userId`, `action`, `ipAddress`, `userAgent`, dan `timestamp`.
+### 6. **Automated Secret Scanning & Dependency Vulnerability Gate di CI/CD Pipeline**
+- **Kondisi Saat Ini**: Pemeriksaan dependensi dan secret safety dilakukan secara manual.
+- **Rekomendasi**: Tambahkan GitHub Actions workflow otomatis:
+  - `npm audit --audit-level=high` untuk memblokir build jika ada dependensi rentan CVE kritis.
+  - Secret Scanner (**TruffleHog** / **GitGuardian**) untuk memastikan `JWT_SECRET`, database connection string `DATABASE_URL`, atau kunci Cloudflare R2 tidak pernah bocor ke commit repository.
 
-### 7. **Session Token Rotation & Inactivity Timeout**
-- **Kondisi Saat Ini**: Token JWT memiliki masa berlaku statis (7 hari).
-- **Rekomendasi**: Terapkan rotasi token berkala dan pembaruan session identifier (`uuidList`) saat ada aktivitas baru, serta sediakan konfigurasi *inactivity timeout* untuk sesi administrator guna meminimalkan risiko pembajakan sesi (*session hijacking*).
+### 7. **Session Token Rotation & Inactivity Timeout untuk Sesi Administrator**
+- **Kondisi Saat Ini**: Token JWT sesi memiliki masa berlaku statis (7 hari).
+- **Rekomendasi**: Terapkan rotasi token berkala dan pembaruan session identifier (`uuidList`) saat ada aktivitas baru, serta sediakan konfigurasi *inactivity timeout* (misal auto-logout setelah 24 jam tanpa aktivitas) untuk sesi administrator guna meminimalkan risiko pembajakan sesi (*session hijacking*).
 
-### 8. **Subresource Integrity (SRI) & External Asset Sandboxing**
-- **Kondisi Saat Ini**: Beberapa asset eksternal (misal: Leaflet CSS/JS tiles dan Google Fonts) dimuat melalui CDN pihak ketiga.
-- **Rekomendasi**: Terapkan hash Subresource Integrity (`integrity="sha384-..."`) dan perketat directive CSP `connect-src` & `script-src` untuk mencegah *supply-chain attacks* pada library frontend pihak ketiga.
+### 8. **ReDoS (Regular Expression Denial of Service) Hardening & Input Length Limits**
+- **Kondisi Saat Ini**: Endpoint pencarian kata kunci (`/api/photo/list`), filtering nama file, dan regex deduplikasi memproses input pengguna.
+- **Rekomendasi**: Terapkan validasi batas panjang karakter maksimum (`max: 100` untuk search keyword, `max: 255` untuk nama file) dan hindari pola regular expression bertingkat (*catastrophic backtracking*) guna mencegah serangan ReDoS yang dapat melumpuhkan Node.js event loop.
 
-### 9. **ReDoS (Regular Expression Denial of Service) Hardening & Input Length Limits**
-- **Kondisi Saat Ini**: Input pencarian keyword dan parsing URL menggunakan regex standar.
-- **Rekomendasi**: Terapkan batas panjang input yang ketat pada endpoint search/filter dan hindari pola regular expression dengan kompleksitas kuadratik/eksponensial (*catastrophic backtracking*) guna mencegah serangan ReDoS yang dapat melumpuhkan event loop server.
+### 9. **Secure Cookie Prefixing (`__Host-`) & Strict Partitioning pada Environment Production**
+- **Kondisi Saat Ini**: Cookie session saat ini menggunakan nama standar `naypict_token`.
+- **Rekomendasi**: Di lingkungan production HTTPS, adopsi cookie prefix `__Host-naypict_token` untuk mencegah manipulasi cookie dari subdomain yang tidak terpercaya serta memastikan cookie selalu memiliki atribut `Secure`, `SameSite=Lax`, `Path=/`, dan tidak terikat subdomain liar.
 
-### 10. **Secure Cookie Prefixing (`__Host-`) & Strict Partitioning**
-- **Kondisi Saat Ini**: Cookie session menggunakan nama `naypict_token`.
-- **Rekomendasi**: Di lingkungan production HTTPS, adopsi cookie prefix `__Host-naypict_token` untuk mencegah manipulasi cookie dari subdomain yang tidak terpercaya serta memastikan cookie selalu memiliki atribut `Secure`, `Path=/`, dan tidak terikat subdomain liar.
+### 10. **Subresource Integrity (SRI) & Content Security Policy (CSP) Reporting**
+- **Kondisi Saat Ini**: Asset pihak ketiga (seperti Leaflet tiles dan Google Fonts) dimuat secara dinamis.
+- **Rekomendasi**: Terapkan hash Subresource Integrity (`integrity="sha384-..."`) pada stylesheet/script eksternal dan tambahkan endpoint `report-uri` / `report-to` pada header CSP untuk mendeteksi dini upaya injeksi script atau pelanggaran kebijakan konten dari klien.
