@@ -19,7 +19,18 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar"
 import { Button } from "@/components/ui/button"
-import PhotoMapView from "@/components/map/photo-map-view"
+import dynamic from "next/dynamic"
+
+// Dynamic Code Splitting: Lazy-load Leaflet map bundle with interactive skeleton loader to accelerate FCP and LCP
+const PhotoMapView = dynamic(() => import("@/components/map/photo-map-view"), {
+  ssr: false,
+  loading: () => (
+    <div className="w-full h-full flex flex-col items-center justify-center bg-muted/40 animate-pulse gap-3 text-muted-foreground">
+      <div className="size-10 rounded-full border-2 border-primary/40 border-t-primary animate-spin" />
+      <p className="text-xs font-medium tracking-wide">Loading interactive map explorer...</p>
+    </div>
+  ),
+})
 
 export default function MapPage() {
   const [sidebarOpen, setSidebarOpen] = useState(true)

@@ -82,19 +82,26 @@ const nextConfig: NextConfig = {
     return [
       {
         source: '/:path*',
-        headers: securityHeaders,
+        headers: [
+          ...securityHeaders,
+          {
+            key: 'Link',
+            value: '</logo.png>; rel=preload; as=image',
+          },
+        ],
       },
       {
         source: '/logo.png',
         headers: [
           {
             key: 'Cache-Control',
-            value: 'public, max-age=604800',
+            value: 'public, max-age=604800, immutable',
           },
         ],
       },
     ];
   },
+  compress: true,
 };
 
 export default withNextIntl(nextConfig);

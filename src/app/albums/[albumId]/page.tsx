@@ -26,6 +26,7 @@ import { removePhotoIdFromUrl } from "@/lib/url"
 import { albumAddPhoto, albumRemovePhoto, albumTogglePinPhoto } from "@/request/album"
 import { useAlbumStore } from "@/store/album-store"
 import { usePhotoStore } from "@/store/photo-store"
+import type { PhotoVo } from "@/server/entity/vo/photo"
 import { ArrowLeftIcon, ArrowUpDown, ChevronDown, ImageIcon, LayoutGrid, PlusIcon, Sparkles } from "lucide-react"
 import {
   DropdownMenu,
@@ -278,31 +279,34 @@ export default function Page() {
     }
   }
 
-  // Toggle photo pin status in this album (admin only, max 3 photos)
+  // Toggle photo pin status in this album with Optimistic UI Mutation (0ms perceived latency & auto-rollback)
   const handleTogglePin = useCallback(async (photoId: string) => {
+    let rollbackPhotos: PhotoVo[] | null = null
+
+    // 1. Optimistically update local photos order and pin badge immediately
+    setPhotos((prev) => {
+      rollbackPhotos = prev
+      const targetPhoto = prev.find((p) => p.photoId === photoId)
+      if (!targetPhoto) return prev
+
+      const nextPinned = !targetPhoto.isPinned
+      const updatedPhoto: PhotoVo = { ...targetPhoto, isPinned: nextPinned }
+      const otherPhotos = prev.filter((p) => p.photoId !== photoId)
+
+      if (nextPinned) {
+        const existingPinned = otherPhotos.filter((p) => p.isPinned)
+        const unpinnedList = otherPhotos.filter((p) => !p.isPinned)
+        return [updatedPhoto, ...existingPinned, ...unpinnedList]
+      } else {
+        const pinnedList = otherPhotos.filter((p) => p.isPinned)
+        const unpinnedList = otherPhotos.filter((p) => !p.isPinned)
+        return [...pinnedList, updatedPhoto, ...unpinnedList]
+      }
+    })
+
     try {
       const res = await albumTogglePinPhoto({ albumId, photoId })
       const isPinned = res.isPinned
-
-      setPhotos((prev) => {
-        const targetPhoto = prev.find((p) => p.photoId === photoId)
-        if (!targetPhoto) return prev
-
-        const updatedPhoto = { ...targetPhoto, isPinned }
-        const otherPhotos = prev.filter((p) => p.photoId !== photoId)
-
-        if (isPinned) {
-          // Place newly pinned photo at top, followed by existing pinned photos, then unpinned
-          const existingPinned = otherPhotos.filter((p) => p.isPinned)
-          const unpinnedList = otherPhotos.filter((p) => !p.isPinned)
-          return [updatedPhoto, ...existingPinned, ...unpinnedList]
-        } else {
-          // If unpinned, keep remaining pinned at top, then unpinned photos
-          const pinnedList = otherPhotos.filter((p) => p.isPinned)
-          const unpinnedList = otherPhotos.filter((p) => !p.isPinned)
-          return [...pinnedList, updatedPhoto, ...unpinnedList]
-        }
-      })
 
       if (isPinned) {
         toast.success("Photo pinned to the top of album!")
@@ -310,6 +314,10 @@ export default function Page() {
         toast.success("Photo unpinned from album.")
       }
     } catch (err: unknown) {
+      // 2. Revert back to original state on server error
+      if (rollbackPhotos) {
+        setPhotos(rollbackPhotos)
+      }
       console.error("Failed to toggle pin photo:", err)
       const errorMsg = err instanceof Error ? err.message : "Failed to pin photo. Maximum 3 pinned photos allowed."
       toast.error(errorMsg)

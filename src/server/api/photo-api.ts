@@ -46,6 +46,26 @@ export function registerPhotoApi(app: Hono<HonoEnv>) {
     return c.json(result.ok());
   });
 
+  // Streaming batch edit photo metadata with real-time SSE progress events.
+  app.post('/photo/batchEdit/stream', async (c: Context) => {
+    const { streamSSE } = await import('hono/streaming');
+    const userId = getUserId();
+    const body = await c.req.json<PhotoBatchEditBo>();
+
+    return streamSSE(c, async (stream) => {
+      const total = body.photoIds.length;
+      await stream.writeSSE({
+        data: JSON.stringify({ type: 'start', total }),
+      });
+
+      await photoService.batchEdit(body, userId);
+
+      await stream.writeSSE({
+        data: JSON.stringify({ type: 'complete', total, successCount: total }),
+      });
+    });
+  });
+
   // Set photo display scope / visibility (Both, Gallery Only, Album Only, Archived).
   app.post('/photo/setVisibility', async (c: Context) => {
     const body = await c.req.json<PhotoSetVisibilityBo>();

@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import { contextStorage } from 'hono/context-storage';
+import { compress } from 'hono/compress';
 import result from '../model/result';
 import { cors } from 'hono/cors';
 import BizError from '../error/biz-error';
@@ -8,11 +9,12 @@ import { csrfProtection } from '../security/csrf';
 import { i18nMiddleware, t } from '@/server/i18n';
 import type { HonoEnv } from './type';
 
-// This module creates Hono App and registers common middleware and error handling.
+// This module creates Hono App and registers common middleware, compression, and error handling.
 
 export function createHonoApp() {
   const instance = new Hono<HonoEnv>().basePath('/api');
 
+  instance.use('*', compress());
   instance.use('*', cors());
   instance.use('*', contextStorage());
   instance.use('*', i18nMiddleware);
