@@ -52,7 +52,12 @@ export function AlbumCard({ data, width, href, onRename, onTop, onDelete, onChan
   return (
     <div
       className="group relative aspect-square overflow-hidden bg-muted"
-      style={{ width }}
+      style={{
+        width,
+        contain: "paint layout",
+        contentVisibility: "auto",
+        containIntrinsicSize: "280px 280px",
+      }}
     >
       <Link
         href={href ?? `/albums/${data.albumId}`}

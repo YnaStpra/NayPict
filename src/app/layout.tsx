@@ -54,9 +54,25 @@ export default async function RootLayout({ children }: RootLayoutProps) {
   const title = process.env.TITLE || "NayPict"
   const [locale, messages] = await Promise.all([getLocale(), getMessages()])
 
+  // Extract CDN origin for DNS prefetch and preconnect acceleration
+  const cdnOrigin = process.env.R2_PUBLIC_URL ? (() => {
+    try {
+      return new URL(process.env.R2_PUBLIC_URL).origin
+    } catch {
+      return null
+    }
+  })() : null
+
   return (
     <html lang={locale} className={`${geist.variable} ${defaultTheme}`} suppressHydrationWarning>
-      <head />
+      <head>
+        {cdnOrigin && (
+          <>
+            <link rel="dns-prefetch" href={cdnOrigin} />
+            <link rel="preconnect" href={cdnOrigin} crossOrigin="anonymous" />
+          </>
+        )}
+      </head>
       <body>
         <NextIntlClientProvider messages={messages}>
           <Provider

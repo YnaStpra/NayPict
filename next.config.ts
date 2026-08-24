@@ -56,6 +56,8 @@ const nextConfig: NextConfig = {
       { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=(), interest-cohort=()' },
       // Force HTTPS (only meaningful in production behind HTTPS)
       { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains; preload' },
+      // HTTP/3 QUIC protocol advertisement and 0-RTT connection acceleration
+      { key: 'Alt-Svc', value: 'h3=":443"; ma=86400, h3-29=":443"; ma=86400' },
       // Reporting API configuration for modern CSP violation reporting
       { key: 'Reporting-Endpoints', value: 'csp-endpoint="/api/csp-report"' },
       // Content Security Policy (CSP) mitigating XSS and data injection with active violation telemetry

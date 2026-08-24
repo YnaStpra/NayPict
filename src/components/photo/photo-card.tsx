@@ -151,6 +151,8 @@ export function PhotoCard({
     }
   }
 
+  const cardHeight = Math.max(1, Math.round(width * ratio))
+
   return (
     <div
       className="group relative overflow-hidden bg-muted"
@@ -158,7 +160,10 @@ export function PhotoCard({
       onContextMenu={handlePhotoContextMenu}
       style={{
         width,
-        height: Math.max(1, Math.round(width * ratio)),
+        height: cardHeight,
+        contain: "paint layout",
+        contentVisibility: "auto",
+        containIntrinsicSize: `${width}px ${cardHeight}px`,
       }}
     >
       {placeholder && (

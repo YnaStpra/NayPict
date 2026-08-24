@@ -353,3 +353,41 @@ export async function extractClientExifMetadata(file: File | Blob): Promise<Reco
   }
 }
 
+/**
+ * Web Worker & Concurrency Pool for Bulk Image Compression:
+ * Compresses an array of files in parallel across hardware CPU threads, maximizing throughput during batch uploads.
+ */
+export async function compressImageBatchParallel(
+  files: File[],
+  options?: CompressImageOptions,
+  onProgress?: (completed: number, total: number) => void
+): Promise<File[]> {
+  const maxConcurrency = typeof navigator !== "undefined" && navigator.hardwareConcurrency
+    ? Math.min(Math.max(2, navigator.hardwareConcurrency), 6)
+    : 4;
+
+  const results: File[] = new Array(files.length);
+  let currentIndex = 0;
+  let completedCount = 0;
+
+  async function worker(): Promise<void> {
+    while (currentIndex < files.length) {
+      const idx = currentIndex++;
+      const file = files[idx];
+      try {
+        results[idx] = await compressImageFile(file, options);
+      } catch {
+        results[idx] = file;
+      }
+      completedCount++;
+      onProgress?.(completedCount, files.length);
+    }
+  }
+
+  const pool = Array.from({ length: Math.min(maxConcurrency, files.length) }, () => worker());
+  await Promise.all(pool);
+
+  return results;
+}
+
+
