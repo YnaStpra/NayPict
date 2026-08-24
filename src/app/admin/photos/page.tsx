@@ -320,6 +320,7 @@ export default function AdminPhotosPage() {
     setPhotos((prev) =>
       prev.map((p) => (ids.includes(p.photoId) ? { ...p, ...updates } : p))
     )
+    fetchPhotos()
   }
 
   const handleAlbumSuccess = async (albumIds: string[]) => {
@@ -1120,6 +1121,7 @@ export default function AdminPhotosPage() {
             if (!next) setBatchEditIds([])
           }}
           photoIds={batchEditIds}
+          initialName={batchEditIds.length === 1 ? photos.find((p) => p.photoId === batchEditIds[0])?.name : undefined}
           onSuccess={handleBatchSuccess}
         />
       )}

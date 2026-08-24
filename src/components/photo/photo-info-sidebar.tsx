@@ -549,6 +549,7 @@ export function PhotoInfoSidebar({
               open={batchEditDialogOpen}
               onOpenChange={setBatchEditDialogOpen}
               photoIds={[photo.photoId]}
+              initialName={photo.name}
               onSuccess={(_ids, changes) => {
                 onPhotoUpdate?.({
                   ...photo,

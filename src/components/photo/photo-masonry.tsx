@@ -355,6 +355,7 @@ const PhotoMasonry = memo(function PhotoMasonry({
           open={batchEditDialogOpen}
           onOpenChange={setBatchEditDialogOpen}
           photoIds={visibleSelectedPhotoIds}
+          initialName={visibleSelectedPhotoIds.length === 1 ? photos.find((p) => p.photoId === visibleSelectedPhotoIds[0])?.name : undefined}
           onSuccess={handleBatchEditSuccess}
         />
       )}

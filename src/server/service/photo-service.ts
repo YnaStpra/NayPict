@@ -1012,6 +1012,65 @@ const photoService = {
         .where(inArray(photoTab.photoId, verifiedPhotoIds));
     }
 
+    // If name modifications are requested (set, prefix, suffix, replace)
+    if (params.nameMode && params.nameMode !== ('unchanged' as any)) {
+      const photos = await orm
+        .select({ photoId: photoTab.photoId, name: photoTab.name })
+        .from(photoTab)
+        .where(inArray(photoTab.photoId, verifiedPhotoIds));
+
+      for (let i = 0; i < photos.length; i++) {
+        const photo = photos[i];
+        const oldFullName = photo.name || '';
+        const extMatch = oldFullName.match(/\.[^/.]+$/);
+        const originalExt = extMatch ? extMatch[0] : '';
+        const originalBase = oldFullName.replace(/\.[^/.]+$/, '');
+
+        let newFullName = oldFullName;
+
+        if (params.nameMode === 'set' && params.name) {
+          const inputName = params.name.trim();
+          if (photos.length === 1) {
+            // Single photo: if user typed extension, keep it; otherwise preserve originalExt
+            if (/\.[a-zA-Z0-9]+$/.test(inputName)) {
+              newFullName = inputName;
+            } else {
+              newFullName = `${inputName}${originalExt}`;
+            }
+          } else {
+            // Multiple photos: Check for {n} or {index} placeholders or append sequence number
+            if (/\{n\}|\{index\}/i.test(inputName)) {
+              const baseWithIndex = inputName.replace(/\{n\}|\{index\}/gi, String(i + 1));
+              newFullName = /\.[a-zA-Z0-9]+$/.test(baseWithIndex)
+                ? baseWithIndex
+                : `${baseWithIndex}${originalExt}`;
+            } else {
+              const baseWithoutExt = inputName.replace(/\.[^/.]+$/, '');
+              newFullName = `${baseWithoutExt}_${i + 1}${originalExt}`;
+            }
+          }
+        } else if (params.nameMode === 'prefix' && params.name) {
+          const prefix = params.name;
+          newFullName = `${prefix}${originalBase}${originalExt}`;
+        } else if (params.nameMode === 'suffix' && params.name) {
+          const suffix = params.name;
+          newFullName = `${originalBase}${suffix}${originalExt}`;
+        } else if (params.nameMode === 'replace' && params.findText) {
+          const find = params.findText;
+          const replace = params.replaceText || '';
+          const newBase = originalBase.replaceAll(find, replace);
+          newFullName = `${newBase}${originalExt}`;
+        }
+
+        if (newFullName && newFullName !== oldFullName) {
+          await orm
+            .update(photoTab)
+            .set({ name: newFullName })
+            .where(eq(photoTab.photoId, photo.photoId));
+        }
+      }
+    }
+
     // If latitude or longitude is specified in batch edit, update EXIF GPS coordinates strictly on verified photos
     if (params.latitude !== undefined || params.longitude !== undefined) {
       await exifService.updateLocation(

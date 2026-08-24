@@ -8,6 +8,7 @@ import {
   Compass,
   Download,
   Eye,
+  FileText,
   LoaderCircle,
   LocateFixed,
   MapPin,
@@ -44,6 +45,7 @@ interface PhotoBatchEditDialogProps {
   initialLatitude?: number | null
   initialLongitude?: number | null
   defaultLocationMode?: "set" | "unchanged" | "clear" | "ignore"
+  initialName?: string | null
   onSuccess?: (photoIds: string[], updatedFields: Partial<PhotoVo>) => void
 }
 
@@ -54,6 +56,7 @@ export function PhotoBatchEditDialog({
   initialLatitude,
   initialLongitude,
   defaultLocationMode,
+  initialName,
   onSuccess,
 }: PhotoBatchEditDialogProps) {
   // Category state values ('unchanged' means keep existing metadata)
@@ -66,6 +69,12 @@ export function PhotoBatchEditDialog({
     return now.toISOString().slice(0, 16)
   })
 
+  // File name state values
+  const [nameMode, setNameMode] = useState<string>("unchanged")
+  const [nameInput, setNameInput] = useState<string>("")
+  const [findText, setFindText] = useState<string>("")
+  const [replaceText, setReplaceText] = useState<string>("")
+
   // Location state values
   const [locationMode, setLocationMode] = useState<string>(defaultLocationMode || "unchanged")
   const [coordInput, setCoordInput] = useState<string>("")
@@ -73,9 +82,18 @@ export function PhotoBatchEditDialog({
   const [longitude, setLongitude] = useState<string>("")
   const [isLocating, setIsLocating] = useState<boolean>(false)
 
-  // Pre-fill coordinates when dialog opens with initial coordinates
+  // Pre-fill coordinates and file name when dialog opens
   useEffect(() => {
     if (open) {
+      if (initialName && photoIds.length === 1) {
+        setNameInput(initialName)
+      } else {
+        setNameInput("")
+      }
+      setNameMode("unchanged")
+      setFindText("")
+      setReplaceText("")
+
       if (typeof initialLatitude === "number" && typeof initialLongitude === "number") {
         queueMicrotask(() => {
           setLocationMode(defaultLocationMode || "set")
@@ -87,7 +105,7 @@ export function PhotoBatchEditDialog({
         setLocationMode(defaultLocationMode)
       }
     }
-  }, [open, initialLatitude, initialLongitude, defaultLocationMode])
+  }, [open, initialLatitude, initialLongitude, defaultLocationMode, initialName, photoIds.length])
 
   const [loading, setLoading] = useState(false)
 
@@ -96,8 +114,20 @@ export function PhotoBatchEditDialog({
   const isDlModified = allowDownload !== "unchanged"
   const isDateModified = takenTimeMode !== "unchanged"
   const isLocModified = locationMode !== "unchanged"
+  const isNameModified =
+    nameMode !== "unchanged" &&
+    ((nameMode === "set" && nameInput.trim().length > 0) ||
+      (nameMode === "prefix" && nameInput.trim().length > 0) ||
+      (nameMode === "suffix" && nameInput.trim().length > 0) ||
+      (nameMode === "replace" && findText.trim().length > 0))
 
-  const modifiedCount = [isVisModified, isDlModified, isDateModified, isLocModified].filter(Boolean).length
+  const modifiedCount = [
+    isVisModified,
+    isDlModified,
+    isDateModified,
+    isLocModified,
+    isNameModified,
+  ].filter(Boolean).length
   const hasChanges = modifiedCount > 0
 
   // Live parsed coordinate from coordInput
@@ -140,6 +170,10 @@ export function PhotoBatchEditDialog({
       setAllowDownload("unchanged")
       setTakenTimeMode("unchanged")
       setLocationMode("unchanged")
+      setNameMode("unchanged")
+      setNameInput("")
+      setFindText("")
+      setReplaceText("")
       setCoordInput("")
       setLatitude("")
       setLongitude("")
@@ -188,6 +222,10 @@ export function PhotoBatchEditDialog({
       takenTime?: string
       latitude?: number | null
       longitude?: number | null
+      name?: string
+      nameMode?: 'set' | 'prefix' | 'suffix' | 'replace'
+      findText?: string
+      replaceText?: string
     } = { photoIds }
 
     const clientUpdates: Partial<PhotoVo & { isLocationIgnored: boolean }> = {}
@@ -212,6 +250,16 @@ export function PhotoBatchEditDialog({
         const iso = new Date(takenTimeValue).toISOString()
         payload.takenTime = iso
         clientUpdates.takenTime = iso
+      }
+    }
+
+    if (isNameModified) {
+      payload.nameMode = nameMode as any
+      payload.name = nameInput.trim()
+      payload.findText = findText
+      payload.replaceText = replaceText
+      if (photoIds.length === 1 && nameMode === "set") {
+        clientUpdates.name = nameInput.trim()
       }
     }
 
@@ -269,7 +317,7 @@ export function PhotoBatchEditDialog({
 
     setLoading(true)
     try {
-      await photoBatchEdit(payload)
+      await photoBatchEdit(payload as any)
       toast.success(`Successfully updated metadata for ${photoIds.length} photo(s).`)
       onSuccess?.(photoIds, clientUpdates)
       handleOpenChange(false)
@@ -541,6 +589,125 @@ export function PhotoBatchEditDialog({
                     <span>Use Device GPS</span>
                   </Button>
                 </div>
+              </div>
+            )}
+          </div>
+
+          {/* 5. Photo File Name */}
+          <div className="rounded-xl border border-border/80 bg-card p-3.5 space-y-2 shadow-2xs">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-sm font-semibold">
+                <FileText className="size-4 text-purple-500" />
+                <span>5. Photo File Name</span>
+              </div>
+              {isNameModified && (
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-500/15 text-purple-500 border border-purple-500/30">
+                  Will Change
+                </span>
+              )}
+            </div>
+
+            <Select value={nameMode} onValueChange={setNameMode}>
+              <SelectTrigger className="w-full text-xs h-9 bg-muted/30">
+                <SelectValue placeholder="Select Rename Action..." />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="unchanged" className="text-xs text-muted-foreground">
+                  ⚪ — Keep Current (Unchanged) —
+                </SelectItem>
+                <SelectItem value="set" className="text-xs text-purple-600 dark:text-purple-400 font-medium">
+                  ✏️ {photoIds.length === 1 ? "Set New File Name" : "Set New Name (with Auto-Numbering)"}
+                </SelectItem>
+                <SelectItem value="prefix" className="text-xs">
+                  ➕ Add Prefix (e.g. Vacation_)
+                </SelectItem>
+                <SelectItem value="suffix" className="text-xs">
+                  ➕ Add Suffix (e.g. _edited)
+                </SelectItem>
+                <SelectItem value="replace" className="text-xs">
+                  🔄 Find & Replace Text
+                </SelectItem>
+              </SelectContent>
+            </Select>
+
+            {/* Mode: Set */}
+            {nameMode === "set" && (
+              <div className="pt-1.5 space-y-1.5 animate-in fade-in-50 duration-200">
+                <Input
+                  type="text"
+                  placeholder={photoIds.length === 1 ? "e.g. Sunset_at_Lombok" : "e.g. Trip_Bali_{n} or Bali_Photo"}
+                  value={nameInput}
+                  onChange={(e) => setNameInput(e.target.value)}
+                  className="w-full text-xs h-9 bg-background"
+                />
+                {photoIds.length > 1 && (
+                  <p className="text-[11px] text-muted-foreground leading-tight">
+                    💡 Tip: Use <code className="bg-muted px-1 py-0.5 rounded text-foreground font-mono">{"{n}"}</code> for sequence numbers (e.g. <span className="text-foreground font-medium">Trip_{"{n}"}</span> becomes Trip_1, Trip_2...).
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* Mode: Prefix */}
+            {nameMode === "prefix" && (
+              <div className="pt-1.5 space-y-1.5 animate-in fade-in-50 duration-200">
+                <Input
+                  type="text"
+                  placeholder="e.g. 2025_ or Summer_"
+                  value={nameInput}
+                  onChange={(e) => setNameInput(e.target.value)}
+                  className="w-full text-xs h-9 bg-background"
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  Adds this prefix to the beginning of each file name.
+                </p>
+              </div>
+            )}
+
+            {/* Mode: Suffix */}
+            {nameMode === "suffix" && (
+              <div className="pt-1.5 space-y-1.5 animate-in fade-in-50 duration-200">
+                <Input
+                  type="text"
+                  placeholder="e.g. _compressed or _HD"
+                  value={nameInput}
+                  onChange={(e) => setNameInput(e.target.value)}
+                  className="w-full text-xs h-9 bg-background"
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  Inserts this suffix at the end of each file name before the extension.
+                </p>
+              </div>
+            )}
+
+            {/* Mode: Find & Replace */}
+            {nameMode === "replace" && (
+              <div className="pt-1.5 space-y-2 animate-in fade-in-50 duration-200">
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="text-[10px] text-muted-foreground font-medium">Find Text</label>
+                    <Input
+                      type="text"
+                      placeholder="e.g. DSC_"
+                      value={findText}
+                      onChange={(e) => setFindText(e.target.value)}
+                      className="w-full text-xs h-9 bg-background mt-0.5"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-muted-foreground font-medium">Replace With</label>
+                    <Input
+                      type="text"
+                      placeholder="e.g. Photo_"
+                      value={replaceText}
+                      onChange={(e) => setReplaceText(e.target.value)}
+                      className="w-full text-xs h-9 bg-background mt-0.5"
+                    />
+                  </div>
+                </div>
+                <p className="text-[11px] text-muted-foreground">
+                  Replaces matching text across all selected photo names.
+                </p>
               </div>
             )}
           </div>
