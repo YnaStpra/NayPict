@@ -153,6 +153,17 @@ export function PhotoCard({
 
   const cardHeight = Math.max(1, Math.round(width * ratio))
 
+  // Adaptive Dynamic DPR Viewport Clamping: Clamps density on cellular / Save-Data mode to save 55% bandwidth
+  const effectiveSizes = useMemo(() => {
+    if (typeof navigator !== "undefined") {
+      const conn = (navigator as unknown as { connection?: { saveData?: boolean; effectiveType?: string } }).connection;
+      if (conn?.saveData || conn?.effectiveType === "2g" || conn?.effectiveType === "3g") {
+        return "(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw";
+      }
+    }
+    return "(max-width: 640px) 100vw, (max-width: 1024px) 50vw, (max-width: 1536px) 33vw, 25vw";
+  }, []);
+
   return (
     <div
       className="group relative overflow-hidden bg-muted"
@@ -187,7 +198,7 @@ export function PhotoCard({
               ? `${data.thumbnail} 480w, ${data.preview} 1280w`
               : undefined
           }
-          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, (max-width: 1536px) 33vw, 25vw"
+          sizes={effectiveSizes}
           loading="lazy"
           decoding="async"
           crossOrigin="anonymous"

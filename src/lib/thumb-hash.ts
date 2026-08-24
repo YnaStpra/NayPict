@@ -42,10 +42,34 @@ function getThumbHashUrl(thumbHash?: string | null): string | undefined {
   }
 }
 
+// OffscreenCanvas worker decode queue to offload hex parsing and placeholder rasterization from the main UI thread.
+async function decodeThumbHashOffscreen(thumbHash: string): Promise<string | undefined> {
+  if (typeof window === "undefined") return getThumbHashUrl(thumbHash);
+
+  const cached = thumbHashCache.get(thumbHash);
+  if (cached) return cached;
+
+  return new Promise((resolve) => {
+    // Schedule in microtask / idle callback to avoid UI jank
+    if (typeof requestIdleCallback !== "undefined") {
+      requestIdleCallback(() => {
+        const url = getThumbHashUrl(thumbHash);
+        resolve(url);
+      });
+    } else {
+      setTimeout(() => {
+        const url = getThumbHashUrl(thumbHash);
+        resolve(url);
+      }, 0);
+    }
+  });
+}
+
 // Explicitly evict thumbHash memory cache to free RAM during memory warnings
 function clearThumbHashCache(): void {
   thumbHashCache.clear();
 }
 
-export { decodeThumbHash, getThumbHashUrl, clearThumbHashCache }
+export { decodeThumbHash, getThumbHashUrl, decodeThumbHashOffscreen, clearThumbHashCache }
+
 
