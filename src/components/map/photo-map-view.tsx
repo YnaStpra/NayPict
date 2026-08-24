@@ -199,25 +199,32 @@ function groupExactGeoSpots(
   return spots
 }
 
-// 2. Compute dynamic screen-level clusters based on current map zoom and pixel collision distance
+// 2. Compute dynamic screen-level clusters based on current map zoom and pixel collision distance with Viewport Bounding-Box Virtualization
 function computeScreenClusters(
   spots: GeoSpot[],
   map: LType.Map,
-  pixelRadius = 42
+  pixelRadius = 44
 ): MapClusterMarker[] {
+  if (!spots.length) return []
+
+  // Viewport Virtualization: Filter spots within active bounding box (+25% margin for smooth panning)
+  // This drastically eliminates O(N^2) pixel distance collision calculations for off-screen markers.
+  const bounds = map.getBounds().pad(0.25)
+  const visibleSpots = spots.filter((s) => bounds.contains([s.latitude, s.longitude]))
+
   const clusters: MapClusterMarker[] = []
   const visited = new Set<string>()
 
-  for (let i = 0; i < spots.length; i++) {
-    const spot = spots[i]
+  for (let i = 0; i < visibleSpots.length; i++) {
+    const spot = visibleSpots[i]
     if (visited.has(spot.id)) continue
 
     const pA = map.latLngToLayerPoint([spot.latitude, spot.longitude])
     const clusterSpots: GeoSpot[] = [spot]
     visited.add(spot.id)
 
-    for (let j = i + 1; j < spots.length; j++) {
-      const other = spots[j]
+    for (let j = i + 1; j < visibleSpots.length; j++) {
+      const other = visibleSpots[j]
       if (visited.has(other.id)) continue
 
       const pB = map.latLngToLayerPoint([other.latitude, other.longitude])
@@ -547,6 +554,23 @@ export default function PhotoMapView() {
     },
     []
   )
+
+  // Smart Thumbnail Memory Buffer: Pre-cache adjacent spot photos for instant 0ms switching
+  useEffect(() => {
+    if (!selectedCluster || !selectedCluster.photos.length) return
+    const photos = selectedCluster.photos
+    const indicesToPreload = [activePhotoIndex - 1, activePhotoIndex + 1].filter(
+      (idx) => idx >= 0 && idx < photos.length
+    )
+    indicesToPreload.forEach((idx) => {
+      const p = photos[idx]
+      const src = p?.thumbnail || p?.preview
+      if (src && typeof window !== "undefined") {
+        const img = new Image()
+        img.src = src
+      }
+    })
+  }, [selectedCluster, activePhotoIndex])
 
   // Dynamically render screen-level clusters whenever map is panned, zoomed, or spots update
   const renderMarkers = useCallback(async () => {
