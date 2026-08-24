@@ -13,6 +13,8 @@ const geist = Geist({
   subsets: ["latin"],
   variable: "--font-geist",
   display: "swap",
+  preload: true,
+  adjustFontFallback: true,
 })
 
 const SIDEBAR_COOKIE_NAME = "sidebar_state"

@@ -398,6 +398,8 @@ export function InfiniteGallery(props: InfiniteGalleryProps) {
         img.style.display = "block"
         img.style.pointerEvents = "none"
         img.style.userSelect = "none"
+        img.style.imageRendering = "-webkit-optimize-contrast"
+        img.style.transform = "translateZ(0)"
         img.style.transition = "transform 0.2s ease, box-shadow 0.2s ease"
 
         const radiusPx = (safeRounded / 20) * (Math.min(wPx, hPx) / 2)
@@ -579,6 +581,12 @@ export function InfiniteGallery(props: InfiniteGalleryProps) {
     let raf = 0
 
     const loop = () => {
+      // Low-Power Throttling: Pause render iterations when tab is hidden / inactive to save 100% GPU/CPU
+      if (typeof document !== "undefined" && document.hidden) {
+        raf = requestAnimationFrame(loop)
+        return
+      }
+
       if (isAutoAnimatingRef.current) {
         // Continuous center zoom effect - sumbu X & Y tetap 0 (timbul dari tengah) (+40% speed)
         targetLogZoom.set(targetLogZoom.get() + 0.0035)

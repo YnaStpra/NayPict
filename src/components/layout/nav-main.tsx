@@ -30,9 +30,18 @@ export function NavMain({
     return pathname === url || pathname.startsWith(`${url}/`)
   }
 
-  // Intent-based route prefetching on hover or touchstart for 0ms navigation transition
+  // Adaptive intent-based route prefetching on hover or touchstart (respects Save-Data & 2G connections)
   function handleIntentPrefetch(url: string) {
     if (url === pathname || prefetchedRoutes.has(url)) return;
+
+    // Respect user's Save-Data mode or slow mobile connections
+    if (typeof navigator !== "undefined") {
+      const conn = (navigator as unknown as { connection?: { saveData?: boolean; effectiveType?: string } }).connection;
+      if (conn?.saveData || conn?.effectiveType === "slow-2g" || conn?.effectiveType === "2g") {
+        return;
+      }
+    }
+
     prefetchedRoutes.add(url);
     try {
       router.prefetch(url);

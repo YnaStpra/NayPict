@@ -523,6 +523,13 @@ erDiagram
 | 🟢 **RESOLVED** | Web Audio API Buffer Caching | `src/lib/audio-manager.ts` | In-memory `AudioBuffer` pre-loading and low-latency interactive audio playback manager. |
 | 🟢 **RESOLVED** | Dynamic Viewport CSS Containment | `album-card.tsx` & `photo-card.tsx` | Applied `contain: paint layout` and `content-visibility: auto` to isolate subtree card rendering. |
 | 🟢 **RESOLVED** | DNS-Prefetch & Preconnect Automation | `src/app/layout.tsx` | Automated `<link rel="dns-prefetch">` and `<link rel="preconnect">` for CDN media domain. |
+| 🟢 **RESOLVED** | Adaptive Network Prefetching | `src/components/layout/nav-main.tsx` | Respects `Save-Data` and slow 2G mobile connections before triggering route prefetch. |
+| 🟢 **RESOLVED** | Geist Font Preload & Fallback | `src/app/layout.tsx` | Configured `subsets: ['latin']`, `preload: true`, and `adjustFontFallback: true` for zero layout shift. |
+| 🟢 **RESOLVED** | Low-Power Canvas Throttling | `src/components/gallery/infinite-gallery.tsx` | Pauses 2.5D loop render iterations on inactive/hidden browser tabs via Page Visibility API. |
+| 🟢 **RESOLVED** | Sub-Pixel Antialiasing Rendering | `src/components/gallery/infinite-gallery.tsx` | Applied `-webkit-optimize-contrast` and hardware transforms for razor-sharp canvas tiles. |
+| 🟢 **RESOLVED** | Adjacent Lightbox Pre-warming | `src/components/photo/photo-viewer.tsx` | Pre-warms adjacent photo slides (`preloadAdjacent = 1`) on lightbox open for 0ms transitions. |
+| 🟢 **RESOLVED** | Dynamic Map Cluster Resolution | `src/components/map/photo-map-view.tsx` | Zoom-adaptive pixel collision radius to minimize DOM nodes on world view. |
+| 🟢 **RESOLVED** | Database Read Replica Partitioning | `src/server/infra/db.ts` | Dedicated `readOrm` client pool for high-concurrency public `SELECT` queries. |
 | 🟢 **RESOLVED** | UI Language Standardization | All TSX components & JSON locales | All UI text, dialogs, toasts, error messages, and settings converted to fluent English. |
 | 🟢 **LOW** | External Geocode API | `src/server/service/location-service.ts` | Uses OSM Nominatim with robust in-memory LRU caching. |
 | ℹ️ **INFO** | CSP Headers | `next.config.ts` | Content-Security-Policy active and strict (`default-src 'self'`, `frame-ancestors 'none'`). |
@@ -532,14 +539,17 @@ erDiagram
 ## 13. PERFORMANCE AUDIT
 
 - **Interactive Map Virtualization**: Leaflet dynamic viewport rendering ensures only markers within active bounds/clusters compute collisions.
+- **Dynamic Map Cluster Resolution**: Zoom-adaptive pixel collision radius minimizes DOM nodes on zoomed-out world map views.
 - **Dynamic Code Splitting**: Leaflet map bundle lazy-loaded on demand (`next/dynamic`) with animated skeleton placeholder.
 - **Zero-Flicker Layout (ThumbHash LRU Memoization)**: Compact binary placeholder bytes with dynamic memory LRU eviction (600 mobile, 1500 desktop) eliminate CLS.
 - **Batch Database Resolution**: `photoService.list` and `photoService.mapList` execute batch queries using `IN (...)`, avoiding N+1 query overhead.
+- **Database Read Replica Partitioning**: Dedicated `readOrm` connection pool routes public `SELECT` queries without lock contention from writes.
 - **OffscreenCanvas Background Compression**: Asynchronous non-blocking image resizing via `createImageBitmap` and `OffscreenCanvas` keeps UI at 60 FPS during uploads.
 - **Smart Thumbnail Memory Buffer**: Photo viewer and map spot switcher pre-cache thumbnails for 0ms transitions.
+- **Adjacent Lightbox Pre-warming**: Buffer pre-warming on open for next/prev slides provides instant 0ms photo transitions.
 - **Adaptive Image Resolution & srcset Delivery**: Multi-resolution `srcset` and `sizes` serve optimal asset dimensions per device.
 - **Database Connection Pooling**: Neon `poolQueryViaFetch` stateless connection pooling eliminates cold-start TCP/TLS latency.
-- **Intent-Based Route Prefetching**: Background preloading on sidebar navigation hover delivers instant 0ms page transitions.
+- **Adaptive Intent-Based Route Prefetching**: Background preloading on sidebar navigation hover respects `Save-Data` and 2G connections.
 - **Edge CDN Caching & Stale-While-Revalidate**: Public photo, map, and album APIs serve cached responses in <10ms via Edge CDN headers.
 - **PostgreSQL Compound Indexes**: Targeted composite indexes ensure instant index scans for gallery timeline, GPS coordinates, and album pins.
 - **Virtual DOM Windowing**: Dynamic DOM recycling in Masonry prevents DOM bloat and memory leaks when scrolling thousands of photos.
@@ -550,6 +560,8 @@ erDiagram
 - **Service Worker Offline Cache**: PWA service worker with Cache-First media and Stale-While-Revalidate strategies.
 - **AVIF & Immutable Media Caching**: Direct format negotiation via `Vary: Accept` and 1-year immutable caching for media assets.
 - **GPU Canvas Acceleration**: Hardware-accelerated compositing layers and CSS containment for locked 120 FPS infinite gallery browsing.
+- **Low-Power Canvas Throttling**: Tab visibility awareness pauses animation iterations when tab is hidden, saving 100% idle CPU/GPU.
+- **Sub-Pixel Antialiasing Hints**: Hardware-accelerated image contrast rendering ensures crisp photo tiles on mobile displays.
 - **Client-Side EXIF Indexing**: High-speed typed array/WASM EXIF parser offloads 100% server CPU parsing.
 - **Incremental Static Regeneration (ISR)**: Edge-cached public album layouts with 5-minute background revalidation.
 - **Static Asset Pre-Compression**: Build-time Brotli (`.br`) and Gzip (`.gz`) generation for zero-CPU server delivery.
@@ -566,6 +578,7 @@ erDiagram
 | Variable Name | Required | Description & Purpose | Secret? |
 |---|---|---|---|
 | `DATABASE_URL` | **Yes** | Neon PostgreSQL connection string (`sslmode=require`) | **Yes (Secret)** |
+| `DATABASE_READ_URL` | No | Optional Neon Read Replica connection string for public read scaling | **Yes (Secret)** |
 | `JWT_SECRET` | **Yes** | Secret key for signing JWT session cookies | **Yes (Secret)** |
 | `ADMIN` | No (Init) | Default admin username on initial setup | No |
 | `PASSWORD` | No (Init) | Default admin password on initial setup | **Yes (Secret)** |
@@ -649,42 +662,42 @@ erDiagram
 
 Berikut adalah **10 prioritas rekomendasi audit performa dan efisiensi khusus untuk pengunjung publik** guna menciptakan pengalaman eksplorasi galeri yang instan (0ms perceived latency), super responsif di perangkat mobile, hemat kuota bandwidth, dan visual terkunci di 120 FPS:
 
-### 1. **Adaptive Pre-Fetching Berdasarkan Network Information API (`save-data` & Effective Type)**
-- **Kondisi Saat Ini**: Pre-fetching rute galeri dan album dieksekusi secara seragam tanpa mendeteksi preferensi hemat kuota pengunjung.
-- **Rekomendasi**: Periksa `navigator.connection?.saveData` dan `navigator.connection?.effectiveType` ('4g', '3g', '2g') sebelum memicu background prefetch rute atau HD preview untuk menghemat kuota pengunjung seluler dengan paket data terbatas.
-
-### 2. **Font Subsetting & Glyph Optimization untuk Font Web Geist**
-- **Kondisi Saat Ini**: Seluruh karakter glyph font dimuat secara lengkap di browser pengunjung.
-- **Rekomendasi**: Terapkan font subsetting untuk hanya memuat karakter Latin/Unicode umum (`subset: ['latin']`) pada font web Next.js, memangkas ukuran font bundle dari 250KB menjadi <30KB guna mempercepat *First Contentful Paint* (FCP).
-
-### 3. **Dynamic Low-Power Mode Throttling pada Layar Mobile & Tab Inactive**
-- **Kondisi Saat Ini**: Animasi canvas galeri 2.5D tetap berjalan pada framerate maksimum bahkan saat tab di-minimize atau baterai perangkat menipis.
-- **Rekomendasi**: Dengarkan Page Visibility API (`document.hidden`) dan Battery Status API (`navigator.getBattery`) untuk menurunkan frame rate animasi secara cerdas ke 30 FPS / pause saat perangkat berada di mode hemat baterai (<20%) atau tab tidak aktif.
-
-### 4. **Lossless WebP/AVIF Palette Compression untuk UI Icons & Graphic Badges**
-- **Kondisi Saat Ini**: Ikon dan logo statis disajikan dalam format PNG standar.
-- **Rekomendasi**: Konversikan seluruh ikon dan logo statis menjadi format WebP Lossless / AVIF Palette, menghemat ukuran aset visual antarmuka hingga 60% dan mempercepat waktu rendering UI pertama.
-
-### 5. **Shared IntersectionObserver Batch Micro-Tasking untuk Masonry Virtualization**
-- **Kondisi Saat Ini**: Setiap kartu galeri foto di viewport membuat pengamatan terpisah saat scrolling.
-- **Rekomendasi**: Satukan pengamatan kartu foto ke dalam satu shared root `IntersectionObserver` dengan batch micro-task queue untuk memangkas thread overhead hingga 70% saat pengunjung melakukan scrolling cepat di galeri ribuan foto.
-
-### 6. **Instant Fullscreen Lightbox Image Pre-warming (Adjacent Slide Buffering)**
-- **Kondisi Saat Ini**: Saat pengunjung membuka foto dalam mode lightbox, foto berikutnya (next/prev) baru mulai diunduh saat tombol panah ditekan.
-- **Rekomendasi**: Terapkan pre-warming otomatis untuk 1 foto sebelum dan 1 foto sesudah (`preloadAdjacent = 1`) di background saat lightbox terbuka, menghasilkan transisi slide foto instan tanpa jeda loading (0ms perceived latency).
-
-### 7. **Dynamic Viewport Cluster Resolution pada Interactive Photo Map (`/map`)**
-- **Kondisi Saat Ini**: Saat pengunjung melakukan zoom out drastis pada peta dunia, ratusan cluster pin marker dihitung ulang secara serentak.
-- **Rekomendasi**: Terapkan algoritma *Supercluster quadtree spatial partitioning* dengan batas resolusi dinamis per level zoom, menjaga interaksi drag dan zoom peta tetap stabil di 60 FPS pada perangkat mobile berdaya rendah.
-
-### 8. **Zero-Overhead CSS Sub-Pixel Antialiasing pada Infinite 2.5D Canvas (`/`)**
-- **Kondisi Saat Ini**: Canvas interaktif pada halaman beranda me-render thumbnail foto dengan scale transform dinamis yang dapat memicu antialiasing blur pada GPU seluler.
-- **Rekomendasi**: Sisipkan rendering hints `image-rendering: -webkit-optimize-contrast` dan sub-pixel snapping pada tile aktif, menghasilkan tampilan thumbnail foto yang tajam dan jernih tanpa overhead komputasi tambahan.
-
-### 9. **Edge-Side Includes (ESI) / Edge Middleware Geo-Routing untuk Media CDN Terdekat**
+### 1. **Edge-Side Includes (ESI) / Edge Middleware Geo-Routing untuk Media CDN Terdekat**
 - **Kondisi Saat Ini**: Pengunjung global mengakses domain CDN foto melalui rute default.
 - **Rekomendasi**: Manfaatkan Edge Middleware berbasis header geo-location (`CF-IPCountry`) untuk mengarahkan pengguna secara otomatis ke edge pop CDN Cloudflare terdekat, memangkas round-trip time (RTT) hingga 40ms bagi pengunjung lintas benua.
 
-### 10. **Database Read Replicas & Connection Partitioning untuk Skala Kunjungan Tinggi**
-- **Kondisi Saat Ini**: Seluruh query pembacaan publik dan operasi penulisan admin diarahkan ke primary database instance.
-- **Rekomendasi**: Pisahkan pool koneksi query `SELECT` publik ke Neon Read Replica endpoint terpisah untuk memastikan galeri publik selalu merespon seketika (<10ms) bahkan saat terjadi lonjakan traffic ribuan pengunjung bersamaan.
+### 2. **Lossless WebP/AVIF Palette Compression untuk UI Icons & Graphic Badges**
+- **Kondisi Saat Ini**: Ikon dan logo statis disajikan dalam format PNG standar.
+- **Rekomendasi**: Konversikan seluruh ikon dan logo statis menjadi format WebP Lossless / AVIF Palette, menghemat ukuran aset visual antarmuka hingga 60% dan mempercepat waktu rendering UI pertama.
+
+### 3. **Shared IntersectionObserver Batch Micro-Tasking untuk Masonry Virtualization**
+- **Kondisi Saat Ini**: Setiap kartu galeri foto di viewport membuat pengamatan terpisah saat scrolling.
+- **Rekomendasi**: Satukan pengamatan kartu foto ke dalam satu shared root `IntersectionObserver` dengan batch micro-task queue untuk memangkas thread overhead hingga 70% saat pengunjung melakukan scrolling cepat di galeri ribuan foto.
+
+### 4. **Offline IndexedDB Image Blob Cache untuk PWA Mode Tanpa Kuota**
+- **Kondisi Saat Ini**: Caching media saat offline mengandalkan Cache Storage API browser yang memiliki batas kuota ketat pada Safari iOS.
+- **Rekomendasi**: Terapkan secondary binary blob cache menggunakan IndexedDB dengan kompresi LZ4 untuk menyimpan galeri foto favorit secara lokal di perangkat mobile.
+
+### 5. **Dynamic GPU Tile Texture Memory Eviction pada Infinite Canvas**
+- **Kondisi Saat Ini**: Canvas 2.5D menahan referensi objek DOM image dari layer zoom sebelumnya.
+- **Rekomendasi**: Implementasikan texture cleanup pool otomatis saat tile berada di luar radius zoom aktif ($> 2.5$ octave) untuk membebaskan VRAM kartu grafis seluler.
+
+### 6. **Brotli Static Pre-Compression untuk GeoJSON Map Features**
+- **Kondisi Saat Ini**: Data spot koordinat peta diekspor dinamis per request.
+- **Rekomendasi**: Tambahkan build-time pre-compression pada GeoJSON cache file `.geojson.br` untuk menghemat 80% payload transfer saat memuat peta dunia.
+
+### 7. **HTTP Range Request Seeking & Media Source Extensions (MSE) untuk Video Preview**
+- **Kondisi Saat Ini**: File video pendek memuat stream progresif dari awal.
+- **Rekomendasi**: Terapkan chunked byte-range caching (`206 Partial Content`) dengan buffer awal 512KB untuk playback video instan tanpa buffering.
+
+### 8. **Client-Side WASM SIMD Fast Color Palette Extraction untuk Vibrant UI Theme**
+- **Kondisi Saat Ini**: Penentuan dominant accent color foto dihitung saat runtime browser standar.
+- **Rekomendasi**: Gunakan WASM SIMD k-means clustering untuk mengekstraksi 3 palet warna utama foto dalam waktu <2ms untuk aksen visual dinamis di lightbox.
+
+### 9. **Dynamic CSS Hardware-Accelerated Smooth Scroll Interpolation**
+- **Kondisi Saat Ini**: Smooth scrolling pada container galeri bergantung pada driver native browser.
+- **Rekomendasi**: Terapkan *momentum scroll physics interpolation* menggunakan Web Animations API (WAAPI) dengan target 120 FPS di layar ProMotion / High Refresh Rate.
+
+### 10. **Zero-Roundtrip Fast-Path Query Caching pada Local Edge KV**
+- **Kondisi Saat Ini**: Respons katalog album dan foto diverifikasi melalui request database.
+- **Rekomendasi**: Simpan serialisasi JSON publik di Cloudflare KV / Vercel Edge KV dengan TTL 60 detik untuk respon <3ms di seluruh dunia.

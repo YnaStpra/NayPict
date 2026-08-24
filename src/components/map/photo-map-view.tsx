@@ -203,9 +203,13 @@ function groupExactGeoSpots(
 function computeScreenClusters(
   spots: GeoSpot[],
   map: LType.Map,
-  pixelRadius = 44
+  basePixelRadius = 44
 ): MapClusterMarker[] {
   if (!spots.length) return []
+
+  // Dynamic Viewport Cluster Resolution: Adapt collision radius based on zoom level to minimize DOM nodes on world view
+  const zoom = map.getZoom()
+  const pixelRadius = zoom < 6 ? 64 : zoom < 10 ? 52 : zoom > 14 ? 32 : basePixelRadius
 
   // Viewport Virtualization: Filter spots within active bounding box (+25% margin for smooth panning)
   // This drastically eliminates O(N^2) pixel distance collision calculations for off-screen markers.

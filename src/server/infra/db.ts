@@ -13,12 +13,18 @@ if (!process.env.DATABASE_URL) {
   console.warn('[DB] DATABASE_URL environment variable is not set. Using fallback string for build-time evaluation.');
 }
 
-// Create a Neon HTTP client with connection caching enabled.
+// Create a Neon HTTP client with connection caching enabled for primary writes.
 const sql = neon(connectionString);
 
-// Initialize Drizzle ORM with the Neon client and full schema.
+// Read Replica Connection Partitioning: dedicated read connection pool for high-concurrency public queries.
+const readConnectionString = process.env.DATABASE_READ_URL || connectionString;
+const readSql = neon(readConnectionString);
+
+// Initialize Drizzle ORM for primary (writes) and read-replica (public SELECTs).
 export const orm = drizzle(sql, { schema });
+export const readOrm = drizzle(readSql, { schema });
 
 // Export a no-op db shim so legacy migrate.ts import does not break during transition.
 export const db = { exec: () => {} };
+
 

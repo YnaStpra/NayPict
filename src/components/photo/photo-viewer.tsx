@@ -1071,6 +1071,17 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
     }
     window.addEventListener("popstate", handlePopState)
 
+    // Pre-warm adjacent slides immediately on open for instant 0ms slide transitions
+    const currIdx = indexRef.current
+    const prevPhoto = photosRef.current[currIdx > 0 ? currIdx - 1 : photosRef.current.length - 1]
+    const nextPhoto = photosRef.current[currIdx < photosRef.current.length - 1 ? currIdx + 1 : 0]
+    if (prevPhoto?.preview) {
+      loadPreviewImage(prevPhoto.preview, prevPhoto.photoId, currentPhotoIdRef, setOriginalPhoto, previewRequestsRef, getPhotoCache, setPhotoCache)
+    }
+    if (nextPhoto?.preview) {
+      loadPreviewImage(nextPhoto.preview, nextPhoto.photoId, currentPhotoIdRef, setOriginalPhoto, previewRequestsRef, getPhotoCache, setPhotoCache)
+    }
+
     return () => {
       window.removeEventListener("popstate", handlePopState)
       removePhotoIdFromUrl()
