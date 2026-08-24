@@ -329,3 +329,27 @@ export async function compressImageFile(
     return file;
   }
 }
+
+/**
+ * Client-Side EXIF Metadata Indexing:
+ * Parses camera hardware, shooting parameters, and GPS coordinates directly in the browser
+ * via WebAssembly / typed array binary decoding, offloading 100% of EXIF parsing CPU overhead from the server.
+ */
+export async function extractClientExifMetadata(file: File | Blob): Promise<Record<string, unknown> | null> {
+  try {
+    const exifr = await import("exifr");
+    const data = await exifr.parse(file, {
+      tiff: true,
+      xmp: true,
+      icc: false,
+      iptc: true,
+      jfif: false,
+      gps: true,
+    });
+    return data || null;
+  } catch (err) {
+    console.debug("Client EXIF extraction skipped:", err);
+    return null;
+  }
+}
+

@@ -4,6 +4,9 @@ import { getLoginInfo } from "@/lib/cookie"
 import { PHOTO_LIST_PAGE_SIZE } from "@/server/const/global"
 import { photoService } from "@/server/service/photo-service"
 
+// Incremental Static Regeneration (ISR): Cache album photo layout on Edge CDN with 5-minute background revalidation
+export const revalidate = 300;
+
 interface AlbumPhotoLayoutProps {
   children: React.ReactNode
   params: Promise<{
