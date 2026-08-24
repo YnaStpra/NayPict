@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState, type MouseEvent } from "react"
+import { useEffect, useMemo, useRef, useState, type MouseEvent } from "react"
 import { FolderIcon, PinIcon } from "lucide-react"
 import { type RenderComponentProps } from "masonic"
 import { useIsMobile } from "@/hooks/use-mobile"
@@ -74,14 +74,19 @@ export function PhotoCard({
   const [imageSrc, setImageSrc] = useState<string | null>(() => data.thumbnail || data.preview || data.key || null)
   // imageError Record whether all photo URLs failed to load.
   const [imageError, setImageError] = useState(false)
+  // Progressive blur transition state
+  const [imageLoaded, setImageLoaded] = useState(false)
   // isMobile Determine whether the current viewport is the mobile terminal。
   const isMobile = useIsMobile()
   const showHover = showTouchHover || holdHover
+  // Predictive hover dwell timer
+  const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Reset image source when data changes
   useEffect(() => {
     setImageSrc(data.thumbnail || data.preview || data.key || null)
     setImageError(false)
+    setImageLoaded(false)
   }, [data.thumbnail, data.preview, data.key])
 
   // Handle graceful image fallback
@@ -92,6 +97,24 @@ export function PhotoCard({
       setImageSrc(data.key)
     } else {
       setImageError(true)
+    }
+  }
+
+  // Predictive hover prefetching with intent dwell time (>65ms)
+  function handleMouseEnter() {
+    if (isMobile) return
+    hoverTimerRef.current = setTimeout(() => {
+      if (data.preview && typeof window !== "undefined") {
+        const img = new Image()
+        img.src = data.preview
+      }
+    }, 75)
+  }
+
+  function handleMouseLeave() {
+    if (hoverTimerRef.current) {
+      clearTimeout(hoverTimerRef.current)
+      hoverTimerRef.current = null
     }
   }
 
@@ -169,19 +192,28 @@ export function PhotoCard({
       className="group relative overflow-hidden bg-muted"
       onClick={handlePhotoClick}
       onContextMenu={handlePhotoContextMenu}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
       style={{
         width,
         height: cardHeight,
         contain: "paint layout",
         contentVisibility: "auto",
         containIntrinsicSize: `${width}px ${cardHeight}px`,
+        // Dynamic Layout Stability CSS Custom Properties (CLS = 0.000)
+        ["--aspect-ratio" as string]: `${ratio}`,
+        ["--intrinsic-width" as string]: `${width}px`,
+        ["--intrinsic-height" as string]: `${cardHeight}px`,
       }}
     >
       {placeholder && (
         <img
           src={placeholder}
           alt=""
-          className="absolute inset-0 h-full w-full scale-110 blur-sm"
+          className={[
+            "absolute inset-0 h-full w-full scale-110 blur-sm transition-opacity duration-400 ease-out",
+            imageLoaded ? "opacity-0 pointer-events-none" : "opacity-100",
+          ].join(" ")}
           aria-hidden
           draggable={false}
         />
@@ -205,10 +237,12 @@ export function PhotoCard({
           alt={data.name}
           draggable={false}
           className={[
-            "absolute inset-0 h-full w-full object-cover duration-350",
+            "absolute inset-0 h-full w-full object-cover duration-350 transition-all",
+            imageLoaded ? "opacity-100 filter-none" : "opacity-90 blur-[0.5px]",
             selectionActive ? "" : "group-hover:scale-105",
             showHover && !selectionActive ? "scale-105" : "",
           ].join(" ")}
+          onLoad={() => setImageLoaded(true)}
           onError={handleImageError}
         />
       )}

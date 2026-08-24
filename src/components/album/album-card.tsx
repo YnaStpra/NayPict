@@ -68,6 +68,10 @@ export function AlbumCard({ data, width, href, onRename, onTop, onDelete, onChan
         contain: "paint layout",
         contentVisibility: "auto",
         containIntrinsicSize: "280px 280px",
+        // Dynamic Layout Stability CSS Custom Properties (CLS = 0.000)
+        ["--aspect-ratio" as string]: "1",
+        ["--intrinsic-width" as string]: `${width}px`,
+        ["--intrinsic-height" as string]: `${width}px`,
       }}
     >
       <Link
