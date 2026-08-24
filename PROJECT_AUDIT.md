@@ -502,6 +502,8 @@ erDiagram
 | 🟢 **RESOLVED** | Batch Renaming & Full Inventory Scaling | `photo-batch-edit-dialog.tsx` & `admin/photos/page.tsx` | Category 5 file renaming with auto-numbering, 10,000-item inventory loading, and automatic selection deselection. |
 | 🟢 **RESOLVED** | Secure Cookie Prefixing (`__Host-`) | `global.ts`, `cookie.ts`, `login-api.ts`, `proxy.ts` | Adopted RFC 6265bis `__Host-` prefix in production HTTPS environments to prevent subdomain injection and cookie tossing attacks. |
 | 🟢 **RESOLVED** | CSP Violation Telemetry & Hardened Directives | `next.config.ts`, `csp-api.ts`, `csrf.ts`, `web.ts` | Configured `report-uri /api/csp-report` and modern `Reporting-Endpoints` with dedicated Hono reporting handler and strict domain directives. |
+| 🟢 **RESOLVED** | Direct-to-Storage Presigned Upload URLs | `s3-storage.ts`, `storage.ts`, `photo-service.ts`, `photo-api.ts` | Implemented S3/R2 presigned PutObject generation (`@aws-sdk/s3-request-presigner`) for memory-efficient direct-to-storage uploads. |
+| 🟢 **RESOLVED** | Device Fingerprint Anomaly Detection | `login-service.ts`, `login-api.ts`, `login.ts` (VO) | SHA-256 IP-subnet & User-Agent device fingerprint anomaly detection with known device caching and alert logging. |
 | 🟢 **RESOLVED** | UI Language Standardization | All TSX components & JSON locales | All UI text, dialogs, toasts, error messages, and settings converted to fluent English. |
 | 🟢 **LOW** | External Geocode API | `src/server/service/location-service.ts` | Uses OSM Nominatim with robust in-memory LRU caching. |
 | ℹ️ **INFO** | CSP Headers | `next.config.ts` | Content-Security-Policy active and strict (`default-src 'self'`, `frame-ancestors 'none'`). |
@@ -568,7 +570,7 @@ erDiagram
 9. **Dark / Light Theme**: Instant theme switching with smooth transitions.
 
 ### Admin Features
-1. **Batch Upload & Compression**: High-speed parallel upload with client-side WebP compression and EXIF extraction.
+1. **Batch Upload & Direct-to-Storage Presigning**: High-speed parallel upload with client-side WebP compression, EXIF extraction, and S3/R2 presigned upload URLs.
 2. **Duplicate Photo Review**: Post-upload side-by-side comparison modal and dedicated `/duplicates` manager with high-precision deduplication.
 3. **Batch Metadata & File Name Editor**: Multi-category bulk editor for Visibility, Public Download Permission, Taken Date, DMS GPS Coordinates, and File Name Renaming (Single & Batch with auto-numbering `{n}`, prefix, suffix, and find/replace).
 4. **Interactive Map Management (`/map`)**:
@@ -579,7 +581,7 @@ erDiagram
 6. **Recycle Bin (`/trash`)**: Centralized trash management with restore, permanent deletion, empty trash, and authenticated media viewing.
 7. **Album Cover Scoring & Pinning**: Automatic cover scoring and priority pinning (up to 3 photos per album).
 8. **Visitor Insights (`/admin/insights`)**: Analytics dashboard with view/share metrics, daily trend graphs, and top photos.
-9. **2FA Two-Factor Authentication (TOTP)**: Google Authenticator login security.
+9. **2FA Two-Factor Authentication (TOTP) & Device Anomaly Detection**: Google Authenticator login security with IP-subnet/User-Agent fingerprint anomaly logging.
 10. **Multi-Storage Management (`/storage`)**: Cloudflare R2 / S3 bucket registry.
 11. **Admin Comment Moderation (`/comments`)**: Moderate comments, reply to visitors, and remove spam.
 12. **Admin Photo Inventory & Search (`/admin/photos`)**: Dedicated system dashboard with real-time text search, dual high-density Table / Grid views, multi-criteria filtering, full inventory loading without arbitrary limit, auto-deselect on batch action/refresh, and batch operations.
@@ -593,8 +595,8 @@ erDiagram
 | **Frontend Architecture** | 🟢 | Modern, responsive, React 19 + Next.js 16 App Router, Leaflet interactive map, ThumbHash zero-CLS. |
 | **Backend & API Layer** | 🟢 | Clean separation of Controller (Hono) -> Service -> Drizzle ORM. Full type safety. |
 | **Database Architecture** | 🟢 | PostgreSQL schema with foreign keys, compound indexes, and Neon Serverless connection pooling. |
-| **Storage & Media Pipeline** | 🟢 | Cloudflare R2 integration, smart lossless/MozJPEG 90% compression, fast thumbnailing. |
-| **Authentication & RBAC** | 🟢 | HTTP-only Lax cookies with `__Host-` prefixing in prod, instant session cache invalidation, Argon2id hashing, 2FA. |
+| **Storage & Media Pipeline** | 🟢 | Cloudflare R2 integration, Presigned S3/R2 direct uploads, smart lossless/MozJPEG compression, fast thumbnailing. |
+| **Authentication & RBAC** | 🟢 | HTTP-only Lax cookies with `__Host-` prefixing in prod, Device fingerprint anomaly detection, Argon2id hashing, 2FA. |
 | **Defensive Security** | 🟢 | Strict CSP with reporting telemetry, download protection, rate limiters, input sanitization. |
 | **Internationalization (i18n)** | 🟢 | 100% standardized in English across all UI components, dialogs, map controls, and notifications. |
 | **Testing Coverage** | 🟢 | Comprehensive Playwright E2E test suites covering public and admin workflows. |
@@ -643,10 +645,10 @@ Berikut adalah **10 prioritas rekomendasi audit keamanan terbaru** untuk memperk
 - **Kondisi Saat Ini**: Endpoint pencarian kata kunci (`/api/photo/list`), filtering nama file, dan regex deduplikasi memproses input pengguna.
 - **Rekomendasi**: Terapkan validasi batas panjang karakter maksimum (`max: 100` untuk search keyword, `max: 255` untuk nama file) dan hindari pola regular expression bertingkat (*catastrophic backtracking*) guna mencegah serangan ReDoS yang dapat melumpuhkan Node.js event loop.
 
-### 9. **Direct-to-Storage Presigned Upload URLs (Mencegah Server Memory Exhaustion)**
-- **Kondisi Saat Ini**: Upload foto diproses melalui buffer memory server Node.js sebelum dikirim ke Cloudflare R2 / S3.
-- **Rekomendasi**: Implementasikan arsitektur Presigned S3/R2 PutObject URL di mana browser mengunggah file langsung ke storage bucket, membebaskan server dari beban I/O dan memory spike saat upload ratusan foto berukuran besar secara paralel.
+### 9. **Automated Orphaned Media & Storage Garbage Collection (Sinkronisasi Database & Storage R2)**
+- **Kondisi Saat Ini**: Jika terjadi kegagalan saat proses upload atau pembatalan setelah file masuk storage, file sisa dapat tertinggal di bucket R2/S3 tanpa tercatat di tabel `photo` / `file`.
+- **Rekomendasi**: Implementasikan scheduled background job / reconciler yang membandingkan daftar object di bucket S3/R2 dengan database dan membersihkan orphaned files yang berusia lebih dari 24 jam untuk menghemat kuota dan biaya storage.
 
-### 10. **IP & Device Fingerprint Anomaly Detection pada Admin Login**
-- **Kondisi Saat Ini**: Login admin hanya mencocokkan password dan 2FA tanpa mendeteksi perubahan drastis pada fingerprint perangkat / geolokasi IP.
-- **Rekomendasi**: Tambahkan deteksi anomali login (misal login dari IP subnet atau User-Agent yang belum pernah dikenali sebelumnya) dan kirimkan alert notifikasi keamanan atau paksa re-autentikasi 2FA guna mencegah pengambilalihan akun credential stuffing.
+### 10. **Strict CSP Nonce Generation & Removal of `'unsafe-inline'` from Script Directives**
+- **Kondisi Saat Ini**: Directive CSP `script-src` saat ini masih mengizinkan `'unsafe-inline'` untuk mendukung hydration script Next.js dan tag inline.
+- **Rekomendasi**: Terapkan middleware dynamic cryptographic nonce (`nonce-${crypto.randomBytes(16).toString('base64')}`) yang disisipkan ke header CSP dan script tag Next.js, sehingga `'unsafe-inline'` dapat dihapus sepenuhnya dari script execution.

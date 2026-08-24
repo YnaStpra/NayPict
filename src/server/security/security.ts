@@ -30,6 +30,7 @@ const SYSTEM_PATHS = [
   '/photo/duplicates',
   '/photo/add',
   '/photo/exists',
+  '/photo/presignedUploadUrl',
   '/album/add',
   '/album/setCover',
   '/album/coverCandidates',

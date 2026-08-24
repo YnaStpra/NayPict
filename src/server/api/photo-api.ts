@@ -21,6 +21,13 @@ import type { HonoEnv } from '../hono/type';
 // This module registers photo-related interfaces.
 
 export function registerPhotoApi(app: Hono<HonoEnv>) {
+  // Generate presigned PUT URL for direct-to-storage upload (S3 / Cloudflare R2).
+  app.post('/photo/presignedUploadUrl', async (c: Context) => {
+    const body = await c.req.json<{ filename: string; fileType: string; storageId?: string }>();
+    const data = await photoService.getPresignedUploadUrl(body, getUserId());
+    return c.json(result.ok(data));
+  });
+
   // Batch edit photo metadata (visibility, allowDownload, takenTime, GPS location).
   app.post('/photo/batchEdit', async (c: Context) => {
     const body = await c.req.json<PhotoBatchEditBo>();

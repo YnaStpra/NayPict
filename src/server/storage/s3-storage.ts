@@ -133,8 +133,29 @@ class S3StorageStrategy implements StorageStrategy {
       }
     }));
   }
+
+  // Generate a presigned PutObject URL for direct-to-storage upload (S3 / Cloudflare R2).
+  async getPresignedPutUrl(key: string, contentType: string, storage: Storage, expiresIn = 3600): Promise<string> {
+    const client = this.createClient(storage);
+    const bucket = storage.bucket?.trim();
+
+    if (!bucket) {
+      throw new BizError('s3.bucketRequired');
+    }
+
+    const command = new PutObjectCommand({
+      Bucket: bucket,
+      Key: key,
+      ContentType: contentType,
+      CacheControl: 'public, max-age=31536000, immutable',
+    });
+
+    const { getSignedUrl } = await import('@aws-sdk/s3-request-presigner');
+    return getSignedUrl(client, command, { expiresIn });
+  }
 }
 
 registerStorageStrategy(StorageTypeEnum.S3, () => new S3StorageStrategy());
 
 export { S3StorageStrategy };
+

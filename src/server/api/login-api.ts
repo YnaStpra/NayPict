@@ -14,13 +14,15 @@ export function registerLoginApi(app: Hono<HonoEnv>) {
   app.post('/login', async (c: Context) => {
     const params = await c.req.json<LoginBo>();
 
-    // Resolve real client IP for rate limiting (HIGH-02)
+    // Resolve real client IP and device metadata for rate limiting and anomaly detection (HIGH-02, ANOMALY-01)
     const clientIp =
       c.req.header('x-forwarded-for')?.split(',')[0].trim() ||
       c.req.header('x-real-ip') ||
       'unknown';
+    const userAgent = c.req.header('user-agent') || 'unknown';
+    const acceptLanguage = c.req.header('accept-language') || '';
 
-    const data = await loginService.login(params, clientIp);
+    const data = await loginService.login(params, clientIp, { userAgent, acceptLanguage });
 
     if (data.token) {
       setCookie(c, TOKEN_COOKIE_NAME, data.token, {

@@ -67,6 +67,19 @@ const storage = {
     }
 
     return strategy.delete(key, fileStorage);
+  },
+
+  // According to storage id, query configuration, and generate presigned PutObject URL.
+  async getPresignedPutUrl(key: string, contentType: string, storageId: string): Promise<string> {
+    const fileStorage = await getStorage(storageId);
+    assertStorageEnabled(fileStorage);
+    const strategy = createStorageStrategy(fileStorage)!;
+
+    if (strategy.getPresignedPutUrl) {
+      return strategy.getPresignedPutUrl(key, contentType, fileStorage);
+    }
+
+    throw new BizError('storage.presignNotSupported');
   }
 };
 

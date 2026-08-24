@@ -7,6 +7,7 @@ interface StorageStrategy {
   put(files: StorageUploadObject[], storage: Storage): Promise<void>;
   get(key: string, storage: Storage): Promise<StorageObject>;
   delete(key: string | string[], storage: Storage): Promise<void>;
+  getPresignedPutUrl?(key: string, contentType: string, storage: Storage, expiresIn?: number): Promise<string>;
 }
 
 type ReadBody = Readable | ReadableStream;

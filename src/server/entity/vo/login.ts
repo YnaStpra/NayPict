@@ -9,6 +9,7 @@ interface LoginVo {
   tempToken?: string;
   qrCodeUrl?: string;
   secret?: string;
+  isNewDevice?: boolean;
 }
 
 export type { LoginVo };

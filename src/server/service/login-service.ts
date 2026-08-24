@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import { orm } from '@/server/infra/db'
 import { userTab } from "@/server/entity/user";
 import { eq } from "drizzle-orm";
@@ -41,13 +42,32 @@ const loginService = {
     return uuid
   },
 
-  // Verify username and password, with optional 2FA code verification.
-  async login(params: LoginBo, clientIp: string): Promise<LoginVo> {
+  // Verify username and password, with optional 2FA code verification and device anomaly detection.
+  async login(
+    params: LoginBo,
+    clientIp: string,
+    clientMeta?: { userAgent?: string; acceptLanguage?: string }
+  ): Promise<LoginVo> {
     // Distributed rate limiting: max 5 failed attempts per 15 minutes per IP
     const rateLimit = await loginRateLimiter.check(clientIp);
     if (!rateLimit.allowed) {
       throw new BizError('login.tooManyAttempts');
     }
+
+    // IP & Device Fingerprint Anomaly Detection (ANOMALY-01)
+    const userAgent = clientMeta?.userAgent || 'unknown';
+    const acceptLanguage = clientMeta?.acceptLanguage || '';
+    const ipSubnet = clientIp.includes('.')
+      ? clientIp.split('.').slice(0, 3).join('.')
+      : clientIp.includes(':')
+      ? clientIp.split(':').slice(0, 4).join(':')
+      : clientIp;
+
+    const deviceFingerprint = crypto
+      .createHash('sha256')
+      .update(`${userAgent}|${acceptLanguage}|${ipSubnet}`)
+      .digest('hex')
+      .slice(0, 32);
 
     if (params.tempToken) {
       const cachedUserId = await cache.get<string>(`temp_2fa_${params.tempToken}`);
@@ -87,10 +107,18 @@ const loginService = {
       const [user] = await orm.select().from(userTab).where(eq(userTab.userId, cachedUserId)).limit(1);
       if (!user) throw new BizError('login.invalidCredentials');
 
+      // Record verified device fingerprint upon successful 2FA
+      const fingerprintKey = `known_devices_${user.userId}`;
+      const knownDevices = (await cache.get<string[]>(fingerprintKey)) || [];
+      const isNewDevice = knownDevices.length > 0 && !knownDevices.includes(deviceFingerprint);
+
+      const updatedDevices = [...knownDevices.filter((d) => d !== deviceFingerprint), deviceFingerprint].slice(-10);
+      await cache.set(fingerprintKey, updatedDevices, { ttl: 60 * 60 * 24 * 90 }); // 90 days TTL
+
       const uuid = await this.saveAuthInfo(user);
       const token = await createLoginToken(user.userId, uuid);
       const userVo = await userService.getById(user.userId);
-      return { token, user: userVo };
+      return { token, user: userVo, isNewDevice };
     }
 
     if (!params.username?.trim() || !params.password?.trim()) {
@@ -132,6 +160,17 @@ const loginService = {
       }
     }
 
+    // Check device fingerprint anomaly
+    const fingerprintKey = `known_devices_${user.userId}`;
+    const knownDevices = (await cache.get<string[]>(fingerprintKey)) || [];
+    const isNewDevice = knownDevices.length > 0 && !knownDevices.includes(deviceFingerprint);
+
+    if (isNewDevice) {
+      console.warn(
+        `[SECURITY ANOMALY DETECTED] Login from unrecognized device/network for user "${user.username}" (IP: ${clientIp}, Subnet: ${ipSubnet}, UA: ${userAgent.slice(0, 100)})`
+      );
+    }
+
     // Check if Google Authenticator 2FA is enabled for this Admin/User
     const totpStatus = await totpService.getTotpStatus(user.userId);
     if (totpStatus.enabled) {
@@ -149,6 +188,7 @@ const loginService = {
           token: null,
           require2Fa: true,
           tempToken,
+          isNewDevice,
         };
       }
     }
@@ -156,16 +196,20 @@ const loginService = {
     // Reset rate limiter on successful authentication
     await loginRateLimiter.reset(clientIp);
 
+    // Save trusted device fingerprint
+    const updatedDevices = [...knownDevices.filter((d) => d !== deviceFingerprint), deviceFingerprint].slice(-10);
+    await cache.set(fingerprintKey, updatedDevices, { ttl: 60 * 60 * 24 * 90 });
+
     if (user.username === process.env.NEXT_PUBLIC_DEMO_USERNAME) {
       const token = await createLoginToken(user.userId, 'demo');
       const userVo = await userService.getById(user.userId);
-      return { token, user: userVo };
+      return { token, user: userVo, isNewDevice };
     }
 
     const uuid = await this.saveAuthInfo(user);
     const token = await createLoginToken(user.userId, uuid);
     const userVo = await userService.getById(user.userId);
-    return { token, user: userVo };
+    return { token, user: userVo, isNewDevice };
   },
 
   // Remove current session from cache when logging out uuid。

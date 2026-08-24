@@ -468,6 +468,38 @@ const photoService = {
     return key;
   },
 
+  // Generate presigned PUT URL for direct-to-storage upload (S3 / Cloudflare R2).
+  async getPresignedUploadUrl(params: { filename: string; fileType: string; storageId?: string }, userId?: string): Promise<{ uploadUrl: string; key: string; storageId: string; domain?: string }> {
+    if (!userId) {
+      throw new BizError('auth.failed', 401);
+    }
+
+    const filename = params.filename?.trim();
+    if (!filename) {
+      throw new BizError('photo.fileNameRequired');
+    }
+
+    const fileType = params.fileType?.trim() || 'image/jpeg';
+    const storageList = await storageService.getStorageList();
+    const targetStorage = params.storageId
+      ? storageList.find((s) => s.storageId === params.storageId)
+      : storageList[0];
+
+    if (!targetStorage) {
+      throw new BizError('storage.notFound');
+    }
+
+    const key = await this.resolvePhotoKey(userId, filename);
+    const uploadUrl = await storage.getPresignedPutUrl(key, fileType, targetStorage.storageId);
+
+    return {
+      uploadUrl,
+      key,
+      storageId: targetStorage.storageId,
+      domain: formatHttpUrl(targetStorage.domain),
+    };
+  },
+
   // Helper to normalize copy suffixes (e.g. "IMG_1234 (1)" -> "IMG_1234", "photo - Copy" -> "photo").
   stripCopySuffix(filename: string): string {
     const base = filename.replace(/\.[^/.]+$/, '');
