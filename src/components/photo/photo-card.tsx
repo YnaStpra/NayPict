@@ -177,6 +177,12 @@ export function PhotoCard({
       ) : (
         <img
           src={imageSrc ?? undefined}
+          srcSet={
+            data.thumbnail && data.preview && data.thumbnail !== data.preview
+              ? `${data.thumbnail} 480w, ${data.preview} 1280w`
+              : undefined
+          }
+          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, (max-width: 1536px) 33vw, 25vw"
           loading="lazy"
           decoding="async"
           crossOrigin="anonymous"

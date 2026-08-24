@@ -71,6 +71,9 @@ export function AlbumCard({ data, width, href, onRename, onTop, onDelete, onChan
         {thumbnailSrc ? (
           <img
             src={thumbnailSrc}
+            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+            loading="lazy"
+            decoding="async"
             alt={data.name}
             crossOrigin="anonymous"
             className="absolute inset-0 h-full w-full object-cover duration-300 group-hover:scale-105"

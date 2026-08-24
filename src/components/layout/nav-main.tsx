@@ -1,13 +1,16 @@
 "use client"
 
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import {
   SidebarGroup,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
+
+// Cache map of prefetched URLs to avoid redundant router prefetch triggers
+const prefetchedRoutes = new Set<string>();
 
 export function NavMain({
   items,
@@ -20,10 +23,22 @@ export function NavMain({
   }[]
 }) {
   const pathname = usePathname()
+  const router = useRouter()
 
-  // Determine whether the current browser path hits the menu URL。
+  // Determine whether the current browser path hits the menu URL.
   function isUrlMatched(url: string) {
     return pathname === url || pathname.startsWith(`${url}/`)
+  }
+
+  // Intent-based route prefetching on hover or touchstart for 0ms navigation transition
+  function handleIntentPrefetch(url: string) {
+    if (url === pathname || prefetchedRoutes.has(url)) return;
+    prefetchedRoutes.add(url);
+    try {
+      router.prefetch(url);
+    } catch {
+      // Gracefully ignore prefetch error
+    }
   }
 
   return (
@@ -31,8 +46,19 @@ export function NavMain({
       <SidebarMenu>
         {items.map((item) => (
           <SidebarMenuItem key={item.title} className="mb-1">
-            <SidebarMenuButton asChild isActive={isUrlMatched(item.url)} tooltip={item.title}>
-              <Link href={item.url}>
+            <SidebarMenuButton
+              asChild
+              isActive={isUrlMatched(item.url)}
+              tooltip={item.title}
+              onMouseEnter={() => handleIntentPrefetch(item.url)}
+              onTouchStart={() => handleIntentPrefetch(item.url)}
+            >
+              <Link
+                href={item.url}
+                prefetch={true}
+                onMouseEnter={() => handleIntentPrefetch(item.url)}
+                onTouchStart={() => handleIntentPrefetch(item.url)}
+              >
                 {item.icon}
                 <span>{item.title}</span>
               </Link>
