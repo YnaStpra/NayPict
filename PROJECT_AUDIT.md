@@ -604,51 +604,49 @@ erDiagram
 
 ---
 
-## 18. TOP 10 REKOMENDASI AUDIT KEAMANAN TERBARU (SECURITY AUDIT RECOMMENDATIONS)
+## 18. TOP 10 REKOMENDASI AUDIT PERFORMA & EFISIENSI TERBARU (PERFORMANCE AUDIT RECOMMENDATIONS)
 
-Berikut adalah **10 prioritas rekomendasi audit keamanan terbaru** untuk memperkuat ketahanan dan perlindungan sistem Pixtale:
+Berikut adalah **10 prioritas rekomendasi audit performa dan efisiensi terbaru** untuk mempercepat waktu respon, menghemat sumber daya bandwidth/storage, dan menciptakan pengalaman pengguna yang instan (0ms latency) pada Pixtale:
 
-### 1. **Enkripsi Kredensial Storage S3/R2 At-Rest (Database Column-Level Encryption)**
-- **Kondisi Saat Ini**: Kredensial bucket `accessKey` dan `secretKey` tersimpan sebagai plaintext di tabel `storage`.
-- **Rekomendasi**: Enkripsi kolom `secretKey` dan `accessKey` sebelum disimpan ke database menggunakan algoritma **AES-256-GCM** dengan salt dan Initialization Vector (IV) dinamis serta kunci master `STORAGE_ENCRYPTION_KEY` dari environment variables.
+### 1. **Web Worker Offloading untuk Kompresi Gambar & Checksum Hashing saat Batch Upload**
+- **Kondisi Saat Ini**: Kompresi gambar browser (Canvas 4K) dan kalkulasi SHA-1 binary checksum (`crypto.subtle` / `hash-wasm`) saat upload puluhan foto berjalan di browser main thread.
+- **Rekomendasi**: Pindahkan pipeline kompresi dan kalkulasi checksum ke Dedicated Web Worker (`image-compress.worker.ts`) agar UI antarmuka tetap berjalan mulus di 60 FPS tanpa *freezing / frame drop* saat memproses puluhan foto secara paralel.
 
-### 2. **Sanitasi Ketat Metadata EXIF & Title (Mencegah Stored XSS via File Header & User Input)**
-- **Kondisi Saat Ini**: Metadata EXIF kamera diparsing dan disimpan ke database, kemudian dirender di antarmuka lightbox, sidebar info, dan dialog edit.
-- **Rekomendasi**: Sanitasi dan HTML-escape seluruh string bebas pada tag EXIF (`ImageDescription`, `Artist`, `Copyright`, `Software`, `UserComment`, `Make`, `Model`) serta nama file foto (`photoTab.name`) sebelum dirender ke DOM untuk mencegah payload Stored XSS dari file gambar manipulatif.
+### 2. **Edge CDN Caching & Stale-While-Revalidate Headers untuk Public Photo API**
+- **Kondisi Saat Ini**: Endpoint `/api/photo/list`, `/api/album/list`, dan `/api/photos/map` selalu mengeksekusi query database PostgreSQL pada setiap kunjungan publik.
+- **Rekomendasi**: Terapkan response caching header `Cache-Control: public, s-maxage=60, stale-while-revalidate=300` dengan Cache-Tag berbasis ID album/user, sehingga request pengunjung publik dilayani langsung dari Cloudflare / Vercel Edge CDN dengan latensi <10ms tanpa membebani database Neon.
 
-### 3. **Sandboxed Serving & Strict Security Headers pada Media Proxy (`/media/*`)**
-- **Kondisi Saat Ini**: File media asli dan thumbnail disajikan melalui proxy endpoint `/media/{key}`.
-- **Rekomendasi**: Pastikan header respons file selalu menyertakan:
-  - `X-Content-Type-Options: nosniff` (mencegah browser melakukan MIME-sniffing eksekusi script).
-  - `Content-Security-Policy: sandbox; default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'` pada domain direct media serving untuk mengisolasi eksekusi file berbahaya.
-  - `Cache-Control: public, max-age=31536000, immutable` dengan `ETag` untuk efisiensi caching yang aman.
+### 3. **Infinite Scroll Virtual DOM Windowing pada Galeri Utama (`/photos`)**
+- **Kondisi Saat Ini**: Infinite scroll galeri menambahkan node DOM gambar secara kumulatif, yang dapat menumpuk ribuan elemen `<img>` di memori browser saat pengguna men-scroll galeri berukuran besar.
+- **Rekomendasi**: Terapkan *Virtual Windowing* (menggunakan `@tanstack/react-virtual` atau viewport dynamic DOM recycling) agar browser hanya me-render elemen foto yang berada di sekitar viewport, menjaga konsumsi RAM browser tetap rendah dan scrolling tetap halus.
 
-### 4. **Emergency One-Time Backup Codes & Rate Limiting pada Verifikasi 2FA (TOTP)**
-- **Kondisi Saat Ini**: TOTP 2FA memvalidasi 6-digit token tanpa mekanisme pemulihan darurat jika pengguna kehilangan perangkat authenticator.
-- **Rekomendasi**: Sediakan 8-10 *Single-Use Emergency Backup Codes* (dihash dengan Argon2id) saat pertama kali mengaktifkan 2FA, serta terapkan strict rate limiting (maksimal 5 kali salah berturut-turut lalu lockout 15 menit) untuk mencegah automated brute-force guessing token 6-digit.
+### 4. **Compound Index Optimization pada Database PostgreSQL (Neon)**
+- **Kondisi Saat Ini**: Query inventaris foto publik menggabungkan filter multi-kolom `status`, `visibility`, `takenTime`, dan `createTime`.
+- **Rekomendasi**: Buat indeks gabungan terarah (*composite index*):
+  - `CREATE INDEX idx_photo_pub_timeline ON photo(status, visibility, taken_time DESC, create_time DESC);`
+  - `CREATE INDEX idx_exif_coords ON exif(latitude, longitude) WHERE latitude IS NOT NULL;`
+  guna memastikan query galeri dan peta mengeksekusi *Index Scan* murni tanpa *Sequential Table Scan*.
 
-### 5. **Security Audit Trail Logging untuk Aksi Administratif Sensitif (`/admin/*`)**
-- **Kondisi Saat Ini**: Aksi administratif (seperti modifikasi kredensial R2, reset password user, pengosongan Recycle Bin, dan batch visibility) belum memiliki log audit tersentralisasi.
-- **Rekomendasi**: Buat tabel `security_audit_log` untuk mencatat rekam jejak aktivitas penting: `userId`, `action` (misal `STORAGE_UPDATE`, `USER_PASSWORD_CHANGE`, `TRASH_CLEAR`, `BATCH_METADATA_EDIT`), `ipAddress`, `userAgent`, `status`, dan `createdAt` untuk keperluan forensik dan audit kepatuhan.
+### 5. **Optimistic UI Updates pada Aksi Pin Album, Favorit, dan Visibility**
+- **Kondisi Saat Ini**: Aksi toggle pin cover album, pengubahan status visibilitas, dan favorit menunggu round-trip respons server sebelum memperbarui visual antarmuka.
+- **Rekomendasi**: Terapkan *Optimistic UI Mutation* menggunakan state Zustand / React 19 `useOptimistic`, di mana badge status dan thumbnail langsung berubah secara instan (0ms perceived latency) dengan mekanisme rollback otomatis jika terjadi kegagalan jaringan.
 
-### 6. **Automated Secret Scanning & Dependency Vulnerability Gate di CI/CD Pipeline**
-- **Kondisi Saat Ini**: Pemeriksaan dependensi dan secret safety dilakukan secara manual.
-- **Rekomendasi**: Tambahkan GitHub Actions workflow otomatis:
-  - `npm audit --audit-level=high` untuk memblokir build jika ada dependensi rentan CVE kritis.
-  - Secret Scanner (**TruffleHog** / **GitGuardian**) untuk memastikan `JWT_SECRET`, database connection string `DATABASE_URL`, atau kunci Cloudflare R2 tidak pernah bocor ke commit repository.
+### 6. **Dynamic Code Splitting & Lazy-Loading Leaflet Map Bundle**
+- **Kondisi Saat Ini**: Modul library Leaflet (`leaflet`, marker customizer, CSS map) termuat di bundle klien saat rute map diakses.
+- **Rekomendasi**: Terapkan `dynamic(() => import('@/components/map/photo-map-view'), { ssr: false })` disertai skeleton placeholder beranimasi untuk memangkas ukuran JavaScript initial page bundle, mempercepat *First Contentful Paint* (FCP) dan *Largest Contentful Paint* (LCP).
 
-### 7. **Session Token Rotation & Inactivity Timeout untuk Sesi Administrator**
-- **Kondisi Saat Ini**: Token JWT sesi memiliki masa berlaku statis (7 hari).
-- **Rekomendasi**: Terapkan rotasi token berkala dan pembaruan session identifier (`uuidList`) saat ada aktivitas baru, serta sediakan konfigurasi *inactivity timeout* (misal auto-logout setelah 24 jam tanpa aktivitas) untuk sesi administrator guna meminimalkan risiko pembajakan sesi (*session hijacking*).
+### 7. **HTTP Response Streaming & Server-Sent Events (SSE) pada Batch Operations**
+- **Kondisi Saat Ini**: Operasi batch besar (seperti batch rename, batch geocoding, bulk upload) mengembalikan respons monolitik setelah seluruh task selesai.
+- **Rekomendasi**: Gunakan streaming response (`ReadableStream` / SSE) pada endpoint batch agar klien menerima progres pemrosesan per item secara real-time tanpa risiko request timeout pada serverless Edge/Vercel (10s/30s execution limit).
 
-### 8. **ReDoS (Regular Expression Denial of Service) Hardening & Input Length Limits**
-- **Kondisi Saat Ini**: Endpoint pencarian kata kunci (`/api/photo/list`), filtering nama file, dan regex deduplikasi memproses input pengguna.
-- **Rekomendasi**: Terapkan validasi batas panjang karakter maksimum (`max: 100` untuk search keyword, `max: 255` untuk nama file) dan hindari pola regular expression bertingkat (*catastrophic backtracking*) guna mencegah serangan ReDoS yang dapat melumpuhkan Node.js event loop.
+### 8. **Adaptive Image Resolution & srcset Delivery (Next-Gen AVIF/WebP Auto-Switch)**
+- **Kondisi Saat Ini**: Thumbnail foto disajikan dalam resolusi statis tanpa negosiasi `Accept: image/avif` berbasis kepadatan piksel layar (DPR).
+- **Rekomendasi**: Sediakan multi-size responsive `srcset` (`w=384, w=768, w=1920`) dan format AVIF otomatis, menghemat konsumsi bandwidth pengunjung seluler hingga 40% lebih hemat dibandingkan WebP standar.
 
-### 9. **Automated Orphaned Media & Storage Garbage Collection (Sinkronisasi Database & Storage R2)**
-- **Kondisi Saat Ini**: Jika terjadi kegagalan saat proses upload atau pembatalan setelah file masuk storage, file sisa dapat tertinggal di bucket R2/S3 tanpa tercatat di tabel `photo` / `file`.
-- **Rekomendasi**: Implementasikan scheduled background job / reconciler yang membandingkan daftar object di bucket S3/R2 dengan database dan membersihkan orphaned files yang berusia lebih dari 24 jam untuk menghemat kuota dan biaya storage.
+### 9. **Database Connection Pooling Optimization & Prepared Statement Caching**
+- **Kondisi Saat Ini**: Driver PostgreSQL serverless membuat koneksi baru per instance cold-start tanpa persistensi query plan.
+- **Rekomendasi**: Konfigurasikan Neon Connection Pooling (`connection_limit=20` via PgBouncer) dan aktifkan *Prepared Statement Caching* pada Drizzle ORM untuk memangkas query latency hingga 50% pada rute-rute berfrekuensi tinggi.
 
-### 10. **Strict CSP Nonce Generation & Removal of `'unsafe-inline'` from Script Directives**
-- **Kondisi Saat Ini**: Directive CSP `script-src` saat ini masih mengizinkan `'unsafe-inline'` untuk mendukung hydration script Next.js dan tag inline.
-- **Rekomendasi**: Terapkan middleware dynamic cryptographic nonce (`nonce-${crypto.randomBytes(16).toString('base64')}`) yang disisipkan ke header CSP dan script tag Next.js, sehingga `'unsafe-inline'` dapat dihapus sepenuhnya dari script execution.
+### 10. **Intent-Based Asset Prefetching pada Hover Navigasi Sidebar**
+- **Kondisi Saat Ini**: Data rute galeri (`/photos`, `/albums`, `/map`, `/trash`) baru mulai di-fetch saat link navigasi selesai diklik.
+- **Rekomendasi**: Terapkan *Hover/Touch Prefetching* di mana metadata JSON rute tujuan di-fetch secara background saat kursor mouse mengarahkan hover (atau saat event `touchstart`) pada tombol sidebar, menciptakan transisi perpindahan halaman instan tanpa jeda pemuatan data.
