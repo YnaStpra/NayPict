@@ -126,6 +126,15 @@ function Provider({ children, defaultTheme, defaultSidebarOpen, initialUserInfo,
     setTheme(theme === "dark" ? "light" : "dark")
   }, [setTheme, theme])
 
+  // Register Service Worker for offline gallery browsing and background asset caching
+  React.useEffect(() => {
+    if (typeof window !== "undefined" && "serviceWorker" in navigator && process.env.NODE_ENV === "production") {
+      navigator.serviceWorker.register("/sw.js").catch((err) => {
+        console.debug("ServiceWorker registration skipped:", err)
+      })
+    }
+  }, [])
+
   // Requery normal storage configuration and write global storage options，The login page does not send a request。
   const refreshStorages = React.useCallback(() => {
     if (isLogin) {

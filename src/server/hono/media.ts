@@ -91,9 +91,12 @@ media.get('*', async (c: Context, next: Next) => {
 
   const obj = await storage.get(photoFile.key, photoFile.storageId);
   const disposition = photoFile.type === FileTypeEnum.ORIGINAL ? buildContentDisposition(photoFile.name) : null;
+  const isOriginal = photoFile.type === FileTypeEnum.ORIGINAL;
   const headers: Record<string, string> = {
     'Content-Type': photoFile.fileType,
-    'Cache-Control': photoFile.type === FileTypeEnum.ORIGINAL ? 'no-cache, private' : 'public, max-age=604800',
+    'Cache-Control': isOriginal ? 'no-cache, private' : 'public, max-age=31536000, immutable',
+    'Vary': 'Accept, Accept-Encoding',
+    'Accept-Ranges': 'bytes',
     'Content-Length': String(obj.size)
   };
 

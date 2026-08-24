@@ -382,6 +382,9 @@ export function InfiniteGallery(props: InfiniteGalleryProps) {
         divEl.style.width = `${wPx}px`
         divEl.style.height = `${hPx}px`
         divEl.style.zIndex = String(layerZBase + Math.floor(t.bakedScale * 5))
+        divEl.style.willChange = "transform, opacity"
+        divEl.style.backfaceVisibility = "hidden"
+        divEl.style.contain = "layout style paint"
 
         const img = document.createElement("img")
         img.src = currentSrc
