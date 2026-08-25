@@ -352,6 +352,104 @@ body {
   }
 }
 
+/* ==========================================================================
+   Landing Page: 3D Parallax, Conic Aura Border Beam & Spotlight Shimmer
+   ========================================================================== */
+
+.perspective-1000 {
+  perspective: 1000px;
+}
+
+.perspective-card-inner {
+  transform-style: preserve-3d;
+  will-change: transform;
+  transition: transform 0.15s cubic-bezier(0.2, 0, 0, 1), box-shadow 0.2s ease-out;
+}
+
+/* Conic Gradient Animated Border Beam */
+@keyframes border-beam-spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.border-beam-container {
+  position: relative;
+  overflow: hidden;
+}
+
+.border-beam-ray {
+  position: absolute;
+  inset: -150%;
+  background: conic-gradient(
+    from 0deg,
+    transparent 0deg,
+    transparent 280deg,
+    rgba(255, 255, 255, 0.4) 320deg,
+    rgba(255, 255, 255, 0.9) 350deg,
+    transparent 360deg
+  );
+  animation: border-beam-spin 6s linear infinite;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Magnetic Button Shimmer Sweep Effect */
+@keyframes btn-light-sweep {
+  0% {
+    transform: translateX(-150%) skewX(-20deg);
+  }
+  100% {
+    transform: translateX(250%) skewX(-20deg);
+  }
+}
+
+.btn-shimmer-interactive {
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.2s cubic-bezier(0.2, 0, 0, 1), background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.btn-shimmer-interactive::after {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.08) 45%,
+    rgba(255, 255, 255, 0.25) 50%,
+    rgba(255, 255, 255, 0.08) 55%,
+    transparent 100%
+  );
+  transform: translateX(-150%) skewX(-20deg);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.btn-shimmer-interactive:hover::after {
+  opacity: 1;
+  animation: btn-light-sweep 1.2s ease-in-out infinite;
+}
+
+/* Mobile Floating Dynamic Island Dock */
+.dynamic-island-dock {
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  background: rgba(10, 10, 10, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  box-shadow: 0 12px 36px -4px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.08) inset;
+  transition: transform 0.3s cubic-bezier(0.2, 0, 0, 1), opacity 0.3s ease;
+}
+
+
 
 
 
