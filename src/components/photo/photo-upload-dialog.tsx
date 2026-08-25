@@ -621,10 +621,10 @@ export function PhotoUploadDialog() {
 
           {/* Upload Drop Zone & Preview Grid */}
           <div
-            className={`relative min-h-0 overflow-y-auto rounded-xl border-2 border-dashed p-3 transition-colors ${
+            className={`relative min-h-0 overflow-y-auto rounded-xl border-2 p-3 transition-all ${
               isDragging
-                ? "border-primary bg-primary/5"
-                : "border-border/60 bg-muted/20 hover:border-border"
+                ? "hologram-dropzone-active bg-primary/10 border-primary shadow-xl"
+                : "border-dashed border-border/60 bg-muted/20 hover:border-border"
             }`}
             onDragOver={(e) => {
               e.preventDefault()
@@ -660,13 +660,19 @@ export function PhotoUploadDialog() {
                     className="h-full w-full object-cover"
                   />
 
-                  {/* Dark Progress Overlay */}
+                  {/* Dark Progress Overlay with Liquid Wave Bar */}
                   {preview.status === "uploading" && (
                     <div
-                      className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center text-white gap-1"
+                      className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center text-white gap-1.5 p-2"
                     >
-                      <Loader2 className="size-5 animate-spin text-primary" />
+                      <Loader2 className="size-5 animate-spin text-white" />
                       <span className="text-[11px] font-bold">{preview.progress}%</span>
+                      <div className="w-full h-1.5 rounded-full bg-white/20 overflow-hidden">
+                        <div
+                          className="h-full rounded-full wave-progress-shimmer transition-all duration-200"
+                          style={{ width: `${preview.progress}%` }}
+                        />
+                      </div>
                     </div>
                   )}
 
@@ -689,20 +695,20 @@ export function PhotoUploadDialog() {
                     </button>
                   )}
 
-                  {/* Status Badges */}
+                  {/* Status Badges with Particle Burst */}
                   {preview.status === "success" && (
-                    <div className="absolute right-1 bottom-1 flex size-5 items-center justify-center rounded-full bg-emerald-500 text-white shadow-xs">
+                    <div className="absolute right-1 bottom-1 flex size-5 items-center justify-center rounded-full bg-emerald-500 text-white shadow-xs elastic-pop-badge">
                       <CheckIcon className="size-3.5" />
                     </div>
                   )}
                   {preview.status === "failed" && (
-                    <div className="absolute right-1 bottom-1 flex size-5 items-center justify-center rounded-full bg-destructive text-white shadow-xs">
+                    <div className="absolute right-1 bottom-1 flex size-5 items-center justify-center rounded-full bg-destructive text-white shadow-xs elastic-pop-badge">
                       <CircleAlertIcon className="size-3.5" />
                     </div>
                   )}
                   {preview.status === "skipped" && (
                     <div
-                      className="absolute right-1 bottom-1 flex size-5 items-center justify-center rounded-full bg-amber-500 text-white shadow-xs"
+                      className="absolute right-1 bottom-1 flex size-5 items-center justify-center rounded-full bg-amber-500 text-white shadow-xs elastic-pop-badge"
                       title="Duplicate photo detected"
                     >
                       <CopyIcon className="size-3.5" />

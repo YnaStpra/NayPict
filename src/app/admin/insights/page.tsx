@@ -52,6 +52,7 @@ import {
   CartesianGrid,
 } from "recharts"
 import { PhotoInsightsDialog } from "@/components/photo/photo-insights-dialog"
+import { OdometerCounter } from "@/components/ui/odometer-counter"
 
 // Dynamically import PhotoViewer for smooth previewing
 const PhotoViewer = dynamic(
@@ -299,7 +300,7 @@ export default function AdminInsightsPage() {
                   </CardHeader>
                   <CardContent className="p-4 pt-1">
                     <div className="text-2xl md:text-3xl font-bold tracking-tight text-foreground">
-                      {overview.totalViews.toLocaleString()}
+                      <OdometerCounter target={overview.totalViews} />
                     </div>
                     <p className="text-[11px] text-muted-foreground mt-1">
                       Public visitor views
@@ -319,7 +320,7 @@ export default function AdminInsightsPage() {
                   </CardHeader>
                   <CardContent className="p-4 pt-1">
                     <div className="text-2xl md:text-3xl font-bold tracking-tight text-foreground">
-                      {overview.totalPhotos.toLocaleString()}
+                      <OdometerCounter target={overview.totalPhotos} />
                     </div>
                     <p className="text-[11px] text-muted-foreground mt-1">
                       Published in gallery
@@ -339,7 +340,7 @@ export default function AdminInsightsPage() {
                   </CardHeader>
                   <CardContent className="p-4 pt-1">
                     <div className="text-2xl md:text-3xl font-bold tracking-tight text-foreground">
-                      {overview.totalDownloads.toLocaleString()}
+                      <OdometerCounter target={overview.totalDownloads} />
                     </div>
                     <p className="text-[11px] text-muted-foreground mt-1">
                       Original photo downloads
@@ -359,7 +360,7 @@ export default function AdminInsightsPage() {
                   </CardHeader>
                   <CardContent className="p-4 pt-1">
                     <div className="text-2xl md:text-3xl font-bold tracking-tight text-foreground">
-                      {overview.totalComments.toLocaleString()}
+                      <OdometerCounter target={overview.totalComments} />
                     </div>
                     <p className="text-[11px] text-muted-foreground mt-1">
                       Visitor responses

@@ -54,7 +54,7 @@ export function NavMain({
     <SidebarGroup>
       <SidebarMenu>
         {items.map((item) => (
-          <SidebarMenuItem key={item.title} className="mb-1">
+          <SidebarMenuItem key={item.title} className="mb-1 magnetic-nav-item">
             <SidebarMenuButton
               asChild
               isActive={isUrlMatched(item.url)}

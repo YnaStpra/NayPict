@@ -605,6 +605,7 @@ export default function PhotoMapView() {
           <div class="relative cursor-pointer transition-all duration-200 transform hover:scale-110 ${
             isSelected ? "scale-110 z-50" : ""
           }">
+            ${isSelected || count > 3 ? `<div class="radar-pin-halo"></div>` : ""}
             ${
               isMulti
                 ? `

@@ -531,6 +531,132 @@ body {
   will-change: transform, opacity;
 }
 
+/* ==========================================================================
+   Photo Map: Radar Wave Ping on Location Pins
+   ========================================================================== */
+
+@keyframes radar-ping {
+  0% {
+    transform: scale(0.85);
+    opacity: 0.85;
+  }
+  70% {
+    transform: scale(2.4);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(2.6);
+    opacity: 0;
+  }
+}
+
+.radar-pin-halo {
+  position: absolute;
+  inset: -6px;
+  border-radius: 9999px;
+  background: radial-gradient(circle, rgba(59, 130, 246, 0.5) 0%, rgba(59, 130, 246, 0) 70%);
+  animation: radar-ping 2.2s cubic-bezier(0, 0.2, 0.8, 1) infinite;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ==========================================================================
+   Photo Upload: Hologram Breathing Dropzone & Liquid Wave Progress Bar
+   ========================================================================== */
+
+@keyframes hologram-breathe {
+  0%, 100% {
+    border-color: rgba(59, 130, 246, 0.5);
+    box-shadow: 0 0 24px -4px rgba(59, 130, 246, 0.25), inset 0 0 16px rgba(59, 130, 246, 0.08);
+  }
+  50% {
+    border-color: rgba(168, 85, 247, 0.75);
+    box-shadow: 0 0 36px 4px rgba(168, 85, 247, 0.4), inset 0 0 24px rgba(168, 85, 247, 0.15);
+  }
+}
+
+.hologram-dropzone-active {
+  animation: hologram-breathe 2.4s ease-in-out infinite;
+  border-style: dashed;
+}
+
+@keyframes wave-liquid-shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.wave-progress-shimmer {
+  background: linear-gradient(
+    90deg,
+    rgba(59, 130, 246, 0.85) 0%,
+    rgba(147, 197, 253, 1) 50%,
+    rgba(59, 130, 246, 0.85) 100%
+  );
+  background-size: 200% 100%;
+  animation: wave-liquid-shimmer 1.8s linear infinite;
+}
+
+@keyframes particle-burst-pop {
+  0% {
+    opacity: 1;
+    transform: scale(0.6) translateY(0);
+  }
+  50% {
+    opacity: 0.9;
+    transform: scale(1.2) translateY(-8px);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.4) translateY(-16px);
+  }
+}
+
+.particle-burst-active {
+  animation: particle-burst-pop 0.75s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* ==========================================================================
+   Lightbox: Spring EXIF Accordion & Fluid Drag Dismiss
+   ========================================================================== */
+
+@keyframes exif-spring-slide {
+  0% {
+    opacity: 0;
+    transform: translateX(24px) scale(0.98);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+.exif-drawer-spring {
+  animation: exif-spring-slide 0.32s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.lightbox-drag-card {
+  will-change: transform, opacity;
+  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.2s ease;
+}
+
+/* ==========================================================================
+   Navigation: Magnetic Floating Active Pill
+   ========================================================================== */
+
+.magnetic-nav-item {
+  position: relative;
+  transition: color 0.2s ease, transform 0.2s ease;
+}
+
+.magnetic-nav-item:hover {
+  transform: translateX(2px);
+}
+
+
 
 
 

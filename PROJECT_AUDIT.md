@@ -560,6 +560,10 @@ erDiagram
 | 🟢 **RESOLVED** | Subtle Specular Sheen & Spring-Physics Zoom | `photo-card.tsx`, `album-card.tsx`, `globals.css` | Diagonal specular sheen reflection on hover, spring-curve micro zoom (`scale(1.035)`), and zero-flicker card stability. |
 | 🟢 **RESOLVED** | Touch-Press Feedback & Elastic Badge Pop-In | `photo-card.tsx` & `globals.css` | Tactile `active:scale-[0.975]` touch response on mobile and elastic spring pop-in for Pinned/Checkbox badges. |
 | 🟢 **RESOLVED** | Cinematic Progressive De-Blur | `photo-card.tsx` & `globals.css` | Smooth focus-pull de-blur transition from ThumbHash to HD preview (`blur(6px)` -> `blur(0px)`). |
+| 🟢 **RESOLVED** | Spring EXIF Accordion & Lightbox Transitions | `photo-info-sidebar.tsx` & `globals.css` | Spring-physics drawer reveal for EXIF metadata with 0-lag panel transitions. |
+| 🟢 **RESOLVED** | Interactive Radar Wave Ping on Map Clusters | `photo-map-view.tsx` & `globals.css` | Ambient pulsing radar wave halos on dense photo location pins. |
+| 🟢 **RESOLVED** | Hologram Dropzone & Liquid Wave Progress | `photo-upload-dialog.tsx` & `globals.css` | Holographic breathing border aura during drag-over with liquid wave upload shimmer. |
+| 🟢 **RESOLVED** | Live Odometer Statistics Roll & Magnetic Nav | `odometer-counter.tsx`, `page.tsx`, `nav-main.tsx` | Smooth easeOutCubic odometer number counter and magnetic sidebar navigation pills. |
 | 🟢 **RESOLVED** | UI Language Standardization | All TSX components & JSON locales | All UI text, dialogs, toasts, error messages, and settings converted to fluent English. |
 | 🟢 **LOW** | External Geocode API | `src/server/service/location-service.ts` | Uses OSM Nominatim with robust in-memory LRU caching. |
 | ℹ️ **INFO** | CSP Headers | `next.config.ts` | Content-Security-Policy active and strict (`default-src 'self'`, `frame-ancestors 'none'`). |
@@ -583,6 +587,9 @@ erDiagram
 - **Mobile Dynamic Island Dock**: Bottom floating glass dock maximizing canvas touch area for single-thumb navigation.
 - **Subtle Specular Sheen & Spring-Physics Zoom**: Diagonal specular sheen light reflection on hover with natural `cubic-bezier(0.34, 1.3, 0.64, 1)` spring-zoom without re-render flicker.
 - **Tactile Touch-Press Feedback & Elastic Badges**: Instant `active:scale-[0.975]` tactile mobile press response and elastic spring pop-in for selection checkboxes and badges.
+- **Live Odometer Number Counters**: RequestAnimationFrame `easeOutCubic` number ticker displaying statistics with 0 layout reflow.
+- **Radar Wave Ping on Location Pins**: Pure CSS `@keyframes radar-ping` GPU-composited aura indicating dense photo clusters on the world map.
+- **Hologram Breathing Dropzone**: GPU-interpolated gradient pulse when dragging files into the browser.
 - **Cinematic Progressive De-Blur**: Monotonic $400\text{ms}$ focus-pull de-blur transition smoothly uncovering full HD photos from ThumbHash placeholders without re-triggering.
 - **Progressive Blur Cross-Dissolve**: Hardware-accelerated smooth transition from ThumbHash placeholder to full preview image.
 - **Predictive Hover Dwell Prefetching**: Cursor dwell time intent gating ($> 65\text{ms}$) avoids wasteful network prefetch requests during rapid scrolling.

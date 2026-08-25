@@ -219,7 +219,7 @@ export function PhotoInfoSidebar({
   return (
     <aside
       ref={asideRef}
-      className="fixed top-0 right-0 z-[41] flex h-full w-full flex-col overflow-hidden bg-neutral-950/90 backdrop-blur-2xl text-white shadow-photo-sidebar md:w-84 md:shrink-0 md:border-l md:border-white/10 pointer-events-auto touch-pan-y"
+      className="fixed top-0 right-0 z-[41] flex h-full w-full flex-col overflow-hidden bg-neutral-950/90 backdrop-blur-2xl text-white shadow-photo-sidebar md:w-84 md:shrink-0 md:border-l md:border-white/10 pointer-events-auto touch-pan-y exif-drawer-spring"
       style={{ touchAction: "pan-y" }}
     >
       <PhotoViewerBlurBackground thumbHash={photo?.thumbHash} />
