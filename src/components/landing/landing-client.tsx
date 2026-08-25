@@ -4,7 +4,7 @@ import { useEffect, useState, useRef, useTransition, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
-import { Camera, FolderHeart, Image as ImageIcon, ArrowRight, Loader2, MapPin, Compass } from 'lucide-react'
+import { Camera, FolderHeart, Image as ImageIcon, ArrowRight, Loader2, MapPin } from 'lucide-react'
 import { type PhotoVo } from '@/server/entity/vo/photo'
 import { photoList } from '@/request/photo'
 
@@ -22,7 +22,6 @@ export function LandingClient({ initialPhotos }: LandingClientProps) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [photos, setPhotos] = useState<PhotoVo[]>(initialPhotos || [])
-  const [isMobileScreen, setIsMobileScreen] = useState(false)
 
   // Direct DOM Refs for Zero-Overhead 120 FPS Spotlight & 3D Tilt without React re-renders
   const cardRef = useRef<HTMLDivElement>(null)
@@ -39,10 +38,6 @@ export function LandingClient({ initialPhotos }: LandingClientProps) {
         window.location.href = `/photos?photoId=${photoId}`
         return
       }
-      setIsMobileScreen(window.innerWidth < 640)
-      const handleResize = () => setIsMobileScreen(window.innerWidth < 640)
-      window.addEventListener('resize', handleResize, { passive: true })
-      return () => window.removeEventListener('resize', handleResize)
     }
   }, [])
 
@@ -76,7 +71,7 @@ export function LandingClient({ initialPhotos }: LandingClientProps) {
       if (e.gamma === null || e.beta === null || !canvasContainerRef.current) return
       const clampedGamma = Math.max(-25, Math.min(25, e.gamma)) / 25
       const clampedBeta = Math.max(-25, Math.min(25, e.beta - 45)) / 25
-      canvasContainerRef.current.style.transform = `translate3d(${clampedGamma * 16}px, ${clampedBeta * 16}px, 0)`
+      canvasContainerRef.current.style.transform = `translate3d(${clampedGamma * 14}px, ${clampedBeta * 14}px, 0)`
     }
 
     window.addEventListener('deviceorientation', handleOrientation, { passive: true })
@@ -99,8 +94,8 @@ export function LandingClient({ initialPhotos }: LandingClientProps) {
         spotlightRef.current.style.opacity = '1'
       }
 
-      // 2. Compute 3D Perspective Tilt on Card (Desktop only)
-      if (!cardRef.current || isMobileScreen) return
+      // 2. Compute 3D Perspective Tilt on Card (Desktop / Pointer)
+      if (!cardRef.current) return
 
       const rect = cardRef.current.getBoundingClientRect()
       const cardCenterX = rect.left + rect.width / 2
@@ -122,7 +117,7 @@ export function LandingClient({ initialPhotos }: LandingClientProps) {
         glareRef.current.style.background = `radial-gradient(350px circle at ${glareX}% ${glareY}%, rgba(255, 255, 255, 0.2), transparent 70%)`
       }
     })
-  }, [isMobileScreen])
+  }, [])
 
   const handleMouseLeave = useCallback(() => {
     if (rafTiltRef.current !== null) {
@@ -151,12 +146,12 @@ export function LandingClient({ initialPhotos }: LandingClientProps) {
     <main
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
-      className="relative w-screen h-screen overflow-hidden bg-black select-none perspective-1000"
+      className="relative w-screen h-screen h-[100dvh] overflow-hidden bg-black select-none perspective-1000"
     >
       {/* Zero-Overhead Hardware-Composited Spotlight Glow Follower */}
       <div
         ref={spotlightRef}
-        className="pointer-events-none absolute top-0 left-0 size-[650px] rounded-full opacity-0 transition-opacity duration-300 z-10 will-change-transform"
+        className="pointer-events-none absolute top-0 left-0 size-[650px] rounded-full opacity-0 transition-opacity duration-300 z-10 will-change-transform hidden sm:block"
         style={{
           background: 'radial-gradient(circle, rgba(255, 255, 255, 0.075) 0%, rgba(255, 255, 255, 0.02) 45%, transparent 70%)',
         }}
@@ -173,18 +168,18 @@ export function LandingClient({ initialPhotos }: LandingClientProps) {
           dragSpeed={0.8}
           className="w-full h-full"
         />
-        {/* Subtle Dark Radial Vignette */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-black/70 backdrop-blur-[1.5px] pointer-events-none" />
+        {/* Subtle Multi-Layer Dark Vignette */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/45 to-black/75 backdrop-blur-[1.5px] pointer-events-none" />
       </div>
 
       {/* =========================================================================
-          DESKTOP: Apple-Inspired 3D Glassmorphism Hero Card with Conic Aura Beam
+          ALWAYS-VISIBLE HERO CARD (Universal on Mobile & Desktop)
          ========================================================================= */}
-      <div className="hidden sm:flex fixed inset-0 z-20 items-center justify-center p-4 pointer-events-none">
+      <div className="fixed inset-0 z-20 flex items-center justify-center p-4 sm:p-6 pointer-events-none">
         <div
           ref={cardRef}
           id="landing-hero-card"
-          className="pointer-events-auto border-beam-container max-w-md w-full rounded-[32px] p-[1.5px] shadow-2xl perspective-card-inner will-change-transform"
+          className="pointer-events-auto border-beam-container max-w-[340px] sm:max-w-md w-full rounded-[28px] sm:rounded-[32px] p-[1.5px] shadow-2xl perspective-card-inner will-change-transform"
           style={{
             transform: 'rotateX(0deg) rotateY(0deg) translateZ(0px)',
             boxShadow: '0 24px 48px -12px rgba(0, 0, 0, 0.85)',
@@ -194,24 +189,24 @@ export function LandingClient({ initialPhotos }: LandingClientProps) {
           <div className="border-beam-ray" />
 
           {/* Glassmorphism Inner Content Card */}
-          <div className="relative z-10 w-full rounded-[31px] bg-black/60 backdrop-blur-3xl border border-white/20 p-8 text-center text-white flex flex-col items-center gap-6 overflow-hidden">
+          <div className="relative z-10 w-full rounded-[27px] sm:rounded-[31px] bg-black/65 backdrop-blur-3xl border border-white/20 p-6 sm:p-8 text-center text-white flex flex-col items-center gap-5 sm:gap-6 overflow-hidden">
             {/* Dynamic Surface Glare Reflection */}
             <div
               ref={glareRef}
-              className="pointer-events-none absolute inset-0 opacity-40 transition-opacity duration-300"
+              className="pointer-events-none absolute inset-0 opacity-40 transition-opacity duration-300 hidden sm:block"
             />
 
             {/* Glowing Logo & Camera Icon */}
             <div className="relative">
               <div className="absolute -inset-2 rounded-2xl bg-gradient-to-r from-blue-500/20 via-purple-500/20 to-pink-500/20 opacity-80 blur-lg animate-pulse" />
-              <div className="relative size-20 rounded-2xl bg-gradient-to-br from-neutral-900 via-black to-neutral-950 border border-white/25 flex items-center justify-center shadow-2xl">
-                <Camera className="size-10 text-white drop-shadow-md" />
+              <div className="relative size-16 sm:size-20 rounded-2xl bg-gradient-to-br from-neutral-900 via-black to-neutral-950 border border-white/25 flex items-center justify-center shadow-2xl">
+                <Camera className="size-8 sm:size-10 text-white drop-shadow-md" />
               </div>
             </div>
 
             {/* Title & Tagline */}
-            <div className="space-y-2">
-              <h1 className="text-4xl sm:text-5xl font-black tracking-tight text-white drop-shadow-lg">
+            <div className="space-y-1.5 sm:space-y-2">
+              <h1 className="text-3xl sm:text-5xl font-black tracking-tight text-white drop-shadow-lg">
                 NayPict
               </h1>
               <p className="text-xs sm:text-sm text-slate-300 font-medium max-w-xs mx-auto leading-relaxed">
@@ -219,8 +214,8 @@ export function LandingClient({ initialPhotos }: LandingClientProps) {
               </p>
             </div>
 
-            {/* Magnetic Action Buttons with Shimmer Sweep */}
-            <div className="flex flex-col gap-3 w-full pt-1">
+            {/* Prominent Navigation Action Buttons */}
+            <div className="flex flex-col gap-2.5 sm:gap-3 w-full pt-1">
               <Link
                 href="/photos"
                 prefetch={true}
@@ -230,10 +225,10 @@ export function LandingClient({ initialPhotos }: LandingClientProps) {
                   e.preventDefault()
                   handleNavigate('/photos')
                 }}
-                className="btn-shimmer-interactive group relative flex items-center justify-between w-full h-12 px-5 rounded-2xl bg-white/10 hover:bg-white/20 border border-white/25 text-white font-bold text-sm sm:text-base backdrop-blur-md hover:scale-[1.02] active:scale-[0.98] cursor-pointer shadow-lg"
+                className="btn-shimmer-interactive group relative flex items-center justify-between w-full h-11 sm:h-12 px-4 sm:px-5 rounded-2xl bg-white/10 hover:bg-white/20 active:bg-white/25 border border-white/25 text-white font-bold text-sm sm:text-base backdrop-blur-md hover:scale-[1.02] active:scale-[0.98] cursor-pointer shadow-lg transition-all"
               >
                 <div className="flex items-center gap-3">
-                  <ImageIcon className="size-5 text-white/90" />
+                  <ImageIcon className="size-4.5 sm:size-5 text-white/90" />
                   <span>Explore Gallery</span>
                 </div>
                 <div className="flex items-center">
@@ -254,10 +249,10 @@ export function LandingClient({ initialPhotos }: LandingClientProps) {
                   e.preventDefault()
                   handleNavigate('/albums')
                 }}
-                className="btn-shimmer-interactive group relative flex items-center justify-between w-full h-12 px-5 rounded-2xl bg-white/10 hover:bg-white/20 border border-white/25 text-white font-bold text-sm sm:text-base backdrop-blur-md hover:scale-[1.02] active:scale-[0.98] cursor-pointer shadow-lg"
+                className="btn-shimmer-interactive group relative flex items-center justify-between w-full h-11 sm:h-12 px-4 sm:px-5 rounded-2xl bg-white/10 hover:bg-white/20 active:bg-white/25 border border-white/25 text-white font-bold text-sm sm:text-base backdrop-blur-md hover:scale-[1.02] active:scale-[0.98] cursor-pointer shadow-lg transition-all"
               >
                 <div className="flex items-center gap-3">
-                  <FolderHeart className="size-5 text-white/90" />
+                  <FolderHeart className="size-4.5 sm:size-5 text-white/90" />
                   <span>Browse Albums</span>
                 </div>
                 <div className="flex items-center">
@@ -278,10 +273,10 @@ export function LandingClient({ initialPhotos }: LandingClientProps) {
                   e.preventDefault()
                   handleNavigate('/map')
                 }}
-                className="btn-shimmer-interactive group relative flex items-center justify-between w-full h-12 px-5 rounded-2xl bg-white/10 hover:bg-white/20 border border-white/25 text-white font-bold text-sm sm:text-base backdrop-blur-md hover:scale-[1.02] active:scale-[0.98] cursor-pointer shadow-lg"
+                className="btn-shimmer-interactive group relative flex items-center justify-between w-full h-11 sm:h-12 px-4 sm:px-5 rounded-2xl bg-white/10 hover:bg-white/20 active:bg-white/25 border border-white/25 text-white font-bold text-sm sm:text-base backdrop-blur-md hover:scale-[1.02] active:scale-[0.98] cursor-pointer shadow-lg transition-all"
               >
                 <div className="flex items-center gap-3">
-                  <MapPin className="size-5 text-white/90" />
+                  <MapPin className="size-4.5 sm:size-5 text-white/90" />
                   <span>Photo Map Explorer</span>
                 </div>
                 <div className="flex items-center">
@@ -294,49 +289,6 @@ export function LandingClient({ initialPhotos }: LandingClientProps) {
               </Link>
             </div>
           </div>
-        </div>
-      </div>
-
-      {/* =========================================================================
-          MOBILE: Floating Minimalist Brand Header + Dynamic Island Bottom Dock
-         ========================================================================= */}
-      <div className="sm:hidden fixed inset-x-0 top-5 z-20 flex justify-center pointer-events-none px-4">
-        <div className="pointer-events-auto flex items-center gap-2.5 px-4 py-2 rounded-full bg-black/60 backdrop-blur-2xl border border-white/20 shadow-2xl text-white">
-          <div className="size-6 rounded-full bg-white/15 flex items-center justify-center border border-white/20">
-            <Camera className="size-3.5 text-white" />
-          </div>
-          <span className="font-extrabold text-sm tracking-tight">NayPict</span>
-          <span className="text-[10px] text-slate-400 font-medium pl-1 border-l border-white/20">
-            Swipe canvas to explore
-          </span>
-        </div>
-      </div>
-
-      <div className="sm:hidden fixed inset-x-0 bottom-6 z-20 flex justify-center pointer-events-none px-4">
-        <div className="pointer-events-auto dynamic-island-dock max-w-xs w-full rounded-[28px] p-2 flex items-center justify-between gap-1 shadow-2xl">
-          <button
-            onClick={() => handleNavigate('/photos')}
-            className="flex-1 flex flex-col items-center justify-center gap-1 py-2 px-2 rounded-2xl bg-white/10 active:bg-white/25 text-white font-semibold text-[11px] transition-all"
-          >
-            <ImageIcon className="size-4 text-white" />
-            <span>Gallery</span>
-          </button>
-
-          <button
-            onClick={() => handleNavigate('/albums')}
-            className="flex-1 flex flex-col items-center justify-center gap-1 py-2 px-2 rounded-2xl bg-white/10 active:bg-white/25 text-white font-semibold text-[11px] transition-all"
-          >
-            <FolderHeart className="size-4 text-white" />
-            <span>Albums</span>
-          </button>
-
-          <button
-            onClick={() => handleNavigate('/map')}
-            className="flex-1 flex flex-col items-center justify-center gap-1 py-2 px-2 rounded-2xl bg-white/10 active:bg-white/25 text-white font-semibold text-[11px] transition-all"
-          >
-            <Compass className="size-4 text-white" />
-            <span>Map</span>
-          </button>
         </div>
       </div>
     </main>
