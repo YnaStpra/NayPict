@@ -1,4 +1,4 @@
-// This module provides spatial clustering calculations with off-thread scheduling and memory bounds.
+// This module provides spatial clustering calculations with 2D KD-Tree spatial indexing and off-thread scheduling.
 
 export interface GeoPoint {
   id: string;
@@ -15,8 +15,79 @@ export interface ClusterResult<T extends GeoPoint> {
   isMulti: boolean;
 }
 
+interface KDNode<T extends GeoPoint> {
+  point: T;
+  x: number;
+  y: number;
+  left: KDNode<T> | null;
+  right: KDNode<T> | null;
+}
+
 /**
- * Calculates spatial clusters with O(N log N) grid partitioning off the main UI thread.
+ * Builds a 2D KD-Tree for O(log N) spatial range queries.
+ */
+function buildKDTree<T extends GeoPoint>(
+  nodes: { point: T; x: number; y: number }[],
+  depth = 0
+): KDNode<T> | null {
+  if (!nodes.length) return null;
+
+  const axis = depth % 2; // 0 for x, 1 for y
+  nodes.sort((a, b) => (axis === 0 ? a.x - b.x : a.y - b.y));
+
+  const median = Math.floor(nodes.length / 2);
+  const mid = nodes[median];
+
+  return {
+    point: mid.point,
+    x: mid.x,
+    y: mid.y,
+    left: buildKDTree(nodes.slice(0, median), depth + 1),
+    right: buildKDTree(nodes.slice(median + 1), depth + 1),
+  };
+}
+
+/**
+ * Searches the 2D KD-Tree for all points within a circular radius of (targetX, targetY).
+ */
+function searchKDTree<T extends GeoPoint>(
+  node: KDNode<T> | null,
+  targetX: number,
+  targetY: number,
+  radius: number,
+  depth = 0,
+  results: T[] = [],
+  visited: Set<string>
+): T[] {
+  if (!node) return results;
+
+  const distSq = (node.x - targetX) ** 2 + (node.y - targetY) ** 2;
+  if (distSq <= radius ** 2 && !visited.has(node.point.id)) {
+    results.push(node.point);
+  }
+
+  const axis = depth % 2;
+  const targetCoord = axis === 0 ? targetX : targetY;
+  const nodeCoord = axis === 0 ? node.x : node.y;
+
+  const delta = targetCoord - nodeCoord;
+
+  // Search subtree on the same side of the splitting plane first
+  const first = delta < 0 ? node.left : node.right;
+  const second = delta < 0 ? node.right : node.left;
+
+  searchKDTree(first, targetX, targetY, radius, depth + 1, results, visited);
+
+  // Search opposite subtree only if the circle intersects the splitting plane
+  if (Math.abs(delta) <= radius) {
+    searchKDTree(second, targetX, targetY, radius, depth + 1, results, visited);
+  }
+
+  return results;
+}
+
+/**
+ * Calculates spatial clusters with O(N log N) 2D KD-Tree spatial partitioning off the main UI thread.
  */
 export async function calculateSpatialClusters<T extends GeoPoint>(
   points: T[],
@@ -27,34 +98,33 @@ export async function calculateSpatialClusters<T extends GeoPoint>(
 
   return new Promise((resolve) => {
     const execute = () => {
+      const projectedNodes = points.map((pt) => {
+        const { x, y } = projectFn(pt.latitude, pt.longitude);
+        return { point: pt, x, y };
+      });
+
+      const kdTree = buildKDTree(projectedNodes);
       const clusters: ClusterResult<T>[] = [];
       const visited = new Set<string>();
 
-      // Projected point cache to avoid redundant trig/projection math
-      const projected = new Map<string, { x: number; y: number }>();
-      for (const pt of points) {
-        projected.set(pt.id, projectFn(pt.latitude, pt.longitude));
-      }
+      for (const node of projectedNodes) {
+        if (visited.has(node.point.id)) continue;
 
-      for (let i = 0; i < points.length; i++) {
-        const pt = points[i];
-        if (visited.has(pt.id)) continue;
+        visited.add(node.point.id);
+        const nearbyPoints = searchKDTree(
+          kdTree,
+          node.x,
+          node.y,
+          pixelRadius,
+          0,
+          [],
+          visited
+        );
 
-        const pA = projected.get(pt.id)!;
-        const clusterPoints: T[] = [pt];
-        visited.add(pt.id);
-
-        for (let j = i + 1; j < points.length; j++) {
-          const other = points[j];
-          if (visited.has(other.id)) continue;
-
-          const pB = projected.get(other.id)!;
-          const dist = Math.hypot(pA.x - pB.x, pA.y - pB.y);
-
-          if (dist <= pixelRadius) {
-            visited.add(other.id);
-            clusterPoints.push(other);
-          }
+        const clusterPoints: T[] = [node.point];
+        for (const pt of nearbyPoints) {
+          visited.add(pt.id);
+          clusterPoints.push(pt);
         }
 
         const isMulti = clusterPoints.length > 1;
@@ -62,9 +132,9 @@ export async function calculateSpatialClusters<T extends GeoPoint>(
         const avgLon = clusterPoints.reduce((sum, s) => sum + s.longitude, 0) / clusterPoints.length;
 
         clusters.push({
-          id: pt.id,
-          latitude: isMulti ? avgLat : pt.latitude,
-          longitude: isMulti ? avgLon : pt.longitude,
+          id: node.point.id,
+          latitude: isMulti ? avgLat : node.point.latitude,
+          longitude: isMulti ? avgLon : node.point.longitude,
           points: clusterPoints,
           isMulti,
         });
@@ -80,3 +150,4 @@ export async function calculateSpatialClusters<T extends GeoPoint>(
     }
   });
 }
+
