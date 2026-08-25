@@ -752,44 +752,44 @@ erDiagram
 
 ## 18. TOP 10 REKOMENDASI AUDIT PERFORMA & EFISIENSI PENGUNJUNG PUBLIK (PUBLIC PHOTO GALLERY PERFORMANCE PRIORITIES)
 
-Berikut adalah **10 prioritas rekomendasi audit performa dan efisiensi khusus untuk galeri foto dan pengunjung publik** guna menciptakan pengalaman eksplorasi galeri yang instan (0ms perceived latency), hemat kuota bandwidth, dan visual terkunci di 120 FPS tanpa kalkulasi berat di thread UI:
+Berikut adalah **10 prioritas rekomendasi audit performa dan efisiensi khusus untuk galeri foto dan pengunjung publik** guna menciptakan pengalaman eksplorasi galeri yang instan (0ms perceived latency), hemat kuota bandwidth seluler, dan visual terkunci di 120 FPS tanpa kalkulasi berat di thread UI:
 
-### 1. **Edge-Side Includes (ESI) / Edge Middleware Geo-Routing untuk Media CDN Terdekat**
-- **Kondisi Saat Ini**: Pengunjung global mengakses domain CDN foto melalui rute default.
-- **Rekomendasi**: Manfaatkan Edge Middleware berbasis header geo-location (`CF-IPCountry`) untuk mengarahkan pengguna secara otomatis ke edge pop CDN Cloudflare terdekat, memangkas round-trip time (RTT) hingga 40ms bagi pengunjung lintas benua.
+### 1. **Speculative Viewport Hover-Intent Prefetching via `requestIdleCallback`**
+- **Kondisi Saat Ini**: Thumbnail diunduh saat masuk ke viewport. Ketika kursor melayang (*hover*) >65ms, preview HD mulai di-fetch.
+- **Rekomendasi**: Pasang *Speculative Adjacent Prefetcher* di Lightbox dan Masonry Grid yang memanfaatkan `requestIdleCallback` untuk mem-prefetch foto berikutnya di jalur gerak kursor. Foto HD langsung terbuka seketika (0ms *perceived delay*) saat diklik.
 
-### 2. **Client-Side WASM SIMD Fast Color Palette Extraction untuk Vibrant Lightbox UI**
-- **Kondisi Saat Ini**: Penentuan dominant accent color foto dihitung saat runtime browser standar.
-- **Rekomendasi**: Gunakan WASM SIMD k-means clustering untuk mengekstraksi palet warna utama foto dalam waktu <2ms untuk aksen visual dinamis di lightbox.
+### 2. **Next-Gen AVIF Content Negotiation via HTTP `Accept` Headers**
+- **Kondisi Saat Ini**: Kompresi thumbnail dan preview menggunakan format WebP standar.
+- **Rekomendasi**: Tambahkan negosiasi format AVIF otomatis untuk browser modern (Chrome 85+, Safari 16+, Firefox 93+). Format AVIF memberikan efisiensi kompresi 25–35% lebih hemat dibanding WebP pada kualitas visual dan ketajaman yang identik.
 
-### 3. **Pre-Rendered Critical SVG Micro-Thumbnails dalam Server HTML Stream**
-- **Kondisi Saat Ini**: Placeholder ThumbHash dieksekusi secara asinkron di klien.
-- **Rekomendasi**: Injeksi vektor micro-placeholder SVG (<150 bytes) langsung ke dalam payload SSR HTML awal agar layout kartu langsung terisi secara visual sebelum JavaScript selesai dieksekusi.
+### 3. **Dynamic Chunk & Map Library Prefetching on Navigation Tab Hover**
+- **Kondisi Saat Ini**: Chunk JavaScript berat (`leaflet`, `yet-another-react-lightbox`) di-load secara dinamis saat halaman atau modal dibuka.
+- **Rekomendasi**: Mulai prefetch chunk JS peta dan viewer saat pengunjung mengarahkan mouse ke tombol navigasi *"Map"* atau kartu foto pertama, sehingga transisi halaman menjadi instan tanpa *spinner delay*.
 
-### 4. **Brotli Static Compression Pipeline untuk Dynamic Theme Locales**
-- **Kondisi Saat Ini**: File kamus bahasa JSON dikompresi on-the-fly oleh server.
-- **Rekomendasi**: Tambahkan file `.json.br` hasil pre-kompresi build ke folder locale untuk transfer teks antarmuka berukuran di bawah 3KB.
+### 4. **Off-Screen Virtualized DOM & Bitmap Memory Eviction Pool**
+- **Kondisi Saat Ini**: Semua kartu foto yang telah di-scroll tetap berada di memori DOM browser.
+- **Rekomendasi**: Terapkan virtualisasi cerdas yang mencopot (*unmount*) elemen kartu dan membersihkan bitmap memori untuk foto yang berada >2500px di luar viewport atas/bawah. Menjaga penggunaan RAM tab browser tetap stabil di bawah 80MB pada galeri dengan ribuan foto.
 
-### 5. **Incremental IndexedDB Dynamic Sync Manager dengan ETag Range Headers**
-- **Kondisi Saat Ini**: Revalidasi katalog foto offline melakukan fetching ulang seluruh halaman.
-- **Rekomendasi**: Manfaatkan HTTP ETag dan conditional range sync untuk hanya men-download delta foto yang baru ditambahkan/diubah sejak kunjungan terakhir.
+### 5. **Native View Transitions API untuk Layout Morphing (Continuous vs Date-Grouped)**
+- **Kondisi Saat Ini**: Beralih antara Masonry kontinu dan tampilan per-tanggal memicu re-render layout standar.
+- **Rekomendasi**: Manfaatkan `document.startViewTransition()` native browser untuk animasi pergeseran dan pengelompokan kartu yang di-render langsung oleh GPU Compositor pada 120 FPS tanpa kalkulasi manual JavaScript.
 
-### 6. **WebAssembly SIMD Bilinear Image Upscaler untuk Instant Lightbox Preview**
-- **Kondisi Saat Ini**: Gambar ThumbHash diperbesar menggunakan CSS blur filter standar sebelum file resolusi penuh tiba.
-- **Rekomendasi**: Terapkan WASM SIMD bilinear upscale shader untuk interpolasi thumbnail mikro menjadi preview tajam beresolusi menengah seketika.
+### 6. **Adaptive Bandwidth & Low-DPR Throttling via Network Information API**
+- **Kondisi Saat Ini**: Resolusi gambar dihitung berdasarkan lebar kolom dan DPR layar standar.
+- **Rekomendasi**: Otomatis turunkan density ke 1x dan nonaktifkan animasi berat jika `navigator.connection.saveData === true` atau koneksi seluler terdeteksi lambat (`effectiveType === '2g' | '3g'`), menghemat kuota pengunjung seluler hingga 60%.
 
-### 7. **Client-Side Image Expiration Pruning Worker via Background Tasks**
-- **Kondisi Saat Ini**: Cache IndexedDB dibersihkan saat kuota mendekati batas maksimum.
-- **Rekomendasi**: Jalankan background pruning worker pada `navigator.locks` saat browser sedang *idle* untuk membersihkan foto yang kadaluarsa (>30 hari) secara proaktif.
+### 7. **Edge CDN `stale-while-revalidate` & `stale-if-error` pada Endpoint Publik**
+- **Kondisi Saat Ini**: API katalog foto publik menggunakan in-memory cache server selama 60 detik.
+- **Rekomendasi**: Tambahkan header HTTP `Cache-Control: public, s-maxage=120, stale-while-revalidate=86400, stale-if-error=604800` pada rute publik agar Cloudflare / Vercel Edge melayani request dari cache tepi terdekat dalam <10ms di seluruh dunia.
 
-### 8. **Priority-Based Dynamic Resource Fetch Scheduling via requestPostAnimationFrame**
-- **Kondisi Saat Ini**: Download foto diatur secara seragam oleh browser pipeline.
-- **Rekomendasi**: Prioritaskan prefetching foto yang berada tepat di tengah viewport menggunakan `requestPostAnimationFrame` sebelum aset periferal lainnya.
+### 8. **CSS `contain: strict` & GPU Layer Isolation pada Sticky Frosted Date Headers**
+- **Kondisi Saat Ini**: Header tanggal menempel dengan efek `backdrop-blur-md` standar.
+- **Rekomendasi**: Tambahkan `contain: layout paint` dan `will-change: transform` pada sticky date header untuk memisahkannya ke GPU Compositor layer tersendiri, mengeliminasi re-paint pada grid foto di bawahnya saat scrolling cepat.
 
-### 9. **CSS Houdini Contrast-Adaptive Backdrop Filter Worklet untuk Dynamic Lightbox Overlays**
-- **Kondisi Saat Ini**: Backdrop blur lightbox menggunakan standard CSS `backdrop-filter: blur()`.
-- **Rekomendasi**: Terapkan Houdini Backdrop Worklet untuk menghitung luminance background secara adaptif, menjaga keterbacaan teks EXIF dan kontrol lightbox pada foto sangat terang/gelap tanpa composite stutter.
+### 9. **Decoded ThumbHash Bitmaps Caching di In-Memory IndexedDB Storage**
+- **Kondisi Saat Ini**: String ThumbHash di-decode berulang kali menjadi canvas data URL saat komponen di-mount.
+- **Rekomendasi**: Simpan hasil decode bitmap ThumbHash ke dalam in-memory cache / IndexedDB klien sehingga saat pengunjung membuka galeri secara berulang, seluruh placeholder muncul dalam 0ms tanpa beban CPU.
 
-### 10. **Zero-Overhead IndexedDB Bitmap Transfer via Transferable Streams**
-- **Kondisi Saat Ini**: Pengambilan ImageBlob dari IndexedDB dikonversi menjadi URL string objek (`createObjectURL`).
-- **Rekomendasi**: Stream ImageBitmap langsung dari IndexedDB menggunakan Transferable Streams untuk transfer bitmap 0-copy ke layer Canvas dan Lightbox.
+### 10. **Low-Power Mode & Battery Status Adaptive Framerate Scaling**
+- **Kondisi Saat Ini**: Animasi radar ping pada kluster peta dan transisi spring berjalan konstan.
+- **Rekomendasi**: Integrasikan Battery API (`navigator.getBattery()`) dan media query `prefers-reduced-motion` untuk menghentikan animasi latar belakang dan mengurangi denyut radar saat baterai perangkat pengunjung di bawah 20% atau dalam mode hemat daya.
