@@ -189,7 +189,7 @@ export function PhotoCard({
 
   return (
     <div
-      className="group relative overflow-hidden bg-muted houdini-smooth-card"
+      className="group relative overflow-hidden bg-muted houdini-smooth-card masonry-card-cascade touch-press-feedback"
       onClick={handlePhotoClick}
       onContextMenu={handlePhotoContextMenu}
       onMouseEnter={handleMouseEnter}
@@ -200,6 +200,7 @@ export function PhotoCard({
         contain: "paint layout",
         contentVisibility: "auto",
         containIntrinsicSize: `${width}px ${cardHeight}px`,
+        animationDelay: `${Math.min(index % 8, 7) * 30}ms`,
         // Dynamic Layout Stability CSS Custom Properties (CLS = 0.000)
         ["--aspect-ratio" as string]: `${ratio}`,
         ["--intrinsic-width" as string]: `${width}px`,
@@ -211,8 +212,8 @@ export function PhotoCard({
           src={placeholder}
           alt=""
           className={[
-            "absolute inset-0 h-full w-full scale-110 blur-sm transition-opacity duration-400 ease-out",
-            imageLoaded ? "opacity-0 pointer-events-none" : "opacity-100",
+            "absolute inset-0 h-full w-full scale-110 blur-sm transition-all duration-400 ease-out",
+            imageLoaded ? "opacity-0 pointer-events-none scale-100" : "opacity-100",
           ].join(" ")}
           aria-hidden
           draggable={false}
@@ -228,7 +229,7 @@ export function PhotoCard({
           srcSet={
             data.thumbnail && data.preview && data.thumbnail !== data.preview
               ? `${data.thumbnail} 480w, ${data.preview} 1280w`
-              : undefined
+          : undefined
           }
           sizes={effectiveSizes}
           loading="lazy"
@@ -237,22 +238,25 @@ export function PhotoCard({
           alt={data.name}
           draggable={false}
           className={[
-            "absolute inset-0 h-full w-full object-cover duration-350 transition-all",
-            imageLoaded ? "opacity-100 filter-none" : "opacity-90 blur-[0.5px]",
-            selectionActive ? "" : "group-hover:scale-105",
-            showHover && !selectionActive ? "scale-105" : "",
+            "absolute inset-0 h-full w-full object-cover spring-zoom-img",
+            imageLoaded ? "opacity-100 filter-none" : "opacity-90 blur-[6px]",
+            selectionActive ? "" : "group-hover:scale-[1.035]",
+            showHover && !selectionActive ? "scale-[1.035]" : "",
           ].join(" ")}
           onLoad={() => setImageLoaded(true)}
           onError={handleImageError}
         />
       )}
+      {/* Specular Sheen Light Reflection on Hover */}
+      <div className="photo-specular-sheen" />
+
       {selected && (
         <div className="pointer-events-none absolute inset-0 bg-black/60" />
       )}
       {/* Pinned Photo Badge (Visible to all in album view) */}
       {data.isPinned && (
         <div
-          className="absolute top-2 left-2 z-10 flex items-center gap-1 rounded-full bg-primary/90 text-primary-foreground backdrop-blur-md px-2 py-0.5 text-[11px] font-semibold shadow-md border border-primary/20"
+          className="absolute top-2 left-2 z-10 flex items-center gap-1 rounded-full bg-primary/90 text-primary-foreground backdrop-blur-md px-2 py-0.5 text-[11px] font-semibold shadow-md border border-primary/20 elastic-pop-badge"
           title="Pinned di album (Urutan teratas)"
         >
           <PinIcon className="size-3 fill-current rotate-45" />
@@ -272,7 +276,7 @@ export function PhotoCard({
       {isAdmin && (
         <div
           className={[
-            "absolute top-[6px] right-[6px] z-10 flex size-6 items-center justify-center opacity-0 transition-opacity duration-200 group-hover:opacity-100",
+            "absolute top-[6px] right-[6px] z-10 flex size-6 items-center justify-center opacity-0 transition-opacity duration-200 group-hover:opacity-100 elastic-pop-badge",
             selected || selectionActive || showHover ? "opacity-100" : "",
           ].join(" ")}
           onClick={(event) => event.stopPropagation()}
