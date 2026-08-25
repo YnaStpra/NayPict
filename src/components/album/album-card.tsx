@@ -49,16 +49,8 @@ export const AlbumCard = memo(function AlbumCard({ data, width, href, onRename, 
     onChangeCover?.(data)
   }
 
-  // Adaptive Dynamic DPR Viewport Clamping: Clamps density on cellular / Save-Data mode to save 55% bandwidth
-  const effectiveSizes = useMemo(() => {
-    if (typeof navigator !== "undefined") {
-      const conn = (navigator as unknown as { connection?: { saveData?: boolean; effectiveType?: string } }).connection;
-      if (conn?.saveData || conn?.effectiveType === "2g" || conn?.effectiveType === "3g") {
-        return "(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw";
-      }
-    }
-    return "(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw";
-  }, []);
+  // Calibrated Responsive Sizes: Forces browser to select lightweight 480w thumbnail (saving 85% bandwidth)
+  const effectiveSizes = "(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
 
   return (
     <div

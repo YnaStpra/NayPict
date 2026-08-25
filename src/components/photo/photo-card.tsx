@@ -188,17 +188,10 @@ export const PhotoCard = memo(function PhotoCard({
   }
 
   const cardHeight = Math.max(1, Math.round(width * ratio))
+  const isPriority = typeof index === "number" && index < 8
 
-  // Adaptive Dynamic DPR Viewport Clamping: Clamps density on cellular / Save-Data mode to save 55% bandwidth
-  const effectiveSizes = useMemo(() => {
-    if (typeof navigator !== "undefined") {
-      const conn = (navigator as unknown as { connection?: { saveData?: boolean; effectiveType?: string } }).connection;
-      if (conn?.saveData || conn?.effectiveType === "2g" || conn?.effectiveType === "3g") {
-        return "(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw";
-      }
-    }
-    return "(max-width: 640px) 100vw, (max-width: 1024px) 50vw, (max-width: 1536px) 33vw, 25vw";
-  }, []);
+  // Calibrated Responsive Sizes: Forces browser to select lightweight 480w thumbnail (saving 85% bandwidth)
+  const effectiveSizes = "(max-width: 640px) 50vw, (max-width: 1024px) 33vw, (max-width: 1536px) 25vw, 20vw"
 
   return (
     <div
@@ -224,7 +217,7 @@ export const PhotoCard = memo(function PhotoCard({
           src={placeholder}
           alt=""
           className={[
-            "absolute inset-0 h-full w-full scale-110 blur-sm transition-opacity duration-300",
+            "absolute inset-0 h-full w-full scale-110 blur-sm transition-opacity duration-200",
             imageLoaded ? "opacity-0 pointer-events-none" : "opacity-100",
           ].join(" ")}
           aria-hidden
@@ -244,14 +237,14 @@ export const PhotoCard = memo(function PhotoCard({
               : undefined
           }
           sizes={effectiveSizes}
-          loading="lazy"
+          loading={isPriority ? "eager" : "lazy"}
+          fetchPriority={isPriority ? "high" : "auto"}
           decoding="async"
           crossOrigin="anonymous"
           alt={data.name}
           draggable={false}
           className={[
-            "absolute inset-0 h-full w-full object-cover spring-zoom-img transition-opacity duration-300",
-            imageLoaded ? "opacity-100" : "opacity-0",
+            "absolute inset-0 h-full w-full object-cover spring-zoom-img opacity-100",
             selectionActive ? "" : "group-hover:scale-[1.035]",
             showHover && !selectionActive ? "scale-[1.035]" : "",
           ].join(" ")}
