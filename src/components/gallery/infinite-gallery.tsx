@@ -322,9 +322,15 @@ export function InfiniteGallery(props: InfiniteGalleryProps) {
       return pool
     }
 
+    // Dynamic GPU Tile Texture Memory Eviction: Explicitly disconnect textures and revoke image sources
     const disposeLayer = (octave: number) => {
       const pool = layerPools.get(octave)
       if (!pool) return
+      pool.imgEls.forEach((img) => {
+        img.onload = null
+        img.onerror = null
+        img.src = ""
+      })
       pool.tileEls.forEach((el) => {
         if (el.parentNode === scene) scene.removeChild(el)
       })
@@ -336,6 +342,12 @@ export function InfiniteGallery(props: InfiniteGalleryProps) {
     const removeTile = (octave: number, key: string) => {
       const pool = layerPools.get(octave)
       if (!pool) return
+      const img = pool.imgEls.get(key)
+      if (img) {
+        img.onload = null
+        img.onerror = null
+        img.src = ""
+      }
       const el = pool.tileEls.get(key)
       if (el && el.parentNode === scene) scene.removeChild(el)
       pool.tileEls.delete(key)

@@ -808,14 +808,18 @@ function PhotoSlideImage({
       alt={slide.alt}
       draggable={false}
       crossOrigin="anonymous"
-      className="select-none max-w-none object-contain transition-transform duration-200"
+      className="lightbox-zoom-matrix select-none max-w-none object-contain transition-transform duration-200"
       onError={(event) => {
         event.currentTarget.style.display = "none"
       }}
       style={{
         width: sideways ? `calc(100cqh - ${rotateWidthOffset}px)` : "100%",
         height: sideways ? "100vw" : "100%",
-        transform: `rotate(${rotate}deg)`,
+        transform: `rotate(${rotate}deg) translateZ(0)`,
+        transformStyle: "preserve-3d",
+        backfaceVisibility: "hidden",
+        imageRendering: "-webkit-optimize-contrast",
+        willChange: "transform",
       }}
     />
   )

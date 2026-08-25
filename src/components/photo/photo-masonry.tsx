@@ -229,6 +229,9 @@ const PhotoMasonry = memo(function PhotoMasonry({
 
   useEffect(() => {
     let isChecking = false
+    let lastScrollTime = Date.now()
+    let lastScrollY = typeof window !== "undefined" ? window.scrollY || window.pageYOffset : 0
+
     function checkAutoLoad() {
       if (isChecking) return
       isChecking = true
@@ -245,6 +248,18 @@ const PhotoMasonry = memo(function PhotoMasonry({
 
       if (photos.length >= 200) {
         threshold *= 1.5
+      }
+
+      // Intelligent Predictive Prefetching: Scale threshold on fast downward scrolling
+      const now = Date.now()
+      const dt = Math.max(1, now - lastScrollTime)
+      const dy = scrollY - lastScrollY
+      const velocity = dy / dt // px/ms
+      lastScrollTime = now
+      lastScrollY = scrollY
+
+      if (velocity > 0.8) {
+        threshold *= 1.6
       }
 
       if (bottomDistance <= threshold) {
@@ -359,7 +374,7 @@ const PhotoMasonry = memo(function PhotoMasonry({
           onSuccess={handleBatchEditSuccess}
         />
       )}
-      <div ref={wrapRef} className="w-full overflow-x-hidden">
+      <div ref={wrapRef} className="w-full overflow-x-hidden masonry-grid-smooth">
         <MasonryScroller
           className="outline-transparent"
           items={photos}
