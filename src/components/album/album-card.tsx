@@ -58,7 +58,6 @@ export const AlbumCard = memo(function AlbumCard({ data, width, href, onRename, 
       style={{
         width,
         contain: "paint layout",
-        contentVisibility: "auto",
         containIntrinsicSize: "280px 280px",
         // Dynamic Layout Stability CSS Custom Properties (CLS = 0.000)
         ["--aspect-ratio" as string]: "1",

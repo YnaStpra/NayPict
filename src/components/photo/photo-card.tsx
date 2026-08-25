@@ -85,36 +85,7 @@ export const PhotoCard = memo(function PhotoCard({
   const showHover = showTouchHover || holdHover
   // Predictive hover dwell timer
   const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const cardRef = useRef<HTMLDivElement | null>(null)
   const isPriority = typeof index === "number" && index < 8
-  const [isNearViewport, setIsNearViewport] = useState<boolean>(() => {
-    // Initial 16 cards are immediately considered near viewport
-    return typeof index === "number" ? index < 16 : true
-  })
-
-  // Off-Screen Virtualized Memory Eviction Pool: Unmounts off-screen GPU bitmaps >2500px away to cap RAM <80MB
-  useEffect(() => {
-    if (typeof window === "undefined" || !("IntersectionObserver" in window)) return
-    const el = cardRef.current
-    if (!el) return
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const entry = entries[0]
-        if (entry) {
-          setIsNearViewport(entry.isIntersecting)
-        }
-      },
-      {
-        rootMargin: "2500px 0px 2500px 0px",
-      }
-    )
-
-    observer.observe(el)
-    return () => {
-      observer.disconnect()
-    }
-  }, [])
 
   // Reset image source when data changes, but preserve imageLoaded if cached
   useEffect(() => {
@@ -237,7 +208,6 @@ export const PhotoCard = memo(function PhotoCard({
 
   return (
     <div
-      ref={cardRef}
       className="group relative overflow-hidden bg-muted houdini-smooth-card touch-press-feedback"
       onClick={handlePhotoClick}
       onContextMenu={handlePhotoContextMenu}
@@ -247,7 +217,6 @@ export const PhotoCard = memo(function PhotoCard({
         width,
         height: cardHeight,
         contain: "paint layout",
-        contentVisibility: "auto",
         containIntrinsicSize: `${width}px ${cardHeight}px`,
         // Dynamic Layout Stability CSS Custom Properties (CLS = 0.000)
         ["--aspect-ratio" as string]: `${ratio}`,
@@ -271,7 +240,7 @@ export const PhotoCard = memo(function PhotoCard({
         <div className="absolute inset-0 flex items-center justify-center px-3 text-center text-sm text-muted-foreground">
           {t("imageLoadFailed")}
         </div>
-      ) : isNearViewport ? (
+      ) : (
         <img
           src={imageSrc ?? undefined}
           srcSet={
@@ -294,7 +263,7 @@ export const PhotoCard = memo(function PhotoCard({
           onLoad={handleImageLoadSuccess}
           onError={handleImageError}
         />
-      ) : null}
+      )}
       {selected && (
         <div className="pointer-events-none absolute inset-0 bg-black/60" />
       )}
