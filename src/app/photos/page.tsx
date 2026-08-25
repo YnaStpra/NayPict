@@ -91,7 +91,7 @@ export default function Page() {
   const isBrowser = useSyncExternalStore(emptySubscribe, () => true, () => false)
   const [viewMode, setViewMode] = useState<"masonry" | "infinite">("masonry")
   const [sortKey, setSortKey] = useState<SortOptionKey>("none")
-  const [groupByDate, setGroupByDate] = useState<boolean>(true)
+  const [groupByDate, setGroupByDate] = useState<boolean>(false)
   const [isScrolled, setIsScrolled] = useState<boolean>(false)
 
   // Passive scroll listener for Adaptive Frosted Header
