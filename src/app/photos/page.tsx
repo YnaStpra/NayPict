@@ -137,6 +137,19 @@ export default function Page() {
     }
   }
 
+  // Auto sort by taken date (oldest) when user toggles date group, and reset to default/none when returning to masonry
+  const toggleGroupByDate = () => {
+    setGroupByDate((prev) => {
+      const next = !prev
+      if (next) {
+        handleSortChange('takenTime_asc')
+      } else {
+        handleSortChange('none')
+      }
+      return next
+    })
+  }
+
   const [modelPhotoIndex, setModelPhotoIndex] = useState(0)
   const [showPhotoViewer, setShowPhotoViewer] = useState(false)
   const [viewerCustomPhotos, setViewerCustomPhotos] = useState<PhotoVo[] | null>(null)
@@ -379,7 +392,7 @@ export default function Page() {
                             ? "bg-primary/15 text-primary border border-primary/20 shadow-2xs"
                             : "text-muted-foreground hover:text-foreground"
                         }`}
-                        onClick={() => setGroupByDate((prev) => !prev)}
+                        onClick={toggleGroupByDate}
                       >
                         <CalendarDays className="size-4" />
                       </Button>
