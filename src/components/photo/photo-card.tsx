@@ -189,7 +189,7 @@ export function PhotoCard({
 
   return (
     <div
-      className="group relative overflow-hidden bg-muted houdini-smooth-card masonry-card-cascade touch-press-feedback"
+      className="group relative overflow-hidden bg-muted houdini-smooth-card touch-press-feedback"
       onClick={handlePhotoClick}
       onContextMenu={handlePhotoContextMenu}
       onMouseEnter={handleMouseEnter}
@@ -200,7 +200,6 @@ export function PhotoCard({
         contain: "paint layout",
         contentVisibility: "auto",
         containIntrinsicSize: `${width}px ${cardHeight}px`,
-        animationDelay: `${Math.min(index % 8, 7) * 30}ms`,
         // Dynamic Layout Stability CSS Custom Properties (CLS = 0.000)
         ["--aspect-ratio" as string]: `${ratio}`,
         ["--intrinsic-width" as string]: `${width}px`,

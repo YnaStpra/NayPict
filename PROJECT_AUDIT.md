@@ -557,9 +557,8 @@ erDiagram
 | 🟢 **RESOLVED** | Sub-Pixel Snap Grids for Retina Displays | `photo-masonry.tsx` & `globals.css` | CSS `round(nearest, 1px)` sub-pixel layout snapping eliminating 0.5px micro-gap artifacts. |
 | 🟢 **RESOLVED** | Dynamic 3D Parallax & Cursor Spotlight | `landing-client.tsx` & `globals.css` | Cursor spotlight glow, magnetic 3D perspective card tilt with glare, and mobile gyroscope parallax. |
 | 🟢 **RESOLVED** | Conic Aura Border Beam & Button Shimmer | `landing-client.tsx` & `globals.css` | Animated rotating conic border ray and interactive magnetic button light sweep. |
-| 🟢 **RESOLVED** | Mobile Dynamic Island Dock Navigation | `landing-client.tsx` & `globals.css` | Bottom floating glass capsule dock freeing full-screen canvas for single-thumb touch exploration. |
-| 🟢 **RESOLVED** | Staggered Viewport Cascade & Specular Sheen | `photo-card.tsx`, `album-card.tsx`, `globals.css` | Staggered 30ms cascade fade-up on scroll with diagonal specular sheen light reflection on hover. |
-| 🟢 **RESOLVED** | Spring-Physics Hover Zoom & Elastic Pop-In | `photo-card.tsx` & `globals.css` | Spring-curve micro zoom (`cubic-bezier(0.34, 1.3, 0.64, 1)`), tactile touch-press feedback, and elastic badge pop-in. |
+| 🟢 **RESOLVED** | Subtle Specular Sheen & Spring-Physics Zoom | `photo-card.tsx`, `album-card.tsx`, `globals.css` | Diagonal specular sheen reflection on hover, spring-curve micro zoom (`scale(1.035)`), and zero-flicker card stability. |
+| 🟢 **RESOLVED** | Touch-Press Feedback & Elastic Badge Pop-In | `photo-card.tsx` & `globals.css` | Tactile `active:scale-[0.975]` touch response on mobile and elastic spring pop-in for Pinned/Checkbox badges. |
 | 🟢 **RESOLVED** | Cinematic Progressive De-Blur | `photo-card.tsx` & `globals.css` | Smooth focus-pull de-blur transition from ThumbHash to HD preview (`blur(6px)` -> `blur(0px)`). |
 | 🟢 **RESOLVED** | UI Language Standardization | All TSX components & JSON locales | All UI text, dialogs, toasts, error messages, and settings converted to fluent English. |
 | 🟢 **LOW** | External Geocode API | `src/server/service/location-service.ts` | Uses OSM Nominatim with robust in-memory LRU caching. |
@@ -582,9 +581,9 @@ erDiagram
 - **Dynamic 3D Parallax & Cursor Spotlight**: Real-time cursor spotlight follower and perspective tilt with dynamic glare without DOM reflow.
 - **Conic Aura Border Beam & Button Shimmer**: GPU-interpolated rotating conic beam ray and interactive button light sweep.
 - **Mobile Dynamic Island Dock**: Bottom floating glass dock maximizing canvas touch area for single-thumb navigation.
-- **Staggered Viewport Cascade & Specular Sheen**: GPU-accelerated $30\text{ms}$ staggered fade-up on scroll with diagonal specular sheen light reflection on card hover.
-- **Spring-Physics Micro Zoom & Touch Feedback**: Natural `cubic-bezier(0.34, 1.3, 0.64, 1)` spring-zoom on hover and tactile `active:scale-[0.975]` touch-press response on mobile.
-- **Cinematic Progressive De-Blur**: Monotonic $400\text{ms}$ focus-pull de-blur transition smoothly uncovering full HD photos from ThumbHash placeholders.
+- **Subtle Specular Sheen & Spring-Physics Zoom**: Diagonal specular sheen light reflection on hover with natural `cubic-bezier(0.34, 1.3, 0.64, 1)` spring-zoom without re-render flicker.
+- **Tactile Touch-Press Feedback & Elastic Badges**: Instant `active:scale-[0.975]` tactile mobile press response and elastic spring pop-in for selection checkboxes and badges.
+- **Cinematic Progressive De-Blur**: Monotonic $400\text{ms}$ focus-pull de-blur transition smoothly uncovering full HD photos from ThumbHash placeholders without re-triggering.
 - **Progressive Blur Cross-Dissolve**: Hardware-accelerated smooth transition from ThumbHash placeholder to full preview image.
 - **Predictive Hover Dwell Prefetching**: Cursor dwell time intent gating ($> 65\text{ms}$) avoids wasteful network prefetch requests during rapid scrolling.
 - **Dynamic Canvas 2.5D Frustum Culling**: Viewport boundary check skips 100% of DOM mutations and matrix calculations for off-screen tiles.
