@@ -77,23 +77,21 @@ export const PhotoCard = memo(function PhotoCard({
   const [imageSrc, setImageSrc] = useState<string | null>(() => data.thumbnail || data.preview || data.key || null)
   // imageError Record whether all photo URLs failed to load.
   const [imageError, setImageError] = useState(false)
-  // Progressive blur transition state (persisted across re-renders via global cache)
-  const isAlreadyLoaded = Boolean(data.photoId && loadedPhotoCache.has(data.photoId))
-  const [imageLoaded, setImageLoaded] = useState<boolean>(isAlreadyLoaded)
+  // Progressive blur transition state (local per DOM element to prevent premature black screens)
+  const [imageLoaded, setImageLoaded] = useState<boolean>(false)
   // isMobile Determine whether the current viewport is the mobile terminal。
   const isMobile = useIsMobile()
   const showHover = showTouchHover || holdHover
   // Predictive hover dwell timer
   const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const imgRef = useRef<HTMLImageElement | null>(null)
   const isPriority = typeof index === "number" && index < 8
 
-  // Reset image source when data changes, but preserve imageLoaded if cached
+  // Reset image source and state when data changes
   useEffect(() => {
     setImageSrc(data.thumbnail || data.preview || data.key || null)
     setImageError(false)
-    if (data.photoId && loadedPhotoCache.has(data.photoId)) {
-      setImageLoaded(true)
-    }
+    setImageLoaded(false)
   }, [data.photoId, data.thumbnail, data.preview, data.key])
 
   const handleImageLoadSuccess = () => {
@@ -103,7 +101,7 @@ export const PhotoCard = memo(function PhotoCard({
     setImageLoaded(true)
   }
 
-  // Handle graceful image fallback
+  // Handle graceful image fallback across all media tiers
   function handleImageError() {
     if (imageSrc === data.thumbnail && data.preview && data.preview !== data.thumbnail) {
       setImageSrc(data.preview)
@@ -203,9 +201,6 @@ export const PhotoCard = memo(function PhotoCard({
 
   const cardHeight = Math.max(1, Math.round(width * ratio))
 
-  // Calibrated Responsive Sizes: Forces browser to select lightweight 480w thumbnail (saving 85% bandwidth)
-  const effectiveSizes = "(max-width: 640px) 50vw, (max-width: 1024px) 33vw, (max-width: 1536px) 25vw, 20vw"
-
   return (
     <div
       className="group relative overflow-hidden bg-muted houdini-smooth-card touch-press-feedback"
@@ -229,7 +224,7 @@ export const PhotoCard = memo(function PhotoCard({
           src={placeholder}
           alt=""
           className={[
-            "absolute inset-0 h-full w-full scale-110 blur-sm transition-opacity duration-200",
+            "absolute inset-0 h-full w-full scale-110 blur-sm transition-opacity duration-300",
             imageLoaded ? "opacity-0 pointer-events-none" : "opacity-100",
           ].join(" ")}
           aria-hidden
@@ -242,13 +237,13 @@ export const PhotoCard = memo(function PhotoCard({
         </div>
       ) : (
         <img
+          ref={(el) => {
+            imgRef.current = el
+            if (el && el.complete && el.naturalWidth > 0 && !imageLoaded) {
+              handleImageLoadSuccess()
+            }
+          }}
           src={imageSrc ?? undefined}
-          srcSet={
-            data.thumbnail && data.preview && data.thumbnail !== data.preview
-              ? `${data.thumbnail} 480w, ${data.preview} 1280w`
-              : undefined
-          }
-          sizes={effectiveSizes}
           loading={isPriority ? "eager" : "lazy"}
           fetchPriority={isPriority ? "high" : "auto"}
           decoding="async"
@@ -256,7 +251,8 @@ export const PhotoCard = memo(function PhotoCard({
           alt={data.name}
           draggable={false}
           className={[
-            "absolute inset-0 h-full w-full object-cover spring-zoom-img opacity-100",
+            "absolute inset-0 h-full w-full object-cover spring-zoom-img transition-opacity duration-300",
+            imageLoaded ? "opacity-100" : "opacity-0",
             selectionActive ? "" : "group-hover:scale-[1.035]",
             showHover && !selectionActive ? "scale-[1.035]" : "",
           ].join(" ")}
