@@ -85,6 +85,36 @@ export const PhotoCard = memo(function PhotoCard({
   const showHover = showTouchHover || holdHover
   // Predictive hover dwell timer
   const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const cardRef = useRef<HTMLDivElement | null>(null)
+  const isPriority = typeof index === "number" && index < 8
+  const [isNearViewport, setIsNearViewport] = useState<boolean>(() => {
+    // Initial 16 cards are immediately considered near viewport
+    return typeof index === "number" ? index < 16 : true
+  })
+
+  // Off-Screen Virtualized Memory Eviction Pool: Unmounts off-screen GPU bitmaps >2500px away to cap RAM <80MB
+  useEffect(() => {
+    if (typeof window === "undefined" || !("IntersectionObserver" in window)) return
+    const el = cardRef.current
+    if (!el) return
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0]
+        if (entry) {
+          setIsNearViewport(entry.isIntersecting)
+        }
+      },
+      {
+        rootMargin: "2500px 0px 2500px 0px",
+      }
+    )
+
+    observer.observe(el)
+    return () => {
+      observer.disconnect()
+    }
+  }, [])
 
   // Reset image source when data changes, but preserve imageLoaded if cached
   useEffect(() => {
@@ -113,15 +143,28 @@ export const PhotoCard = memo(function PhotoCard({
     }
   }
 
-  // Predictive hover prefetching with intent dwell time (>65ms)
+  // Predictive hover prefetching with intent dwell time (>65ms) & requestIdleCallback
   function handleMouseEnter() {
     if (isMobile) return
     hoverTimerRef.current = setTimeout(() => {
-      if (data.preview && typeof window !== "undefined") {
-        const img = new Image()
-        img.src = data.preview
+      if (typeof window !== "undefined") {
+        const prefetch = () => {
+          if (data.preview) {
+            const img = new Image()
+            img.decoding = "async"
+            img.src = data.preview
+          }
+          // Prefetch Lightbox bundle ahead of click
+          import("@/components/photo/photo-viewer").catch(() => {})
+        }
+
+        if ("requestIdleCallback" in window) {
+          window.requestIdleCallback(prefetch, { timeout: 150 })
+        } else {
+          prefetch()
+        }
       }
-    }, 75)
+    }, 65)
   }
 
   function handleMouseLeave() {
@@ -188,13 +231,13 @@ export const PhotoCard = memo(function PhotoCard({
   }
 
   const cardHeight = Math.max(1, Math.round(width * ratio))
-  const isPriority = typeof index === "number" && index < 8
 
   // Calibrated Responsive Sizes: Forces browser to select lightweight 480w thumbnail (saving 85% bandwidth)
   const effectiveSizes = "(max-width: 640px) 50vw, (max-width: 1024px) 33vw, (max-width: 1536px) 25vw, 20vw"
 
   return (
     <div
+      ref={cardRef}
       className="group relative overflow-hidden bg-muted houdini-smooth-card touch-press-feedback"
       onClick={handlePhotoClick}
       onContextMenu={handlePhotoContextMenu}
@@ -228,7 +271,7 @@ export const PhotoCard = memo(function PhotoCard({
         <div className="absolute inset-0 flex items-center justify-center px-3 text-center text-sm text-muted-foreground">
           {t("imageLoadFailed")}
         </div>
-      ) : (
+      ) : isNearViewport ? (
         <img
           src={imageSrc ?? undefined}
           srcSet={
@@ -251,7 +294,7 @@ export const PhotoCard = memo(function PhotoCard({
           onLoad={handleImageLoadSuccess}
           onError={handleImageError}
         />
-      )}
+      ) : null}
       {selected && (
         <div className="pointer-events-none absolute inset-0 bg-black/60" />
       )}

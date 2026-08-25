@@ -45,6 +45,13 @@ export function NavMain({
     prefetchedRoutes.add(url);
     try {
       router.prefetch(url);
+
+      // Speculative Dynamic Chunk Prefetching for heavy modules
+      if (url === "/map") {
+        import("@/components/map/photo-map-view").catch(() => {});
+      } else if (url === "/photos") {
+        import("@/components/photo/photo-viewer").catch(() => {});
+      }
     } catch {
       // Gracefully ignore prefetch error
     }

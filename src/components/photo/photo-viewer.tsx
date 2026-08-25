@@ -918,6 +918,35 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
     prevOpenRef.current = open
     prevIndexRef.current = index
   }, [open, index])
+
+  // Speculative Adjacent Photo HD Prefetcher via requestIdleCallback
+  useEffect(() => {
+    if (!open || typeof window === "undefined") return
+
+    const prefetchAdjacent = () => {
+      const nextPhoto = photos[viewIndex + 1]
+      const prevPhoto = photos[viewIndex - 1]
+
+      if (nextPhoto?.preview) {
+        const nextImg = new Image()
+        nextImg.decoding = "async"
+        nextImg.src = nextPhoto.preview
+      }
+      if (prevPhoto?.preview) {
+        const prevImg = new Image()
+        prevImg.decoding = "async"
+        prevImg.src = prevPhoto.preview
+      }
+    }
+
+    if ("requestIdleCallback" in window) {
+      const handle = window.requestIdleCallback(prefetchAdjacent, { timeout: 300 })
+      return () => window.cancelIdleCallback(handle)
+    } else {
+      const timer = setTimeout(prefetchAdjacent, 100)
+      return () => clearTimeout(timer)
+    }
+  }, [open, viewIndex, photos])
   // infoOpen Control whether the photo information sidebar on the right is expanded。
   const infoOpen = usePhotoStore((state) => state.infoOpen)
   // setInfoOpen Update information sidebar expansion status。
