@@ -557,6 +557,8 @@ erDiagram
 | 🟢 **RESOLVED** | Sub-Pixel Snap Grids for Retina Displays | `photo-masonry.tsx` & `globals.css` | CSS `round(nearest, 1px)` sub-pixel layout snapping eliminating 0.5px micro-gap artifacts. |
 | 🟢 **RESOLVED** | Dynamic 3D Parallax & Cursor Spotlight | `landing-client.tsx` & `globals.css` | Cursor spotlight glow, magnetic 3D perspective card tilt with glare, and mobile gyroscope parallax. |
 | 🟢 **RESOLVED** | Conic Aura Border Beam & Button Shimmer | `landing-client.tsx` & `globals.css` | Animated rotating conic border ray and interactive magnetic button light sweep. |
+| 🟢 **RESOLVED** | Dynamic Ambient Cinema Glow on Lightbox | `photo-viewer.tsx` | Apple Music/YouTube-style cross-dissolving radial ambient backlight bloom matching photo colors. |
+| 🟢 **RESOLVED** | Fluid Drag-to-Dismiss with Spring Physics | `photo-viewer.tsx` | Native iOS Photos downward swipe-to-dismiss gesture with fluid scaling, rotation, and spring exit. |
 | 🟢 **RESOLVED** | Magnetic Micro-Card Float on Map Hover | `photo-map-view.tsx` & `globals.css` | Instant spring-physics glassmorphism preview popover on marker hover with zero lag. |
 | 🟢 **RESOLVED** | Cinematic Fly-To Camera Gliding | `photo-map-view.tsx` | Smooth camera acceleration curve (`flyTo` duration 1.4s) between map spots and clusters. |
 | 🟢 **RESOLVED** | Adaptive Frosted Glass Header on Scroll | `photos/page.tsx` & `globals.css` | Transparent canvas at top seamlessly transitioning to `backdrop-blur-xl` frosted glass on scroll. |
@@ -583,6 +585,8 @@ erDiagram
 - **Off-Thread Geolocation Clustering**: Asynchronous background spatial clustering prevents UI frame drops when viewing thousands of pins.
 - **Cinematic Fly-To Camera Gliding**: GPU-composited Leaflet camera gliding with calibrated cubic easeLinearity for immersive map navigation.
 - **Magnetic Micro-Card Float on Marker Hover**: Instant hardware-accelerated preview popover on pin hover with zero main-thread layout recalculation.
+- **Dynamic Cinema Ambient Glow Mode**: 0-CPU ThumbHash spectral color bloom with GPU-composited radial blur and cross-dissolve transitions.
+- **Fluid Spring Drag-to-Dismiss Controller**: 120 FPS non-blocking gesture scaling and spring momentum curve (`cubic-bezier(0.34, 1.56, 0.64, 1)`).
 - **Dynamic Code Splitting**: Leaflet map bundle lazy-loaded on demand (`next/dynamic`) with animated skeleton placeholder.
 - **Zero-Flicker Layout (ThumbHash LRU Memoization)**: Compact binary placeholder bytes with dynamic memory LRU eviction (600 mobile, 1500 desktop) eliminate CLS.
 - **OffscreenCanvas Blur Hash Worker Pool**: Asynchronous decoding of placeholder hashes offloads CPU rasterization from the main UI thread.

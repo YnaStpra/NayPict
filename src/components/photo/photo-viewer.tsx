@@ -6,7 +6,7 @@ import { isImageSlide, type SlideImage, useController, useLightboxState } from "
 import Fullscreen from "yet-another-react-lightbox/plugins/fullscreen"
 import Thumbnails from "yet-another-react-lightbox/plugins/thumbnails"
 import Zoom from "yet-another-react-lightbox/plugins/zoom"
-import { ArrowLeftIcon, ChevronLeftIcon, ChevronRightIcon, CircleAlertIcon, CircleIcon, FolderIcon, FolderPlusIcon, LockIcon, Menu, LoaderCircleIcon, MaximizeIcon, MessageSquare, MinimizeIcon, PanelRightClose, PanelRightOpen, RotateCcwSquare, Share2Icon, Trash2Icon } from "lucide-react"
+import { ArrowLeftIcon, ChevronLeftIcon, ChevronRightIcon, CircleAlertIcon, CircleIcon, FolderIcon, FolderPlusIcon, LockIcon, Menu, LoaderCircleIcon, MaximizeIcon, MessageSquare, MinimizeIcon, PanelRightClose, PanelRightOpen, RotateCcwSquare, Share2Icon, Sparkles, Trash2Icon } from "lucide-react"
 import { toast } from "sonner"
 
 import { PhotoInfoSidebar, PhotoViewerBlurBackground, formatAlbumList } from "@/components/photo/photo-info-sidebar"
@@ -507,6 +507,82 @@ function InfoButton({
   )
 }
 
+// Render dynamic dominant-color ambient glow mode toggle button in toolbar.
+function AmbientGlowButton({
+  showActions,
+  active,
+  onToggle,
+}: {
+  showActions: boolean
+  active: boolean
+  onToggle: () => void
+}) {
+  const tap = useTapAction(onToggle)
+
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            type="button"
+            size="icon"
+            variant="secondary"
+            className={[
+              "rounded-full text-white transition-all duration-200",
+              active
+                ? "bg-amber-500/25 hover:bg-amber-500/35 text-amber-300 border border-amber-400/40 shadow-[0_0_14px_rgba(251,191,36,0.35)]"
+                : "bg-black/40 hover:bg-black/50 text-white",
+            ].join(" ")}
+            aria-label={active ? "Disable Cinema Ambient Glow" : "Enable Cinema Ambient Glow"}
+            {...tap}
+          >
+            <Sparkles className="size-4" />
+            <span className="sr-only">Toggle Cinema Ambient Glow</span>
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom">
+          <p>{active ? "Cinema Ambient Glow: ON (G)" : "Cinema Ambient Glow: OFF (G)"}</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  )
+}
+
+// Render full-screen dynamic dominant-color ambient backlight glow.
+function PhotoViewerAmbientGlow({
+  thumbHash,
+  visible = true,
+  dragOpacity = 1,
+}: {
+  thumbHash?: string | null
+  visible?: boolean
+  dragOpacity?: number
+}) {
+  const thumbHashUrl = useMemo(() => getThumbHashUrl(thumbHash), [thumbHash])
+
+  if (!thumbHashUrl || !visible) return null
+
+  return (
+    <div
+      className="fixed inset-0 z-[-5] pointer-events-none select-none flex items-center justify-center overflow-hidden transition-opacity duration-300"
+      style={{ opacity: dragOpacity }}
+    >
+      <img
+        src={thumbHashUrl}
+        alt=""
+        className="w-[85vw] h-[85vh] max-w-[1400px] max-h-[1000px] rounded-full blur-[80px] md:blur-[140px] opacity-65 dark:opacity-75 scale-125 object-cover pointer-events-none transition-all duration-700 ease-out"
+        aria-hidden
+      />
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          background: "radial-gradient(circle at 50% 50%, transparent 25%, rgba(0,0,0,0.85) 85%)",
+        }}
+      />
+    </div>
+  )
+}
+
 // Render spin button.
 function RotateButton({ showActions, onRotate }: { showActions: boolean, onRotate: (photoId: string) => void }) {
   const { currentSlide } = useLightboxState()
@@ -864,6 +940,13 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
   const [fullscreenOpen, setFullscreenOpen] = useState(false)
   // Whether cinematic presentation mode is currently active.
   const [isCinematicMode, setIsCinematicMode] = useState(false)
+  // Dynamic Cinema Ambient Glow mode state (default true).
+  const [ambientGlow, setAmbientGlow] = useState(true)
+  // Drag-to-dismiss gesture state
+  const [dragOffset, setDragOffset] = useState<{ x: number; y: number } | null>(null)
+  const [isDismissing, setIsDismissing] = useState(false)
+  const dragPointerStartRef = useRef<{ x: number; y: number; time: number } | null>(null)
+  const isDraggingRef = useRef(false)
   // Controls UI idle visibility in cinematic mode.
   const [isIdleHidden, setIsIdleHidden] = useState(false)
   const controlsVisible = !isCinematicMode || !isIdleHidden
@@ -936,7 +1019,7 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
     }
   }, [])
 
-  // Bind keyboard shortcut F (toggle cinematic) and Esc (exit cinematic mode first).
+  // Bind keyboard shortcut F (cinematic), G (ambient glow), and Esc (exit cinematic mode).
   useEffect(() => {
     if (!open) return
 
@@ -954,6 +1037,9 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
       if (event.key === "f" || event.key === "F") {
         event.preventDefault()
         toggleCinematicMode()
+      } else if (event.key === "g" || event.key === "G") {
+        event.preventDefault()
+        setAmbientGlow((prev) => !prev)
       } else if (event.key === "Escape" && isCinematicMode) {
         event.preventDefault()
         event.stopPropagation()
@@ -1194,36 +1280,72 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
     setShowActions(true)
   }
 
-  // Record slide Coordinates when pressed。
+  // Record slide coordinates and begin tracking fluid drag-to-dismiss gesture.
   function handleSlidePointerDown(event: React.PointerEvent<HTMLDivElement>) {
-    slidePointerStartRef.current = { x: event.clientX, y: event.clientY }
+    if (zoomLevel > 1) return
+    dragPointerStartRef.current = { x: event.clientX, y: event.clientY, time: Date.now() }
+    isDraggingRef.current = false
   }
 
-  // If the displacement is very small when lifting, it will be regarded as a click.，Toggle action button；Not processed when dragging to switch photos。
+  // Track pointer movement and calculate fluid scaled drag-to-dismiss displacement.
+  function handleSlidePointerMove(event: React.PointerEvent<HTMLDivElement>) {
+    if (!dragPointerStartRef.current || zoomLevel > 1 || isDismissing) return
+
+    const dx = event.clientX - dragPointerStartRef.current.x
+    const dy = event.clientY - dragPointerStartRef.current.y
+
+    // Trigger drag-to-dismiss only on deliberate downward gesture
+    if (!isDraggingRef.current) {
+      if (dy > 8 && Math.abs(dy) > Math.abs(dx) * 1.1) {
+        isDraggingRef.current = true
+      } else {
+        return
+      }
+    }
+
+    if (isDraggingRef.current) {
+      const dampedY = dy > 0 ? dy : dy * 0.2
+      setDragOffset({ x: dx, y: dampedY })
+    }
+  }
+
+  // Handle pointer release: Dismiss with fluid spring momentum or snap back to center.
   function handleSlidePointerUp(event: React.PointerEvent<HTMLDivElement>) {
-    if (zoomLevel > 1) {
-      slidePointerStartRef.current = null
-      return
-    }
+    const start = dragPointerStartRef.current
+    dragPointerStartRef.current = null
 
-    const start = slidePointerStartRef.current
-    slidePointerStartRef.current = null
-    if (!start) {
-      return
-    }
+    if (!start) return
 
-    const dx = Math.abs(event.clientX - start.x)
-    const dy = Math.abs(event.clientY - start.y)
-    if (dx > 10 || dy > 10) {
-      return
-    }
+    const dx = event.clientX - start.x
+    const dy = event.clientY - start.y
+    const dt = Math.max(1, Date.now() - start.time)
+    const velocity = dy / dt
 
-    setShowActions((prev) => !prev)
+    if (isDraggingRef.current && (dy > 120 || (dy > 60 && velocity > 0.55))) {
+      // Dismiss photo with fluid spring exit animation
+      setIsDismissing(true)
+      setTimeout(() => {
+        setIsDismissing(false)
+        setDragOffset(null)
+        closeViewer()
+      }, 240)
+    } else {
+      // Snap back to center with spring curve
+      setDragOffset(null)
+      isDraggingRef.current = false
+
+      // Toggle action buttons on simple click/tap
+      if (Math.abs(dx) < 8 && Math.abs(dy) < 8 && zoomLevel <= 1) {
+        setShowActions((prev) => !prev)
+      }
+    }
   }
 
-  // Cancel pointer clear the starting coordinates。
+  // Cancel pointer: smoothly restore center position.
   function handleSlidePointerCancel() {
-    slidePointerStartRef.current = null
+    dragPointerStartRef.current = null
+    isDraggingRef.current = false
+    setDragOffset(null)
   }
 
   // based on photos id Rotate the corresponding photo clockwise 90 Spend。
@@ -1333,87 +1455,107 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
         render={{
           buttonPrev: () => <PrevButton key="prev" showActions={actionsVisible} />,
           buttonNext: () => <NextButton key="next" showActions={actionsVisible} />,
-          controls: () => (
-            <>
-              {infoOpen && !fullscreenOpen && !isCinematicMode && (
-                <PhotoViewerBlurBackground thumbHash={photos[viewIndex]?.thumbHash} />
-              )}
-              {infoOpen && !fullscreenOpen && !isCinematicMode && (
-                <PhotoInfoSidebar
-                  photo={photos[viewIndex] ?? null}
-                  activeTab={infoTab}
-                  onTabChange={setInfoTab}
-                  onClose={() => setInfoOpen(false)}
-                  onPhotoUpdate={onPhotoUpdate}
-                  onAlbumOpen={onAlbumOpen ? (photoId) => onAlbumOpen([photoId]) : undefined}
-                  onInsightsOpen={isAdmin ? (photoId) => {
-                    setInsightsPhotoId(photoId)
-                    setInsightsDialogOpen(true)
-                  } : undefined}
+          controls: () => {
+            const currentDragY = dragOffset?.y ?? 0
+            const dragBackdropOpacity = dragOffset
+              ? Math.max(0.2, 1 - currentDragY / 450)
+              : isDismissing
+              ? 0
+              : 1
+
+            return (
+              <>
+                {/* Dynamic Cinema Ambient Glow (Apple Music / YouTube Ambient Mode) */}
+                <PhotoViewerAmbientGlow
+                  thumbHash={photos[viewIndex]?.thumbHash}
+                  visible={ambientGlow && !fullscreenOpen}
+                  dragOpacity={dragBackdropOpacity}
                 />
-              )}
-              <CloseButton showActions={actionsVisible} />
-              {/* Right-side toolbar */}
-              <div
-                className={[
-                  "absolute top-2 right-2 md:top-3 md:right-4 z-40 flex items-center gap-1.5",
-                  getActionVisibleClass(actionsVisible),
-                ].join(" ")}
-              >
-                {!isCinematicMode && (
-                  <>
-                    {isAdmin && onPhotoDelete && (
-                      <DeleteButton showActions={actionsVisible} onDelete={onPhotoDelete} />
-                    )}
-                    {isAdmin && onAlbumOpen && (
-                      <AddToAlbumButton showActions={actionsVisible} onAlbumOpen={onAlbumOpen} />
-                    )}
-                    <LoadOriginalButton
-                      showActions={actionsVisible}
-                      originalPhoto={originalPhoto}
-                      getPhotoCache={getPhotoCache}
-                      onLoadOriginal={loadOriginalPhoto}
-                    />
-                    <RotateButton showActions={actionsVisible} onRotate={rotatePhoto} />
-                    <ShareButton showActions={actionsVisible} />
-                    <CommentsButton
-                      showActions={actionsVisible}
-                      open={infoOpen && infoTab === "comments"}
-                      onToggle={() => {
-                        if (infoOpen && infoTab === "comments") {
-                          setInfoOpen(false)
-                        } else {
-                          setInfoTab("comments")
-                          setInfoOpen(true)
-                        }
-                      }}
-                    />
-                    <InfoButton
-                      showActions={actionsVisible}
-                      open={infoOpen && infoTab === "info"}
-                      onToggle={() => {
-                        if (infoOpen && infoTab === "info") {
-                          setInfoOpen(false)
-                        } else {
-                          setInfoTab("info")
-                          setInfoOpen(true)
-                        }
-                      }}
-                    />
-                  </>
+                {infoOpen && !fullscreenOpen && !isCinematicMode && (
+                  <PhotoViewerBlurBackground thumbHash={photos[viewIndex]?.thumbHash} />
                 )}
-                <CinematicButton
-                  showActions={actionsVisible}
-                  isCinematicMode={isCinematicMode}
-                  onToggle={toggleCinematicMode}
-                />
-              </div>
-              {showOriginalProgress && !isCinematicMode && (
-                <OriginalProgressButton progress={originalProgress} error={originalError} />
-              )}
-              <AlbumOverlayBadge isCinematicMode={isCinematicMode} />
-            </>
-          ),
+                {infoOpen && !fullscreenOpen && !isCinematicMode && (
+                  <PhotoInfoSidebar
+                    photo={photos[viewIndex] ?? null}
+                    activeTab={infoTab}
+                    onTabChange={setInfoTab}
+                    onClose={() => setInfoOpen(false)}
+                    onPhotoUpdate={onPhotoUpdate}
+                    onAlbumOpen={onAlbumOpen ? (photoId) => onAlbumOpen([photoId]) : undefined}
+                    onInsightsOpen={isAdmin ? (photoId) => {
+                      setInsightsPhotoId(photoId)
+                      setInsightsDialogOpen(true)
+                    } : undefined}
+                  />
+                )}
+                <CloseButton showActions={actionsVisible} />
+                {/* Right-side toolbar */}
+                <div
+                  className={[
+                    "absolute top-2 right-2 md:top-3 md:right-4 z-40 flex items-center gap-1.5",
+                    getActionVisibleClass(actionsVisible),
+                  ].join(" ")}
+                >
+                  {!isCinematicMode && (
+                    <>
+                      {isAdmin && onPhotoDelete && (
+                        <DeleteButton showActions={actionsVisible} onDelete={onPhotoDelete} />
+                      )}
+                      {isAdmin && onAlbumOpen && (
+                        <AddToAlbumButton showActions={actionsVisible} onAlbumOpen={onAlbumOpen} />
+                      )}
+                      <LoadOriginalButton
+                        showActions={actionsVisible}
+                        originalPhoto={originalPhoto}
+                        getPhotoCache={getPhotoCache}
+                        onLoadOriginal={loadOriginalPhoto}
+                      />
+                      <RotateButton showActions={actionsVisible} onRotate={rotatePhoto} />
+                      <ShareButton showActions={actionsVisible} />
+                      <CommentsButton
+                        showActions={actionsVisible}
+                        open={infoOpen && infoTab === "comments"}
+                        onToggle={() => {
+                          if (infoOpen && infoTab === "comments") {
+                            setInfoOpen(false)
+                          } else {
+                            setInfoTab("comments")
+                            setInfoOpen(true)
+                          }
+                        }}
+                      />
+                      <InfoButton
+                        showActions={actionsVisible}
+                        open={infoOpen && infoTab === "info"}
+                        onToggle={() => {
+                          if (infoOpen && infoTab === "info") {
+                            setInfoOpen(false)
+                          } else {
+                            setInfoTab("info")
+                            setInfoOpen(true)
+                          }
+                        }}
+                      />
+                      <AmbientGlowButton
+                        showActions={actionsVisible}
+                        active={ambientGlow}
+                        onToggle={() => setAmbientGlow((prev) => !prev)}
+                      />
+                    </>
+                  )}
+                  <CinematicButton
+                    showActions={actionsVisible}
+                    isCinematicMode={isCinematicMode}
+                    onToggle={toggleCinematicMode}
+                  />
+                </div>
+                {showOriginalProgress && !isCinematicMode && (
+                  <OriginalProgressButton progress={originalProgress} error={originalError} />
+                )}
+                <AlbumOverlayBadge isCinematicMode={isCinematicMode} />
+              </>
+            )
+          },
           buttonFullscreen: () => null,
           buttonZoom: () => null,
           slide: ({ slide }) => {
@@ -1422,13 +1564,35 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
             }
 
             const photoSlide = slide as PhotoSlide
+            const currentDragY = dragOffset?.y ?? 0
+            const currentDragX = dragOffset?.x ?? 0
+            const dragScale = dragOffset ? Math.max(0.72, 1 - currentDragY / 1000) : 1
+            const dragRotate = dragOffset ? currentDragX * 0.02 : 0
+
+            const slideTransformStyle: CSSProperties = isDismissing
+              ? {
+                  transform: "translate3d(0, 110vh, 0) scale(0.75)",
+                  opacity: 0,
+                  transition: "transform 0.24s cubic-bezier(0.32, 0, 0.67, 0), opacity 0.24s ease-in",
+                }
+              : dragOffset
+              ? {
+                  transform: `translate3d(${currentDragX * 0.35}px, ${currentDragY}px, 0) scale(${dragScale}) rotate(${dragRotate}deg)`,
+                  transition: "none",
+                }
+              : {
+                  transform: "translate3d(0, 0, 0) scale(1) rotate(0deg)",
+                  transition: "transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1)",
+                }
 
             return (
               <div
-                className="relative flex h-full w-full items-center justify-center overflow-hidden p-2 md:p-4 pt-[env(safe-area-inset-top,8px)] pb-[env(safe-area-inset-bottom,8px)]"
+                className="relative flex h-full w-full items-center justify-center overflow-hidden p-2 md:p-4 pt-[env(safe-area-inset-top,8px)] pb-[env(safe-area-inset-bottom,8px)] touch-none select-none"
                 onPointerDown={handleSlidePointerDown}
+                onPointerMove={handleSlidePointerMove}
                 onPointerUp={handleSlidePointerUp}
                 onPointerCancel={handleSlidePointerCancel}
+                style={slideTransformStyle}
               >
                 {photoSlide.thumbHashUrl && (
                   <img
