@@ -374,7 +374,7 @@ const PhotoMasonry = memo(function PhotoMasonry({
           onSuccess={handleBatchEditSuccess}
         />
       )}
-      <div ref={wrapRef} className="w-full overflow-x-hidden masonry-grid-smooth">
+      <div ref={wrapRef} className="w-full overflow-x-hidden masonry-grid-smooth subpixel-snap-grid">
         <MasonryScroller
           className="outline-transparent"
           items={photos}

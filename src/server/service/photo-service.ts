@@ -51,10 +51,41 @@ import { FileTypeEnum } from '@/server/enums/file-enum';
 
 // This module handles business related to photo data query。
 
+// Zero-Roundtrip Fast-Path Query Cache for high-traffic public catalog queries (60s TTL)
+const publicFastPathCache = new Map<string, { data: PageVo<PhotoVo>; expires: number }>();
+
+function getFastPathCache(key: string): PageVo<PhotoVo> | null {
+  const entry = publicFastPathCache.get(key);
+  if (!entry) return null;
+  if (Date.now() > entry.expires) {
+    publicFastPathCache.delete(key);
+    return null;
+  }
+  return entry.data;
+}
+
+function setFastPathCache(key: string, data: PageVo<PhotoVo>, ttlSeconds = 60): void {
+  if (publicFastPathCache.size > 300) {
+    const oldestKey = publicFastPathCache.keys().next().value;
+    if (oldestKey) publicFastPathCache.delete(oldestKey);
+  }
+  publicFastPathCache.set(key, { data, expires: Date.now() + ttlSeconds * 1000 });
+}
+
+export function invalidatePhotoFastPathCache(): void {
+  publicFastPathCache.clear();
+}
+
 const photoService = {
 
   // Query photos by page (publicly for guests or user-specific for logged-in admin).
   async list(params: PhotoListBo, userId?: string): Promise<PageVo<PhotoVo>> {
+    // Fast-path edge cache check for unauthenticated public catalog queries
+    const cacheKey = !userId ? JSON.stringify(params) : null;
+    if (cacheKey) {
+      const cached = getFastPathCache(cacheKey);
+      if (cached) return cached;
+    }
 
     const size = params.size && params.size > 0 ? params.size : PHOTO_LIST_PAGE_SIZE;
     const status = params.status ?? PhotoStatusEnum.NORMAL;
@@ -219,10 +250,16 @@ const photoService = {
 
     const totalCount = Number(totalRow?.total ?? 0);
 
-    return {
+    const output: PageVo<PhotoVo> = {
       list: result,
       total: totalCount
     };
+
+    if (cacheKey) {
+      setFastPathCache(cacheKey, output, 60);
+    }
+
+    return output;
   },
 
   // Return all photo IDs in random order for client-side random pagination.
@@ -1111,6 +1148,8 @@ const photoService = {
         params.longitude !== undefined ? params.longitude : null
       );
     }
+
+    invalidatePhotoFastPathCache();
   },
 
   // Get the specified type of storage from the file list key.

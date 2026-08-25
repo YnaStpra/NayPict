@@ -25,8 +25,8 @@ function applyPublicCacheHeaders(c: Context, userId?: string) {
   if (userId) {
     c.header('Cache-Control', 'no-store, private');
   } else {
-    c.header('Cache-Control', 'public, max-age=15, s-maxage=60, stale-while-revalidate=300');
-    c.header('CDN-Cache-Control', 'public, s-maxage=60, stale-while-revalidate=300');
+    c.header('Cache-Control', 'public, max-age=30, s-maxage=60, stale-while-revalidate=86400, stale-if-error=604800');
+    c.header('CDN-Cache-Control', 'public, s-maxage=60, stale-while-revalidate=86400');
     c.header('Vary', 'Accept-Encoding, Cookie');
   }
 }
