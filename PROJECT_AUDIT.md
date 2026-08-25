@@ -557,6 +557,8 @@ erDiagram
 | 🟢 **RESOLVED** | Sub-Pixel Snap Grids for Retina Displays | `photo-masonry.tsx` & `globals.css` | CSS `round(nearest, 1px)` sub-pixel layout snapping eliminating 0.5px micro-gap artifacts. |
 | 🟢 **RESOLVED** | Dynamic 3D Parallax & Cursor Spotlight | `landing-client.tsx` & `globals.css` | Cursor spotlight glow, magnetic 3D perspective card tilt with glare, and mobile gyroscope parallax. |
 | 🟢 **RESOLVED** | Conic Aura Border Beam & Button Shimmer | `landing-client.tsx` & `globals.css` | Animated rotating conic border ray and interactive magnetic button light sweep. |
+| 🟢 **RESOLVED** | Magnetic Micro-Card Float on Map Hover | `photo-map-view.tsx` & `globals.css` | Instant spring-physics glassmorphism preview popover on marker hover with zero lag. |
+| 🟢 **RESOLVED** | Cinematic Fly-To Camera Gliding | `photo-map-view.tsx` | Smooth camera acceleration curve (`flyTo` duration 1.4s) between map spots and clusters. |
 | 🟢 **RESOLVED** | Adaptive Frosted Glass Header on Scroll | `photos/page.tsx` & `globals.css` | Transparent canvas at top seamlessly transitioning to `backdrop-blur-xl` frosted glass on scroll. |
 | 🟢 **RESOLVED** | Floating Explorer & Back-to-Top Capsule | `back-to-top-button.tsx` & `globals.css` | Apple Glassmorphism capsule with dynamic scroll percentage, spring pop-in, and 1-click smooth jump. |
 | 🟢 **RESOLVED** | Date-Grouped Masonry Grid & Sticky Headers | `photo-masonry.tsx` & `photos/page.tsx` | Shortest-column masonry grouped by date taken with sticky frosted date headers and location summaries. |
@@ -579,6 +581,8 @@ erDiagram
 - **Dynamic Map Cluster Resolution**: Zoom-adaptive pixel collision radius minimizes DOM nodes on zoomed-out world map views.
 - **2D KD-Tree Spatial Map Partitioning**: O(log N) KD-Tree spatial indexing off the UI thread provides instant pin collision resolution on worldwide maps.
 - **Off-Thread Geolocation Clustering**: Asynchronous background spatial clustering prevents UI frame drops when viewing thousands of pins.
+- **Cinematic Fly-To Camera Gliding**: GPU-composited Leaflet camera gliding with calibrated cubic easeLinearity for immersive map navigation.
+- **Magnetic Micro-Card Float on Marker Hover**: Instant hardware-accelerated preview popover on pin hover with zero main-thread layout recalculation.
 - **Dynamic Code Splitting**: Leaflet map bundle lazy-loaded on demand (`next/dynamic`) with animated skeleton placeholder.
 - **Zero-Flicker Layout (ThumbHash LRU Memoization)**: Compact binary placeholder bytes with dynamic memory LRU eviction (600 mobile, 1500 desktop) eliminate CLS.
 - **OffscreenCanvas Blur Hash Worker Pool**: Asynchronous decoding of placeholder hashes offloads CPU rasterization from the main UI thread.

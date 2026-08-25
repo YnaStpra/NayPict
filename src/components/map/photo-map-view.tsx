@@ -656,19 +656,52 @@ export default function PhotoMapView() {
 
       const marker = L.marker([cluster.latitude, cluster.longitude], { icon: customIcon })
 
+      // Magnetic Micro-Card Float on Hover (Instant Preview Popover)
+      const photoDate = topPhoto.takenTime ? formatRelativeTime(topPhoto.takenTime, locale) : ""
+      const photoName = topPhoto.name || "Photo"
+      const photoTitle = photoName.lastIndexOf('.') > 0 ? photoName.slice(0, photoName.lastIndexOf('.')) : photoName
+
+      marker.bindTooltip(
+        `
+        <div class="map-hover-card-content text-white text-left select-none pointer-events-none">
+          <div class="relative w-full h-24 rounded-lg overflow-hidden bg-neutral-900 mb-1.5 border border-white/10 shadow-inner">
+            ${
+              imgUrl
+                ? `<img src="${imgUrl}" alt="${photoTitle}" style="width: 100%; height: 100%; object-fit: cover; display: block;" loading="lazy" />`
+                : `<div class="w-full h-full flex items-center justify-center text-xs">📷</div>`
+            }
+            ${
+              count > 1
+                ? `<div class="absolute bottom-1 right-1 px-1.5 py-0.5 rounded-full bg-black/70 backdrop-blur-md text-[10px] font-bold text-white border border-white/20">✨ ${count} Photos</div>`
+                : ""
+            }
+          </div>
+          <div class="text-xs font-bold truncate text-white leading-tight">${photoTitle}</div>
+          ${photoDate ? `<div class="text-[10px] text-white/60 mt-0.5">${photoDate}</div>` : ""}
+        </div>
+      `,
+        {
+          className: "map-hover-card-tooltip",
+          direction: "top",
+          offset: [0, -48],
+          opacity: 1,
+        }
+      )
+
       // Marker click:
-      // If multi-location cluster at lower zoom -> zoom in and separate pins!
-      // If single spot or max zoom -> select spot and open preview card!
+      // If multi-location cluster at lower zoom -> cinematic fly-to zoom in and separate pins!
+      // If single spot or max zoom -> select spot and cinematic fly-to camera glide!
       marker.on("click", () => {
         if (cluster.isMultiLocation && map.getZoom() < 18) {
           const bounds = L.latLngBounds(cluster.spots.map((s) => [s.latitude, s.longitude]))
-          map.fitBounds(bounds, { padding: [80, 80], maxZoom: 18 })
+          map.flyToBounds(bounds, { padding: [80, 80], maxZoom: 18, duration: 1.4, easeLinearity: 0.25 })
         } else {
           const spotToSelect = cluster.spots[0]
           setSelectedCluster(spotToSelect)
           setActivePhotoIndex(0)
           map.flyTo([spotToSelect.latitude, spotToSelect.longitude], Math.max(map.getZoom(), 16), {
-            duration: 0.8,
+            duration: 1.4,
+            easeLinearity: 0.25,
           })
         }
       })
@@ -683,7 +716,7 @@ export default function PhotoMapView() {
       mapInstanceRef.current.fitBounds(bounds, { padding: [60, 60], maxZoom: 14 })
       hasFitBoundsInitialRef.current = true
     }
-  }, [mapReady, geoSpots, selectedCluster?.id])
+  }, [mapReady, geoSpots, selectedCluster?.id, locale])
 
   // Re-calculate screen clusters on map zoom/pan/ready/spots change
   useEffect(() => {
@@ -701,7 +734,7 @@ export default function PhotoMapView() {
     }
   }, [mapReady, renderMarkers])
 
-  // Center map on a specific photo from bottom carousel
+  // Center map on a specific photo from bottom carousel with Cinematic Fly-To Glide
   const handleFlyToPhoto = useCallback(
     (photo: PhotoVo) => {
       if (typeof photo.latitude !== "number" || typeof photo.longitude !== "number") return
@@ -716,7 +749,8 @@ export default function PhotoMapView() {
         const photoIdx = matchedSpot.photos.findIndex((p) => p.photoId === photo.photoId)
         setActivePhotoIndex(photoIdx >= 0 ? photoIdx : 0)
         mapInstanceRef.current?.flyTo([matchedSpot.latitude, matchedSpot.longitude], 17, {
-          duration: 1.2,
+          duration: 1.4,
+          easeLinearity: 0.25,
         })
       }
     },
@@ -1314,7 +1348,8 @@ export default function PhotoMapView() {
                           setSelectedCluster(spot)
                           setActivePhotoIndex(0)
                           mapInstanceRef.current?.flyTo([spot.latitude, spot.longitude], 17, {
-                            duration: 1.2,
+                            duration: 1.4,
+                            easeLinearity: 0.25,
                           })
                         }}
                         className={`group relative shrink-0 w-28 h-28 rounded-2xl overflow-hidden cursor-pointer border-2 transition-all duration-200 hover:scale-105 active:scale-95 bg-neutral-900 flex flex-col justify-between p-1.5 ${
@@ -1500,7 +1535,8 @@ export default function PhotoMapView() {
             setSelectedCluster(spot)
             setActivePhotoIndex(0)
             mapInstanceRef.current?.flyTo([spot.latitude, spot.longitude], 17, {
-              duration: 1.2,
+              duration: 1.4,
+              easeLinearity: 0.25,
             })
           }}
           onEditSpot={(spot) => {

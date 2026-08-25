@@ -517,6 +517,43 @@ body {
   z-index: 0;
 }
 
+/* Magnetic Micro-Card Float on Hover */
+@keyframes map-popover-spring {
+  0% {
+    opacity: 0;
+    transform: scale(0.85) translateY(8px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.leaflet-tooltip.map-hover-card-tooltip {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+.leaflet-tooltip.map-hover-card-tooltip::before {
+  display: none !important;
+}
+
+.map-hover-card-content {
+  animation: map-popover-spring 0.28s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  background: rgba(15, 15, 15, 0.88);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  box-shadow: 0 16px 40px -8px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(255, 255, 255, 0.08) inset;
+  border-radius: 1rem;
+  padding: 0.5rem;
+  width: 190px;
+  pointer-events: none;
+}
+
 /* ==========================================================================
    Photo Upload: Hologram Breathing Dropzone & Liquid Wave Progress Bar
    ========================================================================== */
