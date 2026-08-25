@@ -1,12 +1,13 @@
 "use client"
 
-import { memo, useEffect, useRef, useState, useLayoutEffect } from "react"
+import { memo, useEffect, useMemo, useRef, useState, useLayoutEffect } from "react"
 import { flushSync } from "react-dom"
 import {
   MasonryScroller,
   type Positioner,
   usePositioner,
 } from "masonic"
+import { Calendar, MapPin } from "lucide-react"
 
 import dynamic from "next/dynamic"
 import { useApp } from "@/app/provider"
@@ -23,6 +24,7 @@ const PhotoBatchEditDialog = dynamic(
 interface PhotoMasonryProps {
   photos: PhotoVo[]
   resetKey?: number
+  groupByDate?: boolean
   onReachBottom: () => void
   onPhotoOpen?: (index: number) => void
   onPhotoDelete?: (photoIds: string[]) => void
@@ -82,10 +84,41 @@ function syncPhotoPositioner(items: PhotoVo[], columnWidth: number, positioner: 
   }
 }
 
+// Parse and format photo date taken for clean section header grouping.
+function getPhotoDateKey(photo: PhotoVo): { dateKey: string; dateLabel: string } {
+  const timeStr = photo.takenTime || photo.createTime
+  if (!timeStr) {
+    return { dateKey: "undated", dateLabel: "Undated Photos" }
+  }
+  const d = new Date(timeStr)
+  if (isNaN(d.getTime())) {
+    return { dateKey: "undated", dateLabel: "Undated Photos" }
+  }
+
+  const now = new Date()
+  const isToday = d.toDateString() === now.toDateString()
+  const yesterday = new Date(now)
+  yesterday.setDate(yesterday.getDate() - 1)
+  const isYesterday = d.toDateString() === yesterday.toDateString()
+
+  const formattedDate = new Intl.DateTimeFormat("en-US", {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  }).format(d)
+
+  const dateLabel = isToday ? `Today • ${formattedDate}` : isYesterday ? `Yesterday • ${formattedDate}` : formattedDate
+  const dateKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
+
+  return { dateKey, dateLabel }
+}
+
 // Render photo waterfall, and notify parent component to load more when reaching bottom.
 const PhotoMasonry = memo(function PhotoMasonry({
   photos,
   resetKey = 0,
+  groupByDate = false,
   onReachBottom,
   onPhotoOpen,
   onPhotoDelete,
@@ -119,6 +152,58 @@ const PhotoMasonry = memo(function PhotoMasonry({
 
   syncPhotoPositioner(photos, positioner.columnWidth, positioner)
   const visibleSelectedPhotoIds = selectedPhotoIds.filter((photoId) => photos.some((photo) => photo.photoId === photoId))
+
+  // Group photos by date taken if enabled
+  const dateGroups = useMemo(() => {
+    if (!groupByDate) return null
+
+    const groups: {
+      dateKey: string
+      dateLabel: string
+      items: { photo: PhotoVo; globalIndex: number }[]
+      locationSummary?: string
+    }[] = []
+
+    const groupMap = new Map<string, typeof groups[0]>()
+
+    photos.forEach((photo, globalIndex) => {
+      const { dateKey, dateLabel } = getPhotoDateKey(photo)
+      let group = groupMap.get(dateKey)
+      if (!group) {
+        group = {
+          dateKey,
+          dateLabel,
+          items: [],
+        }
+        groupMap.set(dateKey, group)
+        groups.push(group)
+      }
+      group.items.push({ photo, globalIndex })
+    })
+
+    // Compute album / geotag summary for each date group if available
+    groups.forEach((g) => {
+      const albumNames = Array.from(
+        new Set(
+          g.items
+            .flatMap(({ photo }) => photo.albums?.map((a) => a.name) || [])
+            .filter(Boolean)
+        )
+      )
+      if (albumNames.length > 0) {
+        g.locationSummary = albumNames.slice(0, 2).join(", ")
+      } else {
+        const hasGeotag = g.items.some(
+          ({ photo }) => typeof photo.latitude === "number" && !isNaN(photo.latitude)
+        )
+        if (hasGeotag) {
+          g.locationSummary = "Geotagged"
+        }
+      }
+    })
+
+    return groups
+  }, [photos, groupByDate])
 
 
   useEffect(() => {
@@ -375,26 +460,101 @@ const PhotoMasonry = memo(function PhotoMasonry({
         />
       )}
       <div ref={wrapRef} className="w-full overflow-x-hidden masonry-grid-smooth subpixel-snap-grid">
-        <MasonryScroller
-          className="outline-transparent"
-          items={photos}
-          positioner={positioner}
-          offset={wrapPosition.offset}
-          height={windowHeight}
-          itemKey={(item) => item.photoId}
-          overscanBy={3}
-          render={(props) => (
-            <PhotoCard
-              {...props}
-              selected={visibleSelectedPhotoIds.includes(props.data.photoId)}
-              selectionActive={visibleSelectedPhotoIds.length > 0}
-              onOpen={() => onPhotoOpen?.(props.index)}
-              onSelectedChange={changePhotoSelected}
-              onPhotoPin={onPhotoPin}
-              touchHoverCloseRef={touchHoverCloseRef}
-            />
-          )}
-        />
+        {groupByDate && dateGroups ? (
+          <div className="space-y-6 pb-6">
+            {dateGroups.map((group) => {
+              const numCols = Math.max(1, Math.floor((width + 4) / (columnWidth + 4)))
+              const cols: { photo: PhotoVo; globalIndex: number; height: number }[][] = Array.from(
+                { length: numCols },
+                () => []
+              )
+              const colHeights = new Array(numCols).fill(0)
+
+              group.items.forEach(({ photo, globalIndex }) => {
+                const ratio = photo.width && photo.height ? photo.height / photo.width : 1
+                const h = Math.max(1, Math.round(columnWidth * ratio))
+                let minCol = 0
+                for (let c = 1; c < numCols; c++) {
+                  if (colHeights[c] < colHeights[minCol]) {
+                    minCol = c
+                  }
+                }
+                cols[minCol].push({ photo, globalIndex, height: h })
+                colHeights[minCol] += h + 4
+              })
+
+              return (
+                <section key={group.dateKey} className="space-y-2">
+                  {/* Sticky Frosted Date Header with Calendar & Location summary */}
+                  <div className="sticky top-12 z-20 flex items-center justify-between py-2 px-3 backdrop-blur-xl bg-background/85 dark:bg-neutral-950/85 rounded-xl border border-border/50 shadow-2xs">
+                    <div className="flex items-center gap-2">
+                      <div className="flex size-6 items-center justify-center rounded-md bg-primary/10 text-primary">
+                        <Calendar className="size-3.5" />
+                      </div>
+                      <span className="text-xs sm:text-sm font-bold text-foreground">{group.dateLabel}</span>
+                      <span className="text-[11px] font-semibold text-muted-foreground px-2 py-0.5 rounded-full bg-muted border border-border/40">
+                        {group.items.length} {group.items.length === 1 ? "photo" : "photos"}
+                      </span>
+                    </div>
+                    {group.locationSummary && (
+                      <div className="hidden sm:flex items-center gap-1 text-[11px] font-medium text-muted-foreground">
+                        <MapPin className="size-3 text-primary/80" />
+                        <span>{group.locationSummary}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Responsive Masonry Grid for this date */}
+                  <div className="flex gap-1">
+                    {cols.map((colItems, colIdx) => (
+                      <div
+                        key={colIdx}
+                        className="flex flex-col gap-1 flex-1"
+                        style={{ maxWidth: `${columnWidth}px` }}
+                      >
+                        {colItems.map(({ photo, globalIndex }) => (
+                          <PhotoCard
+                            key={photo.photoId}
+                            data={photo}
+                            index={globalIndex}
+                            width={columnWidth}
+                            selected={visibleSelectedPhotoIds.includes(photo.photoId)}
+                            selectionActive={visibleSelectedPhotoIds.length > 0}
+                            onOpen={() => onPhotoOpen?.(globalIndex)}
+                            onSelectedChange={changePhotoSelected}
+                            onPhotoPin={onPhotoPin}
+                            touchHoverCloseRef={touchHoverCloseRef}
+                          />
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              )
+            })}
+          </div>
+        ) : (
+          <MasonryScroller
+            className="outline-transparent"
+            items={photos}
+            positioner={positioner}
+            offset={wrapPosition.offset}
+            height={windowHeight}
+            itemKey={(item) => item.photoId}
+            overscanBy={3}
+            render={(props) => (
+              <PhotoCard
+                {...props}
+                selected={visibleSelectedPhotoIds.includes(props.data.photoId)}
+                selectionActive={visibleSelectedPhotoIds.length > 0}
+                onOpen={() => onPhotoOpen?.(props.index)}
+                onSelectedChange={changePhotoSelected}
+                onPhotoPin={onPhotoPin}
+                touchHoverCloseRef={touchHoverCloseRef}
+              />
+            )}
+          />
+        )}
       </div>
     </>
   )

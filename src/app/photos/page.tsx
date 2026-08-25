@@ -26,7 +26,7 @@ import { removePhotoIdFromUrl } from "@/lib/url"
 import { albumAddPhoto, albumRemovePhoto } from "@/request/album"
 import { usePhotoStore } from "@/store/photo-store"
 import { useAlbumStore } from "@/store/album-store"
-import { ArrowUpDown, ChevronDown, ImageIcon, LayoutGrid, Plus, Sparkles } from "lucide-react"
+import { ArrowUpDown, CalendarDays, ChevronDown, ImageIcon, LayoutGrid, Plus, Sparkles } from "lucide-react"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -91,6 +91,25 @@ export default function Page() {
   const isBrowser = useSyncExternalStore(emptySubscribe, () => true, () => false)
   const [viewMode, setViewMode] = useState<"masonry" | "infinite">("masonry")
   const [sortKey, setSortKey] = useState<SortOptionKey>("none")
+  const [groupByDate, setGroupByDate] = useState<boolean>(true)
+  const [isScrolled, setIsScrolled] = useState<boolean>(false)
+
+  // Passive scroll listener for Adaptive Frosted Header
+  useEffect(() => {
+    let ticking = false
+    const onScroll = () => {
+      if (!ticking) {
+        window.requestAnimationFrame(() => {
+          setIsScrolled(window.scrollY > 20)
+          ticking = false
+        })
+        ticking = true
+      }
+    }
+    window.addEventListener("scroll", onScroll, { passive: true })
+    onScroll()
+    return () => window.removeEventListener("scroll", onScroll)
+  }, [])
 
   const {
     photos,
@@ -291,7 +310,12 @@ export default function Page() {
         <AppSidebar />
         <SidebarInset className="min-w-0 max-w-full">
           <header
-            className="sticky top-0 z-30 flex h-12 shrink-0 items-center justify-between gap-2 bg-background/95 backdrop-blur-md border-b transition-[width,height] ease-linear">
+            className={`sticky top-0 z-30 flex h-12 shrink-0 items-center justify-between gap-2 transition-all duration-300 ${
+              isScrolled
+                ? "bg-background/80 backdrop-blur-xl border-b border-border/60 shadow-xs"
+                : "bg-transparent border-b border-transparent"
+            }`}
+          >
             <div className="flex min-w-0 items-center gap-2 px-4">
               <SidebarTrigger className="-ml-1" />
               <Separator
@@ -340,6 +364,32 @@ export default function Page() {
                 <ImageIcon className="size-3.5 text-primary" />
                 <span>{totalCount}</span>
               </div>
+
+              {/* Group Photos by Date Taken Toggle */}
+              {viewMode === "masonry" && (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        type="button"
+                        variant={groupByDate ? "secondary" : "ghost"}
+                        size="icon"
+                        className={`size-8 rounded-lg transition-all duration-200 cursor-pointer ${
+                          groupByDate
+                            ? "bg-primary/15 text-primary border border-primary/20 shadow-2xs"
+                            : "text-muted-foreground hover:text-foreground"
+                        }`}
+                        onClick={() => setGroupByDate((prev) => !prev)}
+                      >
+                        <CalendarDays className="size-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom">
+                      {groupByDate ? "Grouped by Date Taken (Click to flatten)" : "Group Photos by Date Taken"}
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
 
               {/* Sort By Dropdown Menu */}
               <DropdownMenu>
@@ -415,6 +465,7 @@ export default function Page() {
                   <PhotoMasonry
                     photos={photos}
                     resetKey={masonryKey}
+                    groupByDate={groupByDate}
                     onReachBottom={loadMorePhotos}
                     onPhotoOpen={openPhoto}
                     onPhotoDelete={recyclePhotos}

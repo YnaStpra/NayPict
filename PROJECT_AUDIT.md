@@ -557,6 +557,9 @@ erDiagram
 | 🟢 **RESOLVED** | Sub-Pixel Snap Grids for Retina Displays | `photo-masonry.tsx` & `globals.css` | CSS `round(nearest, 1px)` sub-pixel layout snapping eliminating 0.5px micro-gap artifacts. |
 | 🟢 **RESOLVED** | Dynamic 3D Parallax & Cursor Spotlight | `landing-client.tsx` & `globals.css` | Cursor spotlight glow, magnetic 3D perspective card tilt with glare, and mobile gyroscope parallax. |
 | 🟢 **RESOLVED** | Conic Aura Border Beam & Button Shimmer | `landing-client.tsx` & `globals.css` | Animated rotating conic border ray and interactive magnetic button light sweep. |
+| 🟢 **RESOLVED** | Adaptive Frosted Glass Header on Scroll | `photos/page.tsx` & `globals.css` | Transparent canvas at top seamlessly transitioning to `backdrop-blur-xl` frosted glass on scroll. |
+| 🟢 **RESOLVED** | Floating Explorer & Back-to-Top Capsule | `back-to-top-button.tsx` & `globals.css` | Apple Glassmorphism capsule with dynamic scroll percentage, spring pop-in, and 1-click smooth jump. |
+| 🟢 **RESOLVED** | Date-Grouped Masonry Grid & Sticky Headers | `photo-masonry.tsx` & `photos/page.tsx` | Shortest-column masonry grouped by date taken with sticky frosted date headers and location summaries. |
 | 🟢 **RESOLVED** | Spring-Physics Micro Zoom & Card Stability | `photo-card.tsx`, `album-card.tsx`, `globals.css` | Natural spring-curve micro zoom (`scale(1.035)`) and zero-flicker solid card stability. |
 | 🟢 **RESOLVED** | Touch-Press Feedback & Elastic Badge Pop-In | `photo-card.tsx` & `globals.css` | Tactile `active:scale-[0.975]` touch response on mobile and elastic spring pop-in for Pinned/Checkbox badges. |
 | 🟢 **RESOLVED** | Cinematic Progressive De-Blur | `photo-card.tsx` & `globals.css` | Smooth focus-pull de-blur transition from ThumbHash to HD preview (`blur(6px)` -> `blur(0px)`). |
@@ -582,6 +585,9 @@ erDiagram
 - **Dynamic Layout Stability CSS Properties**: Inline `--aspect-ratio` and `--intrinsic-height` CSS custom properties guarantee zero layout shift ($CLS = 0.000$).
 - **Zero-Layout-Shift Skeleton Shimmer Worklet**: CSS Houdini Animation Worklet sweeps gradient highlights directly in compositor raster pipeline at 120 FPS.
 - **Hardware-Accelerated CSS Sub-Pixel Snap Grids**: CSS `round(nearest, 1px)` integer pixel quantization eliminates 0.5px rendering cracks on 3x Retina displays.
+- **Adaptive Frosted Glass Header on Scroll**: Compositor-only background and border transitions without re-rendering photo cards.
+- **Date-Grouped Shortest-Column Masonry**: Dynamic $O(N)$ shortest-column distribution per date section maintaining identical card widths and CLS = 0.000.
+- **Floating Glass Explorer Capsule**: Passive scroll calculation displaying real-time scroll completion percentage with instant smooth jump.
 - **Dynamic 3D Parallax & Cursor Spotlight**: Real-time cursor spotlight follower and perspective tilt with dynamic glare without DOM reflow.
 - **Conic Aura Border Beam & Button Shimmer**: GPU-interpolated rotating conic beam ray and interactive button light sweep.
 - **Mobile Dynamic Island Dock**: Bottom floating glass dock maximizing canvas touch area for single-thumb navigation.
