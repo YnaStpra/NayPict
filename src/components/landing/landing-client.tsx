@@ -4,7 +4,7 @@ import { useEffect, useState, useRef, useTransition, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
-import { Camera, FolderHeart, Image as ImageIcon, ArrowRight, Loader2, MapPin, Sparkles, Compass } from 'lucide-react'
+import { Camera, FolderHeart, Image as ImageIcon, ArrowRight, Loader2, MapPin, Compass } from 'lucide-react'
 import { type PhotoVo } from '@/server/entity/vo/photo'
 import { photoList } from '@/request/photo'
 
@@ -183,12 +183,6 @@ export function LandingClient({ initialPhotos }: LandingClientProps) {
                 background: `radial-gradient(400px circle at ${tilt.glareX}% ${tilt.glareY}%, rgba(255, 255, 255, 0.25), transparent 70%)`,
               }}
             />
-
-            {/* Top Pill: Live Stats Ticker */}
-            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/10 border border-white/15 backdrop-blur-md text-[11px] font-semibold text-white/90 tracking-wide shadow-sm">
-              <Sparkles className="size-3 text-amber-300 animate-pulse" />
-              <span>Infinite Visual Universe • 120 FPS</span>
-            </div>
 
             {/* Glowing Logo & Camera Icon */}
             <div className="relative">
