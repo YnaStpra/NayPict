@@ -450,27 +450,10 @@ body {
 }
 
 /* ==========================================================================
-   Masonry Grid: Staggered Fade-Up, Specular Sheen, Spring Zoom & Pop-In
+   Masonry Grid: Specular Sheen, Spring Zoom, Progressive De-Blur & Pop-In
    ========================================================================== */
 
-/* 1. Staggered Cascade Fade-Up */
-@keyframes masonry-fade-up {
-  0% {
-    opacity: 0;
-    transform: translate3d(0, 10px, 0);
-  }
-  100% {
-    opacity: 1;
-    transform: translate3d(0, 0, 0);
-  }
-}
-
-.masonry-card-cascade {
-  animation: masonry-fade-up 0.32s cubic-bezier(0.16, 1, 0.3, 1) both;
-  will-change: transform, opacity;
-}
-
-/* 2. Subtle Specular Sheen on Hover */
+/* 1. Subtle Specular Sheen on Hover */
 @keyframes specular-sheen {
   0% {
     transform: translateX(-150%) skewX(-25deg);
