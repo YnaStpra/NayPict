@@ -1,14 +1,27 @@
 // This module provides time parsing and display formatting methods。
 
-// Bundle ISO Or the database time string is parsed into Date。
-function parseTime(value: string) {
-  const date = new Date(value)
+// Bundle ISO Or the database time string is parsed into Date cleanly without day-shift bugs.
+function parseTime(value: string | null | undefined): Date | null {
+  if (!value) return null;
+  const text = String(value).trim();
+  if (!text) return null;
 
-  if (Number.isNaN(date.getTime())) {
-    return null
+  // Handle pure local date format "YYYY:MM:DD HH:MM:SS" or "YYYY-MM-DD HH:MM:SS" without timezone offset
+  const localMatch = text.match(/^(\d{4})[:\-](\d{2})[:\-](\d{2})(?:[T\s](\d{2}):(\d{2})(?::(\d{2}))?)?$/);
+  if (localMatch && !text.includes('Z') && !/[+-]\d{2}:\d{2}$/.test(text)) {
+    const [_, y, m, d, h, min, s] = localMatch;
+    const local = new Date(Number(y), Number(m) - 1, Number(d), Number(h || 0), Number(min || 0), Number(s || 0));
+    if (!Number.isNaN(local.getTime())) {
+      return local;
+    }
   }
 
-  return date
+  const date = new Date(text);
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+
+  return date;
 }
 
 // Parse ISO or database date string into timestamp accurately.

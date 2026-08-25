@@ -14,6 +14,7 @@ import { useIsMobile } from "@/hooks/use-mobile"
 import { PhotoCard } from "@/components/photo/photo-card"
 import { PhotoSelectionDrawer } from "@/components/photo/photo-selection-drawer"
 import { type PhotoVo } from "@/server/entity/vo/photo"
+import { parseTime } from "@/lib/date"
 
 const PhotoBatchEditDialog = dynamic(
   () => import("@/components/photo/photo-batch-edit-dialog").then((mod) => mod.PhotoBatchEditDialog),
@@ -89,8 +90,8 @@ function getPhotoDateKey(photo: PhotoVo): { dateKey: string; dateLabel: string }
   if (!timeStr) {
     return { dateKey: "undated", dateLabel: "Undated Photos" }
   }
-  const d = new Date(timeStr)
-  if (isNaN(d.getTime())) {
+  const d = parseTime(timeStr)
+  if (!d || isNaN(d.getTime())) {
     return { dateKey: "undated", dateLabel: "Undated Photos" }
   }
 

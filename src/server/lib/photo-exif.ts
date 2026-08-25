@@ -319,13 +319,37 @@ async function parseExifWithExifr(buffer: Buffer) {
 
     let takenTime: string | null = null
     const dateVal = rawTags.DateTimeOriginal || rawTags.CreateDate || rawTags.ModifyDate
+    const offsetVal = rawTags.OffsetTimeOriginal || rawTags.OffsetTime
+    const offsetStr = typeof offsetVal === 'string' && /^[+-]\d{2}:\d{2}$/.test(offsetVal.trim()) ? offsetVal.trim() : null
+
     if (dateVal instanceof Date && !isNaN(dateVal.getTime())) {
-      takenTime = dateVal.toISOString()
+      const year = dateVal.getUTCFullYear()
+      const month = String(dateVal.getUTCMonth() + 1).padStart(2, "0")
+      const day = String(dateVal.getUTCDate()).padStart(2, "0")
+      const hour = String(dateVal.getUTCHours()).padStart(2, "0")
+      const min = String(dateVal.getUTCMinutes()).padStart(2, "0")
+      const sec = String(dateVal.getUTCSeconds()).padStart(2, "0")
+
+      if (offsetStr) {
+        const d = new Date(`${year}-${month}-${day}T${hour}:${min}:${sec}${offsetStr}`)
+        if (!isNaN(d.getTime())) takenTime = d.toISOString()
+      } else {
+        // Construct wall-clock representation without timezone jumping
+        const d = new Date(`${year}-${month}-${day}T${hour}:${min}:${sec}Z`)
+        if (!isNaN(d.getTime())) takenTime = d.toISOString()
+      }
     } else if (typeof dateVal === "string") {
-      const normalized = dateVal.trim().replace(/^(\d{4}):(\d{2}):(\d{2})/, "$1-$2-$3")
-      const d = new Date(normalized)
-      if (!isNaN(d.getTime())) {
-        takenTime = d.toISOString()
+      const match = dateVal.trim().match(/^(\d{4})[:\-](\d{2})[:\-](\d{2})[T\s](\d{2}):(\d{2}):?(\d{2})?/)
+      if (match) {
+        const [_, year, month, day, hour, min, sec] = match
+        const second = sec || "00"
+        if (offsetStr) {
+          const d = new Date(`${year}-${month}-${day}T${hour}:${min}:${second}${offsetStr}`)
+          if (!isNaN(d.getTime())) takenTime = d.toISOString()
+        } else {
+          const d = new Date(`${year}-${month}-${day}T${hour}:${min}:${second}Z`)
+          if (!isNaN(d.getTime())) takenTime = d.toISOString()
+        }
       }
     }
 
