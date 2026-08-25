@@ -7,7 +7,6 @@ import {
   type Positioner,
   usePositioner,
 } from "masonic"
-import { Calendar, MapPin } from "lucide-react"
 
 import dynamic from "next/dynamic"
 import { useApp } from "@/app/provider"
@@ -161,7 +160,6 @@ const PhotoMasonry = memo(function PhotoMasonry({
       dateKey: string
       dateLabel: string
       items: { photo: PhotoVo; globalIndex: number }[]
-      locationSummary?: string
     }[] = []
 
     const groupMap = new Map<string, typeof groups[0]>()
@@ -179,27 +177,6 @@ const PhotoMasonry = memo(function PhotoMasonry({
         groups.push(group)
       }
       group.items.push({ photo, globalIndex })
-    })
-
-    // Compute album / geotag summary for each date group if available
-    groups.forEach((g) => {
-      const albumNames = Array.from(
-        new Set(
-          g.items
-            .flatMap(({ photo }) => photo.albums?.map((a) => a.name) || [])
-            .filter(Boolean)
-        )
-      )
-      if (albumNames.length > 0) {
-        g.locationSummary = albumNames.slice(0, 2).join(", ")
-      } else {
-        const hasGeotag = g.items.some(
-          ({ photo }) => typeof photo.latitude === "number" && !isNaN(photo.latitude)
-        )
-        if (hasGeotag) {
-          g.locationSummary = "Geotagged"
-        }
-      }
     })
 
     return groups
@@ -484,24 +461,15 @@ const PhotoMasonry = memo(function PhotoMasonry({
               })
 
               return (
-                <section key={group.dateKey} className="space-y-2">
-                  {/* Sticky Frosted Date Header with Calendar & Location summary */}
-                  <div className="sticky top-12 z-20 flex items-center justify-between py-2 px-3 backdrop-blur-xl bg-background/85 dark:bg-neutral-950/85 rounded-xl border border-border/50 shadow-2xs">
-                    <div className="flex items-center gap-2">
-                      <div className="flex size-6 items-center justify-center rounded-md bg-primary/10 text-primary">
-                        <Calendar className="size-3.5" />
-                      </div>
-                      <span className="text-xs sm:text-sm font-bold text-foreground">{group.dateLabel}</span>
-                      <span className="text-[11px] font-semibold text-muted-foreground px-2 py-0.5 rounded-full bg-muted border border-border/40">
-                        {group.items.length} {group.items.length === 1 ? "photo" : "photos"}
-                      </span>
-                    </div>
-                    {group.locationSummary && (
-                      <div className="hidden sm:flex items-center gap-1 text-[11px] font-medium text-muted-foreground">
-                        <MapPin className="size-3 text-primary/80" />
-                        <span>{group.locationSummary}</span>
-                      </div>
-                    )}
+                <section key={group.dateKey} className="space-y-2.5 pt-2">
+                  {/* Clean Date Header: Pure typography without overlapping sticky headers or geotag labels */}
+                  <div className="flex items-center justify-between py-1 px-1">
+                    <span className="text-sm sm:text-base font-bold text-foreground tracking-tight">
+                      {group.dateLabel}
+                    </span>
+                    <span className="text-[11px] font-semibold text-muted-foreground px-2 py-0.5 rounded-full bg-muted border border-border/40">
+                      {group.items.length} {group.items.length === 1 ? "photo" : "photos"}
+                    </span>
                   </div>
 
                   {/* Responsive Masonry Grid for this date */}
