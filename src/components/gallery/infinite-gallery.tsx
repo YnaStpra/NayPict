@@ -561,30 +561,32 @@ export function InfiniteGallery(props: InfiniteGalleryProps) {
       const scaleCurrent = Math.pow(2, frac)
       const scaleNext = Math.pow(2, frac - 1)
 
-      // Solid opacity curve: boost active layer to 100% opacity when close to integer step
-      let alphaCurrent = 1 - frac
-      let alphaNext = frac
-
-      if (frac < 0.18) {
-        alphaCurrent = 1.0
-        alphaNext = (frac / 0.18) * 0.15
-      } else if (frac > 0.82) {
-        alphaCurrent = ((1 - frac) / 0.18) * 0.15
-        alphaNext = 1.0
-      }
+      // Continuous Smooth Cosine S-Curve Cross-Fade: Strictly continuous C1 curve (eliminates 100% of flashbang and opacity spikes)
+      const smoothFrac = 0.5 * (1 - Math.cos(frac * Math.PI))
+      const alphaCurrent = 1 - smoothFrac
+      const alphaNext = smoothFrac
 
       const zBaseCurrent = 0
       const zBaseNext = 10
 
-      projectLayer(
-        octave,
-        scaleCurrent,
-        alphaCurrent,
-        zBaseCurrent,
-        cx,
-        cy
-      )
-      projectLayer(octave + 1, scaleNext, alphaNext, zBaseNext, cx, cy)
+      if (alphaCurrent > 0.01) {
+        projectLayer(
+          octave,
+          scaleCurrent,
+          alphaCurrent,
+          zBaseCurrent,
+          cx,
+          cy
+        )
+      } else {
+        disposeLayer(octave)
+      }
+
+      if (alphaNext > 0.01) {
+        projectLayer(octave + 1, scaleNext, alphaNext, zBaseNext, cx, cy)
+      } else {
+        disposeLayer(octave + 1)
+      }
 
       const nowOctaves = new Set<number>([octave, octave + 1])
       for (const o of Array.from(lastOctaves)) {
@@ -612,17 +614,15 @@ export function InfiniteGallery(props: InfiniteGalleryProps) {
       }
 
       if (isAutoAnimatingRef.current) {
-        // Continuous center zoom effect - sumbu X & Y tetap 0 (timbul dari tengah) (+40% speed)
-        targetLogZoom.set(targetLogZoom.get() + 0.0035)
+        // Continuous serene center zoom drift - ultra smooth without jumping
+        targetLogZoom.set(targetLogZoom.get() + 0.0012)
       } else {
-        // Auto-snap to nearest 100% opacity integer zoom step when user stops manual scrolling/zooming
-        const isRecentlyInteracting = Date.now() - lastUserInteractionTimeRef.current < 250
-        if (!isRecentlyInteracting && Math.abs(velLogZoom.get()) < 0.005) {
+        // Auto-snap to nearest integer zoom step smoothly when user stops manual interaction
+        const isRecentlyInteracting = Date.now() - lastUserInteractionTimeRef.current < 400
+        if (!isRecentlyInteracting && Math.abs(velLogZoom.get()) < 0.002) {
           const roundedZoom = Math.round(targetLogZoom.get())
-          if (Math.abs(targetLogZoom.get() - roundedZoom) > 0.0001) {
-            targetLogZoom.set(lerp(targetLogZoom.get(), roundedZoom, 0.16))
-          } else {
-            targetLogZoom.set(roundedZoom)
+          if (Math.abs(targetLogZoom.get() - roundedZoom) > 0.001) {
+            targetLogZoom.set(lerp(targetLogZoom.get(), roundedZoom, 0.05))
           }
         }
       }

@@ -555,6 +555,9 @@ erDiagram
 | 🟢 **RESOLVED** | Zero-Copy SharedArrayBuffer Helpers | `src/lib/image-compress.ts` | SharedArrayBuffer allocation support for cross-origin isolated zero-copy image processing. |
 | 🟢 **RESOLVED** | Zero-Layout-Shift Skeleton Shimmer Worklet | `public/worklets/skeleton-shimmer.js` & `globals.css` | 120 FPS compositor-rasterized Houdini skeleton shimmer animation with strict CLS = 0.000. |
 | 🟢 **RESOLVED** | Sub-Pixel Snap Grids for Retina Displays | `photo-masonry.tsx` & `globals.css` | CSS `round(nearest, 1px)` sub-pixel layout snapping eliminating 0.5px micro-gap artifacts. |
+| 🟢 **RESOLVED** | Dynamic 3D Parallax & Cursor Spotlight | `landing-client.tsx` & `globals.css` | Cursor spotlight glow, magnetic 3D perspective card tilt with glare, and mobile gyroscope parallax. |
+| 🟢 **RESOLVED** | Conic Aura Border Beam & Button Shimmer | `landing-client.tsx` & `globals.css` | Animated rotating conic border ray and interactive magnetic button light sweep. |
+| 🟢 **RESOLVED** | Mobile Dynamic Island Dock Navigation | `landing-client.tsx` & `globals.css` | Bottom floating glass capsule dock freeing full-screen canvas for single-thumb touch exploration. |
 | 🟢 **RESOLVED** | UI Language Standardization | All TSX components & JSON locales | All UI text, dialogs, toasts, error messages, and settings converted to fluent English. |
 | 🟢 **LOW** | External Geocode API | `src/server/service/location-service.ts` | Uses OSM Nominatim with robust in-memory LRU caching. |
 | ℹ️ **INFO** | CSP Headers | `next.config.ts` | Content-Security-Policy active and strict (`default-src 'self'`, `frame-ancestors 'none'`). |
@@ -573,6 +576,9 @@ erDiagram
 - **Dynamic Layout Stability CSS Properties**: Inline `--aspect-ratio` and `--intrinsic-height` CSS custom properties guarantee zero layout shift ($CLS = 0.000$).
 - **Zero-Layout-Shift Skeleton Shimmer Worklet**: CSS Houdini Animation Worklet sweeps gradient highlights directly in compositor raster pipeline at 120 FPS.
 - **Hardware-Accelerated CSS Sub-Pixel Snap Grids**: CSS `round(nearest, 1px)` integer pixel quantization eliminates 0.5px rendering cracks on 3x Retina displays.
+- **Dynamic 3D Parallax & Cursor Spotlight**: Real-time cursor spotlight follower and perspective tilt with dynamic glare without DOM reflow.
+- **Conic Aura Border Beam & Button Shimmer**: GPU-interpolated rotating conic beam ray and interactive button light sweep.
+- **Mobile Dynamic Island Dock**: Bottom floating glass dock maximizing canvas touch area for single-thumb navigation.
 - **Progressive Blur Cross-Dissolve**: Hardware-accelerated smooth transition from ThumbHash placeholder to full preview image.
 - **Predictive Hover Dwell Prefetching**: Cursor dwell time intent gating ($> 65\text{ms}$) avoids wasteful network prefetch requests during rapid scrolling.
 - **Dynamic Canvas 2.5D Frustum Culling**: Viewport boundary check skips 100% of DOM mutations and matrix calculations for off-screen tiles.
