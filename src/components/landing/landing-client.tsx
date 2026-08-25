@@ -27,7 +27,6 @@ export function LandingClient({ initialPhotos }: LandingClientProps) {
   const cardRef = useRef<HTMLDivElement>(null)
   const glareRef = useRef<HTMLDivElement>(null)
   const spotlightRef = useRef<HTMLDivElement>(null)
-  const canvasContainerRef = useRef<HTMLDivElement>(null)
   const rafTiltRef = useRef<number | null>(null)
 
   // Handle direct photo share URL redirect (e.g. /?photoId=123 -> /photos?photoId=123)
@@ -62,21 +61,6 @@ export function LandingClient({ initialPhotos }: LandingClientProps) {
         console.error('[Landing] Failed to fetch gallery photos:', err)
       })
   }, [initialPhotos])
-
-  // Gyroscope 3D Tilt Parallax on Mobile Devices
-  useEffect(() => {
-    if (typeof window === 'undefined' || !window.DeviceOrientationEvent) return
-
-    const handleOrientation = (e: DeviceOrientationEvent) => {
-      if (e.gamma === null || e.beta === null || !canvasContainerRef.current) return
-      const clampedGamma = Math.max(-25, Math.min(25, e.gamma)) / 25
-      const clampedBeta = Math.max(-25, Math.min(25, e.beta - 45)) / 25
-      canvasContainerRef.current.style.transform = `translate3d(${clampedGamma * 14}px, ${clampedBeta * 14}px, 0)`
-    }
-
-    window.addEventListener('deviceorientation', handleOrientation, { passive: true })
-    return () => window.removeEventListener('deviceorientation', handleOrientation)
-  }, [])
 
   // Zero-React-Rerender Hardware-Accelerated Spotlight & 3D Tilt Tracking
   const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
@@ -157,11 +141,8 @@ export function LandingClient({ initialPhotos }: LandingClientProps) {
         }}
       />
 
-      {/* Dynamic Infinite Canvas Background with Hardware Parallax */}
-      <div
-        ref={canvasContainerRef}
-        className="absolute inset-0 z-0 will-change-transform"
-      >
+      {/* Dynamic Infinite Canvas Background */}
+      <div className="absolute inset-0 z-0">
         <InfiniteGallery
           photos={displayPhotos}
           driftAmount={0.3}
