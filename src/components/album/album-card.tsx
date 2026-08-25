@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo } from "react"
+import { memo, useMemo } from "react"
 import { type RenderComponentProps } from "masonic"
 import Link from "next/link"
 
@@ -19,7 +19,7 @@ type AlbumCardProps = Partial<RenderComponentProps<AlbumVo>> & {
 }
 
 // Render a single album card in a virtual list.
-export function AlbumCard({ data, width, href, onRename, onTop, onDelete, onChangeCover }: AlbumCardProps) {
+export const AlbumCard = memo(function AlbumCard({ data, width, href, onRename, onTop, onDelete, onChangeCover }: AlbumCardProps) {
   const setCurrentAlbumName = useAlbumStore((state) => state.setCurrentAlbumName)
   const thumbnailSrc = data.thumbnail
   const placeholder = useMemo(() => getThumbHashUrl(data.thumbHash), [data.thumbHash])
@@ -131,4 +131,4 @@ export function AlbumCard({ data, width, href, onRename, onTop, onDelete, onChan
       )}
     </div>
   )
-}
+})

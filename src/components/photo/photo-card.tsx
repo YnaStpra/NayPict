@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useRef, useState, type MouseEvent } from "react"
+import { memo, useEffect, useMemo, useRef, useState, type MouseEvent } from "react"
 import { FolderIcon, PinIcon } from "lucide-react"
 import { type RenderComponentProps } from "masonic"
 import { useIsMobile } from "@/hooks/use-mobile"
@@ -27,6 +27,9 @@ type PhotoCardProps = RenderComponentProps<PhotoVo> & {
   touchHoverCloseRef?: TouchHoverCloseRef
 }
 
+// Global in-memory cache of loaded photo IDs to prevent flicker on pagination / re-render
+const loadedPhotoCache = new Set<string>()
+
 // Format photo file size.
 function formatPhotoSize(size: number) {
   if (size < 1024) {
@@ -48,7 +51,7 @@ function formatPhotoName(name: string) {
 }
 
 // Rendering a single photo card in a waterfall flow.
-export function PhotoCard({
+export const PhotoCard = memo(function PhotoCard({
   data,
   index,
   width,
@@ -74,20 +77,30 @@ export function PhotoCard({
   const [imageSrc, setImageSrc] = useState<string | null>(() => data.thumbnail || data.preview || data.key || null)
   // imageError Record whether all photo URLs failed to load.
   const [imageError, setImageError] = useState(false)
-  // Progressive blur transition state
-  const [imageLoaded, setImageLoaded] = useState(false)
+  // Progressive blur transition state (persisted across re-renders via global cache)
+  const isAlreadyLoaded = Boolean(data.photoId && loadedPhotoCache.has(data.photoId))
+  const [imageLoaded, setImageLoaded] = useState<boolean>(isAlreadyLoaded)
   // isMobile Determine whether the current viewport is the mobile terminal。
   const isMobile = useIsMobile()
   const showHover = showTouchHover || holdHover
   // Predictive hover dwell timer
   const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  // Reset image source when data changes
+  // Reset image source when data changes, but preserve imageLoaded if cached
   useEffect(() => {
     setImageSrc(data.thumbnail || data.preview || data.key || null)
     setImageError(false)
-    setImageLoaded(false)
-  }, [data.thumbnail, data.preview, data.key])
+    if (data.photoId && loadedPhotoCache.has(data.photoId)) {
+      setImageLoaded(true)
+    }
+  }, [data.photoId, data.thumbnail, data.preview, data.key])
+
+  const handleImageLoadSuccess = () => {
+    if (data.photoId) {
+      loadedPhotoCache.add(data.photoId)
+    }
+    setImageLoaded(true)
+  }
 
   // Handle graceful image fallback
   function handleImageError() {
@@ -211,8 +224,8 @@ export function PhotoCard({
           src={placeholder}
           alt=""
           className={[
-            "absolute inset-0 h-full w-full scale-110 blur-sm transition-all duration-400 ease-out",
-            imageLoaded ? "opacity-0 pointer-events-none scale-100" : "opacity-100",
+            "absolute inset-0 h-full w-full scale-110 blur-sm transition-opacity duration-300",
+            imageLoaded ? "opacity-0 pointer-events-none" : "opacity-100",
           ].join(" ")}
           aria-hidden
           draggable={false}
@@ -228,7 +241,7 @@ export function PhotoCard({
           srcSet={
             data.thumbnail && data.preview && data.thumbnail !== data.preview
               ? `${data.thumbnail} 480w, ${data.preview} 1280w`
-          : undefined
+              : undefined
           }
           sizes={effectiveSizes}
           loading="lazy"
@@ -237,12 +250,12 @@ export function PhotoCard({
           alt={data.name}
           draggable={false}
           className={[
-            "absolute inset-0 h-full w-full object-cover spring-zoom-img",
-            imageLoaded ? "opacity-100 filter-none" : "opacity-90 blur-[6px]",
+            "absolute inset-0 h-full w-full object-cover spring-zoom-img transition-opacity duration-300",
+            imageLoaded ? "opacity-100" : "opacity-0",
             selectionActive ? "" : "group-hover:scale-[1.035]",
             showHover && !selectionActive ? "scale-[1.035]" : "",
           ].join(" ")}
-          onLoad={() => setImageLoaded(true)}
+          onLoad={handleImageLoadSuccess}
           onError={handleImageError}
         />
       )}
@@ -362,4 +375,4 @@ export function PhotoCard({
       )}
     </div>
   )
-}
+})
