@@ -801,3 +801,90 @@ Berikut adalah **10 prioritas rekomendasi audit performa dan efisiensi khusus un
 ### 10. **Low-Power Mode & Battery Status Adaptive Framerate Scaling**
 - **Kondisi Saat Ini**: Animasi radar ping pada kluster peta dan transisi spring berjalan konstan.
 - **Rekomendasi**: Integrasikan Battery API (`navigator.getBattery()`) dan media query `prefers-reduced-motion` untuk menghentikan animasi latar belakang dan mengurangi denyut radar saat baterai perangkat pengunjung di bawah 20% atau dalam mode hemat daya.
+
+---
+
+## 19. TOP 20 PRIORITAS KEAMANAN & PERLINDUNGAN DATA (TOP 20 SECURITY & DATA PROTECTION PRIORITIES)
+
+Berikut adalah **20 prioritas rekomendasi audit keamanan dan perlindungan data** yang dirancang dan disesuaikan khusus untuk arsitektur galeri foto Pixtale / NayPict (Next.js 16 + Hono API + Drizzle ORM + Cloudflare R2 / S3 + Multi-Tier Visibility + EXIF/GPS Metadata + Komentar Publik):
+
+### 1. **Time-Limited Cryptographic Signed URLs untuk Direct Cloudflare R2 / S3 Media Delivery**
+- **Kondisi Saat Ini**: Foto asli (*Original RAW/JPEG*) dan preview diambil via proksi server `/media/{key}` atau direct link jika publik.
+- **Rekomendasi Teknis**: Implementasikan HMAC-SHA256 Presigned URLs dengan TTL ketat (15–60 menit) untuk setiap unduhan foto asli terproteksi (`photoFile.allowDownload === 1`), mencegah *hotlinking*, *bandwidth leeching*, dan *unauthorized URL sharing*.
+
+### 2. **Sharp & Image Processing Decompression Bomb (Pixel Flood / Zip Bomb) Defense**
+- **Kondisi Saat Ini**: Server memproses file gambar yang diunggah menggunakan Sharp (`sharp(buffer)`).
+- **Rekomendasi Teknis**: Pasang batasan limit eksplisit `limitInputPixels: 268402689` (maks ~16384x16384 px) dan buffer size checking sebelum proses decoding untuk mencegah eksploitasi *Image Decompression Bomb (Pixel Flood)* yang dapat melumpuhkan CPU dan memori server.
+
+### 3. **SSRF (Server-Side Request Forgery) Hardening pada Reverse Geocoding & Webhook**
+- **Kondisi Saat Ini**: Reverse geocoding memanggil OpenStreetMap Nominatim atau API pihak ketiga.
+- **Rekomendasi Teknis**: Terapkan validasi ketat URL tujuan, blokir jangkauan IP privat/internal (RFC 1918 `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, `127.0.0.1`, `169.254.169.254` AWS/Cloud metadata), serta gunakan *DNS resolution pinning* untuk mencegah *DNS Rebinding*.
+
+### 4. **Precision GPS Coordinate Masking & Sensitive Location Obfuscation**
+- **Kondisi Saat Ini**: Foto dengan koordinat GPS detail (hingga 6–8 desimal) dapat mengekspos lokasi rumah fotografer atau area privat secara presisi (<1 meter).
+- **Rekomendasi Teknis**: Tambahkan opsi privasi per-foto / global untuk membulatkan koordinat GPS (*fuzzy radius masking* ~500m) atau menghapus metadata lokasi pada foto privat sebelum metadata disajikan ke publik di Info Sidebar dan Map View.
+
+### 5. **Magic Bytes & Polyglot File Upload Validation**
+- **Kondisi Saat Ini**: Pengecekan tipe file foto mengandalkan ekstensi nama file dan header MIME type yang dikirim browser (`file.type`).
+- **Rekomendasi Teknis**: Validasi *magic bytes* header biner (`FF D8 FF` untuk JPEG, `89 50 4E 47` untuk PNG, `52 49 46 46...57 45 42 50` untuk WebP) di sisi server sebelum diproses, menolak *polyglot files* (misal skrip PHP/HTML yang disamarkan sebagai file gambar).
+
+### 6. **Distributed Rate Limiting & CAPTCHA Escalation pada Komentar Publik**
+- **Kondisi Saat Ini**: Endpoint komentar publik `/api/comment/create` dilindungi rate limiter dasar berbasis in-memory.
+- **Rekomendasi Teknis**: Terapkan *sliding-window rate limit* terdistribusi dengan Upstash Redis / Cloudflare Turnstile CAPTCHA saat mendeteksi lonjakan submit komentar (>5 komentar/menit per IP) untuk mencegah spam bot dan *database pollution*.
+
+### 7. **Cryptographic Session Invalidation on Privilege Escalation & Password Change**
+- **Kondisi Saat Ini**: Session token cookie dihapus saat logout normal di browser aktif.
+- **Rekomendasi Teknis**: Ketika admin mengubah kata sandi, mengaktifkan/menonaktifkan 2FA, atau mencurigai kebocoran akun, lakukan *global session revocation* seketika dengan meng-increment `token_version` pengguna di database sehingga semua cookie sesi lama di seluruh perangkat otomatis tidak valid.
+
+### 8. **Stored XSS Prevention pada EXIF Metadata & IPTC Tags**
+- **Kondisi Saat Ini**: Metadata kamera (Nama Model, Lensa, Copyright, User Comment, Artist) diekstrak dan dirender di Info Sidebar & Dialog.
+- **Rekomendasi Teknis**: Lakukan sanitasi ketat (*HTML entity encoding* & strict string stripping) pada semua string EXIF/IPTC sebelum disimpan ke database dan dirender ke DOM, mencegah serangan *Blind Stored XSS* melalui file foto yang disisipi payload skrip berbahaya.
+
+### 9. **Secret Key Rotation & Environment Variable Masking pada Telemetry / Logs**
+- **Kondisi Saat Ini**: Log error backend terkadang mencetak objek error bawaan yang berisiko memuat konfigurasi.
+- **Rekomendasi Teknis**: Terapkan sanitizer logger otomatis untuk menyensor (*redact*) nilai kunci rahasia (`JWT_SECRET`, `R2_SECRET_ACCESS_KEY`, `DATABASE_URL`, `SESSION_SECRET`) dari log error, telemetry, dan output API responses.
+
+### 10. **Insecure Direct Object Reference (IDOR) Protection pada Batch Operations & Hidden Albums**
+- **Kondisi Saat Ini**: Operasi batch edit (`/api/photo/batch-update`, `/api/album/delete`) memeriksa hak akses per-request.
+- **Rekomendasi Teknis**: Perkuat verifikasi kepemilikan dan hak akses (RBAC) pada setiap ID foto/album dalam array batch di level query ORM (`WHERE id IN (...) AND user_id = ...`) untuk mencegah manipulasi ID foto atau album privat milik user lain.
+
+### 11. **Strict Cross-Origin Resource Sharing (CORS) & Origin Reflection Hardening**
+- **Kondisi Saat Ini**: CORS middleware saat ini mengizinkan origin default.
+- **Rekomendasi Teknis**: Batasi whitelist origin secara eksplisit (`ALLOWED_ORIGINS` di env), tolak *origin reflection* (`Access-Control-Allow-Origin: *` pada rute otentikasi/admin), dan enforce `Access-Control-Allow-Credentials: true` hanya pada domain terpercaya.
+
+### 12. **Content Security Policy (CSP) Level 3 dengan Dynamic Nonce & Strict Trusted Types**
+- **Kondisi Saat Ini**: CSP header dikonfigurasi di `next.config.ts`.
+- **Rekomendasi Teknis**: Perkuat CSP dengan dynamic cryptographic nonce (`script-src 'nonce-...' 'strict-dynamic'`), blokir evaluasi `unsafe-eval` di lingkungan produksi, serta aktifkan `frame-ancestors 'none'` untuk mencegah *clickjacking* dan *iframe embedding*.
+
+### 13. **Immutable Audit Trail Logging dengan IP & User-Agent Signatures**
+- **Kondisi Saat Ini**: Aktivitas admin (upload, hapus permanen, ubah konfigurasi) dicatat di log aplikasi standar.
+- **Rekomendasi Teknis**: Buat tabel database `audit_logs` yang bersifat *append-only* (tidak dapat diubah/dihapus) untuk merekam setiap aksi administratif (login, hapus foto, ekspor data, konfigurasi storage) lengkap dengan timestamp UTC, IP, User-Agent, dan status perubahan.
+
+### 14. **Server-Side Download Protection & Anti-Scraping Token Verification**
+- **Kondisi Saat Ini**: Endpoint `/media/{key}` memverifikasi `allowDownload` flag pada foto original.
+- **Rekomendasi Teknis**: Tambahkan token anti-scraping terenkripsi (*ephemeral token*) dan proteksi *hotlink referer check* pada endpoint preview HD guna mencegah bot AI / web scraper mengunduh seluruh portofolio foto dalam hitungan detik.
+
+### 15. **Brute-Force & Credential Stuffing Mitigation dengan Adaptive Exponential Backoff**
+- **Kondisi Saat Ini**: Login gagal memicu delay dasar.
+- **Rekomendasi Teknis**: Terapkan *exponential backoff* progresif (1s, 2s, 4s, 8s, lock 15 menit) per IP & username setelah 5 kali percobaan gagal, disertai notifikasi email/webhook peringatan ke Admin saat terdeteksi serangan *credential stuffing*.
+
+### 16. **Cryptographic Shredding & Secure Storage Deletion (Zero-Remanence)**
+- **Kondisi Saat Ini**: Foto yang dihapus dari Trash menghapus record di database dan memanggil storage delete.
+- **Rekomendasi Teknis**: Enforce *double-check deletion verification* yang memastikan objek foto (asli, preview, thumbnail, hash) di Cloudflare R2 / S3 benar-benar terhapus tanpa meninggalkan *orphaned files* yang rentan diakses via direct link lama.
+
+### 17. **Subresource Integrity (SRI) & Third-Party Asset Hardening**
+- **Kondisi Saat Ini**: Tile map peta memanggil server OpenStreetMap / CartoDB / Google Maps.
+- **Rekomendasi Teknis**: Validasi integritas hash SRI (`integrity="sha384-..."`) untuk seluruh script/style eksternal dan batasi koneksi keluar (*connect-src*) hanya ke endpoint CDN dan penyedia peta terverifikasi.
+
+### 18. **Two-Factor Authentication (TOTP) Rate Limiting & Replay Attack Defense**
+- **Kondisi Saat Ini**: Verifikasi kode TOTP 2FA memvalidasi 6-digit token berbasis waktu 30 detik.
+- **Rekomendasi Teknis**: Catat token TOTP yang baru saja digunakan dalam cache sementara (TTL 60s) untuk menolak penggunaan ulang token yang sama (*replay attack*) dalam jendela waktu validitas yang sama.
+
+### 19. **SQL Injection Hardening pada Dynamic Filter Queries & Sorting Parameters**
+- **Kondisi Saat Ini**: Query database menggunakan Drizzle ORM type-safe queries.
+- **Rekomendasi Teknis**: Pastikan seluruh sorting dinamis (`sort_by`, `order_direction`), search text, dan filtering tanggal divalidasi via *strict enum whitelist validation* sebelum diteruskan ke SQL builder, mencegah injeksi raw SQL clause.
+
+### 20. **Zero-Trust API Route Guarding & Middleware Integrity Check**
+- **Kondisi Saat Ini**: Middleware otentikasi memeriksa cookie token di level Hono dan Next.js proxy.
+- **Rekomendasi Teknis**: Terapkan arsitektur *Defense-in-Depth* di mana validasi session token dilakukan ganda (baik di Edge Middleware Next.js maupun di dalam controller layer Hono), memastikan tidak ada rute API baru yang secara tidak sengaja terekspos tanpa proteksi otorisasi.
+
