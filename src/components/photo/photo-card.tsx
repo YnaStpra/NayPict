@@ -246,9 +246,6 @@ export function PhotoCard({
           onError={handleImageError}
         />
       )}
-      {/* Specular Sheen Light Reflection on Hover */}
-      <div className="photo-specular-sheen" />
-
       {selected && (
         <div className="pointer-events-none absolute inset-0 bg-black/60" />
       )}

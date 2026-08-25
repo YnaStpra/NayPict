@@ -557,7 +557,7 @@ erDiagram
 | 🟢 **RESOLVED** | Sub-Pixel Snap Grids for Retina Displays | `photo-masonry.tsx` & `globals.css` | CSS `round(nearest, 1px)` sub-pixel layout snapping eliminating 0.5px micro-gap artifacts. |
 | 🟢 **RESOLVED** | Dynamic 3D Parallax & Cursor Spotlight | `landing-client.tsx` & `globals.css` | Cursor spotlight glow, magnetic 3D perspective card tilt with glare, and mobile gyroscope parallax. |
 | 🟢 **RESOLVED** | Conic Aura Border Beam & Button Shimmer | `landing-client.tsx` & `globals.css` | Animated rotating conic border ray and interactive magnetic button light sweep. |
-| 🟢 **RESOLVED** | Subtle Specular Sheen & Spring-Physics Zoom | `photo-card.tsx`, `album-card.tsx`, `globals.css` | Diagonal specular sheen reflection on hover, spring-curve micro zoom (`scale(1.035)`), and zero-flicker card stability. |
+| 🟢 **RESOLVED** | Spring-Physics Micro Zoom & Card Stability | `photo-card.tsx`, `album-card.tsx`, `globals.css` | Natural spring-curve micro zoom (`scale(1.035)`) and zero-flicker solid card stability. |
 | 🟢 **RESOLVED** | Touch-Press Feedback & Elastic Badge Pop-In | `photo-card.tsx` & `globals.css` | Tactile `active:scale-[0.975]` touch response on mobile and elastic spring pop-in for Pinned/Checkbox badges. |
 | 🟢 **RESOLVED** | Cinematic Progressive De-Blur | `photo-card.tsx` & `globals.css` | Smooth focus-pull de-blur transition from ThumbHash to HD preview (`blur(6px)` -> `blur(0px)`). |
 | 🟢 **RESOLVED** | Spring EXIF Accordion & Lightbox Transitions | `photo-info-sidebar.tsx` & `globals.css` | Spring-physics drawer reveal for EXIF metadata with 0-lag panel transitions. |
@@ -585,7 +585,7 @@ erDiagram
 - **Dynamic 3D Parallax & Cursor Spotlight**: Real-time cursor spotlight follower and perspective tilt with dynamic glare without DOM reflow.
 - **Conic Aura Border Beam & Button Shimmer**: GPU-interpolated rotating conic beam ray and interactive button light sweep.
 - **Mobile Dynamic Island Dock**: Bottom floating glass dock maximizing canvas touch area for single-thumb navigation.
-- **Subtle Specular Sheen & Spring-Physics Zoom**: Diagonal specular sheen light reflection on hover with natural `cubic-bezier(0.34, 1.3, 0.64, 1)` spring-zoom without re-render flicker.
+- **Spring-Physics Micro Zoom & Card Stability**: Natural `cubic-bezier(0.34, 1.3, 0.64, 1)` spring-zoom on hover without re-render flicker.
 - **Tactile Touch-Press Feedback & Elastic Badges**: Instant `active:scale-[0.975]` tactile mobile press response and elastic spring pop-in for selection checkboxes and badges.
 - **Live Odometer Number Counters**: RequestAnimationFrame `easeOutCubic` number ticker displaying statistics with 0 layout reflow.
 - **Radar Wave Ping on Location Pins**: Pure CSS `@keyframes radar-ping` GPU-composited aura indicating dense photo clusters on the world map.

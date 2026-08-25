@@ -104,8 +104,6 @@ export function AlbumCard({ data, width, href, onRename, onTop, onDelete, onChan
         ) : (
           <div className="absolute inset-0 bg-[#DDDDDD] dark:bg-muted" />
         )}
-        {/* Specular Sheen Light Reflection on Hover */}
-        <div className="photo-specular-sheen" />
         <div
           className="pointer-events-none absolute inset-x-0 bottom-0 p-3 pb-2 text-left text-white"
           style={{
