@@ -62,7 +62,7 @@ export function AlbumCard({ data, width, href, onRename, onTop, onDelete, onChan
 
   return (
     <div
-      className="group relative aspect-square overflow-hidden bg-muted houdini-smooth-card"
+      className="group relative aspect-square overflow-hidden bg-muted houdini-smooth-card masonry-card-cascade touch-press-feedback"
       style={{
         width,
         contain: "paint layout",
@@ -96,7 +96,7 @@ export function AlbumCard({ data, width, href, onRename, onTop, onDelete, onChan
             decoding="async"
             alt={data.name}
             crossOrigin="anonymous"
-            className="absolute inset-0 h-full w-full object-cover duration-300 group-hover:scale-105"
+            className="absolute inset-0 h-full w-full object-cover spring-zoom-img group-hover:scale-[1.035]"
             onError={(event) => {
               event.currentTarget.style.display = "none"
             }}
@@ -104,6 +104,8 @@ export function AlbumCard({ data, width, href, onRename, onTop, onDelete, onChan
         ) : (
           <div className="absolute inset-0 bg-[#DDDDDD] dark:bg-muted" />
         )}
+        {/* Specular Sheen Light Reflection on Hover */}
+        <div className="photo-specular-sheen" />
         <div
           className="pointer-events-none absolute inset-x-0 bottom-0 p-3 pb-2 text-left text-white"
           style={{
