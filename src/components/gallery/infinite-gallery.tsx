@@ -515,15 +515,27 @@ export function InfiniteGallery(props: InfiniteGalleryProps) {
           )
           for (let i = 0; i < tiles.length; i++) {
             const t = tiles[i]
-            const key = `${t.cx},${t.cy},${t.slot}`
-            visibleKeys.add(key)
-
             const dxPx = (t.wx - cx) * layerScale * PX_PER_UNIT
             const dyPx = (t.wy - cy) * layerScale * PX_PER_UNIT
             const s = t.bakedScale * layerScale
             const wPx = t.w * PX_PER_UNIT
             const hPx = t.h * PX_PER_UNIT
 
+            // Dynamic Memory-Bounded Frustum Culling: Skip DOM allocation and transform calculation for off-screen tiles
+            const marginX = cW * 0.25
+            const marginY = cH * 0.25
+            const tileRadius = Math.max(wPx, hPx) * s * 0.8
+            if (
+              dxPx + tileRadius < -cW / 2 - marginX ||
+              dxPx - tileRadius > cW / 2 + marginX ||
+              dyPx + tileRadius < -cH / 2 - marginY ||
+              dyPx - tileRadius > cH / 2 + marginY
+            ) {
+              continue
+            }
+
+            const key = `${t.cx},${t.cy},${t.slot}`
+            visibleKeys.add(key)
             const el = ensureTile(t, layerZBase)
             el.style.transform = `translate3d(${dxPx}px, ${dyPx}px, 0) scale(${s}) rotate(${t.rot}deg) translate(${-wPx / 2}px, ${-hPx / 2}px)`
             el.style.opacity = String(layerAlpha)

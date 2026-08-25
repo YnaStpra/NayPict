@@ -74,6 +74,11 @@ export default async function RootLayout({ children }: RootLayoutProps) {
             <link rel="preconnect" href={cdnOrigin} crossOrigin="anonymous" />
           </>
         )}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `if(typeof CSS!=='undefined'&&'paintWorklet' in CSS){try{CSS.paintWorklet.addModule('/worklets/smooth-corners.js')}catch(e){}}`,
+          }}
+        />
       </head>
       <body>
         <NextIntlClientProvider messages={messages}>

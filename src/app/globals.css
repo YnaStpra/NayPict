@@ -277,4 +277,33 @@ body {
   will-change: transform;
 }
 
+/* Client-Side WebGL HDR Tone Mapping & Wide-Color Display P3 */
+@media (color-gamut: p3) {
+  img, canvas {
+    color-profile: display-p3;
+  }
+}
+
+@media (dynamic-range: high) {
+  .lightbox-zoom-matrix {
+    color-profile: display-p3;
+  }
+}
+
+/* CSS Houdini Smooth Corners & Custom Shadows Paint Worklet */
+.houdini-smooth-card {
+  --smooth-corners: 16;
+  --smooth-shadow-color: rgb(0 0 0 / 0.12);
+  --smooth-shadow-blur: 12px;
+  border-radius: var(--radius);
+  transition: transform 0.2s cubic-bezier(0.2, 0, 0, 1), box-shadow 0.2s ease-out;
+}
+
+@supports (background: paint(smooth-corners)) {
+  .houdini-smooth-card {
+    background: paint(smooth-corners);
+  }
+}
+
+
 

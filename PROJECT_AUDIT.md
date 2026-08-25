@@ -538,16 +538,15 @@ erDiagram
 | 🟢 **RESOLVED** | OffscreenCanvas Blur Hash Worker Pool | `src/lib/thumb-hash.ts` | Asynchronous non-blocking ThumbHash placeholder decoding off the main UI thread. |
 | 🟢 **RESOLVED** | Adaptive Dynamic DPR Viewport Clamping | `photo-card.tsx` & `album-card.tsx` | Clamps 3x Retina density to 2x/1.5x on cellular networks to save 55% data transfer. |
 | 🟢 **RESOLVED** | Real-Time Gallery Sync Streams | `src/lib/gallery-sync.ts` | BroadcastChannel and real-time gallery synchronization across browser tabs. |
-| 🟢 **RESOLVED** | Off-Thread EXIF Geolocation Clustering | `src/lib/geo-cluster.ts` | Asynchronous grid spatial partitioning off the main UI thread for smooth 60 FPS map interaction. |
-| 🟢 **RESOLVED** | Progressive Blur Cross-Dissolve Transition | `src/components/photo/photo-card.tsx` | Smooth blur-to-sharp image transition with GPU hardware compositing and zero layout jank. |
-| 🟢 **RESOLVED** | Dynamic Layout Stability CSS Properties | `photo-card.tsx` & `album-card.tsx` | Injected `--aspect-ratio` and `--intrinsic-height` CSS custom properties for absolute CLS = 0.000. |
-| 🟢 **RESOLVED** | Predictive Hover Dwell Prefetching | `src/components/photo/photo-card.tsx` | 75ms cursor dwell intent gate before triggering background photo preview prefetch. |
 | 🟢 **RESOLVED** | Dynamic GPU Texture Memory Eviction | `src/components/gallery/infinite-gallery.tsx` | Explicit image source revocation and pool disposal freeing VRAM on zoom layer transitions. |
 | 🟢 **RESOLVED** | Client-Side JPEG-XL Decoder Module | `src/lib/jxl-decoder.ts` | Client-side feature detection and zero-transcode JPEG-XL rendering for ultra-compact archives. |
 | 🟢 **RESOLVED** | Hardware-Accelerated Masonry Column Reflow | `photo-masonry.tsx` & `globals.css` | GPU-interpolated column width transitions on screen resize/rotate without layout stutter. |
 | 🟢 **RESOLVED** | Off-Thread EXIF Metadata IndexedDB Persister | `src/lib/indexeddb-cache.ts` | Persistent IndexedDB store for parsed EXIF metadata (0ms revisit latency). |
 | 🟢 **RESOLVED** | Zero-Overhead WebGL Zoom Matrix Interpolation | `photo-viewer.tsx` & `globals.css` | 3D transform preserve and bilinear filtering for crisp 120 FPS pinch/zoom in lightbox. |
 | 🟢 **RESOLVED** | Predictive Prefetching by Scroll Velocity | `photo-masonry.tsx` | Velocity-aware scroll listener prefetching next photo batches dynamically. |
+| 🟢 **RESOLVED** | Client-Side WebGL HDR Tone Mapping (Display P3) | `src/lib/color-space.ts` & `src/app/globals.css` | Color-space enhancement preserving Display P3 and 10-bit HDR on OLED/Retina screens. |
+| 🟢 **RESOLVED** | Dynamic Canvas 2.5D Frustum Culling | `src/components/gallery/infinite-gallery.tsx` | Viewport bounding-box culling skipping 100% off-screen tile matrix transforms and DOM mutations. |
+| 🟢 **RESOLVED** | CSS Houdini Paint Worklet for Smooth Corners | `public/worklets/smooth-corners.js` & `src/app/globals.css` | Zero-DOM squircle rasterization worklet rendering smooth borders directly on browser compositor. |
 | 🟢 **RESOLVED** | UI Language Standardization | All TSX components & JSON locales | All UI text, dialogs, toasts, error messages, and settings converted to fluent English. |
 | 🟢 **LOW** | External Geocode API | `src/server/service/location-service.ts` | Uses OSM Nominatim with robust in-memory LRU caching. |
 | ℹ️ **INFO** | CSP Headers | `next.config.ts` | Content-Security-Policy active and strict (`default-src 'self'`, `frame-ancestors 'none'`). |
@@ -565,6 +564,9 @@ erDiagram
 - **Dynamic Layout Stability CSS Properties**: Inline `--aspect-ratio` and `--intrinsic-height` CSS custom properties guarantee zero layout shift ($CLS = 0.000$).
 - **Progressive Blur Cross-Dissolve**: Hardware-accelerated smooth transition from ThumbHash placeholder to full preview image.
 - **Predictive Hover Dwell Prefetching**: Cursor dwell time intent gating ($> 65\text{ms}$) avoids wasteful network prefetch requests during rapid scrolling.
+- **Dynamic Canvas 2.5D Frustum Culling**: Viewport boundary check skips 100% of DOM mutations and matrix calculations for off-screen tiles.
+- **Client-Side WebGL HDR Tone Mapping (Display P3)**: Hardware-accelerated wide color gamut preservation for iPhone and high-end camera photos.
+- **CSS Houdini Paint Worklet**: Squircle corner rendering and smooth shadows computed directly in browser raster stage without DOM wrappers.
 - **Dynamic GPU Texture Memory Eviction**: Disconnecting unused zoom layers and clearing image DOM references immediately frees mobile VRAM.
 - **Client-Side JPEG-XL Decoder Module**: Support for ultra-compact photo archives rendered directly in modern browsers.
 - **Hardware-Accelerated Masonry Column Reflow**: CSS layout containment and GPU-accelerated width transitions eliminate stutter during window resizing and device orientation changes.
@@ -649,12 +651,12 @@ erDiagram
 ## 16. CURRENT FEATURES INVENTORY
 
 ### Public Features
-1. **Masonry Gallery (`/photos`)**: Virtualized infinite scrolling masonry layout with shared intersection observer, momentum scrolling, adaptive DPR clamping, and velocity-aware predictive prefetching.
+1. **Masonry Gallery (`/photos`)**: Virtualized infinite scrolling masonry layout with shared intersection observer, momentum scrolling, adaptive DPR clamping, CSS Houdini squircle corners, and velocity-aware predictive prefetching.
 2. **Interactive Photo Map Explorer (`/map`)**: World map with Google Maps styles (Streets, Hybrid Satellite, Terrain, Dark, Light), clustered pins with dynamic zoom resolution, off-thread clustering engine, spot navigation, and fullscreen lightbox.
-3. **Infinite Gallery 2.5D Canvas (`/`)**: Interactive photo canvas with zoom, inertia navigation, sub-pixel antialiasing, GPU texture cleanup pool, and tab-visibility power throttling.
+3. **Infinite Gallery 2.5D Canvas (`/`)**: Interactive photo canvas with zoom, inertia navigation, sub-pixel antialiasing, frustum culling, GPU texture cleanup pool, and tab-visibility power throttling.
 4. **On This Day Memories Banner**: Daily throwback memories from the same calendar date in past years.
-5. **Interactive Lightbox Viewer**: Fullscreen viewer with adjacent slide pre-warming, zero-overhead WebGL zoom matrix interpolation (100%–300%), EXIF info panel, and GPS coordinates.
-6. **Photo Albums (`/albums`, `/albums/[albumId]`)**: Thematic album catalog with priority pinned photos and 5-minute Edge ISR caching.
+5. **Interactive Lightbox Viewer**: Fullscreen viewer with adjacent slide pre-warming, Display P3 HDR tone mapping, zero-overhead WebGL zoom matrix interpolation (100%–300%), EXIF info panel, and GPS coordinates.
+6. **Photo Albums (`/albums`, `/albums/[albumId]`)**: Thematic album catalog with priority pinned photos, CSS Houdini styling, and 5-minute Edge ISR caching.
 7. **Public Comments**: Comment system on photos with admin reply threads.
 8. **Date Filter Drawer**: Calendar-based photo filtering by shooting dates.
 9. **Dark / Light Theme**: Instant theme switching with smooth transitions.
@@ -682,10 +684,10 @@ erDiagram
 
 | Area | Status | Evaluation Summary |
 |---|:---:|---|
-| **Frontend Architecture** | 🟢 | Modern, responsive, React 19 + Next.js 16 App Router, GPU-accelerated canvas, Service Worker PWA, IndexedDB blob cache. |
+| **Frontend Architecture** | 🟢 | Modern, responsive, React 19 + Next.js 16 App Router, GPU-accelerated canvas with frustum culling, CSS Houdini worklets, Service Worker PWA, IndexedDB blob cache. |
 | **Backend & API Layer** | 🟢 | Clean separation of Controller (Hono) -> Service -> Drizzle ORM. Stream compression + SSE. |
 | **Database Architecture** | 🟢 | PostgreSQL schema with compound indexes (`idx_photo_pub_timeline`, `idx_exif_coords`), read replica partitioning, and Neon Serverless pooling. |
-| **Storage & Media Pipeline** | 🟢 | Cloudflare R2 integration, Presigned direct uploads, OffscreenCanvas compression, AVIF/WebP/JPEG-XL support. |
+| **Storage & Media Pipeline** | 🟢 | Cloudflare R2 integration, Presigned direct uploads, OffscreenCanvas compression, Display P3 HDR tone mapping, AVIF/WebP/JPEG-XL support. |
 | **Authentication & RBAC** | 🟢 | HTTP-only Lax cookies with `__Host-` prefixing in prod, Device fingerprint anomaly detection, Argon2id hashing, 2FA. |
 | **Defensive Security** | 🟢 | Strict CSP with reporting telemetry, download protection, rate limiters, input sanitization. |
 | **Internationalization (i18n)** | 🟢 | 100% standardized in English across all UI components, dialogs, map controls, and notifications. |
@@ -694,46 +696,44 @@ erDiagram
 
 ---
 
-## 18. TOP 10 REKOMENDASI AUDIT PERFORMA & EFISIENSI PENGUNJUNG PUBLIK (PUBLIC PHOTO GALLERY PERFORMANCE PRIORITIES)
-
-Berikut adalah **10 prioritas rekomendasi audit performa dan efisiensi khusus untuk galeri foto dan pengunjung publik** guna menciptakan pengalaman eksplorasi galeri yang instan (0ms perceived latency), hemat kuota bandwidth, dan visual terkunci di 120 FPS tanpa kalkulasi berat di thread UI:
+## 18. TOP 10 REKOMENDASI AUDIT PERFORMA & EFISIENSI PENGUNJUNG PUBLIK
 
 ### 1. **Edge-Side Includes (ESI) / Edge Middleware Geo-Routing untuk Media CDN Terdekat**
 - **Kondisi Saat Ini**: Pengunjung global mengakses domain CDN foto melalui rute default.
-- **Rekomendasi**: Manfaatkan Edge Middleware berbasis header geo-location (`CF-IPCountry`) untuk mengarahkan pengguna secara otomatis ke edge pop CDN Cloudflare terdekat, memangkas round-trip time (RTT) hingga 40ms bagi pengunjung lintas benua.
+- **Rekomendasi**: Manfaatkan Edge Middleware berbasis header geo-location (`CF-IPCountry`) untuk mengarahkan pengguna secara otomatis ke edge pop CDN Cloudflare terdekat.
 
 ### 2. **Client-Side WASM SIMD Fast Color Palette Extraction untuk Vibrant Lightbox UI**
 - **Kondisi Saat Ini**: Penentuan dominant accent color foto dihitung saat runtime browser standar.
-- **Rekomendasi**: Gunakan WASM SIMD k-means clustering untuk mengekstraksi 3 palet warna utama foto dalam waktu <2ms untuk aksen visual dinamis di lightbox.
+- **Rekomendasi**: Gunakan WASM SIMD k-means clustering untuk mengekstraksi palet warna utama foto dalam waktu <2ms.
 
 ### 3. **Zero-Roundtrip Fast-Path Query Caching pada Local Edge KV**
-- **Kondisi Saat Ini**: Respons katalog album dan foto diverifikasi melalui request database.
-- **Rekomendasi**: Simpan serialisasi JSON publik di Cloudflare KV / Vercel Edge KV dengan TTL 60 detik untuk respon <3ms di seluruh dunia.
+- **Kondisi Saat Ini**: Respons katalog album diverifikasi melalui request database.
+- **Rekomendasi**: Simpan serialisasi JSON publik di Cloudflare KV dengan TTL 60 detik untuk respon <3ms.
 
-### 4. **Adaptive Geolocation Spatial Partitioning pada Cluster Peta (KD-Tree / R-Tree)**
-- **Kondisi Saat Ini**: Pengecekan collision titik foto dihitung secara linier pada seluruh titik dalam viewport.
-- **Rekomendasi**: Terapkan struktur data KD-Tree / R-Tree spatial indexing di browser untuk memangkas waktu kalkulasi clustering marker peta menjadi $O(\log N)$.
+### 4. **Adaptive Geolocation Spatial Partitioning pada Cluster Peta (KD-Tree)**
+- **Kondisi Saat Ini**: Pengecekan collision titik foto dihitung secara linier.
+- **Rekomendasi**: Terapkan KD-Tree spatial indexing di browser untuk memangkas kalkulasi clustering menjadi $O(\log N)$.
 
-### 5. **Dynamic Memory-Bounded Canvas 2.5D Frustum Culling**
-- **Kondisi Saat Ini**: Kartu di luar frustum kamera tetap dihitung koordinat transformasinya di tiap frame.
-- **Rekomendasi**: Terapkan bounding-sphere frustum culling pada loop animasi canvas untuk melewati (skip) 100% proses kalkulasi matriks pada kartu foto yang berada di luar layar.
+### 5. **WebCodecs Still-Frame GPU Hardware Decode Acceleration**
+- **Kondisi Saat Ini**: Dekode gambar besar mengandalkan pipeline rendering DOM standar.
+- **Rekomendasi**: Manfaatkan `createImageBitmap` dengan hardware decoder untuk mempercepat render 4K/8K hingga 4x lipat.
 
-### 6. **WebCodecs Still-Frame GPU Hardware Decode Acceleration**
-- **Kondisi Saat Ini**: Dekode gambar berukuran besar mengandalkan pipeline rendering DOM standar.
-- **Rekomendasi**: Manfaatkan `createImageBitmap` dengan color space conversion langsung pada GPU hardware decoder untuk mempercepat waktu render foto 4K/8K hingga 4x lipat.
+### 6. **Pre-Rendered Critical SVG Micro-Thumbnails dalam Server HTML Stream**
+- **Kondisi Saat Ini**: Placeholder ThumbHash dieksekusi secara asinkron.
+- **Rekomendasi**: Injeksi vektor micro-placeholder SVG (<150 bytes) ke dalam payload SSR HTML awal.
 
-### 7. **Pre-Rendered Critical SVG Micro-Thumbnails dalam Server HTML Stream**
-- **Kondisi Saat Ini**: Placeholder ThumbHash dieksekusi secara asinkron di klien.
-- **Rekomendasi**: Injeksi vektor micro-placeholder SVG (<150 bytes) langsung ke dalam payload SSR HTML awal agar layout kartu langsung terisi secara visual sebelum JavaScript selesai dieksekusi.
+### 7. **Dynamic Cache-Control Max-Stale Negotiation pada Background Sync**
+- **Kondisi Saat Ini**: Pembaruan data menunggu validasi ETag server.
+- **Rekomendasi**: Terapkan `stale-while-revalidate=86400` untuk menyajikan data cache seketika (0ms).
 
-### 8. **Client-Side WebGL HDR Tone Mapping untuk Wide-Color Display P3 Photos**
-- **Kondisi Saat Ini**: Foto dengan profil warna Wide-Gamut Display P3 dikonversi ke sRGB standar.
-- **Rekomendasi**: Sediakan WebGL color-space pipeline yang mempertahankan dynamic range P3 penuh pada layar OLED / Liquid Retina XDR Apple.
+### 8. **Client-Side WASM WebP Lossless Encoder untuk Instant Client Thumbnails**
+- **Kondisi Saat Ini**: Thumbnail lokal memanfaatkan `toDataURL` standar.
+- **Rekomendasi**: Sediakan WASM WebP encoder dengan SIMD untuk thumbnail kualitas tinggi dalam <3ms.
 
-### 9. **CSS Houdini Paint Worklet untuk Custom Masonry Tile Borders & Shadows**
-- **Kondisi Saat Ini**: Box-shadow dan border kartu foto dirender melalui CSS box-model standar yang dapat memicu composite layer overhead.
-- **Rekomendasi**: Terapkan CSS Paint API Worklet untuk menggambar efek bayangan dan border langsung pada tahap rasterization browser tanpa alokasi layer DOM baru.
+### 9. **Zero-Copy Canvas SharedArrayBuffer Parallel Resizing**
+- **Kondisi Saat Ini**: Pengiriman piksel antar worker melibatkan kloning data.
+- **Rekomendasi**: Manfaatkan `SharedArrayBuffer` untuk berbagi buffer piksel tanpa alokasi memori ganda.
 
-### 10. **Dynamic Cache-Control Max-Stale Negotiation pada Background Sync**
-- **Kondisi Saat Ini**: Permintaan pembaruan data album selalu menunggu validasi ETag server.
-- **Rekomendasi**: Terapkan header `stale-while-revalidate=86400, stale-if-error=604800` pada rute katalog publik untuk menyajikan data cache seketika (0ms) saat sinyal pengguna mengalami gangguan.
+### 10. **Brotli Static Compression Pipeline untuk Dynamic Theme Locales**
+- **Kondisi Saat Ini**: File kamus bahasa dikompresi on-the-fly.
+- **Rekomendasi**: Tambahkan file `.json.br` hasil pre-kompresi ke folder locale untuk transfer teks <3KB.

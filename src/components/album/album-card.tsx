@@ -62,7 +62,7 @@ export function AlbumCard({ data, width, href, onRename, onTop, onDelete, onChan
 
   return (
     <div
-      className="group relative aspect-square overflow-hidden bg-muted"
+      className="group relative aspect-square overflow-hidden bg-muted houdini-smooth-card"
       style={{
         width,
         contain: "paint layout",

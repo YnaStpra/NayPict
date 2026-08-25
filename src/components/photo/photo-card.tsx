@@ -189,7 +189,7 @@ export function PhotoCard({
 
   return (
     <div
-      className="group relative overflow-hidden bg-muted"
+      className="group relative overflow-hidden bg-muted houdini-smooth-card"
       onClick={handlePhotoClick}
       onContextMenu={handlePhotoContextMenu}
       onMouseEnter={handleMouseEnter}
