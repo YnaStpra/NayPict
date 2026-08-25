@@ -22,13 +22,14 @@ export function LandingClient({ initialPhotos }: LandingClientProps) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [photos, setPhotos] = useState<PhotoVo[]>(initialPhotos || [])
-
-  // 3D Magnetic Tilt and Cursor Spotlight State
-  const [mousePos, setMousePos] = useState({ x: -1000, y: -1000 })
-  const [tilt, setTilt] = useState({ rotateX: 0, rotateY: 0, glareX: 50, glareY: 50 })
-  const [gyroParallax, setGyroParallax] = useState({ x: 0, y: 0 })
   const [isMobileScreen, setIsMobileScreen] = useState(false)
+
+  // Direct DOM Refs for Zero-Overhead 120 FPS Spotlight & 3D Tilt without React re-renders
   const cardRef = useRef<HTMLDivElement>(null)
+  const glareRef = useRef<HTMLDivElement>(null)
+  const spotlightRef = useRef<HTMLDivElement>(null)
+  const canvasContainerRef = useRef<HTMLDivElement>(null)
+  const rafTiltRef = useRef<number | null>(null)
 
   // Handle direct photo share URL redirect (e.g. /?photoId=123 -> /photos?photoId=123)
   useEffect(() => {
@@ -72,49 +73,70 @@ export function LandingClient({ initialPhotos }: LandingClientProps) {
     if (typeof window === 'undefined' || !window.DeviceOrientationEvent) return
 
     const handleOrientation = (e: DeviceOrientationEvent) => {
-      if (e.gamma === null || e.beta === null) return
-      // Clamp values for subtle cinematic parallax
+      if (e.gamma === null || e.beta === null || !canvasContainerRef.current) return
       const clampedGamma = Math.max(-25, Math.min(25, e.gamma)) / 25
       const clampedBeta = Math.max(-25, Math.min(25, e.beta - 45)) / 25
-      setGyroParallax({
-        x: clampedGamma * 18,
-        y: clampedBeta * 18,
-      })
+      canvasContainerRef.current.style.transform = `translate3d(${clampedGamma * 16}px, ${clampedBeta * 16}px, 0)`
     }
 
     window.addEventListener('deviceorientation', handleOrientation, { passive: true })
     return () => window.removeEventListener('deviceorientation', handleOrientation)
   }, [])
 
-  // Dynamic Cursor Spotlight & 3D Tilt Tracking
+  // Zero-React-Rerender Hardware-Accelerated Spotlight & 3D Tilt Tracking
   const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     const clientX = e.clientX
     const clientY = e.clientY
-    setMousePos({ x: clientX, y: clientY })
 
-    if (!cardRef.current || isMobileScreen) return
+    if (rafTiltRef.current !== null) {
+      cancelAnimationFrame(rafTiltRef.current)
+    }
 
-    const rect = cardRef.current.getBoundingClientRect()
-    const cardCenterX = rect.left + rect.width / 2
-    const cardCenterY = rect.top + rect.height / 2
+    rafTiltRef.current = requestAnimationFrame(() => {
+      // 1. Move Spotlight Halo on Compositor Thread (0ms React overhead)
+      if (spotlightRef.current) {
+        spotlightRef.current.style.transform = `translate3d(${clientX - 325}px, ${clientY - 325}px, 0)`
+        spotlightRef.current.style.opacity = '1'
+      }
 
-    const dx = (clientX - cardCenterX) / (rect.width / 2)
-    const dy = (clientY - cardCenterY) / (rect.height / 2)
+      // 2. Compute 3D Perspective Tilt on Card (Desktop only)
+      if (!cardRef.current || isMobileScreen) return
 
-    // Calculate perspective tilt and glare coordinates
-    const maxTilt = 10
-    const rotateX = Math.max(-maxTilt, Math.min(maxTilt, -dy * maxTilt))
-    const rotateY = Math.max(-maxTilt, Math.min(maxTilt, dx * maxTilt))
+      const rect = cardRef.current.getBoundingClientRect()
+      const cardCenterX = rect.left + rect.width / 2
+      const cardCenterY = rect.top + rect.height / 2
 
-    const glareX = ((clientX - rect.left) / rect.width) * 100
-    const glareY = ((clientY - rect.top) / rect.height) * 100
+      const dx = (clientX - cardCenterX) / (rect.width / 2)
+      const dy = (clientY - cardCenterY) / (rect.height / 2)
 
-    setTilt({ rotateX, rotateY, glareX, glareY })
+      const maxTilt = 8
+      const rotateX = Math.max(-maxTilt, Math.min(maxTilt, -dy * maxTilt))
+      const rotateY = Math.max(-maxTilt, Math.min(maxTilt, dx * maxTilt))
+
+      cardRef.current.style.transform = `rotateX(${rotateX.toFixed(2)}deg) rotateY(${rotateY.toFixed(2)}deg) translateZ(8px)`
+      cardRef.current.style.boxShadow = `0 24px 48px -12px rgba(0, 0, 0, 0.85), ${(-rotateY * 2).toFixed(1)}px ${(rotateX * 2).toFixed(1)}px 32px 0px rgba(255, 255, 255, 0.05)`
+
+      if (glareRef.current) {
+        const glareX = (((clientX - rect.left) / rect.width) * 100).toFixed(1)
+        const glareY = (((clientY - rect.top) / rect.height) * 100).toFixed(1)
+        glareRef.current.style.background = `radial-gradient(350px circle at ${glareX}% ${glareY}%, rgba(255, 255, 255, 0.2), transparent 70%)`
+      }
+    })
   }, [isMobileScreen])
 
   const handleMouseLeave = useCallback(() => {
-    setTilt({ rotateX: 0, rotateY: 0, glareX: 50, glareY: 50 })
-    setMousePos({ x: -1000, y: -1000 })
+    if (rafTiltRef.current !== null) {
+      cancelAnimationFrame(rafTiltRef.current)
+    }
+
+    if (spotlightRef.current) {
+      spotlightRef.current.style.opacity = '0'
+    }
+
+    if (cardRef.current) {
+      cardRef.current.style.transform = 'rotateX(0deg) rotateY(0deg) translateZ(0px)'
+      cardRef.current.style.boxShadow = '0 24px 48px -12px rgba(0, 0, 0, 0.85)'
+    }
   }, [])
 
   const handleNavigate = (href: string) => {
@@ -131,31 +153,28 @@ export function LandingClient({ initialPhotos }: LandingClientProps) {
       onMouseLeave={handleMouseLeave}
       className="relative w-screen h-screen overflow-hidden bg-black select-none perspective-1000"
     >
-      {/* Dynamic Cursor Spotlight Follower Layer */}
+      {/* Zero-Overhead Hardware-Composited Spotlight Glow Follower */}
       <div
-        className="pointer-events-none absolute inset-0 z-10 transition-opacity duration-300"
+        ref={spotlightRef}
+        className="pointer-events-none absolute top-0 left-0 size-[650px] rounded-full opacity-0 transition-opacity duration-300 z-10 will-change-transform"
         style={{
-          background: `radial-gradient(650px circle at ${mousePos.x}px ${mousePos.y}px, rgba(255, 255, 255, 0.085), rgba(255, 255, 255, 0.02) 40%, transparent 80%)`,
+          background: 'radial-gradient(circle, rgba(255, 255, 255, 0.075) 0%, rgba(255, 255, 255, 0.02) 45%, transparent 70%)',
         }}
       />
 
-      {/* Dynamic Infinite Canvas Background with Gyroscope Parallax */}
+      {/* Dynamic Infinite Canvas Background with Hardware Parallax */}
       <div
-        className="absolute inset-0 z-0 transition-transform duration-300 ease-out"
-        style={{
-          transform: isMobileScreen
-            ? `translate3d(${gyroParallax.x}px, ${gyroParallax.y}px, 0)`
-            : 'none',
-        }}
+        ref={canvasContainerRef}
+        className="absolute inset-0 z-0 will-change-transform"
       >
         <InfiniteGallery
           photos={displayPhotos}
-          driftAmount={0.35}
-          dragSpeed={0.85}
+          driftAmount={0.3}
+          dragSpeed={0.8}
           className="w-full h-full"
         />
-        {/* Subtle Multi-Layer Dark Radial Vignette */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/45 to-black/70 backdrop-blur-[1.5px] pointer-events-none" />
+        {/* Subtle Dark Radial Vignette */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-black/70 backdrop-blur-[1.5px] pointer-events-none" />
       </div>
 
       {/* =========================================================================
@@ -165,10 +184,10 @@ export function LandingClient({ initialPhotos }: LandingClientProps) {
         <div
           ref={cardRef}
           id="landing-hero-card"
-          className="pointer-events-auto border-beam-container max-w-md w-full rounded-[32px] p-[1.5px] shadow-2xl perspective-card-inner transition-transform duration-200 ease-out"
+          className="pointer-events-auto border-beam-container max-w-md w-full rounded-[32px] p-[1.5px] shadow-2xl perspective-card-inner will-change-transform"
           style={{
-            transform: `rotateX(${tilt.rotateX}deg) rotateY(${tilt.rotateY}deg) translateZ(8px)`,
-            boxShadow: `0 24px 48px -12px rgba(0, 0, 0, 0.85), ${tilt.rotateY * -2}px ${tilt.rotateX * 2}px 32px 0px rgba(255, 255, 255, 0.06)`,
+            transform: 'rotateX(0deg) rotateY(0deg) translateZ(0px)',
+            boxShadow: '0 24px 48px -12px rgba(0, 0, 0, 0.85)',
           }}
         >
           {/* Conic Gradient Animated Border Beam Ray */}
@@ -178,10 +197,8 @@ export function LandingClient({ initialPhotos }: LandingClientProps) {
           <div className="relative z-10 w-full rounded-[31px] bg-black/60 backdrop-blur-3xl border border-white/20 p-8 text-center text-white flex flex-col items-center gap-6 overflow-hidden">
             {/* Dynamic Surface Glare Reflection */}
             <div
+              ref={glareRef}
               className="pointer-events-none absolute inset-0 opacity-40 transition-opacity duration-300"
-              style={{
-                background: `radial-gradient(400px circle at ${tilt.glareX}% ${tilt.glareY}%, rgba(255, 255, 255, 0.25), transparent 70%)`,
-              }}
             />
 
             {/* Glowing Logo & Camera Icon */}
