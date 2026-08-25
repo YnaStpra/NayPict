@@ -76,7 +76,7 @@ export default async function RootLayout({ children }: RootLayoutProps) {
         )}
         <script
           dangerouslySetInnerHTML={{
-            __html: `if(typeof CSS!=='undefined'&&'paintWorklet' in CSS){try{CSS.paintWorklet.addModule('/worklets/smooth-corners.js')}catch(e){}}`,
+            __html: `if(typeof CSS!=='undefined'&&'paintWorklet' in CSS){try{CSS.paintWorklet.addModule('/worklets/smooth-corners.js');CSS.paintWorklet.addModule('/worklets/skeleton-shimmer.js')}catch(e){}}`,
           }}
         />
       </head>

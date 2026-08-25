@@ -305,5 +305,53 @@ body {
   }
 }
 
+/* Hardware-Accelerated CSS Sub-Pixel Snap Grids for Ultra-High Density Displays (Retina 3x) */
+.subpixel-snap-grid {
+  transform: translate3d(0, 0, 0);
+  backface-visibility: hidden;
+  image-rendering: -webkit-optimize-contrast;
+  --column-gap-snapped: round(nearest, 16px, 1px);
+}
+
+@supports (width: round(nearest, 100px, 1px)) {
+  .subpixel-snap-item {
+    width: round(nearest, var(--item-width, 100%), 1px);
+    height: round(nearest, var(--item-height, auto), 1px);
+    transform: translate3d(round(nearest, var(--item-x, 0px), 1px), round(nearest, var(--item-y, 0px), 1px), 0);
+  }
+}
+
+/* Zero-Layout-Shift Adaptive Skeleton CSS Animation Worklet (120 FPS compositor-only) */
+@property --shimmer-progress {
+  syntax: '<number>';
+  inherits: false;
+  initial-value: 0;
+}
+
+@keyframes houdini-shimmer-sweep {
+  0% {
+    --shimmer-progress: 0;
+  }
+  100% {
+    --shimmer-progress: 1;
+  }
+}
+
+.skeleton-shimmer-worklet {
+  --shimmer-progress: 0;
+  --shimmer-base-color: rgba(128, 128, 128, 0.12);
+  --shimmer-highlight-color: rgba(255, 255, 255, 0.22);
+  animation: houdini-shimmer-sweep 1.6s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  contain: strict;
+  will-change: transform;
+}
+
+@supports (background: paint(skeleton-shimmer)) {
+  .skeleton-shimmer-worklet {
+    background: paint(skeleton-shimmer);
+  }
+}
+
+
 
 
