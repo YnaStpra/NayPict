@@ -34,7 +34,15 @@ export function createHonoApp() {
       return c.json(result.fail(t('system.readonly')));
     }
 
-    console.error(err);
+    // Sanitize and redact sensitive credentials (passwords, DB URLs, secret keys) before logging
+    const sanitizeErrorLog = (error: unknown) => {
+      const str = String(error instanceof Error ? error.stack || error.message : error);
+      return str
+        .replace(/postgres(ql)?:\/\/[^\s@]+@[^\s/]+/gi, "postgres://[REDACTED_DB_CREDENTIALS]")
+        .replace(/(password|jwt_secret|session_secret|secret_access_key|access_key_id)=["']?[^&"'\s]+/gi, "$1=[REDACTED]");
+    };
+
+    console.error(sanitizeErrorLog(err));
     // Return generic error — never expose internal stack trace or file paths (LOW-02)
     return c.json(result.fail('An internal server error occurred.'));
   });

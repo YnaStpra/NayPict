@@ -3,6 +3,11 @@ import { rgbaToThumbHash } from "thumbhash"
 
 // This module is responsible for multi-resolution image derivative processing, lossless/near-lossless original compression, and ThumbHash generation.
 
+export const SHARP_SECURITY_OPTIONS = {
+  limitInputPixels: 268402689, // ~16384 x 16384 max pixels to defend against decompression bombs (Pixel Flood)
+  failOnError: false,
+}
+
 export interface ProcessedPhotoImages {
   previewBuffer: Buffer
   thumbnailBuffer: Buffer
@@ -26,7 +31,7 @@ export async function optimizeOriginalBuffer(
   mimeType?: string
 ): Promise<{ buffer: Buffer; type: string; size: number }> {
   try {
-    const metadata = await sharp(orientedBuffer).metadata()
+    const metadata = await sharp(orientedBuffer, SHARP_SECURITY_OPTIONS).metadata()
     const format = (metadata.format ?? "").toLowerCase()
 
     let optimized: Buffer | null = null
@@ -34,7 +39,7 @@ export async function optimizeOriginalBuffer(
 
     if (format === "jpeg" || format === "jpg" || mimeType === "image/jpeg" || mimeType === "image/jpg") {
       outType = "image/jpeg"
-      optimized = await sharp(orientedBuffer)
+      optimized = await sharp(orientedBuffer, SHARP_SECURITY_OPTIONS)
         .jpeg({
           quality: 90, // Pristine visual quality (near lossless), preserves high dynamic range and subtle gradients
           mozjpeg: true, // MozJPEG advanced trellis quantization & arithmetic scan optimization
@@ -46,7 +51,7 @@ export async function optimizeOriginalBuffer(
         .toBuffer()
     } else if (format === "png" || mimeType === "image/png") {
       outType = "image/png"
-      optimized = await sharp(orientedBuffer)
+      optimized = await sharp(orientedBuffer, SHARP_SECURITY_OPTIONS)
         .png({
           compressionLevel: 9,
           effort: 8,
@@ -55,7 +60,7 @@ export async function optimizeOriginalBuffer(
         .toBuffer()
     } else if (format === "webp" || mimeType === "image/webp") {
       outType = "image/webp"
-      optimized = await sharp(orientedBuffer)
+      optimized = await sharp(orientedBuffer, SHARP_SECURITY_OPTIONS)
         .webp({
           quality: 90,
           effort: 6,
@@ -64,7 +69,7 @@ export async function optimizeOriginalBuffer(
         .toBuffer()
     } else if (format === "avif" || mimeType === "image/avif") {
       outType = "image/avif"
-      optimized = await sharp(orientedBuffer)
+      optimized = await sharp(orientedBuffer, SHARP_SECURITY_OPTIONS)
         .avif({
           quality: 90,
           effort: 6,
@@ -73,7 +78,7 @@ export async function optimizeOriginalBuffer(
     } else if (format === "tiff" || format === "heic" || format === "heif" || format === "bmp") {
       // Convert raw/uncompressed desktop raster formats to pristine 92% MozJPEG
       outType = "image/jpeg"
-      optimized = await sharp(orientedBuffer)
+      optimized = await sharp(orientedBuffer, SHARP_SECURITY_OPTIONS)
         .jpeg({
           quality: 92,
           mozjpeg: true,
@@ -104,8 +109,8 @@ export async function optimizeOriginalBuffer(
 // Use sharp to generate multi-resolution derivatives (2560w preview, 1280w medium, 480w thumbnail), AVIF/WebP encoding, and thumbHash metadata.
 export async function processPhotoImages(buffer: Buffer, mimeType?: string): Promise<ProcessedPhotoImages> {
   // Respect EXIF Orientation to straighten pixels, avoiding preview/thumbnail orientation mismatch.
-  const orientedBuffer = await sharp(buffer).autoOrient().toBuffer()
-  const metadata = await sharp(orientedBuffer).metadata()
+  const orientedBuffer = await sharp(buffer, SHARP_SECURITY_OPTIONS).autoOrient().toBuffer()
+  const metadata = await sharp(orientedBuffer, SHARP_SECURITY_OPTIONS).metadata()
   const width = metadata.width ?? 0
   const height = metadata.height ?? 0
 
@@ -113,25 +118,25 @@ export async function processPhotoImages(buffer: Buffer, mimeType?: string): Pro
   const optimizedOriginal = await optimizeOriginalBuffer(orientedBuffer, buffer, mimeType)
 
   // 2. High-fidelity desktop lightbox preview (2560px max bound with progressive MozJPEG)
-  const previewBuffer = await sharp(orientedBuffer)
+  const previewBuffer = await sharp(orientedBuffer, SHARP_SECURITY_OPTIONS)
     .resize({ width: 2560, height: 2560, fit: "inside", withoutEnlargement: true })
     .jpeg({ quality: 86, progressive: true, mozjpeg: true, trellisQuantisation: true, overshootDeringing: true })
     .toBuffer()
 
   // 3. Medium responsive derivative (1280px max bound with high-efficiency WebP)
-  const mediumBuffer = await sharp(orientedBuffer)
+  const mediumBuffer = await sharp(orientedBuffer, SHARP_SECURITY_OPTIONS)
     .resize({ width: 1280, height: 1280, fit: "inside", withoutEnlargement: true })
     .webp({ quality: 85, effort: 5 })
     .toBuffer()
 
   // 4. Crisp gallery grid thumbnail (480px max bound with high-efficiency WebP effort 6)
-  const thumbnailBuffer = await sharp(mediumBuffer)
+  const thumbnailBuffer = await sharp(mediumBuffer, SHARP_SECURITY_OPTIONS)
     .resize({ width: 480, height: 480, fit: "inside", withoutEnlargement: true })
     .webp({ quality: 84, effort: 6, smartSubsample: true })
     .toBuffer()
 
   // 5. ThumbHash placeholder generation (100x100 raw RGBA)
-  const hashImage = await sharp(thumbnailBuffer)
+  const hashImage = await sharp(thumbnailBuffer, SHARP_SECURITY_OPTIONS)
     .resize(100, 100, { fit: "inside" })
     .ensureAlpha()
     .raw()

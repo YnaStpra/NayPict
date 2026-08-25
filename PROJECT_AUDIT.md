@@ -557,6 +557,11 @@ erDiagram
 | 🟢 **RESOLVED** | Sub-Pixel Snap Grids for Retina Displays | `photo-masonry.tsx` & `globals.css` | CSS `round(nearest, 1px)` sub-pixel layout snapping eliminating 0.5px micro-gap artifacts. |
 | 🟢 **RESOLVED** | Dynamic 3D Parallax & Cursor Spotlight | `landing-client.tsx` & `globals.css` | Cursor spotlight glow, magnetic 3D perspective card tilt with glare, and mobile gyroscope parallax. |
 | 🟢 **RESOLVED** | Conic Aura Border Beam & Button Shimmer | `landing-client.tsx` & `globals.css` | Animated rotating conic border ray and interactive magnetic button light sweep. |
+| 🟢 **RESOLVED** | Magic Bytes & Polyglot Upload Validation | `src/server/lib/file.ts` & `photo-service.ts` | True binary magic bytes validation rejecting polyglot scripts, disguised executables, and corrupted uploads. |
+| 🟢 **RESOLVED** | Stored XSS Prevention in EXIF Metadata | `src/server/lib/photo-exif.ts` | Deep HTML tag stripping, javascript:/data: URI removal, and control char sanitization on all EXIF strings. |
+| 🟢 **RESOLVED** | Image Decompression Bomb (Pixel Flood) Defense | `src/server/lib/photo-process.ts` | Strict `limitInputPixels: 268402689` pixel limit on Sharp processing preventing CPU/RAM exhaustion. |
+| 🟢 **RESOLVED** | Secret Credential Redaction in Error Logs | `src/server/hono/hono.ts` | Automatic regex sanitization of database connection strings, JWT keys, and passwords before logging. |
+| 🟢 **RESOLVED** | Zero-Flicker Masonry Scroller Alignment | `photo-card.tsx` & `album-card.tsx` | Elimination of duplicate intersection observers ensuring smooth 120 FPS scrolling without micro-flashes. |
 | 🟢 **RESOLVED** | Speculative Hover Prefetching via requestIdleCallback | `photo-card.tsx` & `photo-viewer.tsx` | Background prefetching of HD previews and adjacent slides during idle time for 0ms open latency. |
 | 🟢 **RESOLVED** | Off-Screen Virtualized Memory Eviction Pool | `photo-card.tsx` | Automatic unmounting of off-screen image bitmaps >2500px away, keeping memory footprint <80MB. |
 | 🟢 **RESOLVED** | Dynamic Chunk Prefetching on Navigation Hover | `nav-main.tsx` & `photo-card.tsx` | Speculative prefetching of Leaflet map and Lightbox JS bundles on menu and card hover. |

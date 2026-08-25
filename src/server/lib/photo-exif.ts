@@ -50,11 +50,35 @@ const readArgs = [
   "-GPSAltitudeRef",
 ]
 
-function tagValueToJson(value: unknown) {
-  if (value && typeof value === "object" && "toString" in value) {
-    return String(value)
+/**
+ * Deep sanitization for EXIF string metadata to prevent Stored XSS attacks.
+ * Strips HTML tags, removes javascript:/data: URIs, removes non-printable control chars, and caps max length.
+ */
+export function sanitizeExifString(input: unknown): string | unknown {
+  if (typeof input !== "string") {
+    if (input && typeof input === "object" && "toString" in input) {
+      return sanitizeExifString(String(input));
+    }
+    return input;
   }
-  return value
+
+  return input
+    .replace(/<[^>]*>?/gm, "") // Strip HTML tags
+    .replace(/javascript:/gi, "") // Remove javascript pseudo-protocol
+    .replace(/data:\s*text\/html/gi, "") // Remove inline HTML data URIs
+    .replace(/[\u0000-\u0008\u000B-\u000C\u000E-\u001F\u007F]/g, "") // Remove ASCII control characters
+    .trim()
+    .slice(0, 500); // Cap individual metadata tag length to 500 chars
+}
+
+function tagValueToJson(value: unknown) {
+  if (typeof value === "string") {
+    return sanitizeExifString(value);
+  }
+  if (value && typeof value === "object" && "toString" in value) {
+    return sanitizeExifString(String(value));
+  }
+  return value;
 }
 
 function formatTzOffset(minutes: number) {
