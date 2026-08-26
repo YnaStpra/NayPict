@@ -74,9 +74,18 @@ media.get('*', async (c: Context, next: Next) => {
     return next();
   }
 
-  const key = decodeURIComponent(c.req.path.slice('/media/'.length));
+  const rawKey = c.req.path.slice('/media/'.length);
+  let key = rawKey;
+  try {
+    key = decodeURIComponent(rawKey);
+  } catch {
+    key = rawKey;
+  }
 
-  const photoFile = await getPhotoFile(key);
+  let photoFile = await getPhotoFile(key);
+  if (!photoFile?.key && rawKey !== key) {
+    photoFile = await getPhotoFile(rawKey);
+  }
 
   if (!photoFile?.key || !photoFile?.storageId) {
     return next();
@@ -119,12 +128,11 @@ media.get('*', async (c: Context, next: Next) => {
   const obj = await storage.get(photoFile.key, photoFile.storageId);
   const disposition = photoFile.type === FileTypeEnum.ORIGINAL ? buildContentDisposition(photoFile.name) : null;
   const headers: Record<string, string> = {
-    'Content-Type': photoFile.fileType,
+    'Content-Type': photoFile.fileType || 'image/webp',
     'Cache-Control': isOriginal ? 'no-cache, private' : 'public, max-age=31536000, immutable',
     'ETag': etag,
     'Vary': 'Accept, Accept-Encoding',
     'Accept-Ranges': 'bytes',
-    'Content-Length': String(obj.size)
   };
 
   if (disposition) {
@@ -133,10 +141,23 @@ media.get('*', async (c: Context, next: Next) => {
 
   let responseBody: any = obj.body;
   if (obj.body && typeof (obj.body as any).transformToByteArray === 'function') {
-    // S3 / R2 SDK v3 stream: fast-path to ByteArray for instant zero-latency HTTP response
-    responseBody = await (obj.body as any).transformToByteArray();
+    try {
+      const bytes = await (obj.body as any).transformToByteArray();
+      responseBody = bytes;
+      headers['Content-Length'] = String(bytes.byteLength);
+    } catch {
+      responseBody = obj.body;
+      if (obj.size > 0) {
+        headers['Content-Length'] = String(obj.size);
+      }
+    }
   } else if (obj.body && typeof (obj.body as any).transformToWebStream === 'function') {
     responseBody = (obj.body as any).transformToWebStream();
+    if (obj.size > 0) {
+      headers['Content-Length'] = String(obj.size);
+    }
+  } else if (obj.size > 0) {
+    headers['Content-Length'] = String(obj.size);
   }
 
   return c.body(responseBody, 200, headers);

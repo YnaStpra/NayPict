@@ -77,8 +77,8 @@ export const PhotoCard = memo(function PhotoCard({
   const [imageSrc, setImageSrc] = useState<string | null>(() => data.thumbnail || data.preview || data.key || null)
   // imageError Record whether all photo URLs failed to load.
   const [imageError, setImageError] = useState(false)
-  // Progressive blur transition state (local per DOM element to prevent premature black screens)
-  const [imageLoaded, setImageLoaded] = useState<boolean>(false)
+  // Progressive blur transition state (initialized from in-memory cache for instant display)
+  const [imageLoaded, setImageLoaded] = useState<boolean>(() => Boolean(data.photoId && loadedPhotoCache.has(data.photoId)))
   // isMobile Determine whether the current viewport is the mobile terminal。
   const isMobile = useIsMobile()
   const showHover = showTouchHover || holdHover
