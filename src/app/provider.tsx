@@ -126,12 +126,14 @@ function Provider({ children, defaultTheme, defaultSidebarOpen, initialUserInfo,
     setTheme(theme === "dark" ? "light" : "dark")
   }, [setTheme, theme])
 
-  // Register Service Worker for offline gallery browsing and background asset caching
+  // Clean up any legacy Service Worker registrations to prevent Safari "Load failed" interception bugs
   React.useEffect(() => {
-    if (typeof window !== "undefined" && "serviceWorker" in navigator && process.env.NODE_ENV === "production") {
-      navigator.serviceWorker.register("/sw.js").catch((err) => {
-        console.debug("ServiceWorker registration skipped:", err)
-      })
+    if (typeof window !== "undefined" && "serviceWorker" in navigator) {
+      navigator.serviceWorker.getRegistrations().then((registrations) => {
+        for (const reg of registrations) {
+          reg.unregister().catch(() => {})
+        }
+      }).catch(() => {})
     }
   }, [])
 
