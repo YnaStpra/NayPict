@@ -86,7 +86,6 @@ export const AlbumCard = memo(function AlbumCard({ data, width, href, onRename, 
             loading="lazy"
             decoding="async"
             alt={data.name}
-            crossOrigin="anonymous"
             className="absolute inset-0 h-full w-full object-cover spring-zoom-img group-hover:scale-[1.035]"
             onError={(event) => {
               event.currentTarget.style.display = "none"

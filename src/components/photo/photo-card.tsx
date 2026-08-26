@@ -116,8 +116,18 @@ export const PhotoCard = memo(function PhotoCard({
     setImageLoaded(true)
   }
 
-  // Handle graceful image fallback across all media tiers
+  // Handle graceful image fallback across all media tiers and CDN fallback
   function handleImageError() {
+    // If the image failed on an external CDN domain, immediately fallback to the server /media/ proxy
+    if (imageSrc && !imageSrc.startsWith('/media/')) {
+      const fallbackKey = data.thumbnail || data.preview || data.key
+      if (fallbackKey) {
+        const encoded = fallbackKey.split('/').map((segment) => encodeURIComponent(segment)).join('/')
+        setImageSrc(`/media/${encoded}`)
+        return
+      }
+    }
+
     if (imageSrc === data.thumbnail && data.preview && data.preview !== data.thumbnail) {
       setImageSrc(data.preview)
     } else if (imageSrc !== data.key && data.key) {
@@ -263,7 +273,6 @@ export const PhotoCard = memo(function PhotoCard({
           loading={isPriority ? "eager" : "lazy"}
           fetchPriority={isPriority ? "high" : "auto"}
           decoding="async"
-          crossOrigin="anonymous"
           alt={data.name}
           draggable={false}
           className={[

@@ -883,7 +883,6 @@ function PhotoSlideImage({
       src={originalPhoto?.key === slide.preview || originalPhoto?.key === slide.key ? originalPhoto.key : slide.src}
       alt={slide.alt}
       draggable={false}
-      crossOrigin="anonymous"
       className="lightbox-zoom-matrix select-none max-w-none object-contain transition-transform duration-200"
       onError={(event) => {
         event.currentTarget.style.display = "none"
@@ -1670,7 +1669,6 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
                   height={photoSlide.height}
                   draggable={false}
                   className="h-full w-full select-none object-cover"
-                  crossOrigin="anonymous"
                   onError={(event) => {
                     event.currentTarget.style.display = "none"
                   }}
