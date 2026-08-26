@@ -141,7 +141,6 @@ export function PhotoLocationMap({
                 left: `${tile.left}px`,
                 top: `${tile.top}px`,
               }}
-              crossOrigin="anonymous"
               onError={(e) => {
                 // Fallback to OpenStreetMap standard tiles if CartoDB fails
                 const img = e.currentTarget

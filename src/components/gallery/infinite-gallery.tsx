@@ -402,7 +402,7 @@ export function InfiniteGallery(props: InfiniteGalleryProps) {
         img.src = currentSrc
         img.alt = t.alt || safeImages[t.imgIdx]?.alt || ""
         img.decoding = "async"
-        img.loading = "lazy"
+        img.loading = "eager"
         img.draggable = false
         img.style.width = "100%"
         img.style.height = "100%"
@@ -413,6 +413,13 @@ export function InfiniteGallery(props: InfiniteGalleryProps) {
         img.style.imageRendering = "-webkit-optimize-contrast"
         img.style.transform = "translateZ(0)"
         img.style.transition = "transform 0.2s ease, box-shadow 0.2s ease"
+
+        img.onerror = () => {
+          if (img.src && !img.src.includes('/media/')) {
+            const fallbackSrc = currentSrc.startsWith('http') ? currentSrc.replace(/^https?:\/\/[^\/]+/, '/media') : currentSrc
+            img.src = fallbackSrc
+          }
+        }
 
         const radiusPx = (safeRounded / 20) * (Math.min(wPx, hPx) / 2)
         img.style.borderRadius = `${radiusPx}px`

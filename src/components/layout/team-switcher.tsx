@@ -53,7 +53,6 @@ export function TeamSwitcher({
                 src="/logo.png"
                 alt=""
                 className="size-7 object-contain"
-                crossOrigin="anonymous"
               />
             </div>
             <div className="grid flex-1 text-left text-sm leading-tight">
@@ -79,7 +78,6 @@ export function TeamSwitcher({
                   src="/logo.png"
                   alt=""
                   className="size-7 object-contain"
-                  crossOrigin="anonymous"
                 />
               </div>
               <div className="grid flex-1 text-left text-sm leading-tight">

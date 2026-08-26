@@ -182,7 +182,6 @@ export function OnThisDayBanner({ onPhotoClick }: OnThisDayBannerProps) {
                   alt={photo.name}
                   loading="lazy"
                   decoding="async"
-                  crossOrigin="anonymous"
                   className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-105"
                 />
 
