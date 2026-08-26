@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { formatPhotoTakenDate, formatRecycleTime } from "@/lib/date"
 import { getThumbHashUrl } from "@/lib/thumb-hash"
+import { toProxyMediaUrl } from "@/lib/url"
 import { PhotoStatusEnum } from "@/server/enums/photo-enum"
 import { type PhotoVo } from "@/server/entity/vo/photo"
 import { useLocale, useTranslations } from "next-intl"
@@ -118,19 +119,22 @@ export const PhotoCard = memo(function PhotoCard({
 
   // Handle graceful image fallback across all media tiers and CDN fallback
   function handleImageError() {
-    // If the image failed on an external CDN domain, immediately fallback to the server /media/ proxy
+    // 1. If image failed on an external CDN (e.g. Brave Shields / privacy blocking), immediately fallback to first-party proxy
     if (imageSrc && !imageSrc.startsWith('/media/')) {
-      const fallbackKey = data.thumbnail || data.preview || data.key
-      if (fallbackKey) {
-        const encoded = fallbackKey.split('/').map((segment) => encodeURIComponent(segment)).join('/')
-        setImageSrc(`/media/${encoded}`)
-        return
+      const fallback = data.thumbnail || data.preview || data.key
+      if (fallback) {
+        const proxyUrl = toProxyMediaUrl(fallback)
+        if (proxyUrl && proxyUrl !== imageSrc) {
+          setImageSrc(proxyUrl)
+          return
+        }
       }
     }
 
-    if (imageSrc === data.thumbnail && data.preview && data.preview !== data.thumbnail) {
+    // 2. Try higher-res tiers
+    if (data.preview && imageSrc !== data.preview && imageSrc !== toProxyMediaUrl(data.preview)) {
       setImageSrc(data.preview)
-    } else if (imageSrc !== data.key && data.key) {
+    } else if (data.key && imageSrc !== data.key && imageSrc !== toProxyMediaUrl(data.key)) {
       setImageSrc(data.key)
     } else {
       setImageError(true)

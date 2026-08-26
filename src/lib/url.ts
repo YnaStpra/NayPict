@@ -60,4 +60,25 @@ function setPhotoIdInUrl(photoId?: string | null) {
   }
 }
 
-export { formatHttpUrl, toMediaUrl, removePhotoIdFromUrl, setPhotoIdInUrl };
+// Safely extract media key and convert any URL (CDN or relative) into same-origin /media/ proxy path
+function toProxyMediaUrl(urlOrKey?: string | null): string {
+  if (!urlOrKey || !urlOrKey.trim()) {
+    return '';
+  }
+
+  let cleanKey = urlOrKey.trim();
+  try {
+    if (cleanKey.startsWith('http://') || cleanKey.startsWith('https://')) {
+      const parsed = new URL(cleanKey);
+      cleanKey = parsed.pathname;
+    }
+  } catch {
+    // Keep raw string if parsing fails
+  }
+
+  cleanKey = cleanKey.replace(/^\/+media\/+/, '').replace(/^\/+/, '');
+  const encodedKey = cleanKey.split('/').map((segment) => encodeURIComponent(segment)).join('/');
+  return `/media/${encodedKey}`;
+}
+
+export { formatHttpUrl, toMediaUrl, toProxyMediaUrl, removePhotoIdFromUrl, setPhotoIdInUrl };

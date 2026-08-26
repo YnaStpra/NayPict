@@ -1,11 +1,12 @@
 "use client"
 
-import { memo, useMemo } from "react"
+import { memo, useEffect, useMemo, useState } from "react"
 import { type RenderComponentProps } from "masonic"
 import Link from "next/link"
 
 import { AlbumActionMenu } from "@/components/album/album-action-menu"
 import { getThumbHashUrl } from "@/lib/thumb-hash"
+import { toProxyMediaUrl } from "@/lib/url"
 import { type AlbumVo } from "@/server/entity/vo/album"
 import { useAlbumStore } from "@/store/album-store"
 
@@ -21,8 +22,12 @@ type AlbumCardProps = Partial<RenderComponentProps<AlbumVo>> & {
 // Render a single album card in a virtual list.
 export const AlbumCard = memo(function AlbumCard({ data, width, href, onRename, onTop, onDelete, onChangeCover }: AlbumCardProps) {
   const setCurrentAlbumName = useAlbumStore((state) => state.setCurrentAlbumName)
-  const thumbnailSrc = data.thumbnail
+  const [thumbnailSrc, setThumbnailSrc] = useState<string | null>(() => data.thumbnail || null)
   const placeholder = useMemo(() => getThumbHashUrl(data.thumbHash), [data.thumbHash])
+
+  useEffect(() => {
+    setThumbnailSrc(data.thumbnail || null)
+  }, [data.thumbnail])
 
   // Record the current album name before clicking to enter the album, For photo page display.
   function saveCurrentAlbumName() {
@@ -88,7 +93,11 @@ export const AlbumCard = memo(function AlbumCard({ data, width, href, onRename, 
             alt={data.name}
             className="absolute inset-0 h-full w-full object-cover spring-zoom-img group-hover:scale-[1.035]"
             onError={(event) => {
-              event.currentTarget.style.display = "none"
+              if (thumbnailSrc && !thumbnailSrc.startsWith('/media/')) {
+                setThumbnailSrc(toProxyMediaUrl(thumbnailSrc))
+              } else {
+                event.currentTarget.style.display = "none"
+              }
             }}
           />
         ) : (
