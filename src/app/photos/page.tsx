@@ -128,7 +128,7 @@ export default function Page() {
   const handleSortChange = (key: SortOptionKey) => {
     setSortKey(key)
 
-    // Automatically enable Group by Date when sorting by Taken Date (Newest or Oldest), disable otherwise
+    // Default: automatically enable Group by Date when selecting Taken Date (Newest or Oldest)
     if (key === 'takenTime_desc' || key === 'takenTime_asc') {
       setGroupByDate(true)
     } else {
@@ -145,14 +145,20 @@ export default function Page() {
     }
   }
 
-  // Auto toggle Group by Date: switches between Taken Date and default/random
+  // Toggle Group by Date: allows toggling on/off without resetting active Taken Date sorting
   const toggleGroupByDate = () => {
     setGroupByDate((prev) => {
       const next = !prev
+
+      // If user is already sorting by taken date (newest or oldest), simply toggle the grouped view on/off
+      // while keeping the exact same taken date sort order in the flat masonry grid.
+      if (sortKey === 'takenTime_desc' || sortKey === 'takenTime_asc') {
+        return next
+      }
+
+      // If not currently sorting by taken date, switch to Taken Date when turning on, or default when turning off
       if (next) {
-        // If sortKey is already takenTime_desc, keep it, otherwise default to takenTime_asc
-        const targetSort = sortKey === 'takenTime_desc' ? 'takenTime_desc' : 'takenTime_asc'
-        handleSortChange(targetSort)
+        handleSortChange('takenTime_asc')
       } else {
         handleSortChange('none')
       }
