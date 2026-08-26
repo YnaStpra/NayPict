@@ -857,7 +857,7 @@ function CloseButton({ showActions }: { showActions: boolean }) {
   )
 }
 
-// Render a single photo with progressive high-res loading and fallback
+// Render a single photo with progressive high-res loading, progress feedback, and fallback
 function PhotoSlideImage({
   slide,
   originalPhoto,
@@ -878,6 +878,7 @@ function PhotoSlideImage({
     : slide.src || slide.preview || slide.thumbnail || ""
   const [currentSrc, setCurrentSrc] = useState<string>(initialSrc)
   const [loaded, setLoaded] = useState(false)
+  const [showHdBadge, setShowHdBadge] = useState(false)
 
   useEffect(() => {
     const targetSrc = originalPhoto?.key === slide.preview || originalPhoto?.key === slide.key
@@ -885,7 +886,16 @@ function PhotoSlideImage({
       : slide.src || slide.preview || slide.thumbnail || ""
     setCurrentSrc(targetSrc)
     setLoaded(false)
+    setShowHdBadge(false)
   }, [slide.src, slide.preview, slide.thumbnail, originalPhoto?.key])
+
+  const handleImageLoaded = () => {
+    setLoaded(true)
+    setShowHdBadge(true)
+    setTimeout(() => {
+      setShowHdBadge(false)
+    }, 1400)
+  }
 
   const normalizedRotate = rotate % 360
   const sideways = normalizedRotate === 90 || normalizedRotate === 270
@@ -894,6 +904,36 @@ function PhotoSlideImage({
 
   return (
     <div className="relative flex h-full w-full items-center justify-center overflow-hidden">
+      {/* Top Streaming Indeterminate Progress Line */}
+      {!loaded && (
+        <div className="pointer-events-none absolute top-0 left-0 right-0 h-1 z-30 overflow-hidden bg-white/10">
+          <div className="h-full w-1/3 bg-gradient-to-r from-emerald-500 via-teal-300 to-emerald-500 rounded-full hd-progress-indeterminate shadow-[0_0_8px_rgba(16,185,129,0.8)]" />
+        </div>
+      )}
+
+      {/* Floating Glassmorphic Progress Badge (Active while HD streaming) */}
+      {!loaded && (
+        <div className="pointer-events-none absolute bottom-14 sm:bottom-20 z-30 flex flex-col items-center gap-1.5 rounded-2xl bg-black/80 px-4 py-2 text-xs font-medium text-white shadow-2xl backdrop-blur-xl border border-white/20 animate-in fade-in zoom-in-95 duration-200">
+          <div className="flex items-center gap-2">
+            <LoaderCircleIcon className="size-3.5 animate-spin text-emerald-400 shrink-0" />
+            <span className="font-semibold tracking-wide text-[11px] sm:text-xs text-white/90">
+              Memuat kualitas asli HD...
+            </span>
+          </div>
+          <div className="h-1 w-28 sm:w-36 overflow-hidden rounded-full bg-white/15">
+            <div className="h-full w-full bg-gradient-to-r from-emerald-500 via-teal-300 to-emerald-500 hd-progress-shimmer rounded-full" />
+          </div>
+        </div>
+      )}
+
+      {/* Floating HD Ready Success Badge */}
+      {loaded && showHdBadge && (
+        <div className="pointer-events-none absolute bottom-14 sm:bottom-20 z-30 flex items-center gap-1.5 rounded-full bg-emerald-950/85 px-3.5 py-1 text-xs font-medium text-emerald-300 shadow-xl backdrop-blur-xl border border-emerald-500/30 animate-in fade-in zoom-in-95 duration-200">
+          <Sparkles className="size-3 text-emerald-400 shrink-0" />
+          <span className="font-semibold text-[11px] sm:text-xs">Kualitas HD Siap</span>
+        </div>
+      )}
+
       {/* Instant placeholder while HD image streams in */}
       {slide.thumbHashUrl && !loaded && (
         <img
@@ -914,7 +954,7 @@ function PhotoSlideImage({
         draggable={false}
         decoding="async"
         className="lightbox-zoom-matrix select-none max-w-none object-contain transition-opacity duration-200"
-        onLoad={() => setLoaded(true)}
+        onLoad={handleImageLoaded}
         onError={() => {
           if (currentSrc && !currentSrc.startsWith('/media/')) {
             setCurrentSrc(toProxyMediaUrl(currentSrc))

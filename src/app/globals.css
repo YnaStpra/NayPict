@@ -650,6 +650,40 @@ body {
   transform: translateX(2px);
 }
 
+/* ==========================================================================
+   Lightbox: HD Image Streaming Progress & Glow
+   ========================================================================== */
+
+@keyframes hd-stream-indeterminate {
+  0% {
+    transform: translateX(-100%);
+  }
+  50% {
+    transform: translateX(120%);
+  }
+  100% {
+    transform: translateX(350%);
+  }
+}
+
+@keyframes hd-shimmer-pulse {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.hd-progress-indeterminate {
+  animation: hd-stream-indeterminate 1.5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+.hd-progress-shimmer {
+  animation: hd-shimmer-pulse 1.3s ease-in-out infinite;
+}
+
+
 
 
 
