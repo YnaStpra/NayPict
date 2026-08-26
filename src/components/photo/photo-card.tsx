@@ -91,7 +91,9 @@ export const PhotoCard = memo(function PhotoCard({
   useEffect(() => {
     setImageSrc(data.thumbnail || data.preview || data.key || null)
     setImageError(false)
-    setImageLoaded(false)
+    if (!loadedPhotoCache.has(data.photoId)) {
+      setImageLoaded(false)
+    }
   }, [data.photoId, data.thumbnail, data.preview, data.key])
 
   // Proactive Fallback Watchdog: If thumbnail stalls > 2.8s without error, seamlessly switch to preview/original

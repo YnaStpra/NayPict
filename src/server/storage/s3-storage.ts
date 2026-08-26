@@ -8,10 +8,12 @@ import { formatHttpUrl } from '@/lib/url';
 
 // This module implements S3 storage strategy。
 
+const s3ClientCache = new Map<string, S3Client>();
+
 class S3StorageStrategy implements StorageStrategy {
 
-  // Created based on storage configuration S3 client。
-  private createClient(storage: Storage) {
+  // Created or retrieve cached S3 client based on storage configuration with HTTP/2 keep-alive.
+  private createClient(storage: Storage): S3Client {
     const region = storage.region?.trim() || 'auto';
     const endpoint = formatHttpUrl(storage.endpoint);
     const accessKeyId = storage.accessKey?.trim();
@@ -21,15 +23,23 @@ class S3StorageStrategy implements StorageStrategy {
       throw new BizError('s3.configIncomplete');
     }
 
-    return new S3Client({
-      region,
-      endpoint,
-      forcePathStyle: true,
-      credentials: {
-        accessKeyId,
-        secretAccessKey
-      }
-    });
+    const cacheKey = `${storage.storageId || 'default'}_${endpoint}_${accessKeyId}`;
+    let client = s3ClientCache.get(cacheKey);
+
+    if (!client) {
+      client = new S3Client({
+        region,
+        endpoint,
+        forcePathStyle: true,
+        credentials: {
+          accessKeyId,
+          secretAccessKey
+        }
+      });
+      s3ClientCache.set(cacheKey, client);
+    }
+
+    return client;
   }
 
   // Convert custom metadata items to S3 PutObject parameter。
