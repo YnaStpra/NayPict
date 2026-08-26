@@ -11,7 +11,8 @@ import {
 } from "@/components/ui/dialog"
 import { type PhotoInsightsDetailVo } from "@/server/entity/vo/insights"
 import { getPhotoInsightsDetail } from "@/request/insights"
-import { Eye, Download, MessageSquare, Share2, TrendingUp, Loader2, Calendar } from "lucide-react"
+import { toProxyMediaUrl } from "@/lib/url"
+import { Eye, Download, MessageSquare, Share2, TrendingUp, Loader2, Calendar, Image as ImageIcon } from "lucide-react"
 import {
   AreaChart,
   Area,
@@ -20,6 +21,47 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts"
+
+// Safe photo thumbnail with CDN error fallback and proxy support
+function DialogPhotoThumbnail({ src, alt }: { src?: string | null; alt: string }) {
+  const [currentSrc, setCurrentSrc] = useState(src || "")
+  const [hasError, setHasError] = useState(false)
+
+  useEffect(() => {
+    setCurrentSrc(src || "")
+    setHasError(false)
+  }, [src])
+
+  const handleError = () => {
+    if (currentSrc && !currentSrc.startsWith("/media/")) {
+      const proxy = toProxyMediaUrl(currentSrc)
+      if (proxy && proxy !== currentSrc) {
+        setCurrentSrc(proxy)
+        return
+      }
+    }
+    setHasError(true)
+  }
+
+  if (hasError || !currentSrc) {
+    return (
+      <div className="size-16 rounded-lg bg-muted flex items-center justify-center shrink-0 border border-border/60 text-muted-foreground">
+        <ImageIcon className="size-6 opacity-40" />
+      </div>
+    )
+  }
+
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={currentSrc}
+      alt={alt}
+      loading="lazy"
+      onError={handleError}
+      className="size-16 rounded-lg object-cover shrink-0 border border-border/60 bg-muted"
+    />
+  )
+}
 
 // This component renders an individual photo analytics and insights modal for Admin.
 
@@ -89,14 +131,7 @@ export function PhotoInsightsDialog({ photoId, open, onOpenChange }: PhotoInsigh
           <div className="space-y-6 pt-2">
             {/* Photo Header Card */}
             <div className="flex items-center gap-4 p-3 rounded-xl bg-card border border-border/70">
-              <Image
-                src={detail.thumbnail}
-                alt={detail.name}
-                width={64}
-                height={64}
-                unoptimized
-                className="size-16 rounded-lg object-cover shrink-0 border border-border/60"
-              />
+              <DialogPhotoThumbnail src={detail.thumbnail} alt={detail.name} />
               <div className="min-w-0 flex-1">
                 <h4 className="font-semibold text-sm truncate text-foreground">{detail.name}</h4>
                 <div className="flex flex-wrap items-center gap-2 mt-1.5 text-xs text-muted-foreground">

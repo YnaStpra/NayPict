@@ -31,6 +31,7 @@ import { toast } from "sonner"
 import { getInsightsChart, getInsightsOverview, getInsightsTopPhotos, resetInsights } from "@/request/insights"
 import { userInfo as fetchUserInfo } from "@/request/user"
 import { photoList } from "@/request/photo"
+import { toProxyMediaUrl } from "@/lib/url"
 import {
   BarChart3,
   Calendar,
@@ -61,6 +62,47 @@ const PhotoViewer = dynamic(
   () => import("@/components/photo/photo-viewer").then((mod) => mod.PhotoViewer),
   { ssr: false }
 )
+
+// Safe photo thumbnail with CDN error fallback and proxy support
+function InsightThumbnail({ src, alt }: { src?: string | null; alt: string }) {
+  const [currentSrc, setCurrentSrc] = useState(src || "")
+  const [hasError, setHasError] = useState(false)
+
+  useEffect(() => {
+    setCurrentSrc(src || "")
+    setHasError(false)
+  }, [src])
+
+  const handleError = () => {
+    if (currentSrc && !currentSrc.startsWith("/media/")) {
+      const proxy = toProxyMediaUrl(currentSrc)
+      if (proxy && proxy !== currentSrc) {
+        setCurrentSrc(proxy)
+        return
+      }
+    }
+    setHasError(true)
+  }
+
+  if (hasError || !currentSrc) {
+    return (
+      <div className="size-12 rounded-lg bg-muted flex items-center justify-center shrink-0 border border-border/60 text-muted-foreground">
+        <ImageIcon className="size-5 opacity-40" />
+      </div>
+    )
+  }
+
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={currentSrc}
+      alt={alt}
+      loading="lazy"
+      onError={handleError}
+      className="size-12 rounded-lg object-cover shrink-0 border border-border/60 bg-muted"
+    />
+  )
+}
 
 export default function AdminInsightsPage() {
   const router = useRouter()
@@ -565,14 +607,7 @@ export default function AdminInsightsPage() {
                             <span className="text-xs font-bold text-muted-foreground w-4 text-center">
                               {index + 1}
                             </span>
-                            <Image
-                              src={photo.thumbnail}
-                              alt={photo.name}
-                              width={48}
-                              height={48}
-                              unoptimized
-                              className="size-12 rounded-lg object-cover shrink-0 border border-border/60"
-                            />
+                            <InsightThumbnail src={photo.thumbnail} alt={photo.name} />
                             <div className="min-w-0 flex-1">
                               <h4 className="text-xs font-semibold truncate group-hover:text-primary transition-colors">
                                 {photo.name}
@@ -639,14 +674,7 @@ export default function AdminInsightsPage() {
                             <span className="text-xs font-bold text-muted-foreground w-4 text-center">
                               {index + 1}
                             </span>
-                            <Image
-                              src={photo.thumbnail}
-                              alt={photo.name}
-                              width={48}
-                              height={48}
-                              unoptimized
-                              className="size-12 rounded-lg object-cover shrink-0 border border-border/60"
-                            />
+                            <InsightThumbnail src={photo.thumbnail} alt={photo.name} />
                             <div className="min-w-0 flex-1">
                               <h4 className="text-xs font-semibold truncate group-hover:text-primary transition-colors">
                                 {photo.name}

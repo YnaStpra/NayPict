@@ -2,11 +2,13 @@ import { and, count, desc, eq, gte, inArray, sql } from 'drizzle-orm';
 import { neon } from '@neondatabase/serverless';
 import { createId } from '@/server/lib/id';
 import { photoTab } from '@/server/entity/photo';
+import { fileTab } from '@/server/entity/file';
 import { commentTab } from '@/server/entity/comment';
 import { photoViewTab } from '@/server/entity/insights';
 import { storageTab } from '@/server/entity/storage';
 import { orm } from '@/server/infra/db';
 import { PhotoStatusEnum } from '@/server/enums/photo-enum';
+import { FileTypeEnum } from '@/server/enums/file-enum';
 import { buildPreviewKey, buildThumbnailKey } from '@/server/lib/photo-path';
 import { toMediaUrl } from '@/lib/url';
 import { type PhotoViewRecordBo } from '@/server/entity/bo/insights';
@@ -360,15 +362,35 @@ const insightsService = {
         }
       }
 
-      // Collect all photoIds to fetch comment and view counts
+      // Collect all photoIds to fetch files, comment and view counts
       const allPhotoIds = Array.from(
         new Set([...mostViewedRaw, ...mostCommentedRaw].map((p) => p.photoId))
       );
 
+      const fileMap = new Map<string, { thumbnailKey?: string; previewKey?: string }>();
       const commentCountMap = new Map<string, number>();
       const viewCountMap = new Map<string, number>();
 
       if (allPhotoIds.length > 0) {
+        const fileRows = await orm
+          .select({
+            photoId: fileTab.photoId,
+            type: fileTab.type,
+            key: fileTab.key,
+          })
+          .from(fileTab)
+          .where(inArray(fileTab.photoId, allPhotoIds));
+
+        for (const f of fileRows) {
+          const current = fileMap.get(f.photoId) || {};
+          if (f.type === FileTypeEnum.THUMBNAIL) {
+            current.thumbnailKey = f.key;
+          } else if (f.type === FileTypeEnum.PREVIEW) {
+            current.previewKey = f.key;
+          }
+          fileMap.set(f.photoId, current);
+        }
+
         const commentRows = await orm
           .select({
             photoId: commentTab.photoId,
@@ -408,8 +430,9 @@ const insightsService = {
       }): InsightsTopPhotoVo => {
         const domain = item.storageId ? storageMap.get(item.storageId) : null;
         const checksum = item.checksum || '';
-        const thumbnailKey = buildThumbnailKey(checksum, item.photoId);
-        const previewKey = buildPreviewKey(checksum, item.photoId);
+        const files = fileMap.get(item.photoId);
+        const thumbnailKey = files?.thumbnailKey || (checksum ? buildThumbnailKey(checksum, item.photoId) : '');
+        const previewKey = files?.previewKey || (checksum ? buildPreviewKey(checksum, item.photoId) : '');
 
         return {
           photoId: item.photoId,
@@ -465,9 +488,31 @@ const insightsService = {
         domain = s?.domain ?? null;
       }
 
-      const checksum = photo.checksum || '';
-      const thumbnail = toMediaUrl(buildThumbnailKey(checksum, photo.photoId), domain);
-      const preview = toMediaUrl(buildPreviewKey(checksum, photo.photoId), domain);
+      let thumbnailKey = '';
+      let previewKey = '';
+
+      const fileRows = await orm
+        .select({
+          type: fileTab.type,
+          key: fileTab.key,
+        })
+        .from(fileTab)
+        .where(eq(fileTab.photoId, photoId));
+
+      for (const f of fileRows) {
+        if (f.type === FileTypeEnum.THUMBNAIL) thumbnailKey = f.key;
+        if (f.type === FileTypeEnum.PREVIEW) previewKey = f.key;
+      }
+
+      if (!thumbnailKey && photo.checksum) {
+        thumbnailKey = buildThumbnailKey(photo.checksum, photo.photoId);
+      }
+      if (!previewKey && photo.checksum) {
+        previewKey = buildPreviewKey(photo.checksum, photo.photoId);
+      }
+
+      const thumbnail = toMediaUrl(thumbnailKey, domain);
+      const preview = toMediaUrl(previewKey, domain);
 
       const now = new Date();
       const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
