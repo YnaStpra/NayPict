@@ -86,6 +86,9 @@ export function PixelMascots() {
   const lastClickTimeRef = useRef<number>(0)
   const coolDownTimerRef = useRef<NodeJS.Timeout | null>(null)
 
+  const [kuroDuration, setKuroDuration] = useState<number>(0)
+  const isKuroMoving = kuroState.startsWith('walk') || kuroState.startsWith('run')
+
   // Derive facing direction directly from kuroState
   const kuroFacing: FacingDirection =
     kuroState === 'walk-left' || kuroState === 'run-left' ? 'left' : 'right'
@@ -101,12 +104,26 @@ export function PixelMascots() {
     return 'center'
   }, [kuroState, animFrame])
 
-  // Eye blinking animation timer
+  // Animation leg/arm frame switcher: ONLY active while moving to save CPU & battery
+  useEffect(() => {
+    if (!isKuroMoving) {
+      setAnimFrame(0)
+      return
+    }
+
+    const interval = setInterval(() => {
+      setAnimFrame((prev) => (prev === 0 ? 1 : 0))
+    }, 180)
+    return () => clearInterval(interval)
+  }, [isKuroMoving])
+
+  // Eye blinking animation timer (pauses if tab is in background)
   useEffect(() => {
     const blinkInterval = setInterval(() => {
+      if (typeof document !== 'undefined' && document.hidden) return
       setIsBlinking(true)
       setTimeout(() => setIsBlinking(false), 220)
-    }, 3800)
+    }, 4500)
     return () => clearInterval(blinkInterval)
   }, [])
 
@@ -145,60 +162,43 @@ export function PixelMascots() {
     return { minX, maxX, isRelative: false }
   }, [])
 
-  // Animation leg/arm frame switcher
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setAnimFrame((prev) => (prev === 0 ? 1 : 0))
-    }, 150)
-    return () => clearInterval(interval)
-  }, [])
-
-  // Smooth Movement Loop for Kuro (60 FPS)
-  useEffect(() => {
-    const moveLoop = () => {
-      if (kuroState.startsWith('walk') || kuroState.startsWith('run')) {
-        const diffK = kuroTargetXRef.current - kuroXRef.current
-        const speedK = kuroState.startsWith('run') ? 2.2 : 1.1
-
-        if (Math.abs(diffK) <= speedK) {
-          kuroXRef.current = kuroTargetXRef.current
-          setKuroX(kuroTargetXRef.current)
-          const nextK: CatState[] = ['idle', 'butterfly', 'flower', 'fish', 'yarn', 'groom', 'box', 'stretch', 'sleep']
-          setKuroState(nextK[Math.floor(Math.random() * nextK.length)])
-        } else {
-          kuroXRef.current += diffK > 0 ? speedK : -speedK
-          setKuroX(kuroXRef.current)
-        }
-      }
-
-      animFrameIdRef.current = requestAnimationFrame(moveLoop)
-    }
-
-    animFrameIdRef.current = requestAnimationFrame(moveLoop)
-    return () => {
-      if (animFrameIdRef.current) cancelAnimationFrame(animFrameIdRef.current)
-    }
-  }, [kuroState])
-
-  // Autonomous Decision Engine (Every 3.8s) for Kuro
+  // Autonomous Decision Engine (Every 4.5s) for Kuro using Hardware-Accelerated CSS Transitions
   useEffect(() => {
     const decisionInterval = setInterval(() => {
+      if (typeof document !== 'undefined' && document.hidden) return
       const { minX, maxX } = getBounds()
 
       if (!kuroBubble && kuroState !== 'angry' && kuroState !== 'annoyed' && !kuroState.startsWith('walk') && !kuroState.startsWith('run')) {
         if (Math.random() < 0.45) {
           const newTargetK = Math.floor(Math.random() * (maxX - minX)) + minX
-          kuroTargetXRef.current = newTargetK
+          const distance = Math.abs(newTargetK - kuroXRef.current)
           const isRun = Math.random() < 0.3
-          setKuroState(newTargetK < kuroXRef.current ? (isRun ? 'run-left' : 'walk-left') : (isRun ? 'run-right' : 'walk-right'))
+          const speed = isRun ? 140 : 70 // px per second
+          const duration = Math.max(0.6, parseFloat((distance / speed).toFixed(2)))
+          const nextState = newTargetK < kuroXRef.current ? (isRun ? 'run-left' : 'walk-left') : (isRun ? 'run-right' : 'walk-right')
+
+          kuroXRef.current = newTargetK
+          setKuroDuration(duration)
+          setKuroState(nextState)
+          setKuroX(newTargetK)
+
+          if (kuroTimerRef.current) clearTimeout(kuroTimerRef.current)
+          kuroTimerRef.current = setTimeout(() => {
+            const actsK: CatState[] = ['idle', 'butterfly', 'flower', 'fish', 'yarn', 'groom', 'box', 'stretch', 'sleep']
+            setKuroState(actsK[Math.floor(Math.random() * actsK.length)])
+            setKuroDuration(0)
+          }, duration * 1000)
         } else {
           const actsK: CatState[] = ['butterfly', 'flower', 'fish', 'yarn', 'groom', 'box', 'stretch', 'sleep', 'idle']
           setKuroState(actsK[Math.floor(Math.random() * actsK.length)])
         }
       }
-    }, 3800)
+    }, 4500)
 
-    return () => clearInterval(decisionInterval)
+    return () => {
+      clearInterval(decisionInterval)
+      if (kuroTimerRef.current) clearTimeout(kuroTimerRef.current)
+    }
   }, [kuroState, kuroBubble, getBounds])
 
   // Click Kuro Handler with Mood Escalation & Auto Cool-Down Reset
@@ -255,11 +255,15 @@ export function PixelMascots() {
     }
   }, [])
 
-  // Container styling configuration for standard pages
-  const getContainerStyle = (x: number): { className: string; style: React.CSSProperties } => {
+  // Container styling configuration for standard pages using hardware-accelerated transforms
+  const getContainerStyle = (x: number, duration: number, isMoving: boolean): { className: string; style: React.CSSProperties } => {
     return {
-      className: 'fixed bottom-0 z-[99999] flex flex-col items-center select-none pointer-events-auto touch-manipulation',
-      style: { left: `${x}px` },
+      className: 'fixed bottom-0 left-0 z-[99999] flex flex-col items-center select-none pointer-events-auto touch-manipulation',
+      style: {
+        transform: `translate3d(${x}px, 0, 0)`,
+        transition: isMoving && duration > 0 ? `transform ${duration}s linear` : 'none',
+        willChange: isMoving ? 'transform' : 'auto',
+      },
     }
   }
 
@@ -291,8 +295,7 @@ export function PixelMascots() {
     return null
   }
 
-  const kuroStyle = getContainerStyle(kuroX)
-  const isKuroMoving = kuroState.startsWith('walk') || kuroState.startsWith('run')
+  const kuroStyle = getContainerStyle(kuroX, kuroDuration, isKuroMoving)
   const kuroBubbleAlign = getBubbleAlignment(kuroX)
 
   // Helper for Kuro Pupil Position Coordinates
