@@ -31,8 +31,16 @@ media.onError((err, c) => {
   return c.text(err.message, 500);
 });
 
-// Query file and photo information by document key.
+// Query file and photo information by document key with in-memory LRU cache.
+const photoFileCache = new Map<string, { data: any; exp: number }>();
+
 async function getPhotoFile(key: string) {
+  const now = Date.now();
+  const cached = photoFileCache.get(key);
+  if (cached && cached.exp > now) {
+    return cached.data;
+  }
+
   const [row] = await orm
     .select({
       key: fileTab.key,
@@ -48,6 +56,14 @@ async function getPhotoFile(key: string) {
     .innerJoin(photoTab, eq(fileTab.photoId, photoTab.photoId))
     .where(eq(fileTab.key, key))
     .limit(1);
+
+  if (row) {
+    if (photoFileCache.size > 2000) {
+      const oldestKey = photoFileCache.keys().next().value;
+      if (oldestKey) photoFileCache.delete(oldestKey);
+    }
+    photoFileCache.set(key, { data: row, exp: now + 1000 * 60 * 60 }); // 1 hour memory cache
+  }
 
   return row;
 }
@@ -75,7 +91,6 @@ media.get('*', async (c: Context, next: Next) => {
 
   // Server-side Download Protection for ORIGINAL file requests
   if (photoFile.type === FileTypeEnum.ORIGINAL) {
-    const userId = getUserId();
     const isAllowed = photoFile.allowDownload === 1 || Boolean(userId);
 
     if (!isAllowed) {
@@ -89,12 +104,24 @@ media.get('*', async (c: Context, next: Next) => {
     }
   }
 
+  const isOriginal = photoFile.type === FileTypeEnum.ORIGINAL;
+  const etag = `W/"${photoFile.key}"`;
+  const ifNoneMatch = c.req.header('if-none-match');
+
+  // Fast-path HTTP 304 Not Modified: instantly revalidate cached images with 0 bytes transferred
+  if (ifNoneMatch && (ifNoneMatch === etag || ifNoneMatch === `"${photoFile.key}"`)) {
+    return c.body(null, 304, {
+      'ETag': etag,
+      'Cache-Control': isOriginal ? 'no-cache, private' : 'public, max-age=31536000, immutable',
+    });
+  }
+
   const obj = await storage.get(photoFile.key, photoFile.storageId);
   const disposition = photoFile.type === FileTypeEnum.ORIGINAL ? buildContentDisposition(photoFile.name) : null;
-  const isOriginal = photoFile.type === FileTypeEnum.ORIGINAL;
   const headers: Record<string, string> = {
     'Content-Type': photoFile.fileType,
     'Cache-Control': isOriginal ? 'no-cache, private' : 'public, max-age=31536000, immutable',
+    'ETag': etag,
     'Vary': 'Accept, Accept-Encoding',
     'Accept-Ranges': 'bytes',
     'Content-Length': String(obj.size)

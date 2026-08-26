@@ -178,7 +178,7 @@ function Provider({ children, defaultTheme, defaultSidebarOpen, initialUserInfo,
       <TooltipProvider>
         {children}
         <PhotoUploadDialog />
-        <PixelCat />
+        {/* PixelCat mascot disabled */}
         <Toaster position="top-center" />
       </TooltipProvider>
     </AppContext.Provider>

@@ -1,3 +1,5 @@
 'use client'
 
-export { PixelMascots as PixelCat } from './pixel-mascots'
+export function PixelCat() {
+  return null
+}

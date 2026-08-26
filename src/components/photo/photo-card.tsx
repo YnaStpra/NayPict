@@ -212,7 +212,9 @@ export const PhotoCard = memo(function PhotoCard({
         width,
         height: cardHeight,
         contain: "paint layout",
+        contentVisibility: "auto",
         containIntrinsicSize: `${width}px ${cardHeight}px`,
+        transform: "translateZ(0)",
         // Dynamic Layout Stability CSS Custom Properties (CLS = 0.000)
         ["--aspect-ratio" as string]: `${ratio}`,
         ["--intrinsic-width" as string]: `${width}px`,
