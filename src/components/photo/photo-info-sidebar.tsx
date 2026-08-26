@@ -14,6 +14,7 @@ import { useApp } from "@/app/provider"
 import { UserTypeEnum } from "@/server/enums/user-enum"
 import { PhotoVisibilityEnum } from "@/server/enums/photo-enum"
 import { photoSetVisibility } from "@/request/photo"
+import { commentList } from "@/request/comment"
 import { PhotoComments } from "@/components/photo/photo-comments"
 import { PhotoLocationMap } from "@/components/photo/photo-location-map"
 import { PhotoBatchEditDialog } from "@/components/photo/photo-batch-edit-dialog"
@@ -160,12 +161,48 @@ export function PhotoInfoSidebar({
   const shootingParams = photo ? getPhotoShootingParams(photo.exif) : []
 
   const [internalTab, setInternalTab] = useState<"info" | "comments">("info")
+  const [commentCount, setCommentCount] = useState<number>(0)
   const [isUpdatingVisibility, setIsUpdatingVisibility] = useState(false)
   const [batchEditDialogOpen, setBatchEditDialogOpen] = useState(false)
   const currentTab = controlledTab ?? internalTab
 
   const asideRef = useRef<HTMLElement>(null)
   const infoScrollRef = useRef<HTMLDivElement>(null)
+
+  // Fetch initial comment count and listen for real-time comment updates
+  useEffect(() => {
+    if (!photo?.photoId) {
+      setCommentCount(0)
+      return
+    }
+
+    let isMounted = true
+    commentList(photo.photoId)
+      .then((items) => {
+        if (isMounted && Array.isArray(items)) {
+          setCommentCount(items.length)
+        }
+      })
+      .catch(() => {})
+
+    let eventSource: EventSource | null = null
+    if (typeof window !== "undefined" && typeof EventSource !== "undefined") {
+      try {
+        eventSource = new EventSource(`/api/photos/${encodeURIComponent(photo.photoId)}/comments/sse`)
+        eventSource.addEventListener("comment_added", () => {
+          setCommentCount((prev) => prev + 1)
+        })
+        eventSource.addEventListener("comment_deleted", () => {
+          setCommentCount((prev) => Math.max(0, prev - 1))
+        })
+      } catch {}
+    }
+
+    return () => {
+      isMounted = false
+      if (eventSource) eventSource.close()
+    }
+  }, [photo?.photoId])
 
   const handleVisibilityChange = async (newVisibility: number) => {
     if (!photo || isUpdatingVisibility) return
@@ -267,8 +304,17 @@ export function PhotoInfoSidebar({
                     : "text-white/60 hover:text-white"
                 }`}
               >
-                <MessageSquareIcon className="size-3.5" />
+                <div className="relative flex items-center">
+                  <MessageSquareIcon className="size-3.5 text-emerald-400" />
+                  <span className="absolute -top-0.5 -right-0.5 size-1.5 rounded-full bg-emerald-400 animate-ping opacity-75" />
+                  <span className="absolute -top-0.5 -right-0.5 size-1.5 rounded-full bg-emerald-400" />
+                </div>
                 <span>Comments</span>
+                {commentCount > 0 && (
+                  <span className="ml-1 px-1.5 py-0.2 rounded-full bg-emerald-500/30 border border-emerald-400/40 text-[10px] font-bold text-emerald-300">
+                    {commentCount}
+                  </span>
+                )}
               </button>
             </div>
           </div>

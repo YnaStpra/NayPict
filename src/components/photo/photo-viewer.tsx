@@ -467,7 +467,7 @@ function CommentsButton({
   )
 }
 
-// Render photo information button, Click to switch the information sidebar on the right.
+// Render photo information & comments button, Click to switch the information sidebar on the right.
 function InfoButton({
   open,
   onToggle,
@@ -487,20 +487,24 @@ function InfoButton({
             size="icon"
             variant="secondary"
             className={[
-              "rounded-full text-white transition-opacity duration-200",
+              "relative rounded-full text-white transition-opacity duration-200",
               open ? "bg-black/70 hover:bg-black/70 border border-white/30" : "bg-black/40 hover:bg-black/50",
             ].join(" ")}
             {...tap}
           >
+            {/* Desktop green indicator dot for comments & info */}
+            <span className="hidden md:block absolute top-1 right-1 size-2 rounded-full bg-emerald-400 animate-ping opacity-75 pointer-events-none" />
+            <span className="hidden md:block absolute top-1 right-1 size-2 rounded-full bg-emerald-400 ring-2 ring-black pointer-events-none" />
+
             <Menu className="md:hidden" />
             {open
               ? <PanelRightClose className="hidden md:block" />
               : <PanelRightOpen className="hidden md:block" />}
-            <span className="sr-only">Photo information</span>
+            <span className="sr-only">Photo information & comments</span>
           </Button>
         </TooltipTrigger>
         <TooltipContent side="bottom">
-          <p>Information</p>
+          <p>Information & Comments</p>
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>
@@ -809,7 +813,7 @@ function AlbumOverlayBadge({ isCinematicMode }: { isCinematicMode: boolean }) {
   )
 }
 
-// Floating iOS Liquid Glass Quick Comment & Info Pill (Mobile & Tablet)
+// Floating iOS Liquid Glass Quick Comment & Info Pill (Mobile-only)
 function MobileQuickCommentPill({
   showActions,
   isCinematicMode,
@@ -826,7 +830,7 @@ function MobileQuickCommentPill({
   return (
     <div
       className={[
-        "fixed left-3 bottom-14 sm:bottom-16 md:bottom-20 z-40 flex items-center transition-all duration-300 pointer-events-auto select-none",
+        "fixed left-3 bottom-14 sm:bottom-16 z-40 md:hidden flex items-center transition-all duration-300 pointer-events-auto select-none",
         getActionVisibleClass(showActions),
       ].join(" ")}
     >
@@ -1643,23 +1647,11 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
                       />
                       <RotateButton showActions={actionsVisible} onRotate={rotatePhoto} />
                       <ShareButton showActions={actionsVisible} />
-                      <CommentsButton
-                        showActions={actionsVisible}
-                        open={infoOpen && infoTab === "comments"}
-                        onToggle={() => {
-                          if (infoOpen && infoTab === "comments") {
-                            setInfoOpen(false)
-                          } else {
-                            setInfoTab("comments")
-                            setInfoOpen(true)
-                          }
-                        }}
-                      />
                       <InfoButton
                         showActions={actionsVisible}
-                        open={infoOpen && infoTab === "info"}
+                        open={infoOpen}
                         onToggle={() => {
-                          if (infoOpen && infoTab === "info") {
+                          if (infoOpen) {
                             setInfoOpen(false)
                           } else {
                             setInfoTab("info")
