@@ -1,4 +1,4 @@
-// This module defines the storage configuration interface input parameter object。
+// This module defines the storage configuration interface input parameter object.
 
 interface StorageSetTopBo {
   storageId: string;

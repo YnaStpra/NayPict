@@ -27,7 +27,7 @@ interface UserColumnsOptions {
   onDelete: (user: UserVo) => void
 }
 
-// Render header button with fixed sort icon。
+// Render header button with fixed sort icon.
 function SortableHeader({ label, column }: SortableHeaderProps) {
   return (
     <Button
@@ -42,7 +42,7 @@ function SortableHeader({ label, column }: SortableHeaderProps) {
   )
 }
 
-// Format storage capacity as readable text。
+// Format storage capacity as readable text.
 function formatCapacity(size: number) {
   if (!size) {
     return "0 B"
@@ -55,7 +55,7 @@ function formatCapacity(size: number) {
   return `${value.toFixed(value >= 10 || index === 0 ? 0 : 1)} ${units[index]}`
 }
 
-// Render user status logo。
+// Render user status logo.
 function UserStatusBadge({ status }: { status: number }) {
   const t = useTranslations("users")
   const disabled = status === UserStatusEnum.DISABLE
@@ -70,7 +70,7 @@ function UserStatusBadge({ status }: { status: number }) {
   )
 }
 
-// Create a user list column configuration with international copywriting。
+// Create a user list column configuration with international copywriting.
 export function useUserColumns({ onEdit, onToggleStatus, onDelete }: UserColumnsOptions): ColumnDef<UserVo>[] {
   const t = useTranslations("users")
 

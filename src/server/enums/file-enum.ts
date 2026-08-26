@@ -1,6 +1,6 @@
-// This module defines file-related enumeration values。
+// This module defines file-related enumeration values.
 
-// File type：Original picture / HD pictures / Thumbnail
+// File type: Original picture / HD pictures / Thumbnail
 const FileTypeEnum = {
   ORIGINAL: 1,
   PREVIEW: 2,

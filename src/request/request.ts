@@ -1,6 +1,6 @@
 import { toast } from "sonner";
 
-// This module encapsulates the front end HTTP ask。
+// This module encapsulates the front end HTTP ask.
 
 interface ApiResponse<T = unknown> {
   code: number;
@@ -12,19 +12,19 @@ type RequestParams = object | FormData | null;
 
 const MOCK_REQUEST_DELAY = 0;
 
-// Wait for specified number of milliseconds，Used to simulate online interface time consumption。
+// Wait for specified number of milliseconds, Used to simulate online interface time consumption.
 function sleep(ms: number) {
   return new Promise((resolve) => {
     setTimeout(resolve, ms);
   });
 }
 
-// Splicing interface base address。
+// Splicing interface base address.
 function buildUrl(url: string) {
   return url.startsWith('/api') ? url : `/api${url.startsWith('/') ? url : `/${url}`}`;
 }
 
-// Handle identity failure and jump to login page。
+// Handle identity failure and jump to login page.
 function handleUnauthorized() {
   if (window.location.pathname !== '/login') {
     window.location.replace('/login');

@@ -28,7 +28,7 @@ interface StorageColumnsOptions {
   onDelete: (storage: StorageVo) => void
 }
 
-// Render header button with fixed sort icon。
+// Render header button with fixed sort icon.
 function SortableHeader({ label, column }: SortableHeaderProps) {
   return (
     <Button
@@ -43,7 +43,7 @@ function SortableHeader({ label, column }: SortableHeaderProps) {
   )
 }
 
-// Format storage capacity as readable text。
+// Format storage capacity as readable text.
 function formatCapacity(size: number) {
   if (!size) {
     return "0 B"
@@ -56,7 +56,7 @@ function formatCapacity(size: number) {
   return `${value.toFixed(value >= 10 || index === 0 ? 0 : 1)} ${units[index]}`
 }
 
-// Render storage status logo。
+// Render storage status logo.
 function StorageStatusBadge({ status }: { status: number }) {
   const t = useTranslations("storage")
   const disabled = status === 1
@@ -71,7 +71,7 @@ function StorageStatusBadge({ status }: { status: number }) {
   )
 }
 
-// Create a storage list column configuration with internationalized copy。
+// Create a storage list column configuration with internationalized copy.
 export function useStorageColumns({ onEdit, onSetTop, onToggleStatus, onDelete }: StorageColumnsOptions): ColumnDef<StorageVo>[] {
   const t = useTranslations("storage")
 

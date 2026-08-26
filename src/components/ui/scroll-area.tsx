@@ -11,7 +11,7 @@ type ScrollAreaProps = React.ComponentProps<typeof ScrollAreaPrimitive.Root> & {
   onViewportScroll?: React.UIEventHandler<HTMLDivElement>
 }
 
-// ScrollArea Render a custom scroll area。
+// ScrollArea Render a custom scroll area.
 function ScrollArea({
   className,
   viewportRef,
@@ -43,7 +43,7 @@ function ScrollArea({
   )
 }
 
-// ScrollBar Render scrollbar。
+// ScrollBar Render scrollbar.
 function ScrollBar({
   className,
   orientation = "vertical",

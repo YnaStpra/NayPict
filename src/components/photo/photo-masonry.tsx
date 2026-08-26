@@ -185,12 +185,12 @@ const PhotoMasonry = memo(function PhotoMasonry({
 
 
   useEffect(() => {
-    // Keep the bottoming callback as the latest method passed in by the parent component。
+    // Keep the bottoming callback as the latest method passed in by the parent component.
     onReachBottomRef.current = onReachBottom
   }, [onReachBottom])
 
   useEffect(() => {
-    // Update window height，for masonic Calculate visible area。
+    // Update window height, for masonic Calculate visible area.
     function handleResize() {
       setWindowHeight(window.innerHeight)
     }
@@ -203,7 +203,7 @@ const PhotoMasonry = memo(function PhotoMasonry({
   }, [])
 
   useLayoutEffect(() => {
-    // Monitor the width changes of the outer visual container of the waterfall flow。
+    // Monitor the width changes of the outer visual container of the waterfall flow.
     const container = wrapRef.current
 
     if (!container) {
@@ -213,7 +213,7 @@ const PhotoMasonry = memo(function PhotoMasonry({
     const containerEl = container
     let timerId: number | null = null
 
-    // Calculate the distance between the outer layer of the waterfall and the top of the page。
+    // Calculate the distance between the outer layer of the waterfall and the top of the page.
     function getOffset() {
       let offset = 0
       let el: HTMLElement | null = containerEl
@@ -226,7 +226,7 @@ const PhotoMasonry = memo(function PhotoMasonry({
       return offset
     }
 
-    // Get the current position and width of the outer layer of the waterfall flow。
+    // Get the current position and width of the outer layer of the waterfall flow.
     function getWrapPosition() {
       return {
         offset: getOffset(),
@@ -341,7 +341,7 @@ const PhotoMasonry = memo(function PhotoMasonry({
     }
   }, [isMobile, photos.length])
 
-  // Toggle photo selection in array photoId。
+  // Toggle photo selection in array photoId.
   function changePhotoSelected(photoId: string, selected: boolean) {
     setSelectedPhotoIds((prev) => {
       if (selected) {
@@ -352,12 +352,12 @@ const PhotoMasonry = memo(function PhotoMasonry({
     })
   }
 
-  // Clear the selections in the current photo list。
+  // Clear the selections in the current photo list.
   function clearSelectedPhotos() {
     setSelectedPhotoIds([])
   }
 
-  // Start by selecting photos from the front of the list，Most selected 100 open。
+  // Start by selecting photos from the front of the list, Most selected 100 open.
   function selectFirstPhotos() {
     setSelectedPhotoIds((prev) => {
       const visibleIds = prev.filter((photoId) => photos.some((photo) => photo.photoId === photoId))
@@ -383,26 +383,26 @@ const PhotoMasonry = memo(function PhotoMasonry({
     })
   }
 
-  // After clearing the selection status, the currently selected photo id Pass to page for deletion。
+  // After clearing the selection status, the currently selected photo id Pass to page for deletion.
   function deleteSelectedPhotos() {
     const photoIds = visibleSelectedPhotoIds
     clearSelectedPhotos()
     onPhotoDelete?.(photoIds)
   }
 
-  // Change the currently selected photo id Pass to page recovery。
+  // Change the currently selected photo id Pass to page recovery.
   function restoreSelectedPhotos() {
     onPhotoRestore?.(visibleSelectedPhotoIds)
     clearSelectedPhotos()
   }
 
-  // Change the currently selected photo id Pass to page to open album selection。
+  // Change the currently selected photo id Pass to page to open album selection.
   function openAlbumDialog() {
     onAlbumOpen?.(visibleSelectedPhotoIds)
     clearSelectedPhotos()
   }
 
-  // After clearing the selection status, the currently selected photo id Pass to pageMove from album。
+  // After clearing the selection status, the currently selected photo id Pass to pageMove from album.
   function removeAlbumPhotos() {
     const photoIds = visibleSelectedPhotoIds
     clearSelectedPhotos()

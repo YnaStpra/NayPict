@@ -1,4 +1,4 @@
-// This module defines cache key constant。
+// This module defines cache key constant.
 
 const STORAGE_LIST_CACHE_KEY = 'storage-list:'
 const AUTH_CACHE_KEY = 'auth:'

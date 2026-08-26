@@ -12,36 +12,36 @@ interface UpdatePasswordProps {
   onOpenChange: (open: boolean) => void
 }
 
-// Render the current user's password change popup window。
+// Render the current user's password change popup window.
 export function UpdatePassword({ open, onOpenChange }: UpdatePasswordProps) {
   const t = useTranslations("layout.password")
-  // password Save the currently entered new password。
+  // password Save the currently entered new password.
   const [password, setPassword] = useState("")
-  // confirmPassword Save the currently entered confirmation password。
+  // confirmPassword Save the currently entered confirmation password.
   const [confirmPassword, setConfirmPassword] = useState("")
-  // error Save password input box verification error。
+  // error Save password input box verification error.
   const [error, setError] = useState("")
 
-  // Reset change password form。
+  // Reset change password form.
   function resetForm() {
     setPassword("")
     setConfirmPassword("")
     setError("")
   }
 
-  // Update the password input box content。
+  // Update the password input box content.
   function updatePassword(value: string) {
     setPassword(value)
     setError("")
   }
 
-  // Update the content of the confirmation password input box。
+  // Update the content of the confirmation password input box.
   function updateConfirmPassword(value: string) {
     setConfirmPassword(value)
     setError("")
   }
 
-  // Handle pop-up window opening status changes。
+  // Handle pop-up window opening status changes.
   function handleOpenChange(nextOpen: boolean) {
     onOpenChange(nextOpen)
 
@@ -50,7 +50,7 @@ export function UpdatePassword({ open, onOpenChange }: UpdatePasswordProps) {
     }
   }
 
-  // Submit new password for current user。
+  // Submit new password for current user.
   function submitPassword() {
     const nextPassword = password.trim()
     const nextConfirmPassword = confirmPassword.trim()

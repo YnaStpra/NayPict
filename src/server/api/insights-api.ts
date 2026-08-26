@@ -142,4 +142,10 @@ export function registerInsightsApi(app: Hono<HonoEnv>) {
 
     return c.json(result.ok(detail));
   });
+
+  // Admin-only endpoint: Reset all insights analytics and interaction history
+  app.post('/admin/insights/reset', async (c: Context) => {
+    const res = await insightsService.resetInsights();
+    return c.json(result.ok(res));
+  });
 }

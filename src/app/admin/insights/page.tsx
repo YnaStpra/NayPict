@@ -27,7 +27,8 @@ import {
   type InsightsTopPhotoVo,
 } from "@/server/entity/vo/insights"
 import { type PhotoVo } from "@/server/entity/vo/photo"
-import { getInsightsChart, getInsightsOverview, getInsightsTopPhotos } from "@/request/insights"
+import { toast } from "sonner"
+import { getInsightsChart, getInsightsOverview, getInsightsTopPhotos, resetInsights } from "@/request/insights"
 import { userInfo as fetchUserInfo } from "@/request/user"
 import { photoList } from "@/request/photo"
 import {
@@ -41,6 +42,7 @@ import {
   RefreshCw,
   TrendingUp,
   Sparkles,
+  Trash2,
 } from "lucide-react"
 import {
   AreaChart,
@@ -133,6 +135,26 @@ export default function AdminInsightsPage() {
       .finally(() => {
         setLoading(false)
       })
+  }
+
+  const [resetting, setResetting] = useState(false)
+
+  // Reset all insights statistics and interaction records
+  const handleResetInsights = async () => {
+    if (!window.confirm("Are you sure you want to reset all insights and view statistics? This will clear all historical view and interaction counts.")) {
+      return
+    }
+    setResetting(true)
+    try {
+      await resetInsights()
+      toast.success("Insights statistics have been reset successfully.")
+      loadAllData()
+    } catch (err) {
+      console.error("Failed to reset insights:", err)
+      toast.error("Failed to reset insights. Please try again.")
+    } finally {
+      setResetting(false)
+    }
   }
 
   useEffect(() => {
@@ -230,9 +252,19 @@ export default function AdminInsightsPage() {
             <Button
               variant="outline"
               size="sm"
+              className="gap-1.5 text-xs h-8 text-destructive hover:bg-destructive/10 hover:text-destructive border-destructive/30 cursor-pointer"
+              onClick={handleResetInsights}
+              disabled={loading || resetting}
+            >
+              <Trash2 className={`size-3.5 ${resetting ? "animate-spin" : ""}`} />
+              <span className="hidden sm:inline">Reset Statistics</span>
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
               className="gap-1.5 text-xs h-8 cursor-pointer"
               onClick={loadAllData}
-              disabled={loading}
+              disabled={loading || resetting}
             >
               <RefreshCw className={`size-3.5 ${loading ? "animate-spin" : ""}`} />
               <span className="hidden sm:inline">Refresh</span>

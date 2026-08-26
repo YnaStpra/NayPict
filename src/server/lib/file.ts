@@ -1,6 +1,6 @@
-// This module provides tools and methods related to file name processing。
+// This module provides tools and methods related to file name processing.
 
-// Split filename and extension，It is convenient to append a timestamp before the extension when the name is repeated.。
+// Split filename and extension, It is convenient to append a timestamp before the extension when the name is repeated..
 function splitFileName(name: string) {
   const index = name.lastIndexOf('.');
 
@@ -17,7 +17,7 @@ function splitFileName(name: string) {
   };
 }
 
-// Formatted as a timestamp for file name conflicts：year month day_hours minutes seconds_millisecond。
+// Formatted as a timestamp for file name conflicts: year month day_hours minutes seconds_millisecond.
 function formatFileTimestamp(date = new Date()) {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -30,7 +30,7 @@ function formatFileTimestamp(date = new Date()) {
   return `${year}${month}${day}_${hour}${minute}${second}_${millisecond}`;
 }
 
-// Generate based on original file name Content-Disposition。
+// Generate based on original file name Content-Disposition.
 function buildContentDisposition(name: string) {
   const encodedName = encodeURIComponent(name)
     .replace(/[!'()*]/g, (char) =>

@@ -27,7 +27,7 @@ interface UserAddDialogProps {
   onUserConfirm: (user: UserAddBo | UserSetBo) => void
 }
 
-// Create user form initial value。
+// Create user form initial value.
 function createUserForm(user?: UserVo | null): UserForm {
   if (user) {
     return {
@@ -44,18 +44,18 @@ function createUserForm(user?: UserVo | null): UserForm {
   }
 }
 
-// Render a new or edit user pop-up window，And after confirmation, the user information is handed over to the parent component for storage.。
+// Render a new or edit user pop-up window, And after confirmation, the user information is handed over to the parent component for storage..
 export function UserAddDialog({ title, open, user, onOpenChange, onUserConfirm }: UserAddDialogProps) {
   const t = useTranslations("users")
   const userTypeOptions = UserTypeOptions.map((option) => ({
     ...option,
     label: option.value === UserTypeEnum.ADMIN ? t("admin") : t("user"),
   }))
-  // resetTimerRef Reset the form's timer after the save-close animation ends。
+  // resetTimerRef Reset the form's timer after the save-close animation ends.
   const resetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  // form Save the user form data in the current pop-up box。
+  // form Save the user form data in the current pop-up box.
   const [form, setForm] = useState<UserForm>(() => createUserForm(user))
-  // errors Save current form field validation errors。
+  // errors Save current form field validation errors.
   const [errors, setErrors] = useState<UserFormErrors>({})
 
   useEffect(() => {
@@ -73,7 +73,7 @@ export function UserAddDialog({ title, open, user, onOpenChange, onUserConfirm }
     }
   }, [open, user])
 
-  // Update text input field。
+  // Update text input field.
   function updateField(field: "username" | "password", value: string) {
     setForm((prev) => ({
       ...prev,
@@ -85,7 +85,7 @@ export function UserAddDialog({ title, open, user, onOpenChange, onUserConfirm }
     }))
   }
 
-  // Update user type。
+  // Update user type.
   function updateType(value: string) {
     setForm((prev) => ({
       ...prev,
@@ -97,13 +97,13 @@ export function UserAddDialog({ title, open, user, onOpenChange, onUserConfirm }
     }))
   }
 
-  // Reset userform。
+  // Reset userform.
   function resetForm() {
     setForm(createUserForm())
     setErrors({})
   }
 
-  // Delay reset form，Avoid changing the content back to the default value during the closing animation。
+  // Delay reset form, Avoid changing the content back to the default value during the closing animation.
   function resetFormAfterClose() {
     if (resetTimerRef.current) {
       clearTimeout(resetTimerRef.current)
@@ -115,7 +115,7 @@ export function UserAddDialog({ title, open, user, onOpenChange, onUserConfirm }
     }, 300)
   }
 
-  // Verify required fields of user form。
+  // Verify required fields of user form.
   function validateForm() {
     const nextErrors: UserFormErrors = {}
 
@@ -136,7 +136,7 @@ export function UserAddDialog({ title, open, user, onOpenChange, onUserConfirm }
     return Object.keys(nextErrors).length === 0
   }
 
-  // Submit user information to parent component。
+  // Submit user information to parent component.
   function submitUser() {
     if (!validateForm()) {
       return
@@ -162,7 +162,7 @@ export function UserAddDialog({ title, open, user, onOpenChange, onUserConfirm }
     handleOpenChange(false)
   }
 
-  // Handle pop-up window opening status changes。
+  // Handle pop-up window opening status changes.
   function handleOpenChange(nextOpen: boolean) {
     if (nextOpen && resetTimerRef.current) {
       clearTimeout(resetTimerRef.current)

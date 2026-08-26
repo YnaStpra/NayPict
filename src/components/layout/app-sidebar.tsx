@@ -89,7 +89,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     avatar: getAvatarUrl(userInfo?.avatar, data.user.avatar),
   }
 
-  // switch team Enter the corresponding team default page，Allow it to pass even after refreshing URL Determine current team。
+  // switch team Enter the corresponding team default page, Allow it to pass even after refreshing URL Determine current team.
   function changeTeam(team: { name: string; logo: React.ReactNode }) {
     const targetUrl = team.name === data.teams[1].name ? data.sysMain[0].url : data.navMain[0].url
 

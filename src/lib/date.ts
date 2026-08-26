@@ -1,4 +1,4 @@
-// This module provides time parsing and display formatting methods。
+// This module provides time parsing and display formatting methods.
 
 // Bundle ISO Or the database time string is parsed into Date cleanly without day-shift bugs.
 function parseTime(value: string | null | undefined): Date | null {
@@ -160,14 +160,8 @@ function formatRelativeTime(dateStr?: string | null, locale = "en"): string {
   }).format(date)
 }
 
-// Format "X years ago" description with localization support.
-function formatYearsAgo(yearsAgo: number, locale = "en"): string {
-  if (locale.startsWith("id")) {
-    return `${yearsAgo} tahun lalu`;
-  }
-  if (locale.startsWith("zh")) {
-    return `${yearsAgo}年前`;
-  }
+// Format "X years ago" description in English.
+function formatYearsAgo(yearsAgo: number, _locale?: string): string {
   return yearsAgo === 1 ? "1 year ago" : `${yearsAgo} years ago`;
 }
 

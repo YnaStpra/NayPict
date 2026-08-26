@@ -1,6 +1,6 @@
 import { type User } from '@/server/entity/user';
 
-// This module defines the user interface return object。
+// This module defines the user interface return object.
 
 interface UserVo extends Omit<User, 'password' | 'salt'> {
   photoTotal: number;

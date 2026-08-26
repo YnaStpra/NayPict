@@ -32,51 +32,51 @@ export default function Page() {
   const t = useTranslations("storage")
   const { initialStorageList } = useStorageContext()
   const { sidebarOpen, setSidebarOpen, refreshStorages } = useApp()
-  // data Save the storage configuration list displayed in the current table。
+  // data Save the storage configuration list displayed in the current table.
   const [data, setData] = useState<StorageVo[]>(initialStorageList)
-  // addOpen Control the opening state of the new storage pop-up box。
+  // addOpen Control the opening state of the new storage pop-up box.
   const [addOpen, setAddOpen] = useState(false)
-  // editOpen Control the open state of the modified storage pop-up box。
+  // editOpen Control the open state of the modified storage pop-up box.
   const [editOpen, setEditOpen] = useState(false)
-  // editingStorage Save the storage configuration currently being modified。
+  // editingStorage Save the storage configuration currently being modified.
   const [editingStorage, setEditingStorage] = useState<StorageVo | null>(null)
-  // deleteOpen Control the opening state of the delete confirmation pop-up box。
+  // deleteOpen Control the opening state of the delete confirmation pop-up box.
   const [deleteOpen, setDeleteOpen] = useState(false)
-  // deletingStorage Save the storage configuration currently awaiting deletion confirmation。
+  // deletingStorage Save the storage configuration currently awaiting deletion confirmation.
   const [deletingStorage, setDeletingStorage] = useState<StorageVo | null>(null)
 
-  // Query a stored list and bind to tabular data。
+  // Query a stored list and bind to tabular data.
   async function getStorageList() {
     const res = await storageList()
 
     setData(res.list)
   }
 
-  // Requery table and global storage dropdown options。
+  // Requery table and global storage dropdown options.
   async function refreshStorageData() {
     await getStorageList()
     await refreshStorages()
   }
 
-  // Open the new storage pop-up box。
+  // Open the new storage pop-up box.
   function openAddStorage() {
     setAddOpen(true)
   }
 
-  // Add storage configuration。
+  // Add storage configuration.
   function addStorage(storage: StorageInto) {
     storageAdd(storage).then(() => {
       void refreshStorageData()
     })
   }
 
-  // Open the delete confirmation popup。
+  // Open the delete confirmation popup.
   function openDeleteStorage(storage: StorageVo) {
     setDeletingStorage(storage)
     setDeleteOpen(true)
   }
 
-  // Confirm to delete the storage configuration and query the list again.。
+  // Confirm to delete the storage configuration and query the list again..
   function confirmDeleteStorage() {
     const storage = deletingStorage
 
@@ -94,13 +94,13 @@ export default function Page() {
     })
   }
 
-  // Open the modify storage pop-up box。
+  // Open the modify storage pop-up box.
   function openEditStorage(storage: StorageVo) {
     setEditingStorage(storage)
     setEditOpen(true)
   }
 
-  // Submit modified storage configuration，Refresh list after success。
+  // Submit modified storage configuration, Refresh list after success.
   function editStorage(storage: StorageInto) {
     if (!editingStorage) {
       return
@@ -127,21 +127,21 @@ export default function Page() {
     })
   }
 
-  // Refresh the list after the top storage configuration。
+  // Refresh the list after the top storage configuration.
   function setTopStorage(storageId: string) {
     storageSetTop({ storageId }).then(() => {
       void refreshStorageData()
     })
   }
 
-  // Refresh the list after switching storage enabled status。
+  // Refresh the list after switching storage enabled status.
   function toggleStorageStatus(storageId: string) {
     storageToggleStatus({ storageId }).then(() => {
       void refreshStorageData()
     })
   }
 
-  // Processing and modifying the open state of the storage pop-up box。
+  // Processing and modifying the open state of the storage pop-up box.
   function handleEditOpenChange(open: boolean) {
     setEditOpen(open)
 
@@ -150,7 +150,7 @@ export default function Page() {
     }
   }
 
-  // Handling the open state of the deletion confirmation pop-up box。
+  // Handling the open state of the deletion confirmation pop-up box.
   function handleDeleteOpenChange(open: boolean) {
     setDeleteOpen(open)
 

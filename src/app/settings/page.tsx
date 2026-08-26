@@ -39,10 +39,10 @@ export default function Page() {
   const t = useTranslations("settings")
   const { sidebarOpen, setSidebarOpen } = useApp()
   const { initialSetting } = useSettingContext()
-  // setting Save the system settings being edited on the current page。
+  // setting Save the system settings being edited on the current page.
   const [setting, setSetting] = useState<Setting>(initialSetting)
 
-  // Modify sync delete switch value。
+  // Modify sync delete switch value.
   function changeSyncDelete(syncDelete: string) {
     setSetting((prev) => ({
       ...prev,
@@ -50,7 +50,7 @@ export default function Page() {
     }))
   }
 
-  // Modify photo deduplication switch value。
+  // Modify photo deduplication switch value.
   function changePhotoDedup(checked: boolean) {
     setSetting((prev) => ({
       ...prev,
@@ -58,7 +58,7 @@ export default function Page() {
     }))
   }
 
-  // Modify On This Day memories showcase switch value。
+  // Modify On This Day memories showcase switch value.
   function changeOnThisDay(checked: boolean) {
     setSetting((prev) => ({
       ...prev,
@@ -66,7 +66,7 @@ export default function Page() {
     }))
   }
 
-  // Modify the number of days for automatic cleaning of the Recycle Bin。
+  // Modify the number of days for automatic cleaning of the Recycle Bin.
   function changeClearLast(event: ChangeEvent<HTMLInputElement>) {
     setSetting((prev) => ({
       ...prev,
@@ -74,7 +74,7 @@ export default function Page() {
     }))
   }
 
-  // Save current system settings。
+  // Save current system settings.
   function saveSetting() {
     settingSet(setting).then(() => {
       toast.success(t("saved"))

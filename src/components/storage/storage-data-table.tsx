@@ -43,7 +43,7 @@ type ColumnLabelMeta = {
   className?: string
 }
 
-// Read the display name of a table column。
+// Read the display name of a table column.
 function getColumnLabel<TData, TValue>(column: ColumnDef<TData, TValue>) {
   const meta = column.meta as ColumnLabelMeta | undefined
 
@@ -58,7 +58,7 @@ function getColumnLabel<TData, TValue>(column: ColumnDef<TData, TValue>) {
   return column.id ?? ""
 }
 
-// Read the style class name passed in the table column。
+// Read the style class name passed in the table column.
 function getColumnClassName<TData, TValue>(column: ColumnDef<TData, TValue>) {
   const meta = column.meta as ColumnLabelMeta | undefined
 

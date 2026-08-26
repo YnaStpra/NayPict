@@ -1,4 +1,4 @@
-// This module defines user-related enumeration values。
+// This module defines user-related enumeration values.
 
 const UserStatusEnum = {
   DEFAULT: 0,

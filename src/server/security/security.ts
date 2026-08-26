@@ -10,7 +10,7 @@ import { type AuthInfo } from '@/server/entity/vo/auth';
 import { UserTypeEnum } from '@/server/enums/user-enum';
 import { userService } from '@/server/service/user-service';
 
-// This module provides global interface authentication middleware。
+// This module provides global interface authentication middleware.
 
 const SYSTEM_PATHS = [
   '/setting',

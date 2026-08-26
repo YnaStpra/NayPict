@@ -6,7 +6,7 @@ import { UserTypeEnum } from '@/server/enums/user-enum';
 import { type AuthInfo } from '@/server/entity/vo/auth';
 import { cache } from '@/server/infra/cache';
 
-// This module proxy page routing，Jump to login page when not logged in。
+// This module proxy page routing, Jump to login page when not logged in.
 
 const SYSTEM_PATHS = ['/users', '/settings', '/storage', '/archive', '/comments', '/duplicates', '/admin', '/trash'];
 const PUBLIC_FILE_REG = /\.(?:png|jpg|jpeg|gif|webp|svg|ico)$/i;
@@ -27,17 +27,17 @@ function isPublicPath(pathname: string) {
     || PUBLIC_FILE_REG.test(pathname);
 }
 
-// Determine whether the current path hits the specified page or its subpages。
+// Determine whether the current path hits the specified page or its subpages.
 function isPathMatched(pathname: string, path: string) {
   return pathname === path || pathname.startsWith(`${path}/`);
 }
 
-// Determine whether the current path belongs to the system settings page。
+// Determine whether the current path belongs to the system settings page.
 function isSystemPath(pathname: string) {
   return SYSTEM_PATHS.some((path) => isPathMatched(pathname, path));
 }
 
-// Clear login related Cookie，and return the incoming response。
+// Clear login related Cookie, and return the incoming response.
 function clearLoginCookies(response: NextResponse) {
   response.cookies.set(TOKEN_COOKIE_NAME, '', {
     path: '/',
@@ -55,7 +55,7 @@ function clearLoginCookies(response: NextResponse) {
   return response;
 }
 
-// Agent is not logged in to access the page，API and media resources are handed over to their respective backends for processing.。
+// Agent is not logged in to access the page, API and media resources are handed over to their respective backends for processing..
 export async function proxy(req: NextRequest) {
 
   const { pathname } = req.nextUrl;

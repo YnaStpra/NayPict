@@ -70,9 +70,9 @@ export const PhotoCard = memo(function PhotoCard({
   const src = data.thumbnail || data.preview || data.key
   const ratio = data.width && data.height ? data.height / data.width : 1
   const placeholder = useMemo(() => getThumbHashUrl(data.thumbHash), [data.thumbHash])
-  // showTouchHover Record whether floating information is displayed after long pressing on the mobile terminal。
+  // showTouchHover Record whether floating information is displayed after long pressing on the mobile terminal.
   const [showTouchHover, setShowTouchHover] = useState(false)
-  // holdHover Momentarily lock hover information when clicking to open viewer，Avoid instant retraction of zoom animation。
+  // holdHover Momentarily lock hover information when clicking to open viewer, Avoid instant retraction of zoom animation.
   const [holdHover, setHoldHover] = useState(false)
   // Multi-tier fallback src state: thumbnail -> preview -> original key
   const [imageSrc, setImageSrc] = useState<string | null>(() => data.thumbnail || data.preview || data.key || null)
@@ -80,7 +80,7 @@ export const PhotoCard = memo(function PhotoCard({
   const [imageError, setImageError] = useState(false)
   // Progressive blur transition state (initialized from in-memory cache for instant display)
   const [imageLoaded, setImageLoaded] = useState<boolean>(() => Boolean(data.photoId && loadedPhotoCache.has(data.photoId)))
-  // isMobile Determine whether the current viewport is the mobile terminal。
+  // isMobile Determine whether the current viewport is the mobile terminal.
   const isMobile = useIsMobile()
   const showHover = showTouchHover || holdHover
   // Predictive hover dwell timer
@@ -172,12 +172,12 @@ export const PhotoCard = memo(function PhotoCard({
     }
   }
 
-  // Toggle the selection status of the current photo。
+  // Toggle the selection status of the current photo.
   function changeSelected(checked: boolean) {
     onSelectedChange?.(data.photoId, checked)
   }
 
-  // Open or select according to current mode when clicking on photo。
+  // Open or select according to current mode when clicking on photo.
   function handlePhotoClick(event: MouseEvent<HTMLDivElement>) {
     if (showTouchHover) {
       event.stopPropagation()
@@ -193,7 +193,7 @@ export const PhotoCard = memo(function PhotoCard({
       return
     }
 
-    // Not available on mobile hover enlarge，No need to lock floating information。
+    // Not available on mobile hover enlarge, No need to lock floating information.
     if (!isMobile) {
       setHoldHover(true)
       setTimeout(() => setHoldHover(false), 200)
@@ -202,7 +202,7 @@ export const PhotoCard = memo(function PhotoCard({
     onOpen?.()
   }
 
-  // Block system menu when long pressing photo，and display the original hover Information that just appeared。
+  // Block system menu when long pressing photo, and display the original hover Information that just appeared.
   function handlePhotoContextMenu(event: MouseEvent<HTMLDivElement>) {
     if (window.innerWidth >= 1024) {
       return

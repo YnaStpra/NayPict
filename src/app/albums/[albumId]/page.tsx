@@ -120,15 +120,15 @@ export default function Page() {
   }
   const [modelPhotoIndex, setModelPhotoIndex] = useState(0)
   const [showPhotoViewer, setShowPhotoViewer] = useState(false)
-  // albumDialogOpen Control the opening status of the add album pop-up box。
+  // albumDialogOpen Control the opening status of the add album pop-up box.
   const [albumDialogOpen, setAlbumDialogOpen] = useState(false)
-  // albumPhotoIds Save this photo to be added to other albums id。
+  // albumPhotoIds Save this photo to be added to other albums id.
   const [albumPhotoIds, setAlbumPhotoIds] = useState<string[]>([])
   const openUpload = usePhotoStore((state) => state.openUpload)
   const uploadedPhotos = usePhotoStore((state) => state.uploadedPhotos)
 
   useEffect(() => {
-    // Disable browser scroll recovery when refreshing album photo page，and go back to the top of the photo list。
+    // Disable browser scroll recovery when refreshing album photo page, and go back to the top of the photo list.
     const previousScrollRestoration = window.history.scrollRestoration
 
     window.history.scrollRestoration = 'manual'
@@ -140,12 +140,12 @@ export default function Page() {
   }, [])
 
   useEffect(() => {
-    // Sync current album id，For filtering when the upload is successful and consumed by the queue。
+    // Sync current album id, For filtering when the upload is successful and consumed by the queue.
     albumIdRef.current = albumId
   }, [albumId])
 
   useEffect(() => {
-    // Consumption upload success queue，Click on the new photo in the current album taken_time Insert the corresponding position in the list。
+    // Consumption upload success queue, Click on the new photo in the current album taken_time Insert the corresponding position in the list.
     if (!uploadedPhotos.length) {
       return
     }
@@ -324,7 +324,7 @@ export default function Page() {
     }
   }, [albumId, setPhotos])
 
-  // Save the currently selected album photo time range，And filter the trigger list by shooting time。
+  // Save the currently selected album photo time range, And filter the trigger list by shooting time.
   function changePhotoTime(range: { startDate: Date, endDate: Date }) {
     refreshPhotoList({
       albumId,

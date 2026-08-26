@@ -11,11 +11,11 @@ import { STORAGE_LIST_CACHE_KEY } from '@/server/const/cache';
 import { cache } from '@/server/infra/cache';
 import { orm } from '@/server/infra/db';
 
-// This module handles the data query and writing business of storage configuration。
+// This module handles the data query and writing business of storage configuration.
 
 const storageService = {
 
-  // Query all normal storage configurations，Return to the drop-down and select the required fields。
+  // Query all normal storage configurations, Return to the drop-down and select the required fields.
   async select(): Promise<StorageSelectVo[]> {
     return orm
       .select({
@@ -28,7 +28,7 @@ const storageService = {
       .orderBy(desc(storageTab.sort));
   },
 
-  // Query all storage configurations，And count the number of photos and used capacity under each storage。
+  // Query all storage configurations, And count the number of photos and used capacity under each storage.
   async list(): Promise<PageVo<StorageVo>> {
 
     const storageList = await orm
@@ -70,7 +70,7 @@ const storageService = {
     return { list, total: list.length };
   },
 
-  // Add the current user's storage configuration，and prevent duplicate names from being created。
+  // Add the current user's storage configuration, and prevent duplicate names from being created.
   async add(params: StorageInto, userId: string): Promise<void> {
     const name = params.name?.trim();
 
@@ -103,7 +103,7 @@ const storageService = {
     await this.refreshStorageCache();
   },
 
-  // Pin the specified storage configuration to the top。
+  // Pin the specified storage configuration to the top.
   async setTop(params: StorageSetTopBo): Promise<void> {
     if (!params.storageId) {
       throw new BizError('storage.selectRequired');
@@ -118,7 +118,7 @@ const storageService = {
     await this.refreshStorageCache();
   },
 
-  // Toggles the enabled state of a specified storage configuration。
+  // Toggles the enabled state of a specified storage configuration.
   async toggleStatus(params: StorageToggleStatusBo): Promise<void> {
     if (!params.storageId) {
       throw new BizError('storage.selectRequired');
@@ -147,7 +147,7 @@ const storageService = {
     await this.refreshStorageCache();
   },
 
-  // Modify the specified storage configuration。
+  // Modify the specified storage configuration.
   async set(params: Storage): Promise<void> {
     const name = params.name?.trim();
 
@@ -180,7 +180,7 @@ const storageService = {
     await this.refreshStorageCache();
   },
 
-  // Delete the specified storage configuration，And leave the storage tags of all associated photos blank.。
+  // Delete the specified storage configuration, And leave the storage tags of all associated photos blank..
   async delete(storageId: string): Promise<void> {
     if (!storageId) {
       throw new BizError('storage.selectRequired');
@@ -239,7 +239,7 @@ const storageService = {
     return (storageList ?? []) as Storage[];
   },
 
-  // Flush storage configuration cache。
+  // Flush storage configuration cache.
   async refreshStorageCache(): Promise<void> {
     const storageList = await orm
       .select()

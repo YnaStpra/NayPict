@@ -4,11 +4,11 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { type PhotoVo } from "@/server/entity/vo/photo"
 
 interface PhotoMasonrySkeletonProps {
-  // photos is the initial data of the photo used to generate the height of the skeleton.。
+  // photos is the initial data of the photo used to generate the height of the skeleton..
   photos: PhotoVo[]
 }
 
-// Render photo waterfall flow loading skeleton screen，Photos less than 20 Not displayed when opening。
+// Render photo waterfall flow loading skeleton screen, Photos less than 20 Not displayed when opening.
 export function PhotoMasonrySkeleton({ photos }: PhotoMasonrySkeletonProps) {
   if (photos.length < 20) {
     return null

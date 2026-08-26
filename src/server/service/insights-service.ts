@@ -565,6 +565,18 @@ const insightsService = {
       return null;
     }
   },
+
+  // Reset all insights statistics and interaction records (Admin only).
+  async resetInsights(): Promise<{ success: boolean }> {
+    try {
+      await ensurePhotoViewTable();
+      await orm.delete(photoViewTab);
+      return { success: true };
+    } catch (err) {
+      console.error('[INSIGHTS] Error resetting insights statistics:', err);
+      throw err;
+    }
+  },
 };
 
 export { insightsService };

@@ -49,7 +49,7 @@ import { fileService } from '@/server/service/file-service';
 import { commentService } from '@/server/service/comment-service';
 import { FileTypeEnum } from '@/server/enums/file-enum';
 
-// This module handles business related to photo data query。
+// This module handles business related to photo data query.
 
 // Zero-Roundtrip Fast-Path Query Cache for high-traffic public catalog queries (60s TTL)
 const publicFastPathCache = new Map<string, { data: PageVo<PhotoVo>; expires: number }>();
@@ -481,7 +481,7 @@ const photoService = {
     }
   },
 
-  // Generate storage based on original file name key，like key If it already exists, append a timestamp before the extension.。
+  // Generate storage based on original file name key, like key If it already exists, append a timestamp before the extension..
   async resolvePhotoKey(userId: string, name: string) {
 
     const trimmedName = name.trim();
@@ -907,7 +907,7 @@ const photoService = {
       .where(inArray(photoTab.photoId, photoIds));
   },
 
-  // Clean the photo files and database records in the current user's Recycle Bin。
+  // Clean the photo files and database records in the current user's Recycle Bin.
   async clear(userId: string): Promise<void> {
 
     const setting = await settingService.get();
@@ -921,7 +921,7 @@ const photoService = {
     });
   },
 
-  // Regularly clean up photo files and database records in the Recycle Bin that exceed the set retention days。
+  // Regularly clean up photo files and database records in the Recycle Bin that exceed the set retention days.
   async clearExpired(): Promise<void> {
 
     const setting = await settingService.get();
@@ -935,7 +935,7 @@ const photoService = {
     });
   },
 
-  // Cycle through the recycle bin photo files and database records by the passed in value。
+  // Cycle through the recycle bin photo files and database records by the passed in value.
   async clearDeletedPhotos(params: { userId?: string, recycleTime: string, syncDelete: boolean }): Promise<void> {
     const fileStorageList = params.syncDelete ? await storageService.list() : null;
 
@@ -949,7 +949,7 @@ const photoService = {
         whereList.push(eq(photoTab.userId, params.userId));
       }
 
-      // Only take each time 100 strip，Avoid clearing too many photos at once resulting in large storage deletion requests。
+      // Only take each time 100 strip, Avoid clearing too many photos at once resulting in large storage deletion requests.
       const photos = await orm
         .select()
         .from(photoTab)

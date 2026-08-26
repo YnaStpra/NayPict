@@ -1,4 +1,4 @@
-// This module defines the photo interface return object。
+// This module defines the photo interface return object.
 
 import { type Photo } from '@/server/entity/photo';
 

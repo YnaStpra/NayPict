@@ -10,7 +10,7 @@ interface AlbumLayoutProps {
   children: React.ReactNode
 }
 
-// Query all photo albums on the server，and provided to /album Page initialization list。
+// Query all photo albums on the server, and provided to /album Page initialization list.
 export default async function AlbumLayout({ children }: AlbumLayoutProps) {
   const data = await albumService.list()
 

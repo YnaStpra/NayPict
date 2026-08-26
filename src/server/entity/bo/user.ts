@@ -1,4 +1,4 @@
-// This module defines the user interface input parameter object。
+// This module defines the user interface input parameter object.
 
 interface UserAddBo {
   username: string;

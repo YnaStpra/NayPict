@@ -1,4 +1,4 @@
-// save photo Exif Add ginseng。
+// save photo Exif Add ginseng.
 
 export type ExifSaveBo = {
   exif: string | null;

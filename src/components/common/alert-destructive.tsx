@@ -26,7 +26,7 @@ type AlertDialogDestructiveProps = React.ComponentProps<typeof AlertDialog> & {
   onConfirm?: () => void
 }
 
-// AlertDialogDestructive Render common dangerous operation confirmation pop-ups。
+// AlertDialogDestructive Render common dangerous operation confirmation pop-ups.
 export function AlertDialogDestructive({
   title,
   description,

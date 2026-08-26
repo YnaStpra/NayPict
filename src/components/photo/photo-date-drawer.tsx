@@ -17,39 +17,39 @@ import { type PhotoTakenDateVo } from "@/server/entity/vo/photo"
 import { useTranslations } from "next-intl"
 
 interface PhotoDateDrawerProps {
-  // albumId Filter time range by album when incoming。
+  // albumId Filter time range by album when incoming.
   albumId?: string | null
-  // onRangeChange Confirm the change in the time range and then pass it to the page。
+  // onRangeChange Confirm the change in the time range and then pass it to the page.
   onRangeChange?: (range: { startDate: Date, endDate: Date }) => void
 }
 
-// Parse the date string returned by the interface into a local date。
+// Parse the date string returned by the interface into a local date.
 function parseDate(date: string) {
   return new Date(`${date}T00:00:00`)
 }
 
-// Round the date to the last millisecond of the day，Used for end time filtering。
+// Round the date to the last millisecond of the day, Used for end time filtering.
 function toDayEnd(date: Date) {
   const end = new Date(date)
   end.setHours(23, 59, 59, 999)
   return end
 }
 
-// Format date into page display copy，Fixed display of year, month and day。
+// Format date into page display copy, Fixed display of year, month and day.
 function formatDate(date: Date) {
   return `${date.getFullYear()}/${date.getMonth() + 1}/${date.getDate()}`
 }
 
-// Render the right drawer of the photo page to select the time range by day。
+// Render the right drawer of the photo page to select the time range by day.
 function PhotoDateDrawer({ albumId, onRangeChange }: PhotoDateDrawerProps) {
   const t = useTranslations("photos")
-  const [dateList, setDateList] = useState<PhotoTakenDateVo[]>([]) // dateList Save the date and number of existing photos。
-  const [open, setOpen] = useState(false) // open Control the time to choose whether the drawer is opened。
-  const [savedDateRange, setSavedDateRange] = useState([0, 0]) // savedDateRange Save the last confirmed date index range。
-  const [dateRange, setDateRange] = useState([0, 0]) // dateRange Save the currently selected start and end date index。
-  const saveCloseRef = useRef(false) // saveCloseRef Record whether this shutdown is triggered by clicking on the mask save。
+  const [dateList, setDateList] = useState<PhotoTakenDateVo[]>([]) // dateList Save the date and number of existing photos.
+  const [open, setOpen] = useState(false) // open Control the time to choose whether the drawer is opened.
+  const [savedDateRange, setSavedDateRange] = useState([0, 0]) // savedDateRange Save the last confirmed date index range.
+  const [dateRange, setDateRange] = useState([0, 0]) // dateRange Save the currently selected start and end date index.
+  const saveCloseRef = useRef(false) // saveCloseRef Record whether this shutdown is triggered by clicking on the mask save.
 
-  // Query the date of existing photos based on album conditions，and initialize the slider range。
+  // Query the date of existing photos based on album conditions, and initialize the slider range.
   useEffect(() => {
     photoTakenDateList({
       albumId,
@@ -63,7 +63,7 @@ function PhotoDateDrawer({ albumId, onRangeChange }: PhotoDateDrawerProps) {
     })
   }, [albumId])
 
-  // Toggle drawer open state，Revert to the last confirmed time range when closing without saving。
+  // Toggle drawer open state, Revert to the last confirmed time range when closing without saving.
   function changeOpen(nextOpen: boolean) {
     setOpen(nextOpen)
 
@@ -78,7 +78,7 @@ function PhotoDateDrawer({ albumId, onRangeChange }: PhotoDateDrawerProps) {
     saveCloseRef.current = false
   }
 
-  // When the mask is clicked to close，Only call back to the page when the time range changes。
+  // When the mask is clicked to close, Only call back to the page when the time range changes.
   function saveRange() {
     saveCloseRef.current = true
 
@@ -100,7 +100,7 @@ function PhotoDateDrawer({ albumId, onRangeChange }: PhotoDateDrawerProps) {
   const yearMarks = useMemo(() => {
     const marks: { year: string, position: number }[] = []
 
-    // Dates have been sorted in ascending order，The first occurrence of each year is the starting tick of that year.。
+    // Dates have been sorted in ascending order, The first occurrence of each year is the starting tick of that year..
     for (const [index, item] of dateList.entries()) {
       const year = item.date.slice(0, 4)
 

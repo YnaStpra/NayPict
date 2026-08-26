@@ -1,6 +1,6 @@
-// This module is responsible for the echo formatting of the information column in the sidebar of the photo viewer.。
+// This module is responsible for the echo formatting of the information column in the sidebar of the photo viewer..
 
-// Analyze photos exif JSON string。
+// Analyze photos exif JSON string.
 function parsePhotoExifJson(exif: string | null | undefined) {
   if (!exif) {
     return null
@@ -18,7 +18,7 @@ const colorSpaceLabels: Record<number, string> = {
   2: "Adobe RGB",
 }
 
-// Bundle Exif Color space fields formatted into readable text。
+// Bundle Exif Color space fields formatted into readable text.
 function formatColorSpace(exif: Record<string, unknown> | null | undefined, uncalibrated: string) {
   if (!exif) {
     return null
@@ -41,7 +41,7 @@ function formatColorSpace(exif: Record<string, unknown> | null | undefined, unca
   return String(colorSpace)
 }
 
-// from photos exif JSON String reading color space。
+// from photos exif JSON String reading color space.
 export function getPhotoColorSpace(exif: string | null | undefined, uncalibrated = "Uncalibrated") {
   return formatColorSpace(parsePhotoExifJson(exif), uncalibrated)
 }
@@ -52,7 +52,7 @@ type ViewerField = {
   wrap?: boolean
 }
 
-// Bundle Exif Convert text field to non-empty string。
+// Bundle Exif Convert text field to non-empty string.
 function exifText(value: unknown) {
   if (value === undefined || value === null || value === "") {
     return null
@@ -62,7 +62,7 @@ function exifText(value: unknown) {
   return text || null
 }
 
-// format Exif shutter speed。
+// format Exif shutter speed.
 function formatExposureTime(value: unknown) {
   const text = exifText(value)
   if (!text) {
@@ -85,7 +85,7 @@ function formatExposureTime(value: unknown) {
   return `1/${Math.round(1 / seconds)}s`
 }
 
-// format Exif Aperture value。
+// format Exif Aperture value.
 function formatFNumber(value: unknown) {
   const text = exifText(value)
   if (!text) {
@@ -104,7 +104,7 @@ function formatFNumber(value: unknown) {
   return `f/${Number.isInteger(num) ? num : num.toFixed(1)}`
 }
 
-// format Exif focal length。
+// format Exif focal length.
 function formatFocalLength(value: unknown) {
   const text = exifText(value)
   if (!text) {
@@ -123,7 +123,7 @@ function formatFocalLength(value: unknown) {
   return `${Number.isInteger(num) ? num : num.toFixed(1)}mm`
 }
 
-// from photos exif JSON String reading device information list。
+// from photos exif JSON String reading device information list.
 export function getPhotoDeviceParams(exif: string | null | undefined): ViewerField[] {
   const data = parsePhotoExifJson(exif)
   if (!data) {
@@ -145,7 +145,7 @@ export function getPhotoDeviceParams(exif: string | null | undefined): ViewerFie
   return items
 }
 
-// from photos exif JSON String reading shooting parameter list。
+// from photos exif JSON String reading shooting parameter list.
 export function getPhotoShootingParams(exif: string | null | undefined): ViewerField[] {
   const data = parsePhotoExifJson(exif)
   if (!data) {
@@ -177,7 +177,7 @@ export function getPhotoShootingParams(exif: string | null | undefined): ViewerF
   return items
 }
 
-// Bundle EXIF The offset is formatted as UTC +8 / UTC +5:30。
+// Bundle EXIF The offset is formatted as UTC +8 / UTC +5:30.
 function formatUtcOffset(offset: string) {
   const match = offset.trim().match(/^([+-])(\d{1,2})(?::(\d{2}))?$/)
   if (!match) {
@@ -195,7 +195,7 @@ function formatUtcOffset(offset: string) {
   return `UTC ${sign}${hour}:${String(minute).padStart(2, "0")}`
 }
 
-// from photos exif JSON String reading time zone display text，Show only unified UTC offset。
+// from photos exif JSON String reading time zone display text, Show only unified UTC offset.
 export function getPhotoTimezone(exif: string | null | undefined) {
   const data = parsePhotoExifJson(exif)
 
@@ -206,12 +206,12 @@ export function getPhotoTimezone(exif: string | null | undefined) {
   return offset ? formatUtcOffset(offset) : null
 }
 
-// from photos exif JSON String reading software information。
+// from photos exif JSON String reading software information.
 export function getPhotoSoftware(exif: string | null | undefined) {
   return exifText(parsePhotoExifJson(exif)?.Software)
 }
 
-// Format latitude, longitude and altitude into location text，For example 52.5187°N 13.3763°E 46 m。
+// Format latitude, longitude and altitude into location text, For example 52.5187°N 13.3763°E 46 m.
 export function formatPhotoLocation(
   latitude: number | null | undefined,
   longitude: number | null | undefined,

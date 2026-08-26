@@ -18,7 +18,7 @@ import { albumService } from '@/server/service/album-service';
 import { photoService } from '@/server/service/photo-service';
 import { storage } from '@/server/storage/storage';
 
-// This module handles user data query and writing related services。
+// This module handles user data query and writing related services.
 
 const userService = {
 
@@ -71,7 +71,7 @@ const userService = {
   }
 },
 
-  // According to user id Query user basic information。
+  // According to user id Query user basic information.
   async getById(userId: string): Promise<UserInfoVo | null> {
     const [user] = await orm
       .select({
@@ -87,7 +87,7 @@ const userService = {
     return user ?? null;
   },
 
-  // Query user basic information based on user name。
+  // Query user basic information based on user name.
   async getByName(username: string): Promise<UserInfoVo> {
     const name = username?.trim();
 
@@ -110,7 +110,7 @@ const userService = {
     return user;
   },
 
-  // Set current user avatar，And return the latest user basic information。
+  // Set current user avatar, And return the latest user basic information.
   async setAvatar(params: UserSetAvatarBo, userId: string): Promise<UserInfoVo> {
 
     const [user] = await orm
@@ -153,7 +153,7 @@ const userService = {
     };
   },
 
-  // According to avatar key Read avatar file from storage。
+  // According to avatar key Read avatar file from storage.
   async getAvatar(key?: string) {
 
     if (!key) {
@@ -167,7 +167,7 @@ const userService = {
     }
   },
 
-  // Query all users，And count the number of photos and used capacity of each user。
+  // Query all users, And count the number of photos and used capacity of each user.
   async list(): Promise<PageVo<UserVo>> {
     const userList = await orm
       .select()
@@ -203,7 +203,7 @@ const userService = {
     return { list, total: list.length };
   },
 
-  // Add user，And convert the plain text password into a salted hash and save it。
+  // Add user, And convert the plain text password into a salted hash and save it.
   async add(params: UserAddBo): Promise<void> {
     const username = params.username?.trim();
 
@@ -236,7 +236,7 @@ const userService = {
 
   },
 
-  // Modify user information。
+  // Modify user information.
   async set(params: UserSetBo): Promise<void> {
     const userId = params.userId?.trim();
     const username = params.username?.trim();
@@ -298,7 +298,7 @@ const userService = {
       .set(updateData)
       .where(eq(userTab.userId, userId));
 
-    // If there is a login cache，Synchronously update the user types in it。
+    // If there is a login cache, Synchronously update the user types in it.
     const authInfo = await cache.get<AuthInfo>(AUTH_CACHE_KEY + userId);
 
     if (authInfo) {
@@ -309,7 +309,7 @@ const userService = {
     }
   },
 
-  // Modify the current login user password，and regenerate salt and password hashes。
+  // Modify the current login user password, and regenerate salt and password hashes.
   async setUserPassword(params: UserPasswordBo, userId: string): Promise<void> {
 
     if (!params.password?.trim()) {
@@ -329,7 +329,7 @@ const userService = {
     await cache.delete(AUTH_CACHE_KEY + userId);
   },
 
-  // Toggle the enabled status of a specified user。
+  // Toggle the enabled status of a specified user.
   async toggleStatus(params: UserToggleStatusBo): Promise<void> {
     if (!params.userId) {
       throw new BizError('user.selectRequired');
@@ -355,11 +355,11 @@ const userService = {
       })
       .where(eq(userTab.userId, params.userId));
 
-    // Clear login cache after switching status。
+    // Clear login cache after switching status.
     await cache.delete(AUTH_CACHE_KEY + params.userId);
   },
 
-  // Delete the specified user and their associated albums，and move the photo to the recycle bin。
+  // Delete the specified user and their associated albums, and move the photo to the recycle bin.
   async delete(deleteUserId: string): Promise<void> {
 
     const [user] = await orm
@@ -380,7 +380,7 @@ const userService = {
     await orm.delete(userTab)
       .where(eq(userTab.userId, deleteUserId));
 
-    // Clear login cache after deleting user。
+    // Clear login cache after deleting user.
     await cache.delete(AUTH_CACHE_KEY + deleteUserId);
   },
 }

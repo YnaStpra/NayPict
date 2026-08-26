@@ -13,13 +13,13 @@ interface AlbumRenameDialogProps {
   onNameConfirm: (name: string) => void
 }
 
-// Rendering the pop-up window for modifying album name。
+// Rendering the pop-up window for modifying album name.
 export function AlbumRenameDialog({ open, name, onOpenChange, onNameConfirm }: AlbumRenameDialogProps) {
   const t = useTranslations("albums")
-  // inputName Save the album name in the pop-up input box。
+  // inputName Save the album name in the pop-up input box.
   const [inputName, setInputName] = useState(name)
 
-  // Submit the modified album name。
+  // Submit the modified album name.
   function submitName() {
     const value = inputName.trim()
 
@@ -30,7 +30,7 @@ export function AlbumRenameDialog({ open, name, onOpenChange, onNameConfirm }: A
     onNameConfirm(value)
   }
 
-  // Process input box and press Enter to confirm。
+  // Process input box and press Enter to confirm.
   function handleInputKeyDown(event: KeyboardEvent<HTMLInputElement>) {
     if (event.key === "Enter") {
       submitName()

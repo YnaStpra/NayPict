@@ -27,7 +27,7 @@ interface StorageAddDialogProps {
   onStorageConfirm: (storage: StorageInto) => void
 }
 
-// Create storage form initial value。
+// Create storage form initial value.
 function createStorageForm(storage?: StorageVo | null): StorageAddForm {
   if (storage) {
     return {
@@ -55,18 +55,18 @@ function createStorageForm(storage?: StorageVo | null): StorageAddForm {
   }
 }
 
-// Render storage pop-up window，And after confirmation, hand the storage configuration to the parent component for storage.。
+// Render storage pop-up window, And after confirmation, hand the storage configuration to the parent component for storage..
 export function StorageAddDialog({ title, open, storage, onOpenChange, onStorageConfirm }: StorageAddDialogProps) {
   const t = useTranslations("storage")
   // Only Cloudflare R2 (S3-compatible) is supported in production.
   const storageTypeOptions = [
     { label: t("objectStorage"), value: StorageTypeEnum.S3, disabled: false },
   ]
-  // resetTimerRef Reset the form's timer after the save-close animation ends。
+  // resetTimerRef Reset the form's timer after the save-close animation ends.
   const resetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  // form Save the stored form data in the current pop-up box。
+  // form Save the stored form data in the current pop-up box.
   const [form, setForm] = useState<StorageAddForm>(() => createStorageForm(storage))
-  // errors Save current form field validation errors。
+  // errors Save current form field validation errors.
   const [errors, setErrors] = useState<StorageAddFormErrors>({})
 
   const isS3 = form.type === StorageTypeEnum.S3
@@ -81,7 +81,7 @@ export function StorageAddDialog({ title, open, storage, onOpenChange, onStorage
     }
   }, [])
 
-  // Update text input field。
+  // Update text input field.
   function updateField(field: keyof StorageAddForm, value: string) {
     setForm((prev) => ({
       ...prev,
@@ -93,7 +93,7 @@ export function StorageAddDialog({ title, open, storage, onOpenChange, onStorage
     }))
   }
 
-  // Update storage type。
+  // Update storage type.
   function updateType(value: string) {
     setForm((prev) => ({
       ...prev,
@@ -105,13 +105,13 @@ export function StorageAddDialog({ title, open, storage, onOpenChange, onStorage
     }))
   }
 
-  // Reset new storage form。
+  // Reset new storage form.
   function resetForm() {
     setForm(createStorageForm())
     setErrors({})
   }
 
-  // Delay reset form，Avoid changing the content back to the default type during the closing animation。
+  // Delay reset form, Avoid changing the content back to the default type during the closing animation.
   function resetFormAfterClose() {
     if (resetTimerRef.current) {
       clearTimeout(resetTimerRef.current)
@@ -123,7 +123,7 @@ export function StorageAddDialog({ title, open, storage, onOpenChange, onStorage
     }, 300)
   }
 
-  // Verify the required fields in the new storage form。
+  // Verify the required fields in the new storage form.
   function validateForm() {
     const nextErrors: StorageAddFormErrors = {}
 
@@ -158,7 +158,7 @@ export function StorageAddDialog({ title, open, storage, onOpenChange, onStorage
     return Object.keys(nextErrors).length === 0
   }
 
-  // Submit storage configuration to parent component。
+  // Submit storage configuration to parent component.
   function submitStorage() {
     const name = form.name.trim()
 
@@ -180,7 +180,7 @@ export function StorageAddDialog({ title, open, storage, onOpenChange, onStorage
     handleOpenChange(false)
   }
 
-  // Handle pop-up window opening status changes。
+  // Handle pop-up window opening status changes.
   function handleOpenChange(nextOpen: boolean) {
     if (nextOpen && resetTimerRef.current) {
       clearTimeout(resetTimerRef.current)

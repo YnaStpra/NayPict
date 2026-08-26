@@ -212,7 +212,7 @@ const loginService = {
     return { token, user: userVo, isNewDevice };
   },
 
-  // Remove current session from cache when logging out uuid。
+  // Remove current session from cache when logging out uuid.
   async logout(userId: string | null, uuid: string | null): Promise<void> {
 
     if (!userId || !uuid) {

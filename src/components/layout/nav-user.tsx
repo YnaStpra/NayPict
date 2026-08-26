@@ -40,12 +40,12 @@ const UpdatePassword = dynamic(
   { ssr: false }
 )
 
-// Get avatar placeholder text，Get the first character of username。
+// Get avatar placeholder text, Get the first character of username.
 function getAvatarFallback(name: string) {
   return Array.from(name.trim()).slice(0, 1).join("").toUpperCase()
 }
 
-// Render current user menu。
+// Render current user menu.
 export function NavUser({
   user,
 }: {
@@ -99,7 +99,7 @@ export function NavUser({
 
   const fallback = getAvatarFallback(user.name)
 
-  // Log out and jump back to login page。
+  // Log out and jump back to login page.
   function logoutUser() {
     logout().then(() => {
       router.replace("/login")
@@ -107,12 +107,12 @@ export function NavUser({
     })
   }
 
-  // Open the avatar picture selector。
+  // Open the avatar picture selector.
   function openAvatarUpload() {
     fileInputRef.current?.click()
   }
 
-  // After selecting the avatar picture, open the cropping pop-up box。
+  // After selecting the avatar picture, open the cropping pop-up box.
   function changeAvatarFile(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0]
     event.target.value = ""
@@ -130,12 +130,12 @@ export function NavUser({
     setAvatarOpen(true)
   }
 
-  // save avatar key Update global user information later，The display address is given by props calculate。
+  // save avatar key Update global user information later, The display address is given by props calculate.
   function updateAvatar(avatarKey: string) {
     setUserInfo((prev) => prev ? { ...prev, avatar: avatarKey } : prev)
   }
 
-  // Open the change password pop-up box。
+  // Open the change password pop-up box.
   function openUpdatePassword() {
     setPasswordOpen(true)
   }

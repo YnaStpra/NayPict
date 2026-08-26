@@ -9,7 +9,7 @@ interface TrashPhotoLayoutProps {
   children: React.ReactNode
 }
 
-// The server queries the first page of photos in the recycle bin，And provide it to the recycle bin photo page initialization list。
+// The server queries the first page of photos in the recycle bin, And provide it to the recycle bin photo page initialization list.
 export default async function TrashPhotoLayout({ children }: TrashPhotoLayoutProps) {
   const cookieStore = await cookies()
   const { userId } = await getLoginInfo(cookieStore.toString())

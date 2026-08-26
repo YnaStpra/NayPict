@@ -67,39 +67,39 @@ type FullscreenButtonProps = {
 }
 
 type OriginalPhoto = {
-  // The original image that has been loaded currently key。
+  // The original image that has been loaded currently key.
   key: string
 }
 
 type OriginalProgress = {
-  // Number of bytes currently loaded。
+  // Number of bytes currently loaded.
   loaded: number
-  // The total number of bytes of the current original image。
+  // The total number of bytes of the current original image.
   total: number
 }
 
 type PreviewRequestMap = Map<string, () => void>
 
 type LoadOriginalImageParams = {
-  // Current photo id。
+  // Current photo id.
   photoId: string
-  // Original image request address。
+  // Original image request address.
   src: string
-  // Original image file size，for no return total Show progress at the bottom of the pocket。
+  // Original image file size, for no return total Show progress at the bottom of the pocket.
   totalSize: number
-  // Save the original image that has been loaded。
+  // Save the original image that has been loaded.
   setOriginalPhoto: (photo: OriginalPhoto | null) => void
-  // Save original image loading progress。
+  // Save original image loading progress.
   setOriginalProgress: (progress: OriginalProgress | null) => void
-  // Control whether the original image loading progress is displayed。
+  // Control whether the original image loading progress is displayed.
   setShowOriginalProgress: (show: boolean) => void
-  // Save the current original image to check whether the loading is abnormal.。
+  // Save the current original image to check whether the loading is abnormal..
   setOriginalError: (error: boolean) => void
-  // Cancel method of saving current original image request。
+  // Cancel method of saving current original image request.
   abortOriginalRef: { current: (() => void) | null }
-  // Original image loading progress delay hidden timer。
+  // Original image loading progress delay hidden timer.
   hideTimerRef: { current: ReturnType<typeof setTimeout> | null }
-  // Save the loaded photo cache。
+  // Save the loaded photo cache.
   setPhotoCache: (photoId: string, src: string) => void
 }
 
@@ -108,17 +108,17 @@ const photoViewerPortalStyle: CSSProperties & { "--yarl__portal_zindex": number 
   zIndex: 1000,
 }
 
-// Generate fade-in and fade-out styles based on the display state of the action button。
+// Generate fade-in and fade-out styles based on the display state of the action button.
 function getActionVisibleClass(showActions: boolean) {
   return showActions ? "opacity-100" : "pointer-events-none opacity-0"
 }
 
-// Format the number of bytes into MB。
+// Format the number of bytes into MB.
 function formatMB(size: number) {
   return `${(size / 1024 / 1024).toFixed(1)}MB`
 }
 
-// Close all preview image requests，and clear the current request Map。
+// Close all preview image requests, and clear the current request Map.
 function closePreviewRequests(requests: PreviewRequestMap) {
   const aborts = Array.from(requests.values())
 
@@ -128,7 +128,7 @@ function closePreviewRequests(requests: PreviewRequestMap) {
   })
 }
 
-// Load the original image and directly update the status related to the original image in the viewer。
+// Load the original image and directly update the status related to the original image in the viewer.
 function loadOriginalImage({
   photoId,
   src,
@@ -147,7 +147,7 @@ function loadOriginalImage({
     xhr.abort()
   }
 
-  // Clean up the current request reference after the request ends，Avoid subsequent switching from accidentally canceling completed requests。
+  // Clean up the current request reference after the request ends, Avoid subsequent switching from accidentally canceling completed requests.
   function clearCurrentRequest() {
     if (abortOriginalRef.current === abortOriginal) {
       abortOriginalRef.current = null
@@ -207,7 +207,7 @@ function loadOriginalImage({
   return abortOriginal
 }
 
-// Silently load preview，Replace the current display image after the request is completed。
+// Silently load preview, Replace the current display image after the request is completed.
 function loadPreviewImage(
   src: string,
   photoId: string,
@@ -239,7 +239,7 @@ function loadPreviewImage(
 
   previewRequestsRef.current.set(photoId, abortPreview)
 
-  // After the request is completed, only clean up your own records，Prevent old requests from deleting new requests。
+  // After the request is completed, only clean up your own records, Prevent old requests from deleting new requests.
   function clearCurrentRequest() {
     if (previewRequestsRef.current.get(photoId) === abortPreview) {
       previewRequestsRef.current.delete(photoId)
@@ -311,7 +311,7 @@ function OriginalProgressButton({
   )
 }
 
-// Render the previous button。
+// Render the previous button.
 function PrevButton({ showActions }: { showActions: boolean }) {
   const { prev } = useController()
 
@@ -333,7 +333,7 @@ function PrevButton({ showActions }: { showActions: boolean }) {
   )
 }
 
-// Render next button。
+// Render next button.
 function NextButton({ showActions }: { showActions: boolean }) {
   const { next } = useController()
 
@@ -355,7 +355,7 @@ function NextButton({ showActions }: { showActions: boolean }) {
   )
 }
 
-// Render full screen button。
+// Render full screen button.
 function FullscreenButton({
   fullscreen,
   enter,
@@ -365,7 +365,7 @@ function FullscreenButton({
   showActions: boolean
   onHideActions: () => void
 }) {
-  // Hide viewer action buttons after entering full screen state。
+  // Hide viewer action buttons after entering full screen state.
   function openFullscreen() {
     enter()
     onHideActions()
@@ -1007,11 +1007,11 @@ function PhotoSlideImage({
   )
 }
 
-// Render photo detail viewer，The parent component is responsible for passing in the current photo and list data。
+// Render photo detail viewer, The parent component is responsible for passing in the current photo and list data.
 export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhotoDelete, onPhotoUpdate, onAlbumOpen }: PhotoViewerProps) {
   const { userInfo } = useApp()
   const isAdmin = userInfo?.type === UserTypeEnum.ADMIN
-  // current lightbox Viewed photo index。
+  // current lightbox Viewed photo index.
   const [viewIndex, setViewIndex] = useState(index)
 
   // Sync viewIndex whenever the viewer is opened with a new index from the gallery
@@ -1053,23 +1053,23 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
       return () => clearTimeout(timer)
     }
   }, [open, viewIndex, photos])
-  // infoOpen Control whether the photo information sidebar on the right is expanded。
+  // infoOpen Control whether the photo information sidebar on the right is expanded.
   const infoOpen = usePhotoStore((state) => state.infoOpen)
-  // setInfoOpen Update information sidebar expansion status。
+  // setInfoOpen Update information sidebar expansion status.
   const setInfoOpen = usePhotoStore((state) => state.setInfoOpen)
   // Current sidebar tab ("info" | "comments")
   const [infoTab, setInfoTab] = useState<"info" | "comments">("info")
-  // The original image that has been loaded currently。
+  // The original image that has been loaded currently.
   const [originalPhoto, setOriginalPhoto] = useState<OriginalPhoto | null>(null)
-  // Current original image loading progress。
+  // Current original image loading progress.
   const [originalProgress, setOriginalProgress] = useState<OriginalProgress | null>(null)
-  // showOriginalProgress Control whether the original image loading progress is displayed。
+  // showOriginalProgress Control whether the original image loading progress is displayed.
   const [showOriginalProgress, setShowOriginalProgress] = useState(false)
-  // originalError Record whether the current original image loading is abnormal。
+  // originalError Record whether the current original image loading is abnormal.
   const [originalError, setOriginalError] = useState(false)
-  // Whether the viewer action buttons are currently displayed，Click the picture area to switch，Still forced to hide when zooming in。
+  // Whether the viewer action buttons are currently displayed, Click the picture area to switch, Still forced to hide when zooming in.
   const [showActions, setShowActions] = useState(true)
-  // Current photo zoom factor。
+  // Current photo zoom factor.
   const [zoomLevel, setZoomLevel] = useState(1)
   // Whether it is currently in full screen state.
   const [fullscreenOpen, setFullscreenOpen] = useState(false)
@@ -1247,7 +1247,7 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
   onBackRef.current = onBack
 
   useEffect(() => {
-    // Keep the browser's return callback as the latest method passed in by the parent component。
+    // Keep the browser's return callback as the latest method passed in by the parent component.
     onBrowserBackRef.current = onBrowserBack
   }, [onBrowserBack])
 
@@ -1318,7 +1318,7 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
       return
     }
 
-    // Interrupt outstanding original image requests when closing the viewer，And restore the list scroll position to before opening。
+    // Interrupt outstanding original image requests when closing the viewer, And restore the list scroll position to before opening.
     return () => {
       if (originalProgressHideTimerRef.current) {
         clearTimeout(originalProgressHideTimerRef.current)
@@ -1329,7 +1329,7 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
     }
   }, [open])
 
-  // Process the original image loading after photo switching。
+  // Process the original image loading after photo switching.
   function handleView(nextIndex: number) {
     setViewIndex(nextIndex)
 
@@ -1361,7 +1361,7 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
       return
     }
 
-    // After the current photo is loaded，Then silently warm up the two pictures before and after。
+    // After the current photo is loaded, Then silently warm up the two pictures before and after.
     loadPreviewImage(preview, photo.photoId, currentPhotoIdRef, setOriginalPhoto, previewRequestsRef, getPhotoCache, setPhotoCache, () => {
       if (photos.length < 2) {
         return
@@ -1384,7 +1384,7 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
     })
   }
 
-  // Manually load the current photo original image。
+  // Manually load the current photo original image.
   function loadOriginalPhoto(slide: PhotoSlide) {
     if (!slide.key) {
       return
@@ -1405,12 +1405,12 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
     })
   }
 
-  // Hide viewer action buttons。
+  // Hide viewer action buttons.
   function hideActions() {
     setShowActions(false)
   }
 
-  // Show viewer action buttons。
+  // Show viewer action buttons.
   function showActionButtons() {
     setShowActions(true)
   }
@@ -1483,7 +1483,7 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
     setDragOffset(null)
   }
 
-  // based on photos id Rotate the corresponding photo clockwise 90 Spend。
+  // based on photos id Rotate the corresponding photo clockwise 90 Spend.
   function rotatePhoto(photoId: string) {
     setPhotoRotates((prev) => ({
       ...prev,
@@ -1491,7 +1491,7 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
     }))
   }
 
-  // Restore the page scroll position to before opening the viewer，offset lightbox Focus scrolling when closed。
+  // Restore the page scroll position to before opening the viewer, offset lightbox Focus scrolling when closed.
   function restoreListScroll() {
     window.scrollTo(0, openScrollYRef.current)
   }

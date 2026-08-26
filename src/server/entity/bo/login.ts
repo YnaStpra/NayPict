@@ -1,4 +1,4 @@
-// This module defines the login interface input parameter object。
+// This module defines the login interface input parameter object.
 
 interface LoginBo {
   username: string;

@@ -1,4 +1,4 @@
-// This module stores global constants。
+// This module stores global constants.
 
 // Cookie name with __Host- prefix in production HTTPS environments to prevent subdomain injection and cookie tossing attacks (RFC 6265bis)
 const TOKEN_COOKIE_NAME = process.env.NODE_ENV === 'production' ? '__Host-token' : 'token';

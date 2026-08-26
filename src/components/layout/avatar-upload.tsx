@@ -16,7 +16,7 @@ interface AvatarUploadProps {
   onAvatarChange: (avatarKey: string) => void
 }
 
-// Load images，for canvas Generate avatar based on cropped area。
+// Load images, for canvas Generate avatar based on cropped area.
 function loadImage(src: string) {
   return new Promise<HTMLImageElement>((resolve, reject) => {
     const image = new Image()
@@ -28,7 +28,7 @@ function loadImage(src: string) {
   })
 }
 
-// Generate a fixed-size avatar based on the cropped area。
+// Generate a fixed-size avatar based on the cropped area.
 async function getCroppedAvatar(src: string, crop: Area) {
   const image = await loadImage(src)
   const canvas = document.createElement("canvas")
@@ -56,17 +56,17 @@ async function getCroppedAvatar(src: string, crop: Area) {
   return canvas.toDataURL("image/webp", 0.9)
 }
 
-// Render avatar upload and crop pop-up frame。
+// Render avatar upload and crop pop-up frame.
 export function AvatarUpload({ open, image, onOpenChange, onAvatarChange }: AvatarUploadProps) {
   const t = useTranslations("layout.avatar")
 
-  // cropperImage Delay binding to Cropper，Avoid measuring in advance when the pop-up layout is not stable。
+  // cropperImage Delay binding to Cropper, Avoid measuring in advance when the pop-up layout is not stable.
   const [cropperImage, setCropperImage] = useState("")
-  // crop Save the dragged position of the image in the crop window。
+  // crop Save the dragged position of the image in the crop window.
   const [crop, setCrop] = useState<Point>({ x: 0, y: 0 })
-  // zoom Save the zoom ratio of the image in the crop window。
+  // zoom Save the zoom ratio of the image in the crop window.
   const [zoom, setZoom] = useState(1)
-  // croppedAreaPixels Save the original image pixel area corresponding to the current cropping window。
+  // croppedAreaPixels Save the original image pixel area corresponding to the current cropping window.
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null)
 
   useEffect(() => {
@@ -79,12 +79,12 @@ export function AvatarUpload({ open, image, onOpenChange, onAvatarChange }: Avat
     }
   }, [image])
 
-  // Save current cropping area，Generate avatar when click to save。
+  // Save current cropping area, Generate avatar when click to save.
   function completeCrop(_: Area, nextAreaPixels: Area) {
     setCroppedAreaPixels(nextAreaPixels)
   }
 
-  // Save the cropped avatar，and pass the result to the parent component。
+  // Save the cropped avatar, and pass the result to the parent component.
   async function saveAvatar() {
 
     if (!croppedAreaPixels) {

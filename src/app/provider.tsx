@@ -52,7 +52,7 @@ type AppContextValue = {
 
 const AppContext = React.createContext<AppContextValue | null>(null)
 
-// Read application-level global state，For reuse by client components within the layout。
+// Read application-level global state, For reuse by client components within the layout.
 function useApp() {
   const context = React.useContext(AppContext)
 
@@ -63,19 +63,19 @@ function useApp() {
   return context
 }
 
-// Host application level Provider。
+// Host application level Provider.
 function Provider({ children, defaultTheme, defaultSidebarOpen, initialUserInfo, title }: ProviderProps) {
   const [theme, setThemeState] = React.useState<Theme>(defaultTheme)
-  // userInfo Save current logged in user information，You can immediately update the layout display after logging in。
+  // userInfo Save current logged in user information, You can immediately update the layout display after logging in.
   const [userInfo, setUserInfo] = React.useState<UserInfoVo | null>(initialUserInfo)
-  // sidebarOpen Save the current expanded state of the sidebar，For continued reuse after page switching。
+  // sidebarOpen Save the current expanded state of the sidebar, For continued reuse after page switching.
   const [sidebarOpen, setSidebarOpen] = React.useState(defaultSidebarOpen)
   const setAlbums = useAlbumStore((state) => state.setAlbums)
   const setStorages = useStorageStore((state) => state.setStorages)
   const setInfoOpen = usePhotoStore((state) => state.setInfoOpen)
-  // isMobile Determine whether the current viewport is the mobile terminal。
+  // isMobile Determine whether the current viewport is the mobile terminal.
   const isMobile = useIsMobile()
-  // pathname Used to skip authentication interface requests such as albums and storage on the login page。
+  // pathname Used to skip authentication interface requests such as albums and storage on the login page.
   const pathname = usePathname()
   const isLogin = pathname === "/login"
 
@@ -85,7 +85,7 @@ function Provider({ children, defaultTheme, defaultSidebarOpen, initialUserInfo,
     }
   }, [initialUserInfo])
 
-  // Query normal storage configuration and write global storage options。
+  // Query normal storage configuration and write global storage options.
   useEffect(() => {
     if (isLogin) {
       return
@@ -96,7 +96,7 @@ function Provider({ children, defaultTheme, defaultSidebarOpen, initialUserInfo,
     })
   }, [isLogin, setStorages])
 
-  // Query the album list and write global album options。
+  // Query the album list and write global album options.
   useEffect(() => {
     if (isLogin) {
       return
@@ -107,21 +107,21 @@ function Provider({ children, defaultTheme, defaultSidebarOpen, initialUserInfo,
     })
   }, [isLogin, setAlbums])
 
-  // The mobile side collapses the photo information sidebar by default。
+  // The mobile side collapses the photo information sidebar by default.
   useEffect(() => {
     if (isMobile) {
       setInfoOpen(false)
     }
   }, [isMobile, setInfoOpen])
 
-  // Update theme class and cookie，Let the current theme be restored next time server-side rendering。
+  // Update theme class and cookie, Let the current theme be restored next time server-side rendering.
   const setTheme = React.useCallback((theme: Theme) => {
     setThemeState(theme)
     document.documentElement.classList.toggle("dark", theme === "dark")
     document.cookie = `${THEME_COOKIE_NAME}=${theme}; path=/; max-age=${TOKEN_COOKIE_MAX_AGE}`
   }, [])
 
-  // Switch between light and dark themes。
+  // Switch between light and dark themes.
   const toggleTheme = React.useCallback(() => {
     setTheme(theme === "dark" ? "light" : "dark")
   }, [setTheme, theme])
@@ -137,7 +137,7 @@ function Provider({ children, defaultTheme, defaultSidebarOpen, initialUserInfo,
     }
   }, [])
 
-  // Requery normal storage configuration and write global storage options，The login page does not send a request。
+  // Requery normal storage configuration and write global storage options, The login page does not send a request.
   const refreshStorages = React.useCallback(() => {
     if (isLogin) {
       return Promise.resolve()
@@ -148,7 +148,7 @@ function Provider({ children, defaultTheme, defaultSidebarOpen, initialUserInfo,
     })
   }, [isLogin, setStorages])
 
-  // Query the album list again and write global album options，The login page does not send a request。
+  // Query the album list again and write global album options, The login page does not send a request.
   const refreshAlbums = React.useCallback(() => {
     if (isLogin) {
       return Promise.resolve()

@@ -4,20 +4,20 @@ import { createContext, useContext } from "react"
 import { type PhotoVo } from "@/server/entity/vo/photo"
 
 interface PhotoContextValue {
-  // initialPhotos Save the first page of photos queried by the server。
+  // initialPhotos Save the first page of photos queried by the server.
   initialPhotos: PhotoVo[]
 }
 
 interface PhotoProviderProps {
-  // children yes /photo Page content under routing。
+  // children yes /photo Page content under routing.
   children: React.ReactNode
-  // initialPhotos Save the first page of photos queried by the server。
+  // initialPhotos Save the first page of photos queried by the server.
   initialPhotos: PhotoVo[]
 }
 
 const PhotoContext = createContext<PhotoContextValue | null>(null)
 
-// read /photo Photo data prefetched by the server under routing。
+// read /photo Photo data prefetched by the server under routing.
 function usePhotoContext() {
   const context = useContext(PhotoContext)
 
@@ -28,7 +28,7 @@ function usePhotoContext() {
   return context
 }
 
-// Give /photo The client component under routing provides server-side prefetching of photos。
+// Give /photo The client component under routing provides server-side prefetching of photos.
 function PhotoProvider({ children, initialPhotos }: PhotoProviderProps) {
   return (
     <PhotoContext.Provider value={{ initialPhotos }}>

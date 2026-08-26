@@ -45,7 +45,7 @@ interface RootLayoutProps {
   children: React.ReactNode
 }
 
-// Render application root layout，and restore the saved theme before the page is painted。
+// Render application root layout, and restore the saved theme before the page is painted.
 export default async function RootLayout({ children }: RootLayoutProps) {
 
   const cookieStore = await cookies()

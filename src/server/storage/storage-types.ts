@@ -1,7 +1,7 @@
 import { type Readable } from 'node:stream';
 import { type Storage } from '@/server/entity/storage';
 
-// This module defines storage policy related types。
+// This module defines storage policy related types.
 
 interface StorageStrategy {
   put(files: StorageUploadObject[], storage: Storage): Promise<void>;

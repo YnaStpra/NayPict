@@ -63,3 +63,8 @@ export function getInsightsTopPhotos(limit = 10): Promise<{ mostViewed: Insights
 export function getPhotoInsightsDetail(photoId: string): Promise<PhotoInsightsDetailVo> {
   return http.get<PhotoInsightsDetailVo>(`/admin/insights/photo/${encodeURIComponent(photoId)}`);
 }
+
+// Reset all gallery insights and view records (Admin only).
+export function resetInsights(): Promise<{ success: boolean }> {
+  return http.post<{ success: boolean }>('/admin/insights/reset');
+}

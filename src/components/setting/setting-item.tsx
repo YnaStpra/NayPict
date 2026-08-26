@@ -1,15 +1,15 @@
 import { type ReactNode } from "react"
 
 interface SettingItemProps {
-  // title Is the title displayed on the left side of the setting item。
+  // title Is the title displayed on the left side of the setting item.
   title: string
-  // description is the description below the title of the setting item。
+  // description is the description below the title of the setting item.
   description?: string
-  // children It is the custom content on the right side of the setting item。
+  // children It is the custom content on the right side of the setting item.
   children: ReactNode
 }
 
-// Render a single setting item in the system settings page。
+// Render a single setting item in the system settings page.
 export function SettingItem({ title, description, children }: SettingItemProps) {
   return (
     <div>

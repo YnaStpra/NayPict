@@ -6,7 +6,7 @@ import { StorageTypeEnum } from '@/server/enums/storage-enum';
 import BizError from '@/server/error/biz-error';
 import { formatHttpUrl } from '@/lib/url';
 
-// This module implements S3 storage strategy。
+// This module implements S3 storage strategy.
 
 const s3ClientCache = new Map<string, S3Client>();
 
@@ -42,7 +42,7 @@ class S3StorageStrategy implements StorageStrategy {
     return client;
   }
 
-  // Convert custom metadata items to S3 PutObject parameter。
+  // Convert custom metadata items to S3 PutObject parameter.
   private buildPutOptions(metadata: string[][]) {
     const options: Partial<PutObjectCommandInput> = {};
 
@@ -71,7 +71,7 @@ class S3StorageStrategy implements StorageStrategy {
     return options;
   }
 
-  // Save multiple files to S3。
+  // Save multiple files to S3.
   async put(files: StorageUploadObject[], storage: Storage): Promise<void> {
     const client = this.createClient(storage);
     const bucket = storage.bucket?.trim();
@@ -93,7 +93,7 @@ class S3StorageStrategy implements StorageStrategy {
     }
   }
 
-  // from S3 Read the file and convert it into a response body。
+  // from S3 Read the file and convert it into a response body.
   async get(key: string, storage: Storage): Promise<StorageObject> {
     const client = this.createClient(storage);
     const bucket = storage.bucket?.trim();
@@ -118,7 +118,7 @@ class S3StorageStrategy implements StorageStrategy {
     };
   }
 
-  // from S3 Delete one or more files。
+  // from S3 Delete one or more files.
   async delete(key: string | string[], storage: Storage): Promise<void> {
     const keys = Array.isArray(key) ? key : [key];
 

@@ -7,7 +7,7 @@ interface StorageLayoutProps {
   children: React.ReactNode
 }
 
-// Server query storage configuration list，and provided to /storage Page initialization form。
+// Server query storage configuration list, and provided to /storage Page initialization form.
 export default async function StorageLayout({ children }: StorageLayoutProps) {
   const cookieStore = await cookies()
   const { userId } = await getLoginInfo(cookieStore.toString())

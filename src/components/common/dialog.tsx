@@ -29,12 +29,12 @@ type CommonDialogProps = React.ComponentProps<typeof DialogRoot> & {
   showFooter?: boolean
   showCloseButton?: boolean
   contentClassName?: string
-  // Whether to prevent autofocus when the mobile terminal is opened，Not blocked by default。
+  // Whether to prevent autofocus when the mobile terminal is opened, Not blocked by default.
   preventMobileAutoFocus?: boolean
   onConfirm?: () => void
 }
 
-// Dialog Encapsulate common pop-up window structure，Support title、describe、Trigger buttons and custom content areas。
+// Dialog Encapsulate common pop-up window structure, Support title, describe, Trigger buttons and custom content areas.
 function Dialog({
   className,
   title,
@@ -53,7 +53,7 @@ function Dialog({
   ...props
 }: CommonDialogProps) {
   const t = useTranslations("common")
-  const isMobile = useIsMobile() // isMobile Mark whether the current viewport is the mobile terminal。
+  const isMobile = useIsMobile() // isMobile Mark whether the current viewport is the mobile terminal.
 
   return (
     <DialogRoot {...props}>

@@ -1,11 +1,11 @@
-// This module defines the login authentication cache object。
+// This module defines the login authentication cache object.
 
 interface AuthInfo {
   userId: string
   username: string
   avatar: string
   type: number
-  // Current unexpired login session uuid list。
+  // Current unexpired login session uuid list.
   uuidList: string[]
 }
 

@@ -7,7 +7,7 @@ interface UserLayoutProps {
   children: React.ReactNode
 }
 
-// Server query user list，and provided to /user Page initialization form。
+// Server query user list, and provided to /user Page initialization form.
 export default async function UserLayout({ children }: UserLayoutProps) {
   const cookieStore = await cookies()
   const { userId } = await getLoginInfo(cookieStore.toString())
