@@ -238,7 +238,7 @@ export const PhotoCard = memo(function PhotoCard({
           src={placeholder}
           alt=""
           className={[
-            "absolute inset-0 h-full w-full scale-110 blur-sm transition-opacity duration-200",
+            "absolute inset-0 h-full w-full object-cover transition-opacity duration-200",
             imageLoaded ? "opacity-0 pointer-events-none" : "opacity-100",
           ].join(" ")}
           aria-hidden
@@ -258,7 +258,7 @@ export const PhotoCard = memo(function PhotoCard({
             }
           }}
           src={imageSrc ?? undefined}
-          loading={isPriority ? "eager" : "eager"}
+          loading={isPriority ? "eager" : "lazy"}
           fetchPriority={isPriority ? "high" : "auto"}
           decoding="async"
           crossOrigin="anonymous"

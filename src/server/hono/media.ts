@@ -131,7 +131,15 @@ media.get('*', async (c: Context, next: Next) => {
     headers['Content-Disposition'] = disposition;
   }
 
-  return c.body(obj.body as unknown as ReadableStream, 200, headers);
+  let responseBody: any = obj.body;
+  if (obj.body && typeof (obj.body as any).transformToByteArray === 'function') {
+    // S3 / R2 SDK v3 stream: fast-path to ByteArray for instant zero-latency HTTP response
+    responseBody = await (obj.body as any).transformToByteArray();
+  } else if (obj.body && typeof (obj.body as any).transformToWebStream === 'function') {
+    responseBody = (obj.body as any).transformToWebStream();
+  }
+
+  return c.body(responseBody, 200, headers);
 });
 
 export { media };
