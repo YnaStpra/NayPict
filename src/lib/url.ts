@@ -22,8 +22,9 @@ function toMediaUrl(key: string, domain?: string | null) {
   const encodedKey = key.split('/').map((segment) => encodeURIComponent(segment)).join('/');
   const base = formatHttpUrl(domain);
 
-  // Route via /media proxy if domain is empty, or contains .r2.dev, or contains r2.cloudflarestorage.com (S3 API endpoint)
-  if (base && !base.includes('.r2.dev') && !base.includes('r2.cloudflarestorage.com')) {
+  // If public CDN domain is configured (e.g. *.r2.dev or custom media domain), deliver directly via global CDN edge
+  // Only route via /media server proxy if domain is empty or points to private S3 API endpoint (r2.cloudflarestorage.com)
+  if (base && !base.includes('r2.cloudflarestorage.com')) {
     return `${base}/${encodedKey}`;
   }
 
