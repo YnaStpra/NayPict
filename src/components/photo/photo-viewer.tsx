@@ -15,7 +15,7 @@ import { useTapAction } from "@/hooks/use-tap-action"
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { getThumbHashUrl } from "@/lib/thumb-hash"
-import { removePhotoIdFromUrl, setPhotoIdInUrl } from "@/lib/url"
+import { removePhotoIdFromUrl, setPhotoIdInUrl, toProxyMediaUrl } from "@/lib/url"
 import { recordPhotoShare, recordPhotoView } from "@/request/insights"
 import { type PhotoVo } from "@/server/entity/vo/photo"
 import { usePhotoStore } from "@/store/photo-store"
@@ -857,46 +857,83 @@ function CloseButton({ showActions }: { showActions: boolean }) {
   )
 }
 
-// Render a single photo，via original image key ref Determine whether to display the cover or the original image。
+// Render a single photo with progressive high-res loading and fallback
 function PhotoSlideImage({
   slide,
   originalPhoto,
   rotate,
   fullscreenOpen,
 }: {
-  // Current photo slide。
+  // Current photo slide.
   slide: PhotoSlide
-  // The currently loaded original image。
+  // The currently loaded original image.
   originalPhoto: OriginalPhoto | null
-  // Current photo CSS rotation angle。
+  // Current photo CSS rotation angle.
   rotate: number
-  // Whether it is currently in full screen state。
+  // Whether it is currently in full screen state.
   fullscreenOpen: boolean
 }) {
+  const initialSrc = originalPhoto?.key === slide.preview || originalPhoto?.key === slide.key
+    ? originalPhoto.key
+    : slide.src || slide.preview || slide.thumbnail || ""
+  const [currentSrc, setCurrentSrc] = useState<string>(initialSrc)
+  const [loaded, setLoaded] = useState(false)
+
+  useEffect(() => {
+    const targetSrc = originalPhoto?.key === slide.preview || originalPhoto?.key === slide.key
+      ? originalPhoto.key
+      : slide.src || slide.preview || slide.thumbnail || ""
+    setCurrentSrc(targetSrc)
+    setLoaded(false)
+  }, [slide.src, slide.preview, slide.thumbnail, originalPhoto?.key])
+
   const normalizedRotate = rotate % 360
   const sideways = normalizedRotate === 90 || normalizedRotate === 270
-  const thumbnailHeight = innerWidth < 768 ? 46 : 75
+  const thumbnailHeight = typeof window !== "undefined" && window.innerWidth < 768 ? 46 : 75
   const rotateWidthOffset = fullscreenOpen ? 0 : thumbnailHeight
 
   return (
-    <img
-      src={originalPhoto?.key === slide.preview || originalPhoto?.key === slide.key ? originalPhoto.key : slide.src}
-      alt={slide.alt}
-      draggable={false}
-      className="lightbox-zoom-matrix select-none max-w-none object-contain transition-transform duration-200"
-      onError={(event) => {
-        event.currentTarget.style.display = "none"
-      }}
-      style={{
-        width: sideways ? `calc(100cqh - ${rotateWidthOffset}px)` : "100%",
-        height: sideways ? "100vw" : "100%",
-        transform: `rotate(${rotate}deg) translateZ(0)`,
-        transformStyle: "preserve-3d",
-        backfaceVisibility: "hidden",
-        imageRendering: "-webkit-optimize-contrast",
-        willChange: "transform",
-      }}
-    />
+    <div className="relative flex h-full w-full items-center justify-center overflow-hidden">
+      {/* Instant placeholder while HD image streams in */}
+      {slide.thumbHashUrl && !loaded && (
+        <img
+          src={slide.thumbHashUrl}
+          alt=""
+          aria-hidden
+          className="absolute select-none max-w-none object-contain pointer-events-none transition-opacity duration-300"
+          style={{
+            width: sideways ? `calc(100cqh - ${rotateWidthOffset}px)` : "100%",
+            height: sideways ? "100vw" : "100%",
+            transform: `rotate(${rotate}deg) translateZ(0)`,
+          }}
+        />
+      )}
+      <img
+        src={currentSrc}
+        alt={slide.alt}
+        draggable={false}
+        decoding="async"
+        className="lightbox-zoom-matrix select-none max-w-none object-contain transition-opacity duration-200"
+        onLoad={() => setLoaded(true)}
+        onError={() => {
+          if (currentSrc && !currentSrc.startsWith('/media/')) {
+            setCurrentSrc(toProxyMediaUrl(currentSrc))
+          } else if (slide.thumbnail && currentSrc !== slide.thumbnail) {
+            setCurrentSrc(slide.thumbnail)
+          }
+        }}
+        style={{
+          width: sideways ? `calc(100cqh - ${rotateWidthOffset}px)` : "100%",
+          height: sideways ? "100vw" : "100%",
+          transform: `rotate(${rotate}deg) translateZ(0)`,
+          transformStyle: "preserve-3d",
+          backfaceVisibility: "hidden",
+          imageRendering: "-webkit-optimize-contrast",
+          willChange: "transform",
+          opacity: loaded ? 1 : 0,
+        }}
+      />
+    </div>
   )
 }
 
@@ -1118,14 +1155,14 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
     }
   }, [open, isCinematicMode])
 
-  // lightbox Required picture list.
+  // lightbox Required picture list - uses HD preview as primary source
   const slides = useMemo<PhotoSlide[]>(() => (
     photos.map((photo) => ({
       photoId: photo.photoId,
       key: photo.key,
       originalSize: photo.size,
-      preview: photo.preview || "",
-      src: photo.thumbnail || photo.preview || "",
+      preview: photo.preview || photo.key || photo.thumbnail || "",
+      src: photo.preview || photo.key || photo.thumbnail || "",
       thumbnail: photo.thumbnail || photo.preview || "",
       thumbHashUrl: getThumbHashUrl(photo.thumbHash),
       albums: photo.albums,
