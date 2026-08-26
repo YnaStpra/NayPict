@@ -127,6 +127,14 @@ export default function Page() {
 
   const handleSortChange = (key: SortOptionKey) => {
     setSortKey(key)
+
+    // Automatically enable Group by Date when sorting by Taken Date (Newest or Oldest), disable otherwise
+    if (key === 'takenTime_desc' || key === 'takenTime_asc') {
+      setGroupByDate(true)
+    } else {
+      setGroupByDate(false)
+    }
+
     const option = SORT_OPTIONS.find((o) => o.key === key)
     if (option) {
       refreshPhotoList({
@@ -137,12 +145,14 @@ export default function Page() {
     }
   }
 
-  // Auto sort by taken date (oldest) when user toggles date group, and reset to default/none when returning to masonry
+  // Auto toggle Group by Date: switches between Taken Date and default/random
   const toggleGroupByDate = () => {
     setGroupByDate((prev) => {
       const next = !prev
       if (next) {
-        handleSortChange('takenTime_asc')
+        // If sortKey is already takenTime_desc, keep it, otherwise default to takenTime_asc
+        const targetSort = sortKey === 'takenTime_desc' ? 'takenTime_desc' : 'takenTime_asc'
+        handleSortChange(targetSort)
       } else {
         handleSortChange('none')
       }
