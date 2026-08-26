@@ -85,7 +85,7 @@ export const PhotoCard = memo(function PhotoCard({
   // Predictive hover dwell timer
   const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const imgRef = useRef<HTMLImageElement | null>(null)
-  const isPriority = typeof index === "number" && index < 8
+  const isPriority = typeof index === "number" && index < 12
 
   // Reset image source and state when data changes
   useEffect(() => {
@@ -93,6 +93,19 @@ export const PhotoCard = memo(function PhotoCard({
     setImageError(false)
     setImageLoaded(false)
   }, [data.photoId, data.thumbnail, data.preview, data.key])
+
+  // Proactive Fallback Watchdog: If thumbnail stalls > 2.8s without error, seamlessly switch to preview/original
+  useEffect(() => {
+    if (imageLoaded || imageError) return
+    if (imageSrc === data.thumbnail && data.preview && data.preview !== data.thumbnail) {
+      const timer = setTimeout(() => {
+        if (!imageLoaded) {
+          setImageSrc(data.preview)
+        }
+      }, 2800)
+      return () => clearTimeout(timer)
+    }
+  }, [imageSrc, imageLoaded, imageError, data.thumbnail, data.preview])
 
   const handleImageLoadSuccess = () => {
     if (data.photoId) {
@@ -212,9 +225,8 @@ export const PhotoCard = memo(function PhotoCard({
         width,
         height: cardHeight,
         contain: "paint layout",
-        contentVisibility: "auto",
-        containIntrinsicSize: `${width}px ${cardHeight}px`,
         transform: "translateZ(0)",
+        willChange: "auto",
         // Dynamic Layout Stability CSS Custom Properties (CLS = 0.000)
         ["--aspect-ratio" as string]: `${ratio}`,
         ["--intrinsic-width" as string]: `${width}px`,
@@ -226,7 +238,7 @@ export const PhotoCard = memo(function PhotoCard({
           src={placeholder}
           alt=""
           className={[
-            "absolute inset-0 h-full w-full scale-110 blur-sm transition-opacity duration-300",
+            "absolute inset-0 h-full w-full scale-110 blur-sm transition-opacity duration-200",
             imageLoaded ? "opacity-0 pointer-events-none" : "opacity-100",
           ].join(" ")}
           aria-hidden
@@ -246,14 +258,14 @@ export const PhotoCard = memo(function PhotoCard({
             }
           }}
           src={imageSrc ?? undefined}
-          loading={isPriority ? "eager" : "lazy"}
+          loading={isPriority ? "eager" : "eager"}
           fetchPriority={isPriority ? "high" : "auto"}
           decoding="async"
           crossOrigin="anonymous"
           alt={data.name}
           draggable={false}
           className={[
-            "absolute inset-0 h-full w-full object-cover spring-zoom-img transition-opacity duration-300",
+            "absolute inset-0 h-full w-full object-cover spring-zoom-img transition-opacity duration-200",
             imageLoaded ? "opacity-100" : "opacity-0",
             selectionActive ? "" : "group-hover:scale-[1.035]",
             showHover && !selectionActive ? "scale-[1.035]" : "",
