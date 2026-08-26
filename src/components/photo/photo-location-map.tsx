@@ -219,7 +219,7 @@ export function PhotoLocationMap({
             {latNum.toFixed(4)}°, {lngNum.toFixed(4)}°
           </span>
           <span className="text-emerald-400 group-hover:underline flex items-center gap-1">
-            <span>Buka di Google Maps</span>
+            <span>Open in Google Maps</span>
             <ExternalLink className="size-2.5" />
           </span>
         </div>

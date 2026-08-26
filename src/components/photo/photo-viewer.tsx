@@ -917,7 +917,7 @@ function PhotoSlideImage({
           <div className="flex items-center gap-2">
             <LoaderCircleIcon className="size-3.5 animate-spin text-emerald-400 shrink-0" />
             <span className="font-semibold tracking-wide text-[11px] sm:text-xs text-white/90">
-              Memuat kualitas asli HD...
+              Loading high quality HD...
             </span>
           </div>
           <div className="h-1 w-28 sm:w-36 overflow-hidden rounded-full bg-white/15">
@@ -930,7 +930,7 @@ function PhotoSlideImage({
       {loaded && showHdBadge && (
         <div className="pointer-events-none absolute bottom-14 sm:bottom-20 z-30 flex items-center gap-1.5 rounded-full bg-emerald-950/85 px-3.5 py-1 text-xs font-medium text-emerald-300 shadow-xl backdrop-blur-xl border border-emerald-500/30 animate-in fade-in zoom-in-95 duration-200">
           <Sparkles className="size-3 text-emerald-400 shrink-0" />
-          <span className="font-semibold text-[11px] sm:text-xs">Kualitas HD Siap</span>
+          <span className="font-semibold text-[11px] sm:text-xs">HD Quality Ready</span>
         </div>
       )}
 

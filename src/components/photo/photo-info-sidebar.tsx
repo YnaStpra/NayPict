@@ -498,7 +498,7 @@ export function PhotoInfoSidebar({
                         className="flex items-center gap-1 text-[11px] font-semibold text-emerald-400 hover:text-emerald-300 hover:underline cursor-pointer"
                       >
                         <MapPin className="size-3" />
-                        <span>Ubah Lokasi</span>
+                        <span>Change Location</span>
                       </button>
                     )}
                   </div>
