@@ -39,6 +39,7 @@ import { type PhotoVo } from "@/server/entity/vo/photo"
 import { Button } from "@/components/ui/button"
 import { formatRelativeTime } from "@/lib/date"
 import { getThumbHashUrl } from "@/lib/thumb-hash"
+import { toProxyMediaUrl } from "@/lib/url"
 import { useLocale } from "next-intl"
 import { useApp } from "@/app/provider"
 import { UserTypeEnum } from "@/server/enums/user-enum"
@@ -623,7 +624,7 @@ export default function PhotoMapView() {
             } bg-neutral-900">
               ${
                 imgUrl
-                  ? `<img src="${imgUrl}" alt="${topPhoto.name}" style="position: absolute !important; top: 0 !important; left: 0 !important; width: 100% !important; height: 100% !important; min-width: 100% !important; min-height: 100% !important; max-width: none !important; max-height: none !important; object-fit: cover !important; object-position: center center !important; display: block !important;" loading="lazy" decoding="async" />`
+                  ? `<img src="${imgUrl}" alt="${topPhoto.name}" onerror="if(this.src&&!this.src.includes('/media/')){this.src=this.src.replace(/^https?:\\/\\/[^\\/]+/, '/media')}" style="position: absolute !important; top: 0 !important; left: 0 !important; width: 100% !important; height: 100% !important; min-width: 100% !important; min-height: 100% !important; max-width: none !important; max-height: none !important; object-fit: cover !important; object-position: center center !important; display: block !important;" loading="lazy" decoding="async" />`
                   : `<div class="w-full h-full bg-emerald-600 flex items-center justify-center text-white text-xs">📷</div>`
               }
             </div>
@@ -667,7 +668,7 @@ export default function PhotoMapView() {
           <div class="relative w-full h-24 rounded-lg overflow-hidden bg-neutral-900 mb-1.5 border border-white/10 shadow-inner">
             ${
               imgUrl
-                ? `<img src="${imgUrl}" alt="${photoTitle}" style="width: 100%; height: 100%; object-fit: cover; display: block;" loading="lazy" />`
+                ? `<img src="${imgUrl}" alt="${photoTitle}" onerror="if(this.src&&!this.src.includes('/media/')){this.src=this.src.replace(/^https?:\\/\\/[^\\/]+/, '/media')}" style="width: 100%; height: 100%; object-fit: cover; display: block;" loading="lazy" />`
                 : `<div class="w-full h-full flex items-center justify-center text-xs">📷</div>`
             }
             ${
@@ -1032,6 +1033,12 @@ export default function PhotoMapView() {
                     alt={currentPhoto.name}
                     loading="eager"
                     decoding="async"
+                    onError={(e) => {
+                      const el = e.currentTarget
+                      if (el.src && !el.src.includes('/media/')) {
+                        el.src = toProxyMediaUrl(el.src)
+                      }
+                    }}
                     className="absolute inset-0 h-full w-full object-cover transition-all duration-300 group-hover:scale-105"
                   />
                 ) : (
@@ -1159,6 +1166,12 @@ export default function PhotoMapView() {
                           alt={p.name}
                           loading="lazy"
                           decoding="async"
+                          onError={(e) => {
+                            const el = e.currentTarget
+                            if (el.src && !el.src.includes('/media/')) {
+                              el.src = toProxyMediaUrl(el.src)
+                            }
+                          }}
                           className="absolute inset-0 h-full w-full object-cover"
                         />
                       )}
@@ -1372,6 +1385,12 @@ export default function PhotoMapView() {
                             alt={topPhoto?.name || ""}
                             loading="lazy"
                             decoding="async"
+                            onError={(e) => {
+                              const el = e.currentTarget
+                              if (el.src && !el.src.includes('/media/')) {
+                                el.src = toProxyMediaUrl(el.src)
+                              }
+                            }}
                             className="absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-110"
                           />
                         )}
@@ -1452,6 +1471,12 @@ export default function PhotoMapView() {
                             alt={photo.name}
                             loading="lazy"
                             decoding="async"
+                            onError={(e) => {
+                              const el = e.currentTarget
+                              if (el.src && !el.src.includes('/media/')) {
+                                el.src = toProxyMediaUrl(el.src)
+                              }
+                            }}
                             className="absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-110"
                           />
                         )}
@@ -1494,6 +1519,12 @@ export default function PhotoMapView() {
                         alt={photo.name}
                         loading="lazy"
                         decoding="async"
+                        onError={(e) => {
+                          const el = e.currentTarget
+                          if (el.src && !el.src.includes('/media/')) {
+                            el.src = toProxyMediaUrl(el.src)
+                          }
+                        }}
                         className="absolute inset-0 h-full w-full object-cover opacity-75 group-hover:opacity-100 transition-opacity"
                       />
                     )}

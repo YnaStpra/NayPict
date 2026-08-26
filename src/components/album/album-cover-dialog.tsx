@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/dialog"
 import { type AlbumVo } from "@/server/entity/vo/album"
 import { albumGetCoverCandidates, albumSetCover, type AlbumCoverCandidate } from "@/request/album"
+import { toProxyMediaUrl } from "@/lib/url"
 
 interface AlbumCoverDialogProps {
   open: boolean
@@ -142,6 +143,12 @@ export function AlbumCoverDialog({ open, album, onOpenChange, onSuccess }: Album
                       <img
                         src={suggestedCandidate.thumbnail ?? suggestedCandidate.preview ?? ""}
                         alt={suggestedCandidate.name}
+                        onError={(e) => {
+                          const el = e.currentTarget
+                          if (el.src && !el.src.includes('/media/')) {
+                            el.src = toProxyMediaUrl(el.src)
+                          }
+                        }}
                         className="h-full w-full object-cover"
                       />
                     </div>
@@ -201,6 +208,12 @@ export function AlbumCoverDialog({ open, album, onOpenChange, onSuccess }: Album
                           <img
                             src={photo.thumbnail ?? photo.preview ?? ""}
                             alt={photo.name}
+                            onError={(e) => {
+                              const el = e.currentTarget
+                              if (el.src && !el.src.includes('/media/')) {
+                                el.src = toProxyMediaUrl(el.src)
+                              }
+                            }}
                             className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-105"
                           />
                           {isCurrent && (

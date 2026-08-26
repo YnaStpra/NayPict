@@ -20,6 +20,7 @@ import {
 import { useAlbumStore } from "@/store/album-store"
 import { albumAdd } from "@/request/album"
 import { useApp } from "@/app/provider"
+import { toProxyMediaUrl } from "@/lib/url"
 
 interface AlbumSelectDialogProps {
   open: boolean
@@ -171,7 +172,12 @@ export function AlbumSelectDialog({ open, onOpenChange, onAlbumSelect, initialSe
                       <img
                         src={album.thumbnail}
                         alt={album.name}
-                        crossOrigin="anonymous"
+                        onError={(e) => {
+                          const el = e.currentTarget
+                          if (el.src && !el.src.includes('/media/')) {
+                            el.src = toProxyMediaUrl(el.src)
+                          }
+                        }}
                       />
                     ) : (
                       <span className="h-full w-full bg-muted" />

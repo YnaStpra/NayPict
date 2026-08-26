@@ -3,6 +3,7 @@
 import { useEffect, useState, useMemo } from "react"
 import { getReverseGeocode, type LocationReverseVo } from "@/request/location"
 import { ExternalLink, MapPin } from "lucide-react"
+import { toProxyMediaUrl } from "@/lib/url"
 
 // This component renders a Google Maps preview card with a photo thumbnail pin and full reverse-geocoded address.
 
@@ -112,7 +113,11 @@ export function PhotoLocationMap({
   }
 
   const mapsUrl = `https://www.google.com/maps?q=${latNum},${lngNum}`
-  const imageSrc = thumbnail || preview || ""
+  const [currentImgSrc, setCurrentImgSrc] = useState<string>(() => thumbnail || preview || "")
+
+  useEffect(() => {
+    setCurrentImgSrc(thumbnail || preview || "")
+  }, [thumbnail, preview])
 
   const handleOpenGoogleMaps = () => {
     if (typeof window !== "undefined") {
@@ -157,11 +162,16 @@ export function PhotoLocationMap({
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-[62%] flex flex-col items-center pointer-events-none z-10 filter drop-shadow-md transition-transform duration-200 group-hover:scale-105">
           {/* Photo Bubble */}
           <div className="size-12 rounded-xl border-2 border-white bg-white shadow-md overflow-hidden flex items-center justify-center">
-            {imageSrc ? (
+            {currentImgSrc ? (
               <img
-                src={imageSrc}
+                src={currentImgSrc}
                 alt={photoName || "Photo location"}
                 className="size-full object-cover"
+                onError={() => {
+                  if (currentImgSrc && !currentImgSrc.startsWith('/media/')) {
+                    setCurrentImgSrc(toProxyMediaUrl(currentImgSrc))
+                  }
+                }}
               />
             ) : (
               <div className="size-full bg-primary/20 flex items-center justify-center text-primary">

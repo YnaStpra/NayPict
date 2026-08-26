@@ -27,6 +27,7 @@ import { type GeoSpot } from "@/components/map/photo-map-view"
 import { type PhotoVo } from "@/server/entity/vo/photo"
 import { formatRelativeTime } from "@/lib/date"
 import { getThumbHashUrl } from "@/lib/thumb-hash"
+import { toProxyMediaUrl } from "@/lib/url"
 import { useLocale } from "next-intl"
 
 interface AllSpotsDialogProps {
@@ -231,6 +232,12 @@ export function AllSpotsDialog({
                                       alt={topPhoto.name}
                                       loading="lazy"
                                       decoding="async"
+                                      onError={(e) => {
+                                        const el = e.currentTarget
+                                        if (el.src && !el.src.includes('/media/')) {
+                                          el.src = toProxyMediaUrl(el.src)
+                                        }
+                                      }}
                                       className="absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-110"
                                     />
                                   )}
@@ -375,6 +382,12 @@ export function AllSpotsDialog({
                                   alt={photo.name}
                                   loading="lazy"
                                   decoding="async"
+                                  onError={(e) => {
+                                    const el = e.currentTarget
+                                    if (el.src && !el.src.includes('/media/')) {
+                                      el.src = toProxyMediaUrl(el.src)
+                                    }
+                                  }}
                                   className="absolute inset-0 h-full w-full object-cover"
                                 />
                               )}

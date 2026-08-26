@@ -29,6 +29,7 @@ import { PhotoBatchEditDialog } from "@/components/photo/photo-batch-edit-dialog
 import { type PhotoVo } from "@/server/entity/vo/photo"
 import { formatRelativeTime } from "@/lib/date"
 import { getThumbHashUrl } from "@/lib/thumb-hash"
+import { toProxyMediaUrl } from "@/lib/url"
 import { photoBatchEdit } from "@/request/photo"
 import { useLocale } from "next-intl"
 
@@ -269,6 +270,12 @@ export function UntaggedPhotosDialog({
                                   alt={photo.name}
                                   loading="lazy"
                                   decoding="async"
+                                  onError={(e) => {
+                                    const el = e.currentTarget
+                                    if (el.src && !el.src.includes('/media/')) {
+                                      el.src = toProxyMediaUrl(el.src)
+                                    }
+                                  }}
                                   className="absolute inset-0 h-full w-full object-cover transition-transform group-hover:scale-105"
                                 />
                               ) : (

@@ -1707,7 +1707,12 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
                   draggable={false}
                   className="h-full w-full select-none object-cover"
                   onError={(event) => {
-                    event.currentTarget.style.display = "none"
+                    const el = event.currentTarget
+                    if (el.src && !el.src.includes('/media/')) {
+                      el.src = toProxyMediaUrl(photoSlide.thumbnail)
+                    } else {
+                      el.style.display = "none"
+                    }
                   }}
                 />
               </div>
