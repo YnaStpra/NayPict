@@ -507,7 +507,7 @@ function InfoButton({
   )
 }
 
-// Render dynamic dominant-color ambient glow mode toggle button in toolbar.
+// Render dynamic dominant-color ambient glow mode toggle button in toolbar (unused).
 function AmbientGlowButton({
   showActions,
   active,
@@ -519,33 +519,7 @@ function AmbientGlowButton({
 }) {
   const tap = useTapAction(onToggle)
 
-  return (
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            type="button"
-            size="icon"
-            variant="secondary"
-            className={[
-              "rounded-full text-white transition-all duration-200",
-              active
-                ? "bg-amber-500/25 hover:bg-amber-500/35 text-amber-300 border border-amber-400/40 shadow-[0_0_14px_rgba(251,191,36,0.35)]"
-                : "bg-black/40 hover:bg-black/50 text-white",
-            ].join(" ")}
-            aria-label={active ? "Disable Cinema Ambient Glow" : "Enable Cinema Ambient Glow"}
-            {...tap}
-          >
-            <Sparkles className="size-4" />
-            <span className="sr-only">Toggle Cinema Ambient Glow</span>
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent side="bottom">
-          <p>{active ? "Cinema Ambient Glow: ON (G)" : "Cinema Ambient Glow: OFF (G)"}</p>
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
-  )
+  return null
 }
 
 // Render full-screen dynamic dominant-color ambient backlight glow.
@@ -825,12 +799,64 @@ function AlbumOverlayBadge({ isCinematicMode }: { isCinematicMode: boolean }) {
   const albumText = formatAlbumList(photoSlide.albums)
 
   return (
-    <div className="absolute bottom-3 left-3 md:bottom-4 md:left-4 z-40 flex items-center gap-1.5 rounded-full bg-black/75 px-3.5 py-1.5 text-xs text-white backdrop-blur-md border border-white/15 shadow-lg select-none max-w-[85vw] md:max-w-md truncate">
+    <div className="absolute top-14 left-2 md:top-16 md:left-3 z-40 flex items-center gap-1.5 rounded-full bg-black/75 px-3 py-1 text-xs text-white backdrop-blur-md border border-white/15 shadow-lg select-none max-w-[85vw] md:max-w-md truncate">
       <FolderIcon className="size-3.5 text-primary shrink-0" />
       <span className="font-medium text-white/70 shrink-0">In Albums:</span>
       <span className="font-semibold text-white truncate" title={albumText}>
         {albumText}
       </span>
+    </div>
+  )
+}
+
+// Floating iOS Liquid Glass Quick Comment & Info Pill (Mobile & Tablet)
+function MobileQuickCommentPill({
+  showActions,
+  isCinematicMode,
+  onOpenComments,
+  onOpenInfo,
+}: {
+  showActions: boolean
+  isCinematicMode: boolean
+  onOpenComments: () => void
+  onOpenInfo: () => void
+}) {
+  if (isCinematicMode) return null
+
+  return (
+    <div
+      className={[
+        "fixed left-3 bottom-14 sm:bottom-16 md:bottom-20 z-40 flex items-center transition-all duration-300 pointer-events-auto select-none",
+        getActionVisibleClass(showActions),
+      ].join(" ")}
+    >
+      <div className="flex items-center gap-1 p-1 rounded-full bg-black/65 dark:bg-zinc-950/80 backdrop-blur-2xl border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.65),0_0_0_1px_rgba(255,255,255,0.1)_inset] ring-1 ring-black/40">
+        {/* Comment Trigger Button */}
+        <button
+          type="button"
+          onClick={onOpenComments}
+          className="group flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold text-white bg-white/10 hover:bg-emerald-500/25 active:scale-95 transition-all duration-200 border border-white/10 hover:border-emerald-400/40"
+          aria-label="Open Comments"
+        >
+          <div className="relative flex items-center">
+            <MessageSquare className="size-3.5 text-emerald-400 transition-transform group-hover:scale-110" />
+            <span className="absolute -top-0.5 -right-0.5 size-1.5 rounded-full bg-emerald-400 animate-ping opacity-75" />
+            <span className="absolute -top-0.5 -right-0.5 size-1.5 rounded-full bg-emerald-400" />
+          </div>
+          <span className="tracking-wide">Comment</span>
+        </button>
+
+        {/* Info Trigger Button */}
+        <button
+          type="button"
+          onClick={onOpenInfo}
+          className="flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-medium text-white/75 hover:text-white hover:bg-white/15 active:scale-95 transition-all duration-200"
+          aria-label="Photo Details"
+        >
+          <CircleAlertIcon className="size-3.5 text-white/80" />
+          <span className="text-[11px] font-medium">Info</span>
+        </button>
+      </div>
     </div>
   )
 }
@@ -1641,11 +1667,6 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
                           }
                         }}
                       />
-                      <AmbientGlowButton
-                        showActions={actionsVisible}
-                        active={ambientGlow}
-                        onToggle={() => setAmbientGlow((prev) => !prev)}
-                      />
                     </>
                   )}
                   <CinematicButton
@@ -1658,6 +1679,18 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
                   <OriginalProgressButton progress={originalProgress} error={originalError} />
                 )}
                 <AlbumOverlayBadge isCinematicMode={isCinematicMode} />
+                <MobileQuickCommentPill
+                  showActions={actionsVisible}
+                  isCinematicMode={isCinematicMode}
+                  onOpenComments={() => {
+                    setInfoTab("comments")
+                    setInfoOpen(true)
+                  }}
+                  onOpenInfo={() => {
+                    setInfoTab("info")
+                    setInfoOpen(true)
+                  }}
+                />
               </>
             )
           },
