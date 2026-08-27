@@ -8,6 +8,7 @@ import { photoOnThisDay } from "@/request/photo"
 import { type PhotoOnThisDayItemVo } from "@/server/entity/vo/photo"
 import { formatPhotoTakenDate, formatYearsAgo, getLocalTzOffsetMin } from "@/lib/date"
 import { getThumbHashUrl } from "@/lib/thumb-hash"
+import { toProxyMediaUrl } from "@/lib/url"
 import { Button } from "@/components/ui/button"
 
 interface OnThisDayBannerProps {
@@ -179,10 +180,22 @@ export function OnThisDayBanner({ onPhotoClick }: OnThisDayBannerProps) {
                 {/* Main Photo Image */}
                 <img
                   src={src ?? undefined}
-                  alt={photo.name}
+                  alt=""
                   loading="lazy"
                   decoding="async"
                   className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-105"
+                  onError={(e) => {
+                    const el = e.currentTarget
+                    if (el.src && !el.src.includes('/media/') && photo.thumbnail) {
+                      el.src = toProxyMediaUrl(photo.thumbnail)
+                    } else if (photo.preview && el.src !== toProxyMediaUrl(photo.preview)) {
+                      el.src = toProxyMediaUrl(photo.preview)
+                    } else if (photo.key && el.src !== toProxyMediaUrl(photo.key)) {
+                      el.src = toProxyMediaUrl(photo.key)
+                    } else {
+                      el.style.display = 'none'
+                    }
+                  }}
                 />
 
                 {/* Dark Gradient Overlay for Readability */}
