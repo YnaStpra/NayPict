@@ -304,10 +304,16 @@ export function PhotoInfoSidebar({
                     : "text-white/60 hover:text-white"
                 }`}
               >
-                <MessageSquareIcon className="size-3.5" />
-                <span>Comments</span>
+                <div className="relative flex items-center">
+                  <MessageSquareIcon className="size-3.5 text-emerald-400" />
+                  <span className="absolute -top-0.5 -right-0.5 size-1.5 rounded-full bg-emerald-400 animate-ping opacity-75" />
+                  <span className="absolute -top-0.5 -right-0.5 size-1.5 rounded-full bg-emerald-400" />
+                </div>
+                <span className={currentTab === "comments" ? "text-emerald-300 font-semibold" : "text-emerald-400/90"}>
+                  Comments
+                </span>
                 {commentCount > 0 && (
-                  <span className="ml-1 px-1.5 py-0.2 rounded-full bg-white/20 border border-white/30 text-[10px] font-bold text-white">
+                  <span className="ml-1 px-1.5 py-0.2 rounded-full bg-emerald-500/30 border border-emerald-400/40 text-[10px] font-bold text-emerald-300">
                     {commentCount}
                   </span>
                 )}
