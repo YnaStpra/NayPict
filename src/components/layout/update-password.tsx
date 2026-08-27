@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 
+import { toast } from "sonner"
 import { Dialog } from "@/components/common/dialog"
 import { Input } from "@/components/ui/input"
 import { userSetUserPassword } from "@/request/user"
@@ -21,12 +22,14 @@ export function UpdatePassword({ open, onOpenChange }: UpdatePasswordProps) {
   const [confirmPassword, setConfirmPassword] = useState("")
   // error Save password input box verification error.
   const [error, setError] = useState("")
+  const [loading, setLoading] = useState(false)
 
   // Reset change password form.
   function resetForm() {
     setPassword("")
     setConfirmPassword("")
     setError("")
+    setLoading(false)
   }
 
   // Update the password input box content.
@@ -51,7 +54,7 @@ export function UpdatePassword({ open, onOpenChange }: UpdatePasswordProps) {
   }
 
   // Submit new password for current user.
-  function submitPassword() {
+  async function submitPassword() {
     const nextPassword = password.trim()
     const nextConfirmPassword = confirmPassword.trim()
 
@@ -70,11 +73,18 @@ export function UpdatePassword({ open, onOpenChange }: UpdatePasswordProps) {
       return
     }
 
-    onOpenChange(false)
-
-    userSetUserPassword({ password: nextPassword }).then(() => {
+    setLoading(true)
+    try {
+      await userSetUserPassword({ password: nextPassword })
+      toast.success(t("success") || "Password updated successfully!")
+      onOpenChange(false)
       resetForm()
-    })
+    } catch (err: any) {
+      console.error("Failed to update password:", err)
+      toast.error(err?.message || "Failed to update password")
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (

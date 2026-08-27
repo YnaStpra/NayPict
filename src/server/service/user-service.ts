@@ -38,40 +38,28 @@ const userService = {
     }
 
     try {
+      const [user] = await orm
+        .select()
+        .from(userTab)
+        .where(eq(userTab.username, username))
+        .limit(1);
 
-    const [user] = await orm
-      .select()
-      .from(userTab)
-      .where(eq(userTab.username, username))
-      .limit(1);
+      if (!user) {
+        await this.add({
+          username,
+          password,
+          type: UserTypeEnum.ADMIN,
+        });
+        console.log(`[INIT] Initialized default admin user: ${username}`);
+        return;
+      }
 
-    if (!user) {
-      await this.add({
-        username,
-        password,
-        type: UserTypeEnum.ADMIN,
-      });
-      return;
+      // If admin user already exists, preserve their customized database password.
+      // (Do NOT overwrite with process.env.PASSWORD so password changes in UI persist permanently)
+    } catch (err) {
+      console.warn('[INIT] Failed to initialize admin user:', err);
     }
-
-    const { verifyPassword } = await import('@/server/lib/crypto');
-    const isValid = await verifyPassword(password, user.salt, user.password);
-    if (!isValid) {
-      const newHash = await hashPassword(password);
-      await orm
-        .update(userTab)
-        .set({
-          password: newHash.hash,
-          salt: newHash.salt,
-          tokenVersion: sql`${userTab.tokenVersion} + 1`,
-        })
-        .where(eq(userTab.userId, user.userId));
-      await cache.delete(AUTH_CACHE_KEY + user.userId);
-    }
-  } catch (err) {
-    console.warn('[INIT] Failed to initialize admin user:', err);
-  }
-},
+  },
 
   // According to user id Query user basic information.
   async getById(userId: string): Promise<UserInfoVo | null> {
