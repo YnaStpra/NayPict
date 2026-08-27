@@ -88,11 +88,15 @@ export const PhotoCard = memo(function PhotoCard({
   const imgRef = useRef<HTMLImageElement | null>(null)
   const isPriority = typeof index === "number" && index < 12
 
-  // Reset image source and state when data changes
+  // Reset image source and state when photo actually changes
+  const prevPhotoIdRef = useRef(data.photoId)
   useEffect(() => {
+    const isNewPhoto = prevPhotoIdRef.current !== data.photoId
+    prevPhotoIdRef.current = data.photoId
+
     setImageSrc(data.thumbnail || data.preview || data.key || null)
     setImageError(false)
-    if (!loadedPhotoCache.has(data.photoId)) {
+    if (isNewPhoto && !loadedPhotoCache.has(data.photoId)) {
       setImageLoaded(false)
     }
   }, [data.photoId, data.thumbnail, data.preview, data.key])
@@ -254,8 +258,8 @@ export const PhotoCard = memo(function PhotoCard({
           src={placeholder}
           alt=""
           className={[
-            "absolute inset-0 h-full w-full object-cover transition-opacity duration-200",
-            imageLoaded ? "opacity-0 pointer-events-none" : "opacity-100",
+            "absolute inset-0 h-full w-full object-cover transition-opacity duration-300 pointer-events-none",
+            imageLoaded ? "opacity-0" : "opacity-100",
           ].join(" ")}
           aria-hidden
           draggable={false}
@@ -280,8 +284,7 @@ export const PhotoCard = memo(function PhotoCard({
           alt={data.name}
           draggable={false}
           className={[
-            "absolute inset-0 h-full w-full object-cover spring-zoom-img transition-opacity duration-200",
-            imageLoaded ? "opacity-100" : "opacity-0",
+            "absolute inset-0 h-full w-full object-cover spring-zoom-img",
             selectionActive ? "" : "group-hover:scale-[1.035]",
             showHover && !selectionActive ? "scale-[1.035]" : "",
           ].join(" ")}
