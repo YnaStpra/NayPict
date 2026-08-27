@@ -83,8 +83,8 @@ import { UserTypeEnum } from '@/server/enums/user-enum'
 import { PhotoStatusEnum, PhotoVisibilityEnum } from '@/server/enums/photo-enum'
 import { type PhotoVo } from '@/server/entity/vo/photo'
 import { photoBatchEdit, photoList, photoRecycle } from '@/request/photo'
-import { albumAddPhoto } from '@/request/album'
 import { getThumbHashUrl } from '@/lib/thumb-hash'
+import { toProxyMediaUrl } from '@/lib/url'
 import { formatPhotoTakenDate, formatRelativeTime } from '@/lib/date'
 import { decimalToDms } from '@/lib/geo'
 import { useLocale } from 'next-intl'
@@ -779,6 +779,11 @@ export default function AdminPhotosPage() {
                               <div
                                 onClick={() => handleOpenViewer(photo)}
                                 className="relative size-11 rounded-xl overflow-hidden bg-neutral-950 shrink-0 border border-border/60 cursor-pointer group-hover:ring-2 group-hover:ring-primary/40 transition-all"
+                                style={{
+                                  backgroundImage: thumbHashUrl ? `url("${thumbHashUrl}")` : undefined,
+                                  backgroundSize: 'cover',
+                                  backgroundPosition: 'center',
+                                }}
                               >
                                 {thumbHashUrl && (
                                   <img
@@ -791,10 +796,22 @@ export default function AdminPhotosPage() {
                                 {imgUrl ? (
                                   <img
                                     src={imgUrl}
-                                    alt={photo.name}
+                                    alt=""
                                     loading="lazy"
                                     decoding="async"
                                     className="absolute inset-0 size-full object-cover group-hover:scale-105 transition-transform"
+                                    onError={(e) => {
+                                      const el = e.currentTarget
+                                      if (el.src && !el.src.includes('/media/') && photo.thumbnail) {
+                                        el.src = toProxyMediaUrl(photo.thumbnail)
+                                      } else if (photo.preview && el.src !== toProxyMediaUrl(photo.preview)) {
+                                        el.src = toProxyMediaUrl(photo.preview)
+                                      } else if (photo.key && el.src !== toProxyMediaUrl(photo.key)) {
+                                        el.src = toProxyMediaUrl(photo.key)
+                                      } else {
+                                        el.style.display = 'none'
+                                      }
+                                    }}
                                   />
                                 ) : (
                                   <div className="size-full flex items-center justify-center text-muted-foreground">
@@ -999,6 +1016,11 @@ export default function AdminPhotosPage() {
                     <div
                       onClick={() => handleOpenViewer(photo)}
                       className="relative aspect-square bg-neutral-950 overflow-hidden cursor-pointer"
+                      style={{
+                        backgroundImage: thumbHashUrl ? `url("${thumbHashUrl}")` : undefined,
+                        backgroundSize: 'cover',
+                        backgroundPosition: 'center',
+                      }}
                     >
                       {thumbHashUrl && (
                         <img
@@ -1011,10 +1033,22 @@ export default function AdminPhotosPage() {
                       {imgUrl ? (
                         <img
                           src={imgUrl}
-                          alt={photo.name}
+                          alt=""
                           loading="lazy"
                           decoding="async"
                           className="absolute inset-0 size-full object-cover group-hover:scale-105 transition-transform duration-300"
+                          onError={(e) => {
+                            const el = e.currentTarget
+                            if (el.src && !el.src.includes('/media/') && photo.thumbnail) {
+                              el.src = toProxyMediaUrl(photo.thumbnail)
+                            } else if (photo.preview && el.src !== toProxyMediaUrl(photo.preview)) {
+                              el.src = toProxyMediaUrl(photo.preview)
+                            } else if (photo.key && el.src !== toProxyMediaUrl(photo.key)) {
+                              el.src = toProxyMediaUrl(photo.key)
+                            } else {
+                              el.style.display = 'none'
+                            }
+                          }}
                         />
                       ) : (
                         <div className="size-full flex items-center justify-center text-muted-foreground">
