@@ -47,10 +47,10 @@ function getMapTilePositions(lat: number, lng: number, zoom = 15, containerWidth
       const tileX = (centerTileX + dx + maxTile + 1) % (maxTile + 1)
       const tileY = Math.max(0, Math.min(maxTile, centerTileY + dy))
       
-      // CartoDB Voyager tiles offer crisp, clean Google Maps-style light aesthetics
-      const subdomains = ['a', 'b', 'c', 'd']
+      // Official Google Maps street tiles (clean, authentic, and without watermarks)
+      const subdomains = ['0', '1', '2', '3']
       const s = subdomains[Math.abs(tileX + tileY) % subdomains.length]
-      const url = `https://${s}.basemaps.cartocdn.com/rastertiles/voyager/${zoom}/${tileX}/${tileY}@2x.png`
+      const url = `https://mt${s}.google.com/vt/lyrs=m&x=${tileX}&y=${tileY}&z=${zoom}`
 
       tiles.push({
         key: `${tileX}-${tileY}`,
