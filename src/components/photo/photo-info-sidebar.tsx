@@ -239,6 +239,7 @@ export function PhotoInfoSidebar({
     let currentDragX = 0
 
     const onTouchStart = (e: TouchEvent) => {
+      e.stopPropagation()
       if (window.innerWidth >= 768 || e.touches.length > 1) return
       const touch = e.touches[0]
       startX = touch.clientX
@@ -250,6 +251,7 @@ export function PhotoInfoSidebar({
     }
 
     const onTouchMove = (e: TouchEvent) => {
+      e.stopPropagation()
       if (window.innerWidth >= 768 || e.touches.length > 1) return
       const touch = e.touches[0]
       const dx = touch.clientX - startX
@@ -269,14 +271,14 @@ export function PhotoInfoSidebar({
         if (e.cancelable) {
           e.preventDefault()
         }
-        e.stopPropagation()
         currentDragX = Math.max(0, dx)
         asideEl.style.transition = "none"
         asideEl.style.transform = `translate3d(${currentDragX}px, 0, 0)`
       }
     }
 
-    const onTouchEnd = () => {
+    const onTouchEnd = (e: TouchEvent) => {
+      e.stopPropagation()
       if (!isDraggingHorizontal) return
       isDraggingHorizontal = false
       isDetermined = false
@@ -302,7 +304,8 @@ export function PhotoInfoSidebar({
       }
     }
 
-    const onTouchCancel = () => {
+    const onTouchCancel = (e: TouchEvent) => {
+      e.stopPropagation()
       if (isDraggingHorizontal) {
         isDraggingHorizontal = false
         isDetermined = false
@@ -316,13 +319,17 @@ export function PhotoInfoSidebar({
     }
 
     asideEl.addEventListener("wheel", stopPropagationOnly, { passive: true })
-    asideEl.addEventListener("touchstart", onTouchStart, { passive: true })
+    asideEl.addEventListener("pointerdown", stopPropagationOnly, { passive: true })
+    asideEl.addEventListener("pointermove", stopPropagationOnly, { passive: true })
+    asideEl.addEventListener("touchstart", onTouchStart, { passive: false })
     asideEl.addEventListener("touchmove", onTouchMove, { passive: false })
-    asideEl.addEventListener("touchend", onTouchEnd, { passive: true })
-    asideEl.addEventListener("touchcancel", onTouchCancel, { passive: true })
+    asideEl.addEventListener("touchend", onTouchEnd, { passive: false })
+    asideEl.addEventListener("touchcancel", onTouchCancel, { passive: false })
 
     return () => {
       asideEl.removeEventListener("wheel", stopPropagationOnly)
+      asideEl.removeEventListener("pointerdown", stopPropagationOnly)
+      asideEl.removeEventListener("pointermove", stopPropagationOnly)
       asideEl.removeEventListener("touchstart", onTouchStart)
       asideEl.removeEventListener("touchmove", onTouchMove)
       asideEl.removeEventListener("touchend", onTouchEnd)
@@ -338,7 +345,7 @@ export function PhotoInfoSidebar({
   return (
     <aside
       ref={asideRef}
-      className="fixed top-0 right-0 z-[41] flex h-full w-full flex-col overflow-hidden bg-neutral-950/90 backdrop-blur-2xl text-white shadow-photo-sidebar md:w-84 md:shrink-0 md:border-l md:border-white/10 pointer-events-auto touch-pan-y exif-drawer-spring will-change-transform"
+      className="fixed top-0 right-0 z-[60] flex h-full w-full flex-col overflow-hidden bg-neutral-950/90 backdrop-blur-2xl text-white shadow-photo-sidebar md:w-84 md:shrink-0 md:border-l md:border-white/10 pointer-events-auto touch-pan-y exif-drawer-spring will-change-transform"
       style={{ touchAction: "pan-y" }}
     >
       <PhotoViewerBlurBackground thumbHash={photo?.thumbHash} />

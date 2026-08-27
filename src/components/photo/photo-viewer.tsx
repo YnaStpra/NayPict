@@ -1414,14 +1414,14 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
 
   // Record slide coordinates and begin tracking fluid bidirectional drag-to-dismiss gesture.
   function handleSlidePointerDown(event: React.PointerEvent<HTMLDivElement>) {
-    if (zoomLevel > 1) return
+    if (zoomLevel > 1 || infoOpen) return
     dragPointerStartRef.current = { x: event.clientX, y: event.clientY, time: Date.now() }
     isDraggingRef.current = false
   }
 
   // Track pointer movement and calculate fluid scaled drag-to-dismiss displacement (both UP and DOWN).
   function handleSlidePointerMove(event: React.PointerEvent<HTMLDivElement>) {
-    if (!dragPointerStartRef.current || zoomLevel > 1 || isDismissing) return
+    if (!dragPointerStartRef.current || zoomLevel > 1 || isDismissing || infoOpen) return
 
     const dx = event.clientX - dragPointerStartRef.current.x
     const dy = event.clientY - dragPointerStartRef.current.y
