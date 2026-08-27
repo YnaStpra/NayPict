@@ -1,6 +1,9 @@
 import { defineConfig, devices } from '@playwright/test';
+import dotenv from 'dotenv';
+import path from 'path';
 
-// Read configuration environment variables with fallback defaults.
+// Read configuration environment variables from .env
+dotenv.config({ path: path.resolve(__dirname, '.env') });
 const baseURL = process.env.TEST_BASE_URL || 'http://localhost:3000';
 
 export default defineConfig({

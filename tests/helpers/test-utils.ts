@@ -11,8 +11,8 @@ export function generateTestName(baseName: string): string {
 
 // Retrieve test admin credentials from environment variables with fallback defaults.
 export function getTestCredentials() {
-  const username = process.env.TEST_ADMIN_USERNAME || 'admin';
-  const password = process.env.TEST_ADMIN_PASSWORD || 'password123';
+  const username = process.env.TEST_ADMIN_USERNAME || process.env.ADMIN || 'admin';
+  const password = process.env.TEST_ADMIN_PASSWORD || process.env.PASSWORD || 'password123';
   const baseURL = process.env.TEST_BASE_URL || 'http://localhost:3000';
 
   return { username, password, baseURL };
