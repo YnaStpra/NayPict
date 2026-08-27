@@ -1069,9 +1069,10 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
   const [isCinematicMode, setIsCinematicMode] = useState(false)
   // Dynamic Cinema Ambient Glow mode state (default true).
   const [ambientGlow, setAmbientGlow] = useState(true)
-  // Drag-to-dismiss gesture state
+  // Drag-to-dismiss gesture state (supports bidirectional vertical dismiss: swipe up or swipe down)
   const [dragOffset, setDragOffset] = useState<{ x: number; y: number } | null>(null)
   const [isDismissing, setIsDismissing] = useState(false)
+  const [dismissDirection, setDismissDirection] = useState<"up" | "down">("down")
   const dragPointerStartRef = useRef<{ x: number; y: number; time: number } | null>(null)
   const isDraggingRef = useRef(false)
   // Controls UI idle visibility in cinematic mode.
@@ -1411,23 +1412,25 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
   const lastTapTimeRef = useRef<number>(0)
   const singleTapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  // Record slide coordinates and begin tracking fluid drag-to-dismiss gesture.
+  // Record slide coordinates and begin tracking fluid bidirectional drag-to-dismiss gesture.
   function handleSlidePointerDown(event: React.PointerEvent<HTMLDivElement>) {
     if (zoomLevel > 1) return
     dragPointerStartRef.current = { x: event.clientX, y: event.clientY, time: Date.now() }
     isDraggingRef.current = false
   }
 
-  // Track pointer movement and calculate fluid scaled drag-to-dismiss displacement.
+  // Track pointer movement and calculate fluid scaled drag-to-dismiss displacement (both UP and DOWN).
   function handleSlidePointerMove(event: React.PointerEvent<HTMLDivElement>) {
     if (!dragPointerStartRef.current || zoomLevel > 1 || isDismissing) return
 
     const dx = event.clientX - dragPointerStartRef.current.x
     const dy = event.clientY - dragPointerStartRef.current.y
+    const absDx = Math.abs(dx)
+    const absDy = Math.abs(dy)
 
-    // Trigger drag-to-dismiss on downward gesture (with vertical angle bias)
+    // Trigger vertical drag-to-dismiss on deliberate vertical gesture (both upward and downward)
     if (!isDraggingRef.current) {
-      if (dy > 6 && Math.abs(dy) > Math.abs(dx) * 1.05) {
+      if (absDy > 6 && absDy > absDx * 1.05) {
         isDraggingRef.current = true
       } else {
         return
@@ -1435,12 +1438,11 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
     }
 
     if (isDraggingRef.current) {
-      const dampedY = dy > 0 ? dy : dy * 0.2
-      setDragOffset({ x: dx * 0.4, y: dampedY })
+      setDragOffset({ x: dx * 0.35, y: dy })
     }
   }
 
-  // Handle pointer release: Dismiss with fluid spring momentum or snap back to center.
+  // Handle pointer release: Dismiss with fluid spring momentum (up or down) or snap back to center.
   function handleSlidePointerUp(event: React.PointerEvent<HTMLDivElement>) {
     const start = dragPointerStartRef.current
     dragPointerStartRef.current = null
@@ -1450,10 +1452,13 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
     const dx = event.clientX - start.x
     const dy = event.clientY - start.y
     const dt = Math.max(1, Date.now() - start.time)
-    const velocity = dy / dt
+    const absDy = Math.abs(dy)
+    const velocity = absDy / dt
+    const isUp = dy < 0
 
-    if (isDraggingRef.current && (dy > 110 || (dy > 50 && velocity > 0.45))) {
-      // Dismiss photo with fluid spring exit animation
+    if (isDraggingRef.current && (absDy > 95 || (absDy > 40 && velocity > 0.42))) {
+      // Dismiss photo with fluid spring exit animation in the swipe direction (up or down)
+      setDismissDirection(isUp ? "up" : "down")
       setIsDismissing(true)
       setTimeout(() => {
         setIsDismissing(false)
@@ -1611,9 +1616,9 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
           buttonPrev: () => <PrevButton key="prev" showActions={actionsVisible} />,
           buttonNext: () => <NextButton key="next" showActions={actionsVisible} />,
           controls: () => {
-            const currentDragY = dragOffset?.y ?? 0
+            const currentDragAbsY = Math.abs(dragOffset?.y ?? 0)
             const dragBackdropOpacity = dragOffset
-              ? Math.max(0.2, 1 - currentDragY / 450)
+              ? Math.max(0.2, 1 - currentDragAbsY / 450)
               : isDismissing
               ? 0
               : 1
@@ -1716,12 +1721,15 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
             const photoSlide = slide as PhotoSlide
             const currentDragY = dragOffset?.y ?? 0
             const currentDragX = dragOffset?.x ?? 0
-            const dragScale = dragOffset ? Math.max(0.72, 1 - currentDragY / 1000) : 1
+            const currentDragAbsY = Math.abs(currentDragY)
+            const dragScale = dragOffset ? Math.max(0.72, 1 - currentDragAbsY / 1000) : 1
             const dragRotate = dragOffset ? currentDragX * 0.02 : 0
 
             const slideTransformStyle: CSSProperties = isDismissing
               ? {
-                  transform: "translate3d(0, 110vh, 0) scale(0.75)",
+                  transform: dismissDirection === "up"
+                    ? "translate3d(0, -110vh, 0) scale(0.75)"
+                    : "translate3d(0, 110vh, 0) scale(0.75)",
                   opacity: 0,
                   transition: "transform 0.24s cubic-bezier(0.32, 0, 0.67, 0), opacity 0.24s ease-in",
                 }
