@@ -22,6 +22,8 @@ import { useApp } from '@/app/provider'
 import { UserTypeEnum } from '@/server/enums/user-enum'
 import { type PhotoDuplicateGroupVo, type PhotoVo } from '@/server/entity/vo/photo'
 import { photoGetDuplicates, photoRecycle } from '@/request/photo'
+import { getThumbHashUrl } from '@/lib/thumb-hash'
+import { toProxyMediaUrl } from '@/lib/url'
 import { Check, CopyCheck, Eye, EyeOff, FolderIcon, Loader2, RefreshCw, Trash2, CheckCircle2, ShieldAlert } from 'lucide-react'
 import { toast } from 'sonner'
 import dynamic from 'next/dynamic'
@@ -326,18 +328,52 @@ export default function DuplicatesPage() {
 
                               {/* Photo Thumbnail */}
                               <div
-                                className="relative aspect-4/3 w-full bg-muted cursor-pointer overflow-hidden"
+                                className="relative aspect-4/3 w-full bg-neutral-950 cursor-pointer overflow-hidden"
                                 onClick={() => handlePreviewPhoto(photo, group.photos)}
+                                style={
+                                  photo.thumbHash
+                                    ? {
+                                        backgroundImage: `url("${getThumbHashUrl(photo.thumbHash)}")`,
+                                        backgroundSize: 'cover',
+                                        backgroundPosition: 'center',
+                                      }
+                                    : undefined
+                                }
                               >
-                                <Image
-                                  src={photo.thumbnail || photo.preview}
-                                  alt={photo.name}
-                                  width={300}
-                                  height={225}
-                                  unoptimized
-                                  className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-                                />
-                                <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                {photo.thumbHash && (
+                                  <img
+                                    src={getThumbHashUrl(photo.thumbHash)}
+                                    alt=""
+                                    className="absolute inset-0 size-full object-cover blur-xs scale-110"
+                                    aria-hidden
+                                  />
+                                )}
+                                {photo.thumbnail || photo.preview ? (
+                                  <img
+                                    src={photo.thumbnail || photo.preview}
+                                    alt=""
+                                    loading="lazy"
+                                    decoding="async"
+                                    className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                                    onError={(e) => {
+                                      const el = e.currentTarget
+                                      if (el.src && !el.src.includes('/media/') && photo.thumbnail) {
+                                        el.src = toProxyMediaUrl(photo.thumbnail)
+                                      } else if (photo.preview && el.src !== toProxyMediaUrl(photo.preview)) {
+                                        el.src = toProxyMediaUrl(photo.preview)
+                                      } else if (photo.key && el.src !== toProxyMediaUrl(photo.key)) {
+                                        el.src = toProxyMediaUrl(photo.key)
+                                      } else {
+                                        el.style.display = 'none'
+                                      }
+                                    }}
+                                  />
+                                ) : (
+                                  <div className="size-full flex items-center justify-center bg-muted text-muted-foreground text-xs">
+                                    No Image
+                                  </div>
+                                )}
+                                <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center z-10">
                                   <span className="flex items-center gap-1 rounded-full bg-black/60 px-3 py-1 text-xs text-white backdrop-blur-xs font-medium">
                                     <Eye className="size-3.5" /> Preview
                                   </span>

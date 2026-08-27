@@ -96,7 +96,8 @@ function InsightThumbnail({ src, alt }: { src?: string | null; alt: string }) {
     // eslint-disable-next-line @next/next/no-img-element
     <img
       src={currentSrc}
-      alt={alt}
+      alt=""
+      aria-label={alt}
       loading="lazy"
       onError={handleError}
       className="size-12 rounded-lg object-cover shrink-0 border border-border/60 bg-muted"

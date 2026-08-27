@@ -43,6 +43,7 @@ import {
 import { toast } from 'sonner'
 import { useLocale } from 'next-intl'
 import { getThumbHashUrl } from '@/lib/thumb-hash'
+import { toProxyMediaUrl } from '@/lib/url'
 import { formatRelativeTime } from '@/lib/date'
 
 const PhotoViewer = dynamic(
@@ -449,33 +450,50 @@ export default function CommentsManagementPage() {
                     {/* Photo Thumbnail */}
                     <div
                       onClick={() => handlePreviewPhoto(item)}
-                      className="group relative size-20 sm:size-24 rounded-lg overflow-hidden shrink-0 bg-muted border cursor-pointer flex items-center justify-center"
+                      className="group relative size-20 sm:size-24 rounded-lg overflow-hidden shrink-0 bg-neutral-950 border border-border/60 cursor-pointer flex items-center justify-center"
                       title="Click to view photo"
                       style={
                         item.thumbHash
                           ? {
-                              backgroundImage: `url(${getThumbHashUrl(item.thumbHash)})`,
+                              backgroundImage: `url("${getThumbHashUrl(item.thumbHash)}")`,
                               backgroundSize: 'cover',
                               backgroundPosition: 'center',
                             }
                           : undefined
                       }
                     >
+                      {item.thumbHash && (
+                        <img
+                          src={getThumbHashUrl(item.thumbHash)}
+                          alt=""
+                          className="absolute inset-0 size-full object-cover blur-xs scale-110"
+                          aria-hidden
+                        />
+                      )}
                       {item.photoThumbnail || item.photoPreview ? (
-                        <Image
+                        <img
                           src={(item.photoThumbnail || item.photoPreview)!}
-                          alt={item.photoName || 'Photo'}
-                          width={96}
-                          height={96}
-                          unoptimized
-                          className="size-full object-cover group-hover:scale-105 transition-transform duration-300"
+                          alt=""
+                          loading="lazy"
+                          decoding="async"
+                          className="absolute inset-0 size-full object-cover group-hover:scale-105 transition-transform duration-300"
+                          onError={(e) => {
+                            const el = e.currentTarget
+                            if (el.src && !el.src.includes('/media/') && item.photoThumbnail) {
+                              el.src = toProxyMediaUrl(item.photoThumbnail)
+                            } else if (item.photoPreview && el.src !== toProxyMediaUrl(item.photoPreview)) {
+                              el.src = toProxyMediaUrl(item.photoPreview)
+                            } else {
+                              el.style.display = 'none'
+                            }
+                          }}
                         />
                       ) : (
                         <div className="size-full flex items-center justify-center bg-muted text-muted-foreground text-[10px]">
                           Photo
                         </div>
                       )}
-                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white">
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white z-10">
                         <ExternalLink className="size-4" />
                       </div>
                     </div>
