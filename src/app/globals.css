@@ -507,20 +507,20 @@ body {
 
 @keyframes pin-ambient-glow {
   0%, 100% {
-    opacity: 0.7;
+    opacity: 0.82;
     transform: scale(1);
   }
   50% {
     opacity: 1;
-    transform: scale(1.18);
+    transform: scale(1.26);
   }
 }
 
 .radar-pin-halo {
   position: absolute;
-  inset: -8px;
+  inset: -10px;
   border-radius: 9999px;
-  background: radial-gradient(circle, rgba(16, 185, 129, 0.65) 0%, rgba(16, 185, 129, 0) 75%);
+  background: radial-gradient(circle, rgba(16, 185, 129, 0.8) 0%, rgba(16, 185, 129, 0) 78%);
   animation: radar-ping 2.4s cubic-bezier(0, 0.2, 0.8, 1) infinite;
   pointer-events: none;
   z-index: 0;
@@ -528,18 +528,18 @@ body {
 
 .pin-contrast-halo {
   position: absolute;
-  inset: -6px;
-  border-radius: 20px;
-  background: radial-gradient(circle, rgba(16, 185, 129, 0.6) 0%, rgba(16, 185, 129, 0) 75%);
-  filter: drop-shadow(0 0 8px rgba(16, 185, 129, 0.6));
+  inset: -9px;
+  border-radius: 22px;
+  background: radial-gradient(circle, rgba(16, 185, 129, 0.78) 0%, rgba(16, 185, 129, 0.35) 50%, rgba(16, 185, 129, 0) 80%);
+  filter: drop-shadow(0 0 12px rgba(16, 185, 129, 0.85));
   animation: pin-ambient-glow 2.6s ease-in-out infinite;
   pointer-events: none;
   z-index: -1;
 }
 
 .pin-contrast-halo-selected {
-  background: radial-gradient(circle, rgba(52, 211, 153, 0.85) 0%, rgba(16, 185, 129, 0) 75%);
-  filter: drop-shadow(0 0 14px rgba(52, 211, 153, 0.9));
+  background: radial-gradient(circle, rgba(52, 211, 153, 0.95) 0%, rgba(16, 185, 129, 0.5) 55%, rgba(16, 185, 129, 0) 82%);
+  filter: drop-shadow(0 0 18px rgba(52, 211, 153, 0.95));
 }
 
 /* Magnetic Micro-Card Float on Hover */
