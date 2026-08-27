@@ -492,10 +492,6 @@ function InfoButton({
             ].join(" ")}
             {...tap}
           >
-            {/* Desktop green indicator dot for comments & info */}
-            <span className="hidden md:block absolute top-1 right-1 size-2 rounded-full bg-emerald-400 animate-ping opacity-75 pointer-events-none" />
-            <span className="hidden md:block absolute top-1 right-1 size-2 rounded-full bg-emerald-400 ring-2 ring-black pointer-events-none" />
-
             <Menu className="md:hidden" />
             {open
               ? <PanelRightClose className="hidden md:block" />
@@ -839,14 +835,10 @@ function MobileQuickCommentPill({
         <button
           type="button"
           onClick={onOpenComments}
-          className="group flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold text-white bg-white/10 hover:bg-emerald-500/25 active:scale-95 transition-all duration-200 border border-white/10 hover:border-emerald-400/40"
+          className="group flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold text-white bg-white/10 hover:bg-white/20 active:scale-95 transition-all duration-200 border border-white/10"
           aria-label="Open Comments"
         >
-          <div className="relative flex items-center">
-            <MessageSquare className="size-3.5 text-emerald-400 transition-transform group-hover:scale-110" />
-            <span className="absolute -top-0.5 -right-0.5 size-1.5 rounded-full bg-emerald-400 animate-ping opacity-75" />
-            <span className="absolute -top-0.5 -right-0.5 size-1.5 rounded-full bg-emerald-400" />
-          </div>
+          <MessageSquare className="size-3.5 text-white/90 transition-transform group-hover:scale-110" />
           <span className="tracking-wide">Comment</span>
         </button>
 
