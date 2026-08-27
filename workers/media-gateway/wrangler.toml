@@ -1,0 +1,10 @@
+name = "naypict-media-gateway"
+main = "src/index.js"
+compatibility_date = "2024-04-03"
+
+[vars]
+APP_URL = "https://nay-pict.vercel.app/"
+
+[[r2_buckets]]
+binding = "MEDIA_BUCKET"
+bucket_name = "naypict"   

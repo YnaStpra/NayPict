@@ -113,7 +113,7 @@ export function AlbumMasonry({ albums, resetKey = 0, onAlbumRename, onAlbumTop, 
     }
 
     const containerEl = container
-    let timerId: number | null = null
+    let rAFId: number | null = null
 
     // Calculate the distance between the outer layer of the album list and the top of the page.
     function getOffset() {
@@ -138,60 +138,35 @@ export function AlbumMasonry({ albums, resetKey = 0, onAlbumRename, onAlbumTop, 
 
     // Force synchronization of the position and width of the outer layer of the album list.
     function syncWrapPosition() {
-      console.log(wrapPosition.width)
-      setWrapPosition(getWrapPosition())
-    }
-
-    // Measure the position and width of the outer layer of the album list, After the first synchronization is completed, force reading again..
-    function measureWrapPosition() {
       const nextPosition = getWrapPosition()
-      let needSync = false
-
-      flushSync(() => {
-        setWrapPosition((prev) => {
-          const widthDiff = Math.abs(prev.width - nextPosition.width)
-          const sameOffset = prev.offset === nextPosition.offset
-
-          if (widthDiff <= 10 && sameOffset) {
-            return prev
-          }
-
-          needSync = true
-          return nextPosition
-        })
+      setWrapPosition((prev) => {
+        if (prev.width === nextPosition.width && prev.offset === nextPosition.offset) {
+          return prev
+        }
+        return nextPosition
       })
-
-      if (needSync) {
-        syncWrapPosition()
-      }
-    }
-
-    // Bundle ResizeObserver Notifications shake to stop changing 300ms Post-processing.
-    function updateWrapPosition() {
-      if (timerId !== null) {
-        window.clearTimeout(timerId)
-      }
-
-      timerId = window.setTimeout(() => {
-        timerId = null
-        measureWrapPosition()
-      }, 350)
     }
 
     syncWrapPosition()
 
-    const resizeObserver = new ResizeObserver(updateWrapPosition)
+    const resizeObserver = new ResizeObserver(() => {
+      if (rAFId !== null) {
+        cancelAnimationFrame(rAFId)
+      }
+      rAFId = requestAnimationFrame(() => {
+        syncWrapPosition()
+      })
+    })
 
     resizeObserver.observe(containerEl)
 
     return () => {
-      if (timerId !== null) {
-        window.clearTimeout(timerId)
+      if (rAFId !== null) {
+        cancelAnimationFrame(rAFId)
       }
-
       resizeObserver.disconnect()
     }
-  }, [])
+  }, [sidebarOpen])
 
   if (!albums || albums.length === 0) {
     return (

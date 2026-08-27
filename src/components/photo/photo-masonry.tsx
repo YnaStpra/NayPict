@@ -211,7 +211,7 @@ const PhotoMasonry = memo(function PhotoMasonry({
     }
 
     const containerEl = container
-    let timerId: number | null = null
+    let rAFId: number | null = null
 
     // Calculate the distance between the outer layer of the waterfall and the top of the page.
     function getOffset() {
@@ -236,59 +236,35 @@ const PhotoMasonry = memo(function PhotoMasonry({
 
     // Force synchronization of the position and width of the outer layer of the waterfall flow.
     function syncWrapPosition() {
-      setWrapPosition(getWrapPosition())
-    }
-
-    // Measure the position and width of the outer layer of the waterfall, after the first synchronization is completed.
-    function measureWrapPosition() {
       const nextPosition = getWrapPosition()
-      let needSync = false
-
-      flushSync(() => {
-        setWrapPosition((prev) => {
-          const widthDiff = Math.abs(prev.width - nextPosition.width)
-          const sameOffset = prev.offset === nextPosition.offset
-
-          if (widthDiff <= 10 && sameOffset) {
-            return prev
-          }
-
-          needSync = true
-          return nextPosition
-        })
+      setWrapPosition((prev) => {
+        if (prev.width === nextPosition.width && prev.offset === nextPosition.offset) {
+          return prev
+        }
+        return nextPosition
       })
-
-      if (needSync) {
-        syncWrapPosition()
-      }
-    }
-
-    // Debounce ResizeObserver updates
-    function updateWrapPosition() {
-      if (timerId !== null) {
-        window.clearTimeout(timerId)
-      }
-
-      timerId = window.setTimeout(() => {
-        timerId = null
-        measureWrapPosition()
-      }, 350)
     }
 
     syncWrapPosition()
 
-    const resizeObserver = new ResizeObserver(updateWrapPosition)
+    const resizeObserver = new ResizeObserver(() => {
+      if (rAFId !== null) {
+        cancelAnimationFrame(rAFId)
+      }
+      rAFId = requestAnimationFrame(() => {
+        syncWrapPosition()
+      })
+    })
 
     resizeObserver.observe(containerEl)
 
     return () => {
-      if (timerId !== null) {
-        window.clearTimeout(timerId)
+      if (rAFId !== null) {
+        cancelAnimationFrame(rAFId)
       }
-
       resizeObserver.disconnect()
     }
-  }, [])
+  }, [sidebarOpen])
 
   useEffect(() => {
     let isChecking = false

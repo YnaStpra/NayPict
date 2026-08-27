@@ -263,8 +263,6 @@ body {
 /* Dynamic Hardware-Accelerated Masonry Column Reflow Smoothing */
 .masonry-grid-smooth {
   contain: layout style paint;
-  will-change: width, height;
-  transition: width 0.25s cubic-bezier(0.2, 0, 0, 1);
   transform: translateZ(0);
   backface-visibility: hidden;
 }
