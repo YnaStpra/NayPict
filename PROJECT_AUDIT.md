@@ -584,6 +584,9 @@ erDiagram
 | 🟢 **RESOLVED** | Hologram Dropzone & Liquid Wave Progress | `photo-upload-dialog.tsx` & `globals.css` | Holographic breathing border aura during drag-over with liquid wave upload shimmer. |
 | 🟢 **RESOLVED** | Live Odometer Statistics Roll & Magnetic Nav | `odometer-counter.tsx`, `page.tsx`, `nav-main.tsx` | Smooth easeOutCubic odometer number counter and magnetic sidebar navigation pills. |
 | 🟢 **RESOLVED** | UI Language Standardization | All TSX components & JSON locales | All UI text, dialogs, toasts, error messages, and settings converted to fluent English. |
+| 🟢 **RESOLVED** | Private Storage Isolation & Worker Gateway (P0) | `photo-path.ts`, `photo-service.ts`, `storage-service.ts`, `workers/media-gateway/` | Isolated `originals/` prefix to private proxy only; Cloudflare Worker Media Gateway serves only `previews/` & `thumbnails/`, blocking direct R2 bucket leakage. |
+| 🟢 **RESOLVED** | Strict Whitelisted CORS Policy (P0) | `src/server/security/cors.ts`, `hono.ts`, `media.ts`, `media/route.ts` | Locked CORS origins to `APP_URL` / `NEXT_PUBLIC_APP_URL` across all API and media routes, eliminating universal `*` wildcard vulnerability. |
+| 🟢 **RESOLVED** | Instant Global Session Revocation (P0) | `user.ts`, `migrate.ts`, `jwt.ts`, `session-service.ts`, `security.ts`, `proxy.ts`, `totp-service.ts`, `user-service.ts` | Added `token_version` to `user` table with atomic increment and instant global session invalidation on password change, 2FA toggle, and reset. |
 | 🟢 **LOW** | External Geocode API | `src/server/service/location-service.ts` | Uses OSM Nominatim with robust in-memory LRU caching. |
 | ℹ️ **INFO** | CSP Headers | `next.config.ts` | Content-Security-Policy active and strict (`default-src 'self'`, `frame-ancestors 'none'`). |
 
@@ -819,18 +822,21 @@ Berikut adalah **10 prioritas rekomendasi audit performa dan efisiensi khusus un
 5. **Anti-Bot & Anti-Spam Komentar**: Perlindungan ganda menggunakan *invisible honeypot*, *interaction timestamp delta* (>1.5 detik), verifikasi Cloudflare Turnstile, dan *rate limiting* 10 komentar/menit.
 6. **Sharp Decompression Bomb Guard**: Batasan eksplisit `limitInputPixels: 268402689` (~16k x 16k) untuk mencegah serangan *Pixel Flood / CPU-Memory Exhaustion*.
 7. **Security Headers**: Penerapan `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Strict-Transport-Security`, `Permissions-Policy`, dan `Referrer-Policy: strict-origin-when-cross-origin`.
+8. **Private Storage Isolation & Worker Gateway (P0 - SOLVED)**: Isolasi total file foto original ke prefix `originals/` yang hanya dapat diakses melalui server proxy otorisasi (`/media/{key}`). Penyajian publik derivatif (`previews/` & `thumbnails/`) diproteksi oleh Cloudflare Media Gateway Worker (`workers/media-gateway/`) yang otomatis menolak `originals/` dengan status 404 tanpa menyentuh R2.
+9. **Strict Whitelisted CORS Policy (P0 - SOLVED)**: Modul CORS terpusat (`src/server/security/cors.ts`) mengunci origin API dan Media secara presisi ke domain resmi (`APP_URL` / `NEXT_PUBLIC_APP_URL`), mengeliminasi respon *wildcard* `*`.
+10. **Instant Global Session Revocation (P0 - SOLVED)**: Kolom `token_version` pada tabel `user` terintegrasi ke JWT claims dan middleware verifikasi sesi (`src/proxy.ts`, `security.ts`, `cookie.ts`). Sesi lama di seluruh perangkat langsung dibatalkan saat ganti password atau reset 2FA.
 
 ---
 
 ### ⚠️ Titik Lemah & Vektor Kerentanan Kritis (Vulnerability & Risk Landscape)
-1. **Bypass Unduhan Foto Asli via Direct Cloudflare R2 Public Domain**:
-   - *Kondisi*: Jika Public Access R2 (`pub-xxxx.r2.dev`) aktif, file foto original di folder `originals/...` dapat diakses langsung oleh siapa saja jika path/key diketahui, melewati proteksi `allowDownload === 1` di `/media/{key}`.
-2. **CORS Wildcard Universal (`*`)**:
-   - *Kondisi*: Middleware `cors()` di `hono.ts` dan `media.ts` mengizinkan seluruh domain tanpa filter origin spesifik.
+1. ~**Bypass Unduhan Foto Asli via Direct Cloudflare R2 Public Domain**~:
+   - *Status*: 🟢 **SOLVED** — Folder `originals/` diisolasi di bucket privat, Worker Gateway hanya merespons `previews/` & `thumbnails/`, dan unduhan asli dialihkan melalui proxy otentikasi `/media/`.
+2. ~**CORS Wildcard Universal (`*`)**~:
+   - *Status*: 🟢 **SOLVED** — Diterapkan `apiCors` dan `mediaCors` terpusat yang memvalidasi header Origin terhadap whitelist domain terdaftar.
 3. **Penyebaran Privasi Lokasi GPS Presisi Tinggi (Home / Private Studio Exposure)**:
    - *Kondisi*: API publik mengembalikan koordinat GPS foto hingga 8 desimal (<1 meter) tanpa opsi *fuzzing* atau *stripping* untuk foto bertema privat/klien.
-4. **Zombie Session Pasca Ganti Password (Missing Session Revocation Versioning)**:
-   - *Kondisi*: Belum ada kolom `token_version` di database untuk langsung membatalkan semua JWT token lama di perangkat lain saat password diubah.
+4. ~**Zombie Session Pasca Ganti Password (Missing Session Revocation Versioning)**~:
+   - *Status*: 🟢 **SOLVED** — Kolom `token_version` aktif pada tabel `user` dengan *atomic increment* saat ganti password/2FA untuk invalidasi instan semua sesi aktif.
 5. **Scraping Massal Portofolio oleh AI Bots & Web Scrapers**:
    - *Kondisi*: Belum ada *crawler throttling* pada endpoint list katalog publik (`/api/photo/list`), memungkinkan bot mengunduh seluruh preview 2048px dalam hitungan detik.
 6. **DOM XSS Potensial pada Interpolasi HTML String di Leaflet Pin Markers**:
@@ -840,28 +846,28 @@ Berikut adalah **10 prioritas rekomendasi audit performa dan efisiensi khusus un
 
 ## 20. MATRIKS PRIORITAS AUDIT KEAMANAN BERDASARKAN TINGKAT RISIKO (4-TIER ACTIONABLE SECURITY AUDIT MATRIX)
 
-Berikut adalah pemetaan prioritas tindakan audit keamanan yang direkomendasikan secara berjenjang:
+Berikut adalah pemetaan prioritas tindakan audit keamanan yang direkomendasikan beserta status implementasinya:
 
-| Prioritas | Kategori | Vektor Ancaman | Dampak (Impact) | Rekomendasi Solusi Teknis |
-|:---:|---|---|:---:|---|
-| **P0 (CRITICAL)** | **Storage Access** | Direct R2 Bucket Leakage | 🔴 Tinggi | Pisahkan folder `originals/` ke bucket privat atau gunakan Worker Signed URLs; jangan buka `originals/` di public domain CDN. |
-| **P0 (CRITICAL)** | **API Security** | CORS Wildcard on API & Media | 🔴 Tinggi | Kunci `cors({ origin: [APP_URL] })` agar tidak merespons *wildcard* `*` pada endpoint otentikasi dan data sensitif. |
-| **P0 (CRITICAL)** | **Auth / Session** | Zombie Session on Password Change | 🔴 Tinggi | Tambahkan `token_version` pada tabel `user`. Naikkan versi saat ganti kata sandi / reset 2FA untuk *instant global revocation*. |
-| **P1 (HIGH)** | **Privacy** | Public GPS Coordinate Exposure | 🟠 Sedang-Tinggi | Sediakan opsi admin *Fuzzy GPS Masking* (membulatkan ke ~500m) atau *Strip GPS* pada output JSON publik. |
-| **P1 (HIGH)** | **Anti-Scraping** | Bulk Gallery Crawler Scraping | 🟠 Sedang-Tinggi | Pasang rate limit pada `/api/photo/list` (maks 60 req/menit per IP) dan validasi header Referer/Sec-Fetch-Site pada media preview. |
-| **P1 (HIGH)** | **Injection / XSS** | Leaflet Marker HTML String XSS | 🟠 Sedang | Buat helper `escapeHtml()` untuk seluruh string judul, nama album, dan metadata sebelum diinterpolasi ke string template Leaflet. |
-| **P2 (MEDIUM)** | **Data Mutation** | Large Batch Payloads DoS | 🟡 Sedang | Batasi array `photoIds` pada batch edit/recycle/delete maksimal 100 item per request via validasi Zod. |
-| **P2 (MEDIUM)** | **Upload Security** | Presigned Upload MIME Clamping | 🟡 Sedang | Kunci presigned PUT URL hanya untuk tipe MIME gambar terdaftar (`image/jpeg, image/png, image/webp, image/avif`). |
-| **P2 (MEDIUM)** | **Headers / CSP** | Inline Script Nonce (CSP Level 3) | 🟡 Sedang | Hapus `'unsafe-inline'` secara bertahap pada CSP produksi dan gunakan dynamic cryptographic nonce. |
-| **P2 (MEDIUM)** | **Database** | Serverless Connection Pooler Guard | 🟡 Sedang | Pastikan `DATABASE_URL` di Vercel selalu menggunakan endpoint Neon connection pooler (`-pooler.postgres.neon.tech`). |
-| **P3 (LOW)** | **Compliance** | Immutable Audit Trail Logging | 🔵 Rendah-Sedang | Rekam setiap aksi admin (login, upload, hapus permanen, ubah konfigurasi) ke tabel `audit_logs` (*append-only*). |
-| **P3 (LOW)** | **Integrity** | Subresource Integrity (SRI) | 🔵 Rendah | Validasi hash SRI (`integrity="sha384-..."`) pada aset CDN dan script eksternal. |
+| Prioritas | Kategori | Vektor Ancaman | Dampak | Status | Solusi Teknis & Detail Implementasi |
+|:---:|---|---|:---:|:---:|---|
+| **P0 (CRITICAL)** | **Storage Access** | Direct R2 Bucket Leakage | 🔴 Tinggi | 🟢 **SOLVED** | Folder `originals/` diisolasi ke proxy privat; Cloudflare Worker Gateway (`workers/media-gateway/`) hanya mengizinkan `previews/` & `thumbnails/` dan menolak `originals/` (404); unduhan original via `/media/`. |
+| **P0 (CRITICAL)** | **API Security** | CORS Wildcard on API & Media | 🔴 Tinggi | 🟢 **SOLVED** | Diterapkan `apiCors` & `mediaCors` di `src/server/security/cors.ts` yang mengunci origin ke `APP_URL` / `NEXT_PUBLIC_APP_URL` tanpa *wildcard* `*`. |
+| **P0 (CRITICAL)** | **Auth / Session** | Zombie Session on Password Change | 🔴 Tinggi | 🟢 **SOLVED** | Ditambahkan kolom `token_version` pada tabel `user`, terintegrasi ke JWT payload dan verifikasi sesi untuk *instant global revocation* pada ganti password dan 2FA. |
+| **P1 (HIGH)** | **Privacy** | Public GPS Coordinate Exposure | 🟠 Sedang-Tinggi | ⏳ *Pending* | Sediakan opsi admin *Fuzzy GPS Masking* (membulatkan ke ~500m) atau *Strip GPS* pada output JSON publik. |
+| **P1 (HIGH)** | **Anti-Scraping** | Bulk Gallery Crawler Scraping | 🟠 Sedang-Tinggi | ⏳ *Pending* | Pasang rate limit pada `/api/photo/list` (maks 60 req/menit per IP) dan validasi header Referer/Sec-Fetch-Site pada media preview. |
+| **P1 (HIGH)** | **Injection / XSS** | Leaflet Marker HTML String XSS | 🟠 Sedang | ⏳ *Pending* | Buat helper `escapeHtml()` untuk seluruh string judul, nama album, dan metadata sebelum diinterpolasi ke string template Leaflet. |
+| **P2 (MEDIUM)** | **Data Mutation** | Large Batch Payloads DoS | 🟡 Sedang | ⏳ *Pending* | Batasi array `photoIds` pada batch edit/recycle/delete maksimal 100 item per request via validasi Zod. |
+| **P2 (MEDIUM)** | **Upload Security** | Presigned Upload MIME Clamping | 🟡 Sedang | ⏳ *Pending* | Kunci presigned PUT URL hanya untuk tipe MIME gambar terdaftar (`image/jpeg, image/png, image/webp, image/avif`). |
+| **P2 (MEDIUM)** | **Headers / CSP** | Inline Script Nonce (CSP Level 3) | 🟡 Sedang | ⏳ *Pending* | Hapus `'unsafe-inline'` secara bertahap pada CSP produksi dan gunakan dynamic cryptographic nonce. |
+| **P2 (MEDIUM)** | **Database** | Serverless Connection Pooler Guard | 🟡 Sedang | ⏳ *Pending* | Pastikan `DATABASE_URL` di Vercel selalu menggunakan endpoint Neon connection pooler (`-pooler.postgres.neon.tech`). |
+| **P3 (LOW)** | **Compliance** | Immutable Audit Trail Logging | 🔵 Rendah-Sedang | ⏳ *Pending* | Rekam setiap aksi admin (login, upload, hapus permanen, ubah konfigurasi) ke tabel `audit_logs` (*append-only*). |
+| **P3 (LOW)** | **Integrity** | Subresource Integrity (SRI) | 🔵 Rendah | ⏳ *Pending* | Validasi hash SRI (`integrity="sha384-..."`) pada aset CDN dan script eksternal. |
 
 ---
 
 ### 📌 Rekomendasi Roadmap Eksekusi Bertahap (Step-by-Step Roadmap)
-1. **Fase 1 (Segera)**: Perketat CORS whitelist origin di `hono.ts` & `media.ts`, tambahkan sanitasi `escapeHtml` pada marker Leaflet, dan amankan folder `originals/` pada R2.
-2. **Fase 2 (Jangka Pendek)**: Tambahkan fitur privasi *GPS Masking* untuk publik dan implementasikan `token_version` untuk *session revocation*.
-3. **Fase 3 (Jangka Menengah)**: Pasang proteksi *anti-scraping* pada galeri publik dan batasi ukuran payload batch operations.
+1. **Fase 1 (Selesai)**: ✅ Perlindungan P0 Storage R2 (Worker Gateway & proxy `originals/`), CORS Whitelist kaku (`apiCors` & `mediaCors`), dan `token_version` Global Session Revocation.
+2. **Fase 2 (Berikutnya)**: Sanitasi `escapeHtml` pada marker Leaflet Map dan tambahkan opsi privasi *Fuzzy GPS Masking* untuk pengunjung publik.
+3. **Fase 3 (Jangka Menengah)**: Pasang proteksi *anti-scraping* rate limiter pada endpoint galeri publik dan batasi ukuran payload batch operations.
 
 
