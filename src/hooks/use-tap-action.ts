@@ -34,7 +34,7 @@ export function useTapAction(action: () => void) {
   }
 
   // PC Mouse and keyboard go click; Touch is already there pointerup Processing is skipped.
-  function onClick(event: React.MouseEvent<HTMLButtonElement>) {
+  function onClick(_event: React.MouseEvent<HTMLButtonElement>) {
     if (touchHandledRef.current) {
       touchHandledRef.current = false
       return

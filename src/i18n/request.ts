@@ -1,6 +1,4 @@
-import { headers } from "next/headers"
 import { getRequestConfig } from "next-intl/server"
-import { resolveLocale } from "@/lib/locale"
 
 // This module loads translation messages for the current request based on the browser language.
 

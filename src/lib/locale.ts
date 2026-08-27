@@ -2,7 +2,7 @@
 
 // according to Accept-Language Select Chinese or English as the browser language with the highest priority.
 // resolveLocale returns 'en' as default locale
-function resolveLocale(acceptLanguage: string | null | undefined) {
+function resolveLocale(_acceptLanguage?: string | null) {
   return "en"
 }
 

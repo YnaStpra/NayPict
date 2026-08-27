@@ -5,7 +5,6 @@ import { PhotoStatusEnum } from '@/server/enums/photo-enum';
 import { type CommentAddBo, type CommentListAdminBo, type CommentReplyBo } from '@/server/entity/bo/comment';
 import { type CommentAdminPageVo, type CommentVo } from '@/server/entity/vo/comment';
 import BizError from '@/server/error/biz-error';
-import { cache } from '@/server/infra/cache';
 import { orm } from '@/server/infra/db';
 import { createId } from '@/server/lib/id';
 import { verifyTurnstileToken } from '@/server/lib/turnstile';

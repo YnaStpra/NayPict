@@ -46,6 +46,8 @@ next-env.d.ts
 .wrangler
 .idea
 album.sqlite
+*.sqlite-shm
+*.sqlite-wal
 !data/pictale.sqlite
 git-tools.js
 gen-demo.js
