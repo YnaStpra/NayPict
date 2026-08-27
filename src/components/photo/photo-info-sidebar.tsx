@@ -258,10 +258,10 @@ export function PhotoInfoSidebar({
       const dy = touch.clientY - startY
 
       if (!isDetermined) {
-        if (Math.abs(dx) > 6 || Math.abs(dy) > 6) {
+        if (Math.abs(dx) > 4 || Math.abs(dy) > 4) {
           isDetermined = true
-          // If swiping rightwards with predominantly horizontal angle
-          if (dx > 0 && Math.abs(dx) > Math.abs(dy) * 0.75) {
+          // If swiping horizontally
+          if (Math.abs(dx) > Math.abs(dy) * 0.7) {
             isDraggingHorizontal = true
           }
         }
@@ -271,7 +271,8 @@ export function PhotoInfoSidebar({
         if (e.cancelable) {
           e.preventDefault()
         }
-        currentDragX = Math.max(0, dx)
+        // Rubber-band resistance on left drag (dx < 0), linear 1:1 on right drag (dx > 0)
+        currentDragX = dx > 0 ? dx : dx * 0.18
         asideEl.style.transition = "none"
         asideEl.style.transform = `translate3d(${currentDragX}px, 0, 0)`
       }
@@ -287,19 +288,19 @@ export function PhotoInfoSidebar({
       const velocity = currentDragX / dt
       const panelWidth = asideEl.offsetWidth || window.innerWidth || 360
 
-      // 50% screen width threshold or fast flick velocity (> 0.45 px/ms)
+      // Strict 50% screen width threshold rule: >= 50% closes, < 50% springs open
       const shouldClose = currentDragX >= panelWidth * 0.5 || (velocity > 0.45 && currentDragX > 40)
 
       if (shouldClose) {
-        // Snap to 100% (CLOSED)
-        asideEl.style.transition = "transform 0.22s cubic-bezier(0.22, 1, 0.36, 1)"
+        // Smooth slide-out to right (100% closed)
+        asideEl.style.transition = "transform 0.26s cubic-bezier(0.32, 0.72, 0, 1)"
         asideEl.style.transform = "translate3d(100%, 0, 0)"
         setTimeout(() => {
           onClose?.()
-        }, 220)
+        }, 260)
       } else {
-        // Snap back to 0% (FULLY OPEN)
-        asideEl.style.transition = "transform 0.26s cubic-bezier(0.22, 1, 0.36, 1)"
+        // Tactile, playful spring bounce back to open (0% fully open)
+        asideEl.style.transition = "transform 0.36s cubic-bezier(0.175, 0.885, 0.32, 1.12)"
         asideEl.style.transform = "translate3d(0, 0, 0)"
       }
     }
@@ -309,7 +310,7 @@ export function PhotoInfoSidebar({
       if (isDraggingHorizontal) {
         isDraggingHorizontal = false
         isDetermined = false
-        asideEl.style.transition = "transform 0.26s cubic-bezier(0.22, 1, 0.36, 1)"
+        asideEl.style.transition = "transform 0.36s cubic-bezier(0.175, 0.885, 0.32, 1.12)"
         asideEl.style.transform = "translate3d(0, 0, 0)"
       }
     }
