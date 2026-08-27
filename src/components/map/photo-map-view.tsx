@@ -626,8 +626,8 @@ export default function PhotoMapView() {
             <!-- Main Photo Frame with high-contrast dual contour (Outer Black Ring + Crisp White/Emerald Stroke + Emerald Ambient Glow) -->
             <div class="relative w-10.5 h-10.5 rounded-2xl overflow-hidden shadow-[0_4px_16px_rgba(0,0,0,0.85)] ${
               isSelected
-                ? "border-[2.5px] border-emerald-300 ring-2 ring-emerald-400 ring-offset-2 ring-offset-neutral-950 shadow-emerald-500/60"
-                : "border-[2.5px] border-white ring-2 ring-black/95 shadow-[0_0_16px_rgba(16,185,129,0.7),0_4px_14px_rgba(0,0,0,0.9)]"
+                ? "border-[2.5px] border-emerald-300 ring-2 ring-emerald-400 ring-offset-2 ring-offset-neutral-950 shadow-emerald-500/55"
+                : "border-[2.5px] border-white ring-2 ring-black/95 shadow-[0_0_13px_rgba(16,185,129,0.7),0_4px_14px_rgba(0,0,0,0.9)]"
             } bg-neutral-900">
               ${
                 imgUrl
