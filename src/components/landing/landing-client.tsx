@@ -145,8 +145,13 @@ export function LandingClient({ initialPhotos }: LandingClientProps) {
       <div className="absolute inset-0 z-0">
         <InfiniteGallery
           photos={displayPhotos}
-          driftAmount={0.3}
-          dragSpeed={0.8}
+          density={10}
+          imageWidth={170}
+          imageHeight={170}
+          rounded={8}
+          driftAmount={14}
+          dragSpeed={18}
+          friction={10}
           className="w-full h-full"
         />
         {/* Subtle Multi-Layer Dark Vignette */}

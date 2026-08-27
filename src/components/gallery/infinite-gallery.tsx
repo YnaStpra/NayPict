@@ -621,8 +621,11 @@ export function InfiniteGallery(props: InfiniteGalleryProps) {
       }
 
       if (isAutoAnimatingRef.current) {
-        // Continuous serene center zoom drift - ultra smooth without jumping
-        targetLogZoom.set(targetLogZoom.get() + 0.0012)
+        // Continuous serene ambient floating & pan drift across all browser engines
+        const t = performance.now() * 0.00035
+        targetX.set(targetX.get() + Math.cos(t) * 0.14)
+        targetY.set(targetY.get() + Math.sin(t * 0.75) * 0.11)
+        targetLogZoom.set(targetLogZoom.get() + 0.0008)
       } else {
         // Auto-snap to nearest integer zoom step smoothly when user stops manual interaction
         const isRecentlyInteracting = Date.now() - lastUserInteractionTimeRef.current < 400
