@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars */
 import { hashPassword } from '@/server/lib/crypto';
 import { createId } from '@/server/lib/id';
-import { count, eq, inArray, sum } from 'drizzle-orm';
+import { count, eq, inArray, sql, sum } from 'drizzle-orm';
 import { userTab } from '@/server/entity/user';
 import { type UserAddBo, type UserSetAvatarBo, type UserSetBo, type UserPasswordBo, type UserToggleStatusBo } from '@/server/entity/bo/user';
 import { photoTab } from '@/server/entity/photo';
@@ -63,8 +63,10 @@ const userService = {
         .set({
           password: newHash.hash,
           salt: newHash.salt,
+          tokenVersion: sql`${userTab.tokenVersion} + 1`,
         })
         .where(eq(userTab.userId, user.userId));
+      await cache.delete(AUTH_CACHE_KEY + user.userId);
     }
   } catch (err) {
     console.warn('[INIT] Failed to initialize admin user:', err);
@@ -191,7 +193,7 @@ const userService = {
 
     const list = userList.map((user: any) => {
       const photoStat = photoStatList.find((stat: any) => stat.userId === user.userId);
-      const { password: _password, salt: _salt, ...safeUser } = user;
+      const { password: _password, salt: _salt, tokenVersion: _tokenVersion, ...safeUser } = user;
 
       return {
         ...safeUser,
@@ -278,24 +280,27 @@ const userService = {
     }
 
     const nextPassword = params.password?.trim();
-    const updateData: {
-      username: string;
-      type: number;
-      password?: string;
-      salt?: string;
-    } = {
-      username,
-      type: params.type,
-    };
-
     if (nextPassword) {
       const password = await hashPassword(nextPassword);
-      updateData.password = password.hash;
-      updateData.salt = password.salt;
+      await orm.update(userTab)
+        .set({
+          username,
+          type: params.type,
+          password: password.hash,
+          salt: password.salt,
+          tokenVersion: sql`${userTab.tokenVersion} + 1`,
+        })
+        .where(eq(userTab.userId, userId));
+
+      await cache.delete(AUTH_CACHE_KEY + userId);
+      return;
     }
 
     await orm.update(userTab)
-      .set(updateData)
+      .set({
+        username,
+        type: params.type,
+      })
       .where(eq(userTab.userId, userId));
 
     // If there is a login cache, Synchronously update the user types in it.
@@ -321,7 +326,8 @@ const userService = {
     await orm.update(userTab)
       .set({
         password: password.hash,
-        salt: password.salt
+        salt: password.salt,
+        tokenVersion: sql`${userTab.tokenVersion} + 1`,
       })
       .where(eq(userTab.userId, userId));
 

@@ -111,7 +111,7 @@
   "storage.objectStorage": "object storage",
   "storage.namePlaceholder": "Please enter a storage name",
   "storage.typePlaceholder": "Please select storage type",
-  "storage.domainPlaceholder": "Visit domain name（Optional）",
+  "storage.domainPlaceholder": "Approved media gateway URL (optional)",
   "storage.bucket": "Bucket name",
   "storage.region": "area",
   "storage.endpoint": "access endpoint",

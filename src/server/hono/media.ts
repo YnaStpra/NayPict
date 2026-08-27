@@ -8,7 +8,7 @@ import { eq } from 'drizzle-orm';
 import { contextStorage } from 'hono/context-storage';
 import { security } from '../security/security';
 import { getUserId } from '@/server/security/context';
-import { cors } from 'hono/cors';
+import { mediaCors } from '@/server/security/cors';
 import { buildContentDisposition } from '@/server/lib/file';
 import { FileTypeEnum } from '@/server/enums/file-enum';
 import { PhotoStatusEnum } from '@/server/enums/photo-enum';
@@ -19,7 +19,7 @@ import type { HonoEnv } from './type';
 // This module handles the photo media reading interface, the path is /media/{key}.
 
 const media = new Hono<HonoEnv>();
-media.use('*', cors());
+media.use('*', mediaCors);
 media.use('*', contextStorage());
 media.use('*', i18nMiddleware);
 media.use('*', security);
@@ -37,8 +37,13 @@ const photoFileCache = new Map<string, { data: any; exp: number }>();
 async function getPhotoFile(key: string) {
   const now = Date.now();
   const cached = photoFileCache.get(key);
-  if (cached && cached.exp > now) {
+  if (cached && cached.exp > now && cached.data.type !== FileTypeEnum.ORIGINAL) {
     return cached.data;
+  }
+
+  // Original authorization fields are mutable, so never reuse a cached permission decision.
+  if (cached?.data.type === FileTypeEnum.ORIGINAL) {
+    photoFileCache.delete(key);
   }
 
   const [row] = await orm
@@ -57,7 +62,7 @@ async function getPhotoFile(key: string) {
     .where(eq(fileTab.key, key))
     .limit(1);
 
-  if (row) {
+  if (row && row.type !== FileTypeEnum.ORIGINAL) {
     if (photoFileCache.size > 2000) {
       const oldestKey = photoFileCache.keys().next().value;
       if (oldestKey) photoFileCache.delete(oldestKey);

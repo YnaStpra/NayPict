@@ -3,9 +3,9 @@ import createNextIntlPlugin from "next-intl/plugin";
 
 const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
 
-// Extract R2 public URL hostname for Next.js Image remote patterns.
-function getR2Hostname(): string | null {
-  const url = process.env.R2_PUBLIC_URL;
+// Extract the approved media gateway hostname for Next.js Image remote patterns.
+function getMediaGatewayHostname(): string | null {
+  const url = process.env.R2_MEDIA_GATEWAY_URL;
   if (!url) return null;
   try {
     return new URL(url).hostname;
@@ -14,7 +14,7 @@ function getR2Hostname(): string | null {
   }
 }
 
-const r2Hostname = getR2Hostname();
+const mediaGatewayHostname = getMediaGatewayHostname();
 
 const nextConfig: NextConfig = {
   reactStrictMode: false,
@@ -27,9 +27,9 @@ const nextConfig: NextConfig = {
   images: {
     formats: ['image/avif', 'image/webp'],
     remotePatterns: [
-      // Allow images served from Cloudflare R2 public URL.
-      ...(r2Hostname
-        ? [{ protocol: 'https' as const, hostname: r2Hostname }]
+      // Allow derivatives served by the private-bucket media gateway.
+      ...(mediaGatewayHostname
+        ? [{ protocol: 'https' as const, hostname: mediaGatewayHostname }]
         : []),
     ],
   },

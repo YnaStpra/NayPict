@@ -29,9 +29,9 @@ Before deploying, you need:
    - `R2_ACCESS_KEY_ID` → from the API token
    - `R2_SECRET_ACCESS_KEY` → from the API token
    - `R2_BUCKET_NAME` → your bucket name
-5. Set up public access (optional but recommended for faster delivery):
-   - Enable **R2.dev subdomain** or connect a custom domain
-   - Save the public URL as `R2_PUBLIC_URL`
+5. In the bucket public-access settings, explicitly disable both the **R2.dev subdomain** and any direct R2 custom domain.
+6. Deploy the derivative-only Worker in [`workers/media-gateway`](workers/media-gateway), bind `MEDIA_BUCKET` to this private bucket, and set its `APP_URL` variable to your application origin.
+7. Save the Worker URL as `R2_MEDIA_GATEWAY_URL`. The Worker exposes only `previews/` and `thumbnails/`; it returns 404 for both legacy `photos/` and current `originals/` keys.
 
 ---
 
@@ -73,13 +73,16 @@ Go to **Project Settings → Environment Variables** and add:
 | `ADMIN` | Your admin username | Production, Preview |
 | `PASSWORD` | Your admin password (strong!) | Production, Preview |
 | `TITLE` | `NayPict` (or your site name) | Production, Preview |
+| `APP_URL` | `https://your-app.vercel.app` | Production, Preview |
 | `R2_ACCOUNT_ID` | Your Cloudflare Account ID | Production, Preview |
 | `R2_ACCESS_KEY_ID` | R2 API Access Key | Production, Preview |
 | `R2_SECRET_ACCESS_KEY` | R2 API Secret Key | Production, Preview |
 | `R2_BUCKET_NAME` | Your R2 bucket name | Production, Preview |
-| `R2_PUBLIC_URL` | `https://your-bucket.r2.dev` or custom domain | Production, Preview |
+| `R2_MEDIA_GATEWAY_URL` | Your deployed derivative-only Worker URL | Production, Preview |
 
 > **⚠️ NEVER** commit real credentials to `.env` or source code.
+>
+> **⚠️ Do not define `R2_PUBLIC_URL`.** Production startup rejects this legacy variable because a native public bucket bypasses original-file authorization.
 
 ---
 
@@ -97,7 +100,7 @@ After your first deployment and login:
    - **Region**: `auto`
    - **Access Key**: your R2 Access Key ID
    - **Secret Key**: your R2 Secret Access Key
-   - **Domain**: your R2 public URL (e.g. `https://your-bucket.r2.dev`)
+   - **Domain**: the exact Worker URL from `R2_MEDIA_GATEWAY_URL`, or leave it blank to use the same-origin proxy
 5. Save and set as default
 
 ---
@@ -120,6 +123,9 @@ After your first deployment and login:
 - [ ] Logout
 - [ ] Verify redirect to `/login`
 - [ ] Open `/admin` without login — should redirect to `/login`
+- [ ] Request `<worker-url>/previews/<known-key>` — should return the derivative
+- [ ] Request `<worker-url>/originals/test` and `<worker-url>/photos/test` — both should return 404
+- [ ] Confirm the bucket's native `r2.dev` URL remains disabled
 
 ---
 
@@ -127,12 +133,10 @@ After your first deployment and login:
 
 ```
 Browser
-  ↓
-Vercel (Next.js 16 + Hono.js)
-  ↓
-Neon PostgreSQL (metadata, auth, cache, settings)
-  ↓
-Cloudflare R2 (original photos, previews, thumbnails)
+  ├─ originals ──→ Vercel `/media` authorization proxy ──→ Private Cloudflare R2
+  └─ derivatives → Cloudflare Worker allowlist ───────────→ Private Cloudflare R2
+                         │
+                         └─ Neon PostgreSQL (metadata, auth, cache, settings)
 ```
 
 No local filesystem. No SQLite. 100% serverless-compatible.
@@ -150,7 +154,8 @@ No local filesystem. No SQLite. 100% serverless-compatible.
 ### Photos Not Uploading?
 1. Verify R2 credentials in Vercel env vars
 2. Verify the Storage record is configured in the app
-3. Check R2 CORS settings if getting CORS errors
+3. Verify `R2_MEDIA_GATEWAY_URL` and the Worker's `APP_URL` match the application origin exactly
+4. Verify the Worker `MEDIA_BUCKET` binding targets the private R2 bucket
 
 ### Database Connection Errors?
 1. Ensure `DATABASE_URL` includes `?sslmode=require`

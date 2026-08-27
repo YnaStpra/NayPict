@@ -157,7 +157,7 @@ class S3StorageStrategy implements StorageStrategy {
       Bucket: bucket,
       Key: key,
       ContentType: contentType,
-      CacheControl: 'public, max-age=31536000, immutable',
+      CacheControl: 'private, no-store',
     });
 
     const { getSignedUrl } = await import('@aws-sdk/s3-request-presigner');
@@ -168,4 +168,3 @@ class S3StorageStrategy implements StorageStrategy {
 registerStorageStrategy(StorageTypeEnum.S3, () => new S3StorageStrategy());
 
 export { S3StorageStrategy };
-

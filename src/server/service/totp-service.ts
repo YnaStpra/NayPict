@@ -1,10 +1,14 @@
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { settingTab } from '@/server/entity/setting';
+import { userTab } from '@/server/entity/user';
 import { orm } from '@/server/infra/db';
 import BizError from '@/server/error/biz-error';
 import { generateOtpAuthUrl, generateTotpSecret, getQrCodeImageUrl, verifyTotpCode } from '@/server/lib/totp';
 import { type TotpSetupVo, type TotpStatusVo } from '@/server/entity/vo/totp';
 import { cache } from '@/server/infra/cache';
+import { AUTH_CACHE_KEY } from '@/server/const/cache';
+
+// This module manages TOTP configuration, verification, and related session revocation.
 
 interface TotpUserData {
   secret: string;
@@ -122,16 +126,24 @@ const totpService = {
       createTime: existingData?.createTime || new Date().toISOString(),
     };
 
-    await orm
-      .insert(settingTab)
-      .values({
-        key,
-        value: JSON.stringify(updatedData),
-      })
-      .onConflictDoUpdate({
-        target: settingTab.key,
-        set: { value: JSON.stringify(updatedData) },
-      });
+    // Persist the stronger 2FA policy and revoke pre-2FA sessions atomically.
+    await orm.batch([
+      orm
+        .insert(settingTab)
+        .values({
+          key,
+          value: JSON.stringify(updatedData),
+        })
+        .onConflictDoUpdate({
+          target: settingTab.key,
+          set: { value: JSON.stringify(updatedData) },
+        }),
+      orm
+        .update(userTab)
+        .set({ tokenVersion: sql`${userTab.tokenVersion} + 1` })
+        .where(eq(userTab.userId, userId)),
+    ]);
+    await cache.delete(AUTH_CACHE_KEY + userId);
 
     return true;
   },
@@ -147,16 +159,24 @@ const totpService = {
       enabled: false,
     };
 
-    await orm
-      .insert(settingTab)
-      .values({
-        key,
-        value: JSON.stringify(updatedData),
-      })
-      .onConflictDoUpdate({
-        target: settingTab.key,
-        set: { value: JSON.stringify(updatedData) },
-      });
+    // Persist the weaker 2FA policy and revoke every previously authenticated session atomically.
+    await orm.batch([
+      orm
+        .insert(settingTab)
+        .values({
+          key,
+          value: JSON.stringify(updatedData),
+        })
+        .onConflictDoUpdate({
+          target: settingTab.key,
+          set: { value: JSON.stringify(updatedData) },
+        }),
+      orm
+        .update(userTab)
+        .set({ tokenVersion: sql`${userTab.tokenVersion} + 1` })
+        .where(eq(userTab.userId, userId)),
+    ]);
+    await cache.delete(AUTH_CACHE_KEY + userId);
   },
 
   // Verify 6-digit TOTP code during login with replay protection (HIGH-03).

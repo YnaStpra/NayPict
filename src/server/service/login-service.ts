@@ -1,6 +1,6 @@
 import crypto from 'node:crypto';
 import { orm } from '@/server/infra/db'
-import { userTab } from "@/server/entity/user";
+import { userTab, type User } from "@/server/entity/user";
 import { eq } from "drizzle-orm";
 import BizError from "@/server/error/biz-error";
 import { hashPassword, verifyPasswordDetailed } from '@/server/lib/crypto';
@@ -20,14 +20,21 @@ import { loginRateLimiter } from '@/server/lib/rate-limiter';
 
 // This module handles login authentication related services.
 
+interface Temp2FaSession {
+  userId: string;
+  tokenVersion: number;
+}
+
 const loginService = {
 
   // Write user information to login cache, and return to this session uuid.
-  async saveAuthInfo(user: { userId: string, username: string, avatar: string, type: number }): Promise<string> {
+  async saveAuthInfo(user: Pick<User, 'userId' | 'username' | 'avatar' | 'type' | 'tokenVersion'>): Promise<string> {
     const uuid = createId()
     const oldAuthInfo = await cache.get<AuthInfo>(AUTH_CACHE_KEY + user.userId)
 
-    const oldUuids = oldAuthInfo?.uuidList || []
+    // Never carry session UUIDs across different credential versions; legacy cache entries imply version one.
+    const oldTokenVersion = oldAuthInfo?.tokenVersion ?? 1
+    const oldUuids = oldAuthInfo && oldTokenVersion === user.tokenVersion ? oldAuthInfo.uuidList : []
     const updatedUuids = [...oldUuids.filter((id) => id !== uuid), uuid].slice(-10)
 
     const authInfo: AuthInfo = {
@@ -35,6 +42,7 @@ const loginService = {
       username: user.username,
       avatar: user.avatar,
       type: user.type,
+      tokenVersion: user.tokenVersion,
       uuidList: updatedUuids,
     }
 
@@ -70,13 +78,28 @@ const loginService = {
       .slice(0, 32);
 
     if (params.tempToken) {
-      const cachedUserId = await cache.get<string>(`temp_2fa_${params.tempToken}`);
-      if (!cachedUserId) {
+      const tempSession = await cache.get<Temp2FaSession>(`temp_2fa_${params.tempToken}`);
+      if (
+        !tempSession
+        || typeof tempSession.userId !== 'string'
+        || !Number.isInteger(tempSession.tokenVersion)
+      ) {
         throw new BizError('totp.sessionExpired');
       }
 
       if (!params.code) {
         throw new BizError('totp.codeRequired');
+      }
+
+      const [user] = await orm.select().from(userTab).where(eq(userTab.userId, tempSession.userId)).limit(1);
+      if (
+        !user
+        || user.status === UserStatusEnum.DISABLE
+        || user.tokenVersion !== tempSession.tokenVersion
+      ) {
+        await cache.delete(`temp_2fa_${params.tempToken}`);
+        await cache.delete(`temp_2fa_attempts_${params.tempToken}`);
+        throw new BizError('totp.sessionExpired');
       }
 
       // Check 2FA attempt counter for this tempToken (HIGH-06)
@@ -91,7 +114,7 @@ const loginService = {
       }
 
       try {
-        await totpService.verifyLoginTotp(cachedUserId, params.code);
+        await totpService.verifyLoginTotp(tempSession.userId, params.code);
       } catch {
         // Increment failure counter
         await cache.set(attemptKey, totpAttempts + 1, { ttl: 300 });
@@ -104,9 +127,6 @@ const loginService = {
       await cache.delete(attemptKey);
       await loginRateLimiter.reset(clientIp);
 
-      const [user] = await orm.select().from(userTab).where(eq(userTab.userId, cachedUserId)).limit(1);
-      if (!user) throw new BizError('login.invalidCredentials');
-
       // Record verified device fingerprint upon successful 2FA
       const fingerprintKey = `known_devices_${user.userId}`;
       const knownDevices = (await cache.get<string[]>(fingerprintKey)) || [];
@@ -116,7 +136,7 @@ const loginService = {
       await cache.set(fingerprintKey, updatedDevices, { ttl: 60 * 60 * 24 * 90 }); // 90 days TTL
 
       const uuid = await this.saveAuthInfo(user);
-      const token = await createLoginToken(user.userId, uuid);
+      const token = await createLoginToken(user.userId, uuid, user.tokenVersion);
       const userVo = await userService.getById(user.userId);
       return { token, user: userVo, isNewDevice };
     }
@@ -183,7 +203,11 @@ const loginService = {
         }
       } else {
         const tempToken = createId();
-        await cache.set(`temp_2fa_${tempToken}`, user.userId, { ttl: 300 }); // 5 mins TTL
+        const tempSession: Temp2FaSession = {
+          userId: user.userId,
+          tokenVersion: user.tokenVersion,
+        };
+        await cache.set(`temp_2fa_${tempToken}`, tempSession, { ttl: 300 }); // 5 mins TTL
         return {
           token: null,
           require2Fa: true,
@@ -201,13 +225,13 @@ const loginService = {
     await cache.set(fingerprintKey, updatedDevices, { ttl: 60 * 60 * 24 * 90 });
 
     if (user.username === process.env.NEXT_PUBLIC_DEMO_USERNAME) {
-      const token = await createLoginToken(user.userId, 'demo');
+      const token = await createLoginToken(user.userId, 'demo', user.tokenVersion);
       const userVo = await userService.getById(user.userId);
       return { token, user: userVo, isNewDevice };
     }
 
     const uuid = await this.saveAuthInfo(user);
-    const token = await createLoginToken(user.userId, uuid);
+    const token = await createLoginToken(user.userId, uuid, user.tokenVersion);
     const userVo = await userService.getById(user.userId);
     return { token, user: userVo, isNewDevice };
   },

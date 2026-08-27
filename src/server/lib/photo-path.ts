@@ -5,9 +5,9 @@ function formatPhotoDate(takenTime: string): string {
   return takenTime.slice(0, 10);
 }
 
-// Generate original image storage path: photos/userId/file name.
+// Generate an original image key under the private-only originals prefix.
 function buildPhotoKey(userId: string, fileName: string): string {
-  return `photos/${userId}/${fileName}`;
+  return `originals/${userId}/${fileName}`;
 }
 
 // according to checksum First four shards, For file name photoId, Avoid the same content key conflict.

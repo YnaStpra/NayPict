@@ -1,10 +1,12 @@
 import { TOKEN_COOKIE_NAME } from "@/server/const/global"
+import { sessionService } from "@/server/service/session-service"
 
 // This module encapsulates the browser Cookie Read and business Cookie parse.
 
 type LoginCookie = {
   userId: string | null
   uuid: string | null
+  tokenVersion: number
 }
 
 // from browser Cookie Read the value of the specified name in.
@@ -41,9 +43,30 @@ async function getLoginInfo(cookie: string | null = null): Promise<LoginCookie> 
   const { verifyLoginToken } = await import("@/server/lib/jwt");
   const payload = await verifyLoginToken(token);
 
+  if (!payload) {
+    return {
+      userId: null,
+      uuid: null,
+      tokenVersion: 1,
+    };
+  }
+
+  // Legacy tokens without the claim remain valid only while the persisted version is still one.
+  const tokenVersion = payload.tokenVersion ?? 1;
+  const persistedVersion = await sessionService.getTokenVersion(payload.userId);
+
+  if (persistedVersion !== tokenVersion) {
+    return {
+      userId: null,
+      uuid: null,
+      tokenVersion,
+    };
+  }
+
   return {
-    userId: payload?.userId ?? null,
-    uuid: payload?.uuid ?? null,
+    userId: payload.userId,
+    uuid: payload.uuid,
+    tokenVersion,
   };
 }
 

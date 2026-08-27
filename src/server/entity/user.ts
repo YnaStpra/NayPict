@@ -11,6 +11,7 @@ export const userTab = pgTable('user', {
   avatar: text('avatar').notNull().default(''),
   type: integer('type').notNull().default(UserTypeEnum.NORMAL),
   status: integer('status').notNull().default(UserStatusEnum.NORMAL),
+  tokenVersion: integer('token_version').notNull().default(1),
   createTime: timestamp('create_time', { mode: 'string' }).notNull().default(sql`now()`),
 });
 

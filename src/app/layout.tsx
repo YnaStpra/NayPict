@@ -56,10 +56,10 @@ export default async function RootLayout({ children }: RootLayoutProps) {
   const title = process.env.TITLE || "NayPict"
   const [locale, messages] = await Promise.all([getLocale(), getMessages()])
 
-  // Extract CDN origin for DNS prefetch and preconnect acceleration
-  const cdnOrigin = process.env.R2_PUBLIC_URL ? (() => {
+  // Extract the approved media gateway origin for DNS prefetch and preconnect acceleration.
+  const cdnOrigin = process.env.R2_MEDIA_GATEWAY_URL ? (() => {
     try {
-      return new URL(process.env.R2_PUBLIC_URL).origin
+      return new URL(process.env.R2_MEDIA_GATEWAY_URL).origin
     } catch {
       return null
     }

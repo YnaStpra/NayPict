@@ -112,6 +112,15 @@ export async function migrate(): Promise<void> {
     } catch (photoVisErr) {
       console.warn('[MIGRATE] Error updating photo visibility column:', photoVisErr);
     }
+
+    // Ensure user table has token_version column for session invalidation.
+    try {
+      await sql`
+        ALTER TABLE "user" ADD COLUMN IF NOT EXISTS "token_version" integer DEFAULT 1 NOT NULL;
+      `;
+    } catch (userTokenErr) {
+      console.warn('[MIGRATE] Error updating user token_version column:', userTokenErr);
+    }
   } catch (err) {
     console.warn('[MIGRATE] Could not run migration automatically:', err);
   }

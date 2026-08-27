@@ -2,10 +2,10 @@ import { Hono } from 'hono';
 import { contextStorage } from 'hono/context-storage';
 import { compress } from 'hono/compress';
 import result from '../model/result';
-import { cors } from 'hono/cors';
 import BizError from '../error/biz-error';
 import { security } from '../security/security';
 import { csrfProtection } from '../security/csrf';
+import { apiCors } from '../security/cors';
 import { i18nMiddleware, t } from '@/server/i18n';
 import type { HonoEnv } from './type';
 
@@ -15,7 +15,7 @@ export function createHonoApp() {
   const instance = new Hono<HonoEnv>().basePath('/api');
 
   instance.use('*', compress());
-  instance.use('*', cors());
+  instance.use('*', apiCors);
   instance.use('*', contextStorage());
   instance.use('*', i18nMiddleware);
   instance.use('*', csrfProtection);

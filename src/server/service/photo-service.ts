@@ -37,7 +37,7 @@ import { buildContentDisposition, formatFileTimestamp, splitFileName } from '@/s
 import { albumService } from '@/server/service/album-service';
 import { settingService } from '@/server/service/setting-service';
 import { SettingOnThisDayEnum, SettingPhotoDedupEnum, SettingSyncDeleteEnum } from '@/server/enums/setting-enum';
-import { formatHttpUrl, toMediaUrl } from '@/lib/url';
+import { formatHttpUrl, toMediaUrl, toProxyMediaUrl } from '@/lib/url';
 import { fileChecksum } from '@/server/lib/crypto';
 import { processPhotoImages } from '@/server/lib/photo-process';
 import { readPhotoExifFromBuffer } from '@/server/lib/photo-exif';
@@ -506,7 +506,7 @@ const photoService = {
   },
 
   // Generate presigned PUT URL for direct-to-storage upload (S3 / Cloudflare R2).
-  async getPresignedUploadUrl(params: { filename: string; fileType: string; storageId?: string }, userId?: string): Promise<{ uploadUrl: string; key: string; storageId: string; domain?: string }> {
+  async getPresignedUploadUrl(params: { filename: string; fileType: string; storageId?: string }, userId?: string): Promise<{ uploadUrl: string; key: string; storageId: string }> {
     if (!userId) {
       throw new BizError('auth.failed', 401);
     }
@@ -533,7 +533,6 @@ const photoService = {
       uploadUrl,
       key,
       storageId: targetStorage.storageId,
-      domain: formatHttpUrl(targetStorage.domain),
     };
   },
 
@@ -806,6 +805,8 @@ const photoService = {
         recycleTime: new Date().toISOString()
       })
       .where(and(...whereList));
+
+    invalidatePhotoFastPathCache();
   },
 
   // Move all photos of the specified user to the trash, And record the recycling time.
@@ -821,6 +822,8 @@ const photoService = {
         recycleTime: new Date(0).toISOString()
       })
       .where(whereList.length ? and(...whereList) : undefined);
+
+    invalidatePhotoFastPathCache();
   },
 
   // Set the display scope / visibility of specified photos (Both, Gallery Only, Album Only, Archived).
@@ -843,6 +846,8 @@ const photoService = {
         visibility: params.visibility
       })
       .where(and(...whereList));
+
+    invalidatePhotoFastPathCache();
   },
 
   // Restore the specified photos in the current user's recycle bin.
@@ -862,6 +867,8 @@ const photoService = {
         recycleTime: null
       })
       .where(and(...whereList));
+
+    invalidatePhotoFastPathCache();
   },
 
   // Completely delete the specified photo files and database records of the current user.
@@ -905,6 +912,8 @@ const photoService = {
 
     await orm.delete(photoTab)
       .where(inArray(photoTab.photoId, photoIds));
+
+    invalidatePhotoFastPathCache();
   },
 
   // Clean the photo files and database records in the current user's Recycle Bin.
@@ -1036,6 +1045,8 @@ const photoService = {
       .update(photoTab)
       .set({ allowDownload: params.allowDownload ? 1 : 0 })
       .where(and(...whereList));
+
+    invalidatePhotoFastPathCache();
   },
 
   // Batch update photo metadata (visibility, allowDownload, takenTime, GPS location).
@@ -1175,7 +1186,8 @@ const photoService = {
     // If allowDownload === 0 (Protected) and requester is not authenticated Admin (currentUserId is empty/falsy),
     // mask key as null so the original file URL is NEVER leaked to public clients.
     const isAllowed = photo.allowDownload === 1 || Boolean(currentUserId);
-    const key = isAllowed && rawKey ? toMediaUrl(rawKey, domain) : null;
+    // Originals always traverse the same-origin authorization proxy; the CDN only serves derivatives.
+    const key = isAllowed && rawKey ? toProxyMediaUrl(rawKey) : null;
     const isLocationIgnored = exifRow?.latitude === 999 && exifRow?.longitude === 999;
     const latitude = isLocationIgnored ? null : (exifRow?.latitude ?? null);
     const longitude = isLocationIgnored ? null : (exifRow?.longitude ?? null);

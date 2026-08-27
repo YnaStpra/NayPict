@@ -6,6 +6,7 @@ import { type JWTPayload } from 'hono/utils/jwt/types';
 interface LoginTokenPayload extends JWTPayload {
   userId: string;
   uuid: string;
+  tokenVersion?: number;
 }
 
 // Retrieve JWT secret from environment and fail fast if missing.
@@ -18,12 +19,13 @@ function getJwtSecret(): string {
 }
 
 // Generate and return a JWT token after successful login.
-async function createLoginToken(userId: string, uuid: string): Promise<string> {
+async function createLoginToken(userId: string, uuid: string, tokenVersion: number): Promise<string> {
   const secret = getJwtSecret();
   const now = Math.floor(Date.now() / 1000);
   const payload: LoginTokenPayload = {
     userId,
     uuid,
+    tokenVersion,
     iat: now,
     exp: now + 60 * 60 * 24 * 30,
   };
@@ -45,6 +47,16 @@ async function verifyLoginToken(token: string | undefined): Promise<LoginTokenPa
 
   try {
     const payload = await verify(token, secret, 'HS256');
+
+    if (
+      typeof payload.userId !== 'string'
+      || typeof payload.uuid !== 'string'
+      || (payload.tokenVersion !== undefined
+        && (!Number.isInteger(payload.tokenVersion) || Number(payload.tokenVersion) < 1))
+    ) {
+      return null;
+    }
+
     return payload as LoginTokenPayload;
   } catch {
     return null;

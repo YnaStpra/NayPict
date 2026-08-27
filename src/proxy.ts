@@ -61,7 +61,7 @@ export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   const cookie = req.headers.get('cookie');
-  const { userId, uuid } = await getLoginInfo(cookie);
+  const { userId, uuid, tokenVersion } = await getLoginInfo(cookie);
 
   if (!userId || !uuid) {
     if (isPublicPath(pathname)) {
@@ -81,7 +81,8 @@ export async function proxy(req: NextRequest) {
     console.error('Proxy cache get error:', err);
   }
 
-  if (!authInfo || !authInfo.uuidList.includes(uuid)) {
+  const cachedTokenVersion = authInfo?.tokenVersion ?? 1;
+  if (!authInfo || cachedTokenVersion !== tokenVersion || !authInfo.uuidList.includes(uuid)) {
     if (isPublicPath(pathname)) {
       return clearLoginCookies(NextResponse.next());
     }

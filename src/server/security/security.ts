@@ -101,7 +101,7 @@ async function security(c: Context, next: Next) {
 
   const path = c.req.path.replace(/^\/api/, '');
 
-  const { userId, uuid } = await getLoginInfo(c.req.header('cookie') ?? null);
+  const { userId, uuid, tokenVersion } = await getLoginInfo(c.req.header('cookie') ?? null);
 
   if (!userId || !uuid) {
     if (isPublicApiPath(path)) {
@@ -122,13 +122,19 @@ async function security(c: Context, next: Next) {
         username: user.username,
         avatar: user.avatar,
         type: user.type,
+        tokenVersion,
         uuidList: [uuid],
       };
       await cache.set(AUTH_CACHE_KEY + userId, authInfo);
     }
   }
 
-  if (!authInfo || (!authInfo.uuidList.includes(uuid) && uuid !== 'demo')) {
+  const cachedTokenVersion = authInfo?.tokenVersion ?? 1;
+  if (
+    !authInfo
+    || cachedTokenVersion !== tokenVersion
+    || (!authInfo.uuidList.includes(uuid) && uuid !== 'demo')
+  ) {
     clearLoginCookies(c);
     throw new BizError('auth.failed', 401);
   }

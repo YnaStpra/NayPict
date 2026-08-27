@@ -1,0 +1,15 @@
+name = "pixtale-media-gateway"
+main = "src/index.js"
+compatibility_date = "2026-08-27"
+workers_dev = true
+
+[vars]
+# Set this to the exact browser application origin, without paths or wildcards.
+APP_URL = "https://gallery.example.com"
+
+[[r2_buckets]]
+binding = "MEDIA_BUCKET"
+bucket_name = "replace-with-your-private-r2-bucket"
+
+[observability.logs]
+enabled = true

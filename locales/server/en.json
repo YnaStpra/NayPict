@@ -27,6 +27,7 @@
   "storage.configRequired": "Select a storage configuration.",
   "storage.notFound": "Storage location not found.",
   "storage.disabled": "This storage location has been disabled.",
+  "storage.publicR2DomainForbidden": "The media domain must exactly match R2_MEDIA_GATEWAY_URL. Direct public bucket domains are forbidden.",
   "s3.configIncomplete": "The S3 configuration is incomplete.",
   "s3.bucketRequired": "S3 bucket name is required.",
   "s3.readFailed": "Failed to read the file from S3.",
