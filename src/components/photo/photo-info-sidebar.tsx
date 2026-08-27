@@ -226,122 +226,120 @@ export function PhotoInfoSidebar({
     }
   }
 
+  // Full-panel mobile horizontal swipe gesture controller with strict binary snap (>= 50% closes, < 50% springs open)
   useEffect(() => {
     const asideEl = asideRef.current
     if (!asideEl) return
 
-    // Stop propagation at capture phase so Lightbox zoom / carousel never intercepts wheel or touch scroll
-    const stopPropagationCapture = (e: Event) => {
-      e.stopPropagation()
+    let startX = 0
+    let startY = 0
+    let startTime = 0
+    let isDetermined = false
+    let isDraggingHorizontal = false
+    let currentDragX = 0
+
+    const onTouchStart = (e: TouchEvent) => {
+      if (window.innerWidth >= 768 || e.touches.length > 1) return
+      const touch = e.touches[0]
+      startX = touch.clientX
+      startY = touch.clientY
+      startTime = Date.now()
+      isDetermined = false
+      isDraggingHorizontal = false
+      currentDragX = 0
     }
 
-    asideEl.addEventListener("wheel", stopPropagationCapture, { capture: true, passive: true })
-    asideEl.addEventListener("touchstart", stopPropagationCapture, { capture: true, passive: true })
-    asideEl.addEventListener("touchmove", stopPropagationCapture, { capture: true, passive: true })
-    asideEl.addEventListener("pointerdown", stopPropagationCapture, { capture: true })
+    const onTouchMove = (e: TouchEvent) => {
+      if (window.innerWidth >= 768 || e.touches.length > 1) return
+      const touch = e.touches[0]
+      const dx = touch.clientX - startX
+      const dy = touch.clientY - startY
 
-    return () => {
-      asideEl.removeEventListener("wheel", stopPropagationCapture, { capture: true })
-      asideEl.removeEventListener("touchstart", stopPropagationCapture, { capture: true })
-      asideEl.removeEventListener("touchmove", stopPropagationCapture, { capture: true })
-      asideEl.removeEventListener("pointerdown", stopPropagationCapture, { capture: true })
-    }
-  }, [])
+      if (!isDetermined) {
+        if (Math.abs(dx) > 6 || Math.abs(dy) > 6) {
+          isDetermined = true
+          // If swiping rightwards with predominantly horizontal angle
+          if (dx > 0 && Math.abs(dx) > Math.abs(dy) * 0.75) {
+            isDraggingHorizontal = true
+          }
+        }
+      }
 
-  const [dragOffsetX, setDragOffsetX] = useState(0)
-  const [isClosing, setIsClosing] = useState(false)
-  const touchStartRef = useRef<{ x: number; y: number; time: number } | null>(null)
-  const isDraggingRightRef = useRef(false)
-
-  // Mobile Swipe-Right to Dismiss gesture tracking (closes panel following entry direction)
-  const handleTouchStart = (e: React.TouchEvent) => {
-    if (typeof window !== "undefined" && window.innerWidth >= 768) return
-    const touch = e.touches[0]
-    touchStartRef.current = { x: touch.clientX, y: touch.clientY, time: Date.now() }
-    isDraggingRightRef.current = false
-  }
-
-  const handleTouchMove = (e: React.TouchEvent) => {
-    if (!touchStartRef.current || isClosing) return
-    const touch = e.touches[0]
-    const dx = touch.clientX - touchStartRef.current.x
-    const dy = touch.clientY - touchStartRef.current.y
-
-    if (!isDraggingRightRef.current) {
-      if (dx > 8 && Math.abs(dx) > Math.abs(dy) * 1.1) {
-        isDraggingRightRef.current = true
-      } else {
-        return
+      if (isDraggingHorizontal) {
+        if (e.cancelable) {
+          e.preventDefault()
+        }
+        e.stopPropagation()
+        currentDragX = Math.max(0, dx)
+        asideEl.style.transition = "none"
+        asideEl.style.transform = `translate3d(${currentDragX}px, 0, 0)`
       }
     }
 
-    if (isDraggingRightRef.current && dx > 0) {
-      setDragOffsetX(dx)
+    const onTouchEnd = () => {
+      if (!isDraggingHorizontal) return
+      isDraggingHorizontal = false
+      isDetermined = false
+
+      const dt = Math.max(1, Date.now() - startTime)
+      const velocity = currentDragX / dt
+      const panelWidth = asideEl.offsetWidth || window.innerWidth || 360
+
+      // 50% screen width threshold or fast flick velocity (> 0.45 px/ms)
+      const shouldClose = currentDragX >= panelWidth * 0.5 || (velocity > 0.45 && currentDragX > 40)
+
+      if (shouldClose) {
+        // Snap to 100% (CLOSED)
+        asideEl.style.transition = "transform 0.22s cubic-bezier(0.22, 1, 0.36, 1)"
+        asideEl.style.transform = "translate3d(100%, 0, 0)"
+        setTimeout(() => {
+          onClose?.()
+        }, 220)
+      } else {
+        // Snap back to 0% (FULLY OPEN)
+        asideEl.style.transition = "transform 0.26s cubic-bezier(0.22, 1, 0.36, 1)"
+        asideEl.style.transform = "translate3d(0, 0, 0)"
+      }
     }
-  }
 
-  const handleTouchEnd = () => {
-    const start = touchStartRef.current
-    touchStartRef.current = null
-    if (!start || !isDraggingRightRef.current) {
-      setDragOffsetX(0)
-      isDraggingRightRef.current = false
-      return
+    const onTouchCancel = () => {
+      if (isDraggingHorizontal) {
+        isDraggingHorizontal = false
+        isDetermined = false
+        asideEl.style.transition = "transform 0.26s cubic-bezier(0.22, 1, 0.36, 1)"
+        asideEl.style.transform = "translate3d(0, 0, 0)"
+      }
     }
 
-    const dt = Math.max(1, Date.now() - start.time)
-    const velocity = dragOffsetX / dt
-
-    if (dragOffsetX > 75 || velocity > 0.35) {
-      // Dismiss sidebar smoothly with spring rightward animation
-      setIsClosing(true)
-      setTimeout(() => {
-        setIsClosing(false)
-        setDragOffsetX(0)
-        isDraggingRightRef.current = false
-        onClose?.()
-      }, 220)
-    } else {
-      // Snap back to open position
-      setDragOffsetX(0)
-      isDraggingRightRef.current = false
+    const stopPropagationOnly = (e: Event) => {
+      e.stopPropagation()
     }
-  }
 
-  const handleTouchCancel = () => {
-    touchStartRef.current = null
-    isDraggingRightRef.current = false
-    setDragOffsetX(0)
-  }
+    asideEl.addEventListener("wheel", stopPropagationOnly, { passive: true })
+    asideEl.addEventListener("touchstart", onTouchStart, { passive: true })
+    asideEl.addEventListener("touchmove", onTouchMove, { passive: false })
+    asideEl.addEventListener("touchend", onTouchEnd, { passive: true })
+    asideEl.addEventListener("touchcancel", onTouchCancel, { passive: true })
+
+    return () => {
+      asideEl.removeEventListener("wheel", stopPropagationOnly)
+      asideEl.removeEventListener("touchstart", onTouchStart)
+      asideEl.removeEventListener("touchmove", onTouchMove)
+      asideEl.removeEventListener("touchend", onTouchEnd)
+      asideEl.removeEventListener("touchcancel", onTouchCancel)
+    }
+  }, [onClose])
 
   const handleTabChange = (tab: "info" | "comments") => {
     setInternalTab(tab)
     onTabChange?.(tab)
   }
 
-  const asideTransform = isClosing
-    ? "translate3d(100%, 0, 0)"
-    : dragOffsetX > 0
-    ? `translate3d(${dragOffsetX}px, 0, 0)`
-    : undefined
-
-  const asideTransition = dragOffsetX > 0
-    ? "none"
-    : "transform 0.26s cubic-bezier(0.22, 1, 0.36, 1)"
-
   return (
     <aside
       ref={asideRef}
-      onTouchStart={handleTouchStart}
-      onTouchMove={handleTouchMove}
-      onTouchEnd={handleTouchEnd}
-      onTouchCancel={handleTouchCancel}
       className="fixed top-0 right-0 z-[41] flex h-full w-full flex-col overflow-hidden bg-neutral-950/90 backdrop-blur-2xl text-white shadow-photo-sidebar md:w-84 md:shrink-0 md:border-l md:border-white/10 pointer-events-auto touch-pan-y exif-drawer-spring will-change-transform"
-      style={{
-        touchAction: "pan-y",
-        transform: asideTransform,
-        transition: asideTransition,
-      }}
+      style={{ touchAction: "pan-y" }}
     >
       <PhotoViewerBlurBackground thumbHash={photo?.thumbHash} />
 
