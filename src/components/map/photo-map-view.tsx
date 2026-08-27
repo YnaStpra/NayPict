@@ -599,50 +599,57 @@ export default function PhotoMapView() {
       const count = cluster.photos.length
       const isMulti = count > 1
 
-      // Custom HTML pin marker with crisp 2px white stroke (emerald when clicked) and calibrated pointer
+      // Custom HTML pin marker with ultra-high-contrast dual contour, luminescent ambient halo, ground anchor shadow, and calibrated pointer
       const customIcon = L.divIcon({
         className: "photo-marker-icon",
         html: `
-          <div class="relative cursor-pointer transition-all duration-200 transform hover:scale-110 ${
-            isSelected ? "scale-110 z-50" : ""
+          <div class="relative cursor-pointer transition-all duration-200 transform hover:scale-110 select-none ${
+            isSelected ? "scale-115 z-50" : ""
           }">
+            <!-- High-Contrast Ground Anchor Shadow on Map Surface -->
+            <div class="absolute -bottom-2 left-1/2 -translate-x-1/2 w-6 h-2 bg-black/85 rounded-full blur-[1.5px] pointer-events-none"></div>
+
+            <!-- Luminescent Ambient Halo / Glow (Continuous Visibility) -->
+            <div class="pin-contrast-halo ${isSelected ? "pin-contrast-halo-selected" : ""}"></div>
             ${isSelected || count > 3 ? `<div class="radar-pin-halo"></div>` : ""}
+
             ${
               isMulti
                 ? `
-              <!-- Stacked cards behind for multi-photo depth -->
-              <div class="absolute inset-0 rounded-2xl bg-neutral-900/90 border-2 border-white/80 rotate-6 scale-95 shadow-sm pointer-events-none"></div>
-              <div class="absolute inset-0 rounded-2xl bg-neutral-800/90 border-2 border-white/80 -rotate-3 scale-95 shadow-sm pointer-events-none"></div>
+              <!-- Stacked cards behind for multi-photo depth with high-contrast emerald & black borders -->
+              <div class="absolute inset-0 rounded-2xl bg-neutral-900 border-2 border-emerald-500/90 rotate-6 scale-95 shadow-md shadow-black/80 ring-1 ring-black/90 pointer-events-none"></div>
+              <div class="absolute inset-0 rounded-2xl bg-neutral-900 border-2 border-emerald-400/90 -rotate-3 scale-95 shadow-md shadow-black/80 ring-1 ring-black/90 pointer-events-none"></div>
             `
                 : ""
             }
-            <!-- Main Photo Frame with crisp 2px white stroke (emerald when clicked) -->
-            <div class="relative w-10 h-10 rounded-2xl overflow-hidden shadow-lg shadow-black/35 border-2 ${
+
+            <!-- Main Photo Frame with high-contrast dual contour (Outer Black Ring + Crisp White/Emerald Stroke + Emerald Ambient Glow) -->
+            <div class="relative w-10.5 h-10.5 rounded-2xl overflow-hidden shadow-[0_4px_16px_rgba(0,0,0,0.85)] ${
               isSelected
-                ? "border-emerald-400 ring-2 ring-emerald-400 ring-offset-2 ring-offset-neutral-950 shadow-emerald-500/40"
-                : "border-white ring-1 ring-black/25"
+                ? "border-[2.5px] border-emerald-300 ring-2 ring-emerald-400 ring-offset-2 ring-offset-neutral-950 shadow-emerald-500/50"
+                : "border-[2.5px] border-white ring-2 ring-black/95 shadow-[0_0_12px_rgba(16,185,129,0.5),0_4px_14px_rgba(0,0,0,0.85)]"
             } bg-neutral-900">
               ${
                 imgUrl
-                  ? `<img src="${imgUrl}" alt="${topPhoto.name}" onerror="if(this.src&&!this.src.includes('/media/')){this.src=this.src.replace(/^https?:\\/\\/[^\\/]+/, '/media')}" style="position: absolute !important; top: 0 !important; left: 0 !important; width: 100% !important; height: 100% !important; min-width: 100% !important; min-height: 100% !important; max-width: none !important; max-height: none !important; object-fit: cover !important; object-position: center center !important; display: block !important;" loading="lazy" decoding="async" />`
-                  : `<div class="w-full h-full bg-emerald-600 flex items-center justify-center text-white text-xs">📷</div>`
+                  ? `<img src="${imgUrl}" alt="" onerror="if(this.src&&!this.src.includes('/media/')){this.src=this.src.replace(/^https?:\\/\\/[^\\/]+/, '/media')}" style="position: absolute !important; top: 0 !important; left: 0 !important; width: 100% !important; height: 100% !important; min-width: 100% !important; min-height: 100% !important; max-width: none !important; max-height: none !important; object-fit: cover !important; object-position: center center !important; display: block !important;" loading="lazy" decoding="async" />`
+                  : `<div class="w-full h-full bg-emerald-600 flex items-center justify-center text-white text-xs font-bold">📷</div>`
               }
             </div>
 
-            <!-- Calibrated bottom anchor pointer tip -->
-            <div class="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2.5 h-2.5 rotate-45 ${
+            <!-- Calibrated bottom anchor pointer tip with dual-contour contrast -->
+            <div class="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-3 h-3 rotate-45 ${
               isSelected
-                ? "bg-emerald-400 border-r-2 border-b-2 border-emerald-400"
-                : "bg-white border-r-2 border-b-2 border-white"
-            } shadow-xs pointer-events-none"></div>
+                ? "bg-emerald-300 border-r-[2.5px] border-b-[2.5px] border-emerald-300 ring-1 ring-black/90"
+                : "bg-white border-r-[2.5px] border-b-[2.5px] border-white ring-1 ring-black/90"
+            } shadow-[0_2px_4px_rgba(0,0,0,0.9)] pointer-events-none"></div>
 
             ${
               isMulti
                 ? `
-              <!-- Count badge pill on top right -->
-              <div class="absolute -top-1.5 -right-1.5 px-1.5 py-0.5 min-w-4.5 h-4.5 rounded-full ${
-                cluster.isMultiLocation ? "bg-sky-500" : "bg-emerald-500"
-              } text-white font-bold text-[10px] leading-none flex items-center justify-center shadow-md border-2 border-white pointer-events-none">
+              <!-- High-Contrast Count Badge on Top Right -->
+              <div class="absolute -top-2 -right-2 px-1.5 py-0.5 min-w-5 h-5 rounded-full ${
+                cluster.isMultiLocation ? "bg-sky-500 ring-2 ring-black/90" : "bg-emerald-500 ring-2 ring-black/90"
+              } text-white font-black text-[11px] leading-none flex items-center justify-center shadow-[0_2px_8px_rgba(0,0,0,0.9)] border-2 border-white pointer-events-none">
                 ${count}
               </div>
             `
@@ -650,9 +657,9 @@ export default function PhotoMapView() {
             }
           </div>
         `,
-        iconSize: [40, 48],
-        iconAnchor: [20, 46],
-        popupAnchor: [0, -44],
+        iconSize: [42, 50],
+        iconAnchor: [21, 48],
+        popupAnchor: [0, -46],
       })
 
       const marker = L.marker([cluster.latitude, cluster.longitude], { icon: customIcon })
