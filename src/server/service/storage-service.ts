@@ -14,42 +14,9 @@ import { formatHttpUrl } from '@/lib/url';
 
 // This module handles the data query and writing business of storage configuration.
 
-// Determine whether a configured media domain exposes the native R2 bucket directly.
-function isNativeR2PublicDomain(domain?: string | null): boolean {
-  const value = formatHttpUrl(domain);
-  if (!value) {
-    return false;
-  }
-
-  try {
-    const hostname = new URL(value).hostname.toLowerCase();
-    return hostname === 'r2.dev' || hostname.endsWith('.r2.dev');
-  } catch {
-    return false;
-  }
-}
-
-// Determine whether a media domain exactly matches the explicitly approved gateway URL.
-function isApprovedMediaDomain(domain?: string | null): boolean {
-  const value = formatHttpUrl(domain);
-  const approvedGateway = formatHttpUrl(process.env.R2_MEDIA_GATEWAY_URL);
-  return Boolean(value && approvedGateway && value === approvedGateway && !isNativeR2PublicDomain(value));
-}
-
-// Reject media domains that are not the explicitly approved private-bucket gateway.
-function assertSafeMediaDomain(domain?: string | null): void {
-  if (domain?.trim() && !isApprovedMediaDomain(domain)) {
-    throw new BizError('storage.publicR2DomainForbidden');
-  }
-}
-
-// Return a gateway-safe media domain, falling back to the same-origin proxy when unsafe.
-function getSafeMediaDomain(domain?: string | null): string | null {
-  if (!isApprovedMediaDomain(domain)) {
-    return null;
-  }
-
-  return formatHttpUrl(domain);
+// Format a media domain for direct CDN acceleration, returning null if empty.
+function formatMediaDomain(domain?: string | null): string | null {
+  return formatHttpUrl(domain) || null;
 }
 
 const storageService = {
@@ -98,7 +65,7 @@ const storageService = {
       const safeStorage = { ...storage };
       delete safeStorage.accessKey;
       delete safeStorage.secretKey;
-      safeStorage.domain = getSafeMediaDomain(safeStorage.domain);
+      safeStorage.domain = formatMediaDomain(safeStorage.domain);
 
       return {
         ...safeStorage,
@@ -121,8 +88,6 @@ const storageService = {
     if (!params.type) {
       throw new BizError('storage.typeRequired');
     }
-
-    assertSafeMediaDomain(params.domain);
 
     const [existsStorage] = await orm
       .select()
@@ -205,8 +170,6 @@ const storageService = {
       throw new BizError('storage.typeRequired');
     }
 
-    assertSafeMediaDomain(params.domain);
-
     await orm.update(storageTab)
       .set({
         name,
@@ -253,12 +216,12 @@ const storageService = {
         .orderBy(desc(storageTab.sort));
 
       if (!storageList.length && process.env.R2_BUCKET_NAME && process.env.R2_ACCESS_KEY_ID) {
-        const mediaGatewayUrl = process.env.R2_MEDIA_GATEWAY_URL;
+        const mediaGatewayUrl = process.env.R2_MEDIA_GATEWAY_URL || process.env.R2_PUBLIC_URL;
         const defaultR2: Storage = {
           storageId: 'r2_default',
           name: 'Cloudflare R2',
           type: StorageTypeEnum.S3,
-          domain: getSafeMediaDomain(mediaGatewayUrl),
+          domain: formatMediaDomain(mediaGatewayUrl),
           bucket: process.env.R2_BUCKET_NAME,
           region: 'auto',
           endpoint: process.env.R2_ACCOUNT_ID ? `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com` : null,
@@ -283,7 +246,7 @@ const storageService = {
 
     return (storageList ?? []).map((item) => ({
       ...item,
-      domain: getSafeMediaDomain(item.domain),
+      domain: formatMediaDomain(item.domain),
     })) as Storage[];
   },
 
