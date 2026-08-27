@@ -248,23 +248,111 @@ export function PhotoInfoSidebar({
     }
   }, [])
 
+  const [dragOffsetY, setDragOffsetY] = useState(0)
+  const [isClosing, setIsClosing] = useState(false)
+  const touchStartRef = useRef<{ y: number; time: number } | null>(null)
+  const isDraggingSheetRef = useRef(false)
+
+  // Mobile Swipe-Down to Dismiss gesture tracking
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (typeof window !== "undefined" && window.innerWidth >= 768) return
+    const touch = e.touches[0]
+    touchStartRef.current = { y: touch.clientY, time: Date.now() }
+    isDraggingSheetRef.current = false
+  }
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!touchStartRef.current || isClosing) return
+    const touch = e.touches[0]
+    const dy = touch.clientY - touchStartRef.current.y
+
+    if (dy > 6) {
+      isDraggingSheetRef.current = true
+      setDragOffsetY(dy)
+    }
+  }
+
+  const handleTouchEnd = () => {
+    const start = touchStartRef.current
+    touchStartRef.current = null
+    if (!start || !isDraggingSheetRef.current) {
+      setDragOffsetY(0)
+      return
+    }
+
+    const dt = Math.max(1, Date.now() - start.time)
+    const velocity = dragOffsetY / dt
+
+    if (dragOffsetY > 90 || velocity > 0.45) {
+      // Dismiss sheet smoothly with spring downward animation
+      setIsClosing(true)
+      setTimeout(() => {
+        setIsClosing(false)
+        setDragOffsetY(0)
+        isDraggingSheetRef.current = false
+        onClose?.()
+      }, 220)
+    } else {
+      // Snap back to top
+      setDragOffsetY(0)
+      isDraggingSheetRef.current = false
+    }
+  }
+
+  const handleTouchCancel = () => {
+    touchStartRef.current = null
+    isDraggingSheetRef.current = false
+    setDragOffsetY(0)
+  }
+
   const handleTabChange = (tab: "info" | "comments") => {
     setInternalTab(tab)
     onTabChange?.(tab)
   }
 
+  const asideTransform = isClosing
+    ? "translate3d(0, 100%, 0)"
+    : dragOffsetY > 0
+    ? `translate3d(0, ${dragOffsetY}px, 0)`
+    : undefined
+
+  const asideTransition = dragOffsetY > 0
+    ? "none"
+    : "transform 0.28s cubic-bezier(0.22, 1, 0.36, 1)"
+
   return (
     <aside
       ref={asideRef}
-      className="fixed top-0 right-0 z-[41] flex h-full w-full flex-col overflow-hidden bg-neutral-950/90 backdrop-blur-2xl text-white shadow-photo-sidebar md:w-84 md:shrink-0 md:border-l md:border-white/10 pointer-events-auto touch-pan-y exif-drawer-spring"
-      style={{ touchAction: "pan-y" }}
+      className="fixed top-0 right-0 z-[41] flex h-full w-full flex-col overflow-hidden bg-neutral-950/90 backdrop-blur-2xl text-white shadow-photo-sidebar md:w-84 md:shrink-0 md:border-l md:border-white/10 pointer-events-auto touch-pan-y exif-drawer-spring will-change-transform"
+      style={{
+        touchAction: "pan-y",
+        transform: asideTransform,
+        transition: asideTransition,
+      }}
     >
       <PhotoViewerBlurBackground thumbHash={photo?.thumbHash} />
 
       {photo && (
         <div className="relative z-10 flex flex-col flex-1 h-full min-h-0">
-          {/* Top Header with title and close button */}
-          <div className="flex items-center justify-between px-4 pt-3 pb-2 shrink-0 border-b border-white/10">
+          {/* Mobile Swipe-Down-to-Dismiss Grab Handle */}
+          <div
+            className="md:hidden flex flex-col items-center justify-center pt-2.5 pb-1 px-4 cursor-grab active:cursor-grabbing touch-none select-none"
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
+            onTouchCancel={handleTouchCancel}
+          >
+            <div className="w-12 h-1.5 rounded-full bg-white/40 active:bg-white/60 transition-colors shadow-xs" />
+          </div>
+
+          {/* Top Header with title and close button (Supports swipe-down gesture on mobile) */}
+          <div
+            className="flex items-center justify-between px-4 pt-1.5 md:pt-3 pb-2 shrink-0 border-b border-white/10 select-none md:select-auto"
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
+            onTouchCancel={handleTouchCancel}
+          >
             <h2 className="text-sm font-bold text-white truncate pr-2" title={photo.name}>
               {formatPhotoName(photo.name)}
             </h2>

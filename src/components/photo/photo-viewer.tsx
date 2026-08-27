@@ -1407,6 +1407,10 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
     setShowActions(true)
   }
 
+  // Double-tap & single-tap resolution refs
+  const lastTapTimeRef = useRef<number>(0)
+  const singleTapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
   // Record slide coordinates and begin tracking fluid drag-to-dismiss gesture.
   function handleSlidePointerDown(event: React.PointerEvent<HTMLDivElement>) {
     if (zoomLevel > 1) return
@@ -1421,9 +1425,9 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
     const dx = event.clientX - dragPointerStartRef.current.x
     const dy = event.clientY - dragPointerStartRef.current.y
 
-    // Trigger drag-to-dismiss only on deliberate downward gesture
+    // Trigger drag-to-dismiss on downward gesture (with vertical angle bias)
     if (!isDraggingRef.current) {
-      if (dy > 8 && Math.abs(dy) > Math.abs(dx) * 1.1) {
+      if (dy > 6 && Math.abs(dy) > Math.abs(dx) * 1.05) {
         isDraggingRef.current = true
       } else {
         return
@@ -1432,7 +1436,7 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
 
     if (isDraggingRef.current) {
       const dampedY = dy > 0 ? dy : dy * 0.2
-      setDragOffset({ x: dx, y: dampedY })
+      setDragOffset({ x: dx * 0.4, y: dampedY })
     }
   }
 
@@ -1448,22 +1452,44 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
     const dt = Math.max(1, Date.now() - start.time)
     const velocity = dy / dt
 
-    if (isDraggingRef.current && (dy > 120 || (dy > 60 && velocity > 0.55))) {
+    if (isDraggingRef.current && (dy > 110 || (dy > 50 && velocity > 0.45))) {
       // Dismiss photo with fluid spring exit animation
       setIsDismissing(true)
       setTimeout(() => {
         setIsDismissing(false)
         setDragOffset(null)
+        isDraggingRef.current = false
         closeViewer()
-      }, 240)
+      }, 220)
     } else {
       // Snap back to center with spring curve
       setDragOffset(null)
       isDraggingRef.current = false
 
-      // Toggle action buttons on simple click/tap
-      if (Math.abs(dx) < 8 && Math.abs(dy) < 8 && zoomLevel <= 1) {
-        setShowActions((prev) => !prev)
+      // Distinguish Single Tap (toggle UI) vs Double Tap (Smart Zoom):
+      if (Math.abs(dx) < 10 && Math.abs(dy) < 10) {
+        const now = Date.now()
+        const timeSinceLastTap = now - lastTapTimeRef.current
+
+        if (timeSinceLastTap < 300) {
+          // Double Tap: Cancel single-tap timer so Lightbox Zoom plugin can handle zoom cleanly
+          if (singleTapTimerRef.current) {
+            clearTimeout(singleTapTimerRef.current)
+            singleTapTimerRef.current = null
+          }
+          lastTapTimeRef.current = 0
+        } else {
+          lastTapTimeRef.current = now
+          if (singleTapTimerRef.current) {
+            clearTimeout(singleTapTimerRef.current)
+          }
+          singleTapTimerRef.current = setTimeout(() => {
+            if (zoomLevel <= 1) {
+              setShowActions((prev) => !prev)
+            }
+            singleTapTimerRef.current = null
+          }, 280)
+        }
       }
     }
   }
@@ -1533,8 +1559,10 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
         zoom={{
           scrollToZoom: true,
           wheelZoomDistanceFactor: 100,
-          maxZoomPixelRatio: 1.2,
+          maxZoomPixelRatio: 3,
           doubleClickMaxStops: 2,
+          doubleClickDelay: 300,
+          doubleTapDelay: 300,
         }}
         toolbar={{
           buttons: [],
