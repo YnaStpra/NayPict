@@ -59,11 +59,15 @@ export const AlbumCard = memo(function AlbumCard({ data, width, href, onRename, 
 
   return (
     <div
-      className="group relative aspect-square overflow-hidden bg-muted houdini-smooth-card touch-press-feedback"
+      className="group relative aspect-square overflow-hidden houdini-smooth-card touch-press-feedback"
       style={{
         width,
         contain: "paint layout",
         containIntrinsicSize: "280px 280px",
+        backgroundColor: placeholder ? undefined : "rgba(128,128,128,0.08)",
+        backgroundImage: placeholder ? `url("${placeholder}")` : undefined,
+        backgroundSize: "cover",
+        backgroundPosition: "center",
         // Dynamic Layout Stability CSS Custom Properties (CLS = 0.000)
         ["--aspect-ratio" as string]: "1",
         ["--intrinsic-width" as string]: `${width}px`,
@@ -76,14 +80,6 @@ export const AlbumCard = memo(function AlbumCard({ data, width, href, onRename, 
         className="absolute inset-0 block"
         onClick={saveCurrentAlbumName}
       >
-        {placeholder && (
-          <img
-            src={placeholder}
-            alt=""
-            className="absolute inset-0 h-full w-full scale-110 blur-sm"
-            aria-hidden
-          />
-        )}
         {thumbnailSrc ? (
           <img
             src={thumbnailSrc}

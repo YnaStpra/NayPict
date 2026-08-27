@@ -317,6 +317,38 @@ const PhotoMasonry = memo(function PhotoMasonry({
     }
   }, [isMobile, photos.length])
 
+  // Proactive Predictive Image Cache Preloader: Pre-heats upcoming thumbnails ahead of the scroll position
+  useEffect(() => {
+    if (typeof window === "undefined" || !photos.length) return
+
+    const preloadUpcomingThumbnails = () => {
+      const scrollY = window.scrollY || window.pageYOffset
+      const avgCardHeight = isMobile ? 180 : 260
+      const cols = Math.max(1, Math.floor(width / columnWidth))
+      const estimatedVisibleIndex = Math.max(0, Math.floor((scrollY / avgCardHeight) * cols))
+      const startIdx = Math.max(0, estimatedVisibleIndex)
+      const endIdx = Math.min(photos.length, startIdx + 36)
+
+      for (let i = startIdx; i < endIdx; i++) {
+        const p = photos[i]
+        const src = p?.thumbnail || p?.preview || p?.key
+        if (src) {
+          const img = new Image()
+          img.decoding = "async"
+          img.src = src
+        }
+      }
+    }
+
+    if ("requestIdleCallback" in window) {
+      const handle = window.requestIdleCallback(preloadUpcomingThumbnails, { timeout: 350 })
+      return () => window.cancelIdleCallback(handle)
+    } else {
+      const timer = setTimeout(preloadUpcomingThumbnails, 100)
+      return () => clearTimeout(timer)
+    }
+  }, [photos, width, columnWidth, isMobile])
+
   // Toggle photo selection in array photoId.
   function changePhotoSelected(photoId: string, selected: boolean) {
     setSelectedPhotoIds((prev) => {
@@ -486,7 +518,7 @@ const PhotoMasonry = memo(function PhotoMasonry({
             offset={wrapPosition.offset}
             height={windowHeight}
             itemKey={(item) => item.photoId}
-            overscanBy={3}
+            overscanBy={6}
             render={(props) => (
               <PhotoCard
                 {...props}

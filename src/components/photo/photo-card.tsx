@@ -28,9 +28,6 @@ type PhotoCardProps = RenderComponentProps<PhotoVo> & {
   touchHoverCloseRef?: TouchHoverCloseRef
 }
 
-// Global in-memory cache of loaded photo IDs to prevent flicker on pagination / re-render
-const loadedPhotoCache = new Set<string>()
-
 // Format photo file size.
 function formatPhotoSize(size: number) {
   if (size < 1024) {
@@ -78,8 +75,6 @@ export const PhotoCard = memo(function PhotoCard({
   const [imageSrc, setImageSrc] = useState<string | null>(() => data.thumbnail || data.preview || data.key || null)
   // imageError Record whether all photo URLs failed to load.
   const [imageError, setImageError] = useState(false)
-  // Progressive blur transition state (initialized from in-memory cache for instant display)
-  const [imageLoaded, setImageLoaded] = useState<boolean>(() => Boolean(data.photoId && loadedPhotoCache.has(data.photoId)))
   // isMobile Determine whether the current viewport is the mobile terminal.
   const isMobile = useIsMobile()
   const showHover = showTouchHover || holdHover
@@ -91,35 +86,23 @@ export const PhotoCard = memo(function PhotoCard({
   // Reset image source and state when photo actually changes
   const prevPhotoIdRef = useRef(data.photoId)
   useEffect(() => {
-    const isNewPhoto = prevPhotoIdRef.current !== data.photoId
-    prevPhotoIdRef.current = data.photoId
-
-    setImageSrc(data.thumbnail || data.preview || data.key || null)
-    setImageError(false)
-    if (isNewPhoto && !loadedPhotoCache.has(data.photoId)) {
-      setImageLoaded(false)
+    if (prevPhotoIdRef.current !== data.photoId) {
+      prevPhotoIdRef.current = data.photoId
+      setImageSrc(data.thumbnail || data.preview || data.key || null)
+      setImageError(false)
     }
   }, [data.photoId, data.thumbnail, data.preview, data.key])
 
-  // Proactive Fallback Watchdog: If thumbnail stalls > 2.8s without error, seamlessly switch to preview/original
+  // Proactive Fallback Watchdog: If thumbnail stalls > 3s without error, seamlessly switch to preview/original
   useEffect(() => {
-    if (imageLoaded || imageError) return
+    if (imageError) return
     if (imageSrc === data.thumbnail && data.preview && data.preview !== data.thumbnail) {
       const timer = setTimeout(() => {
-        if (!imageLoaded) {
-          setImageSrc(data.preview)
-        }
-      }, 2800)
+        setImageSrc(data.preview)
+      }, 3000)
       return () => clearTimeout(timer)
     }
-  }, [imageSrc, imageLoaded, imageError, data.thumbnail, data.preview])
-
-  const handleImageLoadSuccess = () => {
-    if (data.photoId) {
-      loadedPhotoCache.add(data.photoId)
-    }
-    setImageLoaded(true)
-  }
+  }, [imageSrc, imageError, data.thumbnail, data.preview])
 
   // Handle graceful image fallback across all media tiers and CDN fallback
   function handleImageError() {
@@ -236,7 +219,7 @@ export const PhotoCard = memo(function PhotoCard({
 
   return (
     <div
-      className="group relative overflow-hidden bg-muted houdini-smooth-card touch-press-feedback"
+      className="group relative overflow-hidden houdini-smooth-card touch-press-feedback"
       onClick={handlePhotoClick}
       onContextMenu={handlePhotoContextMenu}
       onMouseEnter={handleMouseEnter}
@@ -247,36 +230,23 @@ export const PhotoCard = memo(function PhotoCard({
         contain: "paint layout",
         transform: "translateZ(0)",
         willChange: "auto",
+        backgroundColor: placeholder ? undefined : "rgba(128,128,128,0.08)",
+        backgroundImage: placeholder ? `url("${placeholder}")` : undefined,
+        backgroundSize: "cover",
+        backgroundPosition: "center",
         // Dynamic Layout Stability CSS Custom Properties (CLS = 0.000)
         ["--aspect-ratio" as string]: `${ratio}`,
         ["--intrinsic-width" as string]: `${width}px`,
         ["--intrinsic-height" as string]: `${cardHeight}px`,
       }}
     >
-      {placeholder && (
-        <img
-          src={placeholder}
-          alt=""
-          className={[
-            "absolute inset-0 h-full w-full object-cover transition-opacity duration-300 pointer-events-none",
-            imageLoaded ? "opacity-0" : "opacity-100",
-          ].join(" ")}
-          aria-hidden
-          draggable={false}
-        />
-      )}
       {imageError ? (
-        <div className="absolute inset-0 flex items-center justify-center px-3 text-center text-sm text-muted-foreground">
+        <div className="absolute inset-0 flex items-center justify-center px-3 text-center text-sm text-muted-foreground bg-muted/60">
           {t("imageLoadFailed")}
         </div>
       ) : (
         <img
-          ref={(el) => {
-            imgRef.current = el
-            if (el && el.complete && el.naturalWidth > 0 && !imageLoaded) {
-              handleImageLoadSuccess()
-            }
-          }}
+          ref={imgRef}
           src={imageSrc ?? undefined}
           loading={isPriority ? "eager" : "lazy"}
           fetchPriority={isPriority ? "high" : "auto"}
@@ -288,7 +258,6 @@ export const PhotoCard = memo(function PhotoCard({
             selectionActive ? "" : "group-hover:scale-[1.035]",
             showHover && !selectionActive ? "scale-[1.035]" : "",
           ].join(" ")}
-          onLoad={handleImageLoadSuccess}
           onError={handleImageError}
         />
       )}
