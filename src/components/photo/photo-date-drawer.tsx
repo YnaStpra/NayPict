@@ -116,7 +116,7 @@ function PhotoDateDrawer({ albumId, onRangeChange }: PhotoDateDrawerProps) {
   }, [dateList, maxDateIndex])
 
   return (
-    <Drawer direction="right" handleOnly open={open} onOpenChange={changeOpen}>
+    <Drawer direction="right" open={open} onOpenChange={changeOpen}>
       <DrawerTrigger asChild>
         <Button
           type="button"

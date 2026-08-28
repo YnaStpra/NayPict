@@ -543,8 +543,13 @@ body {
 }
 
 /* ==========================================================================
-   Date Range Right Drawer Handle (Clamped below top navbar header)
+   Date Range Right Drawer (Eliminate persistent edge handles)
    ========================================================================== */
+[data-vaul-handle],
+[data-vaul-handle-hitarea] {
+  display: none !important;
+}
+
 [data-vaul-drawer][data-vaul-drawer-direction="right"],
 [data-slot="drawer-content"][data-vaul-drawer-direction="right"] {
   top: 3rem !important; /* Exactly below h-12 (48px) top navbar */
