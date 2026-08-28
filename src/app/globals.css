@@ -542,6 +542,17 @@ body {
   filter: drop-shadow(0 0 15px rgba(52, 211, 153, 0.95));
 }
 
+/* ==========================================================================
+   Date Range Right Drawer Handle (Clamped below top navbar header)
+   ========================================================================== */
+[data-vaul-drawer][data-vaul-drawer-direction="right"],
+[data-slot="drawer-content"][data-vaul-drawer-direction="right"] {
+  top: 3rem !important; /* Exactly below h-12 (48px) top navbar */
+  bottom: 0 !important;
+  height: calc(100dvh - 3rem) !important;
+  max-height: calc(100dvh - 3rem) !important;
+}
+
 /* Magnetic Micro-Card Float on Hover */
 @keyframes map-popover-spring {
   0% {

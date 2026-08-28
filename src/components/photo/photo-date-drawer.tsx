@@ -127,16 +127,16 @@ function PhotoDateDrawer({ albumId, onRangeChange }: PhotoDateDrawerProps) {
         </Button>
       </DrawerTrigger>
       <DrawerContent
-        className="h-dvh !w-38 md:!w-35 !rounded-none pr-9 md:pr-6 pb-8 pt-15 sm:max-w-none"
+        className="!top-12 !h-[calc(100dvh-3rem)] !w-38 md:!w-35 !rounded-none pr-9 md:pr-6 pb-8 pt-8 sm:max-w-none border-t border-border/40 shadow-xl"
         onPointerDownOutside={saveRange}
       >
-        <div className="absolute top-4 left-4">{t("selectDateRange")}</div>
+        <div className="absolute top-3 left-4 text-xs font-semibold text-foreground">{t("selectDateRange")}</div>
         <DrawerClose asChild>
           <Button
             type="button"
             variant="ghost"
             size="icon-sm"
-            className="absolute top-3 right-6 md:right-3"
+            className="absolute top-2.5 right-6 md:right-3"
           >
             <XIcon />
             <span className="sr-only">Close</span>
