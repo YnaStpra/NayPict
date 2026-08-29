@@ -10,11 +10,13 @@ import { registerCommentApi } from '../api/comment-api';
 import { registerInsightsApi } from '../api/insights-api';
 import { registerLocationApi } from '../api/location-api';
 import { registerCspApi } from '../api/csp-api';
+import { registerHealthApi } from '../api/health-api';
 
 // This module creates a fresh Hono application instance with all API routes attached per request handler.
 
 export function getApp() {
   const instance = createHonoApp();
+  registerHealthApi(instance);
   registerAlbumApi(instance);
   registerPhotoApi(instance);
   registerStorageApi(instance);
