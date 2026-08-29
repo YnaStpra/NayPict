@@ -28,7 +28,7 @@ function buildBaseHeaders(allowedOrigin) {
     "Access-Control-Allow-Headers": ALLOW_HEADERS,
     "Access-Control-Expose-Headers": EXPOSE_HEADERS,
     "Cross-Origin-Resource-Policy": "cross-origin",
-    "Vary": "Origin",
+    "Vary": "Origin, Accept",
     "X-Content-Type-Options": "nosniff",
   })
 }

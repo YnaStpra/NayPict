@@ -179,6 +179,25 @@ export function PhotoComments({ photoId }: PhotoCommentsProps) {
     }
 
     setIsSubmitting(true);
+    const tempId = `optimistic_${Date.now()}`;
+    const optimisticComment: CommentVo = {
+      commentId: tempId,
+      photoId,
+      name: trimmedName,
+      content: trimmedContent,
+      createTime: new Date().toISOString(),
+    };
+
+    // Instant Optimistic UI: Prepend comment immediately
+    setComments((prev) => [optimisticComment, ...prev]);
+    setContent("");
+    setHoneypot("");
+    setFormLoadedAt(Date.now());
+
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTop = 0;
+    }
+
     try {
       const newComment = await commentAdd({
         photoId,
@@ -196,40 +215,36 @@ export function PhotoComments({ photoId }: PhotoCommentsProps) {
         // Ignore local storage write errors.
       }
 
-      // Add new comment locally if not already received from SSE.
-      setComments((prev) => {
-        if (prev.some((c) => c.commentId === newComment.commentId)) {
-          return prev;
-        }
-        return [newComment, ...prev];
-      });
-      setContent("");
-      setHoneypot("");
-      setFormLoadedAt(Date.now());
+      // Replace optimistic comment with confirmed server response
+      setComments((prev) =>
+        prev.map((c) => (c.commentId === tempId ? newComment : c))
+      );
       toast.success("Comment posted successfully");
-
-      // Smoothly scroll to the top of comment list.
-      if (scrollContainerRef.current) {
-        scrollContainerRef.current.scrollTop = 0;
-      }
     } catch {
-      // Error toast is already displayed by http request wrapper.
+      // Rollback optimistic comment on failure and restore content
+      setComments((prev) => prev.filter((c) => c.commentId !== tempId));
+      setContent(trimmedContent);
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // Handle Admin deletion of a comment.
+  // Handle Admin deletion of a comment with Instant Optimistic UI.
   const handleDeleteComment = async (commentId: string) => {
     if (!isAdmin || deletingId) return;
 
+    const previousComments = [...comments];
     setDeletingId(commentId);
+    // Instant Optimistic UI removal
+    setComments((prev) => prev.filter((item) => item.commentId !== commentId));
+
     try {
       await commentDelete({ commentId });
-      setComments((prev) => prev.filter((item) => item.commentId !== commentId));
       toast.success("Comment deleted");
     } catch {
-      // Handled by request wrapper.
+      // Rollback on error
+      setComments(previousComments);
+      toast.error("Failed to delete comment");
     } finally {
       setDeletingId(null);
     }
@@ -247,7 +262,7 @@ export function PhotoComments({ photoId }: PhotoCommentsProps) {
     setReplyText("");
   };
 
-  // Handle submitting admin reply
+  // Handle submitting admin reply with Instant Optimistic UI
   const handleSubmitReply = async (commentId: string) => {
     const trimmed = replyText.trim();
     if (!trimmed) {
@@ -255,7 +270,19 @@ export function PhotoComments({ photoId }: PhotoCommentsProps) {
       return;
     }
 
+    const previousComments = [...comments];
     setIsSubmittingReply(true);
+
+    // Instant Optimistic UI update
+    setComments((prev) =>
+      prev.map((c) =>
+        c.commentId === commentId
+          ? { ...c, replyContent: trimmed, replyTime: new Date().toISOString() }
+          : c
+      )
+    );
+    setReplyingCommentId(null);
+
     try {
       const updated = await commentReply({
         commentId,
@@ -269,11 +296,12 @@ export function PhotoComments({ photoId }: PhotoCommentsProps) {
             : c
         )
       );
-      toast.success("Reply posted");
-      setReplyingCommentId(null);
-      setReplyText("");
+      toast.success("Reply saved");
     } catch {
-      // Handled by request wrapper
+      // Rollback on error
+      setComments(previousComments);
+      setReplyingCommentId(commentId);
+      toast.error("Failed to save reply");
     } finally {
       setIsSubmittingReply(false);
     }

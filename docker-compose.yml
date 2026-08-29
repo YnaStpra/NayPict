@@ -1,0 +1,90 @@
+services:
+  # Nginx Reverse Proxy & Load Balancer
+  load-balancer:
+    image: nginx:1.27-alpine
+    container_name: pixtale-load-balancer
+    restart: always
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+    depends_on:
+      app1:
+        condition: service_healthy
+      app2:
+        condition: service_healthy
+      app3:
+        condition: service_healthy
+    networks:
+      - pixtale-net
+
+  # Pixtale Application Instance 1
+  app1:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: pixtale-app-1
+    restart: always
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=production
+      - PORT=8082
+      - INSTANCE_ID=app-1
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:8082/api/health || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 15s
+    networks:
+      - pixtale-net
+
+  # Pixtale Application Instance 2
+  app2:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: pixtale-app-2
+    restart: always
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=production
+      - PORT=8082
+      - INSTANCE_ID=app-2
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:8082/api/health || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 15s
+    networks:
+      - pixtale-net
+
+  # Pixtale Application Instance 3
+  app3:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: pixtale-app-3
+    restart: always
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=production
+      - PORT=8082
+      - INSTANCE_ID=app-3
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:8082/api/health || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 15s
+    networks:
+      - pixtale-net
+
+networks:
+  pixtale-net:
+    driver: bridge

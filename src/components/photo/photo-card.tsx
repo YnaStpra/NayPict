@@ -128,7 +128,7 @@ export const PhotoCard = memo(function PhotoCard({
     }
   }
 
-  // Predictive hover prefetching with intent dwell time (>65ms) & requestIdleCallback
+  // Predictive hover prefetching with intent dwell time (>50ms) & requestIdleCallback
   function handleMouseEnter() {
     if (isMobile) return
     hoverTimerRef.current = setTimeout(() => {
@@ -149,7 +149,17 @@ export const PhotoCard = memo(function PhotoCard({
           prefetch()
         }
       }
-    }, 65)
+    }, 50)
+  }
+
+  // Predictive touch-start prefetching for instant mobile lightbox opening
+  function handleTouchStart() {
+    if (typeof window !== "undefined" && data.preview) {
+      const img = new Image()
+      img.decoding = "async"
+      img.src = data.preview
+      import("@/components/photo/photo-viewer").catch(() => {})
+    }
   }
 
   function handleMouseLeave() {
@@ -224,6 +234,7 @@ export const PhotoCard = memo(function PhotoCard({
       onContextMenu={handlePhotoContextMenu}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
+      onTouchStart={handleTouchStart}
       style={{
         width,
         height: cardHeight,
