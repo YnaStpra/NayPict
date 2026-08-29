@@ -1,12 +1,12 @@
-# Panduan Implementasi Load Balancer Pixtale
+# Panduan Implementasi Load Balancer NayPict
 
-Dokumen ini menjelaskan strategi penerapan **Load Balancer** untuk mencegah *server overload*, mendistribusikan beban lalu lintas secara merata, serta menjamin *High Availability (HA)* pada Pixtale.
+Dokumen ini menjelaskan strategi penerapan **Load Balancer** untuk mencegah *server overload*, mendistribusikan beban lalu lintas secara merata, serta menjamin *High Availability (HA)* pada NayPict.
 
 ---
 
-## 1. Arsitektur Load Balancer Pixtale
+## 1. Arsitektur Load Balancer NayPict
 
-Pixtale mendukung 2 model arsitektur Load Balancer utama:
+NayPict mendukung 2 model arsitektur Load Balancer utama:
 
 ```
 [MODEL A: Edge CDN Anycast Load Balancing (Serverless / Cloud)]
@@ -19,9 +19,9 @@ Pengunjung ──→ Nginx Load Balancer (Port 80/443)
                   │ (Algoritma: least_conn + keepalive 64)
                   ├─ Probe /api/health (Auto-Failover 3s)
                   ├─ Rate Limiting (50 req/s per IP)
-                  ├──→ Pixtale Instance 1 (Port 8082)
-                  ├──→ Pixtale Instance 2 (Port 8082)
-                  └──→ Pixtale Instance 3 (Port 8082)
+                  ├──→ NayPict Instance 1 (Port 8082)
+                  ├──→ NayPict Instance 2 (Port 8082)
+                  └──→ NayPict Instance 3 (Port 8082)
 ```
 
 ---
@@ -30,7 +30,7 @@ Pengunjung ──→ Nginx Load Balancer (Port 80/443)
 
 Konfigurasi telah disediakan di root proyek via [`docker-compose.yml`](../docker-compose.yml) dan folder [`nginx/`](../nginx/).
 
-### Fitur Utama Nginx Load Balancer Pixtale:
+### Fitur Utama Nginx Load Balancer NayPict:
 * **Algoritma `least_conn`**: Mengarahkan *request* ke container yang memiliki antrean koneksi paling sedikit, mencegah satu container menjadi *bottleneck*.
 * **HTTP/1.1 Persistent Connection Pool (`keepalive 64`)**: Mengurangi latensi *TCP Handshake* antara Load Balancer dan aplikasi backend hingga 70%.
 * **Automatic Silent Failover (`proxy_next_upstream`)**: Jika salah satu instance mengalami error 502/503 atau restart, request pengguna langsung dialihkan secara transparan ke instance sehat lainnya dalam waktu <2 detik tanpa memunculkan error page ke pengguna.

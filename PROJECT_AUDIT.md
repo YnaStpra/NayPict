@@ -1,17 +1,17 @@
 # FULL PROJECT AUDIT & TECHNICAL DOCUMENTATION
-# NayPict / Pixtale
+# NayPict
 
 > **Document Type**: Technical Baseline & Deep Architecture Audit  
 > **Source of Truth**: Active Source Code (`develop` branch)  
 > **Last Updated**: August 2026  
-> **Repository**: [pixtale (NayPict)](https://github.com/YnaStpra/pixtale)  
+> **Repository**: [NayPict](https://github.com/YnaStpra/pixtale)  
 
 ---
 
 ## 1. PROJECT OVERVIEW
 
 ### Bahasa Sederhana
-**NayPict** (juga dikenal sebagai **Pixtale**) adalah aplikasi galeri foto web-based modern, performa tinggi, dan dirancang khusus untuk fotografi premium. Pengunjung umum (*public*) dapat menjelajahi ribuan foto dalam *virtualized infinite masonry grid*, kanvas *infinite gallery 2.5D*, menjelajahi peta foto interaktif dunia (*Interactive Photo Map Explorer* dengan layer Google Maps & CartoDB), membuka *lightbox* resolusi tinggi dengan informasi EXIF kamera dan koordinat GPS, bernostalgia melalui fitur *On This Day Memories*, serta memberikan komentar pada foto. Administrator memiliki kontrol menyeluruh untuk mengunggah ribuan foto secara paralel, mengompresi gambar otomatis, mengatur visibilitas 4-tingkat, mengelola album dengan cover dinamis dan *pinned photos* (maks 3 pin), mengedit metadata & koordinat GPS massal (format DMS & desimal), mengelola penyimpanan Cloudflare R2, memantau analitik penayangan (*Insights*), mengamankan akses dengan 2FA Google Authenticator (TOTP), dan mendeteksi foto duplikat secara cerdas. Seluruh antarmuka web, notifikasi, dan pesan sistem telah distandarisasi dalam **Bahasa Inggris (English)**.
+**NayPict** adalah aplikasi galeri foto web-based modern, performa tinggi, dan dirancang khusus untuk fotografi premium. Pengunjung umum (*public*) dapat menjelajahi ribuan foto dalam *virtualized infinite masonry grid*, kanvas *infinite gallery 2.5D*, menjelajahi peta foto interaktif dunia (*Interactive Photo Map Explorer* dengan layer Google Maps & CartoDB), membuka *lightbox* resolusi tinggi dengan informasi EXIF kamera dan koordinat GPS, bernostalgia melalui fitur *On This Day Memories*, serta memberikan komentar pada foto. Administrator memiliki kontrol menyeluruh untuk mengunggah ribuan foto secara paralel, mengompresi gambar otomatis, mengatur visibilitas 4-tingkat, mengelola album dengan cover dinamis dan *pinned photos* (maks 3 pin), mengedit metadata & koordinat GPS massal (format DMS & desimal), mengelola penyimpanan Cloudflare R2, memantau analitik penayangan (*Insights*), mengamankan akses dengan 2FA Google Authenticator (TOTP), dan mendeteksi foto duplikat secara cerdas. Seluruh antarmuka web, notifikasi, dan pesan sistem telah distandarisasi dalam **Bahasa Inggris (English)**.
 
 ### Penjelasan Teknis
 NayPict dibangun sebagai aplikasi *full-stack monolithic* modern dengan Next.js 16 App Router yang terintegrasi dengan framework micro-API Hono.js di route handler. Penyimpanan metadata persisten menggunakan database relasional PostgreSQL (dioptimalkan untuk Neon Serverless) yang dikelola oleh Drizzle ORM. Penyimpanan file media (asli, preview web-optimized, dan thumbnail) menggunakan object storage kompatibel S3 (terutama Cloudflare R2) dengan perutean CDN langsung atau proksi media terproteksi. Frontend memanfaatkan React 19, Tailwind CSS v4, shadcn/ui (Radix primitives), Leaflet untuk rendering peta interaktif, Masonic untuk virtualisasi masonry grid, Lucide icons, ThumbHash untuk placeholder blur instan 0ms, dan yet-another-react-lightbox untuk navigasi lightbox interaktif.
@@ -70,7 +70,7 @@ NayPict dibangun sebagai aplikasi *full-stack monolithic* modern dengan Next.js 
 ## 3. DIRECTORY STRUCTURE & ARCHITECTURE
 
 ```
-pixtale/
+Naypict/
 ├── locales/                      # Localization JSON dictionary files (en.json, zh.json)
 ├── public/                       # Static public assets (favicons, logos, robots)
 ├── scripts/                      # Build & deployment helper scripts
@@ -511,7 +511,7 @@ erDiagram
 | 🟢 **RESOLVED** | HTTP Response Streaming & SSE | `src/server/api/photo-api.ts` | Implemented `/photo/batchEdit/stream` using `streamSSE` from `hono/streaming` for real-time progress events. |
 | 🟢 **RESOLVED** | HTTP/2 & HTTP/3 Early Hints | `next.config.ts` | Configured `Link: </logo.png>; rel=preload; as=image` and static cache headers with Gzip/Brotli compression. |
 | 🟢 **RESOLVED** | Brotli & Response Stream Compression | `src/server/hono/hono.ts` | Registered `compress()` middleware from `hono/compress` to stream-compress JSON responses. |
-| 🟢 **RESOLVED** | Service Worker Offline PWA Cache | `public/sw.js` & `src/app/provider.tsx` | Registered Service Worker with Cache-First media and Stale-While-Revalidate API caching (`pixtale-v1`). |
+| 🟢 **RESOLVED** | Service Worker Offline PWA Cache | `public/sw.js` & `src/app/provider.tsx` | Registered Service Worker with Cache-First media and Stale-While-Revalidate API caching (`naypict-v1`). |
 | 🟢 **RESOLVED** | Dynamic Memory LRU Eviction | `src/lib/thumb-hash.ts` | Adaptive memory bounds (600 mobile, 1500 desktop) with LRU eviction and memory clearance handler. |
 | 🟢 **RESOLVED** | AVIF & Immutable Media Caching | `src/server/hono/media.ts` | Configured `Vary: Accept, Accept-Encoding`, `Accept-Ranges: bytes`, and `max-age=31536000, immutable` for previews/thumbnails. |
 | 🟢 **RESOLVED** | GPU Canvas Hardware Acceleration | `src/components/gallery/infinite-gallery.tsx` | Direct GPU layer rasterization (`willChange`, `backfaceVisibility: hidden`, `contain: layout style paint`) for locked 120 FPS. |

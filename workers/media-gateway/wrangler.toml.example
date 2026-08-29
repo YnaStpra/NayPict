@@ -1,4 +1,4 @@
-name = "pixtale-media-gateway"
+name = "naypict-media-gateway"
 main = "src/index.js"
 compatibility_date = "2026-08-27"
 workers_dev = true

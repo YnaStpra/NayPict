@@ -18,7 +18,7 @@ class GallerySyncManager {
 
   constructor() {
     if (typeof window !== "undefined" && "BroadcastChannel" in window) {
-      this.channel = new BroadcastChannel("pixtale_gallery_sync");
+      this.channel = new BroadcastChannel("naypict_gallery_sync");
       this.channel.onmessage = (ev) => {
         if (ev.data && typeof ev.data === "object") {
           this.notifyListeners(ev.data as GallerySyncEvent);

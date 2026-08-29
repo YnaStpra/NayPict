@@ -1,4 +1,4 @@
-# Pixtale Media Gateway
+# NayPict Media Gateway
 
 This Cloudflare Worker exposes only immutable photo derivatives from a private R2 bucket:
 
@@ -8,7 +8,7 @@ This Cloudflare Worker exposes only immutable photo derivatives from a private R
 - Write methods return `405` and never reach R2.
 - Plain `GET` responses are stored in Cloudflare's Cache API under a canonical URL.
 
-Original files must continue to be served by Pixtale's authenticated same-origin `/media/...` route. Do not use this Worker as an original-photo download endpoint.
+Original files must continue to be served by NayPict's authenticated same-origin `/media/...` route. Do not use this Worker as an original-photo download endpoint.
 
 ## Test locally
 
@@ -30,8 +30,8 @@ npm test
 
 2. In `wrangler.toml`, set:
 
-   - `APP_URL` to the exact Pixtale origin, for example `https://gallery.example.com`.
-   - `bucket_name` to the existing R2 bucket used by Pixtale.
+   - `APP_URL` to the exact NayPict origin, for example `https://gallery.example.com`.
+   - `bucket_name` to the existing R2 bucket used by NayPict.
 
 3. Authenticate and deploy:
 
@@ -42,9 +42,9 @@ npm test
 
 4. Test the generated `workers.dev` URL, then attach a dedicated Worker custom domain such as `media.example.com`.
 
-5. Set Pixtale's `R2_PUBLIC_URL` and storage `domain` to that Worker custom domain. Never set either value to a native `pub-*.r2.dev` URL or a custom domain connected directly to the R2 bucket.
+5. Set NayPict's `R2_PUBLIC_URL` and storage `domain` to that Worker custom domain. Never set either value to a native `pub-*.r2.dev` URL or a custom domain connected directly to the R2 bucket.
 
-For a zero-downtime cutover, deploy and verify the Worker on a new hostname before changing Pixtale's media domain.
+For a zero-downtime cutover, deploy and verify the Worker on a new hostname before changing NayPict's media domain.
 
 ## Mandatory R2 privacy checklist
 
@@ -54,7 +54,7 @@ The Worker does not make a publicly exposed bucket private by itself. Complete e
 - [ ] Disable or remove every custom domain connected directly to the R2 bucket.
 - [ ] Confirm the media hostname is routed to this Worker, not directly to R2.
 - [ ] Keep the `MEDIA_BUCKET` R2 binding; do not add public-read object ACLs.
-- [ ] Confirm Pixtale's S3 credentials can still read originals through `/media/...`.
+- [ ] Confirm NayPict's S3 credentials can still read originals through `/media/...`.
 - [ ] Confirm both legacy `photos/` and new `originals/` keys return `404` from the Worker.
 - [ ] Confirm the disabled native R2 URLs no longer return `2xx` for a known object.
 

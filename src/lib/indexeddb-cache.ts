@@ -1,6 +1,6 @@
 // This module provides an IndexedDB key-value binary blob cache for PWA offline photo browsing.
 
-const DB_NAME = "pixtale_offline_db";
+const DB_NAME = "naypict_offline_db";
 const STORE_NAME = "photo_blobs";
 const EXIF_STORE_NAME = "exif_metadata";
 const DB_VERSION = 2;

@@ -2,7 +2,7 @@ services:
   # Nginx Reverse Proxy & Load Balancer
   load-balancer:
     image: nginx:1.27-alpine
-    container_name: pixtale-load-balancer
+    container_name: naypict-load-balancer
     restart: always
     ports:
       - "80:80"
@@ -17,14 +17,14 @@ services:
       app3:
         condition: service_healthy
     networks:
-      - pixtale-net
+      - naypict-net
 
-  # Pixtale Application Instance 1
+  # NayPict Application Instance 1
   app1:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: pixtale-app-1
+    container_name: naypict-app-1
     restart: always
     env_file:
       - .env
@@ -39,14 +39,14 @@ services:
       retries: 3
       start_period: 15s
     networks:
-      - pixtale-net
+      - naypict-net
 
-  # Pixtale Application Instance 2
+  # NayPict Application Instance 2
   app2:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: pixtale-app-2
+    container_name: naypict-app-2
     restart: always
     env_file:
       - .env
@@ -61,14 +61,14 @@ services:
       retries: 3
       start_period: 15s
     networks:
-      - pixtale-net
+      - naypict-net
 
-  # Pixtale Application Instance 3
+  # NayPict Application Instance 3
   app3:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: pixtale-app-3
+    container_name: naypict-app-3
     restart: always
     env_file:
       - .env
@@ -83,8 +83,8 @@ services:
       retries: 3
       start_period: 15s
     networks:
-      - pixtale-net
+      - naypict-net
 
 networks:
-  pixtale-net:
+  naypict-net:
     driver: bridge
