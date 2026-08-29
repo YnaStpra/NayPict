@@ -23,18 +23,50 @@ export interface AlbumCoverCandidate {
   preview: string | null;
 }
 
-// Query the list of all albums.
-export function albumList() {
-  return http.post<AlbumVo[]>('/album/list');
+let cachedAlbums: AlbumVo[] | null = null;
+let cachedAlbumsTimestamp = 0;
+let inFlightAlbumPromise: Promise<AlbumVo[]> | null = null;
+
+// Invalidate in-memory album cache when mutations occur
+export function invalidateAlbumCache() {
+  cachedAlbums = null;
+  cachedAlbumsTimestamp = 0;
+}
+
+// Query the list of all albums with SWR in-memory caching (30s stale window) & request deduplication.
+export function albumList(forceRefresh: boolean = false): Promise<AlbumVo[]> {
+  const now = Date.now();
+  if (!forceRefresh && cachedAlbums && now - cachedAlbumsTimestamp < 30000) {
+    return Promise.resolve(cachedAlbums);
+  }
+
+  if (inFlightAlbumPromise) {
+    return inFlightAlbumPromise;
+  }
+
+  inFlightAlbumPromise = http
+    .post<AlbumVo[]>('/album/list')
+    .then((albums) => {
+      cachedAlbums = albums;
+      cachedAlbumsTimestamp = Date.now();
+      return albums;
+    })
+    .finally(() => {
+      inFlightAlbumPromise = null;
+    });
+
+  return inFlightAlbumPromise;
 }
 
 // Add album.
 export function albumAdd(params: AlbumAddBo) {
+  invalidateAlbumCache();
   return http.post<Album>('/album/add', params);
 }
 
 // Set or auto-select album cover.
 export function albumSetCover(params: AlbumSetCoverBo) {
+  invalidateAlbumCache();
   return http.post<void>('/album/setCover', params);
 }
 
@@ -45,16 +77,19 @@ export function albumGetCoverCandidates(albumId: string) {
 
 // Add photos to album.
 export function albumAddPhoto(params: AlbumAddPhotoBo) {
+  invalidateAlbumCache();
   return http.post<void>('/album/addPhoto', params);
 }
 
 // Remove photos from album.
 export function albumRemovePhoto(params: AlbumRemovePhotoBo) {
+  invalidateAlbumCache();
   return http.post<void>('/album/removePhoto', params);
 }
 
 // Toggle pinned status of a photo in an album (Max 3 pinned photos per album).
 export function albumTogglePinPhoto(params: AlbumTogglePinPhotoBo) {
+  invalidateAlbumCache();
   return http.post<{ isPinned: boolean }>('/album/togglePinPhoto', params);
 }
 
