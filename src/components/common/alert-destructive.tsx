@@ -16,6 +16,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
+import { useModalBackHandler } from "@/hooks/use-modal-back-handler"
 
 type AlertDialogDestructiveProps = React.ComponentProps<typeof AlertDialog> & {
   title: React.ReactNode
@@ -37,6 +38,9 @@ export function AlertDialogDestructive({
   ...props
 }: AlertDialogDestructiveProps) {
   const t = useTranslations("common")
+
+  // Intercept Android / mobile back gesture to close alert dialog cleanly
+  useModalBackHandler(Boolean(props.open), props.onOpenChange)
 
   return (
     <AlertDialog {...props}>

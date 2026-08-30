@@ -1138,6 +1138,16 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
   // State for Instagram Story Card generator dialog
   const [storyDialogOpen, setStoryDialogOpen] = useState(false)
 
+  // References to track open state of sub-modals for mobile back gestures
+  const storyDialogOpenRef = useRef(storyDialogOpen)
+  storyDialogOpenRef.current = storyDialogOpen
+  const insightsDialogOpenRef = useRef(insightsDialogOpen)
+  insightsDialogOpenRef.current = insightsDialogOpen
+  const infoOpenRef = useRef(infoOpen)
+  infoOpenRef.current = infoOpen
+  const isCinematicModeRef = useRef(isCinematicMode)
+  isCinematicModeRef.current = isCinematicMode
+
   // Toggle cinematic mode with Browser Fullscreen API and graceful fallback.
   const toggleCinematicMode = useCallback(() => {
     setIsCinematicMode((prev) => {
@@ -1287,12 +1297,77 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
 
     openScrollYRef.current = window.scrollY
 
-    // Push a history when opening the viewer, close viewer when browser returns.
+    // Push a history when opening the viewer, close sub-modals/viewer when browser returns.
     function handlePopState() {
-      if (typeof window !== "undefined" && window.innerWidth < 768) {
-        setInfoOpen(false)
+      // 1. If Story Dialog is open, close only the story dialog
+      if (storyDialogOpenRef.current) {
+        setStoryDialogOpen(false)
+        if (typeof window !== "undefined") {
+          window.history.pushState(
+            {
+              ...window.history.state,
+              photoViewerOpen: true,
+              photoId: currentPhotoIdRef.current,
+            },
+            "",
+            window.location.href,
+          )
+        }
+        return
       }
 
+      // 2. If Insights Dialog is open, close only insights dialog
+      if (insightsDialogOpenRef.current) {
+        setInsightsDialogOpen(false)
+        if (typeof window !== "undefined") {
+          window.history.pushState(
+            {
+              ...window.history.state,
+              photoViewerOpen: true,
+              photoId: currentPhotoIdRef.current,
+            },
+            "",
+            window.location.href,
+          )
+        }
+        return
+      }
+
+      // 3. If Cinematic Mode is active, exit Cinematic Mode
+      if (isCinematicModeRef.current) {
+        setIsCinematicMode(false)
+        if (typeof window !== "undefined") {
+          window.history.pushState(
+            {
+              ...window.history.state,
+              photoViewerOpen: true,
+              photoId: currentPhotoIdRef.current,
+            },
+            "",
+            window.location.href,
+          )
+        }
+        return
+      }
+
+      // 4. If Info Sidebar is open on mobile, close Info Sidebar first
+      if (infoOpenRef.current && typeof window !== "undefined" && window.innerWidth < 768) {
+        setInfoOpen(false)
+        if (typeof window !== "undefined") {
+          window.history.pushState(
+            {
+              ...window.history.state,
+              photoViewerOpen: true,
+              photoId: currentPhotoIdRef.current,
+            },
+            "",
+            window.location.href,
+          )
+        }
+        return
+      }
+
+      // 5. Otherwise close PhotoViewer
       historyPushedRef.current = false
       removePhotoIdFromUrl()
       const callback = onBrowserBackRef.current ?? onBackRef.current

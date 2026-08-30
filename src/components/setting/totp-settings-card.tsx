@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/dialog"
 import { disableTotp, enableTotp, getTotpStatus, setupTotp } from "@/request/totp"
 import { type TotpSetupVo, type TotpStatusVo } from "@/server/entity/vo/totp"
+import { useModalBackHandler } from "@/hooks/use-modal-back-handler"
 
 export function TotpSettingsCard() {
   const [status, setStatus] = useState<TotpStatusVo>({ enabled: false, configured: false })
@@ -25,6 +26,9 @@ export function TotpSettingsCard() {
   const [verificationCode, setVerificationCode] = useState("")
   const [submitting, setSubmitting] = useState(false)
   const [copiedSecret, setCopiedSecret] = useState(false)
+
+  // Intercept Android / mobile back gesture to close modal cleanly
+  useModalBackHandler(dialogOpen, setDialogOpen)
 
   // Fetch current 2FA status on mount
   useEffect(() => {

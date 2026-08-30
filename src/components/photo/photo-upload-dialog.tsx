@@ -36,6 +36,7 @@ import { albumAddPhoto } from "@/request/album"
 import { storageSelect } from "@/request/storage"
 import { type PhotoAddResultVo, type PhotoVo } from "@/server/entity/vo/photo"
 import { useTranslations } from "next-intl"
+import { useModalBackHandler } from "@/hooks/use-modal-back-handler"
 
 type UploadStatus = "new" | "waiting" | "uploading" | "success" | "failed" | "skipped"
 
@@ -194,6 +195,12 @@ export function PhotoUploadDialog() {
   const closeUpload = usePhotoStore((state) => state.closeUpload)
   const addUploadedPhoto = usePhotoStore((state) => state.addUploadedPhoto)
   const selectedStorageId = storageId ?? storages[0]?.storageId ?? null
+
+  // Mobile Back gesture handlers
+  useModalBackHandler(open, (isOpen) => {
+    if (!isOpen) handleOpenChange(false)
+  })
+  useModalBackHandler(showDuplicateModal, setShowDuplicateModal)
 
   // Ensure storage list is available when upload modal opens
   useEffect(() => {

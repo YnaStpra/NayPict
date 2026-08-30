@@ -21,6 +21,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts"
+import { useModalBackHandler } from "@/hooks/use-modal-back-handler"
 
 // Safe photo thumbnail with CDN error fallback and proxy support
 function DialogPhotoThumbnail({ src, alt }: { src?: string | null; alt: string }) {
@@ -73,6 +74,9 @@ interface PhotoInsightsDialogProps {
 }
 
 export function PhotoInsightsDialog({ photoId, open, onOpenChange }: PhotoInsightsDialogProps) {
+  // Intercept Android / mobile back gesture to close modal cleanly
+  useModalBackHandler(open, onOpenChange)
+
   // detail stores the fetched photo analytics details
   const [detail, setDetail] = useState<PhotoInsightsDetailVo | null>(null)
   // loading indicates active API request

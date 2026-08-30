@@ -32,6 +32,7 @@ import { getThumbHashUrl } from "@/lib/thumb-hash"
 import { toProxyMediaUrl } from "@/lib/url"
 import { photoBatchEdit } from "@/request/photo"
 import { useLocale } from "next-intl"
+import { useModalBackHandler } from "@/hooks/use-modal-back-handler"
 
 interface UntaggedPhotosDialogProps {
   open: boolean
@@ -46,6 +47,9 @@ export function UntaggedPhotosDialog({
   untaggedPhotos,
   onGeotagSuccess,
 }: UntaggedPhotosDialogProps) {
+  // Intercept Android / mobile back gesture to close modal cleanly
+  useModalBackHandler(open, onOpenChange)
+
   const locale = useLocale()
   const [searchQuery, setSearchQuery] = useState<string>("")
   const [selectedIds, setSelectedIds] = useState<string[]>([])

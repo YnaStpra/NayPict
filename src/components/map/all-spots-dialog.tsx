@@ -29,6 +29,7 @@ import { formatRelativeTime } from "@/lib/date"
 import { getThumbHashUrl } from "@/lib/thumb-hash"
 import { toProxyMediaUrl } from "@/lib/url"
 import { useLocale } from "next-intl"
+import { useModalBackHandler } from "@/hooks/use-modal-back-handler"
 
 interface AllSpotsDialogProps {
   open: boolean
@@ -67,6 +68,9 @@ export function AllSpotsDialog({
   onSetSpotCover,
   onOpenViewer,
 }: AllSpotsDialogProps) {
+  // Intercept Android / mobile back gesture to close modal cleanly
+  useModalBackHandler(open, onOpenChange)
+
   const locale = useLocale()
   const [searchQuery, setSearchQuery] = useState("")
   const [sortBy, setSortBy] = useState<SortOption>("most-photos")

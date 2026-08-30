@@ -16,6 +16,7 @@ import {
 import { type AlbumVo } from "@/server/entity/vo/album"
 import { albumGetCoverCandidates, albumSetCover, type AlbumCoverCandidate } from "@/request/album"
 import { toProxyMediaUrl } from "@/lib/url"
+import { useModalBackHandler } from "@/hooks/use-modal-back-handler"
 
 interface AlbumCoverDialogProps {
   open: boolean
@@ -32,6 +33,9 @@ function getOrientationLabel(width: number | null, height: number | null) {
 }
 
 export function AlbumCoverDialog({ open, album, onOpenChange, onSuccess }: AlbumCoverDialogProps) {
+  // Intercept Android / mobile back gesture to close modal cleanly
+  useModalBackHandler(open, onOpenChange)
+
   const [candidates, setCandidates] = useState<AlbumCoverCandidate[]>([])
   const [loading, setLoading] = useState(false)
   const [showPicker, setShowPicker] = useState(false)

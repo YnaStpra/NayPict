@@ -38,6 +38,7 @@ import {
   type StoryCardOptions,
 } from "@/lib/story-card";
 import { useApp } from "@/app/provider";
+import { useModalBackHandler } from "@/hooks/use-modal-back-handler";
 
 interface PhotoStoryDialogProps {
   photo: PhotoVo | null;
@@ -46,6 +47,9 @@ interface PhotoStoryDialogProps {
 }
 
 export function PhotoStoryDialog({ photo, open, onOpenChange }: PhotoStoryDialogProps) {
+  // Intercept Android / mobile back gesture to close modal cleanly
+  useModalBackHandler(open, onOpenChange);
+
   const { title: galleryTitle, userInfo } = useApp();
   // canvasRef references the hidden full-resolution 1080x1920 canvas for rendering
   const canvasRef = useRef<HTMLCanvasElement | null>(null);

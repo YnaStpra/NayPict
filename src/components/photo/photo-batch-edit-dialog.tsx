@@ -37,6 +37,7 @@ import { PhotoVisibilityEnum } from "@/server/enums/photo-enum"
 import { photoBatchEdit } from "@/request/photo"
 import { type PhotoVo } from "@/server/entity/vo/photo"
 import { decimalToDms, parseCoordinateString } from "@/lib/geo"
+import { useModalBackHandler } from "@/hooks/use-modal-back-handler"
 
 interface PhotoBatchEditDialogProps {
   open: boolean
@@ -59,6 +60,9 @@ export function PhotoBatchEditDialog({
   initialName,
   onSuccess,
 }: PhotoBatchEditDialogProps) {
+  // Mobile Back Gesture Handler
+  useModalBackHandler(open, onOpenChange)
+
   // Category state values ('unchanged' means keep existing metadata)
   const [visibility, setVisibility] = useState<string>("unchanged")
   const [allowDownload, setAllowDownload] = useState<string>("unchanged")

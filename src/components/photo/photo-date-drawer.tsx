@@ -15,6 +15,7 @@ import { getLocalTzOffsetMin } from "@/lib/date"
 import { photoTakenDateList } from "@/request/photo"
 import { type PhotoTakenDateVo } from "@/server/entity/vo/photo"
 import { useTranslations } from "next-intl"
+import { useModalBackHandler } from "@/hooks/use-modal-back-handler"
 
 interface PhotoDateDrawerProps {
   // albumId Filter time range by album when incoming.
@@ -48,6 +49,9 @@ function PhotoDateDrawer({ albumId, onRangeChange }: PhotoDateDrawerProps) {
   const [savedDateRange, setSavedDateRange] = useState([0, 0]) // savedDateRange Save the last confirmed date index range.
   const [dateRange, setDateRange] = useState([0, 0]) // dateRange Save the currently selected start and end date index.
   const saveCloseRef = useRef(false) // saveCloseRef Record whether this shutdown is triggered by clicking on the mask save.
+
+  // Intercept Android / mobile back gesture to close drawer cleanly
+  useModalBackHandler(open, changeOpen)
 
   // Query the date of existing photos based on album conditions, and initialize the slider range.
   useEffect(() => {
