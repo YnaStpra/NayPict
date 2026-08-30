@@ -241,7 +241,7 @@ function renderMinimalistTemplate(
   params: TemplateRenderParams
 ) {
   // 1. Clean Pure White background (Polos putih tanpa bingkai luar)
-  ctx.fillStyle = "#ffffff";
+  ctx.fillStyle = "#f7f5efff";
   ctx.fillRect(0, 0, STORY_WIDTH, STORY_HEIGHT);
 
   // 2. Header: Clean Gallery Title (Centered, Safe distance from top status bars)
