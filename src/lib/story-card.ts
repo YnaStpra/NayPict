@@ -131,13 +131,7 @@ export async function renderStoryCardToCanvas(
   const focalLength = shootingParams.find((p) => p.key === "focalLength")?.value;
   const iso = shootingParams.find((p) => p.key === "iso")?.value;
 
-  // File Specs (Size | Resolution | Megapixels)
-  let fileSizeText: string | null = null;
-  if (photo.size) {
-    const mb = photo.size / (1024 * 1024);
-    fileSizeText = mb >= 1 ? `${mb.toFixed(2)} MB` : `${Math.round(photo.size / 1024)} KB`;
-  }
-
+  // File Resolution & Megapixels (without file size as requested)
   let resolutionText: string | null = null;
   let mpText: string | null = null;
   if (photo.width && photo.height) {
@@ -146,7 +140,7 @@ export async function renderStoryCardToCanvas(
     mpText = `${Math.round(mp)}MP`;
   }
 
-  const fileSpecsItems = [fileSizeText, resolutionText, mpText].filter(Boolean) as string[];
+  const fileSpecsItems = [resolutionText, mpText].filter(Boolean) as string[];
   const fileSpecsLine = fileSpecsItems.length > 0 ? fileSpecsItems.join("  |  ") : undefined;
 
   // Parse raw JSON for Exposure Bias EV
@@ -302,28 +296,18 @@ function renderMinimalistTemplate(
   // Calculate safe text width to prevent collision with right-side QR code
   const maxTextWidth = qrImg ? (STORY_WIDTH - textX - 250) : (STORY_WIDTH - textX - 60);
 
-  // Photo File Name / Title (if enabled)
-  if (params.showTitle) {
-    const photoTitle = photo.name || "Untitled Photo";
-    ctx.textAlign = "left";
-    ctx.fillStyle = "#71717a";
-    ctx.font = "500 21px -apple-system, BlinkMacSystemFont, monospace";
-    ctx.fillText(photoTitle, textX, currentBottomY, maxTextWidth);
-    currentBottomY += 36;
-  }
-
-  // EXIF Device & Camera Model (Bold Title)
+  // EXIF Device & Camera Model (Bold Title at TOP of EXIF block)
   if (params.showExif) {
     const cameraDisplay = [params.cameraName, params.lensName].filter(Boolean).join("  •  ");
     if (cameraDisplay) {
       ctx.textAlign = "left";
       ctx.fillStyle = "#18181b";
-      ctx.font = "bold 26px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+      ctx.font = "bold 25px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
       ctx.fillText(cameraDisplay, textX, currentBottomY, maxTextWidth);
       currentBottomY += 34;
     }
 
-    // Row 1: File Specs (Size | Resolution | Megapixels)
+    // Row 1: File Specs (Resolution | Megapixels - file size removed)
     if (params.fileSpecsLine) {
       ctx.textAlign = "left";
       ctx.fillStyle = "#52525b";
@@ -348,7 +332,17 @@ function renderMinimalistTemplate(
     ctx.fillStyle = "#71717a";
     ctx.font = "18px -apple-system, BlinkMacSystemFont, sans-serif";
     ctx.fillText(params.locationText, textX, currentBottomY, maxTextWidth);
-    currentBottomY += 28;
+    currentBottomY += 30;
+  }
+
+  // Photo File Name / Title (Moved to BOTTOM as requested)
+  if (params.showTitle) {
+    const photoTitle = photo.name || "Untitled Photo";
+    ctx.textAlign = "left";
+    ctx.fillStyle = "#71717a";
+    ctx.font = "500 20px -apple-system, BlinkMacSystemFont, monospace";
+    ctx.fillText(photoTitle, textX, currentBottomY, maxTextWidth);
+    currentBottomY += 32;
   }
 
   // Photographer Signature (if provided)
@@ -451,27 +445,17 @@ function renderCinematicTemplate(
   let currentBottomContentY = STORY_HEIGHT - 310;
   const maxLeftWidth = qrImg ? STORY_WIDTH - 80 - 240 : STORY_WIDTH - 160;
 
-  // Photo File Name / Title (if enabled)
-  if (params.showTitle) {
-    const photoTitle = photo.name || "Untitled Photograph";
-    ctx.fillStyle = "rgba(255, 255, 255, 0.75)";
-    ctx.font = "500 21px -apple-system, BlinkMacSystemFont, monospace";
-    ctx.textAlign = "left";
-    ctx.fillText(photoTitle, 80, currentBottomContentY, maxLeftWidth);
-    currentBottomContentY += 36;
-  }
-
   if (params.showExif) {
-    // Camera Device Model (Bold)
+    // Camera Device Model (Bold Title at TOP of block)
     const cameraDisplay = [params.cameraName, params.lensName].filter(Boolean).join("  •  ");
     if (cameraDisplay) {
       ctx.fillStyle = "#ffffff";
-      ctx.font = "bold 30px -apple-system, BlinkMacSystemFont, sans-serif";
+      ctx.font = "bold 28px -apple-system, BlinkMacSystemFont, sans-serif";
       ctx.fillText(cameraDisplay, 80, currentBottomContentY, maxLeftWidth);
       currentBottomContentY += 34;
     }
 
-    // Row 1: File Specs (Size | Resolution | Megapixels)
+    // Row 1: File Specs (Resolution | Megapixels - file size removed)
     if (params.fileSpecsLine) {
       ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
       ctx.font = "500 20px -apple-system, BlinkMacSystemFont, monospace";
@@ -493,6 +477,16 @@ function renderCinematicTemplate(
     ctx.fillStyle = "rgba(255, 255, 255, 0.7)";
     ctx.font = "18px -apple-system, BlinkMacSystemFont, sans-serif";
     ctx.fillText(params.locationText, 80, currentBottomContentY, maxLeftWidth);
+    currentBottomContentY += 28;
+  }
+
+  // Photo File Name / Title (Moved to BOTTOM)
+  if (params.showTitle) {
+    const photoTitle = photo.name || "Untitled Photograph";
+    ctx.fillStyle = "rgba(255, 255, 255, 0.75)";
+    ctx.font = "500 20px -apple-system, BlinkMacSystemFont, monospace";
+    ctx.textAlign = "left";
+    ctx.fillText(photoTitle, 80, currentBottomContentY, maxLeftWidth);
   }
 
   // QR Code at right corner with CTA and link
