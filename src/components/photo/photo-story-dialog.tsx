@@ -115,16 +115,14 @@ export function PhotoStoryDialog({ photo, open, onOpenChange }: PhotoStoryDialog
         }
       }
 
-      // Convert full canvas to Blob
+      // Convert full canvas to high-res Blob
       canvas.toBlob(
         (blob) => {
-          if (blob) {
-            setCurrentBlob(blob);
-          }
+          setCurrentBlob(blob);
           setIsGenerating(false);
         },
         "image/png",
-        0.95
+        1.0
       );
     } catch {
       setIsGenerating(false);
@@ -135,57 +133,61 @@ export function PhotoStoryDialog({ photo, open, onOpenChange }: PhotoStoryDialog
   // Re-generate canvas whenever dialog opens or options change
   useEffect(() => {
     if (open && photo) {
-      generateStoryCard();
+      const timer = setTimeout(() => {
+        generateStoryCard();
+      }, 50);
+      return () => clearTimeout(timer);
     }
   }, [open, photo, generateStoryCard]);
 
   /**
-   * Handle Instagram Story / Native Web Share.
+   * Share generated image directly using Web Share API Level 2.
    */
   const handleShareToInstagram = async () => {
-    if (!currentBlob) return;
-    setIsSharing(true);
+    if (!currentBlob) {
+      toast.error("Story Card is still generating...");
+      return;
+    }
 
+    setIsSharing(true);
     try {
-      const shared = await shareStoryImage(currentBlob, photo?.name || "NayPict Story");
+      const shared = await shareStoryImage(currentBlob, photo?.name || "NayPict Photo");
       if (shared) {
-        toast.success("Shared successfully!");
+        toast.success("Ready to share to Instagram Story!");
       } else {
-        // Fallback: auto-download and prompt user
-        downloadStoryCard(currentBlob, `${photo?.name || "naypict"}-story.png`);
-        toast.info("Image downloaded! You can now post it to your Instagram Story.");
+        // Fallback: Download and copy link
+        downloadStoryCard(currentBlob, `${photo?.name || "photo"}-story.png`);
+        toast.info("Image downloaded! Open Instagram to share your Story.");
       }
     } catch {
-      toast.error("Sharing failed. Image has been downloaded for you.");
-      if (currentBlob) {
-        downloadStoryCard(currentBlob, `${photo?.name || "naypict"}-story.png`);
-      }
+      downloadStoryCard(currentBlob, `${photo?.name || "photo"}-story.png`);
+      toast.info("Image downloaded to device.");
     } finally {
       setIsSharing(false);
     }
   };
 
   /**
-   * Handle direct 1080x1920 HD download.
+   * Direct download of full-res PNG file.
    */
   const handleDownload = () => {
     if (!currentBlob) return;
     downloadStoryCard(currentBlob, `${photo?.name?.replace(/\.[^/.]+$/, "") || "naypict"}-story.png`);
-    toast.success("Story card downloaded (1080x1920 HD)!");
+    toast.success("High-res 1080x1920 Story Card downloaded!");
   };
 
   /**
-   * Handle copying image to clipboard.
+   * Copy image to clipboard.
    */
   const handleCopyImage = async () => {
     if (!currentBlob) return;
     const success = await copyStoryImageToClipboard(currentBlob);
     if (success) {
       setCopied(true);
-      toast.success("Story card copied to clipboard!");
-      setTimeout(() => setCopied(false), 2000);
+      toast.success("Story Card image copied to clipboard!");
+      setTimeout(() => setCopied(false), 2500);
     } else {
-      toast.error("Failed to copy image to clipboard. Try downloading instead.");
+      toast.error("Clipboard copy not supported in this browser. Use Download instead.");
     }
   };
 
@@ -206,27 +208,27 @@ export function PhotoStoryDialog({ photo, open, onOpenChange }: PhotoStoryDialog
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto p-4 sm:p-6 bg-background/95 backdrop-blur-xl border border-border/80 shadow-2xl">
+      <DialogContent className="w-full max-w-[95vw] sm:max-w-3xl md:max-w-4xl lg:max-w-5xl max-h-[92vh] overflow-y-auto p-4 sm:p-6 md:p-8 bg-zinc-950/95 text-white backdrop-blur-2xl border border-white/10 shadow-2xl rounded-2xl">
         <DialogHeader className="mb-2">
-          <div className="flex items-center gap-2">
-            <div className="flex size-9 items-center justify-center rounded-xl bg-gradient-to-tr from-pink-500 via-rose-500 to-amber-500 text-white shadow-md">
+          <div className="flex items-center gap-3">
+            <div className="flex size-10 items-center justify-center rounded-xl bg-gradient-to-tr from-pink-500 via-rose-500 to-amber-500 text-white shadow-lg shadow-pink-500/25">
               <InstagramIcon className="size-5" />
             </div>
             <div>
-              <DialogTitle className="text-xl font-bold tracking-tight">
+              <DialogTitle className="text-lg sm:text-xl font-bold tracking-tight text-white">
                 Instagram Story & Card Generator
               </DialogTitle>
-              <DialogDescription className="text-xs sm:text-sm text-muted-foreground">
+              <DialogDescription className="text-xs sm:text-sm text-zinc-400">
                 Generate high-resolution 9:16 story cards with EXIF specs & scan QR codes.
               </DialogDescription>
             </div>
           </div>
         </DialogHeader>
 
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-start mt-2">
-          {/* Left: Phone Screen Mockup Preview */}
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-6 md:gap-8 items-start mt-3">
+          {/* Left: Phone Screen Mockup Live Preview */}
           <div className="md:col-span-5 flex flex-col items-center justify-center">
-            <div className="relative w-full max-w-[280px] sm:max-w-[300px] aspect-[9/16] rounded-[36px] p-2.5 bg-gradient-to-b from-zinc-700 via-zinc-900 to-black shadow-2xl ring-1 ring-white/20">
+            <div className="relative w-full max-w-[260px] sm:max-w-[280px] lg:max-w-[300px] aspect-[9/16] rounded-[36px] p-2.5 bg-gradient-to-b from-zinc-700 via-zinc-900 to-black shadow-2xl ring-1 ring-white/20">
               {/* Phone Speaker & Dynamic Island */}
               <div className="absolute top-4 left-1/2 -translate-x-1/2 w-20 h-4 bg-black rounded-full z-20 flex items-center justify-center">
                 <div className="size-2 rounded-full bg-zinc-800 ml-6" />
@@ -235,7 +237,7 @@ export function PhotoStoryDialog({ photo, open, onOpenChange }: PhotoStoryDialog
               {/* Story Canvas Container */}
               <div className="relative w-full h-full rounded-[28px] overflow-hidden bg-black flex items-center justify-center">
                 {isGenerating && (
-                  <div className="absolute inset-0 z-30 bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center gap-2 text-white text-xs">
+                  <div className="absolute inset-0 z-30 bg-black/70 backdrop-blur-xs flex flex-col items-center justify-center gap-2 text-white text-xs">
                     <Loader2 className="size-6 animate-spin text-pink-500" />
                     <span>Rendering 1080×1920 HD...</span>
                   </div>
@@ -248,8 +250,8 @@ export function PhotoStoryDialog({ photo, open, onOpenChange }: PhotoStoryDialog
             </div>
 
             {/* Resolution Badge */}
-            <div className="mt-3 flex items-center gap-1.5 text-[11px] text-muted-foreground bg-muted/60 px-3 py-1 rounded-full border">
-              <Sparkles className="size-3 text-amber-500" />
+            <div className="mt-3.5 flex items-center gap-1.5 text-xs text-zinc-400 bg-white/5 px-3.5 py-1.5 rounded-full border border-white/10">
+              <Sparkles className="size-3.5 text-amber-400" />
               <span>Output: 1080 × 1920 px (9:16 HD)</span>
             </div>
           </div>
@@ -258,7 +260,7 @@ export function PhotoStoryDialog({ photo, open, onOpenChange }: PhotoStoryDialog
           <div className="md:col-span-7 flex flex-col gap-5">
             {/* Template Selector */}
             <div className="space-y-2">
-              <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              <Label className="text-xs font-semibold uppercase tracking-wider text-zinc-400">
                 Card Style & Template
               </Label>
               <Tabs
@@ -266,13 +268,13 @@ export function PhotoStoryDialog({ photo, open, onOpenChange }: PhotoStoryDialog
                 onValueChange={(val: string) => setTemplate(val as StoryTemplate)}
                 className="w-full"
               >
-                <TabsList className="grid grid-cols-2 w-full h-10 p-1 bg-muted/80">
-                  <TabsTrigger value="minimalist" className="text-xs flex items-center gap-1.5">
-                    <Layers className="size-3.5" />
+                <TabsList className="grid grid-cols-2 w-full h-11 p-1 bg-white/10 border border-white/10 rounded-xl">
+                  <TabsTrigger value="minimalist" className="text-xs sm:text-sm font-medium flex items-center justify-center gap-2 text-zinc-300 data-[state=active]:bg-white data-[state=active]:text-zinc-950 rounded-lg transition-all">
+                    <Layers className="size-4" />
                     Minimalist Exhibition
                   </TabsTrigger>
-                  <TabsTrigger value="cinematic" className="text-xs flex items-center gap-1.5">
-                    <Camera className="size-3.5" />
+                  <TabsTrigger value="cinematic" className="text-xs sm:text-sm font-medium flex items-center justify-center gap-2 text-zinc-300 data-[state=active]:bg-white data-[state=active]:text-zinc-950 rounded-lg transition-all">
+                    <Camera className="size-4" />
                     Cinematic Full-Bleed
                   </TabsTrigger>
                 </TabsList>
@@ -280,27 +282,15 @@ export function PhotoStoryDialog({ photo, open, onOpenChange }: PhotoStoryDialog
             </div>
 
             {/* Content Toggles */}
-            <div className="space-y-3 rounded-xl border bg-card/60 p-4 shadow-sm">
-              <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            <div className="space-y-3 rounded-2xl border border-white/10 bg-white/5 p-4 sm:p-5 shadow-sm">
+              <Label className="text-xs font-semibold uppercase tracking-wider text-zinc-400">
                 Display Options
               </Label>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-                {/* Toggle Title */}
-                <div className="flex items-center justify-between space-x-2">
-                  <Label htmlFor="toggle-title" className="text-xs cursor-pointer">
-                    Photo Name / Title
-                  </Label>
-                  <Switch
-                    id="toggle-title"
-                    checked={showTitle}
-                    onCheckedChange={setShowTitle}
-                  />
-                </div>
-
                 {/* Toggle EXIF */}
-                <div className="flex items-center justify-between space-x-2">
-                  <Label htmlFor="toggle-exif" className="text-xs cursor-pointer">
+                <div className="flex items-center justify-between p-2.5 rounded-xl bg-white/5 border border-white/5 hover:bg-white/10 transition-colors">
+                  <Label htmlFor="toggle-exif" className="text-xs sm:text-sm font-medium cursor-pointer text-zinc-200">
                     Camera & Lens EXIF
                   </Label>
                   <Switch
@@ -311,9 +301,9 @@ export function PhotoStoryDialog({ photo, open, onOpenChange }: PhotoStoryDialog
                 </div>
 
                 {/* Toggle QR Code */}
-                <div className="flex items-center justify-between space-x-2">
-                  <Label htmlFor="toggle-qr" className="text-xs cursor-pointer flex items-center gap-1">
-                    <QrCode className="size-3.5" />
+                <div className="flex items-center justify-between p-2.5 rounded-xl bg-white/5 border border-white/5 hover:bg-white/10 transition-colors">
+                  <Label htmlFor="toggle-qr" className="text-xs sm:text-sm font-medium cursor-pointer flex items-center gap-1.5 text-zinc-200">
+                    <QrCode className="size-4 text-zinc-400" />
                     Scan QR Code
                   </Label>
                   <Switch
@@ -323,21 +313,9 @@ export function PhotoStoryDialog({ photo, open, onOpenChange }: PhotoStoryDialog
                   />
                 </div>
 
-                {/* Toggle Date */}
-                <div className="flex items-center justify-between space-x-2">
-                  <Label htmlFor="toggle-date" className="text-xs cursor-pointer">
-                    Date Captured
-                  </Label>
-                  <Switch
-                    id="toggle-date"
-                    checked={showDate}
-                    onCheckedChange={setShowDate}
-                  />
-                </div>
-
                 {/* Toggle Location */}
-                <div className="flex items-center justify-between space-x-2">
-                  <Label htmlFor="toggle-loc" className="text-xs cursor-pointer">
+                <div className="flex items-center justify-between p-2.5 rounded-xl bg-white/5 border border-white/5 hover:bg-white/10 transition-colors">
+                  <Label htmlFor="toggle-loc" className="text-xs sm:text-sm font-medium cursor-pointer text-zinc-200">
                     GPS Coordinates
                   </Label>
                   <Switch
@@ -346,12 +324,24 @@ export function PhotoStoryDialog({ photo, open, onOpenChange }: PhotoStoryDialog
                     onCheckedChange={setShowLocation}
                   />
                 </div>
+
+                {/* Toggle Title */}
+                <div className="flex items-center justify-between p-2.5 rounded-xl bg-white/5 border border-white/5 hover:bg-white/10 transition-colors">
+                  <Label htmlFor="toggle-title" className="text-xs sm:text-sm font-medium cursor-pointer text-zinc-200">
+                    Photo File Name
+                  </Label>
+                  <Switch
+                    id="toggle-title"
+                    checked={showTitle}
+                    onCheckedChange={setShowTitle}
+                  />
+                </div>
               </div>
             </div>
 
             {/* Photographer Signature Input */}
-            <div className="space-y-1.5">
-              <Label htmlFor="photographer-name" className="text-xs font-medium">
+            <div className="space-y-2">
+              <Label htmlFor="photographer-name" className="text-xs font-semibold uppercase tracking-wider text-zinc-400">
                 Photographer / Signature Credit
               </Label>
               <Input
@@ -359,18 +349,18 @@ export function PhotoStoryDialog({ photo, open, onOpenChange }: PhotoStoryDialog
                 value={photographerName}
                 onChange={(e) => setPhotographerName(e.target.value)}
                 placeholder="e.g. Yan Saputra"
-                className="h-9 text-sm"
+                className="h-10 bg-white/5 border-white/10 text-white placeholder:text-zinc-500 rounded-xl text-sm focus-visible:ring-pink-500"
               />
             </div>
 
             {/* Action Buttons */}
-            <div className="space-y-2.5 pt-2">
+            <div className="space-y-3 pt-2">
               {/* Primary: Share to Instagram Stories */}
               <Button
                 type="button"
                 onClick={handleShareToInstagram}
                 disabled={isGenerating || isSharing || !currentBlob}
-                className="w-full h-11 text-sm font-semibold rounded-xl bg-gradient-to-r from-[#833ab4] via-[#fd1d1d] to-[#fcb045] text-white shadow-lg shadow-pink-500/25 hover:opacity-90 transition-all cursor-pointer"
+                className="w-full h-12 text-sm sm:text-base font-semibold rounded-xl bg-gradient-to-r from-[#833ab4] via-[#fd1d1d] to-[#fcb045] text-white shadow-lg shadow-pink-500/25 hover:opacity-95 transition-all cursor-pointer"
               >
                 {isSharing ? (
                   <>
@@ -379,14 +369,14 @@ export function PhotoStoryDialog({ photo, open, onOpenChange }: PhotoStoryDialog
                   </>
                 ) : (
                   <>
-                    <InstagramIcon className="size-4 mr-2" />
+                    <InstagramIcon className="size-5 mr-2" />
                     Share to Instagram Story
                   </>
                 )}
               </Button>
 
               {/* Secondary Buttons Grid */}
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-3 gap-2.5">
                 {/* Download */}
                 <Button
                   type="button"
@@ -394,9 +384,9 @@ export function PhotoStoryDialog({ photo, open, onOpenChange }: PhotoStoryDialog
                   size="sm"
                   onClick={handleDownload}
                   disabled={isGenerating || !currentBlob}
-                  className="h-9 text-xs flex items-center justify-center gap-1.5 rounded-lg"
+                  className="h-10 text-xs sm:text-sm flex items-center justify-center gap-1.5 rounded-xl bg-white/5 border-white/10 hover:bg-white/10 text-white cursor-pointer"
                 >
-                  <Download className="size-3.5" />
+                  <Download className="size-4" />
                   Download
                 </Button>
 
@@ -407,9 +397,9 @@ export function PhotoStoryDialog({ photo, open, onOpenChange }: PhotoStoryDialog
                   size="sm"
                   onClick={handleCopyImage}
                   disabled={isGenerating || !currentBlob}
-                  className="h-9 text-xs flex items-center justify-center gap-1.5 rounded-lg"
+                  className="h-10 text-xs sm:text-sm flex items-center justify-center gap-1.5 rounded-xl bg-white/5 border-white/10 hover:bg-white/10 text-white cursor-pointer"
                 >
-                  {copied ? <Check className="size-3.5 text-green-500" /> : <Copy className="size-3.5" />}
+                  {copied ? <Check className="size-4 text-green-400" /> : <Copy className="size-4" />}
                   {copied ? "Copied" : "Copy Image"}
                 </Button>
 
@@ -419,9 +409,9 @@ export function PhotoStoryDialog({ photo, open, onOpenChange }: PhotoStoryDialog
                   variant="outline"
                   size="sm"
                   onClick={handleCopyLink}
-                  className="h-9 text-xs flex items-center justify-center gap-1.5 rounded-lg"
+                  className="h-10 text-xs sm:text-sm flex items-center justify-center gap-1.5 rounded-xl bg-white/5 border-white/10 hover:bg-white/10 text-white cursor-pointer"
                 >
-                  <Share2 className="size-3.5" />
+                  <Share2 className="size-4" />
                   Copy Link
                 </Button>
               </div>
