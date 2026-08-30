@@ -45,7 +45,7 @@ export function TeamSwitcher({
         <SidebarMenuItem>
           <SidebarMenuButton
             size="lg"
-            onClick={() => router.push("/")}
+            onClick={() => router.push("/photos")}
             className="cursor-pointer hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
           >
             <div className="flex aspect-square size-8 items-center justify-center">

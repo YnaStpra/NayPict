@@ -120,7 +120,7 @@ export function LandingClient({ initialPhotos }: LandingClientProps) {
 
   const handleNavigate = (href: string) => {
     startTransition(() => {
-      router.push(href)
+      router.replace(href)
     })
   }
 
@@ -204,6 +204,7 @@ export function LandingClient({ initialPhotos }: LandingClientProps) {
             <div className="flex flex-col gap-2.5 sm:gap-3 w-full pt-1">
               <Link
                 href="/photos"
+                replace
                 prefetch={true}
                 onMouseEnter={() => router.prefetch('/photos')}
                 onPointerDown={() => router.prefetch('/photos')}
@@ -228,6 +229,7 @@ export function LandingClient({ initialPhotos }: LandingClientProps) {
 
               <Link
                 href="/albums"
+                replace
                 prefetch={true}
                 onMouseEnter={() => router.prefetch('/albums')}
                 onPointerDown={() => router.prefetch('/albums')}
@@ -252,6 +254,7 @@ export function LandingClient({ initialPhotos }: LandingClientProps) {
 
               <Link
                 href="/map"
+                replace
                 prefetch={true}
                 onMouseEnter={() => router.prefetch('/map')}
                 onPointerDown={() => router.prefetch('/map')}
