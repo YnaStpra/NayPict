@@ -264,33 +264,41 @@ function renderMinimalistTemplate(
     currentBottomY += 42;
   }
 
-  // EXIF Camera & Shooting Parameters
+  // EXIF Row 1: Camera & Lens Device
   if (params.showExif) {
-    const specs = [
-      params.cameraName,
-      params.lensName,
+    const deviceRow = [params.cameraName, params.lensName].filter(Boolean).join("  •  ");
+    if (deviceRow) {
+      ctx.textAlign = "left";
+      ctx.fillStyle = "#18181b";
+      ctx.font = "600 23px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+      ctx.fillText(deviceRow, textX, currentBottomY, maxTextWidth);
+      currentBottomY += 34;
+    }
+
+    // EXIF Row 2: Shooting Technical Parameters (Focal, Aperture, Shutter, ISO)
+    const shootParams = [
       params.focalLength,
       params.aperture,
       params.shutter,
       params.iso ? `ISO ${params.iso}` : null,
-    ].filter(Boolean).join("  •  ");
+    ].filter(Boolean).join("    ");
 
-    if (specs) {
+    if (shootParams) {
       ctx.textAlign = "left";
       ctx.fillStyle = "#52525b";
       ctx.font = "500 20px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, monospace";
-      ctx.fillText(specs, textX, currentBottomY + 6, maxTextWidth);
-      currentBottomY += 36;
+      ctx.fillText(shootParams, textX, currentBottomY, maxTextWidth);
+      currentBottomY += 34;
     }
   }
 
-  // Date & Location
+  // EXIF Row 3: Date & Location
   if (params.dateText || params.locationText) {
-    const metaLine = [params.dateText, params.locationText].filter(Boolean).join("  •  ");
+    const metaLine = [params.dateText, params.locationText].filter(Boolean).join("   •   ");
     ctx.textAlign = "left";
     ctx.fillStyle = "#71717a";
     ctx.font = "18px -apple-system, BlinkMacSystemFont, sans-serif";
-    ctx.fillText(metaLine, textX, currentBottomY + 6, maxTextWidth);
+    ctx.fillText(metaLine, textX, currentBottomY, maxTextWidth);
   }
 
   // 5. Right-side QR Code with CTA and Website Link
@@ -382,43 +390,50 @@ function renderCinematicTemplate(
   }
 
   // Bottom Info Overlay
-  let currentBottomContentY = STORY_HEIGHT - 280;
+  let currentBottomContentY = STORY_HEIGHT - 310;
   const maxLeftWidth = qrImg ? STORY_WIDTH - 80 - 240 : STORY_WIDTH - 160;
 
   if (params.showTitle) {
     const photoTitle = photo.name?.replace(/\.[^/.]+$/, "") || "Untitled Photograph";
     ctx.fillStyle = "#ffffff";
-    ctx.font = "bold 44px -apple-system, BlinkMacSystemFont, sans-serif";
+    ctx.font = "bold 42px -apple-system, BlinkMacSystemFont, sans-serif";
     ctx.textAlign = "left";
     ctx.fillText(photoTitle, 80, currentBottomContentY, maxLeftWidth);
     currentBottomContentY += 46;
-  } else {
-    currentBottomContentY += 10;
   }
 
   if (params.showExif) {
+    // Row 1: Camera & Lens
     const gearRow = [params.cameraName, params.lensName].filter(Boolean).join("  •  ");
     if (gearRow) {
-      ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
-      ctx.font = params.showTitle
-        ? "24px -apple-system, BlinkMacSystemFont, sans-serif"
-        : "bold 32px -apple-system, BlinkMacSystemFont, sans-serif";
+      ctx.fillStyle = "rgba(255, 255, 255, 0.95)";
+      ctx.font = "bold 26px -apple-system, BlinkMacSystemFont, sans-serif";
       ctx.fillText(gearRow, 80, currentBottomContentY, maxLeftWidth);
-      currentBottomContentY += params.showTitle ? 42 : 48;
+      currentBottomContentY += 36;
     }
 
+    // Row 2: Shooting Parameters
     const shootRow = [
       params.focalLength,
       params.aperture,
       params.shutter,
       params.iso ? `ISO ${params.iso}` : null,
-    ].filter(Boolean).join("   ");
+    ].filter(Boolean).join("    ");
 
     if (shootRow) {
       ctx.fillStyle = "#38bdf8"; // subtle cyan glow for cinematic touch
-      ctx.font = "bold 22px -apple-system, BlinkMacSystemFont, monospace";
+      ctx.font = "bold 21px -apple-system, BlinkMacSystemFont, monospace";
       ctx.fillText(shootRow, 80, currentBottomContentY, maxLeftWidth);
+      currentBottomContentY += 32;
     }
+  }
+
+  // Row 3: Date & Location in Cinematic
+  if (params.dateText || params.locationText) {
+    const metaRow = [params.dateText, params.locationText].filter(Boolean).join("  •  ");
+    ctx.fillStyle = "rgba(255, 255, 255, 0.65)";
+    ctx.font = "18px -apple-system, BlinkMacSystemFont, sans-serif";
+    ctx.fillText(metaRow, 80, currentBottomContentY, maxLeftWidth);
   }
 
   // QR Code at right corner with CTA and link
