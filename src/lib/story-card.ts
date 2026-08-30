@@ -10,6 +10,7 @@ export type StoryTemplate = "glassmorphic" | "minimalist" | "cinematic";
 
 export interface StoryCardOptions {
   template: StoryTemplate;
+  showTitle: boolean;
   showExif: boolean;
   showQrCode: boolean;
   showLocation: boolean;
@@ -284,19 +285,27 @@ function renderGlassmorphicTemplate(
   ctx.stroke();
   ctx.restore();
 
-  // Title / Photo Title
-  const photoTitle = photo.name?.replace(/\.[^/.]+$/, "") || "Untitled Photograph";
-  ctx.textAlign = "left";
-  ctx.fillStyle = "#ffffff";
-  ctx.font = "bold 34px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
-  const titleDisplay = photoTitle.length > 32 ? `${photoTitle.slice(0, 32)}...` : photoTitle;
-  ctx.fillText(titleDisplay, framePadding + 40, infoCardY + 65);
+  // Title / Photo Title & Gear Details
+  let currentInfoY = infoCardY + 65;
+
+  if (params.showTitle) {
+    const photoTitle = photo.name?.replace(/\.[^/.]+$/, "") || "Untitled Photograph";
+    ctx.textAlign = "left";
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "bold 34px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+    const titleDisplay = photoTitle.length > 32 ? `${photoTitle.slice(0, 32)}...` : photoTitle;
+    ctx.fillText(titleDisplay, framePadding + 40, currentInfoY);
+    currentInfoY += 50;
+  } else {
+    currentInfoY += 15;
+  }
 
   // Camera & Lens Details
-  let currentInfoY = infoCardY + 115;
   if (params.showExif && (params.cameraName || params.lensName)) {
     ctx.fillStyle = "rgba(255, 255, 255, 0.85)";
-    ctx.font = "26px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+    ctx.font = params.showTitle
+      ? "26px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
+      : "bold 30px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
     const gearText = [params.cameraName, params.lensName].filter(Boolean).join(" • ");
     const gearDisplay = gearText.length > 42 ? `${gearText.slice(0, 42)}...` : gearText;
     ctx.fillText(gearDisplay, framePadding + 40, currentInfoY);
@@ -430,18 +439,22 @@ function renderMinimalistTemplate(
   ctx.strokeRect(photoX, photoY, targetWidth, targetHeight);
 
   // Bottom Exhibition Typography
-  const bottomY = 1430;
-  const photoTitle = photo.name?.replace(/\.[^/.]+$/, "") || "Untitled Photo";
+  let currentBottomY = 1430;
 
-  ctx.textAlign = "left";
-  ctx.fillStyle = "#18181b";
-  ctx.font = "bold 36px Georgia, 'Times New Roman', serif";
-  ctx.fillText(photoTitle, framePadding, bottomY);
+  if (params.showTitle) {
+    const photoTitle = photo.name?.replace(/\.[^/.]+$/, "") || "Untitled Photo";
+    ctx.textAlign = "left";
+    ctx.fillStyle = "#18181b";
+    ctx.font = "bold 36px Georgia, 'Times New Roman', serif";
+    ctx.fillText(photoTitle, framePadding, currentBottomY);
+    currentBottomY += 45;
+  }
 
   if (params.photographerName) {
     ctx.fillStyle = "#71717a";
     ctx.font = "italic 22px Georgia, 'Times New Roman', serif";
-    ctx.fillText(`Photographed by ${params.photographerName}`, framePadding, bottomY + 45);
+    ctx.fillText(`Photographed by ${params.photographerName}`, framePadding, currentBottomY);
+    currentBottomY += 45;
   }
 
   // EXIF metadata string
@@ -458,7 +471,8 @@ function renderMinimalistTemplate(
     if (specs) {
       ctx.fillStyle = "#52525b";
       ctx.font = "500 20px -apple-system, BlinkMacSystemFont, monospace";
-      ctx.fillText(specs, framePadding, bottomY + 105);
+      ctx.fillText(specs, framePadding, currentBottomY + 15);
+      currentBottomY += 40;
     }
   }
 
@@ -466,14 +480,14 @@ function renderMinimalistTemplate(
     const metaLine = [params.dateText, params.locationText].filter(Boolean).join(" • ");
     ctx.fillStyle = "#a1a1aa";
     ctx.font = "18px -apple-system, BlinkMacSystemFont, sans-serif";
-    ctx.fillText(metaLine, framePadding, bottomY + 145);
+    ctx.fillText(metaLine, framePadding, currentBottomY + 15);
   }
 
   // Minimalist QR Code
   if (qrImg) {
     const qrSize = 130;
     const qrX = STORY_WIDTH - framePadding - qrSize;
-    const qrY = bottomY - 30;
+    const qrY = 1400;
 
     ctx.drawImage(qrImg, qrX, qrY, qrSize, qrSize);
     ctx.strokeStyle = "#e4e4e7";
@@ -555,20 +569,28 @@ function renderCinematicTemplate(
   }
 
   // Bottom Info Overlay
-  const bottomContentY = STORY_HEIGHT - 280;
-  const photoTitle = photo.name?.replace(/\.[^/.]+$/, "") || "Untitled Photograph";
+  let currentBottomContentY = STORY_HEIGHT - 280;
 
-  ctx.fillStyle = "#ffffff";
-  ctx.font = "bold 44px -apple-system, BlinkMacSystemFont, sans-serif";
-  ctx.textAlign = "left";
-  ctx.fillText(photoTitle, 80, bottomContentY);
+  if (params.showTitle) {
+    const photoTitle = photo.name?.replace(/\.[^/.]+$/, "") || "Untitled Photograph";
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "bold 44px -apple-system, BlinkMacSystemFont, sans-serif";
+    ctx.textAlign = "left";
+    ctx.fillText(photoTitle, 80, currentBottomContentY);
+    currentBottomContentY += 46;
+  } else {
+    currentBottomContentY += 10;
+  }
 
   if (params.showExif) {
     const gearRow = [params.cameraName, params.lensName].filter(Boolean).join("  •  ");
     if (gearRow) {
       ctx.fillStyle = "rgba(255, 255, 255, 0.85)";
-      ctx.font = "24px -apple-system, BlinkMacSystemFont, sans-serif";
-      ctx.fillText(gearRow, 80, bottomContentY + 46);
+      ctx.font = params.showTitle
+        ? "24px -apple-system, BlinkMacSystemFont, sans-serif"
+        : "bold 32px -apple-system, BlinkMacSystemFont, sans-serif";
+      ctx.fillText(gearRow, 80, currentBottomContentY);
+      currentBottomContentY += params.showTitle ? 42 : 48;
     }
 
     const shootRow = [
@@ -581,7 +603,7 @@ function renderCinematicTemplate(
     if (shootRow) {
       ctx.fillStyle = "#38bdf8"; // subtle cyan glow for cinematic touch
       ctx.font = "bold 22px -apple-system, BlinkMacSystemFont, monospace";
-      ctx.fillText(shootRow, 80, bottomContentY + 88);
+      ctx.fillText(shootRow, 80, currentBottomContentY);
     }
   }
 
@@ -589,7 +611,7 @@ function renderCinematicTemplate(
   if (qrImg) {
     const qrSize = 130;
     const qrX = STORY_WIDTH - 80 - qrSize;
-    const qrY = bottomContentY - 30;
+    const qrY = STORY_HEIGHT - 310;
 
     ctx.save();
     ctx.fillStyle = "rgba(0, 0, 0, 0.6)";

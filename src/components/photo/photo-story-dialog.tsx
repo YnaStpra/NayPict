@@ -55,6 +55,7 @@ export function PhotoStoryDialog({ photo, open, onOpenChange }: PhotoStoryDialog
   // Template style state
   const [template, setTemplate] = useState<StoryTemplate>("glassmorphic");
   // Options state
+  const [showTitle, setShowTitle] = useState(true);
   const [showExif, setShowExif] = useState(true);
   const [showQrCode, setShowQrCode] = useState(true);
   const [showLocation, setShowLocation] = useState(true);
@@ -89,6 +90,7 @@ export function PhotoStoryDialog({ photo, open, onOpenChange }: PhotoStoryDialog
     try {
       const options: StoryCardOptions = {
         template,
+        showTitle,
         showExif,
         showQrCode,
         showLocation,
@@ -128,7 +130,7 @@ export function PhotoStoryDialog({ photo, open, onOpenChange }: PhotoStoryDialog
       setIsGenerating(false);
       toast.error("Failed to generate Story Card. Please try again.");
     }
-  }, [photo, open, template, showExif, showQrCode, showLocation, showDate, photographerName, galleryTitle, photoUrl]);
+  }, [photo, open, template, showTitle, showExif, showQrCode, showLocation, showDate, photographerName, galleryTitle, photoUrl]);
 
   // Re-generate canvas whenever dialog opens or options change
   useEffect(() => {
@@ -288,6 +290,18 @@ export function PhotoStoryDialog({ photo, open, onOpenChange }: PhotoStoryDialog
               </Label>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                {/* Toggle Title */}
+                <div className="flex items-center justify-between space-x-2">
+                  <Label htmlFor="toggle-title" className="text-xs cursor-pointer">
+                    Photo Name / Title
+                  </Label>
+                  <Switch
+                    id="toggle-title"
+                    checked={showTitle}
+                    onCheckedChange={setShowTitle}
+                  />
+                </div>
+
                 {/* Toggle EXIF */}
                 <div className="flex items-center justify-between space-x-2">
                   <Label htmlFor="toggle-exif" className="text-xs cursor-pointer">
