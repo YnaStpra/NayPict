@@ -240,14 +240,9 @@ function renderMinimalistTemplate(
   photo: PhotoVo,
   params: TemplateRenderParams
 ) {
-  // 1. Clean Warm Cream/White background
-  ctx.fillStyle = "#faf9f6";
+  // 1. Clean Pure White background (Polos putih tanpa bingkai luar)
+  ctx.fillStyle = "#ffffff";
   ctx.fillRect(0, 0, STORY_WIDTH, STORY_HEIGHT);
-
-  // Outer thin film border
-  ctx.strokeStyle = "#e4e4e7";
-  ctx.lineWidth = 2;
-  ctx.strokeRect(40, 40, STORY_WIDTH - 80, STORY_HEIGHT - 80);
 
   // 2. Header: Clean Gallery Title (Centered, Safe distance from top status bars)
   ctx.fillStyle = "#18181b";
