@@ -6,7 +6,7 @@ import { getPhotoDeviceParams, getPhotoShootingParams, formatPhotoLocation } fro
 import { formatPhotoTakenDate } from "@/lib/date";
 import { toProxyMediaUrl } from "@/lib/url";
 
-export type StoryTemplate = "glassmorphic" | "minimalist" | "cinematic";
+export type StoryTemplate = "minimalist" | "cinematic";
 
 export interface StoryCardOptions {
   template: StoryTemplate;
@@ -22,6 +22,19 @@ export interface StoryCardOptions {
 
 const STORY_WIDTH = 1080;
 const STORY_HEIGHT = 1920;
+
+/**
+ * Extract clean display URL for watermark / link text (e.g. naypict.vercel.app).
+ */
+function getDisplayUrl(photoUrl: string): string {
+  if (!photoUrl) return "naypict.vercel.app";
+  try {
+    const u = new URL(photoUrl);
+    return u.host || "naypict.vercel.app";
+  } catch {
+    return photoUrl.replace(/^https?:\/\//, "").split("/")[0] || "naypict.vercel.app";
+  }
+}
 
 /**
  * Load an image from URL into an HTMLImageElement with CORS enabled.
@@ -127,20 +140,8 @@ export async function renderStoryCardToCanvas(
     : null;
 
   // Render according to template
-  if (options.template === "glassmorphic") {
-    renderGlassmorphicTemplate(ctx, photoImg, qrImg, photo, {
-      cameraName,
-      lensName,
-      shutter,
-      aperture,
-      focalLength,
-      iso,
-      locationText,
-      dateText,
-      ...options,
-    });
-  } else if (options.template === "minimalist") {
-    renderMinimalistTemplate(ctx, photoImg, qrImg, photo, {
+  if (options.template === "cinematic") {
+    renderCinematicTemplate(ctx, photoImg, qrImg, photo, {
       cameraName,
       lensName,
       shutter,
@@ -152,7 +153,7 @@ export async function renderStoryCardToCanvas(
       ...options,
     });
   } else {
-    renderCinematicTemplate(ctx, photoImg, qrImg, photo, {
+    renderMinimalistTemplate(ctx, photoImg, qrImg, photo, {
       cameraName,
       lensName,
       shutter,
@@ -180,205 +181,7 @@ interface TemplateRenderParams extends StoryCardOptions {
 }
 
 /**
- * Template 1: Modern Glassmorphic Dark Ambient
- */
-function renderGlassmorphicTemplate(
-  ctx: CanvasRenderingContext2D,
-  img: HTMLImageElement,
-  qrImg: HTMLImageElement | null,
-  photo: PhotoVo,
-  params: TemplateRenderParams
-) {
-  // 1. Draw blurred ambient backdrop from image
-  ctx.save();
-  ctx.filter = "blur(40px) brightness(0.4) saturate(1.4)";
-  ctx.drawImage(img, -60, -60, STORY_WIDTH + 120, STORY_HEIGHT + 120);
-  ctx.restore();
-
-  // Dark gradient vignette overlay
-  const bgGrad = ctx.createLinearGradient(0, 0, 0, STORY_HEIGHT);
-  bgGrad.addColorStop(0, "rgba(9, 9, 11, 0.7)");
-  bgGrad.addColorStop(0.5, "rgba(9, 9, 11, 0.4)");
-  bgGrad.addColorStop(1, "rgba(9, 9, 11, 0.9)");
-  ctx.fillStyle = bgGrad;
-  ctx.fillRect(0, 0, STORY_WIDTH, STORY_HEIGHT);
-
-  // 2. Top Header: Branding & Gallery Name
-  ctx.fillStyle = "#ffffff";
-  ctx.font = "bold 38px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
-  ctx.textAlign = "left";
-  ctx.fillText(params.galleryTitle || "NayPict", 80, 140);
-
-  ctx.fillStyle = "rgba(255, 255, 255, 0.6)";
-  ctx.font = "24px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
-  ctx.fillText(
-    params.photographerName ? `By ${params.photographerName}` : "Curated Photography",
-    80,
-    180
-  );
-
-  // Top Right: Live Date badge
-  if (params.dateText) {
-    ctx.textAlign = "right";
-    ctx.fillStyle = "rgba(255, 255, 255, 0.75)";
-    ctx.font = "22px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
-    ctx.fillText(params.dateText, STORY_WIDTH - 80, 140);
-    if (params.locationText) {
-      ctx.fillStyle = "rgba(255, 255, 255, 0.5)";
-      ctx.font = "18px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
-      ctx.fillText(params.locationText, STORY_WIDTH - 80, 175);
-    }
-  }
-
-  // 3. Central Photo Frame with Soft Glow & Drop Shadow
-  const framePadding = 80;
-  const frameWidth = STORY_WIDTH - framePadding * 2; // 920px
-  const maxFrameHeight = 1100;
-  const frameTop = 220;
-
-  // Calculate photo aspect ratio fitting inside max dimensions
-  const imgRatio = (photo.width && photo.height) ? photo.width / photo.height : img.width / img.height;
-  let targetWidth = frameWidth;
-  let targetHeight = targetWidth / imgRatio;
-
-  if (targetHeight > maxFrameHeight) {
-    targetHeight = maxFrameHeight;
-    targetWidth = targetHeight * imgRatio;
-  }
-
-  const photoX = (STORY_WIDTH - targetWidth) / 2;
-  const photoY = frameTop + (maxFrameHeight - targetHeight) / 2;
-
-  // Draw Card Drop Shadow
-  ctx.save();
-  ctx.shadowColor = "rgba(0, 0, 0, 0.65)";
-  ctx.shadowBlur = 45;
-  ctx.shadowOffsetY = 25;
-  ctx.fillStyle = "#000000";
-  drawRoundedRect(ctx, photoX, photoY, targetWidth, targetHeight, 28);
-  ctx.fill();
-  ctx.restore();
-
-  // Draw Photo with Rounded Corners
-  ctx.save();
-  drawRoundedRect(ctx, photoX, photoY, targetWidth, targetHeight, 28);
-  ctx.clip();
-  ctx.drawImage(img, photoX, photoY, targetWidth, targetHeight);
-  // Subtle photo border
-  ctx.strokeStyle = "rgba(255, 255, 255, 0.15)";
-  ctx.lineWidth = 2;
-  ctx.stroke();
-  ctx.restore();
-
-  // 4. Bottom Info Card (Glassmorphic Container)
-  const infoCardY = 1370;
-  const infoCardHeight = 430;
-  const infoCardWidth = STORY_WIDTH - framePadding * 2;
-
-  ctx.save();
-  // Glassmorphism card background
-  ctx.fillStyle = "rgba(24, 24, 27, 0.75)";
-  drawRoundedRect(ctx, framePadding, infoCardY, infoCardWidth, infoCardHeight, 32);
-  ctx.fill();
-  ctx.strokeStyle = "rgba(255, 255, 255, 0.12)";
-  ctx.lineWidth = 1.5;
-  ctx.stroke();
-  ctx.restore();
-
-  // Title / Photo Title & Gear Details
-  let currentInfoY = infoCardY + 65;
-
-  if (params.showTitle) {
-    const photoTitle = photo.name?.replace(/\.[^/.]+$/, "") || "Untitled Photograph";
-    ctx.textAlign = "left";
-    ctx.fillStyle = "#ffffff";
-    ctx.font = "bold 34px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
-    const titleDisplay = photoTitle.length > 32 ? `${photoTitle.slice(0, 32)}...` : photoTitle;
-    ctx.fillText(titleDisplay, framePadding + 40, currentInfoY);
-    currentInfoY += 50;
-  } else {
-    currentInfoY += 15;
-  }
-
-  // Camera & Lens Details
-  if (params.showExif && (params.cameraName || params.lensName)) {
-    ctx.fillStyle = "rgba(255, 255, 255, 0.85)";
-    ctx.font = params.showTitle
-      ? "26px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
-      : "bold 30px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
-    const gearText = [params.cameraName, params.lensName].filter(Boolean).join(" • ");
-    const gearDisplay = gearText.length > 42 ? `${gearText.slice(0, 42)}...` : gearText;
-    ctx.fillText(gearDisplay, framePadding + 40, currentInfoY);
-    currentInfoY += 50;
-  }
-
-  // Shooting Parameter Badges (Pills)
-  if (params.showExif && (params.shutter || params.aperture || params.focalLength || params.iso)) {
-    const badges = [
-      params.focalLength,
-      params.aperture,
-      params.shutter,
-      params.iso ? `ISO ${params.iso}` : null,
-    ].filter(Boolean) as string[];
-
-    let pillX = framePadding + 40;
-    const pillY = currentInfoY;
-    const pillHeight = 44;
-
-    ctx.font = "bold 20px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
-
-    for (const badge of badges) {
-      const textWidth = ctx.measureText(badge).width;
-      const pillWidth = textWidth + 30;
-
-      if (pillX + pillWidth > framePadding + infoCardWidth - (qrImg ? 200 : 40)) break;
-
-      ctx.save();
-      ctx.fillStyle = "rgba(255, 255, 255, 0.1)";
-      drawRoundedRect(ctx, pillX, pillY, pillWidth, pillHeight, 22);
-      ctx.fill();
-      ctx.strokeStyle = "rgba(255, 255, 255, 0.2)";
-      ctx.lineWidth = 1;
-      ctx.stroke();
-
-      ctx.fillStyle = "#ffffff";
-      ctx.textAlign = "center";
-      ctx.fillText(badge, pillX + pillWidth / 2, pillY + 29);
-      ctx.restore();
-
-      pillX += pillWidth + 14;
-    }
-  }
-
-  // Bottom Scan Prompt & QR Code
-  if (qrImg) {
-    const qrSize = 140;
-    const qrX = framePadding + infoCardWidth - qrSize - 40;
-    const qrY = infoCardY + (infoCardHeight - qrSize) / 2;
-
-    ctx.save();
-    // QR Code Container background
-    ctx.fillStyle = "#ffffff";
-    drawRoundedRect(ctx, qrX - 8, qrY - 8, qrSize + 16, qrSize + 16, 20);
-    ctx.fill();
-    ctx.drawImage(qrImg, qrX, qrY, qrSize, qrSize);
-    ctx.restore();
-
-    ctx.textAlign = "right";
-    ctx.fillStyle = "rgba(255, 255, 255, 0.5)";
-    ctx.font = "16px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
-    ctx.fillText("Scan to View", qrX - 18, qrY + qrSize / 2 + 6);
-  }
-
-  // Footer Tagline
-  ctx.textAlign = "center";
-  ctx.fillStyle = "rgba(255, 255, 255, 0.35)";
-  ctx.font = "18px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
-  ctx.fillText("Shared from NayPict Photography Gallery", STORY_WIDTH / 2, STORY_HEIGHT - 45);
-}
-
-/**
- * Template 2: Minimalist Film & Museum Exhibition Matte
+ * Template 1: Minimalist Exhibition Matte Frame
  */
 function renderMinimalistTemplate(
   ctx: CanvasRenderingContext2D,
@@ -387,7 +190,7 @@ function renderMinimalistTemplate(
   photo: PhotoVo,
   params: TemplateRenderParams
 ) {
-  // Clean Warm Cream/White background
+  // 1. Clean Warm Cream/White background
   ctx.fillStyle = "#faf9f6";
   ctx.fillRect(0, 0, STORY_WIDTH, STORY_HEIGHT);
 
@@ -396,21 +199,17 @@ function renderMinimalistTemplate(
   ctx.lineWidth = 2;
   ctx.strokeRect(40, 40, STORY_WIDTH - 80, STORY_HEIGHT - 80);
 
-  // Header: Exhibition Label
+  // 2. Header: Clean Gallery Title (Centered, Safe distance from top status bars)
   ctx.fillStyle = "#18181b";
-  ctx.font = "bold 32px Georgia, 'Times New Roman', serif";
+  ctx.font = "bold 38px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
   ctx.textAlign = "center";
-  ctx.fillText(params.galleryTitle || "NAYPICT GALLERY", STORY_WIDTH / 2, 130);
+  ctx.fillText(params.galleryTitle || "NayPict", STORY_WIDTH / 2, 160);
 
-  ctx.fillStyle = "#71717a";
-  ctx.font = "18px -apple-system, BlinkMacSystemFont, sans-serif";
-  ctx.fillText("SELECTED WORKS • EXHIBITION ARCHIVE", STORY_WIDTH / 2, 168);
-
-  // Central Photo Frame
+  // 3. Central Photo Frame
   const framePadding = 90;
   const frameWidth = STORY_WIDTH - framePadding * 2;
-  const maxFrameHeight = 1120;
-  const frameTop = 210;
+  const maxFrameHeight = 1080;
+  const frameTop = 220;
 
   const imgRatio = (photo.width && photo.height) ? photo.width / photo.height : img.width / img.height;
   let targetWidth = frameWidth;
@@ -424,40 +223,48 @@ function renderMinimalistTemplate(
   const photoX = (STORY_WIDTH - targetWidth) / 2;
   const photoY = frameTop + (maxFrameHeight - targetHeight) / 2;
 
-  // Matte border around photo
+  // Matte border with soft elevation shadow around photo
   ctx.save();
-  ctx.shadowColor = "rgba(0, 0, 0, 0.08)";
-  ctx.shadowBlur = 24;
-  ctx.shadowOffsetY = 12;
+  ctx.shadowColor = "rgba(0, 0, 0, 0.09)";
+  ctx.shadowBlur = 28;
+  ctx.shadowOffsetY = 14;
   ctx.fillStyle = "#ffffff";
-  ctx.fillRect(photoX - 10, photoY - 10, targetWidth + 20, targetHeight + 20);
+  ctx.fillRect(photoX - 12, photoY - 12, targetWidth + 24, targetHeight + 24);
   ctx.restore();
 
   ctx.drawImage(img, photoX, photoY, targetWidth, targetHeight);
-  ctx.strokeStyle = "rgba(0, 0, 0, 0.06)";
+  ctx.strokeStyle = "rgba(0, 0, 0, 0.08)";
   ctx.lineWidth = 1;
   ctx.strokeRect(photoX, photoY, targetWidth, targetHeight);
 
-  // Bottom Exhibition Typography
-  let currentBottomY = 1430;
+  // 4. Bottom Typography & Info (Indented inward to align with photoX, preventing text clipping)
+  const textX = Math.max(photoX, 100);
+  let currentBottomY = photoY + targetHeight + 52;
+  if (currentBottomY < 1390) currentBottomY = 1390;
 
+  // Calculate safe text width to prevent collision with right-side QR code
+  const maxTextWidth = qrImg ? (STORY_WIDTH - textX - 250) : (STORY_WIDTH - textX - 60);
+
+  // Photo Title (if enabled)
   if (params.showTitle) {
     const photoTitle = photo.name?.replace(/\.[^/.]+$/, "") || "Untitled Photo";
     ctx.textAlign = "left";
     ctx.fillStyle = "#18181b";
-    ctx.font = "bold 36px Georgia, 'Times New Roman', serif";
-    ctx.fillText(photoTitle, framePadding, currentBottomY);
-    currentBottomY += 45;
+    ctx.font = "bold 34px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+    ctx.fillText(photoTitle, textX, currentBottomY, maxTextWidth);
+    currentBottomY += 44;
   }
 
+  // Photographer Signature
   if (params.photographerName) {
-    ctx.fillStyle = "#71717a";
+    ctx.textAlign = "left";
+    ctx.fillStyle = "#52525b";
     ctx.font = "italic 22px Georgia, 'Times New Roman', serif";
-    ctx.fillText(`Photographed by ${params.photographerName}`, framePadding, currentBottomY);
-    currentBottomY += 45;
+    ctx.fillText(`Photographed by ${params.photographerName}`, textX, currentBottomY, maxTextWidth);
+    currentBottomY += 42;
   }
 
-  // EXIF metadata string
+  // EXIF Camera & Shooting Parameters
   if (params.showExif) {
     const specs = [
       params.cameraName,
@@ -465,50 +272,56 @@ function renderMinimalistTemplate(
       params.focalLength,
       params.aperture,
       params.shutter,
-      params.iso ? `ISO${params.iso}` : null,
-    ].filter(Boolean).join("  |  ");
+      params.iso ? `ISO ${params.iso}` : null,
+    ].filter(Boolean).join("  •  ");
 
     if (specs) {
+      ctx.textAlign = "left";
       ctx.fillStyle = "#52525b";
-      ctx.font = "500 20px -apple-system, BlinkMacSystemFont, monospace";
-      ctx.fillText(specs, framePadding, currentBottomY + 15);
-      currentBottomY += 40;
+      ctx.font = "500 20px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, monospace";
+      ctx.fillText(specs, textX, currentBottomY + 6, maxTextWidth);
+      currentBottomY += 36;
     }
   }
 
+  // Date & Location
   if (params.dateText || params.locationText) {
-    const metaLine = [params.dateText, params.locationText].filter(Boolean).join(" • ");
-    ctx.fillStyle = "#a1a1aa";
+    const metaLine = [params.dateText, params.locationText].filter(Boolean).join("  •  ");
+    ctx.textAlign = "left";
+    ctx.fillStyle = "#71717a";
     ctx.font = "18px -apple-system, BlinkMacSystemFont, sans-serif";
-    ctx.fillText(metaLine, framePadding, currentBottomY + 15);
+    ctx.fillText(metaLine, textX, currentBottomY + 6, maxTextWidth);
   }
 
-  // Minimalist QR Code
+  // 5. Right-side QR Code with CTA and Website Link
   if (qrImg) {
-    const qrSize = 130;
-    const qrX = STORY_WIDTH - framePadding - qrSize;
-    const qrY = 1400;
+    const qrSize = 135;
+    const qrX = STORY_WIDTH - Math.max(photoX, 100) - qrSize;
+    const qrY = photoY + targetHeight + 45;
+    const safeQrY = Math.max(qrY, 1375);
 
-    ctx.drawImage(qrImg, qrX, qrY, qrSize, qrSize);
-    ctx.strokeStyle = "#e4e4e7";
-    ctx.lineWidth = 1;
-    ctx.strokeRect(qrX - 4, qrY - 4, qrSize + 8, qrSize + 8);
-
+    // Call to Action Text above QR Code
     ctx.textAlign = "center";
-    ctx.fillStyle = "#a1a1aa";
-    ctx.font = "14px -apple-system, BlinkMacSystemFont, sans-serif";
-    ctx.fillText("SCAN PHOTO", qrX + qrSize / 2, qrY + qrSize + 24);
-  }
+    ctx.fillStyle = "#18181b";
+    ctx.font = "bold 17px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+    ctx.fillText("See more photos ↗", qrX + qrSize / 2, safeQrY - 14);
 
-  // Bottom Center Footer
-  ctx.textAlign = "center";
-  ctx.fillStyle = "#a1a1aa";
-  ctx.font = "16px -apple-system, BlinkMacSystemFont, sans-serif";
-  ctx.fillText("naypict.gallery", STORY_WIDTH / 2, STORY_HEIGHT - 70);
+    // QR Code Image with Border
+    ctx.drawImage(qrImg, qrX, safeQrY, qrSize, qrSize);
+    ctx.strokeStyle = "#d4d4d8";
+    ctx.lineWidth = 1;
+    ctx.strokeRect(qrX - 4, safeQrY - 4, qrSize + 8, qrSize + 8);
+
+    // Direct Website Link under QR Code
+    const displayUrl = getDisplayUrl(params.photoUrl);
+    ctx.fillStyle = "#2563eb"; // Blue link accent
+    ctx.font = "bold 15px -apple-system, BlinkMacSystemFont, monospace";
+    ctx.fillText(displayUrl, qrX + qrSize / 2, safeQrY + qrSize + 24);
+  }
 }
 
 /**
- * Template 3: Cinematic Full-Bleed
+ * Template 2: Cinematic Full-Bleed
  */
 function renderCinematicTemplate(
   ctx: CanvasRenderingContext2D,
@@ -541,42 +354,43 @@ function renderCinematicTemplate(
   ctx.drawImage(img, renderX, renderY, renderWidth, renderHeight);
 
   // Top Dark Gradient
-  const topGrad = ctx.createLinearGradient(0, 0, 0, 380);
+  const topGrad = ctx.createLinearGradient(0, 0, 0, 360);
   topGrad.addColorStop(0, "rgba(0, 0, 0, 0.85)");
   topGrad.addColorStop(0.6, "rgba(0, 0, 0, 0.4)");
   topGrad.addColorStop(1, "rgba(0, 0, 0, 0)");
   ctx.fillStyle = topGrad;
-  ctx.fillRect(0, 0, STORY_WIDTH, 380);
+  ctx.fillRect(0, 0, STORY_WIDTH, 360);
 
   // Bottom Dark Gradient for Text Legibility
   const bottomGrad = ctx.createLinearGradient(0, STORY_HEIGHT - 650, 0, STORY_HEIGHT);
   bottomGrad.addColorStop(0, "rgba(0, 0, 0, 0)");
-  bottomGrad.addColorStop(0.3, "rgba(0, 0, 0, 0.6)");
+  bottomGrad.addColorStop(0.3, "rgba(0, 0, 0, 0.65)");
   bottomGrad.addColorStop(1, "rgba(0, 0, 0, 0.95)");
   ctx.fillStyle = bottomGrad;
   ctx.fillRect(0, STORY_HEIGHT - 650, STORY_WIDTH, 650);
 
   // Top Brand
   ctx.fillStyle = "#ffffff";
-  ctx.font = "900 36px -apple-system, BlinkMacSystemFont, sans-serif";
+  ctx.font = "900 38px -apple-system, BlinkMacSystemFont, sans-serif";
   ctx.textAlign = "left";
-  ctx.fillText(params.galleryTitle || "NAYPICT", 80, 130);
+  ctx.fillText(params.galleryTitle || "NAYPICT", 80, 150);
 
   if (params.photographerName) {
-    ctx.fillStyle = "rgba(255, 255, 255, 0.7)";
+    ctx.fillStyle = "rgba(255, 255, 255, 0.75)";
     ctx.font = "22px -apple-system, BlinkMacSystemFont, sans-serif";
-    ctx.fillText(`Photo by ${params.photographerName}`, 80, 168);
+    ctx.fillText(`Photo by ${params.photographerName}`, 80, 190);
   }
 
   // Bottom Info Overlay
   let currentBottomContentY = STORY_HEIGHT - 280;
+  const maxLeftWidth = qrImg ? STORY_WIDTH - 80 - 240 : STORY_WIDTH - 160;
 
   if (params.showTitle) {
     const photoTitle = photo.name?.replace(/\.[^/.]+$/, "") || "Untitled Photograph";
     ctx.fillStyle = "#ffffff";
     ctx.font = "bold 44px -apple-system, BlinkMacSystemFont, sans-serif";
     ctx.textAlign = "left";
-    ctx.fillText(photoTitle, 80, currentBottomContentY);
+    ctx.fillText(photoTitle, 80, currentBottomContentY, maxLeftWidth);
     currentBottomContentY += 46;
   } else {
     currentBottomContentY += 10;
@@ -585,11 +399,11 @@ function renderCinematicTemplate(
   if (params.showExif) {
     const gearRow = [params.cameraName, params.lensName].filter(Boolean).join("  •  ");
     if (gearRow) {
-      ctx.fillStyle = "rgba(255, 255, 255, 0.85)";
+      ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
       ctx.font = params.showTitle
         ? "24px -apple-system, BlinkMacSystemFont, sans-serif"
         : "bold 32px -apple-system, BlinkMacSystemFont, sans-serif";
-      ctx.fillText(gearRow, 80, currentBottomContentY);
+      ctx.fillText(gearRow, 80, currentBottomContentY, maxLeftWidth);
       currentBottomContentY += params.showTitle ? 42 : 48;
     }
 
@@ -603,22 +417,35 @@ function renderCinematicTemplate(
     if (shootRow) {
       ctx.fillStyle = "#38bdf8"; // subtle cyan glow for cinematic touch
       ctx.font = "bold 22px -apple-system, BlinkMacSystemFont, monospace";
-      ctx.fillText(shootRow, 80, currentBottomContentY);
+      ctx.fillText(shootRow, 80, currentBottomContentY, maxLeftWidth);
     }
   }
 
-  // QR Code at right corner
+  // QR Code at right corner with CTA and link
   if (qrImg) {
-    const qrSize = 130;
+    const qrSize = 135;
     const qrX = STORY_WIDTH - 80 - qrSize;
-    const qrY = STORY_HEIGHT - 310;
+    const qrY = STORY_HEIGHT - 290;
 
+    // CTA
+    ctx.textAlign = "center";
+    ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
+    ctx.font = "bold 16px -apple-system, BlinkMacSystemFont, sans-serif";
+    ctx.fillText("See more photos ↗", qrX + qrSize / 2, qrY - 12);
+
+    // QR Image
     ctx.save();
-    ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
+    ctx.fillStyle = "rgba(0, 0, 0, 0.65)";
     drawRoundedRect(ctx, qrX - 8, qrY - 8, qrSize + 16, qrSize + 16, 18);
     ctx.fill();
     ctx.drawImage(qrImg, qrX, qrY, qrSize, qrSize);
     ctx.restore();
+
+    // Link
+    const displayUrl = getDisplayUrl(params.photoUrl);
+    ctx.fillStyle = "#38bdf8";
+    ctx.font = "bold 14px -apple-system, BlinkMacSystemFont, monospace";
+    ctx.fillText(displayUrl, qrX + qrSize / 2, qrY + qrSize + 22);
   }
 }
 

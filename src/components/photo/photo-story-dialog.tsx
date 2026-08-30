@@ -53,7 +53,7 @@ export function PhotoStoryDialog({ photo, open, onOpenChange }: PhotoStoryDialog
   const previewCanvasRef = useRef<HTMLCanvasElement | null>(null);
 
   // Template style state
-  const [template, setTemplate] = useState<StoryTemplate>("glassmorphic");
+  const [template, setTemplate] = useState<StoryTemplate>("minimalist");
   // Options state
   const [showTitle, setShowTitle] = useState(true);
   const [showExif, setShowExif] = useState(true);
@@ -266,18 +266,14 @@ export function PhotoStoryDialog({ photo, open, onOpenChange }: PhotoStoryDialog
                 onValueChange={(val: string) => setTemplate(val as StoryTemplate)}
                 className="w-full"
               >
-                <TabsList className="grid grid-cols-3 w-full h-10 p-1 bg-muted/80">
-                  <TabsTrigger value="glassmorphic" className="text-xs flex items-center gap-1.5">
-                    <Sparkles className="size-3.5" />
-                    Glassmorphic
-                  </TabsTrigger>
+                <TabsList className="grid grid-cols-2 w-full h-10 p-1 bg-muted/80">
                   <TabsTrigger value="minimalist" className="text-xs flex items-center gap-1.5">
                     <Layers className="size-3.5" />
-                    Minimalist
+                    Minimalist Exhibition
                   </TabsTrigger>
                   <TabsTrigger value="cinematic" className="text-xs flex items-center gap-1.5">
                     <Camera className="size-3.5" />
-                    Cinematic
+                    Cinematic Full-Bleed
                   </TabsTrigger>
                 </TabsList>
               </Tabs>
