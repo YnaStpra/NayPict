@@ -296,33 +296,42 @@ function renderMinimalistTemplate(
   // Calculate safe text width to prevent collision with right-side QR code
   const maxTextWidth = qrImg ? (STORY_WIDTH - textX - 250) : (STORY_WIDTH - textX - 60);
 
-  // EXIF Device & Camera Model (Bold Title at TOP of EXIF block)
+  // EXIF Information Block
   if (params.showExif) {
-    const cameraDisplay = [params.cameraName, params.lensName].filter(Boolean).join("  •  ");
-    if (cameraDisplay) {
+    // 1. Camera Device Body (Bold Title at TOP of EXIF block)
+    if (params.cameraName) {
       ctx.textAlign = "left";
       ctx.fillStyle = "#18181b";
       ctx.font = "bold 25px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
-      ctx.fillText(cameraDisplay, textX, currentBottomY, maxTextWidth);
+      ctx.fillText(params.cameraName, textX, currentBottomY, maxTextWidth);
       currentBottomY += 34;
     }
 
-    // Row 1: File Specs (Resolution | Megapixels - file size removed)
+    // 2. Lens Model (Placed below camera as lens spec)
+    if (params.lensName) {
+      ctx.textAlign = "left";
+      ctx.fillStyle = "#3f3f46";
+      ctx.font = "500 20px -apple-system, BlinkMacSystemFont, monospace";
+      ctx.fillText(params.lensName, textX, currentBottomY, maxTextWidth);
+      currentBottomY += 30;
+    }
+
+    // 3. File Specs (Resolution | Megapixels - file size removed)
     if (params.fileSpecsLine) {
       ctx.textAlign = "left";
       ctx.fillStyle = "#52525b";
       ctx.font = "500 20px -apple-system, BlinkMacSystemFont, monospace";
       ctx.fillText(params.fileSpecsLine, textX, currentBottomY, maxTextWidth);
-      currentBottomY += 32;
+      currentBottomY += 30;
     }
 
-    // Row 2: Exposure Specs (ISO | Focal | EV | Aperture | Shutter)
+    // 4. Exposure Specs (ISO | Focal | EV | Aperture | Shutter)
     if (params.exposureSpecsLine) {
       ctx.textAlign = "left";
       ctx.fillStyle = "#27272a";
       ctx.font = "600 20px -apple-system, BlinkMacSystemFont, monospace";
       ctx.fillText(params.exposureSpecsLine, textX, currentBottomY, maxTextWidth);
-      currentBottomY += 34;
+      currentBottomY += 32;
     }
   }
 
@@ -446,29 +455,36 @@ function renderCinematicTemplate(
   const maxLeftWidth = qrImg ? STORY_WIDTH - 80 - 240 : STORY_WIDTH - 160;
 
   if (params.showExif) {
-    // Camera Device Model (Bold Title at TOP of block)
-    const cameraDisplay = [params.cameraName, params.lensName].filter(Boolean).join("  •  ");
-    if (cameraDisplay) {
+    // 1. Camera Device Body (Bold Title at TOP)
+    if (params.cameraName) {
       ctx.fillStyle = "#ffffff";
       ctx.font = "bold 28px -apple-system, BlinkMacSystemFont, sans-serif";
-      ctx.fillText(cameraDisplay, 80, currentBottomContentY, maxLeftWidth);
+      ctx.fillText(params.cameraName, 80, currentBottomContentY, maxLeftWidth);
       currentBottomContentY += 34;
     }
 
-    // Row 1: File Specs (Resolution | Megapixels - file size removed)
+    // 2. Lens Model (Below camera)
+    if (params.lensName) {
+      ctx.fillStyle = "rgba(255, 255, 255, 0.85)";
+      ctx.font = "500 20px -apple-system, BlinkMacSystemFont, monospace";
+      ctx.fillText(params.lensName, 80, currentBottomContentY, maxLeftWidth);
+      currentBottomContentY += 30;
+    }
+
+    // 3. File Specs (Resolution | Megapixels - file size removed)
     if (params.fileSpecsLine) {
       ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
       ctx.font = "500 20px -apple-system, BlinkMacSystemFont, monospace";
       ctx.fillText(params.fileSpecsLine, 80, currentBottomContentY, maxLeftWidth);
-      currentBottomContentY += 30;
+      currentBottomContentY += 28;
     }
 
-    // Row 2: Exposure Specs (ISO | Focal | EV | Aperture | Shutter)
+    // 4. Exposure Specs (ISO | Focal | EV | Aperture | Shutter)
     if (params.exposureSpecsLine) {
       ctx.fillStyle = "#38bdf8"; // subtle cyan glow
       ctx.font = "bold 20px -apple-system, BlinkMacSystemFont, monospace";
       ctx.fillText(params.exposureSpecsLine, 80, currentBottomContentY, maxLeftWidth);
-      currentBottomContentY += 32;
+      currentBottomContentY += 30;
     }
   }
 
