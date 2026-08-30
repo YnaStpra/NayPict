@@ -14,6 +14,8 @@
   "photos.viewer.loading": "Loading",
   "photos.viewer.loadFailed": "Load failed",
   "photos.viewer.share": "Share photo",
+  "photos.viewer.storyCard": "Instagram Story Card",
+  "photos.viewer.createStory": "Create Instagram Story Card",
   "photos.viewer.copied": "Photo link copied to clipboard!",
   "photos.viewer.copyFailed": "Failed to copy link",
   "photos.upload.title": "Photo upload",

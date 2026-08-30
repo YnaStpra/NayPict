@@ -1,6 +1,7 @@
 "use client"
 
 import { Archive, Eye, FolderHeart, FolderPlusIcon, Globe, Image as ImageIcon, InfoIcon, MapPin, MessageSquareIcon, Pencil, TrendingUp, XIcon } from "lucide-react"
+import { InstagramIcon } from "@/components/icons/instagram"
 import { useEffect, useRef, useState } from "react"
 import { toast } from "sonner"
 
@@ -28,6 +29,8 @@ type PhotoInfoSidebarProps = {
   onAlbumOpen?: (photoId: string) => void
   // Trigger open insights dialog (Admin only).
   onInsightsOpen?: (photoId: string) => void
+  // Trigger open story card generator dialog.
+  onStoryOpen?: () => void
   // Callback when photo is updated (e.g. visibility change)
   onPhotoUpdate?: (photo: PhotoVo) => void
   // Initial active tab ("info" | "comments")
@@ -145,6 +148,7 @@ export function PhotoInfoSidebar({
   onClose,
   onAlbumOpen,
   onInsightsOpen,
+  onStoryOpen,
   onPhotoUpdate,
   activeTab: controlledTab,
   onTabChange,
@@ -563,6 +567,23 @@ export function PhotoInfoSidebar({
                     </div>
                   </div>
                 </div>
+              )}
+
+              {/* Story Card Generator Trigger Button */}
+              {onStoryOpen && (
+                <Button
+                  type="button"
+                  size="sm"
+                  className="w-full justify-center gap-2 bg-gradient-to-r from-pink-600 via-rose-500 to-amber-500 hover:opacity-95 text-white font-semibold shadow-md rounded-xl cursor-pointer text-xs h-9 transition-all hover:scale-[1.01]"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    e.preventDefault()
+                    onStoryOpen()
+                  }}
+                >
+                  <InstagramIcon className="size-3.5" />
+                  <span>Create Instagram Story Card</span>
+                </Button>
               )}
 
               <div>

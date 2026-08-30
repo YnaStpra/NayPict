@@ -11,6 +11,8 @@ import { toast } from "sonner"
 
 import { PhotoInfoSidebar, PhotoViewerBlurBackground, formatAlbumList } from "@/components/photo/photo-info-sidebar"
 import { PhotoInsightsDialog } from "@/components/photo/photo-insights-dialog"
+import { PhotoStoryDialog } from "@/components/photo/photo-story-dialog"
+import { InstagramIcon } from "@/components/icons/instagram"
 import { useTapAction } from "@/hooks/use-tap-action"
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
@@ -643,6 +645,32 @@ function ShareButton({ showActions }: { showActions: boolean }) {
   )
 }
 
+// Render Instagram Story Card generator button.
+function StoryCardButton({
+  showActions,
+  onOpenStory,
+}: {
+  showActions: boolean
+  onOpenStory: () => void
+}) {
+  const t = useTranslations("photos.viewer")
+  const tap = useTapAction(onOpenStory)
+
+  return (
+    <Button
+      type="button"
+      size="icon"
+      variant="secondary"
+      className="rounded-full bg-gradient-to-tr from-pink-600 via-rose-500 to-amber-500 text-white transition-all duration-200 hover:scale-110 hover:opacity-100 shadow-md shadow-pink-500/30 border border-white/20 cursor-pointer"
+      title={t("createStory")}
+      {...tap}
+    >
+      <InstagramIcon className="size-4" />
+      <span className="sr-only">{t("storyCard")}</span>
+    </Button>
+  )
+}
+
 // Render original image load button.
 function LoadOriginalButton({
   showActions,
@@ -1107,6 +1135,8 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
   // State for single-photo insights modal (Admin only)
   const [insightsDialogOpen, setInsightsDialogOpen] = useState(false)
   const [insightsPhotoId, setInsightsPhotoId] = useState<string | null>(null)
+  // State for Instagram Story Card generator dialog
+  const [storyDialogOpen, setStoryDialogOpen] = useState(false)
 
   // Toggle cinematic mode with Browser Fullscreen API and graceful fallback.
   const toggleCinematicMode = useCallback(() => {
@@ -1642,6 +1672,7 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
                     onClose={() => setInfoOpen(false)}
                     onPhotoUpdate={onPhotoUpdate}
                     onAlbumOpen={onAlbumOpen ? (photoId) => onAlbumOpen([photoId]) : undefined}
+                    onStoryOpen={() => setStoryDialogOpen(true)}
                     onInsightsOpen={isAdmin ? (photoId) => {
                       setInsightsPhotoId(photoId)
                       setInsightsDialogOpen(true)
@@ -1671,6 +1702,7 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
                         onLoadOriginal={loadOriginalPhoto}
                       />
                       <RotateButton showActions={actionsVisible} onRotate={rotatePhoto} />
+                      <StoryCardButton showActions={actionsVisible} onOpenStory={() => setStoryDialogOpen(true)} />
                       <ShareButton showActions={actionsVisible} />
                       <InfoButton
                         showActions={actionsVisible}
@@ -1820,6 +1852,11 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
           photoId={insightsPhotoId}
         />
       )}
+      <PhotoStoryDialog
+        open={storyDialogOpen}
+        onOpenChange={setStoryDialogOpen}
+        photo={photos[viewIndex] ?? null}
+      />
     </>
   )
 }
