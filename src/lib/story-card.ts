@@ -131,6 +131,57 @@ export async function renderStoryCardToCanvas(
   const focalLength = shootingParams.find((p) => p.key === "focalLength")?.value;
   const iso = shootingParams.find((p) => p.key === "iso")?.value;
 
+  // File Specs (Size | Resolution | Megapixels)
+  let fileSizeText: string | null = null;
+  if (photo.size) {
+    const mb = photo.size / (1024 * 1024);
+    fileSizeText = mb >= 1 ? `${mb.toFixed(2)} MB` : `${Math.round(photo.size / 1024)} KB`;
+  }
+
+  let resolutionText: string | null = null;
+  let mpText: string | null = null;
+  if (photo.width && photo.height) {
+    resolutionText = `${photo.width}x${photo.height}`;
+    const mp = (photo.width * photo.height) / 1_000_000;
+    mpText = `${Math.round(mp)}MP`;
+  }
+
+  const fileSpecsItems = [fileSizeText, resolutionText, mpText].filter(Boolean) as string[];
+  const fileSpecsLine = fileSpecsItems.length > 0 ? fileSpecsItems.join("  |  ") : undefined;
+
+  // Parse raw JSON for Exposure Bias EV
+  let evText: string | null = null;
+  if (photo.exif) {
+    try {
+      const rawExif = JSON.parse(photo.exif);
+      const evVal = rawExif.ExposureBiasValue ?? rawExif.ExposureCompensation ?? rawExif.ExposureBias;
+      if (evVal !== undefined && evVal !== null && evVal !== "") {
+        const num = Number(evVal);
+        if (!Number.isNaN(num)) {
+          const sign = num > 0 ? "+" : "";
+          evText = `${sign}${num.toFixed(1)}ev`;
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  // Format Aperture to "F2.4"
+  const formattedAperture = aperture ? aperture.replace(/^f\//i, "F") : null;
+  // Format Shutter to "1/235 s"
+  const formattedShutter = shutter ? (shutter.endsWith("s") ? `${shutter.slice(0, -1)} s` : `${shutter} s`) : null;
+
+  // Exposure Specs Line (ISO 25 | 69mm | 0.0ev | F2.4 | 1/235 s)
+  const exposureItems = [
+    iso ? `ISO ${iso}` : null,
+    focalLength,
+    evText || (iso && focalLength ? "0.0ev" : null),
+    formattedAperture || aperture,
+    formattedShutter || shutter,
+  ].filter(Boolean) as string[];
+  const exposureSpecsLine = exposureItems.length > 0 ? exposureItems.join("  |  ") : undefined;
+
   const locationText = options.showLocation
     ? formatPhotoLocation(photo.latitude, photo.longitude, photo.altitude)
     : null;
@@ -144,6 +195,8 @@ export async function renderStoryCardToCanvas(
     renderCinematicTemplate(ctx, photoImg, qrImg, photo, {
       cameraName,
       lensName,
+      fileSpecsLine,
+      exposureSpecsLine,
       shutter,
       aperture,
       focalLength,
@@ -156,6 +209,8 @@ export async function renderStoryCardToCanvas(
     renderMinimalistTemplate(ctx, photoImg, qrImg, photo, {
       cameraName,
       lensName,
+      fileSpecsLine,
+      exposureSpecsLine,
       shutter,
       aperture,
       focalLength,
@@ -172,6 +227,8 @@ export async function renderStoryCardToCanvas(
 interface TemplateRenderParams extends StoryCardOptions {
   cameraName?: string;
   lensName?: string;
+  fileSpecsLine?: string;
+  exposureSpecsLine?: string;
   shutter?: string;
   aperture?: string;
   focalLength?: string;
@@ -237,68 +294,69 @@ function renderMinimalistTemplate(
   ctx.lineWidth = 1;
   ctx.strokeRect(photoX, photoY, targetWidth, targetHeight);
 
-  // 4. Bottom Typography & Info (Indented inward to align with photoX, preventing text clipping)
+  // 4. Bottom Typography & Info (Structured EXIF Card format aligned with photoX)
   const textX = Math.max(photoX, 100);
-  let currentBottomY = photoY + targetHeight + 52;
-  if (currentBottomY < 1390) currentBottomY = 1390;
+  let currentBottomY = photoY + targetHeight + 48;
+  if (currentBottomY < 1370) currentBottomY = 1370;
 
   // Calculate safe text width to prevent collision with right-side QR code
   const maxTextWidth = qrImg ? (STORY_WIDTH - textX - 250) : (STORY_WIDTH - textX - 60);
 
-  // Photo Title (if enabled)
+  // Photo File Name / Title (if enabled)
   if (params.showTitle) {
-    const photoTitle = photo.name?.replace(/\.[^/.]+$/, "") || "Untitled Photo";
+    const photoTitle = photo.name || "Untitled Photo";
     ctx.textAlign = "left";
-    ctx.fillStyle = "#18181b";
-    ctx.font = "bold 34px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+    ctx.fillStyle = "#71717a";
+    ctx.font = "500 21px -apple-system, BlinkMacSystemFont, monospace";
     ctx.fillText(photoTitle, textX, currentBottomY, maxTextWidth);
-    currentBottomY += 44;
+    currentBottomY += 36;
   }
 
-  // Photographer Signature
-  if (params.photographerName) {
-    ctx.textAlign = "left";
-    ctx.fillStyle = "#52525b";
-    ctx.font = "italic 22px Georgia, 'Times New Roman', serif";
-    ctx.fillText(`Photographed by ${params.photographerName}`, textX, currentBottomY, maxTextWidth);
-    currentBottomY += 42;
-  }
-
-  // EXIF Row 1: Camera & Lens Device
+  // EXIF Device & Camera Model (Bold Title)
   if (params.showExif) {
-    const deviceRow = [params.cameraName, params.lensName].filter(Boolean).join("  •  ");
-    if (deviceRow) {
+    const cameraDisplay = [params.cameraName, params.lensName].filter(Boolean).join("  •  ");
+    if (cameraDisplay) {
       ctx.textAlign = "left";
       ctx.fillStyle = "#18181b";
-      ctx.font = "600 23px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
-      ctx.fillText(deviceRow, textX, currentBottomY, maxTextWidth);
+      ctx.font = "bold 26px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+      ctx.fillText(cameraDisplay, textX, currentBottomY, maxTextWidth);
       currentBottomY += 34;
     }
 
-    // EXIF Row 2: Shooting Technical Parameters (Focal, Aperture, Shutter, ISO)
-    const shootParams = [
-      params.focalLength,
-      params.aperture,
-      params.shutter,
-      params.iso ? `ISO ${params.iso}` : null,
-    ].filter(Boolean).join("    ");
-
-    if (shootParams) {
+    // Row 1: File Specs (Size | Resolution | Megapixels)
+    if (params.fileSpecsLine) {
       ctx.textAlign = "left";
       ctx.fillStyle = "#52525b";
-      ctx.font = "500 20px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, monospace";
-      ctx.fillText(shootParams, textX, currentBottomY, maxTextWidth);
+      ctx.font = "500 20px -apple-system, BlinkMacSystemFont, monospace";
+      ctx.fillText(params.fileSpecsLine, textX, currentBottomY, maxTextWidth);
+      currentBottomY += 32;
+    }
+
+    // Row 2: Exposure Specs (ISO | Focal | EV | Aperture | Shutter)
+    if (params.exposureSpecsLine) {
+      ctx.textAlign = "left";
+      ctx.fillStyle = "#27272a";
+      ctx.font = "600 20px -apple-system, BlinkMacSystemFont, monospace";
+      ctx.fillText(params.exposureSpecsLine, textX, currentBottomY, maxTextWidth);
       currentBottomY += 34;
     }
   }
 
-  // EXIF Row 3: Date & Location
-  if (params.dateText || params.locationText) {
-    const metaLine = [params.dateText, params.locationText].filter(Boolean).join("   •   ");
+  // Location text (if enabled and available)
+  if (params.showLocation && params.locationText) {
     ctx.textAlign = "left";
     ctx.fillStyle = "#71717a";
     ctx.font = "18px -apple-system, BlinkMacSystemFont, sans-serif";
-    ctx.fillText(metaLine, textX, currentBottomY, maxTextWidth);
+    ctx.fillText(params.locationText, textX, currentBottomY, maxTextWidth);
+    currentBottomY += 28;
+  }
+
+  // Photographer Signature (if provided)
+  if (params.photographerName) {
+    ctx.textAlign = "left";
+    ctx.fillStyle = "#a1a1aa";
+    ctx.font = "italic 18px Georgia, 'Times New Roman', serif";
+    ctx.fillText(`Photographed by ${params.photographerName}`, textX, currentBottomY, maxTextWidth);
   }
 
   // 5. Right-side QR Code with CTA and Website Link
@@ -393,47 +451,48 @@ function renderCinematicTemplate(
   let currentBottomContentY = STORY_HEIGHT - 310;
   const maxLeftWidth = qrImg ? STORY_WIDTH - 80 - 240 : STORY_WIDTH - 160;
 
+  // Photo File Name / Title (if enabled)
   if (params.showTitle) {
-    const photoTitle = photo.name?.replace(/\.[^/.]+$/, "") || "Untitled Photograph";
-    ctx.fillStyle = "#ffffff";
-    ctx.font = "bold 42px -apple-system, BlinkMacSystemFont, sans-serif";
+    const photoTitle = photo.name || "Untitled Photograph";
+    ctx.fillStyle = "rgba(255, 255, 255, 0.75)";
+    ctx.font = "500 21px -apple-system, BlinkMacSystemFont, monospace";
     ctx.textAlign = "left";
     ctx.fillText(photoTitle, 80, currentBottomContentY, maxLeftWidth);
-    currentBottomContentY += 46;
+    currentBottomContentY += 36;
   }
 
   if (params.showExif) {
-    // Row 1: Camera & Lens
-    const gearRow = [params.cameraName, params.lensName].filter(Boolean).join("  •  ");
-    if (gearRow) {
-      ctx.fillStyle = "rgba(255, 255, 255, 0.95)";
-      ctx.font = "bold 26px -apple-system, BlinkMacSystemFont, sans-serif";
-      ctx.fillText(gearRow, 80, currentBottomContentY, maxLeftWidth);
-      currentBottomContentY += 36;
+    // Camera Device Model (Bold)
+    const cameraDisplay = [params.cameraName, params.lensName].filter(Boolean).join("  •  ");
+    if (cameraDisplay) {
+      ctx.fillStyle = "#ffffff";
+      ctx.font = "bold 30px -apple-system, BlinkMacSystemFont, sans-serif";
+      ctx.fillText(cameraDisplay, 80, currentBottomContentY, maxLeftWidth);
+      currentBottomContentY += 34;
     }
 
-    // Row 2: Shooting Parameters
-    const shootRow = [
-      params.focalLength,
-      params.aperture,
-      params.shutter,
-      params.iso ? `ISO ${params.iso}` : null,
-    ].filter(Boolean).join("    ");
+    // Row 1: File Specs (Size | Resolution | Megapixels)
+    if (params.fileSpecsLine) {
+      ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
+      ctx.font = "500 20px -apple-system, BlinkMacSystemFont, monospace";
+      ctx.fillText(params.fileSpecsLine, 80, currentBottomContentY, maxLeftWidth);
+      currentBottomContentY += 30;
+    }
 
-    if (shootRow) {
-      ctx.fillStyle = "#38bdf8"; // subtle cyan glow for cinematic touch
-      ctx.font = "bold 21px -apple-system, BlinkMacSystemFont, monospace";
-      ctx.fillText(shootRow, 80, currentBottomContentY, maxLeftWidth);
+    // Row 2: Exposure Specs (ISO | Focal | EV | Aperture | Shutter)
+    if (params.exposureSpecsLine) {
+      ctx.fillStyle = "#38bdf8"; // subtle cyan glow
+      ctx.font = "bold 20px -apple-system, BlinkMacSystemFont, monospace";
+      ctx.fillText(params.exposureSpecsLine, 80, currentBottomContentY, maxLeftWidth);
       currentBottomContentY += 32;
     }
   }
 
-  // Row 3: Date & Location in Cinematic
-  if (params.dateText || params.locationText) {
-    const metaRow = [params.dateText, params.locationText].filter(Boolean).join("  •  ");
-    ctx.fillStyle = "rgba(255, 255, 255, 0.65)";
+  // Location text
+  if (params.showLocation && params.locationText) {
+    ctx.fillStyle = "rgba(255, 255, 255, 0.7)";
     ctx.font = "18px -apple-system, BlinkMacSystemFont, sans-serif";
-    ctx.fillText(metaRow, 80, currentBottomContentY, maxLeftWidth);
+    ctx.fillText(params.locationText, 80, currentBottomContentY, maxLeftWidth);
   }
 
   // QR Code at right corner with CTA and link
