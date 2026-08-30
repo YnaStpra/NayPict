@@ -15,7 +15,6 @@ export interface StoryCardOptions {
   showQrCode: boolean;
   showLocation: boolean;
   showDate: boolean;
-  photographerName: string;
   galleryTitle: string;
   photoUrl: string;
 }
@@ -351,15 +350,6 @@ function renderMinimalistTemplate(
     ctx.fillStyle = "#71717a";
     ctx.font = "500 20px -apple-system, BlinkMacSystemFont, monospace";
     ctx.fillText(photoTitle, textX, currentBottomY, maxTextWidth);
-    currentBottomY += 32;
-  }
-
-  // Photographer Signature (if provided)
-  if (params.photographerName) {
-    ctx.textAlign = "left";
-    ctx.fillStyle = "#a1a1aa";
-    ctx.font = "italic 18px Georgia, 'Times New Roman', serif";
-    ctx.fillText(`Photographed by ${params.photographerName}`, textX, currentBottomY, maxTextWidth);
   }
 
   // 5. Right-side QR Code with CTA and Website Link
@@ -443,12 +433,6 @@ function renderCinematicTemplate(
   ctx.font = "900 38px -apple-system, BlinkMacSystemFont, sans-serif";
   ctx.textAlign = "left";
   ctx.fillText(params.galleryTitle || "NAYPICT", 80, 150);
-
-  if (params.photographerName) {
-    ctx.fillStyle = "rgba(255, 255, 255, 0.75)";
-    ctx.font = "22px -apple-system, BlinkMacSystemFont, sans-serif";
-    ctx.fillText(`Photo by ${params.photographerName}`, 80, 190);
-  }
 
   // Bottom Info Overlay
   let currentBottomContentY = STORY_HEIGHT - 310;

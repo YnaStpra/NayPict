@@ -60,20 +60,12 @@ export function PhotoStoryDialog({ photo, open, onOpenChange }: PhotoStoryDialog
   const [showQrCode, setShowQrCode] = useState(true);
   const [showLocation, setShowLocation] = useState(true);
   const [showDate, setShowDate] = useState(true);
-  const [photographerName, setPhotographerName] = useState(userInfo?.username || "");
-  
+
   // Generating / Loading state
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSharing, setIsSharing] = useState(false);
   const [currentBlob, setCurrentBlob] = useState<Blob | null>(null);
   const [copied, setCopied] = useState(false);
-
-  // Update photographer name when userInfo changes
-  useEffect(() => {
-    if (userInfo?.username && !photographerName) {
-      setPhotographerName(userInfo.username);
-    }
-  }, [userInfo?.username, photographerName]);
 
   // Compute absolute photo URL
   const photoUrl = typeof window !== "undefined" && photo
@@ -95,7 +87,6 @@ export function PhotoStoryDialog({ photo, open, onOpenChange }: PhotoStoryDialog
         showQrCode,
         showLocation,
         showDate,
-        photographerName,
         galleryTitle: galleryTitle || "NayPict",
         photoUrl,
       };
@@ -128,7 +119,7 @@ export function PhotoStoryDialog({ photo, open, onOpenChange }: PhotoStoryDialog
       setIsGenerating(false);
       toast.error("Failed to generate Story Card. Please try again.");
     }
-  }, [photo, open, template, showTitle, showExif, showQrCode, showLocation, showDate, photographerName, galleryTitle, photoUrl]);
+  }, [photo, open, template, showTitle, showExif, showQrCode, showLocation, showDate, galleryTitle, photoUrl]);
 
   // Re-generate canvas whenever dialog opens or options change
   useEffect(() => {
@@ -337,20 +328,6 @@ export function PhotoStoryDialog({ photo, open, onOpenChange }: PhotoStoryDialog
                   />
                 </div>
               </div>
-            </div>
-
-            {/* Photographer Signature Input */}
-            <div className="space-y-2">
-              <Label htmlFor="photographer-name" className="text-xs font-semibold uppercase tracking-wider text-zinc-400">
-                Photographer / Signature Credit
-              </Label>
-              <Input
-                id="photographer-name"
-                value={photographerName}
-                onChange={(e) => setPhotographerName(e.target.value)}
-                placeholder="e.g. Yan Saputra"
-                className="h-10 bg-white/5 border-white/10 text-white placeholder:text-zinc-500 rounded-xl text-sm focus-visible:ring-pink-500"
-              />
             </div>
 
             {/* Action Buttons */}
