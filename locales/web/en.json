@@ -3,6 +3,7 @@
   "common.cancel": "Cancel",
   "common.delete": "Delete",
   "photos.title": "Photos",
+  "photos.pressBackAgainToExit": "Press back again to exit",
   "photos.imageLoadFailed": "Unable to load image",
   "photos.selectDateRange": "Select Dates",
   "photos.onThisDay.title": "On This Day",

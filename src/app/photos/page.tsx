@@ -20,6 +20,7 @@ import { usePhotoList } from "@/hooks/use-photo-list"
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { toast } from 'sonner'
 import { PhotoMasonry } from "@/components/photo/photo-masonry"
+import { useDoubleBackToExit } from "@/hooks/use-double-back-to-exit"
 import { PHOTO_LIST_PAGE_SIZE } from "@/server/const/global"
 import { photoList, photoRecycle } from "@/request/photo"
 import { removePhotoIdFromUrl } from "@/lib/url"
@@ -173,6 +174,9 @@ export default function Page() {
   const [albumPhotoIds, setAlbumPhotoIds] = useState<string[]>([])
   const openUpload = usePhotoStore((state) => state.openUpload)
   const uploadedPhotos = usePhotoStore((state) => state.uploadedPhotos)
+
+  // Protect against accidental exit on root gallery page by requiring double back press within 2s
+  useDoubleBackToExit({ enabled: !showPhotoViewer && !albumDialogOpen })
 
   useEffect(() => {
     const previousScrollRestoration = window.history.scrollRestoration

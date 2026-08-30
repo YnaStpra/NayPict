@@ -3,6 +3,7 @@
   "common.cancel": "Cancel",
   "common.delete": "delete",
   "photos.title": "photo",
+  "photos.pressBackAgainToExit": "再次点击返回退出",
   "photos.imageLoadFailed": "Image loading failed",
   "photos.selectDateRange": "Select time",
   "photos.onThisDay.title": "那年今日",
