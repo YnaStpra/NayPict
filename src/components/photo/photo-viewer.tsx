@@ -24,6 +24,7 @@ import { usePhotoStore } from "@/store/photo-store"
 import { useApp } from "@/app/provider"
 import { UserTypeEnum } from "@/server/enums/user-enum"
 import { useTranslations } from "next-intl"
+import { useModalBackHandler } from "@/hooks/use-modal-back-handler"
 
 interface PhotoViewerProps {
   // Controls viewer visibility.
@@ -1148,6 +1149,9 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
   const isCinematicModeRef = useRef(isCinematicMode)
   isCinematicModeRef.current = isCinematicMode
 
+  // Hook mobile back gesture for photo info sidebar / comments drawer on mobile (<768px)
+  useModalBackHandler(open && infoOpen && typeof window !== "undefined" && window.innerWidth < 768, (val) => setInfoOpen(val))
+
   // Toggle cinematic mode with Browser Fullscreen API and graceful fallback.
   const toggleCinematicMode = useCallback(() => {
     setIsCinematicMode((prev) => {
@@ -1299,75 +1303,18 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
 
     // Push a history when opening the viewer, close sub-modals/viewer when browser returns.
     function handlePopState() {
-      // 1. If Story Dialog is open, close only the story dialog
-      if (storyDialogOpenRef.current) {
-        setStoryDialogOpen(false)
-        if (typeof window !== "undefined") {
-          window.history.pushState(
-            {
-              ...window.history.state,
-              photoViewerOpen: true,
-              photoId: currentPhotoIdRef.current,
-            },
-            "",
-            window.location.href,
-          )
-        }
+      // If a sub-modal/sheet (Story Card, Insights, or Mobile Info Sidebar) was open,
+      // its own dedicated back handler hook manages closing it. PhotoViewer ignores that pop.
+      if (
+        storyDialogOpenRef.current ||
+        insightsDialogOpenRef.current ||
+        (infoOpenRef.current && typeof window !== "undefined" && window.innerWidth < 768) ||
+        isCinematicModeRef.current
+      ) {
         return
       }
 
-      // 2. If Insights Dialog is open, close only insights dialog
-      if (insightsDialogOpenRef.current) {
-        setInsightsDialogOpen(false)
-        if (typeof window !== "undefined") {
-          window.history.pushState(
-            {
-              ...window.history.state,
-              photoViewerOpen: true,
-              photoId: currentPhotoIdRef.current,
-            },
-            "",
-            window.location.href,
-          )
-        }
-        return
-      }
-
-      // 3. If Cinematic Mode is active, exit Cinematic Mode
-      if (isCinematicModeRef.current) {
-        setIsCinematicMode(false)
-        if (typeof window !== "undefined") {
-          window.history.pushState(
-            {
-              ...window.history.state,
-              photoViewerOpen: true,
-              photoId: currentPhotoIdRef.current,
-            },
-            "",
-            window.location.href,
-          )
-        }
-        return
-      }
-
-      // 4. If Info Sidebar is open on mobile, close Info Sidebar first
-      if (infoOpenRef.current && typeof window !== "undefined" && window.innerWidth < 768) {
-        setInfoOpen(false)
-        if (typeof window !== "undefined") {
-          window.history.pushState(
-            {
-              ...window.history.state,
-              photoViewerOpen: true,
-              photoId: currentPhotoIdRef.current,
-            },
-            "",
-            window.location.href,
-          )
-        }
-        return
-      }
-
-      // 5. Otherwise close PhotoViewer
+      // Otherwise close PhotoViewer back to previous page / masonry grid
       historyPushedRef.current = false
       removePhotoIdFromUrl()
       const callback = onBrowserBackRef.current ?? onBackRef.current
