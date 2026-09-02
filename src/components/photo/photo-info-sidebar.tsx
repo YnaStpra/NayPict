@@ -18,7 +18,6 @@ import { photoSetVisibility } from "@/request/photo"
 import { commentList } from "@/request/comment"
 import { PhotoComments } from "@/components/photo/photo-comments"
 import { PhotoLocationMap } from "@/components/photo/photo-location-map"
-import { PhotoBatchEditDialog } from "@/components/photo/photo-batch-edit-dialog"
 
 type PhotoInfoSidebarProps = {
   // Currently viewing photos.
@@ -31,6 +30,8 @@ type PhotoInfoSidebarProps = {
   onInsightsOpen?: (photoId: string) => void
   // Trigger open story card generator dialog.
   onStoryOpen?: () => void
+  // Trigger open batch edit metadata dialog (Admin only).
+  onBatchEditOpen?: () => void
   // Callback when photo is updated (e.g. visibility change)
   onPhotoUpdate?: (photo: PhotoVo) => void
   // Initial active tab ("info" | "comments")
@@ -149,7 +150,9 @@ export function PhotoInfoSidebar({
   onAlbumOpen,
   onInsightsOpen,
   onStoryOpen,
+  onBatchEditOpen,
   onPhotoUpdate,
+  defaultTab = "info",
   activeTab: controlledTab,
   onTabChange,
 }: PhotoInfoSidebarProps & {
@@ -164,10 +167,9 @@ export function PhotoInfoSidebar({
   const deviceParams = photo ? getPhotoDeviceParams(photo.exif) : []
   const shootingParams = photo ? getPhotoShootingParams(photo.exif) : []
 
-  const [internalTab, setInternalTab] = useState<"info" | "comments">("info")
+  const [internalTab, setInternalTab] = useState<"info" | "comments">(defaultTab)
   const [commentCount, setCommentCount] = useState<number>(0)
   const [isUpdatingVisibility, setIsUpdatingVisibility] = useState(false)
-  const [batchEditDialogOpen, setBatchEditDialogOpen] = useState(false)
   const currentTab = controlledTab ?? internalTab
 
   const asideRef = useRef<HTMLElement>(null)
@@ -473,7 +475,7 @@ export function PhotoInfoSidebar({
                       onClick={(e) => {
                         e.stopPropagation()
                         e.preventDefault()
-                        setBatchEditDialogOpen(true)
+                        onBatchEditOpen?.()
                       }}
                       title="Edit metadata, tanggal, dan koordinat lokasi GPS"
                     >
@@ -594,7 +596,7 @@ export function PhotoInfoSidebar({
                   {isAdmin && (
                     <button
                       type="button"
-                      onClick={() => setBatchEditDialogOpen(true)}
+                      onClick={() => onBatchEditOpen?.()}
                       className="flex items-center gap-1 text-[11px] font-semibold text-emerald-400 hover:text-emerald-300 hover:underline cursor-pointer"
                     >
                       <Pencil className="size-3" />
@@ -661,7 +663,7 @@ export function PhotoInfoSidebar({
                     {isAdmin && (
                       <button
                         type="button"
-                        onClick={() => setBatchEditDialogOpen(true)}
+                        onClick={() => onBatchEditOpen?.()}
                         className="flex items-center gap-1 text-[11px] font-semibold text-emerald-400 hover:text-emerald-300 hover:underline cursor-pointer"
                       >
                         <MapPin className="size-3" />
@@ -690,7 +692,7 @@ export function PhotoInfoSidebar({
                         type="button"
                         size="sm"
                         variant="outline"
-                        onClick={() => setBatchEditDialogOpen(true)}
+                        onClick={() => onBatchEditOpen?.()}
                         className="h-7 text-xs rounded-lg border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20 gap-1.5 cursor-pointer"
                       >
                         <MapPin className="size-3" />
@@ -708,22 +710,6 @@ export function PhotoInfoSidebar({
             <div className="flex-1 flex flex-col min-h-0">
               <PhotoComments photoId={photo.photoId} />
             </div>
-          )}
-
-          {/* Edit Metadata & GPS Location Dialog */}
-          {isAdmin && (
-            <PhotoBatchEditDialog
-              open={batchEditDialogOpen}
-              onOpenChange={setBatchEditDialogOpen}
-              photoIds={[photo.photoId]}
-              initialName={photo.name}
-              onSuccess={(_ids, changes) => {
-                onPhotoUpdate?.({
-                  ...photo,
-                  ...changes,
-                })
-              }}
-            />
           )}
         </div>
       )}

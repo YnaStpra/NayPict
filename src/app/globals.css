@@ -180,6 +180,16 @@
     padding-bottom: 0;
 }
 
+/* Disable all interactions, gestures, and pointer events on the underlying lightbox when any modal dialog is active */
+body[data-scroll-locked] .yarl__container,
+body:has([data-slot="dialog-content"]) .yarl__container,
+body:has([data-slot="alert-dialog-content"]) .yarl__container,
+.yarl-modal-active .yarl__container {
+    pointer-events: none !important;
+    user-select: none !important;
+    touch-action: none !important;
+}
+
 @keyframes neon-glow-pulse {
   0%, 100% {
     box-shadow: 0 0 6px #ec4899, 0 0 14px #a855f7, 0 0 24px #ec4899;

@@ -12,6 +12,8 @@ import { toast } from "sonner"
 import { PhotoInfoSidebar, PhotoViewerBlurBackground, formatAlbumList } from "@/components/photo/photo-info-sidebar"
 import { PhotoInsightsDialog } from "@/components/photo/photo-insights-dialog"
 import { PhotoStoryDialog } from "@/components/photo/photo-story-dialog"
+import { PhotoBatchEditDialog } from "@/components/photo/photo-batch-edit-dialog"
+import { cn } from "@/lib/utils"
 import { InstagramIcon } from "@/components/icons/instagram"
 import { useTapAction } from "@/hooks/use-tap-action"
 import { Button } from "@/components/ui/button"
@@ -1138,12 +1140,19 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
   const [insightsPhotoId, setInsightsPhotoId] = useState<string | null>(null)
   // State for Instagram Story Card generator dialog
   const [storyDialogOpen, setStoryDialogOpen] = useState(false)
+  // State for batch edit metadata dialog (Admin only)
+  const [batchEditDialogOpen, setBatchEditDialogOpen] = useState(false)
+
+  // Track if any overlay modal dialog is open on top of the lightbox
+  const isAnySubModalOpen = storyDialogOpen || insightsDialogOpen || batchEditDialogOpen
 
   // References to track open state of sub-modals for mobile back gestures
   const storyDialogOpenRef = useRef(storyDialogOpen)
   storyDialogOpenRef.current = storyDialogOpen
   const insightsDialogOpenRef = useRef(insightsDialogOpen)
   insightsDialogOpenRef.current = insightsDialogOpen
+  const batchEditDialogOpenRef = useRef(batchEditDialogOpen)
+  batchEditDialogOpenRef.current = batchEditDialogOpen
   const infoOpenRef = useRef(infoOpen)
   infoOpenRef.current = infoOpen
   const isCinematicModeRef = useRef(isCinematicMode)
@@ -1193,9 +1202,11 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
 
   // Bind keyboard shortcut F (cinematic), G (ambient glow), and Esc (exit cinematic mode).
   useEffect(() => {
-    if (!open) return
+    if (!open || isAnySubModalOpen) return
 
     function handleKeyDown(event: KeyboardEvent) {
+      if (isAnySubModalOpen) return
+
       const target = event.target as HTMLElement | null
       if (
         target &&
@@ -1308,6 +1319,7 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
       if (
         storyDialogOpenRef.current ||
         insightsDialogOpenRef.current ||
+        batchEditDialogOpenRef.current ||
         (infoOpenRef.current && typeof window !== "undefined" && window.innerWidth < 768) ||
         isCinematicModeRef.current
       ) {
@@ -1595,7 +1607,10 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
   return (
     <>
       <Lightbox
-        className={lightboxClassName}
+        className={cn(
+          lightboxClassName,
+          isAnySubModalOpen && "pointer-events-none select-none touch-none yarl-modal-active"
+        )}
         open={open}
         close={() => {
           if (isCinematicMode) {
@@ -1614,8 +1629,8 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
         }}
         plugins={fullscreenOpen || isCinematicMode ? [Fullscreen, Zoom] : [Thumbnails, Fullscreen, Zoom]}
         zoom={{
-          scrollToZoom: true,
-          wheelZoomDistanceFactor: 100,
+          scrollToZoom: !isAnySubModalOpen,
+          wheelZoomDistanceFactor: isAnySubModalOpen ? 0 : 100,
           maxZoomPixelRatio: 3,
           doubleClickMaxStops: 2,
           doubleClickDelay: 300,
@@ -1626,7 +1641,7 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
         }}
         carousel={{
           spacing: 0,
-          preload: innerWidth < 768 ? 10 : 22,
+          preload: isAnySubModalOpen ? 0 : (innerWidth < 768 ? 10 : 22),
         }}
         animation={{
           fade: 250,
@@ -1695,6 +1710,7 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
                     onPhotoUpdate={onPhotoUpdate}
                     onAlbumOpen={onAlbumOpen ? (photoId) => onAlbumOpen([photoId]) : undefined}
                     onStoryOpen={() => setStoryDialogOpen(true)}
+                    onBatchEditOpen={isAdmin ? () => setBatchEditDialogOpen(true) : undefined}
                     onInsightsOpen={isAdmin ? (photoId) => {
                       setInsightsPhotoId(photoId)
                       setInsightsDialogOpen(true)
@@ -1879,6 +1895,24 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
         onOpenChange={setStoryDialogOpen}
         photo={photos[viewIndex] ?? null}
       />
+      {isAdmin && (
+        <PhotoBatchEditDialog
+          open={batchEditDialogOpen}
+          onOpenChange={setBatchEditDialogOpen}
+          photoIds={photos[viewIndex] ? [photos[viewIndex].photoId] : []}
+          initialName={photos[viewIndex]?.name}
+          initialLatitude={photos[viewIndex]?.latitude != null ? Number(photos[viewIndex].latitude) : null}
+          initialLongitude={photos[viewIndex]?.longitude != null ? Number(photos[viewIndex].longitude) : null}
+          onSuccess={(_ids, changes) => {
+            if (photos[viewIndex]) {
+              onPhotoUpdate?.({
+                ...photos[viewIndex],
+                ...changes,
+              })
+            }
+          }}
+        />
+      )}
     </>
   )
 }
