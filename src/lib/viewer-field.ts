@@ -123,6 +123,69 @@ function formatFocalLength(value: unknown) {
   return `${Number.isInteger(num) ? num : num.toFixed(1)}mm`
 }
 
+/**
+ * Format camera make and model cleanly without duplicate brand names.
+ * e.g., Make="Canon", Model="Canon EOS M3" -> "Canon EOS M3" (not "Canon Canon EOS M3")
+ * e.g., Make="samsung", Model="SM-S901E" -> "Samsung SM-S901E"
+ * e.g., Make="NIKON CORPORATION", Model="NIKON D750" -> "Nikon D750"
+ */
+export function formatCameraDeviceName(make?: unknown, model?: unknown): string {
+  let cleanMake = make != null ? String(make).trim() : ""
+  let cleanModel = model != null ? String(model).trim() : ""
+
+  // Clean vendor corporate suffixes like "NIKON CORPORATION" -> "Nikon"
+  cleanMake = cleanMake
+    .replace(/\s+(corporation|corp|co\.,?\s*ltd\.?|ltd\.?|ag|inc\.?)$/i, "")
+    .trim()
+
+  if (!cleanMake && !cleanModel) return ""
+  if (!cleanMake) return cleanModel
+  if (!cleanModel) return cleanMake
+
+  const makeLower = cleanMake.toLowerCase()
+  const modelLower = cleanModel.toLowerCase()
+
+  // If model already begins with the make name (e.g. "Canon" and "Canon EOS M3")
+  if (modelLower.startsWith(makeLower)) {
+    return cleanModel
+  }
+
+  // If make has multiple words and model starts with first word of make (e.g. "Fujifilm" and "FUJIFILM X-T5")
+  const firstMakeWord = makeLower.split(/\s+/)[0]
+  if (firstMakeWord && modelLower.startsWith(firstMakeWord)) {
+    return cleanModel
+  }
+
+  // Capitalize make if it's all lowercase (e.g. "samsung" -> "Samsung")
+  const formattedMake =
+    cleanMake === cleanMake.toLowerCase()
+      ? cleanMake.charAt(0).toUpperCase() + cleanMake.slice(1)
+      : cleanMake
+
+  return `${formattedMake} ${cleanModel}`.trim()
+}
+
+/**
+ * Format lens make and model cleanly without duplicate brand names.
+ */
+export function formatLensDeviceName(lensMake?: unknown, lensModel?: unknown): string {
+  const cleanMake = lensMake != null ? String(lensMake).trim() : ""
+  const cleanModel = lensModel != null ? String(lensModel).trim() : ""
+
+  if (!cleanMake && !cleanModel) return ""
+  if (!cleanMake) return cleanModel
+  if (!cleanModel) return cleanMake
+
+  const makeLower = cleanMake.toLowerCase()
+  const modelLower = cleanModel.toLowerCase()
+
+  if (modelLower.startsWith(makeLower)) {
+    return cleanModel
+  }
+
+  return `${cleanMake} ${cleanModel}`.trim()
+}
+
 // from photos exif JSON String reading device information list.
 export function getPhotoDeviceParams(exif: string | null | undefined): ViewerField[] {
   const data = parsePhotoExifJson(exif)
@@ -131,13 +194,13 @@ export function getPhotoDeviceParams(exif: string | null | undefined): ViewerFie
   }
 
   const items: ViewerField[] = []
-  const camera = [data.Make, data.Model].filter(Boolean).map(String).join(" ").trim()
+  const camera = formatCameraDeviceName(data.Make, data.Model)
 
   if (camera) {
     items.push({ key: "camera", value: camera, wrap: true })
   }
 
-  const lens = [data.LensMake, data.LensModel].filter(Boolean).map(String).join(" ").trim()
+  const lens = formatLensDeviceName(data.LensMake, data.LensModel)
   if (lens) {
     items.push({ key: "lens", value: lens, wrap: true })
   }
