@@ -876,11 +876,30 @@ export default function PhotoMapView() {
   // Ref to the floating spot preview card for outside click dismissal
   const spotCardRef = useRef<HTMLDivElement>(null)
 
+  const editSpotDialogOpenRef = useRef(editSpotDialogOpen)
+  editSpotDialogOpenRef.current = editSpotDialogOpen
+  const allSpotsDialogOpenRef = useRef(allSpotsDialogOpen)
+  allSpotsDialogOpenRef.current = allSpotsDialogOpen
+  const untaggedDialogOpenRef = useRef(untaggedDialogOpen)
+  untaggedDialogOpenRef.current = untaggedDialogOpen
+  const viewerOpenRef = useRef(viewerOpen)
+  viewerOpenRef.current = viewerOpen
+
   // Close floating spot card when tapping or clicking outside
   useEffect(() => {
     if (!selectedCluster) return
 
     function handleOutsidePointerDown(e: MouseEvent | TouchEvent) {
+      // If a modal dialog or viewer is open, do not dismiss selectedCluster
+      if (
+        editSpotDialogOpenRef.current ||
+        allSpotsDialogOpenRef.current ||
+        untaggedDialogOpenRef.current ||
+        viewerOpenRef.current
+      ) {
+        return
+      }
+
       const target = e.target as HTMLElement | null
       if (!target) return
 
@@ -896,7 +915,8 @@ export default function PhotoMapView() {
         target.closest(".leaflet-control") ||
         target.closest("[data-slot='dialog-content']") ||
         target.closest("[data-slot='dialog-overlay']") ||
-        target.closest("[data-slot='alert-dialog-content']")
+        target.closest("[data-slot='alert-dialog-content']") ||
+        target.closest("[role='dialog']")
       ) {
         return
       }
@@ -914,10 +934,52 @@ export default function PhotoMapView() {
     }
   }, [selectedCluster])
 
-  // Support mobile back gesture to close spot preview card
-  useModalBackHandler(Boolean(selectedCluster && !viewerOpen && !editSpotDialogOpen && !allSpotsDialogOpen && !untaggedDialogOpen), (open) => {
-    if (!open) setSelectedCluster(null)
-  })
+  // Support mobile back gesture to close spot preview card without interfering with sub-dialogs
+  useEffect(() => {
+    if (!selectedCluster) return
+
+    let isPushed = false
+    if (typeof window !== "undefined") {
+      const stateObj = { ...window.history.state, __spot_card_active: true }
+      window.history.pushState(stateObj, "", window.location.href)
+      isPushed = true
+    }
+
+    const handlePopState = () => {
+      // If a sub-dialog or viewer is open, let it handle its own back pop
+      if (
+        editSpotDialogOpenRef.current ||
+        allSpotsDialogOpenRef.current ||
+        untaggedDialogOpenRef.current ||
+        viewerOpenRef.current
+      ) {
+        return
+      }
+
+      if (isPushed) {
+        isPushed = false
+        setSelectedCluster(null)
+      }
+    }
+
+    window.addEventListener("popstate", handlePopState)
+
+    return () => {
+      window.removeEventListener("popstate", handlePopState)
+      if (
+        isPushed &&
+        !editSpotDialogOpenRef.current &&
+        !allSpotsDialogOpenRef.current &&
+        !untaggedDialogOpenRef.current &&
+        !viewerOpenRef.current
+      ) {
+        isPushed = false
+        if (window.history.state?.__spot_card_active) {
+          window.history.back()
+        }
+      }
+    }
+  }, [Boolean(selectedCluster)])
 
   // Swipe gesture handling for main spot photo
   const swipeStartXRef = useRef<number | null>(null)
@@ -1367,7 +1429,10 @@ export default function PhotoMapView() {
               {isAdmin ? (
                 <button
                   type="button"
-                  onClick={() => setEditSpotDialogOpen(true)}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setEditSpotDialogOpen(true)
+                  }}
                   className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 hover:text-emerald-500 hover:underline flex items-center gap-1 cursor-pointer"
                   title="Edit location coordinates for all photos in this pin"
                 >
@@ -1398,7 +1463,10 @@ export default function PhotoMapView() {
                   type="button"
                   variant="outline"
                   size="sm"
-                  onClick={() => setEditSpotDialogOpen(true)}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setEditSpotDialogOpen(true)
+                  }}
                   className="h-8.5 px-2.5 text-xs rounded-xl gap-1.5 border-emerald-500/40 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 cursor-pointer"
                   title="Edit GPS location for all photos in this pin"
                 >
@@ -1864,7 +1932,7 @@ export default function PhotoMapView() {
       )}
 
       {/* Admin Edit Spot Location Dialog for all photos in the selected pin */}
-      {isAdmin && editSpotDialogOpen && selectedCluster && (
+      {isAdmin && selectedCluster && (
         <PhotoBatchEditDialog
           open={editSpotDialogOpen}
           onOpenChange={setEditSpotDialogOpen}
