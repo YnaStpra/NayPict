@@ -13,4 +13,20 @@ const SettingOnThisDayEnum = {
   DISABLE: 2
 } as const;
 
-export { SettingSyncDeleteEnum, SettingPhotoDedupEnum, SettingOnThisDayEnum };
+const SettingWatermarkEnum = {
+  ENABLE: 1,
+  DISABLE: 2
+} as const;
+
+const SettingRightClickGuardEnum = {
+  ENABLE: 1,
+  DISABLE: 2
+} as const;
+
+export {
+  SettingSyncDeleteEnum,
+  SettingPhotoDedupEnum,
+  SettingOnThisDayEnum,
+  SettingWatermarkEnum,
+  SettingRightClickGuardEnum,
+};

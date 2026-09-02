@@ -34,7 +34,13 @@ import { ActiveSessionsCard } from "@/components/setting/active-sessions-card"
 import { DatabaseBackupCard } from "@/components/setting/database-backup-card"
 import { settingSet } from "@/request/setting"
 import { type Setting } from "@/server/entity/setting"
-import { SettingOnThisDayEnum, SettingPhotoDedupEnum, SettingSyncDeleteEnum } from "@/server/enums/setting-enum"
+import {
+  SettingOnThisDayEnum,
+  SettingPhotoDedupEnum,
+  SettingSyncDeleteEnum,
+  SettingWatermarkEnum,
+  SettingRightClickGuardEnum,
+} from "@/server/enums/setting-enum"
 import { useTranslations } from "next-intl"
 
 export default function Page() {
@@ -73,6 +79,30 @@ export default function Page() {
     setSetting((prev) => ({
       ...prev,
       clearLast: Number(event.target.value || 0),
+    }))
+  }
+
+  // Modify dynamic watermark switch value.
+  function changeWatermarkEnabled(checked: boolean) {
+    setSetting((prev) => ({
+      ...prev,
+      watermarkEnabled: checked ? SettingWatermarkEnum.ENABLE : SettingWatermarkEnum.DISABLE,
+    }))
+  }
+
+  // Modify dynamic watermark text value.
+  function changeWatermarkText(event: ChangeEvent<HTMLInputElement>) {
+    setSetting((prev) => ({
+      ...prev,
+      watermarkText: event.target.value,
+    }))
+  }
+
+  // Modify right-click and drag protection switch value.
+  function changeRightClickGuard(checked: boolean) {
+    setSetting((prev) => ({
+      ...prev,
+      rightClickGuard: checked ? SettingRightClickGuardEnum.ENABLE : SettingRightClickGuardEnum.DISABLE,
     }))
   }
 
@@ -151,6 +181,37 @@ export default function Page() {
               <Switch
                 checked={setting.onThisDay !== SettingOnThisDayEnum.DISABLE}
                 onCheckedChange={changeOnThisDay}
+              />
+            </SettingItem>
+            <SettingItem
+              title="Dynamic Copyright Watermark"
+              description="Automatically append a subtle semi-transparent copyright watermark to photos downloaded by public visitors."
+            >
+              <div className="flex flex-col gap-2.5 items-end">
+                <Switch
+                  checked={setting.watermarkEnabled === SettingWatermarkEnum.ENABLE}
+                  onCheckedChange={changeWatermarkEnabled}
+                />
+                {setting.watermarkEnabled === SettingWatermarkEnum.ENABLE && (
+                  <InputGroup className="w-56">
+                    <InputGroupInput
+                      id="watermark-text"
+                      type="text"
+                      placeholder="e.g. © NayPict"
+                      value={setting.watermarkText || ""}
+                      onChange={changeWatermarkText}
+                    />
+                  </InputGroup>
+                )}
+              </div>
+            </SettingItem>
+            <SettingItem
+              title="Right-Click & Drag Protection"
+              description="Disable right-click saving and image dragging for guest visitors to protect your photography from unauthorized copies."
+            >
+              <Switch
+                checked={setting.rightClickGuard === SettingRightClickGuardEnum.ENABLE}
+                onCheckedChange={changeRightClickGuard}
               />
             </SettingItem>
             <TotpSettingsCard />
