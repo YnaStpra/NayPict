@@ -119,15 +119,15 @@ function formatRecycleTime(recycleTime?: string | null, locale = "en") {
   return new Intl.RelativeTimeFormat(locale, { numeric: "always" }).format(-Math.floor(diff / day), "day")
 }
 
-// Format comment or post time as human-friendly relative description (e.g. "Just now", "5m ago", "2h ago", "3d ago").
-function formatRelativeTime(dateStr?: string | null, locale = "en"): string {
+// Format relative time (e.g. "Just now", "5m ago", "2h ago", "3d ago").
+function formatRelativeTime(dateStr: string | number | Date | null | undefined, locale = "en"): string {
   if (!dateStr) {
     return ""
   }
 
   const time = parseUtcTime(dateStr)
   if (time === null) {
-    return dateStr
+    return String(dateStr)
   }
 
   const diffMs = Math.max(0, Date.now() - time)

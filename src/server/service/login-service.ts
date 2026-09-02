@@ -7,11 +7,12 @@ import { hashPassword, verifyPasswordDetailed } from '@/server/lib/crypto';
 import { createId } from '@/server/lib/id';
 import { createLoginToken } from '@/server/lib/jwt';
 import { type LoginBo } from '@/server/entity/bo/login';
-import { type AuthInfo } from '@/server/entity/vo/auth';
+import { type AuthInfo, type SessionMeta } from '@/server/entity/vo/auth';
 import { UserStatusEnum } from '@/server/enums/user-enum';
 import { cache } from '@/server/infra/cache';
 import { AUTH_CACHE_TTL } from '@/server/const/global';
 import { AUTH_CACHE_KEY } from '@/server/const/cache';
+import { parseUserAgent } from '@/server/lib/user-agent';
 
 import { type LoginVo } from '@/server/entity/vo/login';
 import { totpService } from '@/server/service/totp-service';
@@ -28,7 +29,10 @@ interface Temp2FaSession {
 const loginService = {
 
   // Write user information to login cache, and return to this session uuid.
-  async saveAuthInfo(user: Pick<User, 'userId' | 'username' | 'avatar' | 'type' | 'tokenVersion'>): Promise<string> {
+  async saveAuthInfo(
+    user: Pick<User, 'userId' | 'username' | 'avatar' | 'type' | 'tokenVersion'>,
+    clientMeta?: { ip?: string; userAgent?: string }
+  ): Promise<string> {
     const uuid = createId()
     const oldAuthInfo = await cache.get<AuthInfo>(AUTH_CACHE_KEY + user.userId)
 
@@ -37,6 +41,21 @@ const loginService = {
     const oldUuids = oldAuthInfo && oldTokenVersion === user.tokenVersion ? oldAuthInfo.uuidList : []
     const updatedUuids = [...oldUuids.filter((id) => id !== uuid), uuid].slice(-10)
 
+    const now = Date.now()
+    const parsedUa = parseUserAgent(clientMeta?.userAgent)
+    const newSession: SessionMeta = {
+      uuid,
+      ip: clientMeta?.ip || 'unknown',
+      userAgent: clientMeta?.userAgent || 'Browser',
+      deviceLabel: parsedUa.label,
+      deviceType: parsedUa.deviceType,
+      createdAt: now,
+      lastActive: now,
+    }
+
+    const oldSessions = oldAuthInfo && oldTokenVersion === user.tokenVersion ? (oldAuthInfo.sessions || []) : []
+    const updatedSessions = [...oldSessions.filter((s) => s.uuid !== uuid), newSession].slice(-10)
+
     const authInfo: AuthInfo = {
       userId: user.userId,
       username: user.username,
@@ -44,6 +63,7 @@ const loginService = {
       type: user.type,
       tokenVersion: user.tokenVersion,
       uuidList: updatedUuids,
+      sessions: updatedSessions,
     }
 
     await cache.set(AUTH_CACHE_KEY + user.userId, authInfo, { ttl: AUTH_CACHE_TTL })
@@ -135,7 +155,7 @@ const loginService = {
       const updatedDevices = [...knownDevices.filter((d) => d !== deviceFingerprint), deviceFingerprint].slice(-10);
       await cache.set(fingerprintKey, updatedDevices, { ttl: 60 * 60 * 24 * 90 }); // 90 days TTL
 
-      const uuid = await this.saveAuthInfo(user);
+      const uuid = await this.saveAuthInfo(user, { ip: clientIp, userAgent: clientMeta?.userAgent });
       const token = await createLoginToken(user.userId, uuid, user.tokenVersion);
       const userVo = await userService.getById(user.userId);
       return { token, user: userVo, isNewDevice };
@@ -230,7 +250,7 @@ const loginService = {
       return { token, user: userVo, isNewDevice };
     }
 
-    const uuid = await this.saveAuthInfo(user);
+    const uuid = await this.saveAuthInfo(user, { ip: clientIp, userAgent: clientMeta?.userAgent });
     const token = await createLoginToken(user.userId, uuid, user.tokenVersion);
     const userVo = await userService.getById(user.userId);
     return { token, user: userVo, isNewDevice };
@@ -250,6 +270,7 @@ const loginService = {
     }
 
     const uuidList = authInfo.uuidList.filter((item) => item !== uuid)
+    const sessions = (authInfo.sessions || []).filter((item) => item.uuid !== uuid)
 
     if (!uuidList.length) {
       await cache.delete(AUTH_CACHE_KEY + userId)
@@ -259,6 +280,7 @@ const loginService = {
     await cache.set(AUTH_CACHE_KEY + userId, {
       ...authInfo,
       uuidList,
+      sessions,
     }, { ttl: AUTH_CACHE_TTL })
   },
 

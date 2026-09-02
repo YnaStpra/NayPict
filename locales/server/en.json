@@ -33,6 +33,8 @@
   "s3.readFailed": "Failed to read the file from S3.",
   "photo.invalidFileType": "Invalid file type. Only valid images are supported.",
   "photo.fileTooLarge": "File size exceeds the allowed limit.",
+  "photo.maliciousFileDetected": "Malicious script payload detected in image. Upload rejected for security.",
+  "photo.emptyFile": "Uploaded file is empty.",
   "totp.notConfigured": "2FA is not configured for this account.",
   "totp.invalidCode": "Invalid 2FA verification code.",
   "totp.codeAlreadyUsed": "This 2FA code has already been used.",

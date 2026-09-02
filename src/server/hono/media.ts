@@ -14,12 +14,14 @@ import { FileTypeEnum } from '@/server/enums/file-enum';
 import { PhotoStatusEnum } from '@/server/enums/photo-enum';
 import BizError from '@/server/error/biz-error';
 import { i18nMiddleware, t } from '@/server/i18n';
+import { antiHotlink } from '@/server/security/hotlink';
 import type { HonoEnv } from './type';
 
 // This module handles the photo media reading interface, the path is /media/{key}.
 
 const media = new Hono<HonoEnv>();
 media.use('*', mediaCors);
+media.use('*', antiHotlink);
 media.use('*', contextStorage());
 media.use('*', i18nMiddleware);
 media.use('*', security);

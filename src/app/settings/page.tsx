@@ -30,6 +30,8 @@ import { useApp } from "@/app/provider"
 import { useSettingContext } from "@/app/settings/provider"
 import { SettingItem } from "@/components/setting/setting-item"
 import { TotpSettingsCard } from "@/components/setting/totp-settings-card"
+import { ActiveSessionsCard } from "@/components/setting/active-sessions-card"
+import { DatabaseBackupCard } from "@/components/setting/database-backup-card"
 import { settingSet } from "@/request/setting"
 import { type Setting } from "@/server/entity/setting"
 import { SettingOnThisDayEnum, SettingPhotoDedupEnum, SettingSyncDeleteEnum } from "@/server/enums/setting-enum"
@@ -152,6 +154,8 @@ export default function Page() {
               />
             </SettingItem>
             <TotpSettingsCard />
+            <ActiveSessionsCard />
+            <DatabaseBackupCard />
           </div>
           <div className="mt-8 flex justify-end">
             <Button type="button" onClick={saveSetting}>

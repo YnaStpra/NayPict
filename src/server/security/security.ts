@@ -9,6 +9,7 @@ import { cache } from '@/server/infra/cache';
 import { type AuthInfo } from '@/server/entity/vo/auth';
 import { UserTypeEnum } from '@/server/enums/user-enum';
 import { userService } from '@/server/service/user-service';
+import { sessionService } from '@/server/service/session-service';
 
 // This module provides global interface authentication middleware.
 
@@ -47,7 +48,9 @@ const SYSTEM_PATHS = [
   '/photo/untagged',
   '/admin/insights',
   '/insights',
-  '/totp'
+  '/totp',
+  '/backup',
+  '/session'
 ];
 
 const PUBLIC_API_PATHS = [
@@ -144,6 +147,10 @@ async function security(c: Context, next: Next) {
   }
 
   setUserId(authInfo.userId);
+
+  // Refresh active session timestamp in background
+  const clientIp = c.req.header('x-forwarded-for')?.split(',')[0].trim() || c.req.header('x-real-ip') || 'unknown';
+  sessionService.touchSession(authInfo.userId, uuid, clientIp).catch(() => {});
 
   return next();
 }
