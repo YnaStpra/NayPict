@@ -43,6 +43,7 @@ import { toProxyMediaUrl } from "@/lib/url"
 import { useLocale } from "next-intl"
 import { useApp } from "@/app/provider"
 import { UserTypeEnum } from "@/server/enums/user-enum"
+import { useModalBackHandler } from "@/hooks/use-modal-back-handler"
 import { UntaggedPhotosDialog } from "@/components/map/untagged-photos-dialog"
 import { AllSpotsDialog } from "@/components/map/all-spots-dialog"
 import { PhotoBatchEditDialog } from "@/components/photo/photo-batch-edit-dialog"
@@ -699,7 +700,10 @@ export default function PhotoMapView() {
       // Marker click:
       // If multi-location cluster at lower zoom -> cinematic fly-to zoom in and separate pins!
       // If single spot or max zoom -> select spot and cinematic fly-to camera glide!
-      marker.on("click", () => {
+      marker.on("click", (e: any) => {
+        if (e && e.originalEvent) {
+          L.DomEvent.stopPropagation(e)
+        }
         if (cluster.isMultiLocation && map.getZoom() < 18) {
           const bounds = L.latLngBounds(cluster.spots.map((s) => [s.latitude, s.longitude]))
           map.flyToBounds(bounds, { padding: [80, 80], maxZoom: 18, duration: 1.4, easeLinearity: 0.25 })
@@ -736,9 +740,16 @@ export default function PhotoMapView() {
     map.on("zoomend", renderMarkers)
     map.on("moveend", renderMarkers)
 
+    // Close preview card when clicking empty map canvas
+    const handleMapClick = () => {
+      setSelectedCluster(null)
+    }
+    map.on("click", handleMapClick)
+
     return () => {
       map.off("zoomend", renderMarkers)
       map.off("moveend", renderMarkers)
+      map.off("click", handleMapClick)
     }
   }, [mapReady, renderMarkers])
 
@@ -861,6 +872,111 @@ export default function PhotoMapView() {
     window.addEventListener("keydown", handleKeyDown)
     return () => window.removeEventListener("keydown", handleKeyDown)
   }, [selectedCluster, viewerOpen, editSpotDialogOpen, untaggedDialogOpen, allSpotsDialogOpen, handleNextPhoto, handlePrevPhoto])
+
+  // Ref to the floating spot preview card for outside click dismissal
+  const spotCardRef = useRef<HTMLDivElement>(null)
+
+  // Close floating spot card when tapping or clicking outside
+  useEffect(() => {
+    if (!selectedCluster) return
+
+    function handleOutsidePointerDown(e: MouseEvent | TouchEvent) {
+      const target = e.target as HTMLElement | null
+      if (!target) return
+
+      // Do not dismiss if clicking inside the spot card itself
+      if (spotCardRef.current && spotCardRef.current.contains(target)) {
+        return
+      }
+
+      // Do not dismiss if clicking a marker icon, control button, or modal dialog
+      if (
+        target.closest(".leaflet-marker-icon") ||
+        target.closest(".map-spot-marker") ||
+        target.closest(".leaflet-control") ||
+        target.closest("[data-slot='dialog-content']") ||
+        target.closest("[data-slot='dialog-overlay']") ||
+        target.closest("[data-slot='alert-dialog-content']")
+      ) {
+        return
+      }
+
+      setSelectedCluster(null)
+    }
+
+    const timer = setTimeout(() => {
+      document.addEventListener("pointerdown", handleOutsidePointerDown, true)
+    }, 60)
+
+    return () => {
+      clearTimeout(timer)
+      document.removeEventListener("pointerdown", handleOutsidePointerDown, true)
+    }
+  }, [selectedCluster])
+
+  // Support mobile back gesture to close spot preview card
+  useModalBackHandler(Boolean(selectedCluster && !viewerOpen && !editSpotDialogOpen && !allSpotsDialogOpen && !untaggedDialogOpen), (open) => {
+    if (!open) setSelectedCluster(null)
+  })
+
+  // Swipe gesture handling for main spot photo
+  const swipeStartXRef = useRef<number | null>(null)
+  const swipeStartYRef = useRef<number | null>(null)
+  const isHorizontalSwipeRef = useRef<boolean>(false)
+  const isDraggingRef = useRef<boolean>(false)
+  const [swipeOffset, setSwipeOffset] = useState<number>(0)
+  const [isSwiping, setIsSwiping] = useState<boolean>(false)
+
+  const handlePhotoPointerDown = (e: React.PointerEvent) => {
+    if (!selectedCluster || selectedCluster.photos.length <= 1) return
+    if (e.button !== 0) return
+    swipeStartXRef.current = e.clientX
+    swipeStartYRef.current = e.clientY
+    isDraggingRef.current = true
+    isHorizontalSwipeRef.current = false
+    setIsSwiping(true)
+  }
+
+  const handlePhotoPointerMove = (e: React.PointerEvent) => {
+    if (!isDraggingRef.current || swipeStartXRef.current === null || swipeStartYRef.current === null) return
+    const diffX = e.clientX - swipeStartXRef.current
+    const diffY = e.clientY - swipeStartYRef.current
+
+    if (!isHorizontalSwipeRef.current) {
+      if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 6) {
+        isHorizontalSwipeRef.current = true
+      }
+    }
+
+    if (isHorizontalSwipeRef.current) {
+      setSwipeOffset(diffX)
+    }
+  }
+
+  const handlePhotoPointerUp = (e: React.PointerEvent) => {
+    if (!isDraggingRef.current || swipeStartXRef.current === null) return
+
+    const diffX = e.clientX - swipeStartXRef.current
+    const minSwipeThreshold = 35
+
+    if (isHorizontalSwipeRef.current && Math.abs(diffX) >= minSwipeThreshold) {
+      if (diffX < 0) {
+        handleNextPhoto()
+      } else {
+        handlePrevPhoto()
+      }
+    }
+
+    setSwipeOffset(0)
+    setIsSwiping(false)
+    isDraggingRef.current = false
+    swipeStartXRef.current = null
+    swipeStartYRef.current = null
+
+    setTimeout(() => {
+      isHorizontalSwipeRef.current = false
+    }, 50)
+  }
 
   return (
     <div className="relative w-full h-full overflow-hidden bg-background">
@@ -1011,7 +1127,13 @@ export default function PhotoMapView() {
 
       {/* Floating Photo Preview Card (When a marker/spot is clicked) */}
       {selectedCluster && currentPhoto && (
-        <div className="absolute top-20 right-4 z-20 w-80 max-w-[calc(100vw-2rem)] rounded-3xl overflow-hidden backdrop-blur-2xl bg-background/90 dark:bg-neutral-900/90 border border-border/80 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+        <div
+          ref={spotCardRef}
+          className="absolute z-20 overflow-hidden backdrop-blur-2xl bg-background/90 dark:bg-neutral-900/90 border border-border/80 shadow-2xl transition-all
+            bottom-4 inset-x-3 mx-auto max-w-sm w-auto rounded-3xl animate-in fade-in slide-in-from-bottom-4 duration-200
+            sm:bottom-auto sm:top-20 sm:right-4 sm:left-auto sm:mx-0 sm:w-80 sm:max-w-none sm:slide-in-from-bottom-0 sm:zoom-in-95
+            max-h-[calc(100dvh-7.5rem)] flex flex-col"
+        >
           {/* Main Photo Image with Instant ThumbHash Blur and Eager Thumbnail Loading */}
           {(() => {
             const previewSrc = currentPhoto.thumbnail || currentPhoto.preview || ""
@@ -1022,35 +1144,62 @@ export default function PhotoMapView() {
 
             return (
               <div
-                className="relative aspect-4/3 w-full bg-neutral-950 overflow-hidden group cursor-pointer"
-                onClick={() => handleOpenPhotoViewer(selectedCluster.photos, activePhotoIndex)}
-                title="Click to open full photo view"
+                className="relative aspect-4/3 w-full bg-neutral-950 overflow-hidden group cursor-pointer select-none touch-pan-y"
+                onPointerDown={handlePhotoPointerDown}
+                onPointerMove={handlePhotoPointerMove}
+                onPointerUp={handlePhotoPointerUp}
+                onPointerCancel={handlePhotoPointerUp}
+                onClick={(e) => {
+                  if (isHorizontalSwipeRef.current) {
+                    e.stopPropagation()
+                    return
+                  }
+                  handleOpenPhotoViewer(selectedCluster.photos, activePhotoIndex)
+                }}
+                title="Click to open full photo view, or swipe left/right to browse photos"
               >
-                {placeholder && (
-                  <img
-                    src={placeholder}
-                    alt=""
-                    className="absolute inset-0 h-full w-full object-cover blur-sm scale-110"
-                    aria-hidden
-                  />
-                )}
-                {previewSrc ? (
-                  <img
-                    src={previewSrc}
-                    alt={currentPhoto.name}
-                    loading="eager"
-                    decoding="async"
-                    onError={(e) => {
-                      const el = e.currentTarget
-                      if (el.src && !el.src.includes('/media/')) {
-                        el.src = toProxyMediaUrl(el.src)
-                      }
-                    }}
-                    className="absolute inset-0 h-full w-full object-cover transition-all duration-300 group-hover:scale-105"
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-muted-foreground">
-                    <ImageIcon className="size-10 opacity-40" />
+                <div
+                  className="absolute inset-0 h-full w-full"
+                  style={{
+                    transform: `translateX(${swipeOffset}px)`,
+                    transition: isSwiping ? "none" : "transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1)",
+                  }}
+                >
+                  {placeholder && (
+                    <img
+                      src={placeholder}
+                      alt=""
+                      className="absolute inset-0 h-full w-full object-cover blur-sm scale-110"
+                      aria-hidden
+                    />
+                  )}
+                  {previewSrc ? (
+                    <img
+                      src={previewSrc}
+                      alt={currentPhoto.name}
+                      loading="eager"
+                      decoding="async"
+                      onError={(e) => {
+                        const el = e.currentTarget
+                        if (el.src && !el.src.includes('/media/')) {
+                          el.src = toProxyMediaUrl(el.src)
+                        }
+                      }}
+                      className="absolute inset-0 h-full w-full object-cover transition-all duration-300 group-hover:scale-105"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-muted-foreground">
+                      <ImageIcon className="size-10 opacity-40" />
+                    </div>
+                  )}
+                </div>
+
+                {/* Swipe Guidance Hint (for mobile users when spot has > 1 photo) */}
+                {selectedCluster.photos.length > 1 && (
+                  <div className="absolute bottom-2 inset-x-0 flex justify-center pointer-events-none sm:hidden">
+                    <span className="text-[10px] text-white/75 bg-black/50 px-2 py-0.5 rounded-full backdrop-blur-xs font-medium border border-white/10">
+                      Swipe ‹ › to browse
+                    </span>
                   </div>
                 )}
 
