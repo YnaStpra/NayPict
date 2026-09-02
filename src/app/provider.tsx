@@ -25,6 +25,11 @@ const PixelCat = dynamic(
   { ssr: false }
 )
 
+const RightClickGuard = dynamic(
+  () => import("@/components/guard/right-click-guard").then((mod) => mod.RightClickGuard),
+  { ssr: false }
+)
+
 type Theme = "light" | "dark"
 
 const THEME_COOKIE_NAME = "theme"
@@ -179,6 +184,7 @@ function Provider({ children, defaultTheme, defaultSidebarOpen, initialUserInfo,
     <AppContext.Provider value={value}>
       <TooltipProvider>
         {children}
+        <RightClickGuard />
         <PhotoUploadDialog />
         {/* PixelCat mascot disabled */}
         <Toaster position="top-center" />

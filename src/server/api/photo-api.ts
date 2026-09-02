@@ -16,6 +16,9 @@ import {
   type PhotoTakenDateListBo,
 } from '@/server/entity/bo/photo';
 import { downloadRateLimiter } from '@/server/lib/rate-limiter';
+import { settingService } from '@/server/service/setting-service';
+import { SettingWatermarkEnum } from '@/server/enums/setting-enum';
+import { applyWatermark } from '@/server/lib/photo-watermark';
 import type { HonoEnv } from '../hono/type';
 
 // This module registers photo-related interfaces.
@@ -186,6 +189,21 @@ export function registerPhotoApi(app: Hono<HonoEnv>) {
       }, 403, {
         'Cache-Control': 'no-store, private'
       });
+    }
+
+    // Apply dynamic copyright watermark for public/unauthenticated downloads if enabled
+    const setting = await settingService.get();
+    if (setting.watermarkEnabled === SettingWatermarkEnum.ENABLE && !userId) {
+      const photoData = await photoService.getOriginalPhotoBuffer(photoId);
+      if (photoData) {
+        const { buffer, contentType } = await applyWatermark(photoData.buffer, {
+          text: setting.watermarkText || '© NayPict',
+        });
+        c.header('Content-Type', contentType);
+        c.header('Content-Disposition', `attachment; filename="${encodeURIComponent(photoData.fileName)}"`);
+        c.header('Content-Length', String(buffer.length));
+        return c.body(new Uint8Array(buffer));
+      }
     }
 
     return c.redirect(photo.key);

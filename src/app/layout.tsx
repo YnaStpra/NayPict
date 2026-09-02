@@ -7,6 +7,7 @@ import { getLocale, getMessages } from "next-intl/server"
 import { Provider, type Theme } from "@/app/provider"
 import { getLoginInfo } from "@/lib/cookie"
 import { userService } from "@/server/service/user-service"
+import { PwaRegister } from "@/components/pwa/pwa-register"
 import "./globals.css"
 
 const geist = Geist({
@@ -34,6 +35,12 @@ export const viewport: Viewport = {
 export async function generateMetadata(): Promise<Metadata> {
   return {
     title: process.env.TITLE || "NayPict",
+    manifest: "/manifest.webmanifest",
+    appleWebApp: {
+      capable: true,
+      statusBarStyle: "black-translucent",
+      title: process.env.TITLE || "NayPict",
+    },
     icons: {
       icon: "/logo.webp",
       apple: "/logo.webp",
@@ -81,6 +88,7 @@ export default async function RootLayout({ children }: RootLayoutProps) {
         />
       </head>
       <body>
+        <PwaRegister />
         <NextIntlClientProvider messages={messages}>
           <Provider
             defaultTheme={defaultTheme}

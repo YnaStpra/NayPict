@@ -1031,6 +1031,44 @@ const photoService = {
     return this.toPhotoVo(photo, files, fileStorage, domain, exifRow, currentUserId, albumMap.get(photoId) ?? []);
   },
 
+  // Retrieve original photo buffer from storage for watermarking or server-side processing.
+  async getOriginalPhotoBuffer(photoId: string): Promise<{ buffer: Buffer; fileName: string; contentType: string } | null> {
+    const [photo] = await orm
+      .select()
+      .from(photoTab)
+      .where(eq(photoTab.photoId, photoId))
+      .limit(1);
+
+    if (!photo || !photo.storageId) return null;
+
+    const files = await fileService.listByPhotoId(photoId);
+    const originalFile = files.find((f) => f.type === FileTypeEnum.ORIGINAL) || files[0];
+    if (!originalFile?.key) return null;
+
+    const obj = await storage.get(originalFile.key, photo.storageId);
+    if (!obj?.body) return null;
+
+    let buffer: Buffer;
+    if (Buffer.isBuffer(obj.body)) {
+      buffer = obj.body;
+    } else if (typeof (obj.body as any).transformToByteArray === 'function') {
+      const bytes = await (obj.body as any).transformToByteArray();
+      buffer = Buffer.from(bytes);
+    } else {
+      const chunks: Uint8Array[] = [];
+      for await (const chunk of obj.body as any) {
+        chunks.push(chunk);
+      }
+      buffer = Buffer.concat(chunks);
+    }
+
+    return {
+      buffer,
+      fileName: photo.name,
+      contentType: originalFile.fileType || 'image/jpeg',
+    };
+  },
+
   // Batch update photo download protection status.
   async setAllowDownload(params: PhotoSetAllowDownloadBo, userId?: string): Promise<void> {
     if (!params.photoIds || !params.photoIds.length) {

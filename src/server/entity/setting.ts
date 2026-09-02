@@ -11,6 +11,9 @@ export interface SettingConfig {
   clearLast: number;
   photoDedup: number;
   onThisDay?: number;
+  watermarkEnabled?: number;
+  watermarkText?: string;
+  rightClickGuard?: number;
 }
 
 export type Setting = SettingConfig;
