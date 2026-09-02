@@ -33,6 +33,8 @@
   "s3.readFailed": "S3 File read failed",
   "photo.invalidFileType": "Invalid file type. Only valid images are supported.",
   "photo.fileTooLarge": "File size exceeds the allowed limit.",
+  "photo.maliciousFileDetected": "图片包含恶意脚本或可执行代码，已被安全拦截。",
+  "photo.emptyFile": "上传的文件为空。",
   "totp.notConfigured": "2FA is not configured for this account.",
   "totp.invalidCode": "Invalid 2FA verification code.",
   "totp.codeAlreadyUsed": "This 2FA code has already been used.",

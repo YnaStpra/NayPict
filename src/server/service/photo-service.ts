@@ -40,6 +40,7 @@ import { SettingOnThisDayEnum, SettingPhotoDedupEnum, SettingSyncDeleteEnum } fr
 import { formatHttpUrl, toMediaUrl, toProxyMediaUrl } from '@/lib/url';
 import { fileChecksum } from '@/server/lib/crypto';
 import { processPhotoImages } from '@/server/lib/photo-process';
+import { scanPhotoBufferForPolyglot, sanitizeFileName } from '@/server/lib/photo-sanitizer';
 import { readPhotoExifFromBuffer } from '@/server/lib/photo-exif';
 import { type Exif, exifTab } from '@/server/entity/exif';
 import { exifService } from '@/server/service/exif-service';
@@ -1267,9 +1268,12 @@ const photoService = {
       throw new BizError('photo.invalidFileType');
     }
 
+    // Deep Image Sanitization: Scan binary buffer for malicious polyglot / script payloads
+    scanPhotoBufferForPolyglot(buffer, file.name);
+
     return {
       buffer,
-      name: file.name.trim(),
+      name: sanitizeFileName(file.name.trim()),
       size: file.size,
       type: detectedMime || declaredMime || 'application/octet-stream',
     };
