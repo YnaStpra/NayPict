@@ -31,6 +31,9 @@ export function useModalBackHandler(
       const handlePopState = () => {
         if (isPushedRef.current) {
           isPushedRef.current = false;
+          if (typeof window !== "undefined") {
+            (window as unknown as { __last_subview_dismiss_time?: number }).__last_subview_dismiss_time = Date.now();
+          }
           onOpenChangeRef.current?.(false);
         }
       };
@@ -42,6 +45,9 @@ export function useModalBackHandler(
         // If modal was closed via UI click instead of back gesture, pop the history state
         if (isPushedRef.current) {
           isPushedRef.current = false;
+          if (typeof window !== "undefined") {
+            (window as unknown as { __last_subview_dismiss_time?: number }).__last_subview_dismiss_time = Date.now();
+          }
           if (window.history.state?.__modal_back_active) {
             window.history.back();
           }

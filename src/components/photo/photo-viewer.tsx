@@ -1377,6 +1377,9 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
       }
 
       // 3. Otherwise close PhotoViewer back to previous page / masonry grid
+      if (typeof window !== "undefined") {
+        (window as unknown as { __last_subview_dismiss_time?: number }).__last_subview_dismiss_time = Date.now()
+      }
       historyPushedRef.current = false
       removePhotoIdFromUrl()
       const callback = onBrowserBackRef.current ?? onBackRef.current
@@ -1635,6 +1638,9 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
 
   // Close the viewer and sync clear the browser history written by the viewer.
   function closeViewer() {
+    if (typeof window !== "undefined") {
+      (window as unknown as { __last_subview_dismiss_time?: number }).__last_subview_dismiss_time = Date.now()
+    }
     if (historyPushedRef.current) {
       historyPushedRef.current = false
       try {
