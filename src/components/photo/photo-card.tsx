@@ -48,6 +48,37 @@ function formatPhotoName(name: string) {
   return index > 0 ? name.slice(0, index) : name
 }
 
+// Global set of prefetched high-res preview URLs to prevent duplicate background downloads
+const prefetchedPreviewUrls = new Set<string>()
+
+/**
+ * Predictively prefetch a photo's high-resolution preview into browser cache.
+ */
+function prefetchPhotoHighRes(previewUrl?: string | null) {
+  if (!previewUrl || typeof window === "undefined" || prefetchedPreviewUrls.has(previewUrl)) return
+  prefetchedPreviewUrls.add(previewUrl)
+
+  // Bound set size to prevent memory leaks during long browsing sessions
+  if (prefetchedPreviewUrls.size > 200) {
+    const oldest = prefetchedPreviewUrls.values().next().value
+    if (oldest) prefetchedPreviewUrls.delete(oldest)
+  }
+
+  const run = () => {
+    const img = new Image()
+    img.decoding = "async"
+    img.src = previewUrl
+    // Also warm up PhotoViewer chunk
+    import("@/components/photo/photo-viewer").catch(() => {})
+  }
+
+  if ("requestIdleCallback" in window) {
+    window.requestIdleCallback(run, { timeout: 200 })
+  } else {
+    setTimeout(run, 0)
+  }
+}
+
 // Rendering a single photo card in a waterfall flow.
 export const PhotoCard = memo(function PhotoCard({
   data,
@@ -78,9 +109,10 @@ export const PhotoCard = memo(function PhotoCard({
   // isMobile Determine whether the current viewport is the mobile terminal.
   const isMobile = useIsMobile()
   const showHover = showTouchHover || holdHover
-  // Predictive hover dwell timer
+  // Predictive hover dwell timer (100ms intent window)
   const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const imgRef = useRef<HTMLImageElement | null>(null)
+  const cardRef = useRef<HTMLDivElement | null>(null)
   const isPriority = typeof index === "number" && index < 12
 
   // Reset image source and state when photo actually changes
@@ -128,38 +160,17 @@ export const PhotoCard = memo(function PhotoCard({
     }
   }
 
-  // Predictive hover prefetching with intent dwell time (>50ms) & requestIdleCallback
+  // Predictive hover prefetching with intent dwell time (100ms)
   function handleMouseEnter() {
     if (isMobile) return
     hoverTimerRef.current = setTimeout(() => {
-      if (typeof window !== "undefined") {
-        const prefetch = () => {
-          if (data.preview) {
-            const img = new Image()
-            img.decoding = "async"
-            img.src = data.preview
-          }
-          // Prefetch Lightbox bundle ahead of click
-          import("@/components/photo/photo-viewer").catch(() => {})
-        }
-
-        if ("requestIdleCallback" in window) {
-          window.requestIdleCallback(prefetch, { timeout: 150 })
-        } else {
-          prefetch()
-        }
-      }
-    }, 50)
+      prefetchPhotoHighRes(data.preview || data.key)
+    }, 100)
   }
 
   // Predictive touch-start prefetching for instant mobile lightbox opening
   function handleTouchStart() {
-    if (typeof window !== "undefined" && data.preview) {
-      const img = new Image()
-      img.decoding = "async"
-      img.src = data.preview
-      import("@/components/photo/photo-viewer").catch(() => {})
-    }
+    prefetchPhotoHighRes(data.preview || data.key)
   }
 
   function handleMouseLeave() {
@@ -168,6 +179,32 @@ export const PhotoCard = memo(function PhotoCard({
       hoverTimerRef.current = null
     }
   }
+
+  // Proximity prefetching on mobile when photo rests near center of viewport
+  useEffect(() => {
+    if (!isMobile || !cardRef.current) return
+    const targetUrl = data.preview || data.key
+    if (!targetUrl || prefetchedPreviewUrls.has(targetUrl)) return
+
+    const el = cardRef.current
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0]
+        if (entry?.isIntersecting) {
+          prefetchPhotoHighRes(targetUrl)
+          observer.disconnect()
+        }
+      },
+      {
+        // Focus on middle 50% vertical band of the phone screen
+        rootMargin: "-25% 0px -25% 0px",
+        threshold: 0.5,
+      }
+    )
+
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [isMobile, data.preview, data.key])
 
   // Toggle the selection status of the current photo.
   function changeSelected(checked: boolean) {
@@ -229,6 +266,7 @@ export const PhotoCard = memo(function PhotoCard({
 
   return (
     <div
+      ref={cardRef}
       className="group relative overflow-hidden houdini-smooth-card touch-press-feedback"
       onClick={handlePhotoClick}
       onContextMenu={handlePhotoContextMenu}

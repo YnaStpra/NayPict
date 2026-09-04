@@ -192,6 +192,7 @@ export function AlbumMasonry({ albums, resetKey = 0, onAlbumRename, onAlbumTop, 
         offset={wrapPosition.offset}
         height={windowHeight}
         itemKey={(item) => item.albumId}
+        overscanBy={1.5}
         render={(props) => (
           <AlbumCard
             {...props}

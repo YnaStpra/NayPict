@@ -22,17 +22,37 @@ self.addEventListener('install', (event) => {
   self.skipWaiting();
 });
 
-// Activate Event: Clean up outdated caches
+const MAX_MEDIA_CACHE_ITEMS = 150;
+
+/**
+ * Prune media cache to a maximum number of items using FIFO/LRU eviction.
+ * Prevents mobile device storage from being exhausted over time.
+ */
+async function trimMediaCache(cacheName, maxItems) {
+  try {
+    const cache = await caches.open(cacheName);
+    const keys = await cache.keys();
+    if (keys.length > maxItems) {
+      const toDelete = keys.slice(0, keys.length - maxItems);
+      await Promise.all(toDelete.map((key) => cache.delete(key)));
+    }
+  } catch (err) {
+    // Ignore cache trimming errors in background
+  }
+}
+
+// Activate Event: Clean up outdated caches and enforce media storage limit
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((keys) => {
-      return Promise.all(
+    caches.keys().then(async (keys) => {
+      await Promise.all(
         keys.map((key) => {
           if (key !== CACHE_NAME && key !== MEDIA_CACHE_NAME) {
             return caches.delete(key);
           }
         })
       );
+      await trimMediaCache(MEDIA_CACHE_NAME, MAX_MEDIA_CACHE_ITEMS);
     })
   );
   self.clients.claim();
@@ -53,7 +73,7 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 1. Photo Media & Derivative Images: Stale-While-Revalidate with dedicated media cache
+  // 1. Photo Media & Derivative Images: Stale-While-Revalidate with bounded media cache (max 150 items)
   if (url.pathname.startsWith('/media/') || request.destination === 'image') {
     event.respondWith(
       caches.open(MEDIA_CACHE_NAME).then(async (cache) => {
@@ -63,7 +83,9 @@ self.addEventListener('fetch', (event) => {
           fetch(request)
             .then((networkResponse) => {
               if (networkResponse && networkResponse.status === 200) {
-                cache.put(request, networkResponse);
+                cache.put(request, networkResponse).then(() => {
+                  trimMediaCache(MEDIA_CACHE_NAME, MAX_MEDIA_CACHE_ITEMS);
+                });
               }
             })
             .catch(() => {});
@@ -74,7 +96,9 @@ self.addEventListener('fetch', (event) => {
         return fetch(request)
           .then((networkResponse) => {
             if (networkResponse && networkResponse.status === 200) {
-              cache.put(request, networkResponse.clone());
+              cache.put(request, networkResponse.clone()).then(() => {
+                trimMediaCache(MEDIA_CACHE_NAME, MAX_MEDIA_CACHE_ITEMS);
+              });
             }
             return networkResponse;
           })
