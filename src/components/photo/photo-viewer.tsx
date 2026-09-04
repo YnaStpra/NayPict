@@ -6,7 +6,7 @@ import { isImageSlide, type SlideImage, useController, useLightboxState } from "
 import Fullscreen from "yet-another-react-lightbox/plugins/fullscreen"
 import Thumbnails from "yet-another-react-lightbox/plugins/thumbnails"
 import Zoom from "yet-another-react-lightbox/plugins/zoom"
-import { ArrowLeftIcon, ChevronLeftIcon, ChevronRightIcon, CircleAlertIcon, CircleIcon, FolderIcon, FolderPlusIcon, LockIcon, Menu, LoaderCircleIcon, MaximizeIcon, MessageSquare, MinimizeIcon, PanelRightClose, PanelRightOpen, RotateCcwSquare, Share2Icon, Sparkles, Trash2Icon } from "lucide-react"
+import { ArrowLeftIcon, ChevronLeftIcon, ChevronRightIcon, ChevronsUpDownIcon, CircleAlertIcon, CircleIcon, FolderIcon, FolderPlusIcon, LockIcon, Menu, LoaderCircleIcon, MaximizeIcon, MessageSquare, MinimizeIcon, PanelRightClose, PanelRightOpen, RotateCcwSquare, Share2Icon, Sparkles, Trash2Icon } from "lucide-react"
 import { toast } from "sonner"
 
 import { PhotoInfoSidebar, PhotoViewerBlurBackground, formatAlbumList } from "@/components/photo/photo-info-sidebar"
@@ -1161,6 +1161,46 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
   // Hook mobile back gesture for photo info sidebar / comments drawer on mobile (<768px)
   useModalBackHandler(open && infoOpen && typeof window !== "undefined" && window.innerWidth < 768, (val) => setInfoOpen(val))
 
+  // Controls visibility of initial mobile swipe gesture micro-hint badge.
+  const [showGestureHint, setShowGestureHint] = useState(false)
+  // Controls smooth fade-out animation before gesture hint badge unmounts.
+  const [hintFading, setHintFading] = useState(false)
+
+  // Shows a brief non-intrusive gesture hint on mobile when viewer opens
+  useEffect(() => {
+    if (!open || typeof window === "undefined" || window.innerWidth >= 768) {
+      setShowGestureHint(false)
+      setHintFading(false)
+      return
+    }
+
+    // Frequency capping: show at most 3 times so regular users are not annoyed
+    const STORAGE_KEY = "naypict_gesture_hint_count"
+    try {
+      const shownCount = parseInt(localStorage.getItem(STORAGE_KEY) || "0", 10)
+      if (shownCount >= 3) return
+
+      localStorage.setItem(STORAGE_KEY, String(shownCount + 1))
+      setShowGestureHint(true)
+      setHintFading(false)
+
+      const fadeTimer = setTimeout(() => {
+        setHintFading(true)
+      }, 1800)
+
+      const hideTimer = setTimeout(() => {
+        setShowGestureHint(false)
+      }, 2300)
+
+      return () => {
+        clearTimeout(fadeTimer)
+        clearTimeout(hideTimer)
+      }
+    } catch {
+      // Ignore localStorage access errors in private mode
+    }
+  }, [open])
+
   // Toggle cinematic mode with Browser Fullscreen API and graceful fallback.
   const toggleCinematicMode = useCallback(() => {
     setIsCinematicMode((prev) => {
@@ -1788,6 +1828,30 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
                     setInfoOpen(true)
                   }}
                 />
+                {/* Mobile Gesture Hint Floating Badge (Auto-dismisses in ~2s) */}
+                {showGestureHint && !infoOpen && !isCinematicMode && (
+                  <div
+                    className={cn(
+                      "fixed bottom-16 sm:bottom-20 inset-x-0 z-50 flex justify-center px-4 pointer-events-none select-none md:hidden transition-all duration-500 ease-out",
+                      hintFading
+                        ? "opacity-0 translate-y-2 scale-95"
+                        : "opacity-100 translate-y-0 scale-100 animate-in fade-in zoom-in-95 duration-300"
+                    )}
+                  >
+                    <div className="flex items-center gap-2.5 px-3.5 py-1.5 rounded-full bg-black/80 dark:bg-neutral-900/85 backdrop-blur-xl border border-white/20 text-white shadow-2xl ring-1 ring-black/40">
+                      <div className="flex items-center text-emerald-400">
+                        <ChevronsUpDownIcon className="size-3.5 animate-pulse" />
+                      </div>
+                      <span className="text-[11px] sm:text-xs font-medium tracking-wide">
+                        Usap ↑↓ untuk menutup
+                      </span>
+                      <span className="text-white/30 text-[10px]">•</span>
+                      <span className="text-[11px] sm:text-xs text-white/80 font-medium tracking-wide">
+                        Geser ‹ › foto lain
+                      </span>
+                    </div>
+                  </div>
+                )}
               </>
             )
           },

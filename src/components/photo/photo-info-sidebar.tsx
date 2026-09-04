@@ -1,11 +1,12 @@
 "use client"
 
-import { Archive, Eye, FolderHeart, FolderPlusIcon, Globe, Image as ImageIcon, InfoIcon, MapPin, MessageSquareIcon, Pencil, TrendingUp, XIcon } from "lucide-react"
+import { Archive, ChevronRightIcon, Eye, FolderHeart, FolderPlusIcon, Globe, Image as ImageIcon, InfoIcon, MapPin, MessageSquareIcon, Pencil, TrendingUp, XIcon } from "lucide-react"
 import { InstagramIcon } from "@/components/icons/instagram"
 import { useEffect, useRef, useState } from "react"
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
+import { cn } from "@/lib/utils"
 import { formatPhotoTakenDateTime } from "@/lib/date"
 import { getThumbHashUrl } from "@/lib/thumb-hash"
 import { getPhotoDeviceParams, getPhotoShootingParams, getPhotoSoftware, getPhotoTimezone } from "@/lib/viewer-field"
@@ -174,6 +175,46 @@ export function PhotoInfoSidebar({
 
   const asideRef = useRef<HTMLElement>(null)
   const infoScrollRef = useRef<HTMLDivElement>(null)
+
+  // Controls visibility of initial mobile swipe-right drawer micro-hint badge.
+  const [showDrawerHint, setShowDrawerHint] = useState(false)
+  // Controls smooth fade-out animation before drawer hint badge unmounts.
+  const [drawerHintFading, setDrawerHintFading] = useState(false)
+
+  // Shows a brief non-intrusive gesture hint on mobile when sidebar drawer opens
+  useEffect(() => {
+    if (typeof window === "undefined" || window.innerWidth >= 768) {
+      setShowDrawerHint(false)
+      setDrawerHintFading(false)
+      return
+    }
+
+    // Frequency capping: show at most 3 times so regular users are not annoyed
+    const STORAGE_KEY = "naypict_drawer_hint_count"
+    try {
+      const shownCount = parseInt(localStorage.getItem(STORAGE_KEY) || "0", 10)
+      if (shownCount >= 3) return
+
+      localStorage.setItem(STORAGE_KEY, String(shownCount + 1))
+      setShowDrawerHint(true)
+      setDrawerHintFading(false)
+
+      const fadeTimer = setTimeout(() => {
+        setDrawerHintFading(true)
+      }, 1800)
+
+      const hideTimer = setTimeout(() => {
+        setShowDrawerHint(false)
+      }, 2300)
+
+      return () => {
+        clearTimeout(fadeTimer)
+        clearTimeout(hideTimer)
+      }
+    } catch {
+      // Ignore localStorage access errors in private mode
+    }
+  }, [])
 
   // Fetch initial comment count and listen for real-time comment updates
   useEffect(() => {
@@ -364,6 +405,25 @@ export function PhotoInfoSidebar({
       >
         <div className="w-1.5 h-10 rounded-full bg-white/40 shadow-xs" />
       </div>
+
+      {/* Mobile Swipe-Right Hint Pill (Auto-dismisses in ~2s) */}
+      {showDrawerHint && (
+        <div
+          className={cn(
+            "absolute bottom-6 inset-x-0 z-40 flex justify-center px-4 pointer-events-none select-none md:hidden transition-all duration-500 ease-out",
+            drawerHintFading
+              ? "opacity-0 translate-y-2 scale-95"
+              : "opacity-100 translate-y-0 scale-100 animate-in fade-in zoom-in-95 duration-300"
+          )}
+        >
+          <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-black/85 dark:bg-neutral-900/90 backdrop-blur-xl border border-white/20 text-white shadow-2xl ring-1 ring-black/40">
+            <ChevronRightIcon className="size-3.5 text-emerald-400 animate-pulse" />
+            <span className="text-[11px] sm:text-xs font-medium tracking-wide">
+              Usap ke kanan untuk menutup
+            </span>
+          </div>
+        </div>
+      )}
 
       {photo && (
         <div className="relative z-10 flex flex-col flex-1 h-full min-h-0">
