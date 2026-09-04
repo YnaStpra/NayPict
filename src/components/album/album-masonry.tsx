@@ -175,10 +175,10 @@ export function AlbumMasonry({ albums, resetKey = 0, onAlbumRename, onAlbumTop, 
           <FolderOpen className="size-10 text-muted-foreground/70" />
         </div>
         <h3 className="text-xl font-semibold text-foreground mb-1">
-          belum ada albumnya cuy, sorry yeah.
+          No albums yet
         </h3>
         <p className="text-sm text-muted-foreground max-w-sm">
-          Album belum ditambahkan oleh Admin. Silakan cek kembali nanti!
+          No albums have been added by the administrator yet. Please check back later!
         </p>
       </div>
     )

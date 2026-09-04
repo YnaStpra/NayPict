@@ -1843,11 +1843,11 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
                         <ChevronsUpDownIcon className="size-3.5 animate-pulse" />
                       </div>
                       <span className="text-[11px] sm:text-xs font-medium tracking-wide">
-                        Usap ↑↓ untuk menutup
+                        Swipe ↑↓ to dismiss
                       </span>
                       <span className="text-white/30 text-[10px]">•</span>
                       <span className="text-[11px] sm:text-xs text-white/80 font-medium tracking-wide">
-                        Geser ‹ › foto lain
+                        Swipe ‹ › to browse
                       </span>
                     </div>
                   </div>

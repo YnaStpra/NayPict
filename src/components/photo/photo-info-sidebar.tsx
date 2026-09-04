@@ -419,7 +419,7 @@ export function PhotoInfoSidebar({
           <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-black/85 dark:bg-neutral-900/90 backdrop-blur-xl border border-white/20 text-white shadow-2xl ring-1 ring-black/40">
             <ChevronRightIcon className="size-3.5 text-emerald-400 animate-pulse" />
             <span className="text-[11px] sm:text-xs font-medium tracking-wide">
-              Usap ke kanan untuk menutup
+              Swipe right to close
             </span>
           </div>
         </div>
