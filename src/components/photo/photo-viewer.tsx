@@ -1313,8 +1313,18 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
     openScrollYRef.current = window.scrollY
 
     // Push a history when opening the viewer, close sub-modals/viewer when browser returns.
-    function handlePopState() {
-      // If a sub-modal/sheet (Story Card, Insights, or Mobile Info Sidebar) was open,
+    function handlePopState(event?: PopStateEvent) {
+      // 1. If we popped back INTO PhotoViewer from a sub-modal/sheet/drawer
+      // (the restored history state still has photoViewerOpen = true),
+      // DO NOT close PhotoViewer!
+      if (
+        event?.state?.photoViewerOpen ||
+        (typeof window !== "undefined" && window.history.state?.photoViewerOpen)
+      ) {
+        return
+      }
+
+      // 2. If a sub-modal/sheet (Story Card, Insights, or Mobile Info Sidebar) was open,
       // its own dedicated back handler hook manages closing it. PhotoViewer ignores that pop.
       if (
         storyDialogOpenRef.current ||
@@ -1326,7 +1336,7 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
         return
       }
 
-      // Otherwise close PhotoViewer back to previous page / masonry grid
+      // 3. Otherwise close PhotoViewer back to previous page / masonry grid
       historyPushedRef.current = false
       removePhotoIdFromUrl()
       const callback = onBrowserBackRef.current ?? onBackRef.current
