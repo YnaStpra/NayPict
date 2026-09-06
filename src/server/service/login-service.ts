@@ -18,6 +18,7 @@ import { type LoginVo } from '@/server/entity/vo/login';
 import { totpService } from '@/server/service/totp-service';
 import { userService } from '@/server/service/user-service';
 import { loginRateLimiter } from '@/server/lib/rate-limiter';
+import { verifyTurnstileToken } from '@/server/lib/turnstile';
 
 // This module handles login authentication related services.
 
@@ -80,6 +81,12 @@ const loginService = {
     const rateLimit = await loginRateLimiter.check(clientIp);
     if (!rateLimit.allowed) {
       throw new BizError('login.tooManyAttempts');
+    }
+
+    // Cloudflare Turnstile Bot Verification (if TURNSTILE_SECRET_KEY is configured in env)
+    const isHuman = await verifyTurnstileToken(params.turnstileToken || '', clientIp);
+    if (!isHuman) {
+      throw new BizError('login.captchaFailed');
     }
 
     // IP & Device Fingerprint Anomaly Detection (ANOMALY-01)

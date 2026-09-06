@@ -3,8 +3,18 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import zlib from 'node:zlib';
 import BizError from '@/server/error/biz-error';
+import { orm } from '@/server/infra/db';
+import { userTab } from '@/server/entity/user';
+import { photoTab } from '@/server/entity/photo';
+import { fileTab } from '@/server/entity/file';
+import { exifTab } from '@/server/entity/exif';
+import { albumTab } from '@/server/entity/album';
+import { albumPhotoTab } from '@/server/entity/album-photo';
+import { commentTab } from '@/server/entity/comment';
+import { settingTab } from '@/server/entity/setting';
+import { storageTab } from '@/server/entity/storage';
 
-// This module handles database snapshot creation, gzip compression, and AES-256-GCM encryption for disaster recovery backups.
+// This module handles database snapshot creation, gzip compression, and AES-256-GCM encryption for disaster recovery backups supporting both Neon PostgreSQL and SQLite.
 
 export interface DatabaseStatsVo {
   sizeBytes: number;
@@ -23,9 +33,25 @@ const DB_PATH = path.join(process.cwd(), 'data', 'naypict.sqlite');
 const MAGIC_HEADER = Buffer.from('NAYPICT_BAK_V1\0', 'utf-8'); // 15 bytes identifier
 
 const backupService = {
-  // Retrieve SQLite database file metrics including size on disk and last modified timestamp.
+  // Retrieve database metrics including record counts or SQLite file size.
   async getDatabaseStats(): Promise<DatabaseStatsVo> {
     try {
+      if (process.env.DATABASE_URL) {
+        const [photos, albums, comments, users] = await Promise.all([
+          orm.select({ id: photoTab.photoId }).from(photoTab),
+          orm.select({ id: albumTab.albumId }).from(albumTab),
+          orm.select({ id: commentTab.commentId }).from(commentTab),
+          orm.select({ id: userTab.userId }).from(userTab),
+        ]);
+        const totalRecords = photos.length + albums.length + comments.length + users.length;
+        return {
+          sizeBytes: totalRecords * 512,
+          sizeFormatted: `${totalRecords} records (Neon Cloud)`,
+          lastModified: Date.now(),
+          exists: true,
+        };
+      }
+
       if (!fs.existsSync(DB_PATH)) {
         return {
           sizeBytes: 0,
@@ -57,21 +83,69 @@ const backupService = {
 
   // Create a gzip-compressed, AES-256-GCM encrypted binary snapshot of the database.
   async createEncryptedBackup(password?: string): Promise<BackupResultVo> {
-    if (!fs.existsSync(DB_PATH)) {
-      throw new BizError('system.internalError');
-    }
+    let rawPayloadBuffer: Buffer;
 
-    // 1. Read SQLite database file
-    let dbBuffer: Buffer;
-    try {
-      dbBuffer = fs.readFileSync(DB_PATH);
-    } catch (err) {
-      console.error('[BACKUP] Failed to read SQLite database file:', err);
-      throw new BizError('system.internalError');
+    if (process.env.DATABASE_URL) {
+      // 1. Export all tables from Neon PostgreSQL
+      const [
+        users,
+        photos,
+        files,
+        exifs,
+        albums,
+        albumPhotos,
+        comments,
+        settings,
+        storages
+      ] = await Promise.all([
+        orm.select().from(userTab),
+        orm.select().from(photoTab),
+        orm.select().from(fileTab),
+        orm.select().from(exifTab),
+        orm.select().from(albumTab),
+        orm.select().from(albumPhotoTab),
+        orm.select().from(commentTab),
+        orm.select().from(settingTab),
+        orm.select().from(storageTab),
+      ]);
+
+      const dump = {
+        meta: {
+          version: 1,
+          engine: 'neon-postgresql',
+          exportedAt: new Date().toISOString(),
+          app: 'NayPict',
+        },
+        data: {
+          users,
+          photos,
+          files,
+          exifs,
+          albums,
+          albumPhotos,
+          comments,
+          settings,
+          storages,
+        },
+      };
+
+      rawPayloadBuffer = Buffer.from(JSON.stringify(dump, null, 2), 'utf-8');
+    } else {
+      // Fallback for local SQLite instances
+      if (!fs.existsSync(DB_PATH)) {
+        throw new BizError('system.internalError');
+      }
+
+      try {
+        rawPayloadBuffer = fs.readFileSync(DB_PATH);
+      } catch (err) {
+        console.error('[BACKUP] Failed to read SQLite database file:', err);
+        throw new BizError('system.internalError');
+      }
     }
 
     // 2. Compress with gzip for compact transfer
-    const compressedBuffer = zlib.gzipSync(dbBuffer, { level: 9 });
+    const compressedBuffer = zlib.gzipSync(rawPayloadBuffer, { level: 9 });
 
     // 3. Derive 256-bit encryption key using scrypt
     const salt = crypto.randomBytes(16);

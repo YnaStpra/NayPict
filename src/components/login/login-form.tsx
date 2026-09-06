@@ -18,6 +18,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { type LoginBo } from "@/server/entity/bo/login"
 import { useTranslations } from "next-intl"
+import { Turnstile } from "@/components/common/turnstile"
 
 interface LoginFormProps extends React.ComponentProps<"div"> {
   loading?: boolean
@@ -44,6 +45,7 @@ export function LoginForm({
     password: "",
   })
   const [totpCode, setTotpCode] = useState("")
+  const [turnstileToken, setTurnstileToken] = useState("")
 
   useEffect(() => {
     const username = process.env.NEXT_PUBLIC_DEMO_USERNAME
@@ -73,6 +75,7 @@ export function LoginForm({
         password: form.password,
         tempToken,
         code: totpCode.trim(),
+        turnstileToken: turnstileToken || undefined,
       })
       return
     }
@@ -80,6 +83,7 @@ export function LoginForm({
     onLogin({
       username: form.username.trim(),
       password: form.password,
+      turnstileToken: turnstileToken || undefined,
     })
   }
 
@@ -163,6 +167,11 @@ export function LoginForm({
                     required
                   />
                 </Field>
+                <Turnstile
+                  onVerify={(token) => setTurnstileToken(token)}
+                  onExpire={() => setTurnstileToken("")}
+                  className="flex justify-center my-1"
+                />
                 <Field className="mb-2">
                   <Button type="submit" disabled={loading}>
                     {loading && <LoaderCircle className="animate-spin" />}

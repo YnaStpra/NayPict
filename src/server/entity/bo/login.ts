@@ -5,6 +5,7 @@ interface LoginBo {
   password: string;
   code?: string;
   tempToken?: string;
+  turnstileToken?: string;
 }
 
 export type { LoginBo };
