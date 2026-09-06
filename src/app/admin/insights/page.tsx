@@ -299,7 +299,11 @@ export default function AdminInsightsPage() {
               onClick={handleResetInsights}
               disabled={loading || resetting}
             >
-              <Trash2 className={`size-3.5 ${resetting ? "animate-spin" : ""}`} />
+              {resetting ? (
+                <Loader2 className="size-3.5 animate-spin" />
+              ) : (
+                <Trash2 className="size-3.5" />
+              )}
               <span className="hidden sm:inline">Reset Statistics</span>
             </Button>
             <Button
