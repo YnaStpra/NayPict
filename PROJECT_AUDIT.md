@@ -885,6 +885,9 @@ Berikut adalah optimasi performa mobile & client yang telah aktif sepenuhnya pad
    - Menerapkan batasan cache media otomatis (maksimal 150 item via FIFO/LRU eviction) agar tidak menghabiskan kapasitas memori HP pengunjung.
 7. **Mobile Gesture Hints dengan Frequency Capping**:
    - Tooltip gestur swipe yang elegan di Photo Viewer dan Photo Info Sidebar dengan auto-dismiss dan pembatasan frekuensi (< 3 kali via `localStorage`).
+8. **Instant Visual Feedback & Route Transition Skeletons pada Pembukaan Album**:
+   - `AlbumCard` (`src/components/album/album-card.tsx`): Menampilkan overlay animasi pemuatan langsung (`isOpening`) dengan spinner modern dan teks "Opening...", mengunci kartu dengan `pointer-events-none` untuk mencegah *double tap* dari pengguna, serta melakukan *speculative route prefetching* pada event `onMouseEnter` dan `onTouchStart`.
+   - Next.js App Router Loading Skeletons (`src/app/albums/[albumId]/loading.tsx` & `src/app/albums/loading.tsx`): Menghilangkan jeda perpindahan halaman (*frozen/blank UI*) dengan menyajikan kerangka skeleton header, breadcrumb, dan grid foto secara instan saat navigasi dimulai.
 
 ---
 

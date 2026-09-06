@@ -3,6 +3,8 @@
 import { memo, useEffect, useMemo, useState } from "react"
 import { type RenderComponentProps } from "masonic"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
+import { Loader2 } from "lucide-react"
 
 import { AlbumActionMenu } from "@/components/album/album-action-menu"
 import { getThumbHashUrl } from "@/lib/thumb-hash"
@@ -21,16 +23,42 @@ type AlbumCardProps = Partial<RenderComponentProps<AlbumVo>> & {
 
 // Render a single album card in a virtual list.
 export const AlbumCard = memo(function AlbumCard({ data, width, href, onRename, onTop, onDelete, onChangeCover }: AlbumCardProps) {
+  const router = useRouter()
   const setCurrentAlbumName = useAlbumStore((state) => state.setCurrentAlbumName)
   const [thumbnailSrc, setThumbnailSrc] = useState<string | null>(() => data.thumbnail || null)
   const placeholder = useMemo(() => getThumbHashUrl(data.thumbHash), [data.thumbHash])
+  // isOpening tracks whether the album transition is in flight to provide immediate visual feedback.
+  const [isOpening, setIsOpening] = useState(false)
+  const targetHref = href ?? `/albums/${data.albumId}`
 
   useEffect(() => {
     setThumbnailSrc(data.thumbnail || null)
   }, [data.thumbnail])
 
-  // Record the current album name before clicking to enter the album, For photo page display.
-  function saveCurrentAlbumName() {
+  // Safety fallback: reset loading indicator if navigation does not unmount component
+  useEffect(() => {
+    if (!isOpening) return
+    const timeout = setTimeout(() => {
+      setIsOpening(false)
+    }, 8000)
+    return () => clearTimeout(timeout)
+  }, [isOpening])
+
+  // Speculative prefetch route chunk on cursor hover or finger touch
+  function handlePrefetch() {
+    try {
+      router.prefetch(targetHref)
+    } catch {}
+  }
+
+  // Record the current album name and show immediate loading state to prevent double clicks.
+  function handleAlbumClick(e: React.MouseEvent<HTMLAnchorElement>) {
+    if (isOpening) {
+      e.preventDefault()
+      return
+    }
+
+    setIsOpening(true)
     setCurrentAlbumName(data.name)
   }
 
@@ -75,10 +103,12 @@ export const AlbumCard = memo(function AlbumCard({ data, width, href, onRename, 
       }}
     >
       <Link
-        href={href ?? `/albums/${data.albumId}`}
+        href={targetHref}
         prefetch={false}
-        className="absolute inset-0 block"
-        onClick={saveCurrentAlbumName}
+        className={`absolute inset-0 block ${isOpening ? "pointer-events-none cursor-wait" : ""}`}
+        onClick={handleAlbumClick}
+        onMouseEnter={handlePrefetch}
+        onTouchStart={handlePrefetch}
       >
         {thumbnailSrc ? (
           <img
@@ -87,7 +117,7 @@ export const AlbumCard = memo(function AlbumCard({ data, width, href, onRename, 
             loading="lazy"
             decoding="async"
             alt={data.name}
-            className="absolute inset-0 h-full w-full object-cover spring-zoom-img group-hover:scale-[1.035]"
+            className={`absolute inset-0 h-full w-full object-cover spring-zoom-img group-hover:scale-[1.035] transition-all duration-300 ${isOpening ? "brightness-75 scale-[1.02]" : ""}`}
             onError={(event) => {
               if (thumbnailSrc && !thumbnailSrc.startsWith('/media/')) {
                 setThumbnailSrc(toProxyMediaUrl(thumbnailSrc))
@@ -99,8 +129,22 @@ export const AlbumCard = memo(function AlbumCard({ data, width, href, onRename, 
         ) : (
           <div className="absolute inset-0 bg-[#DDDDDD] dark:bg-muted" />
         )}
+
+        {/* Immediate loading animation overlay when opening album */}
+        {isOpening && (
+          <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-black/55 backdrop-blur-[2px] transition-all animate-in fade-in duration-200">
+            <div className="relative flex size-12 items-center justify-center">
+              <span className="absolute inline-flex size-full animate-ping rounded-full bg-white/20 opacity-75" />
+              <Loader2 className="size-7 animate-spin text-white drop-shadow-md" />
+            </div>
+            <span className="mt-2 text-xs font-semibold uppercase tracking-wider text-white drop-shadow-md select-none">
+              Opening...
+            </span>
+          </div>
+        )}
+
         <div
-          className="pointer-events-none absolute inset-x-0 bottom-0 p-3 pb-2 text-left text-white"
+          className={`pointer-events-none absolute inset-x-0 bottom-0 p-3 pb-2 text-left text-white transition-opacity duration-200 ${isOpening ? "opacity-0" : "opacity-100"}`}
           style={{
             filter: "drop-shadow(0 1px 2px rgba(0,0,0,0.4)) drop-shadow(0 0 1px rgba(0,0,0,0.3))",
           }}
