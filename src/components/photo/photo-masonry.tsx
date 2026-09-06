@@ -322,12 +322,18 @@ const PhotoMasonry = memo(function PhotoMasonry({
     if (typeof window === "undefined" || !photos.length) return
 
     const preloadUpcomingThumbnails = () => {
+      // Respect client Data Saver preference (Network Information API)
+      const nav = navigator as unknown as { connection?: { saveData?: boolean } }
+      if (nav?.connection?.saveData) return
+
       const scrollY = window.scrollY || window.pageYOffset
       const avgCardHeight = isMobile ? 180 : 260
       const cols = Math.max(1, Math.floor(width / columnWidth))
       const estimatedVisibleIndex = Math.max(0, Math.floor((scrollY / avgCardHeight) * cols))
       const startIdx = Math.max(0, estimatedVisibleIndex)
-      const endIdx = Math.min(photos.length, startIdx + 36)
+      // On mobile devices, prefetch 10 items instead of 36 to save cellular bandwidth and prevent socket contention
+      const prefetchBatch = isMobile ? 10 : 36
+      const endIdx = Math.min(photos.length, startIdx + prefetchBatch)
 
       for (let i = startIdx; i < endIdx; i++) {
         const p = photos[i]

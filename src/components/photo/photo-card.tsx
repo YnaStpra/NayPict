@@ -267,7 +267,7 @@ export const PhotoCard = memo(function PhotoCard({
   return (
     <div
       ref={cardRef}
-      className="group relative overflow-hidden houdini-smooth-card touch-press-feedback"
+      className="group relative overflow-hidden houdini-smooth-card touch-press-feedback [content-visibility:auto] touch-manipulation"
       onClick={handlePhotoClick}
       onContextMenu={handlePhotoContextMenu}
       onMouseEnter={handleMouseEnter}
@@ -277,6 +277,7 @@ export const PhotoCard = memo(function PhotoCard({
         width,
         height: cardHeight,
         contain: "paint layout",
+        ["containIntrinsicSize" as string]: `auto ${width}px ${cardHeight}px`,
         transform: "translateZ(0)",
         willChange: "auto",
         backgroundColor: placeholder ? undefined : "rgba(128,128,128,0.08)",
@@ -411,7 +412,7 @@ export const PhotoCard = memo(function PhotoCard({
                 {data.width} × {data.height}
               </span>
               {
-                innerWidth < 768 ? (
+                isMobile ? (
                   <div>{formatPhotoSize(data.size)}</div>
                 ) : (
                   <>

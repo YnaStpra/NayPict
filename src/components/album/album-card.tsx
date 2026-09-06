@@ -59,11 +59,11 @@ export const AlbumCard = memo(function AlbumCard({ data, width, href, onRename, 
 
   return (
     <div
-      className="group relative aspect-square overflow-hidden houdini-smooth-card touch-press-feedback"
+      className="group relative aspect-square overflow-hidden houdini-smooth-card touch-press-feedback [content-visibility:auto] touch-manipulation"
       style={{
         width,
         contain: "paint layout",
-        containIntrinsicSize: "280px 280px",
+        containIntrinsicSize: `auto ${width}px ${width}px`,
         backgroundColor: placeholder ? undefined : "rgba(128,128,128,0.08)",
         backgroundImage: placeholder ? `url("${placeholder}")` : undefined,
         backgroundSize: "cover",

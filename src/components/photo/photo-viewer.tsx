@@ -9,10 +9,23 @@ import Zoom from "yet-another-react-lightbox/plugins/zoom"
 import { ArrowLeftIcon, ChevronLeftIcon, ChevronRightIcon, ChevronsUpDownIcon, CircleAlertIcon, CircleIcon, FolderIcon, FolderPlusIcon, LockIcon, Menu, LoaderCircleIcon, MaximizeIcon, MessageSquare, MinimizeIcon, PanelRightClose, PanelRightOpen, RotateCcwSquare, Share2Icon, Sparkles, Trash2Icon } from "lucide-react"
 import { toast } from "sonner"
 
+import dynamic from "next/dynamic"
+
 import { PhotoInfoSidebar, PhotoViewerBlurBackground, formatAlbumList } from "@/components/photo/photo-info-sidebar"
-import { PhotoInsightsDialog } from "@/components/photo/photo-insights-dialog"
-import { PhotoStoryDialog } from "@/components/photo/photo-story-dialog"
-import { PhotoBatchEditDialog } from "@/components/photo/photo-batch-edit-dialog"
+
+// Dynamic code-splitting: Lazy-load heavy dialog bundles on demand to drastically minimize initial photo viewer bundle
+const PhotoInsightsDialog = dynamic(
+  () => import("@/components/photo/photo-insights-dialog").then((mod) => mod.PhotoInsightsDialog),
+  { ssr: false }
+)
+const PhotoStoryDialog = dynamic(
+  () => import("@/components/photo/photo-story-dialog").then((mod) => mod.PhotoStoryDialog),
+  { ssr: false }
+)
+const PhotoBatchEditDialog = dynamic(
+  () => import("@/components/photo/photo-batch-edit-dialog").then((mod) => mod.PhotoBatchEditDialog),
+  { ssr: false }
+)
 import { cn } from "@/lib/utils"
 import { InstagramIcon } from "@/components/icons/instagram"
 import { useTapAction } from "@/hooks/use-tap-action"

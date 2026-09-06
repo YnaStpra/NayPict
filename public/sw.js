@@ -63,8 +63,8 @@ self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
-  // Only handle GET requests
-  if (request.method !== 'GET') {
+  // Only handle GET requests with http/https protocols
+  if (request.method !== 'GET' || !url.protocol.startsWith('http')) {
     return;
   }
 
@@ -83,7 +83,8 @@ self.addEventListener('fetch', (event) => {
           fetch(request)
             .then((networkResponse) => {
               if (networkResponse && networkResponse.status === 200) {
-                cache.put(request, networkResponse).then(() => {
+                const responseToCache = networkResponse.clone();
+                cache.put(request, responseToCache).then(() => {
                   trimMediaCache(MEDIA_CACHE_NAME, MAX_MEDIA_CACHE_ITEMS);
                 });
               }
@@ -96,7 +97,8 @@ self.addEventListener('fetch', (event) => {
         return fetch(request)
           .then((networkResponse) => {
             if (networkResponse && networkResponse.status === 200) {
-              cache.put(request, networkResponse.clone()).then(() => {
+              const responseToCache = networkResponse.clone();
+              cache.put(request, responseToCache).then(() => {
                 trimMediaCache(MEDIA_CACHE_NAME, MAX_MEDIA_CACHE_ITEMS);
               });
             }
@@ -128,11 +130,12 @@ self.addEventListener('fetch', (event) => {
       const fetchPromise = fetch(request)
         .then((networkResponse) => {
           if (networkResponse && networkResponse.status === 200) {
+            const responseToCache = networkResponse.clone();
             caches.open(CACHE_NAME).then((cache) => {
-              cache.put(request, networkResponse);
+              cache.put(request, responseToCache);
             });
           }
-          return networkResponse.clone();
+          return networkResponse;
         })
         .catch(() => cachedResponse);
 

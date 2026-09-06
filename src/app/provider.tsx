@@ -131,17 +131,6 @@ function Provider({ children, defaultTheme, defaultSidebarOpen, initialUserInfo,
     setTheme(theme === "dark" ? "light" : "dark")
   }, [setTheme, theme])
 
-  // Clean up any legacy Service Worker registrations to prevent Safari "Load failed" interception bugs
-  React.useEffect(() => {
-    if (typeof window !== "undefined" && "serviceWorker" in navigator) {
-      navigator.serviceWorker.getRegistrations().then((registrations) => {
-        for (const reg of registrations) {
-          reg.unregister().catch(() => {})
-        }
-      }).catch(() => {})
-    }
-  }, [])
-
   // Requery normal storage configuration and write global storage options, The login page does not send a request.
   const refreshStorages = React.useCallback(() => {
     if (isLogin) {

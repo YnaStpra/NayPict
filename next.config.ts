@@ -24,6 +24,9 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
+  experimental: {
+    optimizePackageImports: ['lucide-react', '@tabler/icons-react', 'recharts'],
+  },
   images: {
     formats: ['image/avif', 'image/webp'],
     remotePatterns: [
