@@ -65,8 +65,8 @@ class UpstashRedisClient {
   }
 }
 
-const upstashUrl = process.env.UPSTASH_REDIS_REST_URL
-const upstashToken = process.env.UPSTASH_REDIS_REST_TOKEN
+const upstashUrl = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL
+const upstashToken = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN
 const redisClient = upstashUrl && upstashToken ? new UpstashRedisClient(upstashUrl, upstashToken) : null
 
 // Database-backed cache implementation (Neon PostgreSQL / SQLite cacheTab).
