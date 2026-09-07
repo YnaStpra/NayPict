@@ -81,12 +81,28 @@ export function PhotoReactions({ photoId, className = "", compact = false }: Pho
   const [particles, setParticles] = useState<Particle[]>([])
   const particleIdRef = useRef(0)
 
+  // Retrieve or generate persistent visitor ID from localStorage as client-side backup
+  const getClientVisitorId = useCallback((): string => {
+    if (typeof window === "undefined") return ""
+    try {
+      const key = "naypict_vid"
+      let vid = localStorage.getItem(key)
+      if (!vid) {
+        vid = `v_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`
+        localStorage.setItem(key, vid)
+      }
+      return vid
+    } catch {
+      return ""
+    }
+  }, [])
+
   // Fetch initial reactions for the photo
   useEffect(() => {
     let isMounted = true
     if (!photoId) return
 
-    photoReactionsGet({ photoId })
+    photoReactionsGet({ photoId, visitorId: getClientVisitorId() })
       .then((res) => {
         if (isMounted && res) {
           setTotals(res.totals)
@@ -98,7 +114,7 @@ export function PhotoReactions({ photoId, className = "", compact = false }: Pho
     return () => {
       isMounted = false
     }
-  }, [photoId])
+  }, [photoId, getClientVisitorId])
 
   // Spawn floating emoji particles on tap
   const triggerParticle = useCallback((emoji: string, e: React.MouseEvent<HTMLButtonElement>) => {
@@ -170,7 +186,7 @@ export function PhotoReactions({ photoId, className = "", compact = false }: Pho
     try {
       const updated = await photoReactionAdd({
         photoId,
-        visitorId: "",
+        visitorId: getClientVisitorId(),
         reactionType: type,
       })
       if (updated) {
@@ -213,7 +229,7 @@ export function PhotoReactions({ photoId, className = "", compact = false }: Pho
     try {
       const updated = await photoReactionAdd({
         photoId,
-        visitorId: "",
+        visitorId: getClientVisitorId(),
         reactionType: "clap",
         count: 1,
       })
