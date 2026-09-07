@@ -11,6 +11,7 @@ import { exifTab } from '@/server/entity/exif';
 import { albumTab } from '@/server/entity/album';
 import { albumPhotoTab } from '@/server/entity/album-photo';
 import { commentTab } from '@/server/entity/comment';
+import { photoReactionTab } from '@/server/entity/reaction';
 import { settingTab } from '@/server/entity/setting';
 import { storageTab } from '@/server/entity/storage';
 
@@ -38,17 +39,17 @@ const backupService = {
     try {
       if (process.env.DATABASE_URL) {
         const [photos, albums, comments, users] = await Promise.all([
-          orm.select({ id: photoTab.photoId }).from(photoTab),
-          orm.select({ id: albumTab.albumId }).from(albumTab),
-          orm.select({ id: commentTab.commentId }).from(commentTab),
-          orm.select({ id: userTab.userId }).from(userTab),
+          orm.select().from(photoTab),
+          orm.select().from(albumTab),
+          orm.select().from(commentTab),
+          orm.select().from(userTab),
         ]);
-        const totalRecords = photos.length + albums.length + comments.length + users.length;
+
         return {
-          sizeBytes: totalRecords * 512,
-          sizeFormatted: `${totalRecords} records (Neon Cloud)`,
+          sizeBytes: (photos.length + albums.length + comments.length + users.length) * 1024,
+          sizeFormatted: `${photos.length} photos, ${albums.length} albums, ${comments.length} comments`,
           lastModified: Date.now(),
-          exists: true,
+          exists: false,
         };
       }
 
@@ -95,6 +96,7 @@ const backupService = {
         albums,
         albumPhotos,
         comments,
+        reactions,
         settings,
         storages
       ] = await Promise.all([
@@ -105,6 +107,7 @@ const backupService = {
         orm.select().from(albumTab),
         orm.select().from(albumPhotoTab),
         orm.select().from(commentTab),
+        orm.select().from(photoReactionTab).catch(() => []),
         orm.select().from(settingTab),
         orm.select().from(storageTab),
       ]);
@@ -114,7 +117,6 @@ const backupService = {
           version: 1,
           engine: 'neon-postgresql',
           exportedAt: new Date().toISOString(),
-          app: 'NayPict',
         },
         data: {
           users,
@@ -124,6 +126,7 @@ const backupService = {
           albums,
           albumPhotos,
           comments,
+          reactions,
           settings,
           storages,
         },

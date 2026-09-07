@@ -127,4 +127,18 @@ export function registerCommentApi(app: Hono<HonoEnv>) {
     await commentService.delete(body.commentId);
     return c.json(result.ok());
   });
+
+  // Toggle official photographer ❤️ heart on a comment (Admin only).
+  app.post('/photo/comment/heart', async (c: Context) => {
+    const body = await c.req.json<{ commentId: string }>().catch(() => ({ commentId: '' }));
+    const isHearted = await commentService.toggleHeart(body.commentId);
+    return c.json(result.ok({ isHearted }));
+  });
+
+  // Toggle pinning a comment to the top of the photo (Admin only).
+  app.post('/photo/comment/pin', async (c: Context) => {
+    const body = await c.req.json<{ commentId: string }>().catch(() => ({ commentId: '' }));
+    const isPinned = await commentService.togglePin(body.commentId);
+    return c.json(result.ok({ isPinned }));
+  });
 }

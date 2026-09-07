@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { CornerDownRightIcon, Loader2Icon, MessageSquareIcon, PencilIcon, SendIcon, ShieldCheckIcon, Trash2Icon } from "lucide-react";
+import { CheckCircle2, CornerDownRightIcon, Heart, Loader2Icon, MessageSquareIcon, PencilIcon, Pin, SendIcon, ShieldCheckIcon, Trash2Icon } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { commentAdd, commentDelete, commentDeleteReply, commentList, commentReply } from "@/request/comment";
+import { commentAdd, commentDelete, commentDeleteReply, commentList, commentReply, commentToggleHeart, commentTogglePin } from "@/request/comment";
 import { type CommentVo } from "@/server/entity/vo/comment";
 import { useApp } from "@/app/provider";
 import { UserTypeEnum } from "@/server/enums/user-enum";
@@ -50,6 +50,9 @@ export function PhotoComments({ photoId }: PhotoCommentsProps) {
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   // Comment ID currently being deleted.
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  // Admin heart & pin loading states.
+  const [pinningId, setPinningId] = useState<string | null>(null);
+  const [heartingId, setHeartingId] = useState<string | null>(null);
 
   // Admin reply states
   const [replyingCommentId, setReplyingCommentId] = useState<string | null>(null);
@@ -146,6 +149,47 @@ export function PhotoComments({ photoId }: PhotoCommentsProps) {
           const payload = JSON.parse(e.data);
           if (payload?.commentId) {
             setComments((prev) => prev.filter((c) => c.commentId !== payload.commentId));
+          }
+        } catch {}
+      });
+
+      eventSource.addEventListener("heart_updated", (e: MessageEvent) => {
+        if (!isMounted) return;
+        try {
+          const payload = JSON.parse(e.data);
+          if (payload?.commentId) {
+            setComments((prev) =>
+              prev.map((c) =>
+                c.commentId === payload.commentId
+                  ? { ...c, isHearted: Boolean(payload.isHearted) }
+                  : c
+              )
+            );
+          }
+        } catch {}
+      });
+
+      eventSource.addEventListener("pin_updated", (e: MessageEvent) => {
+        if (!isMounted) return;
+        try {
+          const payload = JSON.parse(e.data);
+          if (payload?.commentId) {
+            setComments((prev) => {
+              const updated = prev.map((c) => {
+                if (c.commentId === payload.commentId) {
+                  return { ...c, isPinned: Boolean(payload.isPinned) };
+                }
+                if (payload.isPinned) {
+                  return { ...c, isPinned: false };
+                }
+                return c;
+              });
+              return [...updated].sort((a, b) => {
+                if (a.isPinned && !b.isPinned) return -1;
+                if (!a.isPinned && b.isPinned) return 1;
+                return new Date(b.createTime).getTime() - new Date(a.createTime).getTime();
+              });
+            });
           }
         } catch {}
       });
@@ -324,6 +368,57 @@ export function PhotoComments({ photoId }: PhotoCommentsProps) {
     }
   };
 
+  // Admin toggles photographer heart on a comment
+  const handleToggleHeart = async (commentId: string) => {
+    if (heartingId) return;
+    setHeartingId(commentId);
+    try {
+      const res = await commentToggleHeart({ commentId });
+      setComments((prev) =>
+        prev.map((c) =>
+          c.commentId === commentId ? { ...c, isHearted: res.isHearted } : c
+        )
+      );
+      toast.success(res.isHearted ? "Comment hearted by photographer! ❤️" : "Heart removed");
+    } catch (err: unknown) {
+      toast.error((err as Error)?.message || "Failed to toggle heart");
+    } finally {
+      setHeartingId(null);
+    }
+  };
+
+  // Admin toggles pin on a comment (at most 1 pinned comment per photo)
+  const handleTogglePin = async (commentId: string) => {
+    if (pinningId) return;
+    setPinningId(commentId);
+    try {
+      const res = await commentTogglePin({ commentId });
+      setComments((prev) => {
+        const updated = prev.map((c) => {
+          if (c.commentId === commentId) {
+            return { ...c, isPinned: res.isPinned };
+          }
+          // If newly pinned, unpin all others
+          if (res.isPinned) {
+            return { ...c, isPinned: false };
+          }
+          return c;
+        });
+        // Sort so pinned comment is at the top
+        return [...updated].sort((a, b) => {
+          if (a.isPinned && !b.isPinned) return -1;
+          if (!a.isPinned && b.isPinned) return 1;
+          return new Date(b.createTime).getTime() - new Date(a.createTime).getTime();
+        });
+      });
+      toast.success(res.isPinned ? "Comment pinned to top! 📌" : "Comment unpinned");
+    } catch (err: unknown) {
+      toast.error((err as Error)?.message || "Failed to toggle pin");
+    } finally {
+      setPinningId(null);
+    }
+  };
+
   return (
     <div className="flex flex-col flex-1 h-full min-h-0 px-4 py-2 text-left" onPointerDown={(e) => e.stopPropagation()}>
       {/* Header with comment count */}
@@ -360,31 +455,101 @@ export function PhotoComments({ photoId }: PhotoCommentsProps) {
           comments.map((item) => (
             <div
               key={item.commentId}
-              className="group relative rounded-xl border border-white/15 bg-white/5 p-3 backdrop-blur-sm transition-colors hover:bg-white/[0.08] space-y-1.5"
+              className={`group relative rounded-xl border p-3 backdrop-blur-sm transition-all space-y-1.5 ${
+                item.isPinned
+                  ? "border-amber-500/40 bg-amber-500/[0.07] hover:bg-amber-500/[0.10] shadow-[0_0_15px_rgba(245,158,11,0.08)]"
+                  : "border-white/15 bg-white/5 hover:bg-white/[0.08]"
+              }`}
             >
+              {/* Pinned comment banner */}
+              {item.isPinned && (
+                <div className="flex items-center gap-1.5 text-[10px] font-bold text-amber-400 bg-amber-500/15 border border-amber-500/30 px-2 py-0.5 rounded-full w-fit mb-1 tracking-wide uppercase shadow-xs">
+                  <Pin className="size-2.5 fill-amber-400 text-amber-400" />
+                  <span>Pinned by Photographer</span>
+                </div>
+              )}
+
               <div className="flex items-center justify-between gap-2 pb-0.5">
-                <span className="font-semibold text-white/95 text-xs truncate">{item.name}</span>
-                <div className="flex items-center gap-2 shrink-0">
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <span className="font-semibold text-white/95 text-xs truncate">{item.name}</span>
+                  {item.isHearted && (
+                    <span
+                      className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded-full text-[9px] font-semibold bg-rose-500/20 text-rose-300 border border-rose-500/30 shadow-xs"
+                      title="Hearted by the photographer"
+                    >
+                      <Heart className="size-2.5 fill-rose-500 text-rose-500" />
+                      <span className="hidden sm:inline">Author Heart</span>
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-1.5 shrink-0">
                   <span className="text-[10px] text-white/40">
                     {formatRelativeTime(item.createTime, locale)}
                   </span>
                   {isAdmin && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="size-5 text-white/40 opacity-70 hover:opacity-100 hover:text-red-400 hover:bg-red-500/10 transition-all rounded"
-                      disabled={deletingId === item.commentId}
-                      onClick={() => handleDeleteComment(item.commentId)}
-                      title="Delete comment"
-                    >
-                      {deletingId === item.commentId ? (
-                        <Loader2Icon className="size-3 animate-spin" />
-                      ) : (
-                        <Trash2Icon className="size-3" />
-                      )}
-                      <span className="sr-only">Delete</span>
-                    </Button>
+                    <div className="flex items-center gap-1">
+                      {/* Heart toggle button */}
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className={`size-5 transition-all rounded cursor-pointer ${
+                          item.isHearted
+                            ? "text-rose-400 hover:text-rose-300 hover:bg-rose-500/20"
+                            : "text-white/40 hover:text-rose-400 hover:bg-rose-500/10"
+                        }`}
+                        disabled={heartingId === item.commentId}
+                        onClick={() => handleToggleHeart(item.commentId)}
+                        title={item.isHearted ? "Remove photographer heart" : "Award photographer heart"}
+                      >
+                        {heartingId === item.commentId ? (
+                          <Loader2Icon className="size-2.5 animate-spin" />
+                        ) : (
+                          <Heart className={`size-3 ${item.isHearted ? "fill-rose-500 text-rose-500" : ""}`} />
+                        )}
+                        <span className="sr-only">Heart</span>
+                      </Button>
+
+                      {/* Pin toggle button */}
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className={`size-5 transition-all rounded cursor-pointer ${
+                          item.isPinned
+                            ? "text-amber-400 hover:text-amber-300 hover:bg-amber-500/20"
+                            : "text-white/40 hover:text-amber-400 hover:bg-amber-500/10"
+                        }`}
+                        disabled={pinningId === item.commentId}
+                        onClick={() => handleTogglePin(item.commentId)}
+                        title={item.isPinned ? "Unpin comment" : "Pin comment to top"}
+                      >
+                        {pinningId === item.commentId ? (
+                          <Loader2Icon className="size-2.5 animate-spin" />
+                        ) : (
+                          <Pin className={`size-3 ${item.isPinned ? "fill-amber-400 text-amber-400" : ""}`} />
+                        )}
+                        <span className="sr-only">Pin</span>
+                      </Button>
+
+                      {/* Delete button */}
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="size-5 text-white/40 opacity-70 hover:opacity-100 hover:text-red-400 hover:bg-red-500/10 transition-all rounded cursor-pointer"
+                        disabled={deletingId === item.commentId}
+                        onClick={() => handleDeleteComment(item.commentId)}
+                        title="Delete comment"
+                      >
+                        {deletingId === item.commentId ? (
+                          <Loader2Icon className="size-3 animate-spin" />
+                        ) : (
+                          <Trash2Icon className="size-3" />
+                        )}
+                        <span className="sr-only">Delete</span>
+                      </Button>
+                    </div>
                   )}
                 </div>
               </div>
@@ -392,16 +557,18 @@ export function PhotoComments({ photoId }: PhotoCommentsProps) {
                 {item.content}
               </p>
 
-              {/* Display Public "Reply by Admin" Badge and Content */}
+              {/* Display Public "Reply by Photographer" Badge and Content */}
               {item.replyContent && replyingCommentId !== item.commentId && (
-                <div className="mt-2 pl-2.5 border-l-2 border-emerald-500/70 bg-emerald-500/10 p-2 rounded-r-lg space-y-1">
+                <div className="mt-2 pl-2.5 border-l-2 border-amber-500/70 bg-gradient-to-r from-amber-500/10 to-transparent p-2.5 rounded-r-xl space-y-1.5 shadow-[inset_0_0_12px_rgba(245,158,11,0.05)]">
                   <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-1 text-[11px] font-semibold text-emerald-400">
-                      <ShieldCheckIcon className="size-3" />
-                      <span>Reply by Admin</span>
+                    <div className="flex items-center gap-1.5">
+                      <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-gradient-to-r from-amber-500/25 to-orange-500/25 border border-amber-500/40 text-amber-300 text-[10px] font-bold tracking-wider uppercase shadow-xs">
+                        <CheckCircle2 className="size-3 text-amber-400 fill-amber-400/20" />
+                        <span>Photographer</span>
+                      </div>
                       {item.replyTime && (
-                        <span className="text-[9px] text-white/40 font-normal ml-1">
-                          ({formatRelativeTime(item.replyTime, locale)})
+                        <span className="text-[9px] text-white/40 font-normal">
+                          {formatRelativeTime(item.replyTime, locale)}
                         </span>
                       )}
                     </div>
@@ -410,7 +577,7 @@ export function PhotoComments({ photoId }: PhotoCommentsProps) {
                         <button
                           type="button"
                           onClick={() => handleStartReply(item)}
-                          className="text-white/50 hover:text-emerald-300 p-0.5 rounded cursor-pointer"
+                          className="text-white/50 hover:text-amber-300 p-0.5 rounded cursor-pointer"
                           title="Edit reply"
                         >
                           <PencilIcon className="size-3" />
@@ -426,7 +593,7 @@ export function PhotoComments({ photoId }: PhotoCommentsProps) {
                       </div>
                     )}
                   </div>
-                  <p className="text-white/90 whitespace-pre-wrap break-words text-[11px] leading-relaxed">
+                  <p className="text-white/95 whitespace-pre-wrap break-words text-[11px] leading-relaxed font-medium">
                     {item.replyContent}
                   </p>
                 </div>

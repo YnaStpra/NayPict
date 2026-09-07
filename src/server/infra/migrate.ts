@@ -62,10 +62,42 @@ export async function migrate(): Promise<void> {
         ALTER TABLE "comment" ADD COLUMN IF NOT EXISTS "reply_time" timestamp;
       `;
       await sql`
+        ALTER TABLE "comment" ADD COLUMN IF NOT EXISTS "is_hearted" integer DEFAULT 0 NOT NULL;
+      `;
+      await sql`
+        ALTER TABLE "comment" ADD COLUMN IF NOT EXISTS "is_pinned" integer DEFAULT 0 NOT NULL;
+      `;
+      await sql`
         CREATE INDEX IF NOT EXISTS "comment_photo_id_idx" ON "comment" ("photo_id");
+      `;
+      await sql`
+        CREATE INDEX IF NOT EXISTS "comment_pinned_idx" ON "comment" ("photo_id", "is_pinned");
       `;
     } catch (commentErr) {
       console.warn('[MIGRATE] Error ensuring comment table:', commentErr);
+    }
+
+    // Ensure photo_reaction table exists for emoji reactions and claps.
+    try {
+      await sql`
+        CREATE TABLE IF NOT EXISTS "photo_reaction" (
+          "id" text PRIMARY KEY NOT NULL,
+          "photo_id" text NOT NULL REFERENCES "photo"("photo_id") ON DELETE CASCADE,
+          "visitor_id" text NOT NULL,
+          "reaction_type" text NOT NULL,
+          "count" integer DEFAULT 1 NOT NULL,
+          "created_at" timestamp DEFAULT now() NOT NULL,
+          "updated_at" timestamp DEFAULT now() NOT NULL
+        );
+      `;
+      await sql`
+        CREATE UNIQUE INDEX IF NOT EXISTS "photo_reaction_unique_idx" ON "photo_reaction" ("photo_id", "visitor_id", "reaction_type");
+      `;
+      await sql`
+        CREATE INDEX IF NOT EXISTS "photo_reaction_photo_id_idx" ON "photo_reaction" ("photo_id");
+      `;
+    } catch (reactionErr) {
+      console.warn('[MIGRATE] Error ensuring photo_reaction table:', reactionErr);
     }
 
     // Ensure photo_view table and indexes exist in PostgreSQL for insights.

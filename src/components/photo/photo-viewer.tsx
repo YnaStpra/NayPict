@@ -12,6 +12,7 @@ import { toast } from "sonner"
 import dynamic from "next/dynamic"
 
 import { PhotoInfoSidebar, PhotoViewerBlurBackground, formatAlbumList } from "@/components/photo/photo-info-sidebar"
+import { PhotoReactions } from "@/components/photo/photo-reactions"
 
 // Dynamic code-splitting: Lazy-load heavy dialog bundles on demand to drastically minimize initial photo viewer bundle
 const PhotoInsightsDialog = dynamic(
@@ -450,6 +451,7 @@ function CinematicButton({
 
 // Render photo comments button in toolbar.
 function CommentsButton({
+  showActions,
   open,
   onToggle,
 }: {
@@ -469,7 +471,8 @@ function CommentsButton({
             variant="secondary"
             className={[
               "rounded-full text-white transition-opacity duration-200",
-              open ? "bg-black/70 hover:bg-black/70 border border-white/30" : "bg-black/40 hover:bg-black/50",
+              open ? "bg-black/70 hover:bg-black/70 border border-white/30 text-emerald-400" : "bg-black/40 hover:bg-black/50",
+              getActionVisibleClass(showActions),
             ].join(" ")}
             {...tap}
           >
@@ -853,13 +856,15 @@ function AlbumOverlayBadge({ isCinematicMode }: { isCinematicMode: boolean }) {
   )
 }
 
-// Floating iOS Liquid Glass Quick Comment & Info Pill (Mobile-only)
-function MobileQuickCommentPill({
+// Floating Liquid Glass Quick Reaction & Comment Pill (Mobile & Desktop)
+function LightboxInteractionBar({
+  photoId,
   showActions,
   isCinematicMode,
   onOpenComments,
   onOpenInfo,
 }: {
+  photoId?: string
   showActions: boolean
   isCinematicMode: boolean
   onOpenComments: () => void
@@ -870,31 +875,39 @@ function MobileQuickCommentPill({
   return (
     <div
       className={[
-        "fixed left-3 bottom-14 sm:bottom-16 z-40 md:hidden flex items-center transition-all duration-300 pointer-events-auto select-none",
+        "fixed left-3 bottom-14 sm:bottom-16 md:bottom-28 z-40 flex items-center transition-all duration-300 pointer-events-auto select-none max-w-[calc(100vw-24px)] overflow-x-auto scrollbar-none",
         getActionVisibleClass(showActions),
       ].join(" ")}
     >
-      <div className="flex items-center gap-1 p-1 rounded-full bg-black/65 dark:bg-zinc-950/80 backdrop-blur-2xl border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.65),0_0_0_1px_rgba(255,255,255,0.1)_inset] ring-1 ring-black/40">
+      <div className="flex items-center gap-1.5 p-1 rounded-full bg-black/70 dark:bg-zinc-950/85 backdrop-blur-2xl border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.65),0_0_0_1px_rgba(255,255,255,0.1)_inset] ring-1 ring-black/40">
+        {photoId && (
+          <div className="flex items-center pl-1">
+            <PhotoReactions photoId={photoId} compact />
+          </div>
+        )}
+
+        <div className="h-4 w-px bg-white/20 my-auto" />
+
         {/* Comment Trigger Button */}
         <button
           type="button"
           onClick={onOpenComments}
-          className="group flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold text-white bg-white/10 hover:bg-white/20 active:scale-95 transition-all duration-200 border border-white/10"
+          className="group flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold text-white bg-white/10 hover:bg-white/20 active:scale-95 transition-all duration-200 border border-white/10 cursor-pointer"
           aria-label="Open Comments"
         >
-          <MessageSquare className="size-3.5 text-white/90 transition-transform group-hover:scale-110" />
-          <span className="tracking-wide">Comment</span>
+          <MessageSquare className="size-3.5 text-emerald-400 transition-transform group-hover:scale-110" />
+          <span className="tracking-wide text-[11px] sm:text-xs">Comment</span>
         </button>
 
         {/* Info Trigger Button */}
         <button
           type="button"
           onClick={onOpenInfo}
-          className="flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-medium text-white/75 hover:text-white hover:bg-white/15 active:scale-95 transition-all duration-200"
+          className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium text-white/75 hover:text-white hover:bg-white/15 active:scale-95 transition-all duration-200 cursor-pointer"
           aria-label="Photo Details"
         >
           <CircleAlertIcon className="size-3.5 text-white/80" />
-          <span className="text-[11px] font-medium">Info</span>
+          <span className="text-[10px] sm:text-[11px] font-medium">Info</span>
         </button>
       </div>
     </div>
@@ -1811,11 +1824,23 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
                       <RotateButton showActions={actionsVisible} onRotate={rotatePhoto} />
                       <StoryCardButton showActions={actionsVisible} onOpenStory={() => setStoryDialogOpen(true)} />
                       <ShareButton showActions={actionsVisible} />
+                      <CommentsButton
+                        showActions={actionsVisible}
+                        open={infoOpen && infoTab === "comments"}
+                        onToggle={() => {
+                          if (infoOpen && infoTab === "comments") {
+                            setInfoOpen(false)
+                          } else {
+                            setInfoTab("comments")
+                            setInfoOpen(true)
+                          }
+                        }}
+                      />
                       <InfoButton
                         showActions={actionsVisible}
-                        open={infoOpen}
+                        open={infoOpen && infoTab === "info"}
                         onToggle={() => {
-                          if (infoOpen) {
+                          if (infoOpen && infoTab === "info") {
                             setInfoOpen(false)
                           } else {
                             setInfoTab("info")
@@ -1835,7 +1860,8 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
                   <OriginalProgressButton progress={originalProgress} error={originalError} />
                 )}
                 <AlbumOverlayBadge isCinematicMode={isCinematicMode} />
-                <MobileQuickCommentPill
+                <LightboxInteractionBar
+                  photoId={photos[viewIndex]?.photoId}
                   showActions={actionsVisible}
                   isCinematicMode={isCinematicMode}
                   onOpenComments={() => {

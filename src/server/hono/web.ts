@@ -13,6 +13,7 @@ import { registerCspApi } from '../api/csp-api';
 import { registerHealthApi } from '../api/health-api';
 import { registerBackupApi } from '../api/backup-api';
 import { registerSessionApi } from '../api/session-api';
+import { registerReactionApi } from '../api/reaction-api';
 
 // This module creates a fresh Hono application instance with all API routes attached per request handler.
 
@@ -27,6 +28,7 @@ export function getApp() {
   registerSettingApi(instance);
   registerTotpApi(instance);
   registerCommentApi(instance);
+  registerReactionApi(instance);
   registerInsightsApi(instance);
   registerLocationApi(instance);
   registerCspApi(instance);

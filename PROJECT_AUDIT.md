@@ -311,7 +311,11 @@ Naypict/
 | `POST` | `/api/photo/comment/admin/list` | **Yes (Admin)** | Query all gallery comments for admin moderation | `commentService.adminList` |
 | `POST` | `/api/photo/comment/reply` | **Yes (Admin)** | Post admin reply to comment | `commentService.reply` |
 | `POST` | `/api/photo/comment/reply/delete` | **Yes (Admin)** | Delete admin reply from comment | `commentService.deleteReply` |
+| `POST` | `/api/photo/comment/heart` | **Yes (Admin)** | Award official photographer ❤️ heart to comment | `commentService.toggleHeart` |
+| `POST` | `/api/photo/comment/pin` | **Yes (Admin)** | Pin comment to top of photo (max 1 per photo) | `commentService.togglePin` |
 | `POST` | `/api/photo/comment/delete` | **Yes (Admin)** | Delete public comment | `commentService.delete` |
+| `POST` | `/api/photo/reactions` | No (Public) | Query photo emoji reactions & visitor claps count | `reactionService.getPhotoReactions` |
+| `POST` | `/api/photo/reaction/add` | No (Public) | Add/toggle emoji reaction (❤️, 🔥, 📸, 📍) or claps (up to 5x) | `reactionService.addPhotoReaction` |
 | `GET` | `/api/location/reverse` | No (Public) | Reverse geocode GPS coordinates to location name | `locationService.reverse` |
 | `POST` | `/api/setting/set` | **Yes (Admin)** | Update system settings | `settingService.set` |
 | `POST` | `/api/storage/list` | **Yes (Admin)** | List connected storage configurations | `storageService.list` |
@@ -336,8 +340,10 @@ Naypict/
 2. **`albumService` (`src/server/service/album-service.ts`)**:
    - Manages albums: CRUD, smart cover scoring based on resolution and landscape orientation, priority photo pinning (max 3 pins enforced).
 3. **`commentService` (`src/server/service/comment-service.ts`)**:
-   - Manages public comments, text sanitization, rate-limiting, and admin replies.
-4. **`insightsService` (`src/server/service/insights-service.ts`)**:
+   - Manages public comments, text sanitization, rate-limiting, official photographer badge on replies, "Admin Heart" (❤️ Like by Photographer), single pinned comment to the top per photo, and real-time SSE broadcasts (`heart_updated`, `pin_updated`).
+4. **`reactionService` (`src/server/service/reaction-service.ts`)**:
+   - Zero-login micro-interactions: manages emoji reactions (❤️ *Love*, 🔥 *Incredible*, 📸 *Great Shot*, 📍 *Want to Visit*) and public clapping (👏 up to 5x per visitor via 1-year persistent visitor cookie `naypict_vid`).
+5. **`insightsService` (`src/server/service/insights-service.ts`)**:
    - Aggregates view and share analytics with visitor session deduplication (15-minute sliding window).
 5. **`storageService` (`src/server/service/storage-service.ts`)**:
    - Manages S3/R2 bucket configurations and provides active storage client instances.
@@ -480,7 +486,8 @@ erDiagram
 | `exif` | EXIF metadata & GPS coordinates | `photoId` | `photoId` | Primary key on `photoId`, `latitude`, `longitude` |
 | `album` | Photo albums metadata | `albumId` | - | `sort`, `userId` |
 | `album_photo` | Many-to-many album-to-photo relations | `id` | `photoId`, `albumId` | `albumId`, `photoId`, `isPinned`, `pinnedAt` |
-| `comment` | Public comments & admin replies | `commentId` | `photoId` (Cascade) | `photoId`, `createTime` |
+| `comment` | Public comments, admin replies, hearts & pins | `commentId` | `photoId` (Cascade) | `photoId`, `createTime`, `isPinned` |
+| `photo_reaction` | Instant emoji reactions (❤️, 🔥, 📸, 📍) & public claps (👏) | `id` | `photoId` (Cascade) | `photoId`, `visitorId`, `reactionType` (Unique) |
 | `photo_view` | Analytics view & share tracking logs | `id` | `photoId` (Cascade) | `photoId`, `viewedAt`, `(photoId, visitorId, type, viewedAt)` |
 | `setting` | System configuration JSON | `key` | - | Primary key on `key` |
 | `cache` | Session & key-value cache | `key` | - | Primary key on `key`, `expireTime` |
@@ -906,8 +913,10 @@ Berikut adalah optimasi performa mobile & client yang telah aktif sepenuhnya pad
 10. **Instant Global Session Revocation (P0 - SOLVED)**: Kolom `token_version` pada tabel `user` terintegrasi ke JWT claims dan middleware verifikasi sesi (`src/proxy.ts`, `security.ts`, `cookie.ts`). Sesi lama di seluruh perangkat langsung dibatalkan saat ganti password atau reset 2FA.
 11. **Cloudflare Edge Proxy, WAF & Bot Fight Mode**: Nameserver domain resmi didelegasikan ke Cloudflare (`clayton.ns.cloudflare.com` & `sloan.ns.cloudflare.com`), enkripsi SSL/TLS tervalidasi **Full (strict)**, serta *Bot Fight Mode* dan *AI Bot Blocker* aktif di layer tepi (Edge CDN).
 12. **Upstash Redis REST / Vercel KV Distributed Rate Limiter**: Rate limiter login, download, dan komentar mendukung Redis atomic pipeline (`INCRBY` + `PTTL`) melalui `UPSTASH_REDIS_REST_URL` atau `KV_REST_API_URL` dengan sinkronisasi instan lintas serverless edge global.
-13. **Disaster Recovery Database Export untuk Neon PostgreSQL**: Modul `backupService` mengekspor seluruh tabel cloud Neon PostgreSQL (`users`, `photos`, `files`, `exifs`, `albums`, `comments`, `settings`, `storages`) ke dalam file snapshot terkompresi gzip dan terenkripsi militer `AES-256-GCM`.
+13. **Disaster Recovery Database Export untuk Neon PostgreSQL**: Modul `backupService` mengekspor seluruh tabel cloud Neon PostgreSQL (`users`, `photos`, `files`, `exifs`, `albums`, `comments`, `photo_reactions`, `settings`, `storages`) ke dalam file snapshot terkompresi gzip dan terenkripsi militer `AES-256-GCM`.
 14. **Production Dependency Pruning**: Memindahkan tool CLI `shadcn` ke `devDependencies`, memangkas 163 paket pihak ketiga dari bundle runtime produksi.
+15. **Enhanced Community Comments**: Badge resmi "Photographer" beraksen emas dan centang terverifikasi pada balasan admin, fitur "Author Heart" (❤️ Hearted by Photographer), dan penyematan 1 komentar terbaik di bagian paling atas ("Pinned by Photographer") dengan sinkronisasi *real-time* via SSE (`heart_updated`, `pin_updated`).
+16. **Zero-Login Instant Micro-Reactions & Claps**: Pengunjung umum dapat berekspresi secara instan tanpa perlu mendaftar/login melalui 4 reaksi emoji (❤️ *Love*, 🔥 *Incredible*, 📸 *Great Shot*, 📍 *Want to Visit*) dan tombol tepukan apresiasi publik (👏 hingga 5x per pengunjung) di lightbox foto dengan animasi partikel meletup (*burst particles*) serta penyimpanan berbasis cookie `naypict_vid`.
 
 ---
 

@@ -13,6 +13,10 @@ interface CommentVo {
   replyContent?: string | null;
   // Optional admin reply timestamp.
   replyTime?: string | null;
+  // Indicates if the photographer hearted this comment.
+  isHearted?: boolean;
+  // Indicates if the comment is pinned by the photographer.
+  isPinned?: boolean;
   // Comment creation timestamp.
   createTime: string;
 }
@@ -40,6 +44,10 @@ interface CommentAdminVo {
   replyContent?: string | null;
   // Optional admin reply timestamp.
   replyTime?: string | null;
+  // Indicates if the photographer hearted this comment.
+  isHearted?: boolean;
+  // Indicates if the comment is pinned by the photographer.
+  isPinned?: boolean;
   // Comment creation timestamp.
   createTime: string;
 }

@@ -5,6 +5,7 @@ import { commentTab } from '@/server/entity/comment';
 import { exifTab } from '@/server/entity/exif';
 import { fileTab } from '@/server/entity/file';
 import { photoTab } from '@/server/entity/photo';
+import { photoReactionTab } from '@/server/entity/reaction';
 import { photoViewTab } from '@/server/entity/insights';
 import { settingTab } from '@/server/entity/setting';
 import { storageTab } from '@/server/entity/storage';
@@ -20,6 +21,7 @@ const schema = {
   exifTab,
   fileTab,
   photoTab,
+  photoReactionTab,
   photoViewTab,
   settingTab,
   storageTab,

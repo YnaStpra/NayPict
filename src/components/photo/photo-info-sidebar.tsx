@@ -19,6 +19,7 @@ import { photoSetVisibility } from "@/request/photo"
 import { commentList } from "@/request/comment"
 import { PhotoComments } from "@/components/photo/photo-comments"
 import { PhotoLocationMap } from "@/components/photo/photo-location-map"
+import { PhotoReactions } from "@/components/photo/photo-reactions"
 
 type PhotoInfoSidebarProps = {
   // Currently viewing photos.
@@ -442,6 +443,11 @@ export function PhotoInfoSidebar({
                 <XIcon className="size-4" />
               </button>
             )}
+          </div>
+
+          {/* Quick Micro-Reactions & Claps */}
+          <div className="px-4 py-2.5 shrink-0 border-b border-white/10 bg-white/[0.02]">
+            <PhotoReactions photoId={photo.photoId} />
           </div>
 
           {/* Segmented Tab Switcher (Information vs Comments) */}

@@ -51,3 +51,13 @@ export function commentDeleteReply(params: { commentId: string }) {
 export function commentDelete(params: CommentDeleteBo) {
   return http.post<void>('/photo/comment/delete', params);
 }
+
+// Toggle photographer heart on a comment (Admin only).
+export function commentToggleHeart(params: { commentId: string }) {
+  return http.post<{ isHearted: boolean }>('/photo/comment/heart', params);
+}
+
+// Toggle pinned comment on a photo (Admin only).
+export function commentTogglePin(params: { commentId: string }) {
+  return http.post<{ isPinned: boolean }>('/photo/comment/pin', params);
+}

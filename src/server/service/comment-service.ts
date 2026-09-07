@@ -33,7 +33,7 @@ const commentService = {
         .select()
         .from(commentTab)
         .where(eq(commentTab.photoId, cleanPhotoId))
-        .orderBy(desc(commentTab.createTime));
+        .orderBy(desc(commentTab.isPinned), desc(commentTab.createTime));
 
       return rows.map((row) => ({
         commentId: row.commentId,
@@ -42,6 +42,8 @@ const commentService = {
         content: row.content,
         replyContent: row.replyContent,
         replyTime: row.replyTime,
+        isHearted: Boolean(row.isHearted),
+        isPinned: Boolean(row.isPinned),
         createTime: row.createTime,
       }));
     } catch (err) {
@@ -108,6 +110,8 @@ const commentService = {
           content: commentTab.content,
           replyContent: commentTab.replyContent,
           replyTime: commentTab.replyTime,
+          isHearted: commentTab.isHearted,
+          isPinned: commentTab.isPinned,
           createTime: commentTab.createTime,
           photoName: photoTab.name,
           thumbHash: photoTab.thumbHash,
@@ -147,6 +151,8 @@ const commentService = {
             content: r.content,
             replyContent: r.replyContent,
             replyTime: r.replyTime,
+            isHearted: Boolean(r.isHearted),
+            isPinned: Boolean(r.isPinned),
             createTime: r.createTime,
           };
         }),
@@ -410,6 +416,87 @@ const commentService = {
     }
 
     await orm.delete(commentTab).where(inArray(commentTab.photoId, photoIds));
+  },
+
+  // Toggle the official photographer ❤️ heart on a comment (Admin only).
+  async toggleHeart(commentId: string): Promise<boolean> {
+    const cleanCommentId = commentId?.trim();
+    if (!cleanCommentId) {
+      throw new BizError('comment.selectRequired');
+    }
+
+    const [existing] = await orm
+      .select()
+      .from(commentTab)
+      .where(eq(commentTab.commentId, cleanCommentId))
+      .limit(1);
+
+    if (!existing) {
+      throw new BizError('comment.notFound');
+    }
+
+    const nextHeart = existing.isHearted ? 0 : 1;
+    await orm
+      .update(commentTab)
+      .set({ isHearted: nextHeart })
+      .where(eq(commentTab.commentId, cleanCommentId));
+
+    commentEventHub.publish(existing.photoId, {
+      type: 'heart_updated',
+      photoId: existing.photoId,
+      commentId: cleanCommentId,
+      isHearted: Boolean(nextHeart),
+    });
+
+    return Boolean(nextHeart);
+  },
+
+  // Toggle pinning a comment to the top of the photo (at most 1 pinned comment per photo, Admin only).
+  async togglePin(commentId: string): Promise<boolean> {
+    const cleanCommentId = commentId?.trim();
+    if (!cleanCommentId) {
+      throw new BizError('comment.selectRequired');
+    }
+
+    const [existing] = await orm
+      .select()
+      .from(commentTab)
+      .where(eq(commentTab.commentId, cleanCommentId))
+      .limit(1);
+
+    if (!existing) {
+      throw new BizError('comment.notFound');
+    }
+
+    const isCurrentlyPinned = Boolean(existing.isPinned);
+
+    if (isCurrentlyPinned) {
+      await orm
+        .update(commentTab)
+        .set({ isPinned: 0 })
+        .where(eq(commentTab.commentId, cleanCommentId));
+    } else {
+      // Unpin any previously pinned comments on this photo first
+      await orm
+        .update(commentTab)
+        .set({ isPinned: 0 })
+        .where(eq(commentTab.photoId, existing.photoId));
+
+      // Pin the selected comment
+      await orm
+        .update(commentTab)
+        .set({ isPinned: 1 })
+        .where(eq(commentTab.commentId, cleanCommentId));
+    }
+
+    commentEventHub.publish(existing.photoId, {
+      type: 'pin_updated',
+      photoId: existing.photoId,
+      commentId: cleanCommentId,
+      isPinned: !isCurrentlyPinned,
+    });
+
+    return !isCurrentlyPinned;
   },
 };
 
