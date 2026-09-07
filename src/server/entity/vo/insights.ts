@@ -9,6 +9,14 @@ export interface InsightsOverviewVo {
   totalComments: number;
   totalShares: number;
   totalDownloads: number;
+  totalReactions: number;
+  reactionsBreakdown?: {
+    love: number;
+    fire: number;
+    camera: number;
+    place: number;
+    clap: number;
+  };
 }
 
 export interface InsightsChartPointVo {
@@ -32,6 +40,26 @@ export interface InsightsTopPhotoVo {
   viewCount: number;
   commentCount: number;
   downloadCount?: number;
+  reactionCount?: number;
+}
+
+export interface InsightsTopReactionPhotoVo {
+  photoId: string;
+  name: string;
+  thumbnail: string;
+  preview: string;
+  width: number | null;
+  height: number | null;
+  totalReactions: number;
+  reactions: {
+    love: number;
+    fire: number;
+    camera: number;
+    place: number;
+    clap: number;
+  };
+  viewCount: number;
+  commentCount: number;
 }
 
 export interface PhotoInsightsDetailVo {
@@ -48,5 +76,14 @@ export interface PhotoInsightsDetailVo {
   comments: number;
   shares: number;
   downloads: number;
+  reactions: {
+    total: number;
+    love: number;
+    fire: number;
+    camera: number;
+    place: number;
+    clap: number;
+  };
   chart: InsightsChartDataVo;
 }
+

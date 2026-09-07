@@ -25,10 +25,18 @@ import {
   type InsightsChartDataVo,
   type InsightsOverviewVo,
   type InsightsTopPhotoVo,
+  type InsightsTopReactionPhotoVo,
 } from "@/server/entity/vo/insights"
 import { type PhotoVo } from "@/server/entity/vo/photo"
 import { toast } from "sonner"
-import { getInsightsChart, getInsightsOverview, getInsightsTopPhotos, resetInsights } from "@/request/insights"
+import {
+  getInsightsChart,
+  getInsightsOverview,
+  getInsightsTopPhotos,
+  resetInsights,
+  resetPhotoReactions,
+  resetAllReactions,
+} from "@/request/insights"
 import { userInfo as fetchUserInfo } from "@/request/user"
 import { photoList } from "@/request/photo"
 import { toProxyMediaUrl } from "@/lib/url"
@@ -37,10 +45,12 @@ import {
   Calendar,
   Download,
   Eye,
+  Heart,
   Image as ImageIcon,
   Loader2,
   MessageSquare,
   RefreshCw,
+  RotateCcw,
   TrendingUp,
   Sparkles,
   Trash2,
@@ -120,7 +130,8 @@ export default function AdminInsightsPage() {
   const [topPhotos, setTopPhotos] = useState<{
     mostViewed: InsightsTopPhotoVo[]
     mostCommented: InsightsTopPhotoVo[]
-  }>({ mostViewed: [], mostCommented: [] })
+    mostReacted: InsightsTopReactionPhotoVo[]
+  }>({ mostViewed: [], mostCommented: [], mostReacted: [] })
 
   const [loading, setLoading] = useState(true)
   const [chartLoading, setChartLoading] = useState(false)
@@ -169,7 +180,7 @@ export default function AdminInsightsPage() {
       .then(([overviewRes, chartRes, topPhotosRes]) => {
         setOverview(overviewRes)
         setChartData(chartRes)
-        setTopPhotos(topPhotosRes || { mostViewed: [], mostCommented: [] })
+        setTopPhotos(topPhotosRes || { mostViewed: [], mostCommented: [], mostReacted: [] })
       })
       .catch((err) => {
         console.error("Failed to load insights:", err)
@@ -200,6 +211,37 @@ export default function AdminInsightsPage() {
     }
   }
 
+  // Reset reactions for a specific photo
+  const handleResetPhotoReactions = async (photoId: string, photoName: string, e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (!window.confirm(`Are you sure you want to reset all reactions for "${photoName}"? This will clear all visitor emojis and likes for this photo.`)) {
+      return
+    }
+    try {
+      await resetPhotoReactions(photoId)
+      toast.success(`Reactions for "${photoName}" have been reset.`)
+      loadAllData()
+    } catch (err) {
+      console.error("Failed to reset photo reactions:", err)
+      toast.error("Failed to reset reactions for this photo.")
+    }
+  }
+
+  // Reset all reactions across the gallery
+  const handleResetAllReactions = async () => {
+    if (!window.confirm("Are you sure you want to reset ALL visitor reactions across all photos in the gallery? This action cannot be undone.")) {
+      return
+    }
+    try {
+      await resetAllReactions()
+      toast.success("All gallery reactions have been reset successfully.")
+      loadAllData()
+    } catch (err) {
+      console.error("Failed to reset all gallery reactions:", err)
+      toast.error("Failed to reset all gallery reactions.")
+    }
+  }
+
   useEffect(() => {
     if (isAdmin) {
       Promise.all([
@@ -210,7 +252,7 @@ export default function AdminInsightsPage() {
         .then(([overviewRes, chartRes, topPhotosRes]) => {
           setOverview(overviewRes)
           setChartData(chartRes)
-          setTopPhotos(topPhotosRes || { mostViewed: [], mostCommented: [] })
+          setTopPhotos(topPhotosRes || { mostViewed: [], mostCommented: [], mostReacted: [] })
         })
         .catch((err) => {
           console.error("Failed to load insights:", err)
@@ -352,12 +394,13 @@ export default function AdminInsightsPage() {
           ) : loading && !overview ? (
             /* Skeleton Loading State */
             <div className="space-y-6 animate-pulse">
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                {[1, 2, 3, 4].map((i) => (
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5 md:gap-4">
+                {[1, 2, 3, 4, 5].map((i) => (
                   <div key={i} className="h-28 rounded-2xl bg-muted/60" />
                 ))}
               </div>
               <div className="h-80 rounded-2xl bg-muted/60" />
+              <div className="h-96 rounded-2xl bg-muted/60" />
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="h-96 rounded-2xl bg-muted/60" />
                 <div className="h-96 rounded-2xl bg-muted/60" />
@@ -366,7 +409,7 @@ export default function AdminInsightsPage() {
           ) : overview ? (
             <>
               {/* Top Overview Cards Grid */}
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5 md:gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5 md:gap-4">
                 {/* 1. Total Views Card */}
                 <Card className="border-border/80 bg-card hover:shadow-sm transition-all">
                   <CardHeader className="p-4 pb-2 flex flex-row items-center justify-between space-y-0">
@@ -444,6 +487,34 @@ export default function AdminInsightsPage() {
                     <p className="text-[11px] text-muted-foreground mt-1">
                       Visitor responses
                     </p>
+                  </CardContent>
+                </Card>
+
+                {/* 5. Total Reactions Card */}
+                <Card className="border-border/80 bg-card hover:shadow-sm transition-all col-span-2 sm:col-span-1">
+                  <CardHeader className="p-4 pb-2 flex flex-row items-center justify-between space-y-0">
+                    <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                      Reactions
+                    </CardTitle>
+                    <div className="p-2 rounded-lg bg-pink-500/10 text-pink-500">
+                      <Heart className="size-4 fill-pink-500/20" />
+                    </div>
+                  </CardHeader>
+                  <CardContent className="p-4 pt-1">
+                    <div className="text-2xl md:text-3xl font-bold tracking-tight text-foreground">
+                      <OdometerCounter target={overview.totalReactions || 0} />
+                    </div>
+                    <div className="flex items-center gap-1.5 mt-1 text-[11px] text-muted-foreground flex-wrap">
+                      <span title="Love">❤️ {overview.reactionsBreakdown?.love || 0}</span>
+                      <span>•</span>
+                      <span title="Fire">🔥 {overview.reactionsBreakdown?.fire || 0}</span>
+                      <span>•</span>
+                      <span title="Great Shot">📸 {overview.reactionsBreakdown?.camera || 0}</span>
+                      <span>•</span>
+                      <span title="Want to Visit">📍 {overview.reactionsBreakdown?.place || 0}</span>
+                      <span>•</span>
+                      <span title="Likes/Claps">👏 {overview.reactionsBreakdown?.clap || 0}</span>
+                    </div>
                   </CardContent>
                 </Card>
               </div>
@@ -578,6 +649,127 @@ export default function AdminInsightsPage() {
                     <div className="h-64 flex flex-col items-center justify-center text-muted-foreground gap-2">
                       <BarChart3 className="size-8 opacity-40" />
                       <p className="text-xs font-medium">No public views yet.</p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Photo Reactions & Community Engagement Card */}
+              <Card className="border-border/80 bg-card shadow-xs">
+                <CardHeader className="p-5 pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div>
+                    <CardTitle className="text-base font-bold flex items-center gap-2">
+                      <Heart className="size-4 text-pink-500 fill-pink-500/20" />
+                      <span>Photo Reactions & Community Leaderboard</span>
+                    </CardTitle>
+                    <CardDescription className="text-xs">
+                      Photos that received public micro-reactions (❤️ Love, 🔥 Fire, 📸 Great Shot, 📍 Want to Visit, 👏 Likes)
+                    </CardDescription>
+                  </div>
+                  {topPhotos.mostReacted.length > 0 && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 px-2.5 text-xs text-destructive hover:bg-destructive/10 hover:text-destructive border-destructive/30 cursor-pointer self-start sm:self-auto"
+                      onClick={handleResetAllReactions}
+                    >
+                      <RotateCcw className="size-3.5 mr-1" />
+                      <span>Reset All Reactions</span>
+                    </Button>
+                  )}
+                </CardHeader>
+                <CardContent className="p-5 pt-0">
+                  {topPhotos.mostReacted.length === 0 ? (
+                    <div className="py-12 flex flex-col items-center justify-center text-center text-xs text-muted-foreground gap-2">
+                      <Heart className="size-8 opacity-30 text-pink-500" />
+                      <p className="font-medium">No visitor reactions recorded yet.</p>
+                      <p className="text-[11px] max-w-sm">When visitors react to public photos using emojis or likes, they will rank here with detailed breakdowns.</p>
+                    </div>
+                  ) : (
+                    <div className="divide-y divide-border/50">
+                      {topPhotos.mostReacted.map((photo, index) => (
+                        <div
+                          key={photo.photoId}
+                          onClick={() => handleOpenPhotoViewer(photo.photoId)}
+                          className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 py-3 group hover:bg-muted/40 px-2 rounded-xl transition-colors cursor-pointer"
+                        >
+                          <div className="flex items-center gap-3 min-w-0 flex-1">
+                            <span className="text-xs font-bold text-muted-foreground w-4 text-center shrink-0">
+                              {index + 1}
+                            </span>
+                            <InsightThumbnail src={photo.thumbnail} alt={photo.name} />
+                            <div className="min-w-0 flex-1">
+                              <h4 className="text-xs font-semibold truncate group-hover:text-primary transition-colors">
+                                {photo.name}
+                              </h4>
+
+                              {/* Emoji badges row */}
+                              <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-pink-500/15 text-pink-600 dark:text-pink-400 border border-pink-500/20">
+                                  {photo.totalReactions} {photo.totalReactions === 1 ? 'reaction' : 'reactions'}
+                                </span>
+                                {photo.reactions.love > 0 && (
+                                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[10px] bg-muted border border-border/70 text-foreground font-medium">
+                                    ❤️ {photo.reactions.love}
+                                  </span>
+                                )}
+                                {photo.reactions.fire > 0 && (
+                                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[10px] bg-muted border border-border/70 text-foreground font-medium">
+                                    🔥 {photo.reactions.fire}
+                                  </span>
+                                )}
+                                {photo.reactions.camera > 0 && (
+                                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[10px] bg-muted border border-border/70 text-foreground font-medium">
+                                    📸 {photo.reactions.camera}
+                                  </span>
+                                )}
+                                {photo.reactions.place > 0 && (
+                                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[10px] bg-muted border border-border/70 text-foreground font-medium">
+                                    📍 {photo.reactions.place}
+                                  </span>
+                                )}
+                                {photo.reactions.clap > 0 && (
+                                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[10px] bg-muted border border-border/70 text-foreground font-medium">
+                                    👏 {photo.reactions.clap}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Secondary metrics & action buttons */}
+                          <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
+                            <div className="hidden md:flex items-center gap-2 text-[11px] text-muted-foreground mr-2">
+                              <span>{photo.viewCount.toLocaleString()} views</span>
+                              <span>•</span>
+                              <span>{photo.commentCount} comments</span>
+                            </div>
+
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 px-2.5 text-xs text-muted-foreground hover:text-foreground opacity-80 group-hover:opacity-100 cursor-pointer"
+                              onClick={(e) => handleOpenSingleInsights(photo.photoId, e)}
+                            >
+                              <TrendingUp className="size-3.5 mr-1" />
+                              <span>Insights</span>
+                            </Button>
+
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 px-2 text-xs text-muted-foreground hover:text-destructive hover:bg-destructive/10 opacity-70 group-hover:opacity-100 cursor-pointer"
+                              title="Reset reactions for this photo"
+                              onClick={(e) => handleResetPhotoReactions(photo.photoId, photo.name, e)}
+                            >
+                              <RotateCcw className="size-3.5" />
+                              <span className="sr-only">Reset Reactions</span>
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   )}
                 </CardContent>

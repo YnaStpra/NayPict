@@ -10,9 +10,10 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { type PhotoInsightsDetailVo } from "@/server/entity/vo/insights"
-import { getPhotoInsightsDetail } from "@/request/insights"
+import { getPhotoInsightsDetail, resetPhotoReactions } from "@/request/insights"
 import { toProxyMediaUrl } from "@/lib/url"
-import { Eye, Download, MessageSquare, Share2, TrendingUp, Loader2, Calendar, Image as ImageIcon } from "lucide-react"
+import { Eye, Download, Heart, MessageSquare, RotateCcw, Share2, TrendingUp, Loader2, Calendar, Image as ImageIcon } from "lucide-react"
+import { toast } from "sonner"
 import {
   AreaChart,
   Area,
@@ -83,6 +84,25 @@ export function PhotoInsightsDialog({ photoId, open, onOpenChange }: PhotoInsigh
   const [loading, setLoading] = useState(false)
   // error stores any fetch failure message
   const [error, setError] = useState<string | null>(null)
+  // resettingReactions indicates in-progress reset API call
+  const [resettingReactions, setResettingReactions] = useState(false)
+
+  const handleResetReactions = async () => {
+    if (!photoId || !window.confirm("Are you sure you want to reset all visitor reactions for this photo?")) return
+    setResettingReactions(true)
+    try {
+      await resetPhotoReactions(photoId)
+      toast.success("Reactions have been reset for this photo.")
+      // Refresh photo insights
+      const updated = await getPhotoInsightsDetail(photoId)
+      if (updated) setDetail(updated)
+    } catch (err) {
+      console.error("Failed to reset reactions:", err)
+      toast.error("Failed to reset reactions.")
+    } finally {
+      setResettingReactions(false)
+    }
+  }
 
   useEffect(() => {
     if (!open || !photoId) {
@@ -212,6 +232,59 @@ export function PhotoInsightsDialog({ photoId, open, onOpenChange }: PhotoInsigh
                 <div className="min-w-0 text-left">
                   <div className="text-[10px] font-medium uppercase leading-none opacity-80">Shares</div>
                   <div className="text-base font-bold leading-tight mt-0.5">{detail.shares}</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Visitor Reactions Breakdown */}
+            <div className="p-3.5 rounded-xl bg-card border border-border/70 space-y-2.5">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
+                  <Heart className="size-3.5 text-pink-500 fill-pink-500/20" />
+                  <span>Visitor Reactions</span>
+                  <span className="ml-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-pink-500/15 text-pink-600 dark:text-pink-400">
+                    {detail.reactions?.total || 0} total
+                  </span>
+                </div>
+                {detail.reactions && detail.reactions.total > 0 && (
+                  <button
+                    type="button"
+                    onClick={handleResetReactions}
+                    disabled={resettingReactions}
+                    className="inline-flex items-center gap-1 text-[11px] text-destructive hover:underline cursor-pointer disabled:opacity-50"
+                  >
+                    <RotateCcw className="size-3" />
+                    <span>{resettingReactions ? "Resetting..." : "Reset Reactions"}</span>
+                  </button>
+                )}
+              </div>
+
+              {/* Reaction Emojis Grid */}
+              <div className="grid grid-cols-5 gap-1.5 text-center">
+                <div className="p-2 rounded-lg bg-muted/60 border border-border/50">
+                  <div className="text-base">❤️</div>
+                  <div className="text-[10px] text-muted-foreground mt-0.5">Love</div>
+                  <div className="text-xs font-bold text-foreground mt-0.5">{detail.reactions?.love || 0}</div>
+                </div>
+                <div className="p-2 rounded-lg bg-muted/60 border border-border/50">
+                  <div className="text-base">🔥</div>
+                  <div className="text-[10px] text-muted-foreground mt-0.5">Fire</div>
+                  <div className="text-xs font-bold text-foreground mt-0.5">{detail.reactions?.fire || 0}</div>
+                </div>
+                <div className="p-2 rounded-lg bg-muted/60 border border-border/50">
+                  <div className="text-base">📸</div>
+                  <div className="text-[10px] text-muted-foreground mt-0.5">Shot</div>
+                  <div className="text-xs font-bold text-foreground mt-0.5">{detail.reactions?.camera || 0}</div>
+                </div>
+                <div className="p-2 rounded-lg bg-muted/60 border border-border/50">
+                  <div className="text-base">📍</div>
+                  <div className="text-[10px] text-muted-foreground mt-0.5">Place</div>
+                  <div className="text-xs font-bold text-foreground mt-0.5">{detail.reactions?.place || 0}</div>
+                </div>
+                <div className="p-2 rounded-lg bg-muted/60 border border-border/50">
+                  <div className="text-base">👏</div>
+                  <div className="text-[10px] text-muted-foreground mt-0.5">Likes</div>
+                  <div className="text-xs font-bold text-foreground mt-0.5">{detail.reactions?.clap || 0}</div>
                 </div>
               </div>
             </div>

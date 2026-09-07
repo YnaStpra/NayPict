@@ -5,18 +5,21 @@ import { photoTab } from '@/server/entity/photo';
 import { fileTab } from '@/server/entity/file';
 import { commentTab } from '@/server/entity/comment';
 import { photoViewTab } from '@/server/entity/insights';
+import { photoReactionTab } from '@/server/entity/reaction';
 import { storageTab } from '@/server/entity/storage';
 import { orm } from '@/server/infra/db';
 import { PhotoStatusEnum } from '@/server/enums/photo-enum';
 import { FileTypeEnum } from '@/server/enums/file-enum';
 import { buildPreviewKey, buildThumbnailKey } from '@/server/lib/photo-path';
 import { toMediaUrl } from '@/lib/url';
+import { reactionService } from '@/server/service/reaction-service';
 import { type PhotoViewRecordBo } from '@/server/entity/bo/insights';
 import {
   type InsightsChartDataVo,
   type InsightsChartPointVo,
   type InsightsOverviewVo,
   type InsightsTopPhotoVo,
+  type InsightsTopReactionPhotoVo,
   type PhotoInsightsDetailVo,
 } from '@/server/entity/vo/insights';
 
@@ -198,6 +201,29 @@ const insightsService = {
       console.error('[INSIGHTS] Error fetching overview metrics:', err);
     }
 
+    // 9. Total reactions & breakdown
+    let totalReactions = 0;
+    const reactionsBreakdown = { love: 0, fire: 0, camera: 0, place: 0, clap: 0 };
+    try {
+      const reactionRows = await orm
+        .select({
+          reactionType: photoReactionTab.reactionType,
+          count: sql<number>`COALESCE(SUM(${photoReactionTab.count}), 0)::int`,
+        })
+        .from(photoReactionTab)
+        .groupBy(photoReactionTab.reactionType);
+
+      for (const row of reactionRows) {
+        const c = Number(row.count || 0);
+        totalReactions += c;
+        if (row.reactionType in reactionsBreakdown) {
+          reactionsBreakdown[row.reactionType as keyof typeof reactionsBreakdown] = c;
+        }
+      }
+    } catch (reactionErr) {
+      console.warn('[INSIGHTS] Failed to aggregate reactions for overview:', reactionErr);
+    }
+
     return {
       totalPhotos,
       totalViews,
@@ -207,6 +233,8 @@ const insightsService = {
       totalComments,
       totalShares,
       totalDownloads,
+      totalReactions,
+      reactionsBreakdown,
     };
   },
 
@@ -280,8 +308,12 @@ const insightsService = {
     };
   },
 
-  // Query top photos ranked by public view count and discussion comments.
-  async getTopPhotos(limit = 10): Promise<{ mostViewed: InsightsTopPhotoVo[]; mostCommented: InsightsTopPhotoVo[] }> {
+  // Query top photos ranked by public view count, discussion comments, and visitor reactions.
+  async getTopPhotos(limit = 10): Promise<{
+    mostViewed: InsightsTopPhotoVo[];
+    mostCommented: InsightsTopPhotoVo[];
+    mostReacted: InsightsTopReactionPhotoVo[];
+  }> {
     await ensurePhotoViewTable();
 
     try {
@@ -337,6 +369,9 @@ const insightsService = {
         )
         .orderBy(desc(count(commentTab.commentId)))
         .limit(limit);
+
+      // 3. Fetch top photos by reactions
+      const mostReacted = await reactionService.getTopReactionPhotos(limit);
 
       // Collect all referenced storageIds to resolve domain
       const storageIds = Array.from(
@@ -449,10 +484,11 @@ const insightsService = {
       return {
         mostViewed: mostViewedRaw.map(formatPhotoItem),
         mostCommented: mostCommentedRaw.map(formatPhotoItem),
+        mostReacted,
       };
     } catch (err) {
       console.error('[INSIGHTS] Error fetching top photos:', err);
-      return { mostViewed: [], mostCommented: [] };
+      return { mostViewed: [], mostCommented: [], mostReacted: [] };
     }
   },
 
@@ -586,7 +622,19 @@ const insightsService = {
         .where(and(eq(photoViewTab.photoId, photoId), eq(photoViewTab.type, 'download')));
       const downloads = downloadsRes?.count ?? 0;
 
-      // 8. 30-day views trend chart for this photo
+      // 8. Photo visitor reactions
+      const reactionsVo = await reactionService.getPhotoReactions(photoId);
+      const totals = reactionsVo?.totals || { love: 0, fire: 0, camera: 0, place: 0, clap: 0 };
+      const reactions = {
+        total: totals.love + totals.fire + totals.camera + totals.place + totals.clap,
+        love: totals.love,
+        fire: totals.fire,
+        camera: totals.camera,
+        place: totals.place,
+        clap: totals.clap,
+      };
+
+      // 9. 30-day views trend chart for this photo
       const chart = await this.getViewsChart('30d', photoId);
 
       return {
@@ -603,6 +651,7 @@ const insightsService = {
         comments,
         shares,
         downloads,
+        reactions,
         chart,
       };
     } catch (err) {

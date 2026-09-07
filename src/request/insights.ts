@@ -3,6 +3,7 @@ import {
   type InsightsChartDataVo,
   type InsightsOverviewVo,
   type InsightsTopPhotoVo,
+  type InsightsTopReactionPhotoVo,
   type PhotoInsightsDetailVo,
 } from "@/server/entity/vo/insights";
 
@@ -54,9 +55,32 @@ export function getInsightsChart(range: '7d' | '30d' | '90d' = '7d', photoId?: s
   return http.get<InsightsChartDataVo>(`/admin/insights/chart?${query.toString()}`);
 }
 
-// Fetch top viewed and top commented photos (Admin only).
-export function getInsightsTopPhotos(limit = 10): Promise<{ mostViewed: InsightsTopPhotoVo[]; mostCommented: InsightsTopPhotoVo[] }> {
-  return http.get<{ mostViewed: InsightsTopPhotoVo[]; mostCommented: InsightsTopPhotoVo[] }>(`/admin/insights/top-photos?limit=${limit}`);
+// Fetch top viewed, commented, and reacted photos (Admin only).
+export function getInsightsTopPhotos(limit = 10): Promise<{
+  mostViewed: InsightsTopPhotoVo[];
+  mostCommented: InsightsTopPhotoVo[];
+  mostReacted: InsightsTopReactionPhotoVo[];
+}> {
+  return http.get<{
+    mostViewed: InsightsTopPhotoVo[];
+    mostCommented: InsightsTopPhotoVo[];
+    mostReacted: InsightsTopReactionPhotoVo[];
+  }>(`/admin/insights/top-photos?limit=${limit}`);
+}
+
+// Fetch all photos with public reactions (Admin only).
+export function getInsightsTopReactions(limit = 50): Promise<InsightsTopReactionPhotoVo[]> {
+  return http.get<InsightsTopReactionPhotoVo[]>(`/admin/insights/reactions/top?limit=${limit}`);
+}
+
+// Reset public reactions for a single photo (Admin only).
+export function resetPhotoReactions(photoId: string): Promise<{ success: boolean }> {
+  return http.post<{ success: boolean }>(`/admin/insights/photo/${encodeURIComponent(photoId)}/reactions/reset`);
+}
+
+// Reset all public reactions across the entire gallery (Admin only).
+export function resetAllReactions(): Promise<{ success: boolean }> {
+  return http.post<{ success: boolean }>('/admin/insights/reactions/reset');
 }
 
 // Fetch individual photo insights metrics and 30-day views trend (Admin only).
@@ -68,3 +92,4 @@ export function getPhotoInsightsDetail(photoId: string): Promise<PhotoInsightsDe
 export function resetInsights(): Promise<{ success: boolean }> {
   return http.post<{ success: boolean }>('/admin/insights/reset');
 }
+

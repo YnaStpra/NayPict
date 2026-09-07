@@ -2,6 +2,7 @@ import type { Context, Hono } from 'hono';
 import { getCookie, setCookie } from 'hono/cookie';
 import result from '@/server/model/result';
 import { insightsService } from '@/server/service/insights-service';
+import { reactionService } from '@/server/service/reaction-service';
 import { getLoginInfo } from '@/lib/cookie';
 import { userService } from '@/server/service/user-service';
 import { UserTypeEnum } from '@/server/enums/user-enum';
@@ -146,6 +147,26 @@ export function registerInsightsApi(app: Hono<HonoEnv>) {
   // Admin-only endpoint: Reset all insights analytics and interaction history
   app.post('/admin/insights/reset', async (c: Context) => {
     const res = await insightsService.resetInsights();
+    return c.json(result.ok(res));
+  });
+
+  // Admin-only endpoint: Get photos with public reactions
+  app.get('/admin/insights/reactions/top', async (c: Context) => {
+    const limit = Number(c.req.query('limit')) || 50;
+    const topReactions = await reactionService.getTopReactionPhotos(limit);
+    return c.json(result.ok(topReactions));
+  });
+
+  // Admin-only endpoint: Reset all reactions for a specific photo
+  app.post('/admin/insights/photo/:photoId/reactions/reset', async (c: Context) => {
+    const photoId = c.req.param('photoId') ?? '';
+    const res = await reactionService.resetPhotoReactions(photoId);
+    return c.json(result.ok(res));
+  });
+
+  // Admin-only endpoint: Reset all reactions across all photos in the gallery
+  app.post('/admin/insights/reactions/reset', async (c: Context) => {
+    const res = await reactionService.resetAllReactions();
     return c.json(result.ok(res));
   });
 }
