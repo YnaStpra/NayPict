@@ -12,21 +12,21 @@ const VISITOR_COOKIE_NAME = 'naypict_vid';
 const ONE_YEAR_SECONDS = 365 * 24 * 60 * 60;
 
 // Resolve Cookie-First visitor identifier.
-// Prioritizes the client's unique persistent cookie ('naypict_vid').
-// Supports explicit client localStorage fallback to protect against cookie resets.
-// Guarantees zero collisions between different users on the exact same WiFi network.
+// Resolve Cookie-First visitor identifier with automatic rolling renewal.
+// 1. If cookie exists, its lifespan is automatically extended (+1 year from current visit).
+// 2. If cookie was lost/expired (>1 year), client localStorage resurrects the exact same ID.
+// 3. Guarantees zero collisions between different users on the exact same WiFi network.
 function resolveVisitorId(c: Context, explicitId?: string): string {
   let vid = getCookie(c, VISITOR_COOKIE_NAME);
   if (vid?.trim()) {
-    return vid.trim();
-  }
-
-  if (explicitId?.trim()) {
+    vid = vid.trim();
+  } else if (explicitId?.trim()) {
     vid = explicitId.trim();
   } else {
     vid = createId();
   }
 
+  // Active Rolling Renewal: Extend cookie for another 1 full year on every visit/reaction
   setCookie(c, VISITOR_COOKIE_NAME, vid, {
     path: '/',
     maxAge: ONE_YEAR_SECONDS,
