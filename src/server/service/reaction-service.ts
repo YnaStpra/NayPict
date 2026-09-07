@@ -1,4 +1,4 @@
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq, inArray, sql } from 'drizzle-orm';
 import { orm, readOrm } from '@/server/infra/db';
 import { photoReactionTab } from '@/server/entity/reaction';
 import { type PhotoReactionAddBo, type ReactionType } from '@/server/entity/bo/reaction';
@@ -9,7 +9,7 @@ import BizError from '@/server/error/biz-error';
 // This module handles visitor micro-reactions (Love, Fire, Camera, Place) and public claps/likes per photo.
 
 const VALID_REACTION_TYPES: ReactionType[] = ['love', 'fire', 'camera', 'place', 'clap'];
-const MAX_CLAPS_PER_VISITOR = 5;
+const EMOJI_REACTION_TYPES: ReactionType[] = ['love', 'fire', 'camera', 'place'];
 
 const reactionService = {
   // Query aggregated reaction totals and visitor personal reaction state for a photo.
@@ -68,7 +68,7 @@ const reactionService = {
         userRows.forEach((row) => {
           const type = row.reactionType as ReactionType;
           if (type === 'clap') {
-            userReactions.clap = Math.min(MAX_CLAPS_PER_VISITOR, Math.max(0, row.count));
+            userReactions.clap = row.count > 0 ? 1 : 0;
           } else if (type in userReactions) {
             userReactions[type as 'love' | 'fire' | 'camera' | 'place'] = row.count > 0;
           }
@@ -90,7 +90,7 @@ const reactionService = {
     }
   },
 
-  // Record or toggle a visitor's reaction to a photo.
+  // Record or toggle a visitor's reaction to a photo (enforcing 1 mutually exclusive emoji and 1 like).
   async addPhotoReaction(params: PhotoReactionAddBo): Promise<PhotoReactionsVo> {
     const photoId = params.photoId?.trim();
     const visitorId = params.visitorId?.trim();
@@ -106,53 +106,59 @@ const reactionService = {
       throw new BizError('common.paramError');
     }
 
-    // Check existing record for this visitor & reaction
-    const [existing] = await orm
-      .select()
-      .from(photoReactionTab)
-      .where(
-        and(
-          eq(photoReactionTab.photoId, photoId),
-          eq(photoReactionTab.visitorId, visitorId),
-          eq(photoReactionTab.reactionType, reactionType)
-        )
-      )
-      .limit(1);
-
     if (reactionType === 'clap') {
-      // Claps: Increment up to MAX_CLAPS_PER_VISITOR
-      const incrementBy = Math.max(1, Math.min(params.count ?? 1, 5));
-      if (existing) {
-        const nextCount = Math.min(MAX_CLAPS_PER_VISITOR, existing.count + incrementBy);
-        await orm
-          .update(photoReactionTab)
-          .set({
-            count: nextCount,
-            updatedAt: sql`now()`,
-          })
-          .where(eq(photoReactionTab.id, existing.id));
+      // 1-Like Toggle: A visitor can give at most 1 Like per photo
+      const [existingClap] = await orm
+        .select()
+        .from(photoReactionTab)
+        .where(
+          and(
+            eq(photoReactionTab.photoId, photoId),
+            eq(photoReactionTab.visitorId, visitorId),
+            eq(photoReactionTab.reactionType, 'clap')
+          )
+        )
+        .limit(1);
+
+      if (existingClap) {
+        // Already liked -> Toggle OFF (Unlike)
+        await orm.delete(photoReactionTab).where(eq(photoReactionTab.id, existingClap.id));
       } else {
+        // Not liked yet -> Toggle ON (1 Like)
         await orm.insert(photoReactionTab).values({
           id: uuidv4(),
           photoId,
           visitorId,
           reactionType: 'clap',
-          count: Math.min(MAX_CLAPS_PER_VISITOR, incrementBy),
+          count: 1,
         });
       }
     } else {
-      // Emoji reaction: Toggle on or off
-      if (existing && existing.count > 0) {
-        // Toggle OFF (delete row or set count to 0)
-        await orm.delete(photoReactionTab).where(eq(photoReactionTab.id, existing.id));
-      } else if (existing && existing.count === 0) {
-        // Toggle ON
-        await orm
-          .update(photoReactionTab)
-          .set({ count: 1, updatedAt: sql`now()` })
-          .where(eq(photoReactionTab.id, existing.id));
+      // Mutually Exclusive Emoji Reaction: A visitor can only choose 1 emoji reaction per photo
+      const existingEmojis = await orm
+        .select()
+        .from(photoReactionTab)
+        .where(
+          and(
+            eq(photoReactionTab.photoId, photoId),
+            eq(photoReactionTab.visitorId, visitorId),
+            inArray(photoReactionTab.reactionType, EMOJI_REACTION_TYPES)
+          )
+        );
+
+      const sameExisting = existingEmojis.find((r) => r.reactionType === reactionType);
+
+      if (sameExisting) {
+        // User clicked the currently active emoji reaction -> Toggle OFF
+        await orm.delete(photoReactionTab).where(eq(photoReactionTab.id, sameExisting.id));
       } else {
-        // Insert new ON
+        // User selected a new/different emoji -> Remove previous emoji reaction first
+        if (existingEmojis.length > 0) {
+          const idsToDelete = existingEmojis.map((r) => r.id);
+          await orm.delete(photoReactionTab).where(inArray(photoReactionTab.id, idsToDelete));
+        }
+
+        // Insert new emoji reaction
         await orm.insert(photoReactionTab).values({
           id: uuidv4(),
           photoId,

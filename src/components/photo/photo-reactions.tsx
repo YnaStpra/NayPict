@@ -118,7 +118,9 @@ export function PhotoReactions({ photoId, className = "", compact = false }: Pho
     }, 1200)
   }, [])
 
-  // Handle emoji reaction toggle (Love, Fire, Camera, Place)
+  const EMOJI_KEYS: (keyof UserReactionsVo)[] = ["love", "fire", "camera", "place"]
+
+  // Handle emoji reaction toggle with mutual exclusivity (Love, Fire, Camera, Place)
   const handleEmojiReaction = async (type: ReactionType, emoji: string, e: React.MouseEvent<HTMLButtonElement>) => {
     if (type === "clap") return
 
@@ -127,20 +129,43 @@ export function PhotoReactions({ photoId, className = "", compact = false }: Pho
       navigator.vibrate(10)
     }
 
-    triggerParticle(emoji, e)
-
     const isCurrentlyActive = Boolean(userReactions[type as keyof UserReactionsVo])
-    const diff = isCurrentlyActive ? -1 : 1
+    if (!isCurrentlyActive) {
+      triggerParticle(emoji, e)
+    }
 
-    // Optimistic UI update
-    setUserReactions((prev) => ({
-      ...prev,
-      [type]: !isCurrentlyActive,
-    }))
-    setTotals((prev) => ({
-      ...prev,
-      [type]: Math.max(0, prev[type] + diff),
-    }))
+    const previousUserReactions = { ...userReactions }
+    const previousTotals = { ...totals }
+
+    // Find if another emoji reaction is currently active
+    const activeOtherEmoji = EMOJI_KEYS.find(
+      (k) => k !== type && Boolean(userReactions[k])
+    ) as keyof ReactionTotalsVo | undefined
+
+    // Optimistic UI update: Only 1 emoji reaction allowed per photo
+    setUserReactions((prev) => {
+      const next = { ...prev }
+      EMOJI_KEYS.forEach((k) => {
+        (next as Record<string, unknown>)[k] = false
+      })
+      if (!isCurrentlyActive) {
+        (next as Record<string, unknown>)[type] = true
+      }
+      return next
+    })
+
+    setTotals((prev) => {
+      const next = { ...prev }
+      if (activeOtherEmoji) {
+        next[activeOtherEmoji] = Math.max(0, next[activeOtherEmoji] - 1)
+      }
+      if (isCurrentlyActive) {
+        next[type as keyof ReactionTotalsVo] = Math.max(0, next[type as keyof ReactionTotalsVo] - 1)
+      } else {
+        next[type as keyof ReactionTotalsVo] = next[type as keyof ReactionTotalsVo] + 1
+      }
+      return next
+    })
 
     try {
       const updated = await photoReactionAdd({
@@ -154,39 +179,35 @@ export function PhotoReactions({ photoId, className = "", compact = false }: Pho
       }
     } catch {
       // Rollback on network error
-      setUserReactions((prev) => ({
-        ...prev,
-        [type]: isCurrentlyActive,
-      }))
-      setTotals((prev) => ({
-        ...prev,
-        [type]: Math.max(0, prev[type] - diff),
-      }))
+      setUserReactions(previousUserReactions)
+      setTotals(previousTotals)
     }
   }
 
-  // Handle Claps / Likes (up to 5 claps per visitor)
-  const handleClap = async (e: React.MouseEvent<HTMLButtonElement>) => {
-    if (userReactions.clap >= 5) {
-      triggerParticle("🎉", e)
-      return
-    }
+  // Handle 1-Like toggle (1 like per visitor per photo)
+  const handleLike = async (e: React.MouseEvent<HTMLButtonElement>) => {
+    const isCurrentlyLiked = userReactions.clap > 0
 
     // Haptic feedback
     if (typeof navigator !== "undefined" && navigator.vibrate) {
       navigator.vibrate(15)
     }
 
-    triggerParticle("👏", e)
+    if (!isCurrentlyLiked) {
+      triggerParticle("👏", e)
+    }
+
+    const previousUserReactions = { ...userReactions }
+    const previousTotals = { ...totals }
 
     // Optimistic UI update
     setUserReactions((prev) => ({
       ...prev,
-      clap: Math.min(5, prev.clap + 1),
+      clap: isCurrentlyLiked ? 0 : 1,
     }))
     setTotals((prev) => ({
       ...prev,
-      clap: prev.clap + 1,
+      clap: Math.max(0, prev.clap + (isCurrentlyLiked ? -1 : 1)),
     }))
 
     try {
@@ -202,14 +223,8 @@ export function PhotoReactions({ photoId, className = "", compact = false }: Pho
       }
     } catch {
       // Rollback
-      setUserReactions((prev) => ({
-        ...prev,
-        clap: Math.max(0, prev.clap - 1),
-      }))
-      setTotals((prev) => ({
-        ...prev,
-        clap: Math.max(0, prev.clap - 1),
-      }))
+      setUserReactions(previousUserReactions)
+      setTotals(previousTotals)
     }
   }
 
@@ -239,7 +254,7 @@ export function PhotoReactions({ photoId, className = "", compact = false }: Pho
       </div>
 
       <div className={`flex items-center ${compact ? "gap-1 flex-nowrap" : "justify-between gap-1.5 flex-wrap"}`}>
-        {/* Emoji Reactions Cluster */}
+        {/* Emoji Reactions Cluster (Mutually Exclusive) */}
         <div className={`flex items-center ${compact ? "gap-1" : "gap-1.5 flex-wrap"}`}>
           {REACTION_CONFIG.map((item) => {
             const Icon = item.icon
@@ -251,7 +266,7 @@ export function PhotoReactions({ photoId, className = "", compact = false }: Pho
                 key={item.type}
                 type="button"
                 onClick={(e) => handleEmojiReaction(item.type, item.emoji, e)}
-                title={item.label}
+                title={isActive ? `Remove ${item.label}` : item.label}
                 aria-label={item.label}
                 className={`group relative flex items-center gap-1 rounded-full text-xs font-medium border transition-all duration-200 active:scale-95 cursor-pointer backdrop-blur-md ${
                   compact ? "px-1.5 py-0.5 text-[10px]" : "px-2.5 py-1"
@@ -272,29 +287,26 @@ export function PhotoReactions({ photoId, className = "", compact = false }: Pho
           })}
         </div>
 
-        {/* Public Claps / Likes Button */}
+        {/* Public Like Button (Independent 1-Like per Visitor) */}
         <button
           type="button"
-          onClick={handleClap}
-          title="Applaud this photo"
-          aria-label="Applaud this photo"
+          onClick={handleLike}
+          title={userReactions.clap > 0 ? "Unlike this photo" : "Like this photo"}
+          aria-label="Like this photo"
           className={`group relative flex items-center gap-1 rounded-full text-xs font-semibold border transition-all duration-200 active:scale-95 cursor-pointer backdrop-blur-md ${
             compact ? "px-2 py-0.5 text-[10px]" : "px-3 py-1"
           } ${
             userReactions.clap > 0
-              ? "bg-amber-500/20 text-amber-300 border-amber-500/40 shadow-[0_0_12px_rgba(245,158,11,0.25)]"
+              ? "bg-amber-500/25 text-amber-300 border-amber-500/40 shadow-[0_0_12px_rgba(245,158,11,0.3)]"
               : "border-white/10 bg-white/5 text-white/80 hover:bg-white/10 hover:text-white"
           }`}
         >
-          <span className={`${compact ? "text-xs" : "text-sm"} transition-transform group-hover:scale-125`}>👏</span>
+          <span className={`${compact ? "text-xs" : "text-sm"} transition-transform group-hover:scale-125 ${userReactions.clap > 0 ? "scale-110" : ""}`}>
+            👏
+          </span>
           <span className={`${compact ? "text-[10px]" : "text-[11px]"} font-bold tabular-nums text-white`}>
             {totals.clap || 0}
           </span>
-          {userReactions.clap > 0 && (
-            <span className="text-[9px] px-1 py-0.2 rounded-full bg-amber-400/25 text-amber-200 font-semibold">
-              +{userReactions.clap}
-            </span>
-          )}
         </button>
       </div>
     </div>
