@@ -284,8 +284,8 @@ export function PhotoReactions({ photoId, className = "", compact = false }: Pho
                 onClick={(e) => handleEmojiReaction(item.type, item.emoji, e)}
                 title={isActive ? `Remove ${item.label}` : item.label}
                 aria-label={item.label}
-                className={`group relative flex items-center gap-1 rounded-full text-xs font-medium border transition-all duration-200 active:scale-95 cursor-pointer backdrop-blur-md ${
-                  compact ? "px-1.5 py-0.5 text-[10px]" : "px-2.5 py-1"
+                className={`group relative flex items-center gap-1 rounded-full text-xs font-medium border transition-all duration-200 active:scale-95 cursor-pointer ${
+                  compact ? "px-1.5 py-0.5 text-[10px]" : "px-2.5 py-1 backdrop-blur-md"
                 } ${
                   isActive
                     ? item.activeColor
@@ -309,8 +309,8 @@ export function PhotoReactions({ photoId, className = "", compact = false }: Pho
           onClick={handleLike}
           title={userReactions.clap > 0 ? "Unlike this photo" : "Like this photo"}
           aria-label="Like this photo"
-          className={`group relative flex items-center gap-1 rounded-full text-xs font-semibold border transition-all duration-200 active:scale-95 cursor-pointer backdrop-blur-md ${
-            compact ? "px-2 py-0.5 text-[10px]" : "px-3 py-1"
+          className={`group relative flex items-center gap-1 rounded-full text-xs font-semibold border transition-all duration-200 active:scale-95 cursor-pointer ${
+            compact ? "px-2 py-0.5 text-[10px]" : "px-3 py-1 backdrop-blur-md"
           } ${
             userReactions.clap > 0
               ? "bg-amber-500/25 text-amber-300 border-amber-500/40 shadow-[0_0_12px_rgba(245,158,11,0.3)]"

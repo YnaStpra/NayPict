@@ -875,11 +875,11 @@ function LightboxInteractionBar({
   return (
     <div
       className={[
-        "fixed left-3 bottom-14 sm:bottom-16 md:bottom-28 z-40 flex items-center transition-all duration-300 pointer-events-auto select-none max-w-[calc(100vw-24px)] overflow-x-auto scrollbar-none",
+        "fixed left-3 bottom-14 sm:bottom-16 md:bottom-28 z-40 flex items-center transition-all duration-300 pointer-events-auto select-none",
         getActionVisibleClass(showActions),
       ].join(" ")}
     >
-      <div className="flex items-center gap-1.5 p-1 rounded-full bg-black/70 dark:bg-zinc-950/85 backdrop-blur-2xl border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.65),0_0_0_1px_rgba(255,255,255,0.1)_inset] ring-1 ring-black/40">
+      <div className="flex items-center gap-1.5 p-1 rounded-full bg-neutral-950/85 backdrop-blur-xl border border-white/15 shadow-2xl shadow-black/60">
         {photoId && (
           <div className="flex items-center pl-1">
             <PhotoReactions photoId={photoId} compact />
