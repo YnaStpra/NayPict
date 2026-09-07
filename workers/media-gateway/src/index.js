@@ -20,10 +20,28 @@ function resolveAllowedOrigin(appUrl) {
   }
 }
 
-// Build the fixed CORS and defensive response headers without reflecting request input.
-function buildBaseHeaders(allowedOrigin) {
+// Check if an HTTP origin belongs to NayPict or approved environments.
+function isOriginAllowed(origin, allowedOrigin) {
+  if (!origin) return true
+  if (origin === allowedOrigin) return true
+  try {
+    const parsed = new URL(origin)
+    const host = parsed.hostname
+    if (host === "naypict.my.id" || host.endsWith(".naypict.my.id")) return true
+    if (host.endsWith(".vercel.app")) return true
+    if (host === "localhost" || host === "127.0.0.1") return true
+  } catch {}
+  return false
+}
+
+// Build the CORS and defensive response headers dynamically reflecting approved request origin.
+function buildBaseHeaders(allowedOrigin, requestOrigin) {
+  const originHeader = (requestOrigin && isOriginAllowed(requestOrigin, allowedOrigin))
+    ? requestOrigin
+    : (allowedOrigin || "*")
+
   return new Headers({
-    "Access-Control-Allow-Origin": allowedOrigin,
+    "Access-Control-Allow-Origin": originHeader,
     "Access-Control-Allow-Methods": ALLOW_METHODS,
     "Access-Control-Allow-Headers": ALLOW_HEADERS,
     "Access-Control-Expose-Headers": EXPOSE_HEADERS,
@@ -34,8 +52,8 @@ function buildBaseHeaders(allowedOrigin) {
 }
 
 // Return a non-cacheable plain-text error with the fixed application CORS policy.
-function errorResponse(message, status, allowedOrigin, extraHeaders = {}) {
-  const headers = buildBaseHeaders(allowedOrigin)
+function errorResponse(message, status, allowedOrigin, extraHeaders = {}, requestOrigin) {
+  const headers = buildBaseHeaders(allowedOrigin, requestOrigin)
   headers.set("Cache-Control", "no-store")
   headers.set("Content-Type", "text/plain; charset=utf-8")
 
@@ -62,10 +80,10 @@ function isPublicObjectKey(key) {
   return PUBLIC_PREFIXES.some((prefix) => key.startsWith(prefix) && key.length > prefix.length)
 }
 
-// Permit requests without CORS context or with an Origin exactly matching APP_URL.
+// Permit requests without CORS context or with an approved origin.
 function isRequestOriginAllowed(request, allowedOrigin) {
   const requestOrigin = request.headers.get("Origin")
-  return !requestOrigin || requestOrigin === allowedOrigin
+  return isOriginAllowed(requestOrigin, allowedOrigin)
 }
 
 // Check whether a request asks R2 to evaluate HTTP cache preconditions.
@@ -84,8 +102,8 @@ function buildCacheRequest(requestUrl, key) {
 }
 
 // Convert R2 HTTP metadata into immutable public derivative response headers.
-function buildObjectHeaders(object, allowedOrigin) {
-  const headers = buildBaseHeaders(allowedOrigin)
+function buildObjectHeaders(object, allowedOrigin, requestOrigin) {
+  const headers = buildBaseHeaders(allowedOrigin, requestOrigin)
   object.writeHttpMetadata(headers)
   headers.set("Cache-Control", PUBLIC_CACHE_CONTROL)
   headers.set("Content-Length", String(object.size))
@@ -146,15 +164,15 @@ function handleOptions(request, allowedOrigin) {
   const requestedMethod = request.headers.get("Access-Control-Request-Method")?.toUpperCase()
 
   if (!requestOrigin || !requestedMethod) {
-    return errorResponse("Invalid CORS preflight.", 400, allowedOrigin)
+    return errorResponse("Invalid CORS preflight.", 400, allowedOrigin, {}, requestOrigin)
   }
 
-  if (requestOrigin !== allowedOrigin) {
-    return errorResponse("Origin not allowed.", 403, allowedOrigin)
+  if (!isOriginAllowed(requestOrigin, allowedOrigin)) {
+    return errorResponse("Origin not allowed.", 403, allowedOrigin, {}, requestOrigin)
   }
 
   if (!READ_METHODS.includes(requestedMethod)) {
-    return errorResponse("Method not allowed.", 405, allowedOrigin, { Allow: ALLOW_METHODS })
+    return errorResponse("Method not allowed.", 405, allowedOrigin, { Allow: ALLOW_METHODS }, requestOrigin)
   }
 
   const allowedHeaderNames = new Set(ALLOW_HEADERS.toLowerCase().split(", "))
@@ -164,10 +182,10 @@ function handleOptions(request, allowedOrigin) {
     .filter(Boolean)
 
   if (requestedHeaders.some((name) => !allowedHeaderNames.has(name))) {
-    return errorResponse("Request headers not allowed.", 403, allowedOrigin)
+    return errorResponse("Request headers not allowed.", 403, allowedOrigin, {}, requestOrigin)
   }
 
-  const headers = buildBaseHeaders(allowedOrigin)
+  const headers = buildBaseHeaders(allowedOrigin, requestOrigin)
   headers.set("Access-Control-Max-Age", "86400")
   headers.set("Cache-Control", "no-store")
   return new Response(null, { status: 204, headers })
@@ -175,6 +193,7 @@ function handleOptions(request, allowedOrigin) {
 
 // Serve object metadata for HEAD while reusing a cached GET response when available.
 async function serveHead(request, env, key, allowedOrigin) {
+  const requestOrigin = request.headers.get("Origin")
   const cacheRequest = buildCacheRequest(request.url, key)
   const cached = await caches.default.match(cacheRequest)
 
@@ -192,15 +211,16 @@ async function serveHead(request, env, key, allowedOrigin) {
   }
 
   const object = await env.MEDIA_BUCKET.head(key)
-  if (!object) return errorResponse("Not found.", 404, allowedOrigin)
+  if (!object) return errorResponse("Not found.", 404, allowedOrigin, {}, requestOrigin)
 
-  const headers = buildObjectHeaders(object, allowedOrigin)
+  const headers = buildObjectHeaders(object, allowedOrigin, requestOrigin)
   const status = getHeadPreconditionStatus(request, object)
   return status ? conditionalResponse(status, headers) : new Response(null, { status: 200, headers })
 }
 
 // Stream a public derivative from R2 and populate the Cloudflare edge cache for plain GETs.
 async function serveGet(request, env, context, key, allowedOrigin) {
+  const requestOrigin = request.headers.get("Origin")
   const conditional = isConditionalRequest(request)
   const cacheRequest = buildCacheRequest(request.url, key)
 
@@ -213,9 +233,9 @@ async function serveGet(request, env, context, key, allowedOrigin) {
     onlyIf: request.headers,
   })
 
-  if (!object) return errorResponse("Not found.", 404, allowedOrigin)
+  if (!object) return errorResponse("Not found.", 404, allowedOrigin, {}, requestOrigin)
 
-  const headers = buildObjectHeaders(object, allowedOrigin)
+  const headers = buildObjectHeaders(object, allowedOrigin, requestOrigin)
   if (!("body" in object)) {
     return conditionalResponse(getHeadPreconditionStatus(request, object) ?? 412, headers)
   }

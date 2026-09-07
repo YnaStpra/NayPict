@@ -237,56 +237,44 @@ function loadPreviewImage(
   setPhotoCache: (photoId: string, src: string) => void,
   onLoaded?: () => void
 ) {
-  const cachedSrc = getPhotoCache(photoId)
+  if (!src) return
 
+  const cachedSrc = getPhotoCache(photoId)
   if (cachedSrc) {
-    requestAnimationFrame(() => {
-      if (currentPhotoIdRef.current === photoId) {
-        setOriginalPhoto({
-          key: cachedSrc,
-        })
-        onLoaded?.()
-      }
-    })
+    if (currentPhotoIdRef.current === photoId) {
+      onLoaded?.()
+    }
     return
   }
 
-  const xhr = new XMLHttpRequest()
+  const img = new Image()
   const abortPreview = () => {
-    xhr.abort()
+    img.onload = null
+    img.onerror = null
+    img.src = ""
   }
 
   previewRequestsRef.current.set(photoId, abortPreview)
 
-  // After the request is completed, only clean up your own records, Prevent old requests from deleting new requests.
   function clearCurrentRequest() {
     if (previewRequestsRef.current.get(photoId) === abortPreview) {
       previewRequestsRef.current.delete(photoId)
     }
   }
 
-  xhr.open("GET", src)
-  xhr.responseType = "arraybuffer"
-  xhr.onload = () => {
-    if (xhr.status >= 200 && xhr.status < 300) {
-      setPhotoCache(photoId, src)
-
-      if (currentPhotoIdRef.current === photoId) {
-        setOriginalPhoto({
-          key: src,
-        })
-        onLoaded?.()
-      }
+  img.onload = () => {
+    setPhotoCache(photoId, src)
+    if (currentPhotoIdRef.current === photoId) {
+      onLoaded?.()
     }
     clearCurrentRequest()
   }
-  xhr.onerror = () => {
+
+  img.onerror = () => {
     clearCurrentRequest()
   }
-  xhr.onabort = () => {
-    clearCurrentRequest()
-  }
-  xhr.send()
+
+  img.src = src
 }
 
 // Render original progress button.
@@ -1034,6 +1022,11 @@ function PhotoSlideImage({
         decoding="async"
         className="lightbox-zoom-matrix select-none max-w-none object-contain transition-opacity duration-200"
         onLoad={handleImageLoaded}
+        ref={(el) => {
+          if (el && el.complete && el.naturalWidth > 0 && !loaded) {
+            setLoaded(true)
+          }
+        }}
         onError={() => {
           if (currentSrc && !currentSrc.startsWith('/media/')) {
             setCurrentSrc(toProxyMediaUrl(currentSrc))
