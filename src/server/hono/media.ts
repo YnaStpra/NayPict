@@ -126,10 +126,15 @@ media.get('*', async (c: Context, next: Next) => {
 
   // Fast-path HTTP 304 Not Modified: instantly revalidate cached images with 0 bytes transferred
   if (ifNoneMatch && (ifNoneMatch === etag || ifNoneMatch === `"${photoFile.key}"`)) {
-    return c.body(null, 304, {
+    const notModifiedHeaders: Record<string, string> = {
       'ETag': etag,
       'Cache-Control': isOriginal ? 'no-cache, private' : 'public, max-age=31536000, immutable',
-    });
+    };
+    if (!isOriginal) {
+      notModifiedHeaders['CDN-Cache-Control'] = 'public, max-age=31536000, immutable';
+      notModifiedHeaders['Cloudflare-CDN-Cache-Control'] = 'public, max-age=31536000, immutable';
+    }
+    return c.body(null, 304, notModifiedHeaders);
   }
 
   const obj = await storage.get(photoFile.key, photoFile.storageId);
@@ -141,6 +146,12 @@ media.get('*', async (c: Context, next: Next) => {
     'Vary': 'Accept, Accept-Encoding',
     'Accept-Ranges': 'bytes',
   };
+
+  if (!isOriginal) {
+    // Explicitly instruct Cloudflare Edge CDN to cache derivatives for 1 year so repeat visits bypass Vercel completely
+    headers['CDN-Cache-Control'] = 'public, max-age=31536000, immutable';
+    headers['Cloudflare-CDN-Cache-Control'] = 'public, max-age=31536000, immutable';
+  }
 
   if (disposition) {
     headers['Content-Disposition'] = disposition;

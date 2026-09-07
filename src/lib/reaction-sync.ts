@@ -3,6 +3,7 @@
 import { photoReactionsGet, photoReactionAdd } from "@/request/reaction";
 import { type PhotoReactionsVo, type ReactionTotalsVo, type UserReactionsVo } from "@/server/entity/vo/reaction";
 import { type ReactionType } from "@/server/entity/bo/reaction";
+import { photoSse } from "@/lib/photo-sse";
 
 type EmojiReactionKey = "love" | "fire" | "camera" | "place";
 const EMOJI_KEYS: EmojiReactionKey[] = ["love", "fire", "camera", "place"];
@@ -33,9 +34,6 @@ class ReactionSyncManager {
   private cache = new Map<string, PhotoReactionsVo>();
   private listeners = new Map<string, Set<(data: PhotoReactionsVo) => void>>();
   private channel: BroadcastChannel | null = null;
-  private activeSsePhotoId: string | null = null;
-  private sseSource: EventSource | null = null;
-  private sseRefCount = new Map<string, number>();
 
   constructor() {
     if (typeof window !== "undefined" && "BroadcastChannel" in window) {
@@ -64,12 +62,23 @@ class ReactionSyncManager {
     if (!this.listeners.has(photoId)) {
       this.listeners.set(photoId, new Set());
     }
-    this.listeners.get(photoId)!.add(listener);
+    // Subscribe to real-time reaction updates via shared photoSse manager
+    const unsubscribeSse = photoSse.subscribe(photoId, "reaction_updated", (payload) => {
+      if (payload?.photoId === photoId && payload?.totals) {
+        const current = this.cache.get(photoId) || {
+          photoId,
+          totals: payload.totals,
+          userReactions: { love: false, fire: false, camera: false, place: false, clap: 0 },
+        };
 
-    // Track active SSE reference count
-    const ref = (this.sseRefCount.get(photoId) || 0) + 1;
-    this.sseRefCount.set(photoId, ref);
-    this.connectSse(photoId);
+        const updated: PhotoReactionsVo = {
+          ...current,
+          totals: payload.totals,
+        };
+
+        this.setCacheAndNotify(photoId, updated, true);
+      }
+    });
 
     // Return current cached state immediately if exists
     const cached = this.cache.get(photoId);
@@ -80,20 +89,13 @@ class ReactionSyncManager {
     }
 
     return () => {
+      unsubscribeSse();
       const set = this.listeners.get(photoId);
       if (set) {
         set.delete(listener);
         if (set.size === 0) {
           this.listeners.delete(photoId);
         }
-      }
-
-      const updatedRef = Math.max(0, (this.sseRefCount.get(photoId) || 1) - 1);
-      if (updatedRef === 0) {
-        this.sseRefCount.delete(photoId);
-        this.disconnectSse(photoId);
-      } else {
-        this.sseRefCount.set(photoId, updatedRef);
       }
     };
   }
@@ -208,60 +210,6 @@ class ReactionSyncManager {
       try {
         this.channel.postMessage({ photoId, state });
       } catch {}
-    }
-  }
-
-  // Connect shared SSE connection to receive live reaction updates from other visitors
-  private connectSse(photoId: string): void {
-    if (typeof window === "undefined" || !("EventSource" in window)) return;
-    if (this.activeSsePhotoId === photoId && this.sseSource) return;
-
-    // Disconnect existing if switching active photo
-    if (this.sseSource) {
-      this.sseSource.close();
-      this.sseSource = null;
-    }
-
-    this.activeSsePhotoId = photoId;
-
-    try {
-      const sse = new EventSource(`/api/photos/${encodeURIComponent(photoId)}/comments/sse`);
-      this.sseSource = sse;
-
-      sse.addEventListener("reaction_updated", (event: MessageEvent) => {
-        try {
-          const payload = JSON.parse(event.data);
-          if (payload?.photoId === photoId && payload?.totals) {
-            const current = this.cache.get(photoId) || {
-              photoId,
-              totals: payload.totals,
-              userReactions: { love: false, fire: false, camera: false, place: false, clap: 0 },
-            };
-
-            const updated: PhotoReactionsVo = {
-              ...current,
-              totals: payload.totals,
-            };
-
-            this.setCacheAndNotify(photoId, updated, true);
-          }
-        } catch (err) {
-          console.warn("[REACTION-SYNC] Error parsing SSE reaction event:", err);
-        }
-      });
-
-      sse.onerror = () => {
-        // Silently handle SSE disconnects; EventSource automatically retries
-      };
-    } catch {}
-  }
-
-  // Disconnect SSE when photo is no longer viewed
-  private disconnectSse(photoId: string): void {
-    if (this.activeSsePhotoId === photoId && this.sseSource) {
-      this.sseSource.close();
-      this.sseSource = null;
-      this.activeSsePhotoId = null;
     }
   }
 }

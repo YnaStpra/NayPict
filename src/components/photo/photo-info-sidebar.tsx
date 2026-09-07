@@ -20,6 +20,7 @@ import { commentList } from "@/request/comment"
 import { PhotoComments } from "@/components/photo/photo-comments"
 import { PhotoLocationMap } from "@/components/photo/photo-location-map"
 import { PhotoReactions } from "@/components/photo/photo-reactions"
+import { photoSse } from "@/lib/photo-sse"
 
 type PhotoInfoSidebarProps = {
   // Currently viewing photos.
@@ -233,22 +234,18 @@ export function PhotoInfoSidebar({
       })
       .catch(() => {})
 
-    let eventSource: EventSource | null = null
-    if (typeof window !== "undefined" && typeof EventSource !== "undefined") {
-      try {
-        eventSource = new EventSource(`/api/photos/${encodeURIComponent(photo.photoId)}/comments/sse`)
-        eventSource.addEventListener("comment_added", () => {
-          setCommentCount((prev) => prev + 1)
-        })
-        eventSource.addEventListener("comment_deleted", () => {
-          setCommentCount((prev) => Math.max(0, prev - 1))
-        })
-      } catch {}
-    }
+    // Subscribe to live comment counts via shared photoSse manager
+    const unsubAdded = photoSse.subscribe(photo.photoId, "comment_added", () => {
+      setCommentCount((prev) => prev + 1)
+    })
+    const unsubDeleted = photoSse.subscribe(photo.photoId, "comment_deleted", () => {
+      setCommentCount((prev) => Math.max(0, prev - 1))
+    })
 
     return () => {
       isMounted = false
-      if (eventSource) eventSource.close()
+      unsubAdded()
+      unsubDeleted()
     }
   }, [photo?.photoId])
 

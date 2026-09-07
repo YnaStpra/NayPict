@@ -44,14 +44,17 @@ export function registerCommentApi(app: Hono<HonoEnv>) {
         }
       }, 15000);
 
-      stream.onAbort(() => {
-        clearInterval(pingInterval);
-        unsubscribe();
-      });
+      const startTime = Date.now();
+      // Gracefully finish after 50 seconds so Vercel can recycle function before hard timeout;
+      // standard browser EventSource auto-reconnects seamlessly in 3s if still active
+      const MAX_STREAM_MS = 50_000;
 
-      while (!stream.aborted) {
-        await stream.sleep(1000);
+      while (!stream.aborted && Date.now() - startTime < MAX_STREAM_MS) {
+        await stream.sleep(2500);
       }
+
+      clearInterval(pingInterval);
+      unsubscribe();
     });
   });
 

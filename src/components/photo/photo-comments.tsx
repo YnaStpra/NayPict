@@ -12,6 +12,7 @@ import { useLocale } from "next-intl";
 import { Turnstile } from "@/components/common/turnstile";
 
 import { formatRelativeTime } from "@/lib/date";
+import { photoSse } from "@/lib/photo-sse";
 
 interface PhotoCommentsProps {
   // Target photo ID to display and post comments for.
@@ -91,117 +92,80 @@ export function PhotoComments({ photoId }: PhotoCommentsProps) {
         }
       });
 
-    // 2. Real-time Server-Sent Events (SSE) stream
-    let eventSource: EventSource | null = null;
-    try {
-      eventSource = new EventSource(`/api/photos/${encodeURIComponent(photoId)}/comments/sse`);
-
-      eventSource.addEventListener("comment_added", (e: MessageEvent) => {
-        if (!isMounted) return;
-        try {
-          const payload = JSON.parse(e.data);
-          if (payload?.comment) {
-            setComments((prev) => {
-              if (prev.some((c) => c.commentId === payload.comment.commentId)) {
-                return prev;
-              }
-              return [payload.comment, ...prev];
-            });
+    // 2. Real-time Server-Sent Events (SSE) stream via shared photoSse manager
+    const unsubs = [
+      photoSse.subscribe(photoId, "comment_added", (payload) => {
+        if (!isMounted || !payload?.comment) return;
+        setComments((prev) => {
+          if (prev.some((c) => c.commentId === payload.comment.commentId)) {
+            return prev;
           }
-        } catch {}
-      });
+          return [payload.comment, ...prev];
+        });
+      }),
 
-      eventSource.addEventListener("reply_added", (e: MessageEvent) => {
-        if (!isMounted) return;
-        try {
-          const payload = JSON.parse(e.data);
-          if (payload?.comment) {
-            setComments((prev) =>
-              prev.map((c) =>
-                c.commentId === payload.comment.commentId
-                  ? { ...c, replyContent: payload.comment.replyContent, replyTime: payload.comment.replyTime }
-                  : c
-              )
-            );
-          }
-        } catch {}
-      });
+      photoSse.subscribe(photoId, "reply_added", (payload) => {
+        if (!isMounted || !payload?.comment) return;
+        setComments((prev) =>
+          prev.map((c) =>
+            c.commentId === payload.comment.commentId
+              ? { ...c, replyContent: payload.comment.replyContent, replyTime: payload.comment.replyTime }
+              : c
+          )
+        );
+      }),
 
-      eventSource.addEventListener("reply_deleted", (e: MessageEvent) => {
-        if (!isMounted) return;
-        try {
-          const payload = JSON.parse(e.data);
-          if (payload?.commentId) {
-            setComments((prev) =>
-              prev.map((c) =>
-                c.commentId === payload.commentId
-                  ? { ...c, replyContent: null, replyTime: null }
-                  : c
-              )
-            );
-          }
-        } catch {}
-      });
+      photoSse.subscribe(photoId, "reply_deleted", (payload) => {
+        if (!isMounted || !payload?.commentId) return;
+        setComments((prev) =>
+          prev.map((c) =>
+            c.commentId === payload.commentId
+              ? { ...c, replyContent: null, replyTime: null }
+              : c
+          )
+        );
+      }),
 
-      eventSource.addEventListener("comment_deleted", (e: MessageEvent) => {
-        if (!isMounted) return;
-        try {
-          const payload = JSON.parse(e.data);
-          if (payload?.commentId) {
-            setComments((prev) => prev.filter((c) => c.commentId !== payload.commentId));
-          }
-        } catch {}
-      });
+      photoSse.subscribe(photoId, "comment_deleted", (payload) => {
+        if (!isMounted || !payload?.commentId) return;
+        setComments((prev) => prev.filter((c) => c.commentId !== payload.commentId));
+      }),
 
-      eventSource.addEventListener("heart_updated", (e: MessageEvent) => {
-        if (!isMounted) return;
-        try {
-          const payload = JSON.parse(e.data);
-          if (payload?.commentId) {
-            setComments((prev) =>
-              prev.map((c) =>
-                c.commentId === payload.commentId
-                  ? { ...c, isHearted: Boolean(payload.isHearted) }
-                  : c
-              )
-            );
-          }
-        } catch {}
-      });
+      photoSse.subscribe(photoId, "heart_updated", (payload) => {
+        if (!isMounted || !payload?.commentId) return;
+        setComments((prev) =>
+          prev.map((c) =>
+            c.commentId === payload.commentId
+              ? { ...c, isHearted: Boolean(payload.isHearted) }
+              : c
+          )
+        );
+      }),
 
-      eventSource.addEventListener("pin_updated", (e: MessageEvent) => {
-        if (!isMounted) return;
-        try {
-          const payload = JSON.parse(e.data);
-          if (payload?.commentId) {
-            setComments((prev) => {
-              const updated = prev.map((c) => {
-                if (c.commentId === payload.commentId) {
-                  return { ...c, isPinned: Boolean(payload.isPinned) };
-                }
-                if (payload.isPinned) {
-                  return { ...c, isPinned: false };
-                }
-                return c;
-              });
-              return [...updated].sort((a, b) => {
-                if (a.isPinned && !b.isPinned) return -1;
-                if (!a.isPinned && b.isPinned) return 1;
-                return new Date(b.createTime).getTime() - new Date(a.createTime).getTime();
-              });
-            });
-          }
-        } catch {}
-      });
-    } catch (sseErr) {
-      console.warn("[SSE] EventSource init error:", sseErr);
-    }
+      photoSse.subscribe(photoId, "pin_updated", (payload) => {
+        if (!isMounted || !payload?.commentId) return;
+        setComments((prev) => {
+          const updated = prev.map((c) => {
+            if (c.commentId === payload.commentId) {
+              return { ...c, isPinned: Boolean(payload.isPinned) };
+            }
+            if (payload.isPinned) {
+              return { ...c, isPinned: false };
+            }
+            return c;
+          });
+          return [...updated].sort((a, b) => {
+            if (a.isPinned && !b.isPinned) return -1;
+            if (!a.isPinned && b.isPinned) return 1;
+            return new Date(b.createTime).getTime() - new Date(a.createTime).getTime();
+          });
+        });
+      }),
+    ];
 
     return () => {
       isMounted = false;
-      if (eventSource) {
-        eventSource.close();
-      }
+      unsubs.forEach((unsub) => unsub());
     };
   }, [photoId]);
 
