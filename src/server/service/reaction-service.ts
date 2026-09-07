@@ -13,6 +13,7 @@ import { toMediaUrl } from '@/lib/url';
 import { type PhotoReactionAddBo, type ReactionType } from '@/server/entity/bo/reaction';
 import { type PhotoReactionsVo, type ReactionTotalsVo, type UserReactionsVo } from '@/server/entity/vo/reaction';
 import { type InsightsTopReactionPhotoVo } from '@/server/entity/vo/insights';
+import { commentEventHub } from '@/server/lib/comment-event-hub';
 import { v4 as uuidv4 } from 'uuid';
 import BizError from '@/server/error/biz-error';
 
@@ -23,7 +24,8 @@ const EMOJI_REACTION_TYPES: ReactionType[] = ['love', 'fire', 'camera', 'place']
 
 const reactionService = {
   // Query aggregated reaction totals and visitor personal reaction state for a photo.
-  async getPhotoReactions(photoId: string, visitorId?: string): Promise<PhotoReactionsVo> {
+  // When useMaster is true, queries primary connection directly to eliminate read-after-write replication lag.
+  async getPhotoReactions(photoId: string, visitorId?: string, useMaster = false): Promise<PhotoReactionsVo> {
     const cleanPhotoId = photoId?.trim();
     if (!cleanPhotoId) {
       return {
@@ -33,9 +35,11 @@ const reactionService = {
       };
     }
 
+    const dbClient = useMaster ? orm : readOrm;
+
     try {
       // 1. Fetch aggregated totals grouped by reaction_type
-      const totalRows = await readOrm
+      const totalRows = await dbClient
         .select({
           reactionType: photoReactionTab.reactionType,
           total: sql<number>`COALESCE(SUM(${photoReactionTab.count}), 0)::int`,
@@ -62,7 +66,7 @@ const reactionService = {
 
       if (visitorId?.trim()) {
         const cleanVisitorId = visitorId.trim();
-        const userRows = await readOrm
+        const userRows = await dbClient
           .select({
             reactionType: photoReactionTab.reactionType,
             count: photoReactionTab.count,
@@ -179,8 +183,17 @@ const reactionService = {
       }
     }
 
-    // Return the fresh aggregated reactions state
-    return this.getPhotoReactions(photoId, visitorId);
+    // Return the fresh aggregated reactions state using master client to avoid replication lag
+    const freshState = await this.getPhotoReactions(photoId, visitorId, true);
+
+    // Broadcast live reaction update to all active SSE subscribers for this photo
+    commentEventHub.publish(photoId, {
+      type: 'reaction_updated',
+      photoId,
+      totals: freshState.totals,
+    });
+
+    return freshState;
   },
 
   // Query photos that have received reactions, sorted by total reactions descending (Admin).
@@ -334,6 +347,14 @@ const reactionService = {
     }
     try {
       await orm.delete(photoReactionTab).where(eq(photoReactionTab.photoId, cleanPhotoId));
+
+      // Broadcast live reset event to all active SSE subscribers for this photo
+      commentEventHub.publish(cleanPhotoId, {
+        type: 'reaction_updated',
+        photoId: cleanPhotoId,
+        totals: { love: 0, fire: 0, camera: 0, place: 0, clap: 0 },
+      });
+
       return { success: true };
     } catch (err) {
       console.error('[REACTION] Error resetting reactions for photo:', cleanPhotoId, err);

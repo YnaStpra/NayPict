@@ -1,8 +1,9 @@
 // This module provides an in-memory event emitter hub for real-time comment updates via Server-Sent Events (SSE).
 
 import { type CommentVo } from '@/server/entity/vo/comment';
+import { type ReactionTotalsVo } from '@/server/entity/vo/reaction';
 
-export type CommentEventType = 'comment_added' | 'reply_added' | 'comment_deleted' | 'reply_deleted' | 'heart_updated' | 'pin_updated';
+export type CommentEventType = 'comment_added' | 'reply_added' | 'comment_deleted' | 'reply_deleted' | 'heart_updated' | 'pin_updated' | 'reaction_updated';
 
 export interface CommentEvent {
   type: CommentEventType;
@@ -11,6 +12,7 @@ export interface CommentEvent {
   commentId?: string;
   isHearted?: boolean;
   isPinned?: boolean;
+  totals?: ReactionTotalsVo;
   timestamp: string;
 }
 

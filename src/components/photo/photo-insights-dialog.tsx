@@ -72,9 +72,10 @@ interface PhotoInsightsDialogProps {
   photoId: string | null
   open: boolean
   onOpenChange: (open: boolean) => void
+  onReactionReset?: () => void
 }
 
-export function PhotoInsightsDialog({ photoId, open, onOpenChange }: PhotoInsightsDialogProps) {
+export function PhotoInsightsDialog({ photoId, open, onOpenChange, onReactionReset }: PhotoInsightsDialogProps) {
   // Intercept Android / mobile back gesture to close modal cleanly
   useModalBackHandler(open, onOpenChange)
 
@@ -93,6 +94,7 @@ export function PhotoInsightsDialog({ photoId, open, onOpenChange }: PhotoInsigh
     try {
       await resetPhotoReactions(photoId)
       toast.success("Reactions have been reset for this photo.")
+      onReactionReset?.()
       // Refresh photo insights
       const updated = await getPhotoInsightsDetail(photoId)
       if (updated) setDetail(updated)

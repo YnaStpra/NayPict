@@ -916,6 +916,7 @@ export default function AdminInsightsPage() {
         photoId={selectedPhotoIdForInsights}
         open={insightsDialogOpen}
         onOpenChange={setInsightsDialogOpen}
+        onReactionReset={loadAllData}
       />
 
       {/* Photo Viewer Modal */}
