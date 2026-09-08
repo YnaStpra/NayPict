@@ -539,22 +539,36 @@ export async function compressVideoTo720p(
 
         video.onended = stopTranscoding;
 
-        // Maximum timeout safety (duration + 5s) to guarantee no indefinite hangs
-        const maxTimeSeconds = totalDuration > 0 ? totalDuration + 5 : 45;
+        // Generous safety timeout accounting for accelerated playback plus buffer margin
+        const initialPlaybackRate = 2.0;
+        const effectiveDuration = totalDuration > 0 ? (totalDuration / initialPlaybackRate) : 120;
+        const maxTimeSeconds = Math.max(Math.round(effectiveDuration + 60), 180);
         safetyTimer = setTimeout(stopTranscoding, maxTimeSeconds * 1000);
 
         video.currentTime = 0;
+        try {
+          video.playbackRate = initialPlaybackRate;
+          (video as any).preservesPitch = true;
+        } catch {}
+
         void video.play().then(() => {
           mediaRecorder?.start(250);
 
           function renderFrame() {
+            if (isStopped) return;
+
+            // Transcoding completes only when video has truly ended or reached the end of stream
             if (
               video.ended ||
-              video.paused ||
-              (totalDuration > 0 && video.currentTime >= totalDuration - 0.05)
+              (totalDuration > 0 && video.currentTime >= totalDuration - 0.08)
             ) {
               stopTranscoding();
               return;
+            }
+
+            // Auto-resume playback if browser temporarily buffered heavy 4K frames
+            if (video.paused && !video.ended) {
+              void video.play().catch(() => {});
             }
 
             if (ctx) {

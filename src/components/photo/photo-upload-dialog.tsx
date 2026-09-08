@@ -47,6 +47,7 @@ interface UploadPreview {
   cover: string
   status: UploadStatus
   progress: number
+  statusText?: string
   albumId?: string
 }
 
@@ -186,12 +187,36 @@ function uploadFileDirect(
         reject(new Error(`Direct upload failed (HTTP ${xhr.status})`))
       }
     }
-    xhr.onerror = () => reject(new Error("Direct upload network error"))
+    xhr.onerror = () => reject(new Error("Direct upload network error (connection interrupted)"))
     xhr.open("PUT", uploadUrl)
     xhr.setRequestHeader("Content-Type", file.type || "video/mp4")
     onAbort?.(() => xhr.abort())
     xhr.send(file)
   })
+}
+
+async function uploadFileDirectWithRetry(
+  uploadUrl: string,
+  file: File,
+  onProgress?: (progress: number) => void,
+  onAbort?: (abort: () => void) => void,
+  onRetry?: (attempt: number, maxAttempts: number) => void,
+  maxRetries = 3
+): Promise<void> {
+  let lastError: Error | null = null
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      await uploadFileDirect(uploadUrl, file, onProgress, onAbort)
+      return
+    } catch (err: any) {
+      lastError = err
+      if (attempt < maxRetries) {
+        onRetry?.(attempt + 1, maxRetries)
+        await new Promise((r) => setTimeout(r, attempt * 1500))
+      }
+    }
+  }
+  throw lastError || new Error("Direct upload network error (connection interrupted)")
 }
 
 export function PhotoUploadDialog() {
@@ -421,12 +446,14 @@ export function PhotoUploadDialog() {
 
         // 2. Smart 720p client-side compression (scales down 1080p/4K; skips if already 720p or if disabled)
         const shouldCompress = uploadSettings.compressVideo !== false
+        const is4K = meta.width >= 3840 || meta.height >= 2160 || item.file.size > 100 * 1024 * 1024
         const compressedVideo = shouldCompress
           ? await compressVideoTo720p(item.file, meta, {
               onProgress: (compProg) => {
+                const label = is4K ? `Compressing 4K to 720p (${compProg}%)` : `Compressing video (${compProg}%)`
                 setPreviews((prev) =>
                   prev.map((p) =>
-                    p.id === item.id ? { ...p, progress: Math.round(compProg * 0.35) } : p
+                    p.id === item.id ? { ...p, progress: Math.round(compProg * 0.45), statusText: label } : p
                   )
                 )
               },
@@ -441,11 +468,11 @@ export function PhotoUploadDialog() {
 
           item.file = compressedVideo
           previewsRef.current = previewsRef.current.map((p) =>
-            p.id === item.id ? { ...p, file: compressedVideo } : p
+            p.id === item.id ? { ...p, file: compressedVideo, statusText: "Compression completed" } : p
           )
           setPreviews((prev) =>
             prev.map((p) =>
-              p.id === item.id ? { ...p, file: compressedVideo } : p
+              p.id === item.id ? { ...p, file: compressedVideo, statusText: "Compression completed" } : p
             )
           )
 
@@ -475,19 +502,26 @@ export function PhotoUploadDialog() {
           storageId: targetStorageId || undefined,
         })
 
-        // 5. Upload video directly to Cloudflare R2 bucket
-        await uploadFileDirect(
+        // 5. Upload video directly to Cloudflare R2 bucket with automatic network retry
+        await uploadFileDirectWithRetry(
           presigned.uploadUrl,
           compressedVideo,
           (upProg) => {
-            const totalProgress = 35 + Math.round(upProg * 0.6)
+            const totalProgress = 45 + Math.round(upProg * 0.5)
             setPreviews((prev) =>
               prev.map((p) =>
-                p.id === item.id ? { ...p, progress: totalProgress } : p
+                p.id === item.id ? { ...p, progress: totalProgress, statusText: `Uploading (${upProg}%)` } : p
               )
             )
           },
-          (abort) => abortMapRef.current.set(preview.id, abort)
+          (abort) => abortMapRef.current.set(preview.id, abort),
+          (attempt, max) => {
+            setPreviews((prev) =>
+              prev.map((p) =>
+                p.id === item.id ? { ...p, statusText: `Retrying network (${attempt}/${max})...` } : p
+              )
+            )
+          }
         )
 
         // 6. Extract EXIF/GPS coordinates if embedded
@@ -898,14 +932,19 @@ export function PhotoUploadDialog() {
                       </div>
                     )}
 
-                    {/* Dark Progress Overlay with Liquid Wave Bar */}
+                    {/* Dark Progress Overlay with Liquid Wave Bar & Status Text */}
                     {preview.status === "uploading" && (
                       <div
-                        className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center text-white gap-1.5 p-2"
+                        className="absolute inset-0 bg-black/75 flex flex-col items-center justify-center text-white gap-1.5 p-2"
                       >
                         <Loader2 className="size-5 animate-spin text-white" />
                         <span className="text-[11px] font-bold">{preview.progress}%</span>
-                        <div className="w-full h-1.5 rounded-full bg-white/20 overflow-hidden">
+                        {preview.statusText && (
+                          <span className="text-[9px] text-white/90 font-medium text-center line-clamp-2 px-1 leading-tight">
+                            {preview.statusText}
+                          </span>
+                        )}
+                        <div className="w-full h-1.5 rounded-full bg-white/20 overflow-hidden mt-0.5">
                           <div
                             className="h-full rounded-full wave-progress-shimmer transition-all duration-200"
                             style={{ width: `${preview.progress}%` }}

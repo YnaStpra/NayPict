@@ -9,6 +9,35 @@ import { formatHttpUrl } from '@/lib/url';
 // This module implements S3 storage strategy.
 
 const s3ClientCache = new Map<string, S3Client>();
+const corsConfiguredBuckets = new Set<string>();
+
+// Ensure bucket has open CORS headers for direct browser PUT uploads
+async function ensureBucketCors(client: S3Client, bucket: string): Promise<void> {
+  if (corsConfiguredBuckets.has(bucket)) return;
+  corsConfiguredBuckets.add(bucket);
+
+  try {
+    const { PutBucketCorsCommand } = await import('@aws-sdk/client-s3');
+    await client.send(
+      new PutBucketCorsCommand({
+        Bucket: bucket,
+        CORSConfiguration: {
+          CORSRules: [
+            {
+              AllowedHeaders: ['*'],
+              AllowedMethods: ['GET', 'HEAD', 'PUT', 'POST', 'DELETE'],
+              AllowedOrigins: ['*'],
+              ExposeHeaders: ['ETag', 'Content-Range', 'Accept-Ranges', 'x-amz-request-id'],
+              MaxAgeSeconds: 3600,
+            },
+          ],
+        },
+      })
+    );
+  } catch (err) {
+    console.warn(`[S3] Note: Could not auto-apply CORS to bucket ${bucket}:`, err);
+  }
+}
 
 class S3StorageStrategy implements StorageStrategy {
 
@@ -151,6 +180,8 @@ class S3StorageStrategy implements StorageStrategy {
     }));
   }
 
+
+
   // Generate a presigned PutObject URL for direct-to-storage upload (S3 / Cloudflare R2).
   async getPresignedPutUrl(key: string, contentType: string, storage: Storage, expiresIn = 3600): Promise<string> {
     const client = this.createClient(storage);
@@ -159,6 +190,9 @@ class S3StorageStrategy implements StorageStrategy {
     if (!bucket) {
       throw new BizError('s3.bucketRequired');
     }
+
+    // Ensure bucket CORS is configured for browser direct PUT uploads
+    void ensureBucketCors(client, bucket);
 
     const command = new PutObjectCommand({
       Bucket: bucket,
