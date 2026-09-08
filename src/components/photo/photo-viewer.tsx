@@ -1964,7 +1964,13 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
                   style={slideTransformStyle}
                 >
                   <VideoPlayer
-                    src={toProxyMediaUrl(photoSlide.src || photoSlide.key)}
+                    src={
+                      (photoSlide.key?.startsWith("http://") || photoSlide.key?.startsWith("https://"))
+                        ? photoSlide.key
+                        : ((photoSlide.src?.startsWith("http://") || photoSlide.src?.startsWith("https://"))
+                            ? photoSlide.src
+                            : toProxyMediaUrl(photoSlide.src || photoSlide.key))
+                    }
                     poster={photoSlide.preview || photoSlide.thumbnail}
                     alt={photoSlide.alt || "Video"}
                     isActive={isCurrentSlide}
@@ -2037,7 +2043,13 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
                 )}
                 {photoSlide.mediaType?.startsWith("video/") && (!photoSlide.thumbnail || photoSlide.thumbnail.endsWith(".mp4") || photoSlide.thumbnail.endsWith(".mov")) ? (
                   <video
-                    src={toProxyMediaUrl(photoSlide.src || photoSlide.key)}
+                    src={
+                      (photoSlide.key?.startsWith("http://") || photoSlide.key?.startsWith("https://"))
+                        ? photoSlide.key
+                        : ((photoSlide.src?.startsWith("http://") || photoSlide.src?.startsWith("https://"))
+                            ? photoSlide.src
+                            : toProxyMediaUrl(photoSlide.src || photoSlide.key))
+                    }
                     muted
                     playsInline
                     preload="metadata"

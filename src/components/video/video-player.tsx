@@ -14,6 +14,7 @@ import {
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { formatVideoDuration } from "@/lib/video-compress"
+import { toProxyMediaUrl } from "@/lib/url"
 import { PhotoReactions } from "@/components/photo/photo-reactions"
 
 export interface VideoPlayerProps {
@@ -405,6 +406,16 @@ export const VideoPlayer = memo(function VideoPlayer({
           setIsPlaying(false)
           setShowControls(true)
           onEnded?.()
+        }}
+        onError={(e) => {
+          const videoEl = e.currentTarget
+          if (videoEl.src && !videoEl.src.includes('/media/')) {
+            const proxy = toProxyMediaUrl(videoEl.src)
+            if (proxy && proxy !== videoEl.src) {
+              videoEl.src = proxy
+              videoEl.load()
+            }
+          }
         }}
         aria-label={alt}
       />
