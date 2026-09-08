@@ -131,7 +131,7 @@ export async function extractVideoMetadata(file: File): Promise<VideoMetadata> {
             isBlack = false;
           }
 
-          poster = posterCanvas.toDataURL("image/jpeg", 0.85);
+          poster = posterCanvas.toDataURL("image/jpeg", 0.82);
         }
 
         let hash = "";
@@ -184,11 +184,11 @@ export async function extractVideoMetadata(file: File): Promise<VideoMetadata> {
       });
     };
 
-    // Safety timeout (10s max) to ensure upload is never blocked
+    // Safety timeout (8s max) to ensure upload is never blocked
     const timeout = setTimeout(() => {
       console.warn("Video metadata extraction timeout, finalizing with best available frame");
       finishWithSnapshot();
-    }, 10000);
+    }, 8000);
 
     let hasSought = false;
 
@@ -199,35 +199,52 @@ export async function extractVideoMetadata(file: File): Promise<VideoMetadata> {
       const width = video.videoWidth;
       const height = video.videoHeight;
 
-      if (duration > 0.3 && width > 0 && height > 0 && !hasSought) {
-        hasSought = true;
-        // Target 1.0s or 25% into the video to avoid initial black fade-in frames
-        const targetTime = duration > 2 ? Math.min(1.0, duration / 4) : 0.05;
+      // Ensure frame pixel data is buffered before attempting canvas draw (readyState >= HAVE_CURRENT_DATA)
+      if (width > 0 && height > 0 && video.readyState >= 2) {
+        // 1. Take initial snapshot from current buffered frame
+        const initialSnap = takeSnapshot();
+        if (initialSnap.poster) {
+          fallbackPoster = initialSnap.poster;
+          fallbackThumbHash = initialSnap.hash;
+        }
 
-        // Give large 4K files up to 5s to seek
-        const seekTimer = setTimeout(() => {
-          finishWithSnapshot();
-        }, 5000);
-
-        video.onseeked = () => {
-          clearTimeout(seekTimer);
-          const snap = takeSnapshot();
-          if (snap.isBlack && duration > 4 && video.currentTime < 2.5) {
-            // Frame is still solid black (e.g. 2s fade from black intro); seek further into the video
-            video.currentTime = Math.min(3.0, duration * 0.25);
-            return;
-          }
+        // If initial frame is visually contentful, resolve immediately (~50-100ms) without slow seeks
+        if (!initialSnap.isBlack) {
           clearTimeout(timeout);
           finishWithSnapshot();
-        };
-
-        try {
-          video.currentTime = targetTime;
-        } catch {
-          clearTimeout(seekTimer);
-          finishWithSnapshot();
+          return;
         }
-      } else if (width > 0 && height > 0) {
+
+        // If initial frame is solid black (e.g. video starts with a black fade-in intro),
+        // seek forward into the video to capture a meaningful frame.
+        if (!hasSought && duration > 0.5) {
+          hasSought = true;
+          const targetTime = duration > 2 ? Math.min(1.0, duration / 4) : 0.2;
+
+          const seekTimer = setTimeout(() => {
+            finishWithSnapshot();
+          }, 3500);
+
+          video.onseeked = () => {
+            clearTimeout(seekTimer);
+            const snap = takeSnapshot();
+            if (snap.poster && !snap.isBlack) {
+              fallbackPoster = snap.poster;
+              fallbackThumbHash = snap.hash;
+            }
+            clearTimeout(timeout);
+            finishWithSnapshot();
+          };
+
+          try {
+            video.currentTime = targetTime;
+          } catch {
+            clearTimeout(seekTimer);
+            finishWithSnapshot();
+          }
+          return;
+        }
+
         clearTimeout(timeout);
         finishWithSnapshot();
       }
@@ -258,7 +275,7 @@ export async function extractVideoMetadata(file: File): Promise<VideoMetadata> {
       });
     };
 
-    video.src = videoUrl;
+    video.src = `${videoUrl}#t=0.001`;
     video.load();
   });
 }

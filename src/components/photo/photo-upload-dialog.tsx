@@ -29,7 +29,7 @@ import {
 import { PhotoUploadSettings, readPhotoUploadSettings } from "@/components/photo/photo-upload-settings"
 import { compressImageFile } from "@/lib/image-compress"
 import { extractClientExif } from "@/lib/photo-client-exif"
-import { extractVideoMetadata, compressVideoTo720p } from "@/lib/video-compress"
+import { extractVideoMetadata, compressVideoTo720p, formatVideoDuration, type VideoMetadata } from "@/lib/video-compress"
 import { useStorageStore } from "@/store/storage-store"
 import { usePhotoStore } from "@/store/photo-store"
 import { photoAddVideo, photoExists, photoGetPresignedUploadUrl, photoRecycle } from "@/request/photo"
@@ -49,6 +49,10 @@ interface UploadPreview {
   progress: number
   statusText?: string
   albumId?: string
+  isVideo?: boolean
+  videoDuration?: number
+  isThumbnailLoading?: boolean
+  cachedMeta?: VideoMetadata
 }
 
 interface DuplicateReviewPair {
@@ -352,31 +356,47 @@ export function PhotoUploadDialog() {
     if (!files.length) return
 
     // Fast instant object URL mapping for massive batch uploads (supports 1,000+ photos without lag)
-    const newItems: UploadPreview[] = files.map((file) => ({
-      id: createUploadItemId(file),
-      file,
-      cover: URL.createObjectURL(file),
-      status: "new" as UploadStatus,
-      progress: 0,
-      albumId: uploadAlbumId ?? undefined,
-    }))
+    const newItems: UploadPreview[] = files.map((file) => {
+      const isVideo = file.type.startsWith("video/") || /\.(mp4|mov|webm|m4v|mkv)$/i.test(file.name)
+      return {
+        id: createUploadItemId(file),
+        file,
+        cover: URL.createObjectURL(file),
+        status: "new" as UploadStatus,
+        progress: 0,
+        albumId: uploadAlbumId ?? undefined,
+        isVideo,
+        isThumbnailLoading: isVideo,
+      }
+    })
 
     const nextPreviews = [...previewsRef.current, ...newItems]
     setPreviews(nextPreviews)
 
     // For video files, eagerly extract poster frame in background for modal thumbnail
     newItems.forEach((item) => {
-      const isVideo = item.file.type.startsWith("video/") || /\.(mp4|mov|webm|m4v|mkv)$/i.test(item.file.name)
-      if (isVideo) {
+      if (item.isVideo) {
         extractVideoMetadata(item.file)
           .then((meta) => {
-            if (meta.posterBase64) {
-              setPreviews((prev) =>
-                prev.map((p) => (p.id === item.id ? { ...p, cover: meta.posterBase64 } : p))
+            setPreviews((prev) =>
+              prev.map((p) =>
+                p.id === item.id
+                  ? {
+                      ...p,
+                      cover: meta.posterBase64 || p.cover,
+                      isThumbnailLoading: false,
+                      videoDuration: meta.duration,
+                      cachedMeta: meta,
+                    }
+                  : p
               )
-            }
+            )
           })
-          .catch(() => {})
+          .catch(() => {
+            setPreviews((prev) =>
+              prev.map((p) => (p.id === item.id ? { ...p, isThumbnailLoading: false } : p))
+            )
+          })
       }
     })
 
@@ -436,8 +456,8 @@ export function PhotoUploadDialog() {
           ? (videoStorage?.storageId || photoStorage?.storageId)
           : currentStorageId
 
-        // 1. Extract video metadata & high-quality poster frame
-        const meta = await extractVideoMetadata(item.file)
+        // 1. Extract video metadata & high-quality poster frame (reuse cached metadata if available)
+        const meta = item.cachedMeta || (await extractVideoMetadata(item.file))
 
         if (pausedRef.current) {
           setPreviews((prev) => prev.map((p) => (p.id === item.id ? { ...p, progress: 0, status: "new" } : p)))
@@ -890,30 +910,41 @@ export function PhotoUploadDialog() {
           >
             <div className="grid grid-cols-3 sm:grid-cols-4 content-start gap-2.5">
               {previews.map((preview) => {
-                const isVideo = preview.file.type.startsWith("video/") || /\.(mp4|mov|webm|m4v|mkv)$/i.test(preview.file.name)
+                const isVideo = preview.isVideo ?? (preview.file.type.startsWith("video/") || /\.(mp4|mov|webm|m4v|mkv)$/i.test(preview.file.name))
                 return (
                   <div
                     key={preview.id}
                     className="group relative aspect-square w-full overflow-hidden rounded-xl bg-muted border border-border/60 shadow-2xs"
                   >
                     {isVideo && !preview.cover.startsWith("data:image/") ? (
-                      <div className="relative h-full w-full bg-neutral-900 flex items-center justify-center overflow-hidden">
-                        <video
-                          key={preview.id}
-                          src={preview.cover}
-                          muted
-                          playsInline
-                          preload="auto"
-                          onLoadedData={(e) => {
-                            const v = e.currentTarget
-                            if (v.currentTime === 0) {
-                              v.currentTime = v.duration > 1 ? Math.min(1.0, v.duration / 4) : 0.05
-                            }
-                          }}
-                          className="h-full w-full object-cover pointer-events-none"
-                        />
-                        <div className="absolute inset-0 bg-black/10 pointer-events-none" />
-                      </div>
+                      preview.isThumbnailLoading ? (
+                        <div className="relative h-full w-full bg-neutral-900 flex items-center justify-center overflow-hidden">
+                          <video
+                            key={preview.id}
+                            src={`${preview.cover}#t=0.001`}
+                            muted
+                            playsInline
+                            preload="metadata"
+                            className="h-full w-full object-cover pointer-events-none opacity-40"
+                          />
+                          <div className="absolute inset-0 bg-neutral-950/70 backdrop-blur-xs flex flex-col items-center justify-center p-2 text-center">
+                            <Loader2 className="size-4 animate-spin text-white/80 mb-1" />
+                            <span className="text-[10px] font-medium text-white/90">Loading preview...</span>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="relative h-full w-full bg-gradient-to-br from-neutral-800 to-neutral-950 flex flex-col items-center justify-center p-2 text-center">
+                          <div className="rounded-full bg-white/10 p-2 mb-1">
+                            <Play className="size-4 text-white/90 fill-white/80 ml-0.5" />
+                          </div>
+                          <span className="text-[10px] font-medium text-white/90 line-clamp-1 max-w-[90%]">
+                            {preview.file.name}
+                          </span>
+                          <span className="text-[9px] text-white/50 mt-0.5">
+                            {formatPhotoSize(preview.file.size)}
+                          </span>
+                        </div>
+                      )
                     ) : (
                       <img
                         src={preview.cover}
@@ -924,11 +955,15 @@ export function PhotoUploadDialog() {
                       />
                     )}
 
-                    {/* Video Pill Indicator */}
+                    {/* Video Pill Indicator with Duration */}
                     {isVideo && (
                       <div className="absolute top-1.5 left-1.5 flex items-center gap-1 rounded-md bg-black/75 backdrop-blur-md px-1.5 py-0.5 text-[9px] font-bold text-white border border-white/20 shadow-xs pointer-events-none">
                         <Play className="size-2.5 fill-current text-white" />
-                        <span>VIDEO</span>
+                        <span>
+                          {preview.videoDuration && preview.videoDuration > 0
+                            ? formatVideoDuration(preview.videoDuration)
+                            : "VIDEO"}
+                        </span>
                       </div>
                     )}
 
