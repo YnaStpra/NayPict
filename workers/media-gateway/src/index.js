@@ -223,7 +223,10 @@ async function serveHead(request, env, key, allowedOrigin) {
     })
   }
 
-  const object = await env.MEDIA_BUCKET.head(key)
+  let object = await env.MEDIA_BUCKET.head(key)
+  if (!object && env.VIDEO_BUCKET) {
+    object = await env.VIDEO_BUCKET.head(key)
+  }
   if (!object) return errorResponse("Not found.", 404, allowedOrigin, {}, requestOrigin)
 
   const headers = buildObjectHeaders(object, allowedOrigin, requestOrigin)
@@ -250,7 +253,10 @@ async function serveGet(request, env, context, key, allowedOrigin) {
     getOptions.range = request.headers
   }
 
-  const object = await env.MEDIA_BUCKET.get(key, getOptions)
+  let object = await env.MEDIA_BUCKET.get(key, getOptions)
+  if (!object && env.VIDEO_BUCKET) {
+    object = await env.VIDEO_BUCKET.get(key, getOptions)
+  }
 
   if (!object) return errorResponse("Not found.", 404, allowedOrigin, {}, requestOrigin)
 

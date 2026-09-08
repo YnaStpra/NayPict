@@ -50,6 +50,11 @@ async function walkAndCompress(dir) {
 }
 
 async function run() {
+  if (process.env.VERCEL) {
+    console.log('Skipping asset precompression on Vercel deployment (handled natively by Vercel Edge CDN).');
+    return;
+  }
+
   const staticDir = path.resolve(process.cwd(), '.next/static');
   const publicDir = path.resolve(process.cwd(), 'public');
 

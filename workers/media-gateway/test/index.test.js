@@ -168,3 +168,19 @@ test("a mismatched GET Origin is denied before R2 access", async () => {
   assert.equal(response.status, 403)
   assert.deepEqual(bucket.requestedKeys, [])
 })
+
+test("GET falls back to VIDEO_BUCKET when key is not in MEDIA_BUCKET", async () => {
+  const mediaBucket = {
+    async get() { return null },
+    async head() { return null },
+  }
+  const videoBucket = createBucket()
+  const context = createContext()
+  const request = new Request("https://media.example.com/videos/sample.mp4", {
+    headers: { Origin: APP_URL },
+  })
+  const response = await worker.fetch(request, { APP_URL, MEDIA_BUCKET: mediaBucket, VIDEO_BUCKET: videoBucket }, context)
+  assert.equal(response.status, 200)
+  assert.deepEqual(videoBucket.requestedKeys, ["videos/sample.mp4"])
+})
+

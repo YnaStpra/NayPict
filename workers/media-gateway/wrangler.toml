@@ -8,3 +8,7 @@ APP_URL = "https://www.naypict.my.id"
 [[r2_buckets]]
 binding = "MEDIA_BUCKET"
 bucket_name = "naypict"   
+
+[[r2_buckets]]
+binding = "VIDEO_BUCKET"
+bucket_name = "naypict-videos"
