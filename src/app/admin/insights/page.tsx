@@ -45,6 +45,7 @@ import {
   Calendar,
   Download,
   Eye,
+  Film,
   Heart,
   Image as ImageIcon,
   Loader2,
@@ -73,8 +74,19 @@ const PhotoViewer = dynamic(
   { ssr: false }
 )
 
-// Safe photo thumbnail with CDN error fallback and proxy support
-function InsightThumbnail({ src, alt }: { src?: string | null; alt: string }) {
+// Safe photo/video thumbnail with CDN error fallback, proxy support, and direct video playback
+function InsightThumbnail({
+  src,
+  alt,
+  type,
+  videoSrc,
+}: {
+  src?: string | null
+  alt: string
+  type?: string | null
+  videoSrc?: string | null
+}) {
+  const isVideo = Boolean(type?.startsWith("video/") || /\.(mp4|webm|mov|m4v|mkv)$/i.test(alt))
   const [currentSrc, setCurrentSrc] = useState(src || "")
   const [hasError, setHasError] = useState(false)
 
@@ -95,23 +107,47 @@ function InsightThumbnail({ src, alt }: { src?: string | null; alt: string }) {
   }
 
   if (hasError || !currentSrc) {
+    if (isVideo && videoSrc) {
+      return (
+        <div className="relative size-12 rounded-lg overflow-hidden shrink-0 border border-border/60 bg-neutral-950">
+          <video
+            src={videoSrc}
+            preload="metadata"
+            muted
+            playsInline
+            className="size-full object-cover pointer-events-none"
+          />
+          <div className="absolute bottom-0.5 right-0.5 px-0.5 rounded bg-black/80 text-[8px] text-white flex items-center">
+            <Film className="size-2 text-rose-400" />
+          </div>
+        </div>
+      )
+    }
+
     return (
       <div className="size-12 rounded-lg bg-muted flex items-center justify-center shrink-0 border border-border/60 text-muted-foreground">
-        <ImageIcon className="size-5 opacity-40" />
+        {isVideo ? <Film className="size-5 opacity-40 text-rose-400" /> : <ImageIcon className="size-5 opacity-40" />}
       </div>
     )
   }
 
   return (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img
-      src={currentSrc}
-      alt=""
-      aria-label={alt}
-      loading="lazy"
-      onError={handleError}
-      className="size-12 rounded-lg object-cover shrink-0 border border-border/60 bg-muted"
-    />
+    <div className="relative size-12 rounded-lg overflow-hidden shrink-0 border border-border/60 bg-muted">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={currentSrc}
+        alt=""
+        aria-label={alt}
+        loading="lazy"
+        onError={handleError}
+        className="size-full object-cover"
+      />
+      {isVideo && (
+        <div className="absolute bottom-0.5 right-0.5 px-0.5 rounded bg-black/80 text-[8px] text-white flex items-center">
+          <Film className="size-2 text-rose-400" />
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -697,7 +733,12 @@ export default function AdminInsightsPage() {
                             <span className="text-xs font-bold text-muted-foreground w-4 text-center shrink-0">
                               {index + 1}
                             </span>
-                            <InsightThumbnail src={photo.thumbnail} alt={photo.name} />
+                            <InsightThumbnail
+                              src={photo.thumbnail}
+                              alt={photo.name}
+                              type={photo.type}
+                              videoSrc={photo.key}
+                            />
                             <div className="min-w-0 flex-1">
                               <h4 className="text-xs font-semibold truncate group-hover:text-primary transition-colors">
                                 {photo.name}
@@ -804,7 +845,12 @@ export default function AdminInsightsPage() {
                             <span className="text-xs font-bold text-muted-foreground w-4 text-center">
                               {index + 1}
                             </span>
-                            <InsightThumbnail src={photo.thumbnail} alt={photo.name} />
+                            <InsightThumbnail
+                              src={photo.thumbnail}
+                              alt={photo.name}
+                              type={photo.type}
+                              videoSrc={photo.key}
+                            />
                             <div className="min-w-0 flex-1">
                               <h4 className="text-xs font-semibold truncate group-hover:text-primary transition-colors">
                                 {photo.name}
@@ -871,7 +917,12 @@ export default function AdminInsightsPage() {
                             <span className="text-xs font-bold text-muted-foreground w-4 text-center">
                               {index + 1}
                             </span>
-                            <InsightThumbnail src={photo.thumbnail} alt={photo.name} />
+                            <InsightThumbnail
+                              src={photo.thumbnail}
+                              alt={photo.name}
+                              type={photo.type}
+                              videoSrc={photo.key}
+                            />
                             <div className="min-w-0 flex-1">
                               <h4 className="text-xs font-semibold truncate group-hover:text-primary transition-colors">
                                 {photo.name}

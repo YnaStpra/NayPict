@@ -17,6 +17,7 @@ import {
   Download,
   Eye,
   EyeOff,
+  Film,
   FolderOpen,
   FolderPlus,
   Globe,
@@ -125,6 +126,94 @@ function formatSimpleDate(dateStr?: string | null) {
   } catch {
     return dateStr
   }
+}
+
+// Reusable media thumbnail for Admin table and grid views with video fallback
+function AdminPhotoThumbnail({
+  photo,
+  className = '',
+  imgClassName = '',
+}: {
+  photo: PhotoVo
+  className?: string
+  imgClassName?: string
+}) {
+  const isVideo = Boolean(photo.type?.startsWith('video/') || /\.(mp4|webm|mov|m4v|mkv)$/i.test(photo.name))
+  const [imgSrc, setImgSrc] = useState<string | null>(photo.thumbnail || photo.preview || '')
+  const [hasError, setHasError] = useState(false)
+  const thumbHashUrl = getThumbHashUrl(photo.thumbHash)
+  const videoSrc = photo.key?.startsWith('http')
+    ? photo.key
+    : (photo.key ? toProxyMediaUrl(photo.key) : undefined)
+
+  useEffect(() => {
+    setImgSrc(photo.thumbnail || photo.preview || '')
+    setHasError(false)
+  }, [photo.photoId, photo.thumbnail, photo.preview])
+
+  const handleImgError = () => {
+    if (imgSrc && !imgSrc.startsWith('/media/') && photo.thumbnail) {
+      const proxy = toProxyMediaUrl(photo.thumbnail)
+      if (proxy && proxy !== imgSrc) {
+        setImgSrc(proxy)
+        return
+      }
+    }
+    if (photo.preview && imgSrc !== photo.preview && imgSrc !== toProxyMediaUrl(photo.preview)) {
+      setImgSrc(photo.preview)
+      return
+    }
+    setHasError(true)
+  }
+
+  return (
+    <div
+      className={`relative overflow-hidden bg-neutral-950 shrink-0 ${className}`}
+      style={{
+        backgroundImage: thumbHashUrl ? `url("${thumbHashUrl}")` : undefined,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+      }}
+    >
+      {thumbHashUrl && (
+        <img
+          src={thumbHashUrl}
+          alt=""
+          className="absolute inset-0 size-full object-cover blur-xs scale-110 pointer-events-none"
+          aria-hidden
+        />
+      )}
+      {!hasError && imgSrc ? (
+        <img
+          src={imgSrc}
+          alt=""
+          loading="lazy"
+          decoding="async"
+          className={`absolute inset-0 size-full object-cover ${imgClassName}`}
+          onError={handleImgError}
+        />
+      ) : isVideo && videoSrc ? (
+        <video
+          src={videoSrc}
+          preload="metadata"
+          muted
+          playsInline
+          className={`absolute inset-0 size-full object-cover pointer-events-none bg-neutral-950 ${imgClassName}`}
+        />
+      ) : (
+        <div className="size-full flex items-center justify-center text-muted-foreground">
+          {isVideo ? <Film className="size-5 opacity-40 text-rose-400" /> : <ImageIcon className="size-5 opacity-40" />}
+        </div>
+      )}
+
+      {isVideo && (
+        <div className="absolute bottom-1 right-1 px-1 py-0.5 rounded bg-black/75 backdrop-blur-xs text-[9px] font-mono text-white flex items-center gap-0.5 pointer-events-none z-10 shadow-xs">
+          <Film className="size-2.5 text-rose-400" />
+          <span>{photo.typeDesc || 'VIDEO'}</span>
+        </div>
+      )}
+    </div>
+  )
 }
 
 export default function AdminPhotosPage() {
@@ -779,46 +868,13 @@ export default function AdminPhotosPage() {
                             <div className="flex items-center gap-3 min-w-0">
                               <div
                                 onClick={() => handleOpenViewer(photo)}
-                                className="relative size-11 rounded-xl overflow-hidden bg-neutral-950 shrink-0 border border-border/60 cursor-pointer group-hover:ring-2 group-hover:ring-primary/40 transition-all"
-                                style={{
-                                  backgroundImage: thumbHashUrl ? `url("${thumbHashUrl}")` : undefined,
-                                  backgroundSize: 'cover',
-                                  backgroundPosition: 'center',
-                                }}
+                                className="cursor-pointer group-hover:ring-2 group-hover:ring-primary/40 rounded-xl transition-all"
                               >
-                                {thumbHashUrl && (
-                                  <img
-                                    src={thumbHashUrl}
-                                    alt=""
-                                    className="absolute inset-0 size-full object-cover blur-xs scale-110"
-                                    aria-hidden
-                                  />
-                                )}
-                                {imgUrl ? (
-                                  <img
-                                    src={imgUrl}
-                                    alt=""
-                                    loading="lazy"
-                                    decoding="async"
-                                    className="absolute inset-0 size-full object-cover group-hover:scale-105 transition-transform"
-                                    onError={(e) => {
-                                      const el = e.currentTarget
-                                      if (el.src && !el.src.includes('/media/') && photo.thumbnail) {
-                                        el.src = toProxyMediaUrl(photo.thumbnail)
-                                      } else if (photo.preview && el.src !== toProxyMediaUrl(photo.preview)) {
-                                        el.src = toProxyMediaUrl(photo.preview)
-                                      } else if (photo.key && el.src !== toProxyMediaUrl(photo.key)) {
-                                        el.src = toProxyMediaUrl(photo.key)
-                                      } else {
-                                        el.style.display = 'none'
-                                      }
-                                    }}
-                                  />
-                                ) : (
-                                  <div className="size-full flex items-center justify-center text-muted-foreground">
-                                    <ImageIcon className="size-4" />
-                                  </div>
-                                )}
+                                <AdminPhotoThumbnail
+                                  photo={photo}
+                                  className="size-11 rounded-xl border border-border/60"
+                                  imgClassName="group-hover:scale-105 transition-transform"
+                                />
                               </div>
 
                               <div className="min-w-0 space-y-0.5">
@@ -1016,46 +1072,13 @@ export default function AdminPhotosPage() {
                     {/* Photo Visual Box */}
                     <div
                       onClick={() => handleOpenViewer(photo)}
-                      className="relative aspect-square bg-neutral-950 overflow-hidden cursor-pointer"
-                      style={{
-                        backgroundImage: thumbHashUrl ? `url("${thumbHashUrl}")` : undefined,
-                        backgroundSize: 'cover',
-                        backgroundPosition: 'center',
-                      }}
+                      className="relative aspect-square cursor-pointer"
                     >
-                      {thumbHashUrl && (
-                        <img
-                          src={thumbHashUrl}
-                          alt=""
-                          className="absolute inset-0 size-full object-cover blur-xs scale-110"
-                          aria-hidden
-                        />
-                      )}
-                      {imgUrl ? (
-                        <img
-                          src={imgUrl}
-                          alt=""
-                          loading="lazy"
-                          decoding="async"
-                          className="absolute inset-0 size-full object-cover group-hover:scale-105 transition-transform duration-300"
-                          onError={(e) => {
-                            const el = e.currentTarget
-                            if (el.src && !el.src.includes('/media/') && photo.thumbnail) {
-                              el.src = toProxyMediaUrl(photo.thumbnail)
-                            } else if (photo.preview && el.src !== toProxyMediaUrl(photo.preview)) {
-                              el.src = toProxyMediaUrl(photo.preview)
-                            } else if (photo.key && el.src !== toProxyMediaUrl(photo.key)) {
-                              el.src = toProxyMediaUrl(photo.key)
-                            } else {
-                              el.style.display = 'none'
-                            }
-                          }}
-                        />
-                      ) : (
-                        <div className="size-full flex items-center justify-center text-muted-foreground">
-                          <ImageIcon className="size-6" />
-                        </div>
-                      )}
+                      <AdminPhotoThumbnail
+                        photo={photo}
+                        className="size-full"
+                        imgClassName="group-hover:scale-105 transition-transform duration-300"
+                      />
 
                       {/* Top Badges Overlay */}
                       <div className="absolute top-2 left-2 right-2 flex items-center justify-between pointer-events-none">

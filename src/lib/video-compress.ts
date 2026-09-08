@@ -175,7 +175,7 @@ export async function extractVideoMetadata(file: File): Promise<VideoMetadata> {
     }
 
     const container = document.createElement("div");
-    container.style.cssText = "position:fixed;bottom:0;right:0;width:1px;height:1px;overflow:hidden;opacity:0.01;pointer-events:none;z-index:9999;";
+    container.style.cssText = "position:fixed;bottom:0;right:0;width:320px;height:180px;overflow:hidden;opacity:0.01;pointer-events:none;z-index:-1;";
     const video = document.createElement("video");
     const videoUrl = URL.createObjectURL(file);
 

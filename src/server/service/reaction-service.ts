@@ -9,7 +9,7 @@ import { storageTab } from '@/server/entity/storage';
 import { PhotoStatusEnum } from '@/server/enums/photo-enum';
 import { FileTypeEnum } from '@/server/enums/file-enum';
 import { buildPreviewKey, buildThumbnailKey } from '@/server/lib/photo-path';
-import { toMediaUrl } from '@/lib/url';
+import { toMediaUrl, toProxyMediaUrl } from '@/lib/url';
 import { type PhotoReactionAddBo, type ReactionType } from '@/server/entity/bo/reaction';
 import { type PhotoReactionsVo, type ReactionTotalsVo, type UserReactionsVo } from '@/server/entity/vo/reaction';
 import { type InsightsTopReactionPhotoVo } from '@/server/entity/vo/insights';
@@ -226,6 +226,7 @@ const reactionService = {
         .select({
           photoId: photoTab.photoId,
           name: photoTab.name,
+          type: photoTab.type,
           checksum: photoTab.checksum,
           width: photoTab.width,
           height: photoTab.height,
@@ -253,7 +254,7 @@ const reactionService = {
         }
       }
 
-      // 4. Resolve thumbnail & preview keys
+      // 4. Resolve thumbnail, preview & original keys
       const fileRows = await readOrm
         .select({
           photoId: fileTab.photoId,
@@ -263,11 +264,12 @@ const reactionService = {
         .from(fileTab)
         .where(inArray(fileTab.photoId, photoIds));
 
-      const fileMap = new Map<string, { thumbnailKey?: string; previewKey?: string }>();
+      const fileMap = new Map<string, { thumbnailKey?: string; previewKey?: string; originalKey?: string }>();
       for (const f of fileRows) {
         const cur = fileMap.get(f.photoId) || {};
         if (f.type === FileTypeEnum.THUMBNAIL) cur.thumbnailKey = f.key;
         if (f.type === FileTypeEnum.PREVIEW) cur.previewKey = f.key;
+        if (f.type === FileTypeEnum.ORIGINAL) cur.originalKey = f.key;
         fileMap.set(f.photoId, cur);
       }
 
@@ -311,10 +313,17 @@ const reactionService = {
         const files = fileMap.get(photo.photoId);
         const thumbnailKey = files?.thumbnailKey || (checksum ? buildThumbnailKey(checksum, photo.photoId) : '');
         const previewKey = files?.previewKey || (checksum ? buildPreviewKey(checksum, photo.photoId) : '');
+        const isVideo = Boolean(photo.type?.startsWith('video/'));
+        const originalKey = files?.originalKey;
+        const key = originalKey
+          ? (isVideo && domain ? toMediaUrl(originalKey, domain) : toProxyMediaUrl(originalKey))
+          : null;
 
         resultList.push({
           photoId: photo.photoId,
           name: photo.name,
+          type: photo.type ?? null,
+          key,
           thumbnail: toMediaUrl(thumbnailKey, domain),
           preview: toMediaUrl(previewKey, domain),
           width: photo.width,

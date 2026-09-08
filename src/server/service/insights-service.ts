@@ -11,7 +11,7 @@ import { orm } from '@/server/infra/db';
 import { PhotoStatusEnum } from '@/server/enums/photo-enum';
 import { FileTypeEnum } from '@/server/enums/file-enum';
 import { buildPreviewKey, buildThumbnailKey } from '@/server/lib/photo-path';
-import { toMediaUrl } from '@/lib/url';
+import { toMediaUrl, toProxyMediaUrl } from '@/lib/url';
 import { reactionService } from '@/server/service/reaction-service';
 import { type PhotoViewRecordBo } from '@/server/entity/bo/insights';
 import {
@@ -322,6 +322,7 @@ const insightsService = {
         .select({
           photoId: photoTab.photoId,
           name: photoTab.name,
+          type: photoTab.type,
           checksum: photoTab.checksum,
           width: photoTab.width,
           height: photoTab.height,
@@ -337,6 +338,7 @@ const insightsService = {
         .groupBy(
           photoTab.photoId,
           photoTab.name,
+          photoTab.type,
           photoTab.checksum,
           photoTab.width,
           photoTab.height,
@@ -350,6 +352,7 @@ const insightsService = {
         .select({
           photoId: photoTab.photoId,
           name: photoTab.name,
+          type: photoTab.type,
           checksum: photoTab.checksum,
           width: photoTab.width,
           height: photoTab.height,
@@ -362,6 +365,7 @@ const insightsService = {
         .groupBy(
           photoTab.photoId,
           photoTab.name,
+          photoTab.type,
           photoTab.checksum,
           photoTab.width,
           photoTab.height,
@@ -402,7 +406,7 @@ const insightsService = {
         new Set([...mostViewedRaw, ...mostCommentedRaw].map((p) => p.photoId))
       );
 
-      const fileMap = new Map<string, { thumbnailKey?: string; previewKey?: string }>();
+      const fileMap = new Map<string, { thumbnailKey?: string; previewKey?: string; originalKey?: string }>();
       const commentCountMap = new Map<string, number>();
       const viewCountMap = new Map<string, number>();
 
@@ -422,6 +426,8 @@ const insightsService = {
             current.thumbnailKey = f.key;
           } else if (f.type === FileTypeEnum.PREVIEW) {
             current.previewKey = f.key;
+          } else if (f.type === FileTypeEnum.ORIGINAL) {
+            current.originalKey = f.key;
           }
           fileMap.set(f.photoId, current);
         }
@@ -456,6 +462,7 @@ const insightsService = {
       const formatPhotoItem = (item: {
         photoId: string;
         name: string;
+        type?: string | null;
         checksum: string | null;
         width: number | null;
         height: number | null;
@@ -468,10 +475,17 @@ const insightsService = {
         const files = fileMap.get(item.photoId);
         const thumbnailKey = files?.thumbnailKey || (checksum ? buildThumbnailKey(checksum, item.photoId) : '');
         const previewKey = files?.previewKey || (checksum ? buildPreviewKey(checksum, item.photoId) : '');
+        const isVideo = Boolean(item.type?.startsWith('video/'));
+        const originalKey = files?.originalKey;
+        const key = originalKey
+          ? (isVideo && domain ? toMediaUrl(originalKey, domain) : toProxyMediaUrl(originalKey))
+          : null;
 
         return {
           photoId: item.photoId,
           name: item.name,
+          type: item.type ?? null,
+          key,
           thumbnail: toMediaUrl(thumbnailKey, domain),
           preview: toMediaUrl(previewKey, domain),
           width: item.width,
@@ -501,6 +515,7 @@ const insightsService = {
         .select({
           photoId: photoTab.photoId,
           name: photoTab.name,
+          type: photoTab.type,
           checksum: photoTab.checksum,
           width: photoTab.width,
           height: photoTab.height,
@@ -526,6 +541,7 @@ const insightsService = {
 
       let thumbnailKey = '';
       let previewKey = '';
+      let originalKey = '';
 
       const fileRows = await orm
         .select({
@@ -538,6 +554,7 @@ const insightsService = {
       for (const f of fileRows) {
         if (f.type === FileTypeEnum.THUMBNAIL) thumbnailKey = f.key;
         if (f.type === FileTypeEnum.PREVIEW) previewKey = f.key;
+        if (f.type === FileTypeEnum.ORIGINAL) originalKey = f.key;
       }
 
       if (!thumbnailKey && photo.checksum) {
@@ -547,8 +564,12 @@ const insightsService = {
         previewKey = buildPreviewKey(photo.checksum, photo.photoId);
       }
 
+      const isVideo = Boolean(photo.type?.startsWith('video/'));
       const thumbnail = toMediaUrl(thumbnailKey, domain);
       const preview = toMediaUrl(previewKey, domain);
+      const key = originalKey
+        ? (isVideo && domain ? toMediaUrl(originalKey, domain) : toProxyMediaUrl(originalKey))
+        : null;
 
       const now = new Date();
       const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
@@ -560,73 +581,72 @@ const insightsService = {
         .select({ count: count() })
         .from(photoViewTab)
         .where(and(eq(photoViewTab.photoId, photoId), eq(photoViewTab.type, 'view')));
-      const totalViews = totalViewsRes?.count ?? 0;
+      const totalViews = Number(totalViewsRes?.count || 0);
 
       // 2. Views today
-      const [viewsTodayRes] = await orm
+      const [todayViewsRes] = await orm
         .select({ count: count() })
         .from(photoViewTab)
         .where(
           and(
             eq(photoViewTab.photoId, photoId),
             eq(photoViewTab.type, 'view'),
-            gte(photoViewTab.viewedAt, todayStart)
+            gte(photoViewTab.viewedAt, sql`${todayStart}::timestamp`)
           )
         );
-      const viewsToday = viewsTodayRes?.count ?? 0;
+      const viewsToday = Number(todayViewsRes?.count || 0);
 
-      // 3. Views this week
-      const [viewsWeekRes] = await orm
+      // 3. Views this week (last 7 days)
+      const [weekViewsRes] = await orm
         .select({ count: count() })
         .from(photoViewTab)
         .where(
           and(
             eq(photoViewTab.photoId, photoId),
             eq(photoViewTab.type, 'view'),
-            gte(photoViewTab.viewedAt, weekStart)
+            gte(photoViewTab.viewedAt, sql`${weekStart}::timestamp`)
           )
         );
-      const viewsThisWeek = viewsWeekRes?.count ?? 0;
+      const viewsThisWeek = Number(weekViewsRes?.count || 0);
 
-      // 4. Views this month
-      const [viewsMonthRes] = await orm
+      // 4. Views this month (last 30 days)
+      const [monthViewsRes] = await orm
         .select({ count: count() })
         .from(photoViewTab)
         .where(
           and(
             eq(photoViewTab.photoId, photoId),
             eq(photoViewTab.type, 'view'),
-            gte(photoViewTab.viewedAt, monthStart)
+            gte(photoViewTab.viewedAt, sql`${monthStart}::timestamp`)
           )
         );
-      const viewsThisMonth = viewsMonthRes?.count ?? 0;
+      const viewsThisMonth = Number(monthViewsRes?.count || 0);
 
-      // 5. Total comments on this photo
-      const [commentsRes] = await orm
+      // 5. Total comments for this photo
+      const [commentRes] = await orm
         .select({ count: count() })
         .from(commentTab)
         .where(eq(commentTab.photoId, photoId));
-      const comments = commentsRes?.count ?? 0;
+      const comments = Number(commentRes?.count || 0);
 
-      // 6. Total shares
-      const [sharesRes] = await orm
-        .select({ count: count() })
-        .from(photoViewTab)
-        .where(and(eq(photoViewTab.photoId, photoId), eq(photoViewTab.type, 'share')));
-      const shares = sharesRes?.count ?? 0;
-
-      // 7. Total downloads
-      const [downloadsRes] = await orm
+      // 6. Total downloads for this photo
+      const [downloadRes] = await orm
         .select({ count: count() })
         .from(photoViewTab)
         .where(and(eq(photoViewTab.photoId, photoId), eq(photoViewTab.type, 'download')));
-      const downloads = downloadsRes?.count ?? 0;
+      const downloads = Number(downloadRes?.count || 0);
 
-      // 8. Photo visitor reactions
-      const reactionsVo = await reactionService.getPhotoReactions(photoId);
-      const totals = reactionsVo?.totals || { love: 0, fire: 0, camera: 0, place: 0, clap: 0 };
+      // 7. Total shares for this photo
+      const [shareRes] = await orm
+        .select({ count: count() })
+        .from(photoViewTab)
+        .where(and(eq(photoViewTab.photoId, photoId), eq(photoViewTab.type, 'share')));
+      const shares = Number(shareRes?.count || 0);
+
+      // 8. Reactions aggregated breakdown
+      const totals = await reactionService.getPhotoReactions(photoId);
       const reactions = {
-        total: totals.love + totals.fire + totals.camera + totals.place + totals.clap,
+        total: totals.total,
         love: totals.love,
         fire: totals.fire,
         camera: totals.camera,
@@ -640,6 +660,8 @@ const insightsService = {
       return {
         photoId: photo.photoId,
         name: photo.name,
+        type: photo.type ?? null,
+        key,
         thumbnail,
         preview,
         width: photo.width,

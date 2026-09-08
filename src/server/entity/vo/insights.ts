@@ -41,6 +41,8 @@ export interface InsightsTopPhotoVo {
   commentCount: number;
   downloadCount?: number;
   reactionCount?: number;
+  type?: string | null;
+  key?: string | null;
 }
 
 export interface InsightsTopReactionPhotoVo {
@@ -60,6 +62,8 @@ export interface InsightsTopReactionPhotoVo {
   };
   viewCount: number;
   commentCount: number;
+  type?: string | null;
+  key?: string | null;
 }
 
 export interface PhotoInsightsDetailVo {
@@ -85,5 +89,7 @@ export interface PhotoInsightsDetailVo {
     clap: number;
   };
   chart: InsightsChartDataVo;
+  type?: string | null;
+  key?: string | null;
 }
 

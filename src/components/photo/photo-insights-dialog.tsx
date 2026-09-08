@@ -12,7 +12,7 @@ import {
 import { type PhotoInsightsDetailVo } from "@/server/entity/vo/insights"
 import { getPhotoInsightsDetail, resetPhotoReactions } from "@/request/insights"
 import { toProxyMediaUrl } from "@/lib/url"
-import { Eye, Download, Heart, MessageSquare, RotateCcw, Share2, TrendingUp, Loader2, Calendar, Image as ImageIcon } from "lucide-react"
+import { Eye, Download, Film, Heart, MessageSquare, RotateCcw, Share2, TrendingUp, Loader2, Calendar, Image as ImageIcon } from "lucide-react"
 import { toast } from "sonner"
 import {
   AreaChart,
@@ -24,8 +24,19 @@ import {
 } from "recharts"
 import { useModalBackHandler } from "@/hooks/use-modal-back-handler"
 
-// Safe photo thumbnail with CDN error fallback and proxy support
-function DialogPhotoThumbnail({ src, alt }: { src?: string | null; alt: string }) {
+// Safe photo/video thumbnail with CDN error fallback, proxy support, and direct video playback
+function DialogPhotoThumbnail({
+  src,
+  alt,
+  type,
+  videoSrc,
+}: {
+  src?: string | null
+  alt: string
+  type?: string | null
+  videoSrc?: string | null
+}) {
+  const isVideo = Boolean(type?.startsWith("video/") || /\.(mp4|webm|mov|m4v|mkv)$/i.test(alt))
   const [currentSrc, setCurrentSrc] = useState(src || "")
   const [hasError, setHasError] = useState(false)
 
@@ -46,23 +57,49 @@ function DialogPhotoThumbnail({ src, alt }: { src?: string | null; alt: string }
   }
 
   if (hasError || !currentSrc) {
+    if (isVideo && videoSrc) {
+      return (
+        <div className="relative size-16 rounded-lg overflow-hidden shrink-0 border border-border/60 bg-neutral-950">
+          <video
+            src={videoSrc}
+            preload="metadata"
+            muted
+            playsInline
+            className="size-full object-cover pointer-events-none"
+          />
+          <div className="absolute bottom-1 right-1 px-1 py-0.5 rounded bg-black/80 text-[9px] font-medium text-white flex items-center gap-0.5">
+            <Film className="size-2.5 text-rose-400" />
+            <span>VIDEO</span>
+          </div>
+        </div>
+      )
+    }
+
     return (
       <div className="size-16 rounded-lg bg-muted flex items-center justify-center shrink-0 border border-border/60 text-muted-foreground">
-        <ImageIcon className="size-6 opacity-40" />
+        {isVideo ? <Film className="size-6 opacity-40 text-rose-400" /> : <ImageIcon className="size-6 opacity-40" />}
       </div>
     )
   }
 
   return (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img
-      src={currentSrc}
-      alt=""
-      aria-label={alt}
-      loading="lazy"
-      onError={handleError}
-      className="size-16 rounded-lg object-cover shrink-0 border border-border/60 bg-muted"
-    />
+    <div className="relative size-16 rounded-lg overflow-hidden shrink-0 border border-border/60 bg-muted">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={currentSrc}
+        alt=""
+        aria-label={alt}
+        loading="lazy"
+        onError={handleError}
+        className="size-full object-cover"
+      />
+      {isVideo && (
+        <div className="absolute bottom-1 right-1 px-1 py-0.5 rounded bg-black/80 text-[9px] font-medium text-white flex items-center gap-0.5">
+          <Film className="size-2.5 text-rose-400" />
+          <span>VIDEO</span>
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -158,7 +195,12 @@ export function PhotoInsightsDialog({ photoId, open, onOpenChange, onReactionRes
           <div className="space-y-6 pt-2">
             {/* Photo Header Card */}
             <div className="flex items-center gap-4 p-3 rounded-xl bg-card border border-border/70">
-              <DialogPhotoThumbnail src={detail.thumbnail} alt={detail.name} />
+              <DialogPhotoThumbnail
+                src={detail.thumbnail}
+                alt={detail.name}
+                type={detail.type}
+                videoSrc={detail.key}
+              />
               <div className="min-w-0 flex-1">
                 <h4 className="font-semibold text-sm truncate text-foreground">{detail.name}</h4>
                 <div className="flex flex-wrap items-center gap-2 mt-1.5 text-xs text-muted-foreground">
