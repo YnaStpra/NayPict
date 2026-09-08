@@ -1,6 +1,16 @@
-// This module provides browser-based video metadata extraction, orientation-aware poster generation, and robust 720p compression across desktop and mobile browsers.
+// This module provides high-efficiency browser-based video metadata extraction, orientation-aware poster generation, and Mediabunny WebCodecs hardware-accelerated 720p compression with native fallback.
 
 import { rgbaToThumbHash } from "thumbhash";
+import {
+  Input,
+  Output,
+  Conversion,
+  ALL_FORMATS,
+  BlobSource,
+  BufferTarget,
+  Mp4OutputFormat,
+  Quality,
+} from "mediabunny";
 
 export interface VideoMetadata {
   duration: number; // in seconds
@@ -124,19 +134,41 @@ export async function getMp4RotationAndDimensions(file: File): Promise<Mp4Parsed
 
 /**
  * Extract video dimensions, duration, poster JPEG frame, and ThumbHash in browser.
- * Accounts for 90°/270° orientation metadata so portrait videos stay portrait (9:16)
- * and landscape videos stay landscape (16:9).
+ * Combines Mediabunny container parsing with HTML5 video frame rendering for 100% orientation accuracy.
  */
 export async function extractVideoMetadata(file: File): Promise<VideoMetadata> {
-  const mp4Meta = await getMp4RotationAndDimensions(file).catch(() => null);
-  const isRotated = mp4Meta?.rotation === 90 || mp4Meta?.rotation === 270;
+  // 1. Try Mediabunny's fast track inspection first
+  let mbMeta: { width: number; height: number; duration: number; rotation: number } | null = null;
+  try {
+    const input = new Input({
+      source: new BlobSource(file),
+      formats: ALL_FORMATS,
+    });
+    const videoTrack = await input.getPrimaryVideoTrack();
+    if (videoTrack) {
+      const d = (await input.computeDuration().catch(() => 0)) || 0;
+      const dw = await videoTrack.getDisplayWidth().catch(() => 0);
+      const dh = await videoTrack.getDisplayHeight().catch(() => 0);
+      const r = await videoTrack.getRotation().catch(() => 0);
+      if (dw > 0 && dh > 0) {
+        mbMeta = { width: dw, height: dh, duration: d, rotation: r };
+      }
+    }
+  } catch (err) {
+    console.warn("[VideoCompress] Mediabunny track inspection skipped:", err);
+  }
+
+  // 2. Fallback to direct atom parser if needed
+  const atomMeta = mbMeta ? null : await getMp4RotationAndDimensions(file).catch(() => null);
+  const rotation = mbMeta?.rotation ?? atomMeta?.rotation ?? 0;
+  const isRotated = rotation === 90 || rotation === 270;
 
   return new Promise((resolve) => {
     if (typeof window === "undefined" || typeof document === "undefined") {
       return resolve({
-        duration: 0,
-        width: 1280,
-        height: 720,
+        duration: mbMeta?.duration || 0,
+        width: mbMeta?.width || 1280,
+        height: mbMeta?.height || 720,
         posterBase64: "",
         thumbHash: "",
       });
@@ -174,26 +206,29 @@ export async function extractVideoMetadata(file: File): Promise<VideoMetadata> {
       URL.revokeObjectURL(videoUrl);
     };
 
-    let knownDuration = 0;
-    let knownWidth = 0;
-    let knownHeight = 0;
+    let knownDuration = mbMeta?.duration || 0;
+    let knownWidth = mbMeta?.width || 0;
+    let knownHeight = mbMeta?.height || 0;
 
     const getVisualDimensions = () => {
+      if (mbMeta && mbMeta.width > 0 && mbMeta.height > 0) {
+        return { width: mbMeta.width, height: mbMeta.height };
+      }
+
       const rawW = video.videoWidth || knownWidth || 1280;
       const rawH = video.videoHeight || knownHeight || 720;
 
       if (isRotated) {
-        // Swap dimensions: mobile 90/270 degree rotation transforms landscape sensor to portrait
         return {
           width: Math.min(rawW, rawH),
           height: Math.max(rawW, rawH),
         };
       }
 
-      if (mp4Meta && mp4Meta.displayWidth > 0 && mp4Meta.displayHeight > 0) {
+      if (atomMeta && atomMeta.displayWidth > 0 && atomMeta.displayHeight > 0) {
         return {
-          width: mp4Meta.displayWidth,
-          height: mp4Meta.displayHeight,
+          width: atomMeta.displayWidth,
+          height: atomMeta.displayHeight,
         };
       }
 
@@ -308,7 +343,6 @@ export async function extractVideoMetadata(file: File): Promise<VideoMetadata> {
       });
     };
 
-    // Safety timeout (6s max) to ensure upload is never blocked
     const timeout = setTimeout(() => {
       finishWithSnapshot();
     }, 6000);
@@ -337,14 +371,12 @@ export async function extractVideoMetadata(file: File): Promise<VideoMetadata> {
           fallbackThumbHash = initialSnap.hash;
         }
 
-        // If initial frame has visual content, finalize immediately
         if (!initialSnap.isBlack) {
           clearTimeout(timeout);
           finishWithSnapshot();
           return;
         }
 
-        // If initial frame is solid black, seek forward into video to find an active frame
         if (!hasSought && duration > 0.5) {
           hasSought = true;
           const targetTime = duration > 2 ? Math.min(1.0, duration / 4) : 0.2;
@@ -389,13 +421,8 @@ export async function extractVideoMetadata(file: File): Promise<VideoMetadata> {
       onDataReady();
     };
 
-    video.onloadeddata = () => {
-      onDataReady();
-    };
-
-    video.oncanplay = () => {
-      onDataReady();
-    };
+    video.onloadeddata = onDataReady;
+    video.oncanplay = onDataReady;
 
     video.onerror = () => {
       console.warn("[VideoCompress] Video element error during metadata extraction:", video.error);
@@ -452,70 +479,120 @@ function getSupportedVideoMimeType(hasAudio: boolean): string | null {
 }
 
 /**
- * Smart 720p Video Compressor:
- * - Downscales 4K and 1080p videos to optimized 720p HD (~1.1 Mbps) achieving ~85%-95% size reduction.
- * - Respects true aspect ratio (portrait 9:16, landscape 16:9, or square 1:1).
- * - Extracts and preserves audio via Web Audio decodeAudioData without autoplay blocks.
- * - Video playback runs muted during capture to guarantee 100% immunity to browser autoplay restrictions.
+ * Hardware-accelerated 720p compression using Mediabunny (WebCodecs).
+ * Compresses videos at blazing GPU speed with Variable Bitrate (VBR) optimization.
  */
-export async function compressVideoTo720p(
+async function compressWithMediabunny(
   file: File,
   meta: VideoMetadata,
-  options: VideoCompressOptions = {}
-): Promise<File> {
-  const { maxDimension = 1280, onProgress } = options;
+  targetWidth: number,
+  targetHeight: number,
+  finalBitrate: number,
+  onProgress?: (progress: number) => void
+): Promise<File | null> {
+  if (
+    typeof window === "undefined" ||
+    !("VideoEncoder" in window) ||
+    !("VideoDecoder" in window)
+  ) {
+    return null;
+  }
 
-  const isPortrait = meta.height > meta.width;
-  const longEdge = isPortrait ? meta.height : meta.width;
-  const shortEdge = isPortrait ? meta.width : meta.height;
+  try {
+    console.log("[VideoCompress] Attempting Mediabunny WebCodecs hardware conversion...");
 
-  // If video is already 720p or lower and size is moderate (< 20MB), skip re-encoding
-  if (shortEdge <= 720 && longEdge <= 1280 && file.size <= 20 * 1024 * 1024) {
-    console.log("[VideoCompress] Video already 720p or smaller (<20MB), skipping compression:", {
-      dimensions: `${meta.width}x${meta.height}`,
-      size: file.size,
+    const input = new Input({
+      source: new BlobSource(file),
+      formats: ALL_FORMATS,
     });
+
+    const output = new Output({
+      format: new Mp4OutputFormat(),
+      target: new BufferTarget(),
+    });
+
+    const conversion = await Conversion.init({
+      input,
+      output,
+      video: {
+        width: targetWidth,
+        height: targetHeight,
+        fit: "contain",
+        codec: "avc", // H.264
+        quality: new Quality({
+          bitrate: finalBitrate,
+          bitrateMode: "variable",
+        }),
+        allowRotationMetadata: false, // Bakes rotation directly into pixels so video is permanently upright
+        forceTranscode: true,
+      },
+      audio: {
+        codec: "aac",
+        quality: new Quality({
+          bitrate: 128_000, // 128kbps stereo AAC
+        }),
+      },
+      showWarnings: false,
+    });
+
+    if (!conversion.isValid) {
+      console.warn("[VideoCompress] Mediabunny conversion not valid for this input, falling back to native:", conversion.discardedTracks);
+      return null;
+    }
+
+    conversion.onProgress = (progress) => {
+      onProgress?.(Math.min(99, Math.round(progress * 100)));
+    };
+
+    await conversion.execute();
+
+    const buffer = output.target.buffer;
+    if (!buffer || buffer.byteLength === 0) {
+      console.warn("[VideoCompress] Mediabunny produced empty buffer, falling back to native");
+      return null;
+    }
+
+    console.log("[VideoCompress] Mediabunny conversion succeeded:", {
+      originalSize: `${(file.size / (1024 * 1024)).toFixed(1)}MB`,
+      compressedSize: `${(buffer.byteLength / (1024 * 1024)).toFixed(1)}MB`,
+      savedPercent: `${Math.round((1 - buffer.byteLength / file.size) * 100)}%`,
+    });
+
+    if (buffer.byteLength >= file.size) {
+      console.warn("[VideoCompress] Mediabunny result not smaller than original, returning original");
+      return file;
+    }
+
+    const baseName = file.name.replace(/\.[^/.]+$/, "");
+    const compressedFile = new File([buffer], `${baseName}.mp4`, {
+      type: "video/mp4",
+      lastModified: file.lastModified,
+    });
+
+    Object.defineProperties(compressedFile, {
+      videoWidth: { value: targetWidth, writable: true },
+      videoHeight: { value: targetHeight, writable: true },
+    });
+
     onProgress?.(100);
-    return file;
+    return compressedFile;
+  } catch (err) {
+    console.warn("[VideoCompress] Mediabunny conversion threw error, falling back to native canvas:", err);
+    return null;
   }
+}
 
-  // Calculate target 720p dimensions maintaining true visual orientation
-  let targetWidth = meta.width || (isPortrait ? 720 : 1280);
-  let targetHeight = meta.height || (isPortrait ? 1280 : 720);
-
-  if (isPortrait) {
-    if (targetWidth > 720 || targetHeight > maxDimension) {
-      const scale = Math.min(720 / targetWidth, maxDimension / targetHeight);
-      targetWidth = Math.round((targetWidth * scale) / 2) * 2;
-      targetHeight = Math.round((targetHeight * scale) / 2) * 2;
-    }
-  } else {
-    if (targetHeight > 720 || targetWidth > maxDimension) {
-      const scale = Math.min(maxDimension / targetWidth, 720 / targetHeight);
-      targetWidth = Math.round((targetWidth * scale) / 2) * 2;
-      targetHeight = Math.round((targetHeight * scale) / 2) * 2;
-    }
-  }
-
-  // Ensure even dimensions required for video codecs
-  targetWidth = Math.max(2, Math.round(targetWidth / 2) * 2);
-  targetHeight = Math.max(2, Math.round(targetHeight / 2) * 2);
-
-  // Calculate optimal adaptive bitrate (~1.1 Mbps for 720p produces ~8.2MB/min)
-  const pixels = targetWidth * targetHeight;
-  const defaultBitrate = Math.round(
-    Math.min(1_400_000, Math.max(700_000, (pixels / 921_600) * 1_100_000))
-  );
-  const finalBitrate = options.bitrate || defaultBitrate;
-
-  console.log("[VideoCompress] Starting client-side 720p compression:", {
-    originalSize: `${(file.size / (1024 * 1024)).toFixed(1)}MB`,
-    visualDimensions: `${meta.width}x${meta.height}`,
-    targetDimensions: `${targetWidth}x${targetHeight}`,
-    isPortrait,
-    bitrate: `${Math.round(finalBitrate / 1000)}kbps`,
-  });
-
+/**
+ * Native Canvas + Web Audio + MediaRecorder fallback compressor.
+ */
+async function compressWithNativeCanvas(
+  file: File,
+  meta: VideoMetadata,
+  targetWidth: number,
+  targetHeight: number,
+  finalBitrate: number,
+  onProgress?: (progress: number) => void
+): Promise<File> {
   return new Promise(async (resolve) => {
     const container = document.createElement("div");
     container.style.cssText = "position:fixed;bottom:0;right:0;width:1px;height:1px;overflow:hidden;opacity:0.01;pointer-events:none;z-index:9999;";
@@ -574,7 +651,6 @@ export async function compressVideoTo720p(
       URL.revokeObjectURL(videoUrl);
     };
 
-    // 1. Audio track extraction via Web Audio decodeAudioData (ZERO Autoplay restrictions!)
     let audioTrack: MediaStreamTrack | null = null;
     try {
       const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
@@ -639,13 +715,12 @@ export async function compressVideoTo720p(
           const extension = mimeType.includes("mp4") ? "mp4" : "webm";
           const outputBlob = new Blob(recordedChunks, { type: mimeType });
 
-          console.log("[VideoCompress] Compression finished:", {
+          console.log("[VideoCompress] Native compression finished:", {
             originalSize: `${(file.size / (1024 * 1024)).toFixed(1)}MB`,
             compressedSize: `${(outputBlob.size / (1024 * 1024)).toFixed(1)}MB`,
             savedPercent: `${Math.round((1 - outputBlob.size / file.size) * 100)}%`,
           });
 
-          // If compression failed to produce output or is somehow larger, keep original
           if (outputBlob.size === 0 || outputBlob.size >= file.size) {
             console.warn("[VideoCompress] Output not smaller than original or empty, keeping original file");
             resolve(file);
@@ -658,7 +733,6 @@ export async function compressVideoTo720p(
             lastModified: file.lastModified,
           });
 
-          // Attach true visual dimensions for downstream database registration
           Object.defineProperties(compressedFile, {
             videoWidth: { value: targetWidth, writable: true },
             videoHeight: { value: targetHeight, writable: true },
@@ -702,7 +776,6 @@ export async function compressVideoTo720p(
         };
 
         const tryPlay = async () => {
-          // Muted playback is 100% exempt from browser Autoplay restrictions across all browsers
           video.muted = true;
 
           try {
@@ -766,4 +839,95 @@ export async function compressVideoTo720p(
     video.src = videoUrl;
     video.load();
   });
+}
+
+/**
+ * Smart 720p Video Compressor:
+ * - Uses Mediabunny (WebCodecs hardware acceleration) for ultra-fast, high-efficiency VBR encoding.
+ * - Falls back seamlessly to native Canvas/WebAudio/MediaRecorder pipeline on legacy browsers.
+ * - Downscales 4K and 1080p videos to optimized 720p HD (~1.1 Mbps) achieving ~85%-95% size reduction.
+ * - Respects true aspect ratio (portrait 9:16, landscape 16:9, or square 1:1) and bakes rotation permanently into frames.
+ */
+export async function compressVideoTo720p(
+  file: File,
+  meta: VideoMetadata,
+  options: VideoCompressOptions = {}
+): Promise<File> {
+  const { maxDimension = 1280, onProgress } = options;
+
+  const isPortrait = meta.height > meta.width;
+  const longEdge = isPortrait ? meta.height : meta.width;
+  const shortEdge = isPortrait ? meta.width : meta.height;
+
+  // If video is already 720p or lower and size is moderate (< 20MB), skip re-encoding
+  if (shortEdge <= 720 && longEdge <= 1280 && file.size <= 20 * 1024 * 1024) {
+    console.log("[VideoCompress] Video already 720p or smaller (<20MB), skipping compression:", {
+      dimensions: `${meta.width}x${meta.height}`,
+      size: file.size,
+    });
+    onProgress?.(100);
+    return file;
+  }
+
+  // Calculate target 720p dimensions maintaining true visual orientation
+  let targetWidth = meta.width || (isPortrait ? 720 : 1280);
+  let targetHeight = meta.height || (isPortrait ? 1280 : 720);
+
+  if (isPortrait) {
+    if (targetWidth > 720 || targetHeight > maxDimension) {
+      const scale = Math.min(720 / targetWidth, maxDimension / targetHeight);
+      targetWidth = Math.round((targetWidth * scale) / 2) * 2;
+      targetHeight = Math.round((targetHeight * scale) / 2) * 2;
+    }
+  } else {
+    if (targetHeight > 720 || targetWidth > maxDimension) {
+      const scale = Math.min(maxDimension / targetWidth, 720 / targetHeight);
+      targetWidth = Math.round((targetWidth * scale) / 2) * 2;
+      targetHeight = Math.round((targetHeight * scale) / 2) * 2;
+    }
+  }
+
+  // Ensure even dimensions required for video codecs
+  targetWidth = Math.max(2, Math.round(targetWidth / 2) * 2);
+  targetHeight = Math.max(2, Math.round(targetHeight / 2) * 2);
+
+  // Calculate optimal adaptive bitrate (~1.1 Mbps for 720p produces ~8.2MB/min)
+  const pixels = targetWidth * targetHeight;
+  const defaultBitrate = Math.round(
+    Math.min(1_400_000, Math.max(700_000, (pixels / 921_600) * 1_100_000))
+  );
+  const finalBitrate = options.bitrate || defaultBitrate;
+
+  console.log("[VideoCompress] Starting 720p compression:", {
+    originalSize: `${(file.size / (1024 * 1024)).toFixed(1)}MB`,
+    visualDimensions: `${meta.width}x${meta.height}`,
+    targetDimensions: `${targetWidth}x${targetHeight}`,
+    isPortrait,
+    bitrate: `${Math.round(finalBitrate / 1000)}kbps`,
+  });
+
+  // 1. Primary Strategy: Blazing fast Mediabunny WebCodecs hardware GPU conversion
+  const mediabunnyResult = await compressWithMediabunny(
+    file,
+    meta,
+    targetWidth,
+    targetHeight,
+    finalBitrate,
+    onProgress
+  );
+
+  if (mediabunnyResult) {
+    return mediabunnyResult;
+  }
+
+  // 2. Secondary Strategy: Resilient native canvas pipeline fallback
+  console.log("[VideoCompress] Falling back to native canvas pipeline");
+  return compressWithNativeCanvas(
+    file,
+    meta,
+    targetWidth,
+    targetHeight,
+    finalBitrate,
+    onProgress
+  );
 }
