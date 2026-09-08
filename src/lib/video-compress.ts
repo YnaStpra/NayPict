@@ -168,15 +168,20 @@ export async function extractVideoMetadata(file: File): Promise<VideoMetadata> {
       }
     };
 
+    let knownDuration = 0;
+    let knownWidth = 1280;
+    let knownHeight = 720;
+
     const finishWithSnapshot = () => {
       const snap = takeSnapshot();
       const finalPoster = snap.poster || fallbackPoster;
       const finalHash = snap.hash || fallbackThumbHash;
-      const finalWidth = video.videoWidth || 1280;
-      const finalHeight = video.videoHeight || 720;
+      const finalWidth = video.videoWidth || knownWidth || 1280;
+      const finalHeight = video.videoHeight || knownHeight || 720;
+      const finalDuration = (video.duration && !isNaN(video.duration)) ? video.duration : (knownDuration || 0);
       cleanup();
       resolve({
-        duration: video.duration || 0,
+        duration: finalDuration,
         width: finalWidth,
         height: finalHeight,
         posterBase64: finalPoster,
@@ -195,9 +200,17 @@ export async function extractVideoMetadata(file: File): Promise<VideoMetadata> {
     const onDataReady = () => {
       if (finished) return;
 
-      const duration = video.duration || 0;
-      const width = video.videoWidth;
-      const height = video.videoHeight;
+      if (video.duration && !isNaN(video.duration)) {
+        knownDuration = video.duration;
+      }
+      if (video.videoWidth > 0) {
+        knownWidth = video.videoWidth;
+        knownHeight = video.videoHeight;
+      }
+
+      const duration = knownDuration || video.duration || 0;
+      const width = knownWidth || video.videoWidth;
+      const height = knownHeight || video.videoHeight;
 
       // Ensure frame pixel data is buffered before attempting canvas draw (readyState >= HAVE_CURRENT_DATA)
       if (width > 0 && height > 0 && video.readyState >= 2) {
@@ -251,6 +264,16 @@ export async function extractVideoMetadata(file: File): Promise<VideoMetadata> {
     };
 
     video.onloadedmetadata = () => {
+      if (video.duration && !isNaN(video.duration)) {
+        knownDuration = video.duration;
+      }
+      if (video.videoWidth > 0) {
+        knownWidth = video.videoWidth;
+        knownHeight = video.videoHeight;
+      }
+      try {
+        video.currentTime = 0.05;
+      } catch {}
       onDataReady();
     };
 
@@ -267,16 +290,17 @@ export async function extractVideoMetadata(file: File): Promise<VideoMetadata> {
       clearTimeout(timeout);
       cleanup();
       resolve({
-        duration: 0,
-        width: 1280,
-        height: 720,
+        duration: knownDuration || 0,
+        width: knownWidth || 1280,
+        height: knownHeight || 720,
         posterBase64: "",
         thumbHash: "",
       });
     };
 
-    video.src = `${videoUrl}#t=0.001`;
+    video.src = videoUrl;
     video.load();
+    void video.play().then(() => video.pause()).catch(() => {});
   });
 }
 

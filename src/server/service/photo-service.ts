@@ -78,6 +78,31 @@ export function invalidatePhotoFastPathCache(): void {
   publicFastPathCache.clear();
 }
 
+// Resolve canonical MIME type matching file extension when client MIME is absent or generic.
+function getCanonicalMimeType(filename: string, fileType?: string): string {
+  const cleanType = fileType?.split(';')[0]?.trim();
+  if (cleanType && cleanType !== 'application/octet-stream') {
+    return cleanType;
+  }
+  const ext = filename.split('.').pop()?.toLowerCase() || '';
+  const mimeMap: Record<string, string> = {
+    mp4: 'video/mp4',
+    mov: 'video/quicktime',
+    webm: 'video/webm',
+    m4v: 'video/x-m4v',
+    mkv: 'video/x-matroska',
+    jpg: 'image/jpeg',
+    jpeg: 'image/jpeg',
+    png: 'image/png',
+    webp: 'image/webp',
+    gif: 'image/gif',
+    avif: 'image/avif',
+    heic: 'image/heic',
+    jxl: 'image/jxl',
+  };
+  return mimeMap[ext] || 'image/jpeg';
+}
+
 const photoService = {
 
   // Query photos by page (publicly for guests or user-specific for logged-in admin).
@@ -518,7 +543,7 @@ const photoService = {
       throw new BizError('photo.fileNameRequired');
     }
 
-    const fileType = params.fileType?.trim() || 'image/jpeg';
+    const fileType = getCanonicalMimeType(filename, params.fileType);
     let storageList = await storageService.getStorageList();
     let targetStorage: Storage | undefined = params.storageId
       ? storageList.find((s) => s.storageId === params.storageId)

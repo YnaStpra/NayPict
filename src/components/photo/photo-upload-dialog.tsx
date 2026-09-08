@@ -1,9 +1,10 @@
 "use client"
 
 import { useEffect, useRef, useState, type ChangeEvent } from "react"
-import { CheckIcon, CircleAlertIcon, PlusIcon, SettingsIcon, Trash2Icon, CopyIcon, ShieldAlertIcon, CheckCircle2Icon, Loader2, UploadCloud, X, Play } from "lucide-react"
+import { CheckIcon, CircleAlertIcon, PlusIcon, SettingsIcon, Trash2Icon, CopyIcon, ShieldAlertIcon, CheckCircle2Icon, Loader2, UploadCloud, X, Play, RotateCcw } from "lucide-react"
 import { toast } from "sonner"
 import { sha1 } from "hash-wasm"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -53,6 +54,7 @@ interface UploadPreview {
   videoDuration?: number
   isThumbnailLoading?: boolean
   cachedMeta?: VideoMetadata
+  errorMessage?: string
 }
 
 interface DuplicateReviewPair {
@@ -91,6 +93,31 @@ async function getFileChecksum(file: File): Promise<string> {
     console.warn("Checksum calculation fallback:", err)
     return `${file.name}-${file.size}-${file.lastModified}`
   }
+}
+
+// Helper to resolve canonical MIME type matching file extension when client MIME is absent or generic.
+function getCanonicalMimeType(filename: string, fileType?: string): string {
+  const cleanType = fileType?.split(";")[0]?.trim()
+  if (cleanType && cleanType !== "application/octet-stream") {
+    return cleanType
+  }
+  const ext = filename.split(".").pop()?.toLowerCase() || ""
+  const mimeMap: Record<string, string> = {
+    mp4: "video/mp4",
+    mov: "video/quicktime",
+    webm: "video/webm",
+    m4v: "video/x-m4v",
+    mkv: "video/x-matroska",
+    jpg: "image/jpeg",
+    jpeg: "image/jpeg",
+    png: "image/png",
+    webp: "image/webp",
+    gif: "image/gif",
+    avif: "image/avif",
+    heic: "image/heic",
+    jxl: "image/jxl",
+  }
+  return mimeMap[ext] || "video/mp4"
 }
 
 function getUploadErrorMessage(xhr: XMLHttpRequest): string {
@@ -175,6 +202,7 @@ function uploadPhotoAdd(
 function uploadFileDirect(
   uploadUrl: string,
   file: File,
+  contentType: string,
   onProgress?: (progress: number) => void,
   onAbort?: (abort: () => void) => void
 ): Promise<void> {
@@ -188,12 +216,18 @@ function uploadFileDirect(
       if (xhr.status >= 200 && xhr.status < 300) {
         resolve()
       } else {
-        reject(new Error(`Direct upload failed (HTTP ${xhr.status})`))
+        let detail = ""
+        try {
+          detail = xhr.responseText || xhr.statusText
+        } catch {}
+        reject(new Error(`Direct storage upload failed (HTTP ${xhr.status}${detail ? `: ${detail.slice(0, 120)}` : ""})`))
       }
     }
-    xhr.onerror = () => reject(new Error("Direct upload network error (connection interrupted)"))
+    xhr.onerror = () => reject(new Error("Direct upload network error (connection interrupted or CORS blocked)"))
+    xhr.ontimeout = () => reject(new Error("Direct upload timed out (network connection too slow)"))
+    xhr.timeout = 30 * 60 * 1000 // 30 minutes timeout for huge 4K files
     xhr.open("PUT", uploadUrl)
-    xhr.setRequestHeader("Content-Type", file.type || "video/mp4")
+    xhr.setRequestHeader("Content-Type", contentType)
     onAbort?.(() => xhr.abort())
     xhr.send(file)
   })
@@ -202,6 +236,7 @@ function uploadFileDirect(
 async function uploadFileDirectWithRetry(
   uploadUrl: string,
   file: File,
+  contentType: string,
   onProgress?: (progress: number) => void,
   onAbort?: (abort: () => void) => void,
   onRetry?: (attempt: number, maxAttempts: number) => void,
@@ -210,7 +245,7 @@ async function uploadFileDirectWithRetry(
   let lastError: Error | null = null
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
-      await uploadFileDirect(uploadUrl, file, onProgress, onAbort)
+      await uploadFileDirect(uploadUrl, file, contentType, onProgress, onAbort)
       return
     } catch (err: any) {
       lastError = err
@@ -429,11 +464,29 @@ export function PhotoUploadDialog() {
 
     setPreviews(previewsRef.current.map((preview) => (
       uploadIds.has(preview.id)
-        ? { ...preview, status: "waiting", progress: 0 }
+        ? { ...preview, status: "waiting", progress: 0, errorMessage: undefined }
         : preview
     )))
 
     return uploadList.length
+  }
+
+  function retryUploadItem(id: string) {
+    const item = previewsRef.current.find((p) => p.id === id)
+    if (!item) return
+
+    uploadStorageIdRef.current = selectedStorageId
+    uploadQueueRef.current.push(item)
+
+    setPreviews((prev) =>
+      prev.map((p) => (p.id === id ? { ...p, status: "waiting", progress: 0, errorMessage: undefined } : p))
+    )
+
+    if (!uploadingRef.current) {
+      uploadingRef.current = true
+      setUploading(true)
+      runNext()
+    }
   }
 
   async function uploadPhoto(preview: UploadPreview) {
@@ -516,9 +569,10 @@ export function PhotoUploadDialog() {
         }
 
         // 4. Request direct presigned PUT upload URL to bypass Vercel serverless payload limits
+        const targetMimeType = getCanonicalMimeType(compressedVideo.name, compressedVideo.type)
         const presigned = await photoGetPresignedUploadUrl({
           filename: compressedVideo.name,
-          fileType: compressedVideo.type,
+          fileType: targetMimeType,
           storageId: targetStorageId || undefined,
         })
 
@@ -526,6 +580,7 @@ export function PhotoUploadDialog() {
         await uploadFileDirectWithRetry(
           presigned.uploadUrl,
           compressedVideo,
+          targetMimeType,
           (upProg) => {
             const totalProgress = 45 + Math.round(upProg * 0.5)
             setPreviews((prev) =>
@@ -697,13 +752,13 @@ export function PhotoUploadDialog() {
       if (readPhotoUploadSettings().retryOnFail) {
         uploadQueueRef.current.push(item)
         setPreviews((prev) => prev.map((p) => (
-          p.id === item.id ? { ...p, progress: 0, status: "waiting" } : p
+          p.id === item.id ? { ...p, progress: 0, status: "waiting", errorMessage: errMsg } : p
         )))
         return
       }
 
       setPreviews((prev) => prev.map((p) => (
-        p.id === item.id ? { ...p, progress: 100, status: "failed" } : p
+        p.id === item.id ? { ...p, progress: 100, status: "failed", errorMessage: errMsg } : p
       )))
     } finally {
       abortMapRef.current.delete(preview.id)
@@ -1014,9 +1069,52 @@ export function PhotoUploadDialog() {
                       </div>
                     )}
                     {preview.status === "failed" && (
-                      <div className="absolute right-1 bottom-1 flex size-5 items-center justify-center rounded-full bg-destructive text-white shadow-xs elastic-pop-badge">
-                        <CircleAlertIcon className="size-3.5" />
-                      </div>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              toast.error(preview.errorMessage || "Upload failed. Click 'Start' to retry.")
+                            }}
+                            className="absolute right-1 bottom-1 flex size-5.5 items-center justify-center rounded-full bg-destructive text-white shadow-md elastic-pop-badge cursor-pointer hover:scale-115 hover:bg-destructive/90 transition-all focus:outline-hidden"
+                            aria-label="Upload error details"
+                          >
+                            <CircleAlertIcon className="size-3.5" />
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent
+                          side="top"
+                          align="end"
+                          className="z-[100070] max-w-[280px] p-3 bg-neutral-900/95 backdrop-blur-md border border-destructive/40 text-white rounded-xl shadow-2xl text-left"
+                        >
+                          <div className="flex items-start gap-2.5">
+                            <div className="rounded-full bg-destructive/20 p-1 shrink-0 mt-0.5">
+                              <CircleAlertIcon className="size-4 text-destructive" />
+                            </div>
+                            <div className="flex flex-col gap-1 min-w-0 flex-1">
+                              <p className="text-xs font-bold text-destructive">Upload Failed</p>
+                              <p className="text-[11px] text-neutral-200 leading-relaxed break-words font-normal">
+                                {preview.errorMessage || "An unexpected error occurred or the network connection was interrupted."}
+                              </p>
+                              <div className="mt-2 pt-2 border-t border-white/10 flex items-center justify-between gap-2">
+                                <span className="text-[10px] text-neutral-400">Click to retry</span>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    retryUploadItem(preview.id)
+                                  }}
+                                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-destructive text-white text-[10px] font-semibold hover:bg-destructive/80 transition-colors cursor-pointer"
+                                >
+                                  <RotateCcw className="size-3" />
+                                  <span>Retry</span>
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        </TooltipContent>
+                      </Tooltip>
                     )}
                     {preview.status === "skipped" && (
                       <div
