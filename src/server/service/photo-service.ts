@@ -1435,8 +1435,11 @@ const photoService = {
     // mask photo key as null so original raw photo is not leaked. For videos, key is required for streaming playback.
     const isVideo = Boolean(photo.type?.startsWith('video/'));
     const isAllowed = isVideo || photo.allowDownload === 1 || Boolean(currentUserId);
-    // Originals always traverse the same-origin authorization proxy; the CDN only serves derivatives.
-    const key = isAllowed && rawKey ? toProxyMediaUrl(rawKey) : null;
+    // Protected photo originals always traverse the same-origin authorization proxy; the CDN only serves derivatives.
+    // For videos, if a CDN domain is configured, deliver directly via CDN edge to completely bypass Vercel bandwidth.
+    const key = isAllowed && rawKey
+      ? (isVideo && domain ? toMediaUrl(rawKey, domain) : toProxyMediaUrl(rawKey))
+      : null;
     const isLocationIgnored = exifRow?.latitude === 999 && exifRow?.longitude === 999;
     const latitude = isLocationIgnored ? null : (exifRow?.latitude ?? null);
     const longitude = isLocationIgnored ? null : (exifRow?.longitude ?? null);

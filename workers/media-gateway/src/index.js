@@ -1,10 +1,11 @@
 // This module exposes only public photo derivatives from a private Cloudflare R2 bucket.
 
 const PUBLIC_PREFIXES = Object.freeze(["previews/", "thumbnails/"])
+const VIDEO_EXTENSIONS = Object.freeze([".mp4", ".webm", ".mov", ".m4v", ".mkv"])
 const READ_METHODS = Object.freeze(["GET", "HEAD"])
 const ALLOW_METHODS = "GET, HEAD, OPTIONS"
-const ALLOW_HEADERS = "Accept, If-Match, If-Modified-Since, If-None-Match, If-Unmodified-Since"
-const EXPOSE_HEADERS = "Content-Length, Content-Type, ETag, Last-Modified"
+const ALLOW_HEADERS = "Accept, If-Match, If-Modified-Since, If-None-Match, If-Unmodified-Since, Range"
+const EXPOSE_HEADERS = "Content-Length, Content-Type, Content-Range, ETag, Last-Modified, Accept-Ranges"
 const PUBLIC_CACHE_CONTROL = "public, max-age=31536000, immutable"
 
 // Resolve APP_URL to one canonical HTTP origin and fail closed for invalid configuration.
@@ -75,9 +76,13 @@ function parseObjectKey(url) {
   }
 }
 
-// Check that a key is a concrete object below one of the two public derivative prefixes.
+// Check that a key is a concrete object below one of the public derivative prefixes or a public display video.
 function isPublicObjectKey(key) {
-  return PUBLIC_PREFIXES.some((prefix) => key.startsWith(prefix) && key.length > prefix.length)
+  if (PUBLIC_PREFIXES.some((prefix) => key.startsWith(prefix) && key.length > prefix.length)) {
+    return true
+  }
+  const lowerKey = key.toLowerCase()
+  return VIDEO_EXTENSIONS.some((ext) => lowerKey.endsWith(ext))
 }
 
 // Permit requests without CORS context or with an approved origin.
@@ -109,6 +114,14 @@ function buildObjectHeaders(object, allowedOrigin, requestOrigin) {
   headers.set("Content-Length", String(object.size))
   headers.set("ETag", object.httpEtag)
   headers.set("Last-Modified", object.uploaded.toUTCString())
+  headers.set("Accept-Ranges", "bytes")
+
+  if ("range" in object && object.range) {
+    const start = object.range.offset ?? 0
+    const end = start + object.size - 1
+    const total = object.range.total ?? "*"
+    headers.set("Content-Range", `bytes ${start}-${end}/${total}`)
+  }
 
   if (!headers.has("Content-Type")) {
     headers.set("Content-Type", "application/octet-stream")
@@ -218,20 +231,26 @@ async function serveHead(request, env, key, allowedOrigin) {
   return status ? conditionalResponse(status, headers) : new Response(null, { status: 200, headers })
 }
 
-// Stream a public derivative from R2 and populate the Cloudflare edge cache for plain GETs.
+// Stream a public derivative or video from R2 and populate the Cloudflare edge cache for plain GETs.
 async function serveGet(request, env, context, key, allowedOrigin) {
   const requestOrigin = request.headers.get("Origin")
   const conditional = isConditionalRequest(request)
+  const isRange = request.headers.has("range")
   const cacheRequest = buildCacheRequest(request.url, key)
 
-  if (!conditional) {
+  if (!conditional && !isRange) {
     const cached = await caches.default.match(cacheRequest)
     if (cached) return cached
   }
 
-  const object = await env.MEDIA_BUCKET.get(key, {
+  const getOptions = {
     onlyIf: request.headers,
-  })
+  }
+  if (isRange) {
+    getOptions.range = request.headers
+  }
+
+  const object = await env.MEDIA_BUCKET.get(key, getOptions)
 
   if (!object) return errorResponse("Not found.", 404, allowedOrigin, {}, requestOrigin)
 
@@ -240,9 +259,10 @@ async function serveGet(request, env, context, key, allowedOrigin) {
     return conditionalResponse(getHeadPreconditionStatus(request, object) ?? 412, headers)
   }
 
-  const response = new Response(object.body, { status: 200, headers })
+  const status = isRange && "range" in object && object.range ? 206 : 200
+  const response = new Response(object.body, { status, headers })
 
-  if (!conditional) {
+  if (!conditional && !isRange && status === 200) {
     context.waitUntil(caches.default.put(cacheRequest, response.clone()))
   }
 

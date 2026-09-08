@@ -105,8 +105,15 @@ media.get('*', async (c: Context, next: Next) => {
     return next();
   }
 
-  // Server-side Download Protection for ORIGINAL file requests
-  if (photoFile.type === FileTypeEnum.ORIGINAL) {
+  // Detect if the requested resource is a video
+  const isVideo = Boolean(
+    photoFile.fileType?.startsWith('video/') ||
+    photoFile.name?.match(/\.(mp4|webm|mov|m4v|mkv)$/i) ||
+    photoFile.key?.match(/\.(mp4|webm|mov|m4v|mkv)$/i)
+  );
+
+  // Server-side Download Protection for ORIGINAL photo requests (videos are public gallery display media)
+  if (photoFile.type === FileTypeEnum.ORIGINAL && !isVideo) {
     const isAllowed = photoFile.allowDownload === 1 || Boolean(userId);
 
     if (!isAllowed) {
@@ -121,16 +128,18 @@ media.get('*', async (c: Context, next: Next) => {
   }
 
   const isOriginal = photoFile.type === FileTypeEnum.ORIGINAL;
+  // Derivatives and public gallery videos are safe to cache on global CDN edge
+  const isCacheable = !isOriginal || isVideo;
   const etag = `W/"${photoFile.key}"`;
   const ifNoneMatch = c.req.header('if-none-match');
 
-  // Fast-path HTTP 304 Not Modified: instantly revalidate cached images with 0 bytes transferred
+  // Fast-path HTTP 304 Not Modified: instantly revalidate cached images/videos with 0 bytes transferred
   if (ifNoneMatch && (ifNoneMatch === etag || ifNoneMatch === `"${photoFile.key}"`)) {
     const notModifiedHeaders: Record<string, string> = {
       'ETag': etag,
-      'Cache-Control': isOriginal ? 'no-cache, private' : 'public, max-age=31536000, immutable',
+      'Cache-Control': isCacheable ? 'public, max-age=31536000, immutable' : 'no-cache, private',
     };
-    if (!isOriginal) {
+    if (isCacheable) {
       notModifiedHeaders['CDN-Cache-Control'] = 'public, max-age=31536000, immutable';
       notModifiedHeaders['Cloudflare-CDN-Cache-Control'] = 'public, max-age=31536000, immutable';
     }
@@ -143,8 +152,8 @@ media.get('*', async (c: Context, next: Next) => {
   const isPartial = Boolean(rangeHeader && obj.statusCode === 206 && obj.contentRange);
 
   const headers: Record<string, string> = {
-    'Content-Type': photoFile.fileType || 'image/webp',
-    'Cache-Control': isOriginal ? 'no-cache, private' : 'public, max-age=31536000, immutable',
+    'Content-Type': photoFile.fileType || (isVideo ? 'video/mp4' : 'image/webp'),
+    'Cache-Control': isCacheable ? 'public, max-age=31536000, immutable' : 'no-cache, private',
     'ETag': etag,
     'Vary': 'Accept, Accept-Encoding',
     'Accept-Ranges': 'bytes',
@@ -154,18 +163,25 @@ media.get('*', async (c: Context, next: Next) => {
     headers['Content-Range'] = obj.contentRange;
   }
 
-  if (!isOriginal) {
-    // Explicitly instruct Cloudflare Edge CDN to cache derivatives for 1 year so repeat visits bypass Vercel completely
+  if (isCacheable) {
+    // Explicitly instruct Cloudflare Edge CDN to cache derivatives and videos for 1 year so repeat visits bypass Vercel completely
     headers['CDN-Cache-Control'] = 'public, max-age=31536000, immutable';
     headers['Cloudflare-CDN-Cache-Control'] = 'public, max-age=31536000, immutable';
   }
 
-  if (disposition && !isPartial) {
+  // Only attach download disposition for non-video files or when not a partial stream
+  if (disposition && !isPartial && !isVideo) {
     headers['Content-Disposition'] = disposition;
   }
 
   let responseBody: any = obj.body;
-  if (obj.body && typeof (obj.body as any).transformToByteArray === 'function') {
+  // Prioritize streaming via web stream for videos and large media to prevent serverless memory bloat
+  if (obj.body && typeof (obj.body as any).transformToWebStream === 'function') {
+    responseBody = (obj.body as any).transformToWebStream();
+    if (obj.size > 0) {
+      headers['Content-Length'] = String(obj.size);
+    }
+  } else if (obj.body && typeof (obj.body as any).transformToByteArray === 'function') {
     try {
       const bytes = await (obj.body as any).transformToByteArray();
       responseBody = bytes;
@@ -175,11 +191,6 @@ media.get('*', async (c: Context, next: Next) => {
       if (obj.size > 0) {
         headers['Content-Length'] = String(obj.size);
       }
-    }
-  } else if (obj.body && typeof (obj.body as any).transformToWebStream === 'function') {
-    responseBody = (obj.body as any).transformToWebStream();
-    if (obj.size > 0) {
-      headers['Content-Length'] = String(obj.size);
     }
   } else if (obj.size > 0) {
     headers['Content-Length'] = String(obj.size);
