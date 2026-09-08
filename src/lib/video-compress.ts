@@ -402,9 +402,11 @@ export async function compressVideoTo720p(
 
     // CRITICAL: muted MUST stay true to allow background autoplay across all browsers without user gesture blocks
     video.muted = true;
+    video.defaultMuted = true;
     video.playsInline = true;
     video.setAttribute("playsinline", "true");
     video.setAttribute("webkit-playsinline", "true");
+    video.setAttribute("muted", "");
     video.preload = "auto";
     video.style.position = "fixed";
     video.style.top = "0";

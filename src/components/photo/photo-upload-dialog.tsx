@@ -223,7 +223,17 @@ function uploadFileDirect(
         reject(new Error(`Direct storage upload failed (HTTP ${xhr.status}${detail ? `: ${detail.slice(0, 120)}` : ""})`))
       }
     }
-    xhr.onerror = () => reject(new Error("Direct upload network error (connection interrupted or CORS blocked)"))
+    xhr.onerror = () => {
+      if (file.size > 100 * 1024 * 1024) {
+        reject(
+          new Error(
+            `Upload stream interrupted (${formatPhotoSize(file.size)}). Large single-stream uploads may drop on unstable networks. Check Brave Shields or allow Autoplay for 720p compression.`
+          )
+        )
+      } else {
+        reject(new Error("Direct upload network error (connection interrupted or CORS blocked)"))
+      }
+    }
     xhr.ontimeout = () => reject(new Error("Direct upload timed out (network connection too slow)"))
     xhr.timeout = 30 * 60 * 1000 // 30 minutes timeout for huge 4K files
     xhr.open("PUT", uploadUrl)
@@ -255,7 +265,14 @@ async function uploadFileDirectWithRetry(
       }
     }
   }
-  throw lastError || new Error("Direct upload network error (connection interrupted)")
+  throw (
+    lastError ||
+    new Error(
+      file.size > 100 * 1024 * 1024
+        ? `Upload stream interrupted (${formatPhotoSize(file.size)}). Large single-stream uploads may drop on unstable networks. Check Brave Shields or allow Autoplay for 720p compression.`
+        : "Direct upload network error (connection interrupted)"
+    )
+  )
 }
 
 export function PhotoUploadDialog() {
