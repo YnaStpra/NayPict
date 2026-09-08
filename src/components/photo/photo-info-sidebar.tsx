@@ -561,7 +561,7 @@ export function PhotoInfoSidebar({
                         e.preventDefault()
                         onBatchEditOpen?.()
                       }}
-                      title="Edit metadata, tanggal, dan koordinat lokasi GPS"
+                      title="Edit metadata, capture date, and GPS location coordinates"
                     >
                       <Pencil className="size-3.5" />
                       <span>Edit Metadata</span>

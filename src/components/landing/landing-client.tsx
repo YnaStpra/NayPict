@@ -199,7 +199,7 @@ export function LandingClient({ initialPhotos }: LandingClientProps) {
                 NayPict
               </h1>
               <p className="text-xs sm:text-sm text-slate-300 font-medium max-w-xs mx-auto leading-relaxed">
-                Aesthetic Photo Gallery & Curated Album Collection
+                Aesthetic Photo & Video Gallery • Curated Album Collection
               </p>
             </div>
 
@@ -269,7 +269,7 @@ export function LandingClient({ initialPhotos }: LandingClientProps) {
               >
                 <div className="flex items-center gap-3">
                   <MapPin className="size-4.5 sm:size-5 text-white/90" />
-                  <span>Photo Map Explorer</span>
+                  <span>Interactive Map Explorer</span>
                 </div>
                 <div className="flex items-center">
                   {isPending ? (

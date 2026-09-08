@@ -138,10 +138,10 @@ export function PhotoInsightsDialog({ photoId, open, onOpenChange, onReactionRes
         <DialogHeader className="pb-3 border-b border-border/60">
           <DialogTitle className="text-base font-bold flex items-center gap-2">
             <TrendingUp className="size-4 text-primary" />
-            <span>Photo Insights & Analytics</span>
+            <span>Media Insights & Analytics</span>
           </DialogTitle>
           <DialogDescription className="text-xs text-muted-foreground">
-            Detailed public engagement performance for this photo
+            Detailed public engagement performance for this item
           </DialogDescription>
         </DialogHeader>
 

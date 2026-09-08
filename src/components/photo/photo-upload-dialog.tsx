@@ -112,7 +112,7 @@ function getUploadErrorMessage(xhr: XMLHttpRequest): string {
     return "Login session has expired. Please log in again."
   }
   if (xhr.status === 403) {
-    return "Access denied (only Admin can upload photos)."
+    return "Access denied (only Admin can upload media)."
   }
   if (xhr.status === 504 || xhr.status === 502) {
     return "Server request timed out. Please try again."
@@ -737,7 +737,7 @@ export function PhotoUploadDialog() {
   // Duplicate Review Decision Handlers
   const handleKeepPair = (pairId: string) => {
     setDuplicatePairs((prev) => prev.filter((p) => p.id !== pairId))
-    toast.success("Duplicate photo kept in gallery.")
+    toast.success("Duplicate item kept in gallery.")
   }
 
   const handleDeleteNewDuplicatePair = async (pair: DuplicateReviewPair) => {
@@ -747,16 +747,16 @@ export function PhotoUploadDialog() {
         await photoRecycle({ photoIds: [pId] })
       }
       setDuplicatePairs((prev) => prev.filter((p) => p.id !== pair.id))
-      toast.success("New duplicate photo moved to Trash.")
+      toast.success("New duplicate item moved to Trash.")
     } catch {
-      toast.error("Failed to delete duplicate photo.")
+      toast.error("Failed to delete duplicate item.")
     }
   }
 
   const handleKeepAllDuplicates = () => {
     setDuplicatePairs([])
     setShowDuplicateModal(false)
-    toast.success("All duplicate photos kept in gallery.")
+    toast.success("All duplicate items kept in gallery.")
   }
 
   const handleDeleteAllDuplicates = async () => {
@@ -770,9 +770,9 @@ export function PhotoUploadDialog() {
       }
       setDuplicatePairs([])
       setShowDuplicateModal(false)
-      toast.success(`Successfully deleted ${photoIdsToDelete.length} duplicate photo(s)!`)
+      toast.success(`Successfully deleted ${photoIdsToDelete.length} duplicate item(s)!`)
     } catch {
-      toast.error("Failed to delete duplicate photos.")
+      toast.error("Failed to delete duplicate items.")
     }
   }
 
@@ -1054,10 +1054,10 @@ export function PhotoUploadDialog() {
             <DialogHeader>
               <div className="flex items-center gap-2 text-amber-500">
                 <ShieldAlertIcon className="size-6" />
-                <DialogTitle className="text-xl font-bold">Duplicate Photos Detected</DialogTitle>
+                <DialogTitle className="text-xl font-bold">Duplicate Media Detected</DialogTitle>
               </div>
               <DialogDescription className="text-sm text-muted-foreground mt-1">
-                Found <span className="font-semibold text-foreground">{duplicatePairs.length} photo(s)</span> detected as duplicates during upload. Please choose whether to keep or remove them.
+                Found <span className="font-semibold text-foreground">{duplicatePairs.length} item(s)</span> detected as duplicates during upload. Please choose whether to keep or remove them.
               </DialogDescription>
             </DialogHeader>
 

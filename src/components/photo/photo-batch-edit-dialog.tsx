@@ -322,7 +322,7 @@ export function PhotoBatchEditDialog({
     setLoading(true)
     try {
       await photoBatchEdit(payload as any)
-      toast.success(`Successfully updated metadata for ${photoIds.length} photo(s).`)
+      toast.success(`Successfully updated metadata for ${photoIds.length} item(s).`)
       onSuccess?.(photoIds, clientUpdates)
       handleOpenChange(false)
     } catch (err: any) {
@@ -342,13 +342,13 @@ export function PhotoBatchEditDialog({
             </div>
             <div>
               <DialogTitle className="text-lg font-bold flex items-center gap-2">
-                <span>Batch Edit Photo Metadata</span>
+                <span>Batch Edit Media Metadata</span>
                 <span className="px-2 py-0.5 text-xs font-bold rounded-full bg-primary/15 text-primary border border-primary/30">
                   {photoIds.length} Selected
                 </span>
               </DialogTitle>
               <DialogDescription className="text-xs text-muted-foreground mt-0.5">
-                Update metadata for all selected photos simultaneously.
+                Update metadata for all selected items simultaneously.
               </DialogDescription>
             </div>
           </div>
@@ -505,7 +505,7 @@ export function PhotoBatchEditDialog({
                   <span>Mark as Intentionally Without Location</span>
                 </div>
                 <p className="text-[11px] text-muted-foreground leading-relaxed">
-                  These photos will be ignored from geotagging. They will not appear on the map and will not be detected or listed in the untagged photos queue.
+                  These items will be ignored from geotagging. They will not appear on the map and will not be detected or listed in the untagged media queue.
                 </p>
               </div>
             )}
@@ -575,7 +575,7 @@ export function PhotoBatchEditDialog({
 
                 <div className="flex items-center justify-between pt-1">
                   <span className="text-[10px] text-muted-foreground">
-                    Photos will automatically appear on the Interactive Map (/map).
+                    Media will automatically appear on the Interactive Map (/map).
                   </span>
                   <Button
                     type="button"
@@ -597,12 +597,12 @@ export function PhotoBatchEditDialog({
             )}
           </div>
 
-          {/* 5. Photo File Name */}
+          {/* 5. File Name */}
           <div className="rounded-xl border border-border/80 bg-card p-3.5 space-y-2 shadow-2xs">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 text-sm font-semibold">
                 <FileText className="size-4 text-purple-500" />
-                <span>5. Photo File Name</span>
+                <span>5. File Name</span>
               </div>
               {isNameModified && (
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-500/15 text-purple-500 border border-purple-500/30">
@@ -710,7 +710,7 @@ export function PhotoBatchEditDialog({
                   </div>
                 </div>
                 <p className="text-[11px] text-muted-foreground">
-                  Replaces matching text across all selected photo names.
+                  Replaces matching text across all selected item names.
                 </p>
               </div>
             )}

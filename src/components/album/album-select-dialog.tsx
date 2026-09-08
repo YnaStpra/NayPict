@@ -192,7 +192,7 @@ export function AlbumSelectDialog({ open, onOpenChange, onAlbumSelect, initialSe
                         </span>
                       )}
                     </div>
-                    <ItemDescription>{album.photoTotal} photos</ItemDescription>
+                    <ItemDescription>{album.photoTotal} items</ItemDescription>
                   </ItemContent>
                   <ItemContent className="flex-none">
                     <Checkbox

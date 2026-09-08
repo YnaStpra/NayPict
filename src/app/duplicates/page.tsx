@@ -54,8 +54,8 @@ export default function DuplicatesPage() {
         setGroups(res || [])
       })
       .catch((err) => {
-        console.error('Failed to fetch duplicate photo groups:', err)
-        toast.error('Failed to load duplicate photo list.')
+        console.error('Failed to fetch duplicate media groups:', err)
+        toast.error('Failed to load duplicate media list.')
       })
       .finally(() => {
         setLoading(false)
@@ -76,7 +76,7 @@ export default function DuplicatesPage() {
 
     photoRecycle({ photoIds })
       .then(() => {
-        toast.success(`${photoIds.length} duplicate photo(s) moved to recycle bin.`)
+        toast.success(`${photoIds.length} duplicate item(s) moved to recycle bin.`)
         // Update local state by removing recycled photoIds from groups
         setGroups((prevGroups) =>
           prevGroups
@@ -90,7 +90,7 @@ export default function DuplicatesPage() {
       })
       .catch((err) => {
         console.error('Failed to recycle photos:', err)
-        toast.error('Failed to delete duplicate photos.')
+        toast.error('Failed to delete duplicate items.')
       })
   }, [])
 
@@ -111,18 +111,18 @@ export default function DuplicatesPage() {
     }
 
     if (!allDuplicateIds.length) {
-      toast.info('No duplicate photos to delete.')
+      toast.info('No duplicate items to delete.')
       return
     }
 
     photoRecycle({ photoIds: allDuplicateIds })
       .then(() => {
-        toast.success(`Successfully cleaned ${allDuplicateIds.length} duplicate photos!`)
+        toast.success(`Successfully cleaned ${allDuplicateIds.length} duplicate items!`)
         fetchDuplicates()
       })
       .catch((err) => {
         console.error('Failed to clean all duplicates:', err)
-        toast.error('Failed to clean duplicate photos.')
+        toast.error('Failed to clean duplicate items.')
       })
   }, [groups, ignoredGroupIds, fetchDuplicates])
 
@@ -143,7 +143,7 @@ export default function DuplicatesPage() {
             <ShieldAlert className="size-12 text-destructive" />
             <h1 className="text-xl font-semibold">Access Denied</h1>
             <p className="text-sm text-muted-foreground max-w-sm">
-              Duplicate photo detection feature is only available for Admin users.
+              Duplicate media detection is only available for Admin users.
             </p>
             <Button onClick={() => router.push('/photos')}>Back to Gallery</Button>
           </div>
@@ -170,7 +170,7 @@ export default function DuplicatesPage() {
                   <BreadcrumbItem>
                     <BreadcrumbPage className="flex items-center gap-2 font-medium">
                       <CopyCheck className="size-4 text-primary" />
-                      <span>Duplicate Photo Detection</span>
+                      <span>Duplicate Media Detection</span>
                     </BreadcrumbPage>
                   </BreadcrumbItem>
                 </BreadcrumbList>
@@ -196,10 +196,10 @@ export default function DuplicatesPage() {
                 <div>
                   <h1 className="text-lg font-bold flex items-center gap-2">
                     <CopyCheck className="size-5 text-primary" />
-                    Visual & File-Based Duplicate Photo Detector
+                    Visual & File-Based Duplicate Media Detector
                   </h1>
                   <p className="text-xs md:text-sm text-muted-foreground mt-1">
-                    Automatically analyzes visual pixel fingerprints (*thumbHash*), file checksums, resolution, and size to detect all duplicate photos without missing any.
+                    Automatically analyzes visual pixel fingerprints (*thumbHash*), file checksums, resolution, and size to detect all duplicate photos and videos without missing any.
                   </p>
                 </div>
                 {!loading && activeGroups.length > 0 && (
@@ -212,7 +212,7 @@ export default function DuplicatesPage() {
                       <Separator orientation="vertical" className="h-8" />
                       <div className="text-center">
                         <div className="text-lg font-bold text-foreground">{totalDuplicatesCount}</div>
-                        <div className="text-[11px] text-muted-foreground">Total Photos</div>
+                        <div className="text-[11px] text-muted-foreground">Total Media</div>
                       </div>
                     </div>
 
@@ -224,7 +224,7 @@ export default function DuplicatesPage() {
                       onClick={handleRecycleAllDuplicates}
                     >
                       <Trash2 className="size-4" />
-                      <span>Clean {deletableCount} Duplicate Photos at Once</span>
+                      <span>Clean {deletableCount} Duplicate Items at Once</span>
                     </Button>
                   </div>
                 )}
@@ -236,15 +236,15 @@ export default function DuplicatesPage() {
               <div className="flex h-64 flex-col items-center justify-center gap-3 text-center">
                 <Loader2 className="size-8 animate-spin text-primary" />
                 <p className="text-sm font-medium text-muted-foreground">
-                  Scanning and analyzing photo appearance...
+                  Scanning and analyzing media appearance...
                 </p>
               </div>
             ) : activeGroups.length === 0 ? (
               <div className="flex h-64 flex-col items-center justify-center gap-3 text-center border rounded-xl bg-card/40 p-8">
                 <CheckCircle2 className="size-12 text-emerald-500" />
-                <h2 className="text-base font-semibold">No Duplicate Photos Found</h2>
+                <h2 className="text-base font-semibold">No Duplicate Media Found</h2>
                 <p className="text-xs md:text-sm text-muted-foreground max-w-md">
-                  All photos in your gallery have unique visuals! No duplicate photos detected.
+                  All items in your gallery have unique visuals! No duplicate media detected.
                 </p>
               </div>
             ) : (
@@ -269,7 +269,7 @@ export default function DuplicatesPage() {
                               </span>
                             </div>
                             <div className="text-xs text-muted-foreground">
-                              Detected {group.photos.length} photos with identical appearance
+                              Detected {group.photos.length} items with identical appearance
                             </div>
                           </div>
                         </div>

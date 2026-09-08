@@ -1160,15 +1160,15 @@ export default function PhotoMapView() {
                 size="sm"
                 onClick={() => setUntaggedDialogOpen(true)}
                 className="h-9 px-3 text-xs rounded-2xl backdrop-blur-xl bg-amber-500/10 dark:bg-amber-500/20 border-amber-500/35 text-amber-700 dark:text-amber-300 shadow-xl gap-1.5 cursor-pointer hover:bg-amber-500/25 transition-all hover:scale-105"
-                title="Manage photos missing GPS location coordinates"
+                title="Manage media missing GPS location coordinates"
               >
                 <AlertCircle className="size-3.5 text-amber-500 animate-bounce" />
-                <span className="font-bold">{untaggedPhotos.length} Untagged Photos</span>
+                <span className="font-bold">{untaggedPhotos.length} Untagged Media</span>
               </Button>
             ) : (
               <div className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 rounded-2xl backdrop-blur-xl bg-background/80 dark:bg-neutral-900/80 border border-emerald-500/30 text-emerald-500 text-xs font-semibold shadow-xl">
                 <CheckCircle2 className="size-3.5" />
-                <span>All Photos Geotagged</span>
+                <span>All Media Geotagged</span>
               </div>
             )}
           </>
@@ -1904,7 +1904,7 @@ export default function PhotoMapView() {
               onClick={() => setUntaggedDialogOpen(true)}
               className="rounded-xl mt-2 text-xs bg-emerald-600 hover:bg-emerald-500 text-white font-semibold cursor-pointer"
             >
-              Manage {untaggedPhotos.length} Untagged Photos
+              Manage {untaggedPhotos.length} Untagged Media
             </Button>
           ) : (
             <Button asChild size="sm" className="rounded-xl mt-2 text-xs">

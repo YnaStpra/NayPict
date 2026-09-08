@@ -377,7 +377,7 @@ export default function AdminPhotosPage() {
                 <BreadcrumbItem>
                   <BreadcrumbPage className="flex items-center gap-1.5 font-semibold text-xs text-foreground">
                     <Images className="size-3.5 text-primary" />
-                    <span>Photo Management</span>
+                    <span>Media Management</span>
                   </BreadcrumbPage>
                 </BreadcrumbItem>
               </BreadcrumbList>
@@ -395,7 +395,7 @@ export default function AdminPhotosPage() {
               }}
               disabled={loading}
               className="h-8 text-xs rounded-xl gap-1.5 border-border/80"
-              title="Refresh photo inventory"
+              title="Refresh media inventory"
             >
               <RefreshCw className={`size-3.5 ${loading ? 'animate-spin' : ''}`} />
               <span className="hidden sm:inline">Refresh</span>
@@ -414,7 +414,7 @@ export default function AdminPhotosPage() {
               </div>
               <p className="text-xl font-bold text-foreground">
                 {metrics.total.toLocaleString()}{' '}
-                <span className="text-xs font-normal text-muted-foreground">photos</span>
+                <span className="text-xs font-normal text-muted-foreground">items</span>
               </p>
               <p className="text-[11px] text-muted-foreground">Storage: {metrics.totalBytes}</p>
             </div>
@@ -467,7 +467,7 @@ export default function AdminPhotosPage() {
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
                 <Input
                   type="text"
-                  placeholder="Search photos by title, filename (.jpg, .png, .webp), date, or camera..."
+                  placeholder="Search media by title, filename (.jpg, .mp4, etc.), date, or device..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="pl-9 pr-8 text-xs h-9 bg-muted/40 rounded-xl"
@@ -520,7 +520,7 @@ export default function AdminPhotosPage() {
                     <SelectItem value="takenTime" className="text-xs">Date Taken</SelectItem>
                     <SelectItem value="createTime" className="text-xs">Upload Date</SelectItem>
                     <SelectItem value="size" className="text-xs">File Size</SelectItem>
-                    <SelectItem value="name" className="text-xs">Photo Name</SelectItem>
+                    <SelectItem value="name" className="text-xs">File Name</SelectItem>
                   </SelectContent>
                 </Select>
 

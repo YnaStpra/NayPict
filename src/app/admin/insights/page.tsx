@@ -326,7 +326,7 @@ export default function AdminInsightsPage() {
                 <BreadcrumbItem>
                   <BreadcrumbPage className="font-semibold flex items-center gap-2">
                     <BarChart3 className="size-4 text-primary" />
-                    <span>Photo Insights</span>
+                    <span>Media Insights</span>
                   </BreadcrumbPage>
                 </BreadcrumbItem>
               </BreadcrumbList>
@@ -374,7 +374,7 @@ export default function AdminInsightsPage() {
                 Gallery Insights
               </h1>
               <p className="text-xs md:text-sm text-muted-foreground mt-0.5">
-                Public visitor activity, view velocity, and photo popularity statistics.
+                Public visitor activity, view velocity, and media popularity statistics.
               </p>
             </div>
           </div>
@@ -430,11 +430,11 @@ export default function AdminInsightsPage() {
                   </CardContent>
                 </Card>
 
-                {/* 2. Total Photos Card */}
+                {/* 2. Total Media Card */}
                 <Card className="border-border/80 bg-card hover:shadow-sm transition-all">
                   <CardHeader className="p-4 pb-2 flex flex-row items-center justify-between space-y-0">
                     <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                      Total Photos
+                      Total Media
                     </CardTitle>
                     <div className="p-2 rounded-lg bg-blue-500/10 text-blue-500">
                       <ImageIcon className="size-4" />
@@ -465,7 +465,7 @@ export default function AdminInsightsPage() {
                       <OdometerCounter target={overview.totalDownloads} />
                     </div>
                     <p className="text-[11px] text-muted-foreground mt-1">
-                      Original photo downloads
+                      Original media downloads
                     </p>
                   </CardContent>
                 </Card>
@@ -563,7 +563,7 @@ export default function AdminInsightsPage() {
                 <CardHeader className="p-5 pb-2 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div>
                     <CardTitle className="text-base md:text-lg font-bold">
-                      Public Photo Views
+                      Public Gallery Views
                     </CardTitle>
                     <CardDescription className="text-xs">
                       Historical visitor traffic across public gallery
@@ -660,10 +660,10 @@ export default function AdminInsightsPage() {
                   <div>
                     <CardTitle className="text-base font-bold flex items-center gap-2">
                       <Heart className="size-4 text-pink-500 fill-pink-500/20" />
-                      <span>Photo Reactions & Community Leaderboard</span>
+                      <span>Media Reactions & Community Leaderboard</span>
                     </CardTitle>
                     <CardDescription className="text-xs">
-                      Photos that received public micro-reactions (❤️ Love, 🔥 Fire, 📸 Great Shot, 📍 Want to Visit, 👏 Likes)
+                      Media that received public micro-reactions (❤️ Love, 🔥 Fire, 📸 Great Shot, 📍 Want to Visit, 👏 Likes)
                     </CardDescription>
                   </div>
                   {topPhotos.mostReacted.length > 0 && (
@@ -683,7 +683,7 @@ export default function AdminInsightsPage() {
                     <div className="py-12 flex flex-col items-center justify-center text-center text-xs text-muted-foreground gap-2">
                       <Heart className="size-8 opacity-30 text-pink-500" />
                       <p className="font-medium">No visitor reactions recorded yet.</p>
-                      <p className="text-[11px] max-w-sm">When visitors react to public photos using emojis or likes, they will rank here with detailed breakdowns.</p>
+                      <p className="text-[11px] max-w-sm">When visitors react to public photos or videos using emojis or likes, they will rank here with detailed breakdowns.</p>
                     </div>
                   ) : (
                     <div className="divide-y divide-border/50">
@@ -761,7 +761,7 @@ export default function AdminInsightsPage() {
                               variant="ghost"
                               size="sm"
                               className="h-8 px-2 text-xs text-muted-foreground hover:text-destructive hover:bg-destructive/10 opacity-70 group-hover:opacity-100 cursor-pointer"
-                              title="Reset reactions for this photo"
+                              title="Reset reactions for this media"
                               onClick={(e) => handleResetPhotoReactions(photo.photoId, photo.name, e)}
                             >
                               <RotateCcw className="size-3.5" />
@@ -777,11 +777,11 @@ export default function AdminInsightsPage() {
 
               {/* Rankings Grid: Most Viewed & Most Discussed */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* 1. Most Viewed Photos */}
+                {/* 1. Most Viewed Media */}
                 <Card className="border-border/80 bg-card shadow-xs">
                   <CardHeader className="p-5 pb-3">
                     <CardTitle className="text-base font-bold flex items-center justify-between">
-                      <span>Most Viewed Photos</span>
+                      <span>Most Viewed Media</span>
                       <span className="text-xs font-medium text-muted-foreground">Top 10</span>
                     </CardTitle>
                     <CardDescription className="text-xs">
@@ -791,7 +791,7 @@ export default function AdminInsightsPage() {
                   <CardContent className="p-5 pt-0">
                     {topPhotos.mostViewed.length === 0 ? (
                       <div className="py-12 text-center text-xs text-muted-foreground">
-                        No public photo views recorded yet.
+                        No public media views recorded yet.
                       </div>
                     ) : (
                       <div className="divide-y divide-border/50">
@@ -844,21 +844,21 @@ export default function AdminInsightsPage() {
                   </CardContent>
                 </Card>
 
-                {/* 2. Most Discussed Photos */}
+                {/* 2. Most Discussed Media */}
                 <Card className="border-border/80 bg-card shadow-xs">
                   <CardHeader className="p-5 pb-3">
                     <CardTitle className="text-base font-bold flex items-center justify-between">
-                      <span>Most Discussed Photos</span>
+                      <span>Most Discussed Media</span>
                       <span className="text-xs font-medium text-muted-foreground">Comments</span>
                     </CardTitle>
                     <CardDescription className="text-xs">
-                      Photos with highest community responses
+                      Media with highest community responses
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="p-5 pt-0">
                     {topPhotos.mostCommented.length === 0 ? (
                       <div className="py-12 text-center text-xs text-muted-foreground">
-                        No commented photos recorded yet.
+                        No commented media recorded yet.
                       </div>
                     ) : (
                       <div className="divide-y divide-border/50">

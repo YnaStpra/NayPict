@@ -111,20 +111,20 @@ export function AlbumCoverDialog({ open, album, onOpenChange, onSuccess }: Album
             <span>Manage Album Cover</span>
           </DialogTitle>
           <DialogDescription>
-            NayPict automatically calculates and suggests the best landscape cover photo. You can accept the suggestion or manually choose a photo.
+            NayPict automatically calculates and suggests the best landscape cover. You can accept the suggestion or manually choose one.
           </DialogDescription>
         </DialogHeader>
 
         <div className="flex-1 overflow-y-auto min-h-0 space-y-4 py-2 [scrollbar-width:thin]">
           {loading ? (
             <div className="flex h-48 items-center justify-center text-muted-foreground text-sm">
-              Loading album photos...
+              Loading album media...
             </div>
           ) : candidates.length === 0 ? (
             <div className="flex h-48 flex-col items-center justify-center text-muted-foreground gap-2">
               <ImageIcon className="size-8 opacity-40" />
-              <p className="text-sm font-medium">No photos in this album</p>
-              <p className="text-xs">Add photos to the album to enable cover selection.</p>
+              <p className="text-sm font-medium">No media in this album</p>
+              <p className="text-xs">Add photos or videos to the album to enable cover selection.</p>
             </div>
           ) : (
             <>

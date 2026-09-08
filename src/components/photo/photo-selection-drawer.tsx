@@ -70,7 +70,7 @@ export function PhotoSelectionDrawer({
             </Button>
             {selectedCount > 0 && (
               <span className="text-xs sm:text-sm font-semibold text-foreground">
-                {selectedCount} photo{selectedCount > 1 ? "s" : ""} selected
+                {selectedCount} item{selectedCount > 1 ? "s" : ""} selected
               </span>
             )}
           </div>
@@ -78,7 +78,7 @@ export function PhotoSelectionDrawer({
           <div className="flex items-center gap-1 sm:gap-1.5">
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button size="icon-sm" variant="ghost" onClick={onSelectAll} aria-label="Select all photos">
+                <Button size="icon-sm" variant="ghost" onClick={onSelectAll} aria-label="Select all items">
                   <CheckCheck className="size-4" />
                 </Button>
               </TooltipTrigger>
@@ -128,11 +128,11 @@ export function PhotoSelectionDrawer({
             {onRestore && (
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button size="icon-sm" variant="ghost" onClick={onRestore} aria-label="Restore photos">
+                  <Button size="icon-sm" variant="ghost" onClick={onRestore} aria-label="Restore items">
                     <RotateCcwIcon className="size-4" />
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent side="bottom">Restore Photos</TooltipContent>
+                <TooltipContent side="bottom">Restore Items</TooltipContent>
               </Tooltip>
             )}
 
@@ -142,7 +142,7 @@ export function PhotoSelectionDrawer({
                   size="icon-sm"
                   variant="ghost"
                   onClick={onDelete}
-                  aria-label="Delete photos"
+                  aria-label="Delete items"
                   className="hover:text-red-500 hover:bg-red-500/10"
                 >
                   <Trash2Icon className="size-4" />

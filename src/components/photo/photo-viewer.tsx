@@ -615,11 +615,14 @@ function ShareButton({ showActions }: { showActions: boolean }) {
     url.searchParams.set("photoId", photoSlide.photoId)
     const shareUrl = url.toString()
 
+    const isVideo = Boolean(photoSlide.type?.startsWith("video/"))
+    const defaultTitle = isVideo ? "Video" : "Photo"
+
     if (navigator.share) {
       try {
         await navigator.share({
-          title: photoSlide.alt || "Photo",
-          text: `Check out "${photoSlide.alt || "Photo"}" on NayPict`,
+          title: photoSlide.alt || defaultTitle,
+          text: `Check out "${photoSlide.alt || defaultTitle}" on NayPict`,
           url: shareUrl,
         })
         return
@@ -715,7 +718,7 @@ function LoadOriginalButton({
     return (
       <div
         className="flex cursor-pointer items-center gap-1.5 rounded-full bg-black/60 px-3 py-1 text-xs text-white/90 transition-opacity duration-200 hover:bg-black/80"
-        onClick={() => toast.info("Download is disabled for this photo.")}
+        onClick={() => toast.info("Download is disabled for this media.")}
       >
         <LockIcon className="size-3.5 text-white/80" />
         <span className="font-medium text-xs">Protected</span>
@@ -895,7 +898,7 @@ function LightboxInteractionBar({
           type="button"
           onClick={onOpenInfo}
           className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium text-white/75 hover:text-white hover:bg-white/15 active:scale-95 transition-all duration-200 cursor-pointer"
-          aria-label="Photo Details"
+          aria-label="Media Details"
         >
           <CircleAlertIcon className="size-3.5 text-white/80" />
           <span className="text-[10px] sm:text-[11px] font-medium">Info</span>

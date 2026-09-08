@@ -392,7 +392,7 @@ export default function Page() {
               {/* Photo Count Badge beside Grid Icon */}
               <div
                 className="flex items-center gap-1.5 bg-muted/70 text-foreground text-xs font-semibold px-2.5 py-1 rounded-lg border border-border/50 select-none shadow-2xs"
-                title={`${totalCount} Photos`}
+                title={`${totalCount} Items in Gallery`}
               >
                 <ImageIcon className="size-3.5 text-primary" />
                 <span>{totalCount}</span>
@@ -418,7 +418,7 @@ export default function Page() {
                       </Button>
                     </TooltipTrigger>
                     <TooltipContent side="bottom">
-                      {groupByDate ? "Grouped by Date Taken (Click to flatten)" : "Group Photos by Date Taken"}
+                      {groupByDate ? "Grouped by Date Taken (Click to flatten)" : "Group Media by Date Taken"}
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
@@ -444,7 +444,7 @@ export default function Page() {
                         </Button>
                       </DropdownMenuTrigger>
                     </TooltipTrigger>
-                    <TooltipContent side="bottom">Sort Gallery Photos</TooltipContent>
+                    <TooltipContent side="bottom">Sort Gallery Media</TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
 
@@ -508,7 +508,7 @@ export default function Page() {
                   {!hasMore && photos.length > 0 && (
                     <div className="py-12 pb-16 text-center select-none">
                       <p className="text-sm font-medium text-muted-foreground/80 tracking-wide">
-                        That&apos;s all the photos for now, stay tuned for the next photo hunt!
+                        That&apos;s all for now, stay tuned for the next capture!
                       </p>
                     </div>
                   )}

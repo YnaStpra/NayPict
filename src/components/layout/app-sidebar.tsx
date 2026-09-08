@@ -60,9 +60,9 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       { title: t("navigation.trash"), url: "/trash", icon: <Trash2 />, isActive: isUrlMatched(pathname, "/trash") },
     ],
     sysMain: [
-      { title: t("navigation.photoManage") || "Photo Management", url: "/admin/photos", icon: <Images />, isActive: isUrlMatched(pathname, "/admin/photos") },
+      { title: t("navigation.photoManage") || "Media Management", url: "/admin/photos", icon: <Images />, isActive: isUrlMatched(pathname, "/admin/photos") },
       { title: t("navigation.storage"), url: "/storage", icon: <Database />, isActive: isUrlMatched(pathname, "/storage") },
-      { title: "Duplicate Photos", url: "/duplicates", icon: <CopyCheck />, isActive: isUrlMatched(pathname, "/duplicates") },
+      { title: "Duplicate Media", url: "/duplicates", icon: <CopyCheck />, isActive: isUrlMatched(pathname, "/duplicates") },
       { title: t("navigation.settings"), url: "/settings", icon: <Settings />, isActive: isUrlMatched(pathname, "/settings") },
     ],
   }

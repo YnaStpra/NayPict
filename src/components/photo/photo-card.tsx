@@ -314,7 +314,7 @@ export const PhotoCard = memo(function PhotoCard({
           </div>
         ) : (
           <div className="absolute inset-0 flex items-center justify-center px-3 text-center text-sm text-muted-foreground bg-muted/60">
-            {t("imageLoadFailed")}
+            {isVideo ? "Unable to load video" : t("imageLoadFailed")}
           </div>
         )
       ) : (
@@ -389,7 +389,7 @@ export const PhotoCard = memo(function PhotoCard({
           onClick={(event) => event.stopPropagation()}
         >
           <Checkbox
-            aria-label={`Select photo ${data.name}`}
+            aria-label={`Select ${isVideo ? "video" : "photo"} ${data.name}`}
             checked={selected}
             className="!size-4.5 rounded-full border-0 !bg-white/35 data-[state=checked]:!bg-[#e5e5e5] data-[state=checked]:!text-black [&_svg]:!size-3"
             onCheckedChange={(checked) => changeSelected(checked === true)}
@@ -421,7 +421,7 @@ export const PhotoCard = memo(function PhotoCard({
             onPhotoPin(data.photoId, Boolean(data.isPinned))
           }}
           aria-label={data.isPinned ? `Unpin ${data.name} from album` : `Pin ${data.name} to album top`}
-          title={data.isPinned ? "Unpin photo from album" : "Pin photo to the top of album (Maximum 3 photos)"}
+          title={data.isPinned ? "Unpin from album" : "Pin to the top of album (Maximum 3 items)"}
         >
           <PinIcon className={`size-3.5 rotate-45 ${data.isPinned ? "fill-amber-400 text-amber-400" : "text-white"}`} />
         </Button>

@@ -215,9 +215,9 @@ export default function ArchivePage() {
                   <div className="size-16 rounded-3xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center">
                     <Archive className="size-8 text-amber-500" />
                   </div>
-                  <h3 className="text-lg font-bold">{t("archive.emptyTitle") || "No Archived Photos"}</h3>
+                  <h3 className="text-lg font-bold">{t("archive.emptyTitle") || "No Archived Media"}</h3>
                   <p className="text-xs text-muted-foreground max-w-sm">
-                    {t("archive.emptyDescription") || "Photos hidden from both Main Gallery and Albums will appear here."}
+                    {t("archive.emptyDescription") || "Photos and videos hidden from both Main Gallery and Albums will appear here."}
                   </p>
                 </div>
               ) : (

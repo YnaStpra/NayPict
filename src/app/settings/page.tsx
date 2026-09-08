@@ -207,7 +207,7 @@ export default function Page() {
             </SettingItem>
             <SettingItem
               title="Right-Click & Drag Protection"
-              description="Disable right-click saving and image dragging for guest visitors to protect your photography from unauthorized copies."
+              description="Disable right-click saving and media dragging for guest visitors to protect your gallery from unauthorized copies."
             >
               <Switch
                 checked={setting.rightClickGuard === SettingRightClickGuardEnum.ENABLE}

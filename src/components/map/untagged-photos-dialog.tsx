@@ -106,7 +106,7 @@ export function UntaggedPhotosDialog({
         latitude: 999,
         longitude: 999,
       })
-      toast.success(`Ignored location for ${ids.length} photo(s).`)
+      toast.success(`Ignored location for ${ids.length} item(s).`)
       onGeotagSuccess(ids, { latitude: null, longitude: null, isLocationIgnored: true })
       setSelectedIds((prev) => prev.filter((id) => !ids.includes(id)))
     } catch (err: any) {
@@ -127,13 +127,13 @@ export function UntaggedPhotosDialog({
               </div>
               <div>
                 <DialogTitle className="text-lg font-bold flex items-center gap-2">
-                  <span>Photos Missing GPS Coordinates</span>
+                  <span>Media Missing GPS Coordinates</span>
                   <span className="px-2 py-0.5 text-xs font-bold rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30">
-                    {untaggedPhotos.length} Photos
+                    {untaggedPhotos.length} Items
                   </span>
                 </DialogTitle>
                 <DialogDescription className="text-xs text-muted-foreground mt-0.5">
-                  Add location coordinates (DMS format such as <code>8°20&apos;43.0&quot;S 116°31&apos;58.9&quot;E</code> or device GPS) so photos appear on the interactive map, or mark them as <strong>Ignore</strong> if intentionally without location.
+                  Add location coordinates (DMS format such as <code>8°20&apos;43.0&quot;S 116°31&apos;58.9&quot;E</code> or device GPS) so media items appear on the interactive map, or mark them as <strong>Ignore</strong> if intentionally without location.
                 </DialogDescription>
               </div>
             </div>
@@ -145,7 +145,7 @@ export function UntaggedPhotosDialog({
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
               <Input
                 type="text"
-                placeholder="Search photos by name..."
+                placeholder="Search media by name..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-8 text-xs h-9 bg-muted/40 rounded-xl"
@@ -215,16 +215,16 @@ export function UntaggedPhotosDialog({
                 </div>
                 <div>
                   <h4 className="font-bold text-sm text-foreground">
-                    All Photos Have Coordinates!
+                    All Media Have Coordinates!
                   </h4>
                   <p className="text-xs text-muted-foreground mt-1 max-w-sm">
-                    All photos in your gallery are either mapped to the Interactive Photo Map or intentionally ignored.
+                    All photos and videos in your gallery are either mapped to the Interactive Map or intentionally ignored.
                   </p>
                 </div>
               </div>
             ) : filteredPhotos.length === 0 ? (
               <div className="py-10 text-center text-xs text-muted-foreground">
-                No photos match your search &quot;{searchQuery}&quot;.
+                No media match your search &quot;{searchQuery}&quot;.
               </div>
             ) : (
               filteredPhotos.map((photo) => {
