@@ -88,10 +88,18 @@ function createUploadItemId(file: File): string {
   return `${file.name}-${file.size}-${file.lastModified}-${uploadItemCounter}`
 }
 
-// Calculate browser SHA-1 Checksum using Web Crypto API with hash-wasm fallback
+// Calculate browser SHA-1 Checksum using Web Crypto API with fast sliced fingerprint for large files
 async function getFileChecksum(file: File): Promise<string> {
   try {
-    const buffer = await file.arrayBuffer()
+    // For large files (> 20MB), slice the first 2MB and last 2MB to compute instant fingerprint
+    // without buffering 600MB into browser RAM which causes UI freezing
+    let slice: Blob = file
+    if (file.size > 20 * 1024 * 1024) {
+      const head = file.slice(0, 2 * 1024 * 1024)
+      const tail = file.slice(file.size - 2 * 1024 * 1024, file.size)
+      slice = new Blob([head, tail, `${file.size}-${file.lastModified}`])
+    }
+    const buffer = await slice.arrayBuffer()
     if (typeof crypto !== "undefined" && crypto.subtle) {
       const hashBuffer = await crypto.subtle.digest("SHA-1", buffer)
       const hashArray = Array.from(new Uint8Array(hashBuffer))
@@ -708,6 +716,12 @@ export function PhotoUploadDialog() {
           toast.success(
             `Smart 720p compression: ${originalSizeDesc} → ${compressedSizeDesc} (${savedPercent}% smaller)`
           )
+        } else {
+          setPreviews((prev) =>
+            prev.map((p) =>
+              p.id === item.id ? { ...p, statusText: "Preparing direct upload..." } : p
+            )
+          )
         }
 
         // 3. Deduplication check
@@ -1166,34 +1180,16 @@ export function PhotoUploadDialog() {
                     className="group relative aspect-square w-full overflow-hidden rounded-xl bg-muted border border-border/60 shadow-2xs"
                   >
                     {isVideo && !preview.cover.startsWith("data:image/") ? (
-                      preview.isThumbnailLoading ? (
-                        <div className="relative h-full w-full bg-neutral-900 flex items-center justify-center overflow-hidden">
-                          <video
-                            key={preview.id}
-                            src={`${preview.cover}#t=0.001`}
-                            muted
-                            playsInline
-                            preload="metadata"
-                            className="h-full w-full object-cover pointer-events-none opacity-40"
-                          />
-                          <div className="absolute inset-0 bg-neutral-950/70 backdrop-blur-xs flex flex-col items-center justify-center p-2 text-center">
-                            <Loader2 className="size-4 animate-spin text-white/80 mb-1" />
-                            <span className="text-[10px] font-medium text-white/90">Loading preview...</span>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="relative h-full w-full bg-gradient-to-br from-neutral-800 to-neutral-950 flex flex-col items-center justify-center p-2 text-center">
-                          <div className="rounded-full bg-white/10 p-2 mb-1">
-                            <Play className="size-4 text-white/90 fill-white/80 ml-0.5" />
-                          </div>
-                          <span className="text-[10px] font-medium text-white/90 line-clamp-1 max-w-[90%]">
-                            {preview.file.name}
-                          </span>
-                          <span className="text-[9px] text-white/50 mt-0.5">
-                            {formatPhotoSize(preview.file.size)}
-                          </span>
-                        </div>
-                      )
+                      <div className="relative h-full w-full bg-neutral-900 flex items-center justify-center overflow-hidden">
+                        <video
+                          key={preview.id}
+                          src={`${preview.cover}#t=0.001`}
+                          muted
+                          playsInline
+                          preload="metadata"
+                          className="h-full w-full object-cover pointer-events-none"
+                        />
+                      </div>
                     ) : (
                       <img
                         src={preview.cover}
@@ -1219,7 +1215,7 @@ export function PhotoUploadDialog() {
                     {/* Dark Progress Overlay with Liquid Wave Bar & Status Text */}
                     {preview.status === "uploading" && (
                       <div
-                        className="absolute inset-0 bg-black/75 flex flex-col items-center justify-center text-white gap-1.5 p-2"
+                        className="absolute inset-0 bg-black/60 backdrop-blur-[1.5px] flex flex-col items-center justify-center text-white gap-1.5 p-2"
                       >
                         <Loader2 className="size-5 animate-spin text-white" />
                         <span className="text-[11px] font-bold">{preview.progress}%</span>

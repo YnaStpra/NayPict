@@ -1964,7 +1964,7 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
                   style={slideTransformStyle}
                 >
                   <VideoPlayer
-                    src={photoSlide.key || photoSlide.src}
+                    src={toProxyMediaUrl(photoSlide.src || photoSlide.key)}
                     poster={photoSlide.preview || photoSlide.thumbnail}
                     alt={photoSlide.alt || "Video"}
                     isActive={isCurrentSlide}

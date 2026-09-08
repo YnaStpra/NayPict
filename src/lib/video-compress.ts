@@ -48,23 +48,21 @@ export async function extractVideoMetadata(file: File): Promise<VideoMetadata> {
       });
     }
 
+    const container = document.createElement("div");
+    container.style.cssText = "position:fixed;bottom:0;right:0;width:1px;height:1px;overflow:hidden;opacity:0.01;pointer-events:none;z-index:9999;";
     const video = document.createElement("video");
     const videoUrl = URL.createObjectURL(file);
 
     video.muted = true;
+    video.defaultMuted = true;
     video.playsInline = true;
     video.setAttribute("playsinline", "true");
     video.setAttribute("webkit-playsinline", "true");
+    video.setAttribute("muted", "");
     video.preload = "auto";
-    video.style.position = "fixed";
-    video.style.top = "0";
-    video.style.left = "0";
-    video.style.width = "320px";
-    video.style.height = "180px";
-    video.style.opacity = "0.001";
-    video.style.pointerEvents = "none";
-    video.style.zIndex = "-9999";
-    document.body.appendChild(video);
+    video.style.cssText = "width:320px;height:180px;visibility:visible;";
+    container.appendChild(video);
+    document.body.appendChild(container);
 
     let finished = false;
     let fallbackPoster = "";
@@ -76,16 +74,24 @@ export async function extractVideoMetadata(file: File): Promise<VideoMetadata> {
       video.pause();
       video.removeAttribute("src");
       video.load();
-      if (video.parentNode) {
-        video.parentNode.removeChild(video);
+      if (container.parentNode) {
+        container.parentNode.removeChild(container);
       }
       URL.revokeObjectURL(videoUrl);
     };
 
+    let knownDuration = 0;
+    let knownWidth = 0;
+    let knownHeight = 0;
+
     const takeSnapshot = (): { poster: string; hash: string; isBlack: boolean } => {
       try {
-        const width = video.videoWidth || 1280;
-        const height = video.videoHeight || 720;
+        const width = video.videoWidth || knownWidth || 0;
+        const height = video.videoHeight || knownHeight || 0;
+        if (!width || !height) {
+          return { poster: "", hash: "", isBlack: true };
+        }
+
         const posterCanvas = document.createElement("canvas");
         const maxPosterDim = 1280;
         let pWidth = width;
@@ -106,10 +112,10 @@ export async function extractVideoMetadata(file: File): Promise<VideoMetadata> {
         const ctx = posterCanvas.getContext("2d");
         let poster = "";
         let isBlack = true;
-        if (ctx && video.videoWidth > 0 && video.videoHeight > 0) {
+        if (ctx) {
           ctx.drawImage(video, 0, 0, pWidth, pHeight);
 
-          // Check if frame has meaningful visual content (not solid black / empty)
+          // Sample pixels to verify non-black frame
           try {
             const samplePoints = [
               [Math.floor(pWidth * 0.5), Math.floor(pHeight * 0.5)],
@@ -122,7 +128,7 @@ export async function extractVideoMetadata(file: File): Promise<VideoMetadata> {
             ];
             for (const [x, y] of samplePoints) {
               const pixel = ctx.getImageData(x, y, 1, 1).data;
-              if (pixel[0] > 18 || pixel[1] > 18 || pixel[2] > 18) {
+              if (pixel[0] > 16 || pixel[1] > 16 || pixel[2] > 16) {
                 isBlack = false;
                 break;
               }
@@ -131,7 +137,7 @@ export async function extractVideoMetadata(file: File): Promise<VideoMetadata> {
             isBlack = false;
           }
 
-          poster = posterCanvas.toDataURL("image/jpeg", 0.82);
+          poster = posterCanvas.toDataURL("image/jpeg", 0.85);
         }
 
         let hash = "";
@@ -152,7 +158,7 @@ export async function extractVideoMetadata(file: File): Promise<VideoMetadata> {
           hashCanvas.width = hWidth;
           hashCanvas.height = hHeight;
           const hCtx = hashCanvas.getContext("2d");
-          if (hCtx && video.videoWidth > 0 && video.videoHeight > 0) {
+          if (hCtx) {
             hCtx.drawImage(video, 0, 0, hWidth, hHeight);
             const imageData = hCtx.getImageData(0, 0, hWidth, hHeight);
             const hashBytes = rgbaToThumbHash(hWidth, hHeight, imageData.data);
@@ -167,10 +173,6 @@ export async function extractVideoMetadata(file: File): Promise<VideoMetadata> {
         return { poster: "", hash: "", isBlack: true };
       }
     };
-
-    let knownDuration = 0;
-    let knownWidth = 1280;
-    let knownHeight = 720;
 
     const finishWithSnapshot = () => {
       const snap = takeSnapshot();
@@ -189,11 +191,10 @@ export async function extractVideoMetadata(file: File): Promise<VideoMetadata> {
       });
     };
 
-    // Safety timeout (8s max) to ensure upload is never blocked
+    // Safety timeout (6s max) to ensure upload is never blocked
     const timeout = setTimeout(() => {
-      console.warn("Video metadata extraction timeout, finalizing with best available frame");
       finishWithSnapshot();
-    }, 8000);
+    }, 6000);
 
     let hasSought = false;
 
@@ -203,7 +204,7 @@ export async function extractVideoMetadata(file: File): Promise<VideoMetadata> {
       if (video.duration && !isNaN(video.duration)) {
         knownDuration = video.duration;
       }
-      if (video.videoWidth > 0) {
+      if (video.videoWidth > 0 && video.videoHeight > 0) {
         knownWidth = video.videoWidth;
         knownHeight = video.videoHeight;
       }
@@ -212,36 +213,33 @@ export async function extractVideoMetadata(file: File): Promise<VideoMetadata> {
       const width = knownWidth || video.videoWidth;
       const height = knownHeight || video.videoHeight;
 
-      // Ensure frame pixel data is buffered before attempting canvas draw (readyState >= HAVE_CURRENT_DATA)
       if (width > 0 && height > 0 && video.readyState >= 2) {
-        // 1. Take initial snapshot from current buffered frame
         const initialSnap = takeSnapshot();
         if (initialSnap.poster) {
           fallbackPoster = initialSnap.poster;
           fallbackThumbHash = initialSnap.hash;
         }
 
-        // If initial frame is visually contentful, resolve immediately (~50-100ms) without slow seeks
+        // If initial frame has visual content, finalize immediately
         if (!initialSnap.isBlack) {
           clearTimeout(timeout);
           finishWithSnapshot();
           return;
         }
 
-        // If initial frame is solid black (e.g. video starts with a black fade-in intro),
-        // seek forward into the video to capture a meaningful frame.
+        // If initial frame is solid black, seek forward into video to find an active frame
         if (!hasSought && duration > 0.5) {
           hasSought = true;
           const targetTime = duration > 2 ? Math.min(1.0, duration / 4) : 0.2;
 
           const seekTimer = setTimeout(() => {
             finishWithSnapshot();
-          }, 3500);
+          }, 2000);
 
           video.onseeked = () => {
             clearTimeout(seekTimer);
             const snap = takeSnapshot();
-            if (snap.poster && !snap.isBlack) {
+            if (snap.poster) {
               fallbackPoster = snap.poster;
               fallbackThumbHash = snap.hash;
             }
@@ -267,13 +265,10 @@ export async function extractVideoMetadata(file: File): Promise<VideoMetadata> {
       if (video.duration && !isNaN(video.duration)) {
         knownDuration = video.duration;
       }
-      if (video.videoWidth > 0) {
+      if (video.videoWidth > 0 && video.videoHeight > 0) {
         knownWidth = video.videoWidth;
         knownHeight = video.videoHeight;
       }
-      try {
-        video.currentTime = 0.05;
-      } catch {}
       onDataReady();
     };
 
@@ -293,14 +288,13 @@ export async function extractVideoMetadata(file: File): Promise<VideoMetadata> {
         duration: knownDuration || 0,
         width: knownWidth || 1280,
         height: knownHeight || 720,
-        posterBase64: "",
-        thumbHash: "",
+        posterBase64: fallbackPoster,
+        thumbHash: fallbackThumbHash,
       });
     };
 
     video.src = videoUrl;
     video.load();
-    void video.play().then(() => video.pause()).catch(() => {});
   });
 }
 
@@ -397,26 +391,18 @@ export async function compressVideoTo720p(
 
   // Perform canvas frame capture and MediaRecorder transcoding
   return new Promise((resolve) => {
+    const container = document.createElement("div");
+    container.style.cssText = "position:fixed;bottom:0;right:0;width:1px;height:1px;overflow:hidden;opacity:0.01;pointer-events:none;z-index:9999;";
     const video = document.createElement("video");
     const videoUrl = URL.createObjectURL(file);
 
-    // CRITICAL: muted MUST stay true to allow background autoplay across all browsers without user gesture blocks
-    video.muted = true;
-    video.defaultMuted = true;
     video.playsInline = true;
     video.setAttribute("playsinline", "true");
     video.setAttribute("webkit-playsinline", "true");
-    video.setAttribute("muted", "");
     video.preload = "auto";
-    video.style.position = "fixed";
-    video.style.top = "0";
-    video.style.left = "0";
-    video.style.width = "320px";
-    video.style.height = "180px";
-    video.style.opacity = "0.0001";
-    video.style.pointerEvents = "none";
-    video.style.zIndex = "-9999";
-    document.body.appendChild(video);
+    video.style.cssText = "width:320px;height:180px;visibility:visible;";
+    container.appendChild(video);
+    document.body.appendChild(container);
 
     const canvas = document.createElement("canvas");
     canvas.width = targetWidth;
@@ -451,15 +437,14 @@ export async function compressVideoTo720p(
       video.pause();
       video.removeAttribute("src");
       video.load();
-      if (video.parentNode) {
-        video.parentNode.removeChild(video);
+      if (container.parentNode) {
+        container.parentNode.removeChild(container);
       }
       URL.revokeObjectURL(videoUrl);
     };
 
     video.onloadedmetadata = () => {
       try {
-        // Refine target dimensions if video element has true dimensions different from initial meta
         if (video.videoWidth > 0 && video.videoHeight > 0) {
           const vLandscape = video.videoWidth >= video.videoHeight;
           if (vLandscape && (video.videoHeight > 720 || video.videoWidth > maxDimension)) {
@@ -470,6 +455,9 @@ export async function compressVideoTo720p(
             const scale = Math.min(720 / video.videoWidth, maxDimension / video.videoHeight);
             targetWidth = Math.round((video.videoWidth * scale) / 2) * 2;
             targetHeight = Math.round((video.videoHeight * scale) / 2) * 2;
+          } else {
+            targetWidth = Math.round(video.videoWidth / 2) * 2;
+            targetHeight = Math.round(video.videoHeight / 2) * 2;
           }
           canvas.width = targetWidth;
           canvas.height = targetHeight;
@@ -477,41 +465,25 @@ export async function compressVideoTo720p(
 
         const stream = canvas.captureStream(30);
 
-        // Audio capture: extract track directly without unmuting video element
+        // Audio extraction via WebAudio destination (not routed to speakers, completely silent)
         let audioTrack: MediaStreamTrack | null = null;
-
         try {
-          const captureStreamFn = (video as any).captureStream || (video as any).mozCaptureStream;
-          if (typeof captureStreamFn === "function") {
-            const vStream = captureStreamFn.call(video);
-            const tracks = vStream.getAudioTracks();
+          const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+          if (AudioContextClass) {
+            audioContext = new AudioContextClass();
+            if (audioContext.state === "suspended") {
+              void audioContext.resume().catch(() => {});
+            }
+            const source = audioContext.createMediaElementSource(video);
+            const dest = audioContext.createMediaStreamDestination();
+            source.connect(dest);
+            const tracks = dest.stream.getAudioTracks();
             if (tracks && tracks.length > 0) {
               audioTrack = tracks[0];
             }
           }
         } catch (err) {
-          console.warn("[VideoCompress] captureStream audio extraction warning:", err);
-        }
-
-        if (!audioTrack) {
-          try {
-            const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-            if (AudioContextClass) {
-              audioContext = new AudioContextClass();
-              if (audioContext.state === "suspended") {
-                void audioContext.resume();
-              }
-              const source = audioContext.createMediaElementSource(video);
-              const dest = audioContext.createMediaStreamDestination();
-              source.connect(dest);
-              const tracks = dest.stream.getAudioTracks();
-              if (tracks && tracks.length > 0) {
-                audioTrack = tracks[0];
-              }
-            }
-          } catch (err) {
-            console.warn("[VideoCompress] Web Audio extraction warning:", err);
-          }
+          console.warn("[VideoCompress] Web Audio capture warning:", err);
         }
 
         if (audioTrack) {
@@ -552,8 +524,7 @@ export async function compressVideoTo720p(
 
           // If compression failed to produce output or is somehow larger, keep original
           if (outputBlob.size === 0 || outputBlob.size >= file.size) {
-            console.warn("[VideoCompress] Output not smaller than original, falling back to original file");
-            onProgress?.(100);
+            console.warn("[VideoCompress] Output not smaller than original or empty, falling back to original file");
             resolve(file);
             return;
           }
@@ -587,8 +558,7 @@ export async function compressVideoTo720p(
 
         video.onended = stopTranscoding;
 
-        // Generous safety timeout accounting for accelerated playback plus buffer margin
-        const initialPlaybackRate = 2.0;
+        const initialPlaybackRate = 1.5;
         const effectiveDuration = totalDuration > 0 ? (totalDuration / initialPlaybackRate) : 120;
         const maxTimeSeconds = Math.max(Math.round(effectiveDuration + 60), 180);
         safetyTimer = setTimeout(stopTranscoding, maxTimeSeconds * 1000);
@@ -599,8 +569,7 @@ export async function compressVideoTo720p(
           (video as any).preservesPitch = true;
         } catch {}
 
-        void video.play().then(() => {
-          // Draw first frame immediately to prime the canvas capture stream
+        const startRecording = () => {
           if (ctx) {
             ctx.drawImage(video, 0, 0, targetWidth, targetHeight);
           }
@@ -609,11 +578,37 @@ export async function compressVideoTo720p(
           } catch (recErr) {
             console.warn("[VideoCompress] MediaRecorder start error:", recErr);
           }
+        };
+
+        const tryPlay = async () => {
+          // Attempt unmuted playback so WebAudio receives audio signal silently
+          video.muted = false;
+          video.volume = 1;
+
+          try {
+            await video.play();
+            startRecording();
+          } catch (unmutedErr) {
+            console.warn("[VideoCompress] Unmuted playback blocked, falling back to muted video-only re-encoding:", unmutedErr);
+            video.muted = true;
+            if (audioTrack) {
+              try { stream.removeTrack(audioTrack); } catch {}
+              audioTrack = null;
+            }
+            try {
+              await video.play();
+              startRecording();
+            } catch (mutedErr) {
+              console.warn("[VideoCompress] Muted playback also failed:", mutedErr);
+              cleanup();
+              resolve(file);
+              return;
+            }
+          }
 
           function renderFrame() {
             if (isStopped) return;
 
-            // Transcoding completes only when video has truly ended or reached the end of stream
             if (
               video.ended ||
               (totalDuration > 0 && video.currentTime >= totalDuration - 0.08)
@@ -622,7 +617,6 @@ export async function compressVideoTo720p(
               return;
             }
 
-            // Auto-resume playback if browser temporarily buffered heavy 4K frames
             if (video.paused && !video.ended) {
               void video.play().catch(() => {});
             }
@@ -644,17 +638,12 @@ export async function compressVideoTo720p(
           }
 
           renderFrame();
-        }).catch((err) => {
-          console.warn("[VideoCompress] Playback error during compression:", err);
-          cleanup();
-          onProgress?.(100);
-          resolve(file);
-        });
+        };
 
+        void tryPlay();
       } catch (err) {
         console.warn("[VideoCompress] Unexpected error during compression setup:", err);
         cleanup();
-        onProgress?.(100);
         resolve(file);
       }
     };
@@ -662,7 +651,6 @@ export async function compressVideoTo720p(
     video.onerror = () => {
       console.warn("[VideoCompress] Video loading error during compression:", video.error);
       cleanup();
-      onProgress?.(100);
       resolve(file);
     };
 

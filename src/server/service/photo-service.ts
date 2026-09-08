@@ -1004,6 +1004,8 @@ const photoService = {
     let previewKey = '';
     let thumbnailKey = '';
     let finalThumbHash = thumbHash;
+    let posterWidth = 0;
+    let posterHeight = 0;
     const photoId = createId();
 
     if (posterBase64) {
@@ -1011,6 +1013,8 @@ const photoService = {
         const base64Data = posterBase64.replace(/^data:image\/\w+;base64,/, '');
         const posterBuffer = Buffer.from(base64Data, 'base64');
         const images = await processPhotoImages(posterBuffer, 'image/jpeg');
+        posterWidth = images.width;
+        posterHeight = images.height;
         finalThumbHash = images.thumbHash || thumbHash;
         previewKey = buildPreviewKey(checksum, photoId);
         thumbnailKey = buildThumbnailKey(checksum, photoId);
@@ -1048,8 +1052,8 @@ const photoService = {
       type: finalType,
       typeDesc,
       size,
-      width: width || 1280,
-      height: height || 720,
+      width: width || posterWidth || 1280,
+      height: height || posterHeight || 720,
       takenTime: finalTakenTime,
       createTime: now,
       userId,
