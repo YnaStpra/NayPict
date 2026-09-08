@@ -304,7 +304,7 @@ export const PhotoCard = memo(function PhotoCard({
         isVideo ? (
           <div className="absolute inset-0 bg-neutral-950 flex items-center justify-center overflow-hidden">
             <video
-              src={data.key ? toProxyMediaUrl(data.key) : undefined}
+              src={data.key?.startsWith('http') ? data.key : (data.key ? toProxyMediaUrl(data.key) : undefined)}
               muted
               playsInline
               preload="metadata"
