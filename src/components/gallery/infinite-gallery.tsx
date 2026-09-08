@@ -142,7 +142,10 @@ export function InfiniteGallery(props: InfiniteGalleryProps) {
   const safeImages: GalleryImage[] = useMemo(() => {
     if (photos && photos.length > 0) {
       return photos
-        .map((photo, idx) => ({
+        .map((photo, idx) => ({ photo, idx }))
+        // Strictly exclude videos from InfiniteGallery (videos only appear in album masonry)
+        .filter(({ photo }) => !photo.type?.startsWith("video/"))
+        .map(({ photo, idx }) => ({
           src: photo.thumbnail || photo.preview || photo.key || "",
           alt: photo.name || `Photo ${idx + 1}`,
           photoId: photo.photoId,

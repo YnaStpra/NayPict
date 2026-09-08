@@ -3,6 +3,7 @@ import result from '@/server/model/result';
 import { photoService } from '@/server/service/photo-service';
 import { getUserId } from "@/server/security/context";
 import {
+  type PhotoAddVideoBo,
   type PhotoBatchEditBo,
   type PhotoDeleteBo,
   type PhotoExistsBo,
@@ -264,6 +265,13 @@ export function registerPhotoApi(app: Hono<HonoEnv>) {
   // Upload a single photo.
   app.post('/photo/add', async (c: Context) => {
     const data = await photoService.add(await c.req.formData(), getUserId());
+    return c.json(result.ok(data));
+  });
+
+  // Register a video uploaded via presigned URL with poster derivatives and metadata.
+  app.post('/photo/addVideo', async (c: Context) => {
+    const body = await c.req.json<PhotoAddVideoBo>();
+    const data = await photoService.addVideo(body, getUserId());
     return c.json(result.ok(data));
   });
 

@@ -121,6 +121,7 @@ export function PhotoReactions({ photoId, className = "", compact = false }: Pho
 
   // Handle emoji reaction toggle with mutual exclusivity
   const handleEmojiReaction = async (type: ReactionType, emoji: string, e: React.MouseEvent<HTMLButtonElement>) => {
+    e.stopPropagation()
     if (type === "clap" || !photoId) return
 
     // Safe haptic feedback
@@ -141,6 +142,7 @@ export function PhotoReactions({ photoId, className = "", compact = false }: Pho
 
   // Handle 1-Like toggle
   const handleLike = async (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.stopPropagation()
     if (!photoId) return
 
     // Safe haptic feedback

@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState, type ChangeEvent } from "react"
-import { CheckIcon, CircleAlertIcon, PlusIcon, SettingsIcon, Trash2Icon, CopyIcon, ShieldAlertIcon, CheckCircle2Icon, Loader2, UploadCloud, X } from "lucide-react"
+import { CheckIcon, CircleAlertIcon, PlusIcon, SettingsIcon, Trash2Icon, CopyIcon, ShieldAlertIcon, CheckCircle2Icon, Loader2, UploadCloud, X, Play } from "lucide-react"
 import { toast } from "sonner"
 import { sha1 } from "hash-wasm"
 
@@ -29,9 +29,10 @@ import {
 import { PhotoUploadSettings, readPhotoUploadSettings } from "@/components/photo/photo-upload-settings"
 import { compressImageFile } from "@/lib/image-compress"
 import { extractClientExif } from "@/lib/photo-client-exif"
+import { extractVideoMetadata, compressVideoTo720p } from "@/lib/video-compress"
 import { useStorageStore } from "@/store/storage-store"
 import { usePhotoStore } from "@/store/photo-store"
-import { photoExists, photoRecycle } from "@/request/photo"
+import { photoAddVideo, photoExists, photoGetPresignedUploadUrl, photoRecycle } from "@/request/photo"
 import { albumAddPhoto } from "@/request/album"
 import { storageSelect } from "@/request/storage"
 import { type PhotoAddResultVo, type PhotoVo } from "@/server/entity/vo/photo"
@@ -166,6 +167,33 @@ function uploadPhotoAdd(
   })
 }
 
+function uploadFileDirect(
+  uploadUrl: string,
+  file: File,
+  onProgress?: (progress: number) => void,
+  onAbort?: (abort: () => void) => void
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest()
+    xhr.upload.onprogress = (event) => {
+      if (!event.lengthComputable) return
+      onProgress?.(Math.round((event.loaded / event.total) * 100))
+    }
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        resolve()
+      } else {
+        reject(new Error(`Direct upload failed (HTTP ${xhr.status})`))
+      }
+    }
+    xhr.onerror = () => reject(new Error("Direct upload network error"))
+    xhr.open("PUT", uploadUrl)
+    xhr.setRequestHeader("Content-Type", file.type || "video/mp4")
+    onAbort?.(() => xhr.abort())
+    xhr.send(file)
+  })
+}
+
 export function PhotoUploadDialog() {
   const t = useTranslations("photos.upload")
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -194,7 +222,13 @@ export function PhotoUploadDialog() {
   const uploadAlbumId = usePhotoStore((state) => state.uploadAlbumId)
   const closeUpload = usePhotoStore((state) => state.closeUpload)
   const addUploadedPhoto = usePhotoStore((state) => state.addUploadedPhoto)
-  const selectedStorageId = storageId ?? storages[0]?.storageId ?? null
+  const photoStorage = storages.find(
+    (s) => !s.name?.toLowerCase().includes("video")
+  ) || storages[0]
+  const videoStorage = storages.find(
+    (s) => s.name?.toLowerCase().includes("video")
+  )
+  const selectedStorageId = storageId ?? "auto"
 
   // Mobile Back gesture handlers
   useModalBackHandler(open, (isOpen) => {
@@ -305,6 +339,22 @@ export function PhotoUploadDialog() {
     const nextPreviews = [...previewsRef.current, ...newItems]
     setPreviews(nextPreviews)
 
+    // For video files, eagerly extract poster frame in background for modal thumbnail
+    newItems.forEach((item) => {
+      const isVideo = item.file.type.startsWith("video/") || /\.(mp4|mov|webm|m4v|mkv)$/i.test(item.file.name)
+      if (isVideo) {
+        extractVideoMetadata(item.file)
+          .then((meta) => {
+            if (meta.posterBase64) {
+              setPreviews((prev) =>
+                prev.map((p) => (p.id === item.id ? { ...p, cover: meta.posterBase64 } : p))
+              )
+            }
+          })
+          .catch(() => {})
+      }
+    })
+
     if (fileInputRef.current) fileInputRef.current.value = ""
 
     if (uploadingRef.current) {
@@ -352,6 +402,130 @@ export function PhotoUploadDialog() {
 
     try {
       const uploadSettings = readPhotoUploadSettings()
+
+      // DUAL STORAGE ROUTING & DIRECT R2 UPLOAD FOR VIDEOS
+      const isVideo = item.file.type.startsWith("video/") || /\.(mp4|mov|webm|m4v|mkv)$/i.test(item.file.name)
+      if (isVideo) {
+        // Automatically route to dedicated video storage when in auto mode, or honor specific manual override
+        const targetStorageId = (currentStorageId === "auto" || !currentStorageId)
+          ? (videoStorage?.storageId || photoStorage?.storageId)
+          : currentStorageId
+
+        // 1. Extract video metadata & high-quality poster frame
+        const meta = await extractVideoMetadata(item.file)
+
+        if (pausedRef.current) {
+          setPreviews((prev) => prev.map((p) => (p.id === item.id ? { ...p, progress: 0, status: "new" } : p)))
+          return
+        }
+
+        // 2. Smart 720p client-side compression (scales down 1080p/4K; skips if already 720p or if disabled)
+        const shouldCompress = uploadSettings.compressVideo !== false
+        const compressedVideo = shouldCompress
+          ? await compressVideoTo720p(item.file, meta, {
+              onProgress: (compProg) => {
+                setPreviews((prev) =>
+                  prev.map((p) =>
+                    p.id === item.id ? { ...p, progress: Math.round(compProg * 0.35) } : p
+                  )
+                )
+              },
+            })
+          : item.file
+
+        // If compression successfully reduced file size, update item reference & previews state
+        if (compressedVideo !== item.file && compressedVideo.size < item.file.size) {
+          const originalSizeDesc = formatPhotoSize(item.file.size)
+          const compressedSizeDesc = formatPhotoSize(compressedVideo.size)
+          const savedPercent = Math.round((1 - compressedVideo.size / item.file.size) * 100)
+
+          item.file = compressedVideo
+          previewsRef.current = previewsRef.current.map((p) =>
+            p.id === item.id ? { ...p, file: compressedVideo } : p
+          )
+          setPreviews((prev) =>
+            prev.map((p) =>
+              p.id === item.id ? { ...p, file: compressedVideo } : p
+            )
+          )
+
+          toast.success(
+            `Smart 720p compression: ${originalSizeDesc} → ${compressedSizeDesc} (${savedPercent}% smaller)`
+          )
+        }
+
+        // 3. Deduplication check
+        const checksum = await getFileChecksum(compressedVideo)
+        const existsResult = await photoExists({ checksum, name: compressedVideo.name })
+
+        if (existsResult.duplicate) {
+          const dupPhotoId = existsResult.photoId
+          if (item.albumId && dupPhotoId) {
+            await albumAddPhoto({ albumIds: [item.albumId], photoIds: [dupPhotoId] })
+            toast.success("Video already exists in gallery, automatically linked to album!")
+          }
+          setPreviews((prev) => prev.map((p) => (p.id === item.id ? { ...p, progress: 100, status: "skipped" } : p)))
+          return
+        }
+
+        // 4. Request direct presigned PUT upload URL to bypass Vercel serverless payload limits
+        const presigned = await photoGetPresignedUploadUrl({
+          filename: compressedVideo.name,
+          fileType: compressedVideo.type,
+          storageId: targetStorageId || undefined,
+        })
+
+        // 5. Upload video directly to Cloudflare R2 bucket
+        await uploadFileDirect(
+          presigned.uploadUrl,
+          compressedVideo,
+          (upProg) => {
+            const totalProgress = 35 + Math.round(upProg * 0.6)
+            setPreviews((prev) =>
+              prev.map((p) =>
+                p.id === item.id ? { ...p, progress: totalProgress } : p
+              )
+            )
+          },
+          (abort) => abortMapRef.current.set(preview.id, abort)
+        )
+
+        // 6. Extract EXIF/GPS coordinates if embedded
+        const clientExif = await extractClientExif(item.file).catch(() => ({} as any))
+
+        const finalWidth = (compressedVideo as any).videoWidth || meta.width
+        const finalHeight = (compressedVideo as any).videoHeight || meta.height
+
+        // 7. Register video in database with poster thumbnail and duration metadata
+        const result = await photoAddVideo({
+          key: presigned.key,
+          storageId: presigned.storageId,
+          name: compressedVideo.name,
+          size: compressedVideo.size,
+          type: compressedVideo.type,
+          width: finalWidth,
+          height: finalHeight,
+          duration: meta.duration,
+          checksum,
+          thumbHash: meta.thumbHash,
+          albumId: item.albumId,
+          lastModified: item.file.lastModified,
+          allowDownload: uploadSettings.allowDownload,
+          latitude: clientExif.latitude,
+          longitude: clientExif.longitude,
+          altitude: clientExif.altitude,
+          takenTime: clientExif.takenTime,
+          posterBase64: meta.posterBase64,
+        })
+
+        if (result.photo) {
+          addUploadedPhoto(result.photo, item.albumId ?? null)
+        }
+
+        setPreviews((prev) => prev.map((p) => (p.id === item.id ? { ...p, progress: 100, status: "success" } : p)))
+        return
+      }
+
       let fileToUpload = item.file
 
       if (uploadSettings.compressImage || fileToUpload.size > 3.8 * 1024 * 1024) {
@@ -396,8 +570,11 @@ export function PhotoUploadDialog() {
       }
 
       const formData = new FormData()
-      if (currentStorageId) {
-        formData.set("storageId", currentStorageId)
+      const targetPhotoStorageId = (currentStorageId === "auto" || !currentStorageId)
+        ? photoStorage?.storageId
+        : currentStorageId
+      if (targetPhotoStorageId) {
+        formData.set("storageId", targetPhotoStorageId)
       }
       formData.set("file", fileToUpload)
       formData.set("lastModified", String(item.file.lastModified))
@@ -486,9 +663,21 @@ export function PhotoUploadDialog() {
       uploadingRef.current = false
       setUploading(false)
 
-      const successCount = previewsRef.current.filter((p) => p.status === "success").length
+      const successItems = previewsRef.current.filter((p) => p.status === "success")
+      const successCount = successItems.length
       if (successCount > 0) {
-        toast.success(`Upload complete: ${successCount} photo(s) uploaded successfully!`)
+        const videoSuccessCount = successItems.filter((p) =>
+          p.file.type.startsWith("video/") || /\.(mp4|mov|webm|m4v|mkv)$/i.test(p.file.name)
+        ).length
+        const photoSuccessCount = successCount - videoSuccessCount
+
+        if (photoSuccessCount > 0 && videoSuccessCount > 0) {
+          toast.success(`Upload complete: ${photoSuccessCount} photo(s) and ${videoSuccessCount} video(s) uploaded successfully!`)
+        } else if (videoSuccessCount > 0) {
+          toast.success(`Upload complete: ${videoSuccessCount} video(s) uploaded successfully!`)
+        } else {
+          toast.success(`Upload complete: ${photoSuccessCount} photo(s) uploaded successfully!`)
+        }
       }
 
       // Open Duplicate Review Dialog if duplicates were detected during batch upload
@@ -496,7 +685,7 @@ export function PhotoUploadDialog() {
         const dups = [...detectedDuplicatesRef.current]
         setDuplicatePairs(dups)
         setShowDuplicateModal(true)
-        toast.warning(`Detected ${dups.length} duplicate photo(s). Please review them below!`)
+        toast.warning(`Detected ${dups.length} duplicate media file(s). Please review them below!`)
       }
       return
     }
@@ -599,12 +788,24 @@ export function PhotoUploadDialog() {
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2 flex-wrap">
                 <UploadCloud className="size-5 text-primary shrink-0" />
-                <DialogTitle className="text-lg font-bold">{t("title")}</DialogTitle>
-                {previews.length > 0 && (
-                  <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
-                    {previews.length.toLocaleString()} photos • {formatPhotoSize(totalSelectedSize)}
-                  </span>
-                )}
+                <DialogTitle className="text-lg font-bold">
+                  {previews.some((p) => p.file.type.startsWith("video/") || /\.(mp4|mov|webm|m4v|mkv)$/i.test(p.file.name))
+                    ? "Upload Media"
+                    : t("title")}
+                </DialogTitle>
+                {previews.length > 0 && (() => {
+                  const videoCount = previews.filter(p => p.file.type.startsWith("video/") || /\.(mp4|mov|webm|m4v|mkv)$/i.test(p.file.name)).length
+                  const photoCount = previews.length - videoCount
+                  return (
+                    <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
+                      {photoCount > 0 && videoCount > 0
+                        ? `${photoCount} photos, ${videoCount} videos • ${formatPhotoSize(totalSelectedSize)}`
+                        : videoCount > 0
+                        ? `${videoCount} videos • ${formatPhotoSize(totalSelectedSize)}`
+                        : `${photoCount} photos • ${formatPhotoSize(totalSelectedSize)}`}
+                    </span>
+                  )
+                })()}
               </div>
               {!uploading && previews.length > 0 && (
                 <Button
@@ -622,7 +823,7 @@ export function PhotoUploadDialog() {
             <DialogDescription className="text-xs text-muted-foreground">
               {uploading
                 ? `Batch uploading: ${completedCount} of ${previews.length} completed (${progressPercent}%)`
-                : "Select or drag and drop photos into this area to upload to your gallery."}
+                : "Select or drag and drop photos and videos into this area to upload to your gallery."}
             </DialogDescription>
           </DialogHeader>
 
@@ -647,91 +848,122 @@ export function PhotoUploadDialog() {
               e.preventDefault()
               e.stopPropagation()
               setIsDragging(false)
-              const files = Array.from(e.dataTransfer.files).filter((f) => f.type.startsWith("image/"))
+              const files = Array.from(e.dataTransfer.files).filter((f) => f.type.startsWith("image/") || f.type.startsWith("video/"))
               if (files.length > 0) {
                 await addFilesToPreviews(files)
               }
             }}
           >
             <div className="grid grid-cols-3 sm:grid-cols-4 content-start gap-2.5">
-              {previews.map((preview) => (
-                <div
-                  key={preview.id}
-                  className="group relative aspect-square w-full overflow-hidden rounded-xl bg-muted border border-border/60 shadow-2xs"
-                >
-                  <img
-                    src={preview.cover}
-                    alt={preview.file.name}
-                    decoding="async"
-                    loading="lazy"
-                    className="h-full w-full object-cover"
-                  />
-
-                  {/* Dark Progress Overlay with Liquid Wave Bar */}
-                  {preview.status === "uploading" && (
-                    <div
-                      className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center text-white gap-1.5 p-2"
-                    >
-                      <Loader2 className="size-5 animate-spin text-white" />
-                      <span className="text-[11px] font-bold">{preview.progress}%</span>
-                      <div className="w-full h-1.5 rounded-full bg-white/20 overflow-hidden">
-                        <div
-                          className="h-full rounded-full wave-progress-shimmer transition-all duration-200"
-                          style={{ width: `${preview.progress}%` }}
+              {previews.map((preview) => {
+                const isVideo = preview.file.type.startsWith("video/") || /\.(mp4|mov|webm|m4v|mkv)$/i.test(preview.file.name)
+                return (
+                  <div
+                    key={preview.id}
+                    className="group relative aspect-square w-full overflow-hidden rounded-xl bg-muted border border-border/60 shadow-2xs"
+                  >
+                    {isVideo && !preview.cover.startsWith("data:image/") ? (
+                      <div className="relative h-full w-full bg-neutral-900 flex items-center justify-center overflow-hidden">
+                        <video
+                          key={preview.id}
+                          src={preview.cover}
+                          muted
+                          playsInline
+                          preload="auto"
+                          onLoadedData={(e) => {
+                            const v = e.currentTarget
+                            if (v.currentTime === 0) {
+                              v.currentTime = v.duration > 1 ? Math.min(1.0, v.duration / 4) : 0.05
+                            }
+                          }}
+                          className="h-full w-full object-cover pointer-events-none"
                         />
+                        <div className="absolute inset-0 bg-black/10 pointer-events-none" />
                       </div>
-                    </div>
-                  )}
+                    ) : (
+                      <img
+                        src={preview.cover}
+                        alt={preview.file.name}
+                        decoding="async"
+                        loading="lazy"
+                        className="h-full w-full object-cover"
+                      />
+                    )}
 
-                  {/* Waiting Queue Overlay */}
-                  {preview.status === "waiting" && (
-                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center text-white text-[10px] font-semibold">
-                      Antrean...
-                    </div>
-                  )}
+                    {/* Video Pill Indicator */}
+                    {isVideo && (
+                      <div className="absolute top-1.5 left-1.5 flex items-center gap-1 rounded-md bg-black/75 backdrop-blur-md px-1.5 py-0.5 text-[9px] font-bold text-white border border-white/20 shadow-xs pointer-events-none">
+                        <Play className="size-2.5 fill-current text-white" />
+                        <span>VIDEO</span>
+                      </div>
+                    )}
 
-                  {/* Delete Button (Pre-upload) */}
-                  {!uploading && preview.status === "new" && (
-                    <button
-                      type="button"
-                      onClick={() => removePreview(preview.id)}
-                      className="absolute top-1 right-1 flex size-6 items-center justify-center rounded-full bg-black/60 text-white hover:bg-destructive transition-colors opacity-80 group-hover:opacity-100 cursor-pointer"
-                      title="Remove photo"
-                    >
-                      <X className="size-3.5" />
-                    </button>
-                  )}
+                    {/* Dark Progress Overlay with Liquid Wave Bar */}
+                    {preview.status === "uploading" && (
+                      <div
+                        className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center text-white gap-1.5 p-2"
+                      >
+                        <Loader2 className="size-5 animate-spin text-white" />
+                        <span className="text-[11px] font-bold">{preview.progress}%</span>
+                        <div className="w-full h-1.5 rounded-full bg-white/20 overflow-hidden">
+                          <div
+                            className="h-full rounded-full wave-progress-shimmer transition-all duration-200"
+                            style={{ width: `${preview.progress}%` }}
+                          />
+                        </div>
+                      </div>
+                    )}
 
-                  {/* Status Badges with Particle Burst */}
-                  {preview.status === "success" && (
-                    <div className="absolute right-1 bottom-1 flex size-5 items-center justify-center rounded-full bg-emerald-500 text-white shadow-xs elastic-pop-badge">
-                      <CheckIcon className="size-3.5" />
-                    </div>
-                  )}
-                  {preview.status === "failed" && (
-                    <div className="absolute right-1 bottom-1 flex size-5 items-center justify-center rounded-full bg-destructive text-white shadow-xs elastic-pop-badge">
-                      <CircleAlertIcon className="size-3.5" />
-                    </div>
-                  )}
-                  {preview.status === "skipped" && (
-                    <div
-                      className="absolute right-1 bottom-1 flex size-5 items-center justify-center rounded-full bg-amber-500 text-white shadow-xs elastic-pop-badge"
-                      title="Duplicate photo detected"
-                    >
-                      <CopyIcon className="size-3.5" />
-                    </div>
-                  )}
-                </div>
-              ))}
+                    {/* Waiting Queue Overlay */}
+                    {preview.status === "waiting" && (
+                      <div className="absolute inset-0 bg-black/40 flex items-center justify-center text-white text-[10px] font-semibold">
+                        Waiting...
+                      </div>
+                    )}
 
-              {/* Add More Photos Card Button */}
+                    {/* Delete Button (Pre-upload) */}
+                    {!uploading && preview.status === "new" && (
+                      <button
+                        type="button"
+                        onClick={() => removePreview(preview.id)}
+                        className="absolute top-1 right-1 flex size-6 items-center justify-center rounded-full bg-black/60 text-white hover:bg-destructive transition-colors opacity-80 group-hover:opacity-100 cursor-pointer"
+                        title="Remove"
+                      >
+                        <X className="size-3.5" />
+                      </button>
+                    )}
+
+                    {/* Status Badges with Particle Burst */}
+                    {preview.status === "success" && (
+                      <div className="absolute right-1 bottom-1 flex size-5 items-center justify-center rounded-full bg-emerald-500 text-white shadow-xs elastic-pop-badge">
+                        <CheckIcon className="size-3.5" />
+                      </div>
+                    )}
+                    {preview.status === "failed" && (
+                      <div className="absolute right-1 bottom-1 flex size-5 items-center justify-center rounded-full bg-destructive text-white shadow-xs elastic-pop-badge">
+                        <CircleAlertIcon className="size-3.5" />
+                      </div>
+                    )}
+                    {preview.status === "skipped" && (
+                      <div
+                        className="absolute right-1 bottom-1 flex size-5 items-center justify-center rounded-full bg-amber-500 text-white shadow-xs elastic-pop-badge"
+                        title="Duplicate detected"
+                      >
+                        <CopyIcon className="size-3.5" />
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+
+              {/* Add More Media Card Button */}
               <button
                 type="button"
                 className="flex aspect-square w-full flex-col items-center justify-center gap-1.5 rounded-xl border-2 border-dashed border-border/80 bg-muted/40 text-muted-foreground hover:bg-muted hover:text-foreground hover:border-primary/50 transition-all cursor-pointer select-none"
                 onClick={openFilePicker}
               >
                 <PlusIcon className="size-6" />
-                <span className="text-[11px] font-medium">Add Photos</span>
+                <span className="text-[11px] font-medium">Add Media</span>
               </button>
             </div>
           </div>
@@ -740,21 +972,24 @@ export function PhotoUploadDialog() {
             <input
               ref={fileInputRef}
               type="file"
-              accept="image/*"
+              accept="image/*,video/*"
               multiple
               className="hidden"
               onChange={handleFileChange}
             />
             <div className="flex items-center gap-2">
               <Select
-                value={selectedStorageId ?? undefined}
+                value={selectedStorageId}
                 onValueChange={setStorageId}
                 disabled={uploading}
               >
-                <SelectTrigger className="w-40 h-9 text-xs">
+                <SelectTrigger className="min-w-[185px] h-9 text-xs">
                   <SelectValue placeholder={t("selectStorage")} />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="auto" className="text-xs font-semibold text-primary">
+                    ⚡ Auto (Photos &amp; Videos)
+                  </SelectItem>
                   {storages.map((storage) => (
                     <SelectItem key={storage.storageId} value={storage.storageId} className="text-xs">
                       {storage.name}
@@ -762,6 +997,15 @@ export function PhotoUploadDialog() {
                   ))}
                 </SelectContent>
               </Select>
+
+              {selectedStorageId === "auto" && videoStorage && photoStorage && (
+                <div className="hidden lg:flex items-center gap-1.5 px-2 py-1 rounded-md bg-muted/60 border border-border/50 text-[10px] text-muted-foreground whitespace-nowrap">
+                  <span>📸 {photoStorage.name}</span>
+                  <span className="text-muted-foreground/40">•</span>
+                  <span className="text-violet-500 dark:text-violet-400 font-medium">🎬 {videoStorage.name}</span>
+                </div>
+              )}
+
               <Popover>
                 <PopoverTrigger asChild>
                   <Button type="button" variant="ghost" size="icon" aria-label="Upload settings" className="size-9 cursor-pointer hover:bg-muted">
@@ -876,11 +1120,36 @@ export function PhotoUploadDialog() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {/* Uploaded New Photo Card */}
                     <div className="p-3 rounded-xl bg-amber-500/5 border border-amber-500/20 flex gap-3 items-center">
-                      <img
-                        src={pair.uploadPreview.cover}
-                        alt="New Photo"
-                        className="size-16 object-cover rounded-lg shrink-0 border"
-                      />
+                      {pair.uploadPreview.file.type.startsWith("video/") || /\.(mp4|mov|webm|m4v|mkv)$/i.test(pair.uploadPreview.file.name) ? (
+                        !pair.uploadPreview.cover.startsWith("data:image/") ? (
+                          <video
+                            key={pair.uploadPreview.id}
+                            src={pair.uploadPreview.cover}
+                            muted
+                            playsInline
+                            preload="auto"
+                            onLoadedData={(e) => {
+                              const v = e.currentTarget
+                              if (v.currentTime === 0) {
+                                v.currentTime = v.duration > 1 ? Math.min(1.0, v.duration / 4) : 0.05
+                              }
+                            }}
+                            className="size-16 object-cover rounded-lg shrink-0 border pointer-events-none bg-neutral-900"
+                          />
+                        ) : (
+                          <img
+                            src={pair.uploadPreview.cover}
+                            alt="New Video"
+                            className="size-16 object-cover rounded-lg shrink-0 border"
+                          />
+                        )
+                      ) : (
+                        <img
+                          src={pair.uploadPreview.cover}
+                          alt="New Photo"
+                          className="size-16 object-cover rounded-lg shrink-0 border"
+                        />
+                      )}
                       <div className="min-w-0 text-xs space-y-1">
                         <div className="inline-block px-2 py-0.5 rounded bg-amber-500/20 text-amber-600 dark:text-amber-300 font-semibold text-[10px]">
                           NEW PHOTO (UPLOADED)

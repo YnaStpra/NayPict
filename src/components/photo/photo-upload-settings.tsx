@@ -11,6 +11,7 @@ export interface PhotoUploadSettingsValue {
   retryOnFail: boolean
   allowDownload: boolean
   compressImage: boolean
+  compressVideo: boolean
 }
 
 const STORAGE_KEY = "photo-upload-settings"
@@ -20,6 +21,7 @@ const defaultSettings: PhotoUploadSettingsValue = {
   retryOnFail: false,
   allowDownload: false,
   compressImage: true,
+  compressVideo: true,
 }
 
 // Limit the number of concurrencies to 1 arrive 12 between.
@@ -43,6 +45,7 @@ export function readPhotoUploadSettings(): PhotoUploadSettingsValue {
       retryOnFail: data.retryOnFail ?? defaultSettings.retryOnFail,
       allowDownload: data.allowDownload ?? defaultSettings.allowDownload,
       compressImage: data.compressImage ?? defaultSettings.compressImage,
+      compressVideo: data.compressVideo ?? defaultSettings.compressVideo,
     }
   } catch {
     return defaultSettings
@@ -56,6 +59,7 @@ function savePhotoUploadSettings(settings: PhotoUploadSettingsValue) {
     retryOnFail: settings.retryOnFail,
     allowDownload: settings.allowDownload,
     compressImage: settings.compressImage,
+    compressVideo: settings.compressVideo,
   }))
 }
 
@@ -95,6 +99,26 @@ export function PhotoUploadSettings({ onChange }: { onChange?: () => void }) {
         </div>
         <p className="text-[11px] text-muted-foreground leading-snug mt-0.5">
           Significantly reduces file size by 60%-85% while preserving visual photo clarity.
+        </p>
+      </div>
+
+      {/* Video Compression Setting */}
+      <div className="flex flex-col gap-2 pb-2 border-b border-border">
+        <div className="flex items-center justify-between text-sm font-medium">
+          <span>Compress Video Size</span>
+          <span className="text-xs font-semibold px-2 py-0.5 rounded bg-muted text-foreground">
+            {settings.compressVideo ? "Smart 720p HD (H.264/WebM)" : "Original"}
+          </span>
+        </div>
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-xs text-muted-foreground">Auto-compress before upload</span>
+          <Switch
+            checked={settings.compressVideo}
+            onCheckedChange={(compressVideo) => updateSettings({ compressVideo })}
+          />
+        </div>
+        <p className="text-[11px] text-muted-foreground leading-snug mt-0.5">
+          Downscales 4K / 1080p videos to optimized 720p HD (~1.5 Mbps) for ultra-low file sizes with near-original visual fidelity.
         </p>
       </div>
 

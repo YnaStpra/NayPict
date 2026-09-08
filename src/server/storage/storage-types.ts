@@ -5,7 +5,7 @@ import { type Storage } from '@/server/entity/storage';
 
 interface StorageStrategy {
   put(files: StorageUploadObject[], storage: Storage): Promise<void>;
-  get(key: string, storage: Storage): Promise<StorageObject>;
+  get(key: string, storage: Storage, range?: string): Promise<StorageObject>;
   delete(key: string | string[], storage: Storage): Promise<void>;
   getPresignedPutUrl?(key: string, contentType: string, storage: Storage, expiresIn?: number): Promise<string>;
 }
@@ -16,6 +16,8 @@ interface StorageObject {
   body: ReadBody;
   size: number;
   type: string;
+  contentRange?: string;
+  statusCode?: number;
 }
 
 interface StorageUploadObject {

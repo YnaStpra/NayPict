@@ -93,8 +93,8 @@ class S3StorageStrategy implements StorageStrategy {
     }
   }
 
-  // from S3 Read the file and convert it into a response body.
-  async get(key: string, storage: Storage): Promise<StorageObject> {
+  // from S3 Read the file and convert it into a response body (supports HTTP Range for video streaming).
+  async get(key: string, storage: Storage, range?: string): Promise<StorageObject> {
     const client = this.createClient(storage);
     const bucket = storage.bucket?.trim();
 
@@ -102,10 +102,15 @@ class S3StorageStrategy implements StorageStrategy {
       throw new BizError('s3.bucketRequired');
     }
 
-    const res = await client.send(new GetObjectCommand({
+    const commandInput: { Bucket: string; Key: string; Range?: string } = {
       Bucket: bucket,
-      Key: key
-    }));
+      Key: key,
+    };
+    if (range) {
+      commandInput.Range = range;
+    }
+
+    const res = await client.send(new GetObjectCommand(commandInput));
 
     if (!res.Body) {
       throw new BizError('s3.readFailed');
@@ -114,7 +119,9 @@ class S3StorageStrategy implements StorageStrategy {
     return {
       body: res.Body as ReadBody,
       size: res.ContentLength ?? 0,
-      type: res.ContentType ?? 'application/octet-stream'
+      type: res.ContentType ?? 'application/octet-stream',
+      contentRange: res.ContentRange,
+      statusCode: range && res.ContentRange ? 206 : 200,
     };
   }
 

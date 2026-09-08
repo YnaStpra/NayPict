@@ -6,6 +6,7 @@ import { orm } from '@/server/infra/db';
 import BizError from '@/server/error/biz-error';
 import { storage } from '@/server/storage/storage';
 import {
+  type PhotoAddVideoBo,
   type PhotoBatchEditBo,
   type PhotoDeleteBo,
   type PhotoExistsBo,
@@ -789,6 +790,149 @@ const photoService = {
     };
   },
 
+  // Register a video file that was directly uploaded to R2 via presigned URL, generate derivative poster/thumbnail, and save metadata.
+  async addVideo(params: PhotoAddVideoBo, userId: string): Promise<PhotoAddResultVo> {
+    if (!userId) {
+      throw new BizError('auth.failed', 401);
+    }
+    const {
+      key,
+      storageId,
+      name,
+      size,
+      type,
+      width,
+      height,
+      duration = 0,
+      checksum,
+      thumbHash = '',
+      albumId,
+      lastModified = 0,
+      allowDownload = false,
+      latitude,
+      longitude,
+      altitude,
+      takenTime,
+      exifJson,
+      posterBase64,
+    } = params;
+
+    const fileStorageList = await storageService.getStorageList();
+    const videoStorage = fileStorageList.find((s) => s.storageId === storageId) || fileStorageList[0];
+    if (!videoStorage) {
+      throw new BizError('storage.notFound');
+    }
+
+    // Process poster frame buffer if provided by client (JPEG/WebP)
+    let previewKey = '';
+    let thumbnailKey = '';
+    let finalThumbHash = thumbHash;
+    const photoId = createId();
+
+    if (posterBase64) {
+      try {
+        const base64Data = posterBase64.replace(/^data:image\/\w+;base64,/, '');
+        const posterBuffer = Buffer.from(base64Data, 'base64');
+        const images = await processPhotoImages(posterBuffer, 'image/jpeg');
+        finalThumbHash = images.thumbHash || thumbHash;
+        previewKey = buildPreviewKey(checksum, photoId);
+        thumbnailKey = buildThumbnailKey(checksum, photoId);
+
+        const cacheMetadata = [['Cache-Control', 'private, max-age=604800']];
+        await storage.put([
+          {
+            key: previewKey,
+            body: images.previewBuffer,
+            type: 'image/jpeg',
+            metadata: cacheMetadata,
+          },
+          {
+            key: thumbnailKey,
+            body: images.thumbnailBuffer,
+            type: 'image/webp',
+            metadata: cacheMetadata,
+          },
+        ], videoStorage.storageId);
+      } catch (err) {
+        console.error('Failed to process video poster thumbnail:', err);
+      }
+    }
+
+    const now = new Date().toISOString();
+    const finalTakenTime = takenTime || (lastModified > 0 ? new Date(lastModified).toISOString() : now);
+    const finalType = type || 'video/mp4';
+    const typeDesc = finalType.split('/').pop()?.toUpperCase() || 'MP4';
+
+    const [photo] = await orm.insert(photoTab).values({
+      photoId,
+      name,
+      thumbHash: finalThumbHash,
+      checksum,
+      type: finalType,
+      typeDesc,
+      size,
+      width: width || 1280,
+      height: height || 720,
+      takenTime: finalTakenTime,
+      createTime: now,
+      userId,
+      status: PhotoStatusEnum.NORMAL,
+      storageId: videoStorage.storageId,
+      allowDownload: allowDownload ? 1 : 0,
+    }).returning();
+
+    const fileRecords: { fileId: string; photoId: string; key: string; type: number; fileType: string; size: number }[] = [
+      { fileId: createId(), photoId, key, type: FileTypeEnum.ORIGINAL, fileType: finalType, size },
+    ];
+    if (previewKey) {
+      fileRecords.push({ fileId: createId(), photoId, key: previewKey, type: FileTypeEnum.PREVIEW, fileType: 'image/jpeg', size: 50000 });
+    }
+    if (thumbnailKey) {
+      fileRecords.push({ fileId: createId(), photoId, key: thumbnailKey, type: FileTypeEnum.THUMBNAIL, fileType: 'image/webp', size: 25000 });
+    }
+
+    const files = await fileService.save(fileRecords);
+
+    // Build rich video EXIF metadata JSON
+    let finalExif = exifJson;
+    if (!finalExif) {
+      const videoMeta: Record<string, unknown> = {
+        FileType: typeDesc,
+        Duration: duration > 0 ? `${Math.floor(duration / 60)}:${String(Math.round(duration % 60)).padStart(2, '0')}` : undefined,
+        ImageWidth: width,
+        ImageHeight: height,
+        VideoCodec: 'H.264 / AVC1',
+      };
+      finalExif = JSON.stringify(videoMeta);
+    }
+
+    await exifService.save(photoId, {
+      exif: finalExif,
+      latitude: latitude != null && !isNaN(latitude) ? latitude : null,
+      longitude: longitude != null && !isNaN(longitude) ? longitude : null,
+      altitude: altitude != null && !isNaN(altitude) ? altitude : null,
+    });
+
+    if (albumId) {
+      await albumService.addPhoto({
+        albumIds: [albumId],
+        photoIds: [photo.photoId],
+      }, userId);
+    }
+
+    const domain = formatHttpUrl(videoStorage.domain);
+    return {
+      photo: this.toPhotoVo(photo, files, videoStorage, domain, {
+        photoId,
+        exif: finalExif,
+        latitude: latitude ?? null,
+        longitude: longitude ?? null,
+        altitude: altitude ?? null,
+      }),
+      duplicate: false,
+    };
+  },
+
   // Move the specified photos of the current user to the trash, And record the recycling time.
   async recycle(params: PhotoRecycleBo, userId?: string): Promise<void> {
     if (!params.photoIds?.length) {
@@ -1223,8 +1367,9 @@ const photoService = {
     const thumbnail = this.getFileKey(files, FileTypeEnum.THUMBNAIL) ?? '';
 
     // If allowDownload === 0 (Protected) and requester is not authenticated Admin (currentUserId is empty/falsy),
-    // mask key as null so the original file URL is NEVER leaked to public clients.
-    const isAllowed = photo.allowDownload === 1 || Boolean(currentUserId);
+    // mask photo key as null so original raw photo is not leaked. For videos, key is required for streaming playback.
+    const isVideo = Boolean(photo.type?.startsWith('video/'));
+    const isAllowed = isVideo || photo.allowDownload === 1 || Boolean(currentUserId);
     // Originals always traverse the same-origin authorization proxy; the CDN only serves derivatives.
     const key = isAllowed && rawKey ? toProxyMediaUrl(rawKey) : null;
     const isLocationIgnored = exifRow?.latitude === 999 && exifRow?.longitude === 999;

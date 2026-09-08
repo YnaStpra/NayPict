@@ -1,7 +1,7 @@
 "use client"
 
 import { memo, useEffect, useMemo, useRef, useState, type MouseEvent } from "react"
-import { FolderIcon, PinIcon } from "lucide-react"
+import { FolderIcon, PinIcon, Play } from "lucide-react"
 import { type RenderComponentProps } from "masonic"
 import { useIsMobile } from "@/hooks/use-mobile"
 import { Button } from "@/components/ui/button"
@@ -102,12 +102,22 @@ export const PhotoCard = memo(function PhotoCard({
   const [showTouchHover, setShowTouchHover] = useState(false)
   // holdHover Momentarily lock hover information when clicking to open viewer, Avoid instant retraction of zoom animation.
   const [holdHover, setHoldHover] = useState(false)
-  // Multi-tier fallback src state: thumbnail -> preview -> original key
-  const [imageSrc, setImageSrc] = useState<string | null>(() => data.thumbnail || data.preview || data.key || null)
+  const isVideo = Boolean(data.type?.startsWith("video/"))
+  // Multi-tier fallback src state: thumbnail -> preview -> (photos only: original key)
+  const [imageSrc, setImageSrc] = useState<string | null>(() => data.thumbnail || data.preview || (isVideo ? null : data.key) || null)
   // imageError Record whether all photo URLs failed to load.
   const [imageError, setImageError] = useState(false)
   // isMobile Determine whether the current viewport is the mobile terminal.
   const isMobile = useIsMobile()
+  const videoDuration = useMemo(() => {
+    if (!isVideo || !data.exif) return null
+    try {
+      const parsed = JSON.parse(data.exif)
+      return parsed.Duration || null
+    } catch {
+      return null
+    }
+  }, [isVideo, data.exif])
   const showHover = showTouchHover || holdHover
   // Predictive hover dwell timer (100ms intent window)
   const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -120,10 +130,10 @@ export const PhotoCard = memo(function PhotoCard({
   useEffect(() => {
     if (prevPhotoIdRef.current !== data.photoId) {
       prevPhotoIdRef.current = data.photoId
-      setImageSrc(data.thumbnail || data.preview || data.key || null)
+      setImageSrc(data.thumbnail || data.preview || (isVideo ? null : data.key) || null)
       setImageError(false)
     }
-  }, [data.photoId, data.thumbnail, data.preview, data.key])
+  }, [data.photoId, data.thumbnail, data.preview, data.key, isVideo])
 
   // Proactive Fallback Watchdog: If thumbnail stalls > 3s without error, seamlessly switch to preview/original
   useEffect(() => {
@@ -290,10 +300,23 @@ export const PhotoCard = memo(function PhotoCard({
         ["--intrinsic-height" as string]: `${cardHeight}px`,
       }}
     >
-      {imageError ? (
-        <div className="absolute inset-0 flex items-center justify-center px-3 text-center text-sm text-muted-foreground bg-muted/60">
-          {t("imageLoadFailed")}
-        </div>
+      {imageError || (isVideo && !imageSrc) ? (
+        isVideo ? (
+          <div className="absolute inset-0 bg-neutral-950 flex items-center justify-center overflow-hidden">
+            <video
+              src={data.key ? toProxyMediaUrl(data.key) : undefined}
+              muted
+              playsInline
+              preload="metadata"
+              className="absolute inset-0 h-full w-full object-cover pointer-events-none bg-neutral-950"
+            />
+            <div className="absolute inset-0 bg-black/20 pointer-events-none" />
+          </div>
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center px-3 text-center text-sm text-muted-foreground bg-muted/60">
+            {t("imageLoadFailed")}
+          </div>
+        )
       ) : (
         <img
           ref={imgRef}
@@ -322,6 +345,29 @@ export const PhotoCard = memo(function PhotoCard({
         >
           <PinIcon className="size-3 fill-current rotate-45" />
           <span>Pinned</span>
+        </div>
+      )}
+      {/* Video Duration Badge (Always visible in album grid) */}
+      {isVideo && (
+        <div
+          className="absolute top-2 right-2 z-10 flex items-center gap-1 rounded-full bg-black/75 text-white backdrop-blur-md px-2 py-0.5 text-[11px] font-bold shadow-md border border-white/20"
+          title={`Video ${videoDuration ? `(${videoDuration})` : ""}`}
+        >
+          <Play className="size-2.5 fill-current text-emerald-400" />
+          <span>{videoDuration || "Video"}</span>
+        </div>
+      )}
+      {/* Center Play Overlay on Hover / Active */}
+      {isVideo && !selectionActive && (
+        <div
+          className={[
+            "pointer-events-none absolute inset-0 flex items-center justify-center transition-all duration-300 z-10",
+            showHover ? "opacity-100 scale-100" : "opacity-0 scale-90",
+          ].join(" ")}
+        >
+          <div className="flex size-11 items-center justify-center rounded-full bg-black/60 text-white backdrop-blur-md border border-white/25 shadow-xl">
+            <Play className="size-5 fill-current ml-0.5 text-emerald-400" />
+          </div>
         </div>
       )}
       {data.status === PhotoStatusEnum.DELETE && (
@@ -409,7 +455,7 @@ export const PhotoCard = memo(function PhotoCard({
               <span>{data.typeDesc.toUpperCase()}</span>
               <span> • </span>
               <span>
-                {data.width} × {data.height}
+                {isVideo ? "720p HD" : `${data.width} × ${data.height}`}
               </span>
               {
                 isMobile ? (

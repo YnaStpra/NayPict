@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useRef, useTransition, useCallback } from 'react'
+import { useEffect, useState, useRef, useTransition, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
@@ -124,7 +124,10 @@ export function LandingClient({ initialPhotos }: LandingClientProps) {
     })
   }
 
-  const displayPhotos = photos.length > 0 ? photos : initialPhotos
+  const displayPhotos = useMemo(() => {
+    const list = photos.length > 0 ? photos : initialPhotos
+    return list.filter((p) => !p.type?.startsWith("video/"))
+  }, [photos, initialPhotos])
 
   return (
     <main

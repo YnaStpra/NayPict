@@ -1,5 +1,6 @@
 import { http } from "@/request/request";
 import {
+  type PhotoAddVideoBo,
   type PhotoBatchEditBo,
   type PhotoDeleteBo,
   type PhotoExistsBo,
@@ -67,6 +68,16 @@ export function photoTakenDateList(params: PhotoTakenDateListBo) {
 // Upload a single photo.
 export function photoAdd(params: FormData) {
   return http.post<PhotoAddResultVo>('/photo/add', params);
+}
+
+// Request presigned PUT URL for direct storage upload (S3 / Cloudflare R2).
+export function photoGetPresignedUploadUrl(params: { filename: string; fileType: string; storageId?: string }) {
+  return http.post<{ uploadUrl: string; key: string; storageId: string }>('/photo/presignedUploadUrl', params);
+}
+
+// Register a video directly uploaded via presigned URL with poster derivatives and metadata.
+export function photoAddVideo(params: PhotoAddVideoBo) {
+  return http.post<PhotoAddResultVo>('/photo/addVideo', params);
 }
 
 // Check if the file already exists before uploading.

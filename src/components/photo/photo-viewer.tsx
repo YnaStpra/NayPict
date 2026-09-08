@@ -6,13 +6,14 @@ import { isImageSlide, type SlideImage, useController, useLightboxState } from "
 import Fullscreen from "yet-another-react-lightbox/plugins/fullscreen"
 import Thumbnails from "yet-another-react-lightbox/plugins/thumbnails"
 import Zoom from "yet-another-react-lightbox/plugins/zoom"
-import { ArrowLeftIcon, ChevronLeftIcon, ChevronRightIcon, ChevronsUpDownIcon, CircleAlertIcon, CircleIcon, FolderIcon, FolderPlusIcon, LockIcon, Menu, LoaderCircleIcon, MaximizeIcon, MessageSquare, MinimizeIcon, PanelRightClose, PanelRightOpen, RotateCcwSquare, Share2Icon, Sparkles, Trash2Icon } from "lucide-react"
+import { ArrowLeftIcon, ChevronLeftIcon, ChevronRightIcon, ChevronsUpDownIcon, CircleAlertIcon, CircleIcon, FolderIcon, FolderPlusIcon, LockIcon, Menu, LoaderCircleIcon, MaximizeIcon, MessageSquare, MinimizeIcon, PanelRightClose, PanelRightOpen, Play, RotateCcwSquare, Share2Icon, Sparkles, Trash2Icon } from "lucide-react"
 import { toast } from "sonner"
 
 import dynamic from "next/dynamic"
 
 import { PhotoInfoSidebar, PhotoViewerBlurBackground, formatAlbumList } from "@/components/photo/photo-info-sidebar"
 import { PhotoReactions } from "@/components/photo/photo-reactions"
+import { VideoPlayer } from "@/components/video/video-player"
 
 // Dynamic code-splitting: Lazy-load heavy dialog bundles on demand to drastically minimize initial photo viewer bundle
 const PhotoInsightsDialog = dynamic(
@@ -76,6 +77,8 @@ type PhotoSlide = SlideImage & {
   thumbHashUrl?: string
   // Album list photo belongs to.
   albums?: { albumId: string; name: string }[]
+  // MIME type (image/jpeg, video/mp4, etc.)
+  mediaType?: string
 }
 
 type FullscreenButtonProps = {
@@ -1119,6 +1122,8 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
   const [isCinematicMode, setIsCinematicMode] = useState(false)
   // Dynamic Cinema Ambient Glow mode state (default true).
   const [ambientGlow, setAmbientGlow] = useState(true)
+  // Whether user is currently seeking or scrubbing video/volume (disables swipe carousel)
+  const [isVideoScrubbing, setIsVideoScrubbing] = useState(false)
   // Drag-to-dismiss gesture state (supports bidirectional vertical dismiss: swipe up or swipe down)
   const [dragOffset, setDragOffset] = useState<{ x: number; y: number } | null>(null)
   const [isDismissing, setIsDismissing] = useState(false)
@@ -1346,8 +1351,10 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
       width: photo.width ?? undefined,
       height: photo.height ?? undefined,
       alt: photo.name,
+      mediaType: photo.type,
     }))
   ), [photos])
+  const isCurrentVideo = Boolean(photos[viewIndex]?.type?.startsWith("video/"))
   const actionsVisible = showActions && zoomLevel <= 1 && controlsVisible
 
   const onBackRef = useRef(onBack)
@@ -1460,6 +1467,7 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
 
   // Process the original image loading after photo switching.
   function handleView(nextIndex: number) {
+    setIsVideoScrubbing(false)
     setViewIndex(nextIndex)
 
     const photo = photos[nextIndex]
@@ -1697,12 +1705,25 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
         }}
         index={viewIndex}
         slides={slides}
+        controller={{
+          closeOnBackdropClick: !isAnySubModalOpen,
+          closeOnEscape: !isAnySubModalOpen,
+          disableSwipeNavigation: isVideoScrubbing,
+        }}
         portal={{
           container: {
             style: photoViewerPortalStyle,
           },
         }}
-        plugins={fullscreenOpen || isCinematicMode ? [Fullscreen, Zoom] : [Thumbnails, Fullscreen, Zoom]}
+        plugins={
+          isCurrentVideo
+            ? fullscreenOpen || isCinematicMode
+              ? [Fullscreen]
+              : [Thumbnails, Fullscreen]
+            : fullscreenOpen || isCinematicMode
+            ? [Fullscreen, Zoom]
+            : [Thumbnails, Fullscreen, Zoom]
+        }
         zoom={{
           scrollToZoom: !isAnySubModalOpen,
           wheelZoomDistanceFactor: isAnySubModalOpen ? 0 : 100,
@@ -1808,14 +1829,18 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
                       {isAdmin && onAlbumOpen && (
                         <AddToAlbumButton showActions={actionsVisible} onAlbumOpen={onAlbumOpen} />
                       )}
-                      <LoadOriginalButton
-                        showActions={actionsVisible}
-                        originalPhoto={originalPhoto}
-                        getPhotoCache={getPhotoCache}
-                        onLoadOriginal={loadOriginalPhoto}
-                      />
-                      <RotateButton showActions={actionsVisible} onRotate={rotatePhoto} />
-                      <StoryCardButton showActions={actionsVisible} onOpenStory={() => setStoryDialogOpen(true)} />
+                      {!isCurrentVideo && (
+                        <>
+                          <LoadOriginalButton
+                            showActions={actionsVisible}
+                            originalPhoto={originalPhoto}
+                            getPhotoCache={getPhotoCache}
+                            onLoadOriginal={loadOriginalPhoto}
+                          />
+                          <RotateButton showActions={actionsVisible} onRotate={rotatePhoto} />
+                          <StoryCardButton showActions={actionsVisible} onOpenStory={() => setStoryDialogOpen(true)} />
+                        </>
+                      )}
                       <ShareButton showActions={actionsVisible} />
                       <CommentsButton
                         showActions={actionsVisible}
@@ -1853,19 +1878,21 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
                   <OriginalProgressButton progress={originalProgress} error={originalError} />
                 )}
                 <AlbumOverlayBadge isCinematicMode={isCinematicMode} />
-                <LightboxInteractionBar
-                  photoId={photos[viewIndex]?.photoId}
-                  showActions={actionsVisible}
-                  isCinematicMode={isCinematicMode}
-                  onOpenComments={() => {
-                    setInfoTab("comments")
-                    setInfoOpen(true)
-                  }}
-                  onOpenInfo={() => {
-                    setInfoTab("info")
-                    setInfoOpen(true)
-                  }}
-                />
+                {!isCurrentVideo && (
+                  <LightboxInteractionBar
+                    photoId={photos[viewIndex]?.photoId}
+                    showActions={actionsVisible}
+                    isCinematicMode={isCinematicMode}
+                    onOpenComments={() => {
+                      setInfoTab("comments")
+                      setInfoOpen(true)
+                    }}
+                    onOpenInfo={() => {
+                      setInfoTab("info")
+                      setInfoOpen(true)
+                    }}
+                  />
+                )}
                 {/* Mobile Gesture Hint Floating Badge (Auto-dismisses in ~2s) */}
                 {showGestureHint && !infoOpen && !isCinematicMode && (
                   <div
@@ -1895,12 +1922,13 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
           },
           buttonFullscreen: () => null,
           buttonZoom: () => null,
-          slide: ({ slide }) => {
+          slide: ({ slide, offset }) => {
             if (!isImageSlide(slide)) {
               return null
             }
 
             const photoSlide = slide as PhotoSlide
+            const isVideo = Boolean(photoSlide.mediaType?.startsWith("video/"))
             const currentDragY = dragOffset?.y ?? 0
             const currentDragX = dragOffset?.x ?? 0
             const currentDragAbsY = Math.abs(currentDragY)
@@ -1924,6 +1952,36 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
                   transform: "translate3d(0, 0, 0) scale(1) rotate(0deg)",
                   transition: "transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1)",
                 }
+
+            if (isVideo) {
+              const isCurrentSlide = offset === 0
+              return (
+                <div
+                  className="relative flex h-full w-full items-center justify-center overflow-hidden p-0 touch-none select-none"
+                  style={slideTransformStyle}
+                >
+                  <VideoPlayer
+                    src={photoSlide.key || photoSlide.src}
+                    poster={photoSlide.preview || photoSlide.thumbnail}
+                    alt={photoSlide.alt || "Video"}
+                    isActive={isCurrentSlide}
+                    autoPlay={isCurrentSlide}
+                    photoId={photoSlide.photoId}
+                    isCinematicMode={isCinematicMode}
+                    onScrubbingChange={setIsVideoScrubbing}
+                    onOpenComments={() => {
+                      setInfoTab("comments")
+                      setInfoOpen(true)
+                    }}
+                    onOpenInfo={() => {
+                      setInfoTab("info")
+                      setInfoOpen(true)
+                    }}
+                    className="w-full h-full"
+                  />
+                </div>
+              )
+            }
 
             return (
               <div
@@ -1974,22 +2032,39 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
                     aria-hidden
                   />
                 )}
-                <img
-                  src={photoSlide.thumbnail}
-                  alt={photoSlide.alt}
-                  width={photoSlide.width}
-                  height={photoSlide.height}
-                  draggable={false}
-                  className="h-full w-full select-none object-cover"
-                  onError={(event) => {
-                    const el = event.currentTarget
-                    if (el.src && !el.src.includes('/media/')) {
-                      el.src = toProxyMediaUrl(photoSlide.thumbnail)
-                    } else {
-                      el.style.display = "none"
-                    }
-                  }}
-                />
+                {photoSlide.mediaType?.startsWith("video/") && (!photoSlide.thumbnail || photoSlide.thumbnail.endsWith(".mp4") || photoSlide.thumbnail.endsWith(".mov")) ? (
+                  <video
+                    src={toProxyMediaUrl(photoSlide.src || photoSlide.key)}
+                    muted
+                    playsInline
+                    preload="metadata"
+                    className="h-full w-full select-none object-cover pointer-events-none bg-neutral-950"
+                  />
+                ) : (
+                  <img
+                    src={photoSlide.thumbnail}
+                    alt={photoSlide.alt}
+                    width={photoSlide.width}
+                    height={photoSlide.height}
+                    draggable={false}
+                    className="h-full w-full select-none object-cover"
+                    onError={(event) => {
+                      const el = event.currentTarget
+                      if (el.src && !el.src.includes('/media/')) {
+                        el.src = toProxyMediaUrl(photoSlide.thumbnail)
+                      } else {
+                        el.style.display = "none"
+                      }
+                    }}
+                  />
+                )}
+                {photoSlide.mediaType?.startsWith("video/") && (
+                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                    <div className="size-4 rounded-full bg-black/65 backdrop-blur-xs flex items-center justify-center border border-white/20">
+                      <Play className="size-2 text-white fill-current ml-0.5" />
+                    </div>
+                  </div>
+                )}
               </div>
             )
           }

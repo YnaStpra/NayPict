@@ -51,10 +51,10 @@ const storage = {
     return createStorageStrategy(fileStorage)!.put(files, fileStorage);
   },
 
-  // According to storage id, query configuration, select strategy, and read the file.
-  async get(key: string, storageId: string): Promise<StorageObject> {
+  // According to storage id, query configuration, select strategy, and read the file (supports HTTP range).
+  async get(key: string, storageId: string, range?: string): Promise<StorageObject> {
     const fileStorage = await getStorage(storageId);
-    return createStorageStrategy(fileStorage)!.get(key, fileStorage);
+    return createStorageStrategy(fileStorage)!.get(key, fileStorage, range);
   },
 
   // According to storage id, query configuration, choose strategy, and delete files; invalid types are skipped.

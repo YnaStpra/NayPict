@@ -86,7 +86,30 @@ interface PhotoBatchEditBo {
   replaceText?: string | null;
 }
 
+interface PhotoAddVideoBo {
+  key: string;
+  storageId: string;
+  name: string;
+  size: number;
+  type: string;
+  width: number;
+  height: number;
+  duration?: number;
+  checksum: string;
+  thumbHash?: string;
+  albumId?: string;
+  lastModified?: number;
+  allowDownload?: boolean;
+  latitude?: number;
+  longitude?: number;
+  altitude?: number;
+  takenTime?: string;
+  exifJson?: string;
+  posterBase64?: string;
+}
+
 export type {
+  PhotoAddVideoBo,
   PhotoBatchEditBo,
   PhotoDeleteBo,
   PhotoExistsBo,

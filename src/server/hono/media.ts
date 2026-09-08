@@ -137,8 +137,11 @@ media.get('*', async (c: Context, next: Next) => {
     return c.body(null, 304, notModifiedHeaders);
   }
 
-  const obj = await storage.get(photoFile.key, photoFile.storageId);
+  const rangeHeader = c.req.header('range');
+  const obj = await storage.get(photoFile.key, photoFile.storageId, rangeHeader);
   const disposition = photoFile.type === FileTypeEnum.ORIGINAL ? buildContentDisposition(photoFile.name) : null;
+  const isPartial = Boolean(rangeHeader && obj.statusCode === 206 && obj.contentRange);
+
   const headers: Record<string, string> = {
     'Content-Type': photoFile.fileType || 'image/webp',
     'Cache-Control': isOriginal ? 'no-cache, private' : 'public, max-age=31536000, immutable',
@@ -147,13 +150,17 @@ media.get('*', async (c: Context, next: Next) => {
     'Accept-Ranges': 'bytes',
   };
 
+  if (isPartial && obj.contentRange) {
+    headers['Content-Range'] = obj.contentRange;
+  }
+
   if (!isOriginal) {
     // Explicitly instruct Cloudflare Edge CDN to cache derivatives for 1 year so repeat visits bypass Vercel completely
     headers['CDN-Cache-Control'] = 'public, max-age=31536000, immutable';
     headers['Cloudflare-CDN-Cache-Control'] = 'public, max-age=31536000, immutable';
   }
 
-  if (disposition) {
+  if (disposition && !isPartial) {
     headers['Content-Disposition'] = disposition;
   }
 
@@ -178,7 +185,8 @@ media.get('*', async (c: Context, next: Next) => {
     headers['Content-Length'] = String(obj.size);
   }
 
-  return c.body(responseBody, 200, headers);
+  const statusCode = isPartial ? 206 : 200;
+  return c.body(responseBody, statusCode as any, headers);
 });
 
 export { media };

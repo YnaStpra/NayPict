@@ -2,7 +2,7 @@
 
 import { Archive, ChevronRightIcon, Eye, FolderHeart, FolderPlusIcon, Globe, Image as ImageIcon, InfoIcon, MapPin, MessageSquareIcon, Pencil, TrendingUp, XIcon } from "lucide-react"
 import { InstagramIcon } from "@/components/icons/instagram"
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
@@ -84,6 +84,18 @@ function formatResolution(width: number | null, height: number | null) {
     return null
   }
 
+  return `${width} × ${height}`
+}
+
+// Format video resolution with accurate standard label.
+function formatVideoResolution(width: number | null, height: number | null) {
+  if (!width || !height) return null
+  const minDim = Math.min(width, height)
+  if (minDim >= 2160) return `${width} × ${height} (4K UHD)`
+  if (minDim >= 1440) return `${width} × ${height} (2K QHD)`
+  if (minDim >= 1080) return `${width} × ${height} (1080p FHD)`
+  if (minDim >= 720) return `${width} × ${height} (720p HD)`
+  if (minDim >= 480) return `${width} × ${height} (480p SD)`
   return `${width} × ${height}`
 }
 
@@ -169,6 +181,15 @@ export function PhotoInfoSidebar({
   const isAdmin = userInfo?.type === UserTypeEnum.ADMIN
   const deviceParams = photo ? getPhotoDeviceParams(photo.exif) : []
   const shootingParams = photo ? getPhotoShootingParams(photo.exif) : []
+  const isVideo = Boolean(photo?.type?.startsWith("video/"))
+  const videoExif = useMemo(() => {
+    if (!isVideo || !photo?.exif) return null
+    try {
+      return JSON.parse(photo.exif)
+    } catch {
+      return null
+    }
+  }, [isVideo, photo?.exif])
 
   const [internalTab, setInternalTab] = useState<"info" | "comments">(defaultTab)
   const [commentCount, setCommentCount] = useState<number>(0)
@@ -634,8 +655,8 @@ export function PhotoInfoSidebar({
                 </div>
               )}
 
-              {/* Story Card Generator Trigger Button */}
-              {onStoryOpen && (
+              {/* Story Card Generator Trigger Button (Photos Only) */}
+              {!isVideo && onStoryOpen && (
                 <Button
                   type="button"
                   size="sm"
@@ -670,9 +691,24 @@ export function PhotoInfoSidebar({
                 <div className="space-y-2">
                   <PhotoInfoRow label={t("fileName")} value={formatPhotoName(photo.name)} twoLines />
                   <PhotoInfoRow label={t("format")} value={photo.typeDesc.toUpperCase()} />
+                  {isVideo && videoExif?.Duration && (
+                    <PhotoInfoRow label="Duration" value={videoExif.Duration} />
+                  )}
                   <PhotoInfoRow label={t("fileSize")} value={formatFileSize(photo.size)} />
-                  <PhotoInfoRow label={t("resolution")} value={formatResolution(photo.width, photo.height)} />
-                  <PhotoInfoRow label={t("megapixels")} value={formatMegapixels(photo.width, photo.height)} />
+                  <PhotoInfoRow
+                    label={t("resolution")}
+                    value={
+                      isVideo && photo.width && photo.height
+                        ? formatVideoResolution(photo.width, photo.height)
+                        : formatResolution(photo.width, photo.height)
+                    }
+                  />
+                  {!isVideo && (
+                    <PhotoInfoRow label={t("megapixels")} value={formatMegapixels(photo.width, photo.height)} />
+                  )}
+                  {isVideo && videoExif?.VideoCodec && (
+                    <PhotoInfoRow label="Video Codec" value={videoExif.VideoCodec} />
+                  )}
                   <PhotoInfoRow label={t("dateTime")} value={formatPhotoTakenDateTime(photo.takenTime, locale)} />
                   <PhotoInfoRow label={t("timeZone")} value={getPhotoTimezone(photo.exif)} />
                   <PhotoInfoRow label={t("software")} value={getPhotoSoftware(photo.exif)} wrap />
@@ -690,7 +726,7 @@ export function PhotoInfoSidebar({
                 </div>
               </div>
 
-              {shootingParams.length > 0 && (
+              {!isVideo && shootingParams.length > 0 && (
                 <div>
                   <div className="pb-2 text-xs font-semibold text-white/50 tracking-wider uppercase">
                     {t("cameraSettings")}
