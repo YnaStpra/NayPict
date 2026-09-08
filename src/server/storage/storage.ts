@@ -99,6 +99,63 @@ const storage = {
     }
 
     throw new BizError('storage.presignNotSupported');
+  },
+
+  // Initiate S3 / Cloudflare R2 multipart upload session.
+  async createMultipartUpload(key: string, contentType: string, storageId: string): Promise<string> {
+    const fileStorage = await getStorage(storageId);
+    assertStorageEnabled(fileStorage);
+    const strategy = createStorageStrategy(fileStorage)!;
+
+    if (strategy.createMultipartUpload) {
+      return strategy.createMultipartUpload(key, contentType, fileStorage);
+    }
+
+    throw new BizError('storage.presignNotSupported');
+  },
+
+  // Generate presigned PUT URL for a specific part in a multipart upload.
+  async getPresignedPartUrl(key: string, uploadId: string, partNumber: number, storageId: string): Promise<string> {
+    const fileStorage = await getStorage(storageId);
+    assertStorageEnabled(fileStorage);
+    const strategy = createStorageStrategy(fileStorage)!;
+
+    if (strategy.getPresignedPartUrl) {
+      return strategy.getPresignedPartUrl(key, uploadId, partNumber, fileStorage);
+    }
+
+    throw new BizError('storage.presignNotSupported');
+  },
+
+  // Finalize multipart upload session by assembling all parts.
+  async completeMultipartUpload(
+    key: string,
+    uploadId: string,
+    parts: { PartNumber: number; ETag: string }[],
+    storageId: string
+  ): Promise<void> {
+    const fileStorage = await getStorage(storageId);
+    assertStorageEnabled(fileStorage);
+    const strategy = createStorageStrategy(fileStorage)!;
+
+    if (strategy.completeMultipartUpload) {
+      return strategy.completeMultipartUpload(key, uploadId, parts, fileStorage);
+    }
+
+    throw new BizError('storage.presignNotSupported');
+  },
+
+  // Abort multipart upload session.
+  async abortMultipartUpload(key: string, uploadId: string, storageId: string): Promise<void> {
+    const fileStorage = await getStorage(storageId);
+    assertStorageEnabled(fileStorage);
+    const strategy = createStorageStrategy(fileStorage)!;
+
+    if (strategy.abortMultipartUpload) {
+      return strategy.abortMultipartUpload(key, uploadId, fileStorage);
+    }
+
+    throw new BizError('storage.presignNotSupported');
   }
 };
 

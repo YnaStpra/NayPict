@@ -11,6 +11,10 @@ import {
   type PhotoDeleteBo,
   type PhotoExistsBo,
   type PhotoListBo,
+  type PhotoMultipartAbortBo,
+  type PhotoMultipartCompleteBo,
+  type PhotoMultipartInitiateBo,
+  type PhotoMultipartPartUrlBo,
   type PhotoOnThisDayBo,
   type PhotoRandomIdListBo,
   type PhotoRecycleBo,
@@ -27,6 +31,9 @@ import {
   type PhotoAddResultVo,
   type PhotoDuplicateGroupVo,
   type PhotoExistsVo,
+  type PhotoMultipartCompleteVo,
+  type PhotoMultipartInitiateVo,
+  type PhotoMultipartPartUrlVo,
   type PhotoOnThisDayItemVo,
   type PhotoOnThisDayVo,
   type PhotoTakenDateVo,
@@ -573,6 +580,111 @@ const photoService = {
       uploadUrl,
       key,
       storageId: targetStorage.storageId,
+    };
+  },
+
+  // Initiate S3 / Cloudflare R2 direct multipart upload session for large video files.
+  async initiateMultipartUpload(params: PhotoMultipartInitiateBo, userId?: string): Promise<PhotoMultipartInitiateVo> {
+    if (!userId) {
+      throw new BizError('auth.failed', 401);
+    }
+
+    const filename = params.filename?.trim();
+    if (!filename) {
+      throw new BizError('photo.fileNameRequired');
+    }
+
+    const fileType = getCanonicalMimeType(filename, params.fileType);
+    let storageList = await storageService.getStorageList();
+    let targetStorage: Storage | undefined = params.storageId
+      ? storageList.find((s) => s.storageId === params.storageId)
+      : storageList[0];
+
+    if (!targetStorage && params.storageId) {
+      storageList = await storageService.getStorageList(true);
+      targetStorage = storageList.find((s) => s.storageId === params.storageId);
+      if (!targetStorage) {
+        targetStorage = (await storageService.getStorageById(params.storageId)) || storageList[0];
+      }
+    }
+
+    if (!targetStorage) {
+      targetStorage = storageList[0];
+    }
+
+    if (!targetStorage) {
+      throw new BizError('storage.notFound');
+    }
+
+    const key = await this.resolvePhotoKey(userId, filename);
+    const uploadId = await storage.createMultipartUpload(key, fileType, targetStorage.storageId);
+
+    return {
+      uploadId,
+      key,
+      storageId: targetStorage.storageId,
+    };
+  },
+
+  // Generate presigned PUT URL for a specific part chunk in a multipart upload.
+  async getMultipartPartUrl(params: PhotoMultipartPartUrlBo, userId?: string): Promise<PhotoMultipartPartUrlVo> {
+    if (!userId) {
+      throw new BizError('auth.failed', 401);
+    }
+
+    const key = params.key?.trim();
+    const uploadId = params.uploadId?.trim();
+    const partNumber = Number(params.partNumber);
+
+    if (!key || !uploadId || !partNumber || partNumber < 1) {
+      throw new BizError('param.invalid');
+    }
+
+    const uploadUrl = await storage.getPresignedPartUrl(key, uploadId, partNumber, params.storageId);
+
+    return {
+      uploadUrl,
+    };
+  },
+
+  // Complete an S3 / Cloudflare R2 multipart upload session by assembling all parts.
+  async completeMultipartUpload(params: PhotoMultipartCompleteBo, userId?: string): Promise<PhotoMultipartCompleteVo> {
+    if (!userId) {
+      throw new BizError('auth.failed', 401);
+    }
+
+    const key = params.key?.trim();
+    const uploadId = params.uploadId?.trim();
+
+    if (!key || !uploadId || !Array.isArray(params.parts) || params.parts.length === 0) {
+      throw new BizError('param.invalid');
+    }
+
+    await storage.completeMultipartUpload(key, uploadId, params.parts, params.storageId);
+
+    return {
+      success: true,
+      key,
+    };
+  },
+
+  // Abort an S3 / Cloudflare R2 multipart upload session and discard uploaded parts.
+  async abortMultipartUpload(params: PhotoMultipartAbortBo, userId?: string): Promise<{ success: boolean }> {
+    if (!userId) {
+      throw new BizError('auth.failed', 401);
+    }
+
+    const key = params.key?.trim();
+    const uploadId = params.uploadId?.trim();
+
+    if (!key || !uploadId) {
+      throw new BizError('param.invalid');
+    }
+
+    await storage.abortMultipartUpload(key, uploadId, params.storageId);
+
+    return {
+      success: true,
     };
   },
 

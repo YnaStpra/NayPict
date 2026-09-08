@@ -33,7 +33,16 @@ import { extractClientExif } from "@/lib/photo-client-exif"
 import { extractVideoMetadata, compressVideoTo720p, formatVideoDuration, type VideoMetadata } from "@/lib/video-compress"
 import { useStorageStore } from "@/store/storage-store"
 import { usePhotoStore } from "@/store/photo-store"
-import { photoAddVideo, photoExists, photoGetPresignedUploadUrl, photoRecycle } from "@/request/photo"
+import {
+  photoAddVideo,
+  photoExists,
+  photoGetPresignedUploadUrl,
+  photoMultipartAbort,
+  photoMultipartComplete,
+  photoMultipartInitiate,
+  photoMultipartPartUrl,
+  photoRecycle,
+} from "@/request/photo"
 import { albumAddPhoto } from "@/request/album"
 import { storageSelect } from "@/request/storage"
 import { type PhotoAddResultVo, type PhotoVo } from "@/server/entity/vo/photo"
@@ -231,7 +240,7 @@ function uploadFileDirect(
           )
         )
       } else {
-        reject(new Error("Direct upload network error (connection interrupted or CORS blocked)"))
+        reject(new Error("Direct upload network error (connection interrupted by network/router)"))
       }
     }
     xhr.ontimeout = () => reject(new Error("Direct upload timed out (network connection too slow)"))
@@ -241,6 +250,136 @@ function uploadFileDirect(
     onAbort?.(() => xhr.abort())
     xhr.send(file)
   })
+}
+
+// 5MB chunk size for S3 multipart upload (AWS / Cloudflare R2 standard minimum part size is 5MB)
+const MULTIPART_CHUNK_SIZE = 5 * 1024 * 1024
+
+async function uploadFileDirectMultipart(
+  filename: string,
+  file: File | Blob,
+  contentType: string,
+  storageId: string,
+  onProgress?: (progress: number, partInfo?: string) => void,
+  onAbort?: (abort: () => void) => void,
+  onRetry?: (attempt: number, maxAttempts: number, partNumber: number) => void
+): Promise<{ key: string; storageId: string }> {
+  // 1. Initiate multipart upload on S3 / Cloudflare R2
+  const initiateRes = await photoMultipartInitiate({
+    filename,
+    fileType: contentType,
+    storageId: storageId || undefined,
+  })
+
+  const { uploadId, key, storageId: targetStorageId } = initiateRes
+  let isAborted = false
+  let currentXhr: XMLHttpRequest | null = null
+
+  onAbort?.(() => {
+    isAborted = true
+    currentXhr?.abort()
+    void photoMultipartAbort({ key, uploadId, storageId: targetStorageId }).catch(() => {})
+  })
+
+  const totalSize = file.size
+  const totalParts = Math.ceil(totalSize / MULTIPART_CHUNK_SIZE)
+  const uploadedBytesPerPart: number[] = new Array(totalParts).fill(0)
+  const completedParts: { PartNumber: number; ETag: string }[] = []
+
+  const updateOverallProgress = () => {
+    const totalLoaded = uploadedBytesPerPart.reduce((acc, bytes) => acc + bytes, 0)
+    const pct = Math.min(99, Math.round((totalLoaded / totalSize) * 100))
+    const currentPartIndex = completedParts.length + 1
+    const partInfo = `Part ${Math.min(currentPartIndex, totalParts)}/${totalParts}`
+    onProgress?.(pct, partInfo)
+  }
+
+  try {
+    for (let partNumber = 1; partNumber <= totalParts; partNumber++) {
+      if (isAborted) {
+        throw new Error("Upload aborted by user")
+      }
+
+      const start = (partNumber - 1) * MULTIPART_CHUNK_SIZE
+      const end = Math.min(start + MULTIPART_CHUNK_SIZE, totalSize)
+      const chunk = file.slice(start, end)
+
+      // 2. Fetch presigned PUT URL for this specific 5MB part
+      const { uploadUrl } = await photoMultipartPartUrl({
+        key,
+        uploadId,
+        partNumber,
+        storageId: targetStorageId,
+      })
+
+      // 3. Upload chunk directly to R2 with per-part automatic retry (up to 3 attempts)
+      let partEtag = ""
+      const maxPartRetries = 3
+
+      for (let attempt = 1; attempt <= maxPartRetries; attempt++) {
+        if (isAborted) throw new Error("Upload aborted by user")
+
+        try {
+          partEtag = await new Promise<string>((resolve, reject) => {
+            const xhr = new XMLHttpRequest()
+            currentXhr = xhr
+
+            xhr.upload.onprogress = (event) => {
+              if (event.lengthComputable) {
+                uploadedBytesPerPart[partNumber - 1] = event.loaded
+                updateOverallProgress()
+              }
+            }
+
+            xhr.onload = () => {
+              if (xhr.status >= 200 && xhr.status < 300) {
+                const rawEtag = xhr.getResponseHeader("ETag") || xhr.getResponseHeader("etag") || ""
+                const cleanEtag = rawEtag.replace(/^W\//, "").replace(/"/g, "").trim()
+                resolve(cleanEtag ? `"${cleanEtag}"` : `"part-${partNumber}"`)
+              } else {
+                reject(new Error(`Part ${partNumber} upload failed (HTTP ${xhr.status})`))
+              }
+            }
+
+            xhr.onerror = () => reject(new Error(`Part ${partNumber} connection interrupted`))
+            xhr.ontimeout = () => reject(new Error(`Part ${partNumber} upload timed out`))
+            xhr.timeout = 10 * 60 * 1000 // 10 minutes timeout per 5MB chunk is very safe
+
+            xhr.open("PUT", uploadUrl)
+            xhr.send(chunk)
+          })
+
+          uploadedBytesPerPart[partNumber - 1] = chunk.size
+          updateOverallProgress()
+          break // Succeeded, proceed to next part
+        } catch (err) {
+          if (isAborted) throw err
+          if (attempt < maxPartRetries) {
+            onRetry?.(attempt + 1, maxPartRetries, partNumber)
+            await new Promise((r) => setTimeout(r, attempt * 1200))
+          } else {
+            throw err
+          }
+        }
+      }
+
+      completedParts.push({ PartNumber: partNumber, ETag: partEtag })
+    }
+
+    // 4. Complete multipart upload on S3 / Cloudflare R2
+    await photoMultipartComplete({
+      key,
+      uploadId,
+      storageId: targetStorageId,
+      parts: completedParts,
+    })
+
+    onProgress?.(100, "Finalizing")
+    return { key, storageId: targetStorageId }
+  } catch (err) {
+    void photoMultipartAbort({ key, uploadId, storageId: targetStorageId }).catch(() => {})
+    throw err
+  }
 }
 
 async function uploadFileDirectWithRetry(
@@ -585,36 +724,74 @@ export function PhotoUploadDialog() {
           return
         }
 
-        // 4. Request direct presigned PUT upload URL to bypass Vercel serverless payload limits
+        // 4. Determine upload strategy:
+        // Use resilient S3 Multipart Upload (5MB chunks) for videos > 20MB
+        // Use direct single PUT for smaller videos (<= 20MB)
         const targetMimeType = getCanonicalMimeType(compressedVideo.name, compressedVideo.type)
-        const presigned = await photoGetPresignedUploadUrl({
-          filename: compressedVideo.name,
-          fileType: targetMimeType,
-          storageId: targetStorageId || undefined,
-        })
+        const isLargeVideo = compressedVideo.size > 20 * 1024 * 1024
 
-        // 5. Upload video directly to Cloudflare R2 bucket with automatic network retry
-        await uploadFileDirectWithRetry(
-          presigned.uploadUrl,
-          compressedVideo,
-          targetMimeType,
-          (upProg) => {
-            const totalProgress = 45 + Math.round(upProg * 0.5)
-            setPreviews((prev) =>
-              prev.map((p) =>
-                p.id === item.id ? { ...p, progress: totalProgress, statusText: `Uploading (${upProg}%)` } : p
+        let finalKey = ""
+        let finalStorageId = targetStorageId || ""
+
+        if (isLargeVideo) {
+          // 5a. Resilient chunked multipart upload directly from browser to R2 (0 MB Vercel bandwidth)
+          const multipartRes = await uploadFileDirectMultipart(
+            compressedVideo.name,
+            compressedVideo,
+            targetMimeType,
+            targetStorageId || "",
+            (upProg, partInfo) => {
+              const totalProgress = 45 + Math.round(upProg * 0.5)
+              const status = partInfo ? `Uploading ${partInfo} (${upProg}%)` : `Uploading (${upProg}%)`
+              setPreviews((prev) =>
+                prev.map((p) =>
+                  p.id === item.id ? { ...p, progress: totalProgress, statusText: status } : p
+                )
               )
-            )
-          },
-          (abort) => abortMapRef.current.set(preview.id, abort),
-          (attempt, max) => {
-            setPreviews((prev) =>
-              prev.map((p) =>
-                p.id === item.id ? { ...p, statusText: `Retrying network (${attempt}/${max})...` } : p
+            },
+            (abort) => abortMapRef.current.set(preview.id, abort),
+            (attempt, max, partNum) => {
+              setPreviews((prev) =>
+                prev.map((p) =>
+                  p.id === item.id ? { ...p, statusText: `Retrying Part ${partNum} (${attempt}/${max})...` } : p
+                )
               )
-            )
-          }
-        )
+            }
+          )
+          finalKey = multipartRes.key
+          finalStorageId = multipartRes.storageId
+        } else {
+          // 5b. Direct single PUT upload for smaller videos (<= 20MB)
+          const presigned = await photoGetPresignedUploadUrl({
+            filename: compressedVideo.name,
+            fileType: targetMimeType,
+            storageId: targetStorageId || undefined,
+          })
+
+          await uploadFileDirectWithRetry(
+            presigned.uploadUrl,
+            compressedVideo,
+            targetMimeType,
+            (upProg) => {
+              const totalProgress = 45 + Math.round(upProg * 0.5)
+              setPreviews((prev) =>
+                prev.map((p) =>
+                  p.id === item.id ? { ...p, progress: totalProgress, statusText: `Uploading (${upProg}%)` } : p
+                )
+              )
+            },
+            (abort) => abortMapRef.current.set(preview.id, abort),
+            (attempt, max) => {
+              setPreviews((prev) =>
+                prev.map((p) =>
+                  p.id === item.id ? { ...p, statusText: `Retrying network (${attempt}/${max})...` } : p
+                )
+              )
+            }
+          )
+          finalKey = presigned.key
+          finalStorageId = presigned.storageId
+        }
 
         // 6. Extract EXIF/GPS coordinates if embedded
         const clientExif = await extractClientExif(item.file).catch(() => ({} as any))
@@ -624,8 +801,8 @@ export function PhotoUploadDialog() {
 
         // 7. Register video in database with poster thumbnail and duration metadata
         const result = await photoAddVideo({
-          key: presigned.key,
-          storageId: presigned.storageId,
+          key: finalKey,
+          storageId: finalStorageId,
           name: compressedVideo.name,
           size: compressedVideo.size,
           type: compressedVideo.type,

@@ -50,13 +50,32 @@ interface PhotoOnThisDayVo {
   total: number;
 }
 
+interface PhotoMultipartInitiateVo {
+  uploadId: string;
+  key: string;
+  storageId: string;
+}
+
+interface PhotoMultipartPartUrlVo {
+  uploadUrl: string;
+}
+
+interface PhotoMultipartCompleteVo {
+  success: boolean;
+  key: string;
+}
+
 export type {
   PhotoVo,
   PhotoTakenDateVo,
   PhotoAddResultVo,
   PhotoExistsVo,
   PhotoDuplicateGroupVo,
+  PhotoMultipartCompleteVo,
+  PhotoMultipartInitiateVo,
+  PhotoMultipartPartUrlVo,
   PhotoOnThisDayItemVo,
   PhotoOnThisDayVo,
 };
+
 

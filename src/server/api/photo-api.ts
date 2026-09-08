@@ -8,6 +8,10 @@ import {
   type PhotoDeleteBo,
   type PhotoExistsBo,
   type PhotoListBo,
+  type PhotoMultipartAbortBo,
+  type PhotoMultipartCompleteBo,
+  type PhotoMultipartInitiateBo,
+  type PhotoMultipartPartUrlBo,
   type PhotoOnThisDayBo,
   type PhotoRandomIdListBo,
   type PhotoRecycleBo,
@@ -40,6 +44,34 @@ export function registerPhotoApi(app: Hono<HonoEnv>) {
   app.post('/photo/presignedUploadUrl', async (c: Context) => {
     const body = await c.req.json<{ filename: string; fileType: string; storageId?: string }>();
     const data = await photoService.getPresignedUploadUrl(body, getUserId());
+    return c.json(result.ok(data));
+  });
+
+  // Initiate direct S3 / Cloudflare R2 multipart upload session for large video files.
+  app.post('/photo/multipart/initiate', async (c: Context) => {
+    const body = await c.req.json<PhotoMultipartInitiateBo>();
+    const data = await photoService.initiateMultipartUpload(body, getUserId());
+    return c.json(result.ok(data));
+  });
+
+  // Generate presigned PUT URL for a specific part chunk in multipart upload.
+  app.post('/photo/multipart/partUrl', async (c: Context) => {
+    const body = await c.req.json<PhotoMultipartPartUrlBo>();
+    const data = await photoService.getMultipartPartUrl(body, getUserId());
+    return c.json(result.ok(data));
+  });
+
+  // Complete an S3 / Cloudflare R2 multipart upload session.
+  app.post('/photo/multipart/complete', async (c: Context) => {
+    const body = await c.req.json<PhotoMultipartCompleteBo>();
+    const data = await photoService.completeMultipartUpload(body, getUserId());
+    return c.json(result.ok(data));
+  });
+
+  // Abort an S3 / Cloudflare R2 multipart upload session.
+  app.post('/photo/multipart/abort', async (c: Context) => {
+    const body = await c.req.json<PhotoMultipartAbortBo>();
+    const data = await photoService.abortMultipartUpload(body, getUserId());
     return c.json(result.ok(data));
   });
 

@@ -108,12 +108,42 @@ interface PhotoAddVideoBo {
   posterBase64?: string;
 }
 
+interface PhotoMultipartInitiateBo {
+  filename: string;
+  fileType: string;
+  storageId?: string;
+}
+
+interface PhotoMultipartPartUrlBo {
+  key: string;
+  uploadId: string;
+  partNumber: number;
+  storageId: string;
+}
+
+interface PhotoMultipartCompleteBo {
+  key: string;
+  uploadId: string;
+  storageId: string;
+  parts: { PartNumber: number; ETag: string }[];
+}
+
+interface PhotoMultipartAbortBo {
+  key: string;
+  uploadId: string;
+  storageId: string;
+}
+
 export type {
   PhotoAddVideoBo,
   PhotoBatchEditBo,
   PhotoDeleteBo,
   PhotoExistsBo,
   PhotoListBo,
+  PhotoMultipartAbortBo,
+  PhotoMultipartCompleteBo,
+  PhotoMultipartInitiateBo,
+  PhotoMultipartPartUrlBo,
   PhotoOnThisDayBo,
   PhotoRandomIdListBo,
   PhotoRecycleBo,
@@ -122,4 +152,5 @@ export type {
   PhotoSetVisibilityBo,
   PhotoTakenDateListBo,
 };
+
 

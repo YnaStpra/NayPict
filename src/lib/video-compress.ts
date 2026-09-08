@@ -380,10 +380,10 @@ export async function compressVideoTo720p(
     targetHeight = Math.round((targetHeight * scale) / 2) * 2;
   }
 
-  // Calculate optimal adaptive bitrate: ~1.5 Mbps for 720p produces ~11MB/min (near original clarity, 95%+ size reduction for 4K)
+  // Calculate optimal adaptive bitrate: ~1.0 Mbps for 720p produces ~7-8MB/min (crisp clarity, 97%+ size reduction for 4K)
   const pixels = targetWidth * targetHeight;
   const defaultBitrate = Math.round(
-    Math.min(2_000_000, Math.max(900_000, (pixels / 921_600) * 1_500_000))
+    Math.min(1_400_000, Math.max(700_000, (pixels / 921_600) * 1_000_000))
   );
   const finalBitrate = options.bitrate || defaultBitrate;
 
@@ -528,6 +528,11 @@ export async function compressVideoTo720p(
 
         mediaRecorder = new MediaRecorder(stream, recorderOptions);
 
+        mediaRecorder.onerror = (event: any) => {
+          console.warn("[VideoCompress] MediaRecorder error:", event?.error || event);
+          stopTranscoding();
+        };
+
         mediaRecorder.ondataavailable = (event) => {
           if (event.data && event.data.size > 0) {
             recordedChunks.push(event.data);
@@ -595,7 +600,15 @@ export async function compressVideoTo720p(
         } catch {}
 
         void video.play().then(() => {
-          mediaRecorder?.start(250);
+          // Draw first frame immediately to prime the canvas capture stream
+          if (ctx) {
+            ctx.drawImage(video, 0, 0, targetWidth, targetHeight);
+          }
+          try {
+            mediaRecorder?.start(250);
+          } catch (recErr) {
+            console.warn("[VideoCompress] MediaRecorder start error:", recErr);
+          }
 
           function renderFrame() {
             if (isStopped) return;

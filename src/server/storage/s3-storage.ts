@@ -1,4 +1,14 @@
-import { DeleteObjectsCommand, GetObjectCommand, PutObjectCommand, type PutObjectCommandInput, S3Client } from '@aws-sdk/client-s3';
+import {
+  AbortMultipartUploadCommand,
+  CompleteMultipartUploadCommand,
+  CreateMultipartUploadCommand,
+  DeleteObjectsCommand,
+  GetObjectCommand,
+  PutObjectCommand,
+  type PutObjectCommandInput,
+  S3Client,
+  UploadPartCommand,
+} from '@aws-sdk/client-s3';
 import { type ReadBody, type StorageObject, type StorageStrategy, type StorageUploadObject } from '@/server/storage/storage-types';
 import { registerStorageStrategy } from '@/server/storage/storage-registry';
 import { type Storage } from '@/server/entity/storage';
@@ -203,6 +213,99 @@ class S3StorageStrategy implements StorageStrategy {
 
     const { getSignedUrl } = await import('@aws-sdk/s3-request-presigner');
     return getSignedUrl(client, command, { expiresIn });
+  }
+
+  // Initiate S3 / Cloudflare R2 multipart upload session and return uploadId.
+  async createMultipartUpload(key: string, contentType: string, storage: Storage): Promise<string> {
+    const client = this.createClient(storage);
+    const bucket = storage.bucket?.trim();
+
+    if (!bucket) {
+      throw new BizError('s3.bucketRequired');
+    }
+
+    void ensureBucketCors(client, bucket);
+
+    const res = await client.send(
+      new CreateMultipartUploadCommand({
+        Bucket: bucket,
+        Key: key,
+        ContentType: contentType,
+      })
+    );
+
+    if (!res.UploadId) {
+      throw new BizError('s3.uploadFailed');
+    }
+
+    return res.UploadId;
+  }
+
+  // Generate presigned PUT URL for a specific part in a multipart upload.
+  async getPresignedPartUrl(key: string, uploadId: string, partNumber: number, storage: Storage, expiresIn = 3600): Promise<string> {
+    const client = this.createClient(storage);
+    const bucket = storage.bucket?.trim();
+
+    if (!bucket) {
+      throw new BizError('s3.bucketRequired');
+    }
+
+    const command = new UploadPartCommand({
+      Bucket: bucket,
+      Key: key,
+      UploadId: uploadId,
+      PartNumber: partNumber,
+    });
+
+    const { getSignedUrl } = await import('@aws-sdk/s3-request-presigner');
+    return getSignedUrl(client, command, { expiresIn });
+  }
+
+  // Finalize S3 / Cloudflare R2 multipart upload by assembling all uploaded parts.
+  async completeMultipartUpload(
+    key: string,
+    uploadId: string,
+    parts: { PartNumber: number; ETag: string }[],
+    storage: Storage
+  ): Promise<void> {
+    const client = this.createClient(storage);
+    const bucket = storage.bucket?.trim();
+
+    if (!bucket) {
+      throw new BizError('s3.bucketRequired');
+    }
+
+    // S3 requires parts to be strictly sorted by PartNumber ascending
+    const sortedParts = [...parts].sort((a, b) => a.PartNumber - b.PartNumber);
+
+    await client.send(
+      new CompleteMultipartUploadCommand({
+        Bucket: bucket,
+        Key: key,
+        UploadId: uploadId,
+        MultipartUpload: {
+          Parts: sortedParts,
+        },
+      })
+    );
+  }
+
+  // Abort S3 / Cloudflare R2 multipart upload session and release incomplete parts.
+  async abortMultipartUpload(key: string, uploadId: string, storage: Storage): Promise<void> {
+    const client = this.createClient(storage);
+    const bucket = storage.bucket?.trim();
+
+    if (!bucket) {
+      throw new BizError('s3.bucketRequired');
+    }
+
+    await client.send(
+      new AbortMultipartUploadCommand({
+        Bucket: bucket,
+        Key: key,
+        UploadId: uploadId,
+      })
+    );
   }
 }
 

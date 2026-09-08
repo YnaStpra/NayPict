@@ -8,6 +8,10 @@ interface StorageStrategy {
   get(key: string, storage: Storage, range?: string): Promise<StorageObject>;
   delete(key: string | string[], storage: Storage): Promise<void>;
   getPresignedPutUrl?(key: string, contentType: string, storage: Storage, expiresIn?: number): Promise<string>;
+  createMultipartUpload?(key: string, contentType: string, storage: Storage): Promise<string>;
+  getPresignedPartUrl?(key: string, uploadId: string, partNumber: number, storage: Storage, expiresIn?: number): Promise<string>;
+  completeMultipartUpload?(key: string, uploadId: string, parts: { PartNumber: number; ETag: string }[], storage: Storage): Promise<void>;
+  abortMultipartUpload?(key: string, uploadId: string, storage: Storage): Promise<void>;
 }
 
 type ReadBody = Readable | ReadableStream;

@@ -5,6 +5,10 @@ import {
   type PhotoDeleteBo,
   type PhotoExistsBo,
   type PhotoListBo,
+  type PhotoMultipartAbortBo,
+  type PhotoMultipartCompleteBo,
+  type PhotoMultipartInitiateBo,
+  type PhotoMultipartPartUrlBo,
   type PhotoOnThisDayBo,
   type PhotoRandomIdListBo,
   type PhotoRecycleBo,
@@ -18,6 +22,9 @@ import {
   type PhotoAddResultVo,
   type PhotoDuplicateGroupVo,
   type PhotoExistsVo,
+  type PhotoMultipartCompleteVo,
+  type PhotoMultipartInitiateVo,
+  type PhotoMultipartPartUrlVo,
   type PhotoOnThisDayVo,
   type PhotoTakenDateVo,
   type PhotoVo,
@@ -73,6 +80,26 @@ export function photoAdd(params: FormData) {
 // Request presigned PUT URL for direct storage upload (S3 / Cloudflare R2).
 export function photoGetPresignedUploadUrl(params: { filename: string; fileType: string; storageId?: string }) {
   return http.post<{ uploadUrl: string; key: string; storageId: string }>('/photo/presignedUploadUrl', params);
+}
+
+// Initiate direct S3 / Cloudflare R2 multipart upload session.
+export function photoMultipartInitiate(params: PhotoMultipartInitiateBo) {
+  return http.post<PhotoMultipartInitiateVo>('/photo/multipart/initiate', params);
+}
+
+// Request presigned PUT URL for a specific part chunk in multipart upload.
+export function photoMultipartPartUrl(params: PhotoMultipartPartUrlBo) {
+  return http.post<PhotoMultipartPartUrlVo>('/photo/multipart/partUrl', params);
+}
+
+// Complete an S3 / Cloudflare R2 multipart upload session.
+export function photoMultipartComplete(params: PhotoMultipartCompleteBo) {
+  return http.post<PhotoMultipartCompleteVo>('/photo/multipart/complete', params);
+}
+
+// Abort an S3 / Cloudflare R2 multipart upload session.
+export function photoMultipartAbort(params: PhotoMultipartAbortBo) {
+  return http.post<{ success: boolean }>('/photo/multipart/abort', params);
 }
 
 // Register a video directly uploaded via presigned URL with poster derivatives and metadata.
