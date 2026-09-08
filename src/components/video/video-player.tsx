@@ -357,21 +357,31 @@ export const VideoPlayer = memo(function VideoPlayer({
     return () => window.removeEventListener("keydown", handleKeyDown)
   }, [togglePlay, toggleMute, duration, pingActivity])
 
+  // Keep controls alive on mouse move while controls are visible
+  const handleMouseMove = useCallback(() => {
+    if (showControls) {
+      if (idleTimerRef.current) clearTimeout(idleTimerRef.current)
+      if (isPlaying && !isScrubbing) {
+        idleTimerRef.current = setTimeout(() => {
+          setShowControls(false)
+        }, 2500)
+      }
+    }
+  }, [showControls, isPlaying, isScrubbing])
+
   // Toggle controls overlay visibility on screen click without toggling playback
   const handleScreenClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation()
     setShowControls((prev) => {
       const next = !prev
+      if (idleTimerRef.current) clearTimeout(idleTimerRef.current)
       if (next) {
-        // Reset 2.5s auto-hide timer when showing controls
-        if (idleTimerRef.current) clearTimeout(idleTimerRef.current)
+        // Reset 2.5s auto-hide timer when revealing controls
         if (isPlaying && !isScrubbing) {
           idleTimerRef.current = setTimeout(() => {
             setShowControls(false)
           }, 2500)
         }
-      } else {
-        if (idleTimerRef.current) clearTimeout(idleTimerRef.current)
       }
       return next
     })
@@ -386,8 +396,7 @@ export const VideoPlayer = memo(function VideoPlayer({
         "group relative flex items-center justify-center w-full h-full select-none overflow-hidden bg-black",
         className
       )}
-      onMouseMove={pingActivity}
-      onClick={handleScreenClick}
+      onMouseMove={handleMouseMove}
     >
       {/* Native HTML5 Video Element with Full Mobile Compatibility */}
       <video
@@ -420,10 +429,16 @@ export const VideoPlayer = memo(function VideoPlayer({
         aria-label={alt}
       />
 
+      {/* Transparent Clickable Screen Backdrop for Toggling Overlay Controls */}
+      <div
+        className="absolute inset-0 z-10 cursor-pointer"
+        onClick={handleScreenClick}
+      />
+
       {/* Big Center Play/Pause Indicator (Pops and ripples on toggle) */}
       <div
         className={cn(
-          "pointer-events-none absolute inset-0 flex items-center justify-center transition-all duration-300",
+          "pointer-events-none absolute inset-0 z-20 flex items-center justify-center transition-all duration-300",
           showCenterIcon
             ? "opacity-100 scale-100"
             : !isPlaying
