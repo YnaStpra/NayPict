@@ -205,11 +205,12 @@ const storageService = {
     await this.refreshStorageCache();
   },
 
-  // Query all storage configurations, read-first cache.
-  async getStorageList(): Promise<Storage[]> {
-    let storageList = await cache.get<Storage[]>(STORAGE_LIST_CACHE_KEY);
+  // Query all storage configurations, read-first cache with auto-expiry and force-refresh.
+  async getStorageList(forceRefresh = false): Promise<Storage[]> {
+    let storageList = forceRefresh ? null : await cache.get<Storage[]>(STORAGE_LIST_CACHE_KEY);
 
-    if (!storageList) {
+    // Re-query database when cache is missing, empty array, or forceRefresh requested
+    if (!storageList || !Array.isArray(storageList) || storageList.length === 0) {
       storageList = await orm
         .select()
         .from(storageTab)
@@ -241,7 +242,10 @@ const storageService = {
         }
       }
 
-      await cache.set(STORAGE_LIST_CACHE_KEY, (storageList ?? []) as unknown as Record<string, unknown>);
+      if (storageList && storageList.length > 0) {
+        // Cache for 60 seconds with TTL to ensure rapid sync across serverless instances and direct DB edits
+        await cache.set(STORAGE_LIST_CACHE_KEY, storageList as unknown as Record<string, unknown>, { ttl: 60 });
+      }
     }
 
     return (storageList ?? []).map((item) => ({
@@ -250,14 +254,25 @@ const storageService = {
     })) as Storage[];
   },
 
-  // Flush storage configuration cache.
-  async refreshStorageCache(): Promise<void> {
-    const storageList = await orm
+  // Query storage by ID with direct database fallback.
+  async getStorageById(storageId: string): Promise<Storage | null> {
+    if (!storageId) return null;
+    const [row] = await orm
       .select()
       .from(storageTab)
-      .orderBy(desc(storageTab.sort));
+      .where(eq(storageTab.storageId, storageId))
+      .limit(1);
 
-    await cache.set(STORAGE_LIST_CACHE_KEY, storageList as any);
+    if (!row) return null;
+    return {
+      ...row,
+      domain: formatMediaDomain(row.domain),
+    } as Storage;
+  },
+
+  // Flush storage configuration cache across distributed instances.
+  async refreshStorageCache(): Promise<void> {
+    await cache.delete(STORAGE_LIST_CACHE_KEY);
   }
 }
 

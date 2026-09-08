@@ -8,10 +8,29 @@ import { type StorageObject, type StorageStrategy, type StorageUploadObject } fr
 
 // This module selects storage implementations based on policy (Cloudflare R2 via S3-compatible API).
 
-// According to storage id Query available storage configurations.
+// According to storage id Query available storage configurations with resilient multi-tier fallback.
 async function getStorage(storageId: string): Promise<Storage> {
-  const storageList = await storageService.getStorageList();
-  const fileStorage = storageList.find((item) => item.storageId === storageId);
+  let storageList = await storageService.getStorageList();
+  let fileStorage = storageList.find((item) => item.storageId === storageId);
+
+  // 1. If not found in cached list, force-refresh from database
+  if (!fileStorage) {
+    storageList = await storageService.getStorageList(true);
+    fileStorage = storageList.find((item) => item.storageId === storageId);
+  }
+
+  // 2. If still not found, check database directly by storageId
+  if (!fileStorage && storageId) {
+    const directStorage = await storageService.getStorageById(storageId);
+    if (directStorage) {
+      fileStorage = directStorage;
+    }
+  }
+
+  // 3. Graceful fallback: use first available storage if specified storageId was not found
+  if (!fileStorage && storageList.length > 0) {
+    fileStorage = storageList[0];
+  }
 
   if (!fileStorage) {
     throw new BizError('storage.notFound');

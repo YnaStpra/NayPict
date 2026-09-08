@@ -519,10 +519,23 @@ const photoService = {
     }
 
     const fileType = params.fileType?.trim() || 'image/jpeg';
-    const storageList = await storageService.getStorageList();
-    const targetStorage = params.storageId
+    let storageList = await storageService.getStorageList();
+    let targetStorage: Storage | undefined = params.storageId
       ? storageList.find((s) => s.storageId === params.storageId)
       : storageList[0];
+
+    // If requested storageId is not found in cache, force refresh from database
+    if (!targetStorage && params.storageId) {
+      storageList = await storageService.getStorageList(true);
+      targetStorage = storageList.find((s) => s.storageId === params.storageId);
+      if (!targetStorage) {
+        targetStorage = (await storageService.getStorageById(params.storageId)) || storageList[0];
+      }
+    }
+
+    if (!targetStorage) {
+      targetStorage = storageList[0];
+    }
 
     if (!targetStorage) {
       throw new BizError('storage.notFound');
@@ -637,22 +650,35 @@ const photoService = {
       throw new BizError('photo.selectRequired');
     }
 
-    const fileStorageList = await storageService.getStorageList();
+    let fileStorageList = await storageService.getStorageList();
     const activeStorage = fileStorageList.find((item: any) => item.status === StorageStatusEnum.NORMAL);
     const targetStorageId = storageId || activeStorage?.storageId;
 
-    if (!targetStorageId) {
+    if (!targetStorageId && fileStorageList.length === 0) {
       throw new BizError('storage.configRequired');
     }
 
-    const fileStorage = fileStorageList.find((item: any) => item.storageId === targetStorageId);
+    let fileStorage = fileStorageList.find((item: any) => item.storageId === targetStorageId);
+
+    // If targetStorageId not found in cache, force refresh from database
+    if (!fileStorage && targetStorageId) {
+      fileStorageList = await storageService.getStorageList(true);
+      fileStorage = fileStorageList.find((item: any) => item.storageId === targetStorageId);
+      if (!fileStorage) {
+        fileStorage = (await storageService.getStorageById(targetStorageId)) || fileStorageList[0];
+      }
+    }
+
+    if (!fileStorage) {
+      fileStorage = fileStorageList[0];
+    }
 
     if (!fileStorage) {
       throw new BizError('storage.notFound');
     }
 
     // Assign final targetStorageId
-    const activeStorageId = targetStorageId;
+    const activeStorageId = fileStorage.storageId;
 
     const { buffer, name, size, type } = await this.readPhotoUpload(file);
     const checksum = await fileChecksum(new Blob([new Uint8Array(buffer)]));
@@ -817,8 +843,22 @@ const photoService = {
       posterBase64,
     } = params;
 
-    const fileStorageList = await storageService.getStorageList();
-    const videoStorage = fileStorageList.find((s) => s.storageId === storageId) || fileStorageList[0];
+    let fileStorageList = await storageService.getStorageList();
+    let videoStorage: Storage | undefined = fileStorageList.find((s) => s.storageId === storageId) || fileStorageList[0];
+
+    // If requested storageId not found in cache, force refresh from database
+    if (!videoStorage && storageId) {
+      fileStorageList = await storageService.getStorageList(true);
+      videoStorage = fileStorageList.find((s) => s.storageId === storageId);
+      if (!videoStorage) {
+        videoStorage = (await storageService.getStorageById(storageId)) || fileStorageList[0];
+      }
+    }
+
+    if (!videoStorage) {
+      videoStorage = fileStorageList[0];
+    }
+
     if (!videoStorage) {
       throw new BizError('storage.notFound');
     }

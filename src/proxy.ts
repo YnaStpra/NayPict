@@ -21,6 +21,8 @@ function isPublicPath(pathname: string) {
     || pathname.startsWith('/login')
     || pathname.startsWith('/api')
     || pathname.startsWith('/media')
+    || pathname === '/storage/select'
+    || pathname.startsWith('/storage/select')
     || pathname.startsWith('/_next')
     || pathname === '/favicon.ico'
     || pathname === '/robots.txt'
