@@ -193,7 +193,7 @@ export function PhotoStoryDialog({ photo, open, onOpenChange }: PhotoStoryDialog
     if (!photoUrl) return;
     try {
       await navigator.clipboard.writeText(photoUrl);
-      toast.success("Photo link copied to clipboard!");
+      toast.success("Media link copied to clipboard!");
     } catch {
       toast.error("Failed to copy link.");
     }

@@ -89,11 +89,11 @@ export function PhotoInsightsDialog({ photoId, open, onOpenChange, onReactionRes
   const [resettingReactions, setResettingReactions] = useState(false)
 
   const handleResetReactions = async () => {
-    if (!photoId || !window.confirm("Are you sure you want to reset all visitor reactions for this photo?")) return
+    if (!photoId || !window.confirm("Are you sure you want to reset all visitor reactions for this media?")) return
     setResettingReactions(true)
     try {
       await resetPhotoReactions(photoId)
-      toast.success("Reactions have been reset for this photo.")
+      toast.success("Reactions have been reset for this media.")
       onReactionReset?.()
       // Refresh photo insights
       const updated = await getPhotoInsightsDetail(photoId)

@@ -47,7 +47,7 @@ export function AlbumCoverDialog({ open, album, onOpenChange, onSuccess }: Album
       setShowPicker(false)
       albumGetCoverCandidates(album.albumId)
         .then((data) => setCandidates(data))
-        .catch(() => toast.error("Failed to load album photos"))
+        .catch(() => toast.error("Failed to load album media"))
         .finally(() => setLoading(false))
     }
   }, [open, album])
@@ -62,7 +62,7 @@ export function AlbumCoverDialog({ open, album, onOpenChange, onSuccess }: Album
     setSaving(true)
     try {
       await albumSetCover({ albumId: album.albumId, photoId: suggestedCandidate.photoId })
-      toast.success("Album cover updated to suggested photo!")
+      toast.success("Album cover updated to suggested item!")
       onSuccess()
       onOpenChange(false)
     } catch {
@@ -187,7 +187,7 @@ export function AlbumCoverDialog({ open, album, onOpenChange, onSuccess }: Album
                       disabled={saving}
                       onClick={() => setShowPicker((prev) => !prev)}
                     >
-                      {showPicker ? "Hide Photos" : "Choose Another"}
+                      {showPicker ? "Hide Media" : "Choose Another"}
                     </Button>
                   </div>
                 </div>
@@ -197,8 +197,8 @@ export function AlbumCoverDialog({ open, album, onOpenChange, onSuccess }: Album
               {showPicker && (
                 <div className="space-y-2 border-t pt-3">
                   <div className="flex items-center justify-between text-xs text-muted-foreground">
-                    <span>Select a photo from this album:</span>
-                    <span>{candidates.length} photos</span>
+                    <span>Select an item from this album:</span>
+                    <span>{candidates.length} items</span>
                   </div>
                   <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
                     {candidates.map((photo) => {

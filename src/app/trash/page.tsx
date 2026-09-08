@@ -307,8 +307,8 @@ export default function TrashPage() {
       <AlertDialogDestructive
         open={deleteOpen}
         onOpenChange={handleDeleteOpenChange}
-        title={t("trash.deletePhotosTitle") || "Permanently Delete These Photos?"}
-        description={t("trash.deletePhotosDescription") || "These photos will be permanently deleted and can't be recovered."}
+        title={t("trash.deletePhotosTitle") || "Permanently Delete These Items?"}
+        description={t("trash.deletePhotosDescription") || "These items will be permanently deleted and can't be recovered."}
         onConfirm={deletePhotos}
       />
 
@@ -317,7 +317,7 @@ export default function TrashPage() {
         open={clearOpen}
         onOpenChange={handleClearOpenChange}
         title={t("trash.clearTitle") || "Empty the Trash?"}
-        description={t("trash.clearDescription") || "All photos in the trash will be permanently deleted."}
+        description={t("trash.clearDescription") || "All items in the trash will be permanently deleted."}
         confirmText={t("trash.clear") || "Empty trash"}
         onConfirm={clearPhotos}
       />

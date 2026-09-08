@@ -305,7 +305,7 @@ export default function Page() {
         }
       }
 
-      toast.success("Photo albums updated successfully!")
+      toast.success("Media albums updated successfully!")
       void refreshAlbums()
 
       const allAlbums = useAlbumStore.getState().albums
@@ -325,8 +325,8 @@ export default function Page() {
         })
       )
     } catch (err) {
-      console.error("Failed to update photo albums:", err)
-      toast.error("Failed to update photo albums.")
+      console.error("Failed to update media albums:", err)
+      toast.error("Failed to update media albums.")
     }
   }
 

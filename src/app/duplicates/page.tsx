@@ -317,7 +317,7 @@ export default function DuplicatesPage() {
                               <div className="absolute top-2 left-2 z-10">
                                 {isPrimary ? (
                                   <span className="inline-flex items-center gap-1 rounded-md bg-emerald-600 px-2 py-0.5 text-[10px] font-semibold text-white shadow-xs">
-                                    <Check className="size-3" /> Main Photo
+                                    <Check className="size-3" /> Main Media
                                   </span>
                                 ) : (
                                   <span className="inline-flex items-center gap-1 rounded-md bg-amber-500/90 px-2 py-0.5 text-[10px] font-semibold text-white shadow-xs">

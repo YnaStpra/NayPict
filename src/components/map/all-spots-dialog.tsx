@@ -150,7 +150,7 @@ export function AllSpotsDialog({
             <Input
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search by photo name, coordinates (DMS/decimal)..."
+              placeholder="Search by media name, coordinates (DMS/decimal)..."
               className="pl-9 h-9 text-xs rounded-xl bg-muted/40 border-border/70"
             />
             {searchQuery && (
@@ -172,9 +172,9 @@ export function AllSpotsDialog({
               onChange={(e) => setSortBy(e.target.value as SortOption)}
               className="h-9 px-2.5 text-xs rounded-xl bg-muted/40 border border-border/70 text-foreground cursor-pointer outline-hidden"
             >
-              <option value="most-photos">Most Photos</option>
-              <option value="newest">Newest Photos</option>
-              <option value="oldest">Oldest Photos</option>
+              <option value="most-photos">Most Media</option>
+              <option value="newest">Newest Media</option>
+              <option value="oldest">Oldest Media</option>
             </select>
           </div>
         </div>
@@ -213,7 +213,7 @@ export function AllSpotsDialog({
                       <div
                         className="relative shrink-0 w-16 h-16 rounded-2xl overflow-hidden bg-neutral-900 border border-white/40 shadow-md cursor-pointer group"
                         onClick={() => onOpenViewer(spot.photos, 0)}
-                        title="Open photos at this spot"
+                        title="Open media at this spot"
                       >
                         {topPhoto && (
                           <>
@@ -250,7 +250,7 @@ export function AllSpotsDialog({
                             })()}
                           </>
                         )}
-                        <div className="absolute top-1 left-1 px-1 rounded-md bg-amber-500 text-black text-[9px] font-black leading-tight flex items-center gap-0.5 shadow-sm" title="Pin Cover Photo">
+                        <div className="absolute top-1 left-1 px-1 rounded-md bg-amber-500 text-black text-[9px] font-black leading-tight flex items-center gap-0.5 shadow-sm" title="Pin Cover Media">
                           ★
                         </div>
                         {spot.photos.length > 1 && (
@@ -299,7 +299,7 @@ export function AllSpotsDialog({
                         size="sm"
                         onClick={() => onOpenViewer(spot.photos, 0)}
                         className="h-8.5 px-2.5 text-xs rounded-xl gap-1 text-muted-foreground hover:text-foreground cursor-pointer"
-                        title="Open photo fullscreen"
+                        title="Open media fullscreen"
                       >
                         <Eye className="size-3.5" />
                         <span className="hidden md:inline">Open</span>
@@ -329,7 +329,7 @@ export function AllSpotsDialog({
                           onEditSpot(spot)
                         }}
                         className="h-8.5 px-3 text-xs rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold gap-1.5 shadow-xs cursor-pointer"
-                        title="Edit location coordinates for all photos at this spot"
+                        title="Edit location coordinates for all media at this spot"
                       >
                         <MapPin className="size-3.5" />
                         <span>Edit Spot</span>
@@ -343,10 +343,10 @@ export function AllSpotsDialog({
                       <div className="flex items-center justify-between pb-1.5">
                         <span className="text-[11px] font-semibold text-muted-foreground flex items-center gap-1">
                           <Sparkles className="size-3 text-amber-500" />
-                          <span>Select Pin Cover Photo:</span>
+                          <span>Select Pin Cover Media:</span>
                         </span>
                         <span className="text-[10px] text-muted-foreground">
-                          Click a photo to set as cover
+                          Click an item to set as cover
                         </span>
                       </div>
 
@@ -368,7 +368,7 @@ export function AllSpotsDialog({
                               }`}
                               title={
                                 isCover
-                                  ? `Photo "${photo.name}" is active cover`
+                                  ? `Media "${photo.name}" is active cover`
                                   : `Set "${photo.name}" as pin cover`
                               }
                             >

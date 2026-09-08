@@ -16,8 +16,8 @@ export async function generateMetadata({ params }: PhotoDetailPageProps): Promis
     const photo = await photoService.getById(photoId);
     if (!photo) {
       return {
-        title: `Photo Not Found | ${appName}`,
-        description: 'The requested photo does not exist or has been removed.',
+        title: `Media Not Found | ${appName}`,
+        description: 'The requested media does not exist or has been removed.',
       };
     }
 
@@ -32,7 +32,7 @@ export async function generateMetadata({ params }: PhotoDetailPageProps): Promis
       photo.width && photo.height ? `(${photo.width} × ${photo.height})` : '',
     ].filter(Boolean);
 
-    const description = descParts.join(' • ') || `View high resolution photo on ${appName}`;
+    const description = descParts.join(' • ') || `View high resolution media on ${appName}`;
 
     return {
       title: `${photo.name} | ${appName}`,

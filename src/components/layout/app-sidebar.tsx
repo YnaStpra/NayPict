@@ -51,7 +51,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       },
     ],
     navMain: [
-      { title: t("navigation.photos"), url: "/photos", icon: <ImageIcon />, isActive: isUrlMatched(pathname, "/photos") },
+      { title: t("navigation.photos") || "Photos & Videos", url: "/photos", icon: <Images />, isActive: isUrlMatched(pathname, "/photos") },
       { title: t("navigation.albums"), url: "/albums", icon: <FolderOpen />, isActive: isUrlMatched(pathname, "/albums") },
       { title: t("navigation.map"), url: "/map", icon: <MapPin />, isActive: isUrlMatched(pathname, "/map") },
       { title: t("navigation.archive") || "Archive", url: "/archive", icon: <Archive />, isActive: isUrlMatched(pathname, "/archive") },
@@ -79,7 +79,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     : isAdmin
     ? data.navMain
     : [
-        { title: t("navigation.photos"), url: "/photos", icon: <ImageIcon />, isActive: isUrlMatched(pathname, "/photos") },
+        { title: t("navigation.photos") || "Photos & Videos", url: "/photos", icon: <Images />, isActive: isUrlMatched(pathname, "/photos") },
         { title: t("navigation.albums"), url: "/albums", icon: <FolderOpen />, isActive: isUrlMatched(pathname, "/albums") },
         { title: t("navigation.map"), url: "/map", icon: <MapPin />, isActive: isUrlMatched(pathname, "/map") },
       ]

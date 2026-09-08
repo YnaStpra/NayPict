@@ -708,11 +708,11 @@ export default function AdminPhotosPage() {
                 <Images className="size-8" />
               </div>
               <div>
-                <h4 className="font-bold text-sm text-foreground">No Photos Found</h4>
+                <h4 className="font-bold text-sm text-foreground">No Media Found</h4>
                 <p className="text-xs text-muted-foreground mt-1 max-w-sm">
                   {searchQuery
-                    ? `No photos matched your search term "${searchQuery}".`
-                    : 'No photos match the selected filter criteria.'}
+                    ? `No media matched your search term "${searchQuery}".`
+                    : 'No media matches the selected filter criteria.'}
                 </p>
               </div>
             </div>

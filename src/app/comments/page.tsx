@@ -292,7 +292,7 @@ export default function CommentsManagementPage() {
             <p className="text-sm text-muted-foreground mt-1 mb-4">
               You must be logged in as an Administrator to manage comments.
             </p>
-            <Button onClick={() => router.push('/photos')}>Go to Photos</Button>
+            <Button onClick={() => router.push('/photos')}>Go to Gallery</Button>
           </div>
         </SidebarInset>
       </SidebarProvider>
@@ -393,7 +393,7 @@ export default function CommentsManagementPage() {
                     type="text"
                     value={keyword}
                     onChange={(e) => setKeyword(e.target.value)}
-                    placeholder="Search comment, name, photo..."
+                    placeholder="Search comment, name, media..."
                     className="w-full h-8 pl-8 pr-7 text-xs rounded-lg border bg-background placeholder:text-muted-foreground focus:outline-hidden focus:ring-1 focus:ring-primary"
                   />
                   {keyword && (
@@ -437,7 +437,7 @@ export default function CommentsManagementPage() {
                 <p className="text-xs text-muted-foreground mt-1 max-w-sm">
                   {searchQuery || statusFilter !== 'all'
                     ? 'Try clearing your search keyword or changing status filters.'
-                    : 'When visitors leave comments on photos, they will appear here.'}
+                    : 'When visitors leave comments on photos or videos, they will appear here.'}
                 </p>
               </div>
             ) : (
@@ -451,7 +451,7 @@ export default function CommentsManagementPage() {
                     <div
                       onClick={() => handlePreviewPhoto(item)}
                       className="group relative size-20 sm:size-24 rounded-lg overflow-hidden shrink-0 bg-neutral-950 border border-border/60 cursor-pointer flex items-center justify-center"
-                      title="Click to view photo"
+                      title="Click to view media"
                       style={
                         item.thumbHash
                           ? {
@@ -490,7 +490,7 @@ export default function CommentsManagementPage() {
                         />
                       ) : (
                         <div className="size-full flex items-center justify-center bg-muted text-muted-foreground text-[10px]">
-                          Photo
+                          Media
                         </div>
                       )}
                       <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white z-10">

@@ -556,7 +556,7 @@ export default function PhotoMapView() {
       })
       setActivePhotoIndex(0)
 
-      toast.success(`Photo "${photo.name}" set as map pin cover!`)
+      toast.success(`Media "${photo.name}" set as map pin cover!`)
     },
     []
   )
@@ -1128,7 +1128,7 @@ export default function PhotoMapView() {
             size="sm"
             onClick={() => setAllSpotsDialogOpen(true)}
             className="h-9 px-3 text-xs rounded-2xl backdrop-blur-xl bg-background/80 dark:bg-neutral-900/80 border-border/70 shadow-xl gap-1.5 cursor-pointer hover:scale-105 transition-all text-emerald-600 dark:text-emerald-400 font-semibold"
-            title="Open and manage all photo map spots"
+            title="Open and manage all media map spots"
           >
             <ListFilter className="size-3.5 text-emerald-500" />
             <span>Manage All Spots ({geoSpots.length})</span>
@@ -1143,7 +1143,7 @@ export default function PhotoMapView() {
             size="sm"
             onClick={handleFitAll}
             className="h-9 px-3 text-xs rounded-2xl backdrop-blur-xl bg-background/80 dark:bg-neutral-900/80 border-border/70 shadow-xl gap-1.5 cursor-pointer hover:scale-105 transition-all"
-            title="Fit view to show all mapped photos"
+            title="Fit view to show all mapped media"
           >
             <LocateFixed className="size-3.5 text-primary" />
             <span className="hidden sm:inline">View All</span>
@@ -1218,7 +1218,7 @@ export default function PhotoMapView() {
                   }
                   handleOpenPhotoViewer(selectedCluster.photos, activePhotoIndex)
                 }}
-                title="Click to open full photo view, or swipe left/right to browse photos"
+                title="Click to open full viewer, or swipe left/right to browse media"
               >
                 <div
                   className="absolute inset-0 h-full w-full"
@@ -1292,8 +1292,8 @@ export default function PhotoMapView() {
                     }`}
                     title={
                       isCoverPhoto
-                        ? "This photo is the active pin cover"
-                        : "Set this photo as the map pin cover"
+                        ? "This media is the active pin cover"
+                        : "Set this media as the map pin cover"
                     }
                   >
                     <Sparkles className={`size-3 ${isCoverPhoto ? "fill-current text-black" : "text-amber-300"}`} />
@@ -1306,7 +1306,7 @@ export default function PhotoMapView() {
                   <div className="absolute top-3 left-3 px-2.5 py-1 rounded-full bg-emerald-500/90 text-white text-[11px] font-bold shadow-lg backdrop-blur-md flex items-center gap-1.5">
                     <Images className="size-3" />
                     <span>
-                      {activePhotoIndex + 1} / {selectedCluster.photos.length} Photos at This Spot
+                      {activePhotoIndex + 1} / {selectedCluster.photos.length} Items at This Spot
                     </span>
                   </div>
                 )}
@@ -1321,7 +1321,7 @@ export default function PhotoMapView() {
                         handlePrevPhoto()
                       }}
                       className="pointer-events-auto p-1.5 rounded-full bg-black/50 text-white hover:bg-black/80 backdrop-blur-md transition-all cursor-pointer hover:scale-110"
-                      title="Previous Photo"
+                      title="Previous Media"
                     >
                       <ChevronLeft className="size-4" />
                     </button>
@@ -1332,7 +1332,7 @@ export default function PhotoMapView() {
                         handleNextPhoto()
                       }}
                       className="pointer-events-auto p-1.5 rounded-full bg-black/50 text-white hover:bg-black/80 backdrop-blur-md transition-all cursor-pointer hover:scale-110"
-                      title="Next Photo"
+                      title="Next Media"
                     >
                       <ChevronRight className="size-4" />
                     </button>
@@ -1434,7 +1434,7 @@ export default function PhotoMapView() {
                     setEditSpotDialogOpen(true)
                   }}
                   className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 hover:text-emerald-500 hover:underline flex items-center gap-1 cursor-pointer"
-                  title="Edit location coordinates for all photos in this pin"
+                  title="Edit location coordinates for all media in this pin"
                 >
                   <MapPin className="size-3 text-emerald-500" />
                   <span>Edit Spot ({selectedCluster.photos.length})</span>
@@ -1453,10 +1453,10 @@ export default function PhotoMapView() {
                 size="sm"
                 onClick={() => handleOpenPhotoViewer(selectedCluster.photos, activePhotoIndex)}
                 className="flex-1 h-8.5 text-xs rounded-xl gap-1.5 font-semibold bg-emerald-600 hover:bg-emerald-500 text-white cursor-pointer shadow-xs"
-                title="Open photo in full viewer"
+                title="Open media in full viewer"
               >
                 <Eye className="size-3.5" />
-                <span>Open Photo</span>
+                <span>Open Media</span>
               </Button>
               {isAdmin && (
                 <Button
@@ -1468,7 +1468,7 @@ export default function PhotoMapView() {
                     setEditSpotDialogOpen(true)
                   }}
                   className="h-8.5 px-2.5 text-xs rounded-xl gap-1.5 border-emerald-500/40 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 cursor-pointer"
-                  title="Edit GPS location for all photos in this pin"
+                  title="Edit GPS location for all media in this pin"
                 >
                   <MapPin className="size-3 text-emerald-500" />
                   <span>Edit Spot</span>
@@ -1569,7 +1569,7 @@ export default function PhotoMapView() {
             <>
               {geoSpots.length === 0 ? (
                 <div className="py-6 text-center text-xs text-muted-foreground">
-                  No photo spots yet.
+                  No media spots yet.
                 </div>
               ) : (
                 <div className="flex items-center gap-2.5 overflow-x-auto pb-1 scrollbar-thin scrollbar-thumb-muted scrollbar-track-transparent">
@@ -1624,7 +1624,7 @@ export default function PhotoMapView() {
                         <div className="relative z-10 flex items-center justify-between">
                           <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-500 text-white shadow-md flex items-center gap-0.5">
                             <MapPin className="size-2.5" />
-                            <span>{spot.photos.length} Photos</span>
+                            <span>{spot.photos.length} Items</span>
                           </span>
                           {isAdmin && (
                             <button
@@ -1663,7 +1663,7 @@ export default function PhotoMapView() {
             <>
               {photos.length === 0 ? (
                 <div className="py-6 text-center text-xs text-muted-foreground">
-                  No photos have GPS coordinates yet.
+                  No media items have GPS coordinates yet.
                 </div>
               ) : (
                 <div className="flex items-center gap-2.5 overflow-x-auto pb-1 scrollbar-thin scrollbar-thumb-muted scrollbar-track-transparent">
@@ -1883,7 +1883,7 @@ export default function PhotoMapView() {
       {loading && (
         <div className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-background/80 backdrop-blur-md gap-3">
           <Loader2 className="size-8 animate-spin text-emerald-500" />
-          <p className="text-sm font-semibold text-foreground">Loading Map & Photo Locations...</p>
+          <p className="text-sm font-semibold text-foreground">Loading Map & Media Locations...</p>
         </div>
       )}
 
@@ -1893,9 +1893,9 @@ export default function PhotoMapView() {
           <div className="size-12 rounded-2xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center mx-auto">
             <MapPin className="size-6" />
           </div>
-          <h3 className="font-bold text-base text-foreground">No Geotagged Photos Yet</h3>
+          <h3 className="font-bold text-base text-foreground">No Geotagged Media Yet</h3>
           <p className="text-xs text-muted-foreground leading-relaxed">
-            Your uploaded photos do not contain GPS location EXIF metadata yet. You can add coordinates to your photos using the button below.
+            Your uploaded photos and videos do not contain GPS location metadata yet. You can add coordinates to your media using the button below.
           </p>
           {isAdmin && untaggedPhotos.length > 0 ? (
             <Button

@@ -3,7 +3,7 @@ import { photoService } from "@/server/service/photo-service"
 import { getPhotoDeviceParams, getPhotoShootingParams } from "@/lib/viewer-field"
 
 export const runtime = "nodejs"
-export const alt = "Photo preview"
+export const alt = "Media preview"
 export const size = {
   width: 1200,
   height: 630,

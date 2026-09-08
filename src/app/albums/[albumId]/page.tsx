@@ -266,7 +266,7 @@ export default function Page() {
         }
       }
 
-      toast.success("Photo albums updated successfully!")
+      toast.success("Media albums updated successfully!")
       void refreshAlbums()
 
       // If removed from current album, remove from local list
@@ -274,8 +274,8 @@ export default function Page() {
         removePhotos(albumPhotoIds)
       }
     } catch (err) {
-      console.error("Failed to update photo albums:", err)
-      toast.error("Failed to update photo albums.")
+      console.error("Failed to update media albums:", err)
+      toast.error("Failed to update media albums.")
     }
   }
 
@@ -309,17 +309,17 @@ export default function Page() {
       const isPinned = res.isPinned
 
       if (isPinned) {
-        toast.success("Photo pinned to the top of album!")
+        toast.success("Item pinned to the top of album!")
       } else {
-        toast.success("Photo unpinned from album.")
+        toast.success("Item unpinned from album.")
       }
     } catch (err: unknown) {
       // 2. Revert back to original state on server error
       if (rollbackPhotos) {
         setPhotos(rollbackPhotos)
       }
-      console.error("Failed to toggle pin photo:", err)
-      const errorMsg = err instanceof Error ? err.message : "Failed to pin photo. Maximum 3 pinned photos allowed."
+      console.error("Failed to toggle pin item:", err)
+      const errorMsg = err instanceof Error ? err.message : "Failed to pin item. Maximum 3 pinned items allowed."
       toast.error(errorMsg)
     }
   }, [albumId, setPhotos])

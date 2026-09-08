@@ -51,7 +51,7 @@ export default function MapPage() {
               <BreadcrumbList>
                 <BreadcrumbItem>
                   <BreadcrumbPage className="flex items-center gap-2 font-semibold text-sm">
-                    <span>{t("navigation.map") || "Photo Map"}</span>
+                    <span>{t("navigation.map") || "Media Map"}</span>
                   </BreadcrumbPage>
                 </BreadcrumbItem>
               </BreadcrumbList>

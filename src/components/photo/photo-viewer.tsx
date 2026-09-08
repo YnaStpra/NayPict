@@ -468,7 +468,7 @@ function CommentsButton({
             {...tap}
           >
             <MessageSquare className="size-4" />
-            <span className="sr-only">Photo comments</span>
+            <span className="sr-only">Media comments</span>
           </Button>
         </TooltipTrigger>
         <TooltipContent side="bottom">
@@ -508,7 +508,7 @@ function InfoButton({
             {open
               ? <PanelRightClose className="hidden md:block" />
               : <PanelRightOpen className="hidden md:block" />}
-            <span className="sr-only">Photo information & comments</span>
+            <span className="sr-only">Media information & comments</span>
           </Button>
         </TooltipTrigger>
         <TooltipContent side="bottom">
@@ -735,7 +735,7 @@ function LoadOriginalButton({
       {...tap}
     >
       {originalLoaded ? <CircleIcon /> : <LoaderCircleIcon />}
-      <span className="sr-only">Load original photo</span>
+      <span className="sr-only">Load original media</span>
     </Button>
   )
 }

@@ -214,7 +214,7 @@ export default function AdminInsightsPage() {
   // Reset reactions for a specific photo
   const handleResetPhotoReactions = async (photoId: string, photoName: string, e: React.MouseEvent) => {
     e.stopPropagation()
-    if (!window.confirm(`Are you sure you want to reset all reactions for "${photoName}"? This will clear all visitor emojis and likes for this photo.`)) {
+    if (!window.confirm(`Are you sure you want to reset all reactions for "${photoName}"? This will clear all visitor emojis and likes for this item.`)) {
       return
     }
     try {
@@ -223,13 +223,13 @@ export default function AdminInsightsPage() {
       loadAllData()
     } catch (err) {
       console.error("Failed to reset photo reactions:", err)
-      toast.error("Failed to reset reactions for this photo.")
+      toast.error("Failed to reset reactions for this item.")
     }
   }
 
   // Reset all reactions across the gallery
   const handleResetAllReactions = async () => {
-    if (!window.confirm("Are you sure you want to reset ALL visitor reactions across all photos in the gallery? This action cannot be undone.")) {
+    if (!window.confirm("Are you sure you want to reset ALL visitor reactions across all photos and videos in the gallery? This action cannot be undone.")) {
       return
     }
     try {
