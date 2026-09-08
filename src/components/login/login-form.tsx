@@ -93,8 +93,8 @@ export function LoginForm({
         <CardHeader>
           <CardTitle className="text-xl font-semibold flex gap-3 items-center">
             <img
-              src="/logo.png"
-              alt=""
+              src="/naypict-icon.svg"
+              alt="NayPict Logo"
               className="size-10 object-contain"
             />
             {title} Admin Portal

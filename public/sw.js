@@ -6,7 +6,8 @@ const MEDIA_CACHE_NAME = 'naypict-media-v1';
 const PRECACHE_ASSETS = [
   '/',
   '/photos',
-  '/logo.webp',
+  '/naypict-icon.svg',
+  '/favicon.ico',
   '/manifest.webmanifest',
 ];
 

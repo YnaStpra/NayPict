@@ -11,15 +11,15 @@
   "categories": ["photography", "photo", "gallery", "portfolio"],
   "icons": [
     {
-      "src": "/logo.webp",
+      "src": "/naypict-icon-192x192.png",
       "sizes": "192x192",
-      "type": "image/webp",
+      "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/logo.webp",
+      "src": "/naypict-icon-512x512.png",
       "sizes": "512x512",
-      "type": "image/webp",
+      "type": "image/png",
       "purpose": "maskable any"
     }
   ]

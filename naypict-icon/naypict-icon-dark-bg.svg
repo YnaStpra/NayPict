@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <style>
+      .icon-line {
+        stroke: #F2EFE9;
+        stroke-width: 16;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        fill: none;
+      }
+    </style>
+  </defs>
+  <rect width="512" height="512" fill="#121212" rx="64" />
+  <!-- Viewfinder Frame Brackets -->
+  <path class="icon-line" d="M 166 96 L 96 96 L 96 166" />
+  <path class="icon-line" d="M 346 96 L 416 96 L 416 166" />
+  <path class="icon-line" d="M 96 346 L 96 416 L 166 416" />
+  <path class="icon-line" d="M 416 346 L 416 416 L 346 416" />
+
+  <!-- Horizon Line -->
+  <line class="icon-line" x1="84" y1="256" x2="428" y2="256" />
+
+  <!-- Perspective Road Lines -->
+  <line class="icon-line" x1="240" y1="256" x2="140" y2="396" />
+  <line class="icon-line" x1="272" y1="256" x2="372" y2="396" />
+</svg>

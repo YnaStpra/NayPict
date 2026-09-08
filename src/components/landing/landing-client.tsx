@@ -4,7 +4,7 @@ import { useEffect, useState, useRef, useTransition, useCallback, useMemo } from
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
-import { Camera, FolderHeart, Image as ImageIcon, ArrowRight, Loader2, MapPin } from 'lucide-react'
+import { FolderHeart, Image as ImageIcon, ArrowRight, Loader2, MapPin } from 'lucide-react'
 import { type PhotoVo } from '@/server/entity/vo/photo'
 import { photoList } from '@/request/photo'
 
@@ -185,11 +185,17 @@ export function LandingClient({ initialPhotos }: LandingClientProps) {
               className="pointer-events-none absolute inset-0 opacity-40 transition-opacity duration-300 hidden sm:block"
             />
 
-            {/* Glowing Logo & Camera Icon */}
+            {/* Glowing Logo & Brand Icon */}
             <div className="relative">
               <div className="absolute -inset-2 rounded-2xl bg-gradient-to-r from-blue-500/20 via-purple-500/20 to-pink-500/20 opacity-80 blur-lg animate-pulse" />
-              <div className="relative size-16 sm:size-20 rounded-2xl bg-gradient-to-br from-neutral-900 via-black to-neutral-950 border border-white/25 flex items-center justify-center shadow-2xl">
-                <Camera className="size-8 sm:size-10 text-white drop-shadow-md" />
+              <div className="relative size-16 sm:size-20 rounded-2xl bg-gradient-to-br from-neutral-900 via-black to-neutral-950 border border-white/25 flex items-center justify-center shadow-2xl p-3.5 sm:p-4">
+                <img
+                  src="/naypict-icon.svg"
+                  alt="NayPict Logo"
+                  className="size-full object-contain drop-shadow-md select-none pointer-events-none"
+                  width={48}
+                  height={48}
+                />
               </div>
             </div>
 

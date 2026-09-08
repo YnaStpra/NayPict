@@ -92,7 +92,25 @@ const nextConfig: NextConfig = {
           ...securityHeaders,
           {
             key: 'Link',
-            value: '</logo.webp>; rel=preload; as=image',
+            value: '</naypict-icon.svg>; rel=preload; as=image',
+          },
+        ],
+      },
+      {
+        source: '/naypict-icon.svg',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=31536000, immutable',
+          },
+        ],
+      },
+      {
+        source: '/favicon.ico',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=31536000, immutable',
           },
         ],
       },

@@ -50,8 +50,8 @@ export function TeamSwitcher({
           >
             <div className="flex aspect-square size-8 items-center justify-center">
               <img
-                src="/logo.png"
-                alt=""
+                src="/naypict-icon.svg"
+                alt="NayPict Logo"
                 className="size-7 object-contain"
               />
             </div>
@@ -75,8 +75,8 @@ export function TeamSwitcher({
             >
               <div className="flex aspect-square size-8 items-center justify-center">
                 <img
-                  src="/logo.png"
-                  alt=""
+                  src="/naypict-icon.svg"
+                  alt="NayPict Logo"
                   className="size-7 object-contain"
                 />
               </div>
