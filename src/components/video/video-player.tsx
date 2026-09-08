@@ -356,6 +356,26 @@ export const VideoPlayer = memo(function VideoPlayer({
     return () => window.removeEventListener("keydown", handleKeyDown)
   }, [togglePlay, toggleMute, duration, pingActivity])
 
+  // Toggle controls overlay visibility on screen click without toggling playback
+  const handleScreenClick = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation()
+    setShowControls((prev) => {
+      const next = !prev
+      if (next) {
+        // Reset 2.5s auto-hide timer when showing controls
+        if (idleTimerRef.current) clearTimeout(idleTimerRef.current)
+        if (isPlaying && !isScrubbing) {
+          idleTimerRef.current = setTimeout(() => {
+            setShowControls(false)
+          }, 2500)
+        }
+      } else {
+        if (idleTimerRef.current) clearTimeout(idleTimerRef.current)
+      }
+      return next
+    })
+  }, [isPlaying, isScrubbing])
+
   const progressPercent = duration > 0 ? (currentTime / duration) * 100 : 0
 
   return (
@@ -366,11 +386,7 @@ export const VideoPlayer = memo(function VideoPlayer({
         className
       )}
       onMouseMove={pingActivity}
-      onTouchStart={pingActivity}
-      onClick={(e) => {
-        // Prevent accidental closing of lightbox when clicking video canvas
-        e.stopPropagation()
-      }}
+      onClick={handleScreenClick}
     >
       {/* Native HTML5 Video Element with Full Mobile Compatibility */}
       <video
@@ -381,7 +397,6 @@ export const VideoPlayer = memo(function VideoPlayer({
         webkit-playsinline="true"
         preload="metadata"
         className="max-h-full max-w-full object-contain cursor-pointer"
-        onClick={togglePlay}
         onTimeUpdate={handleTimeUpdate}
         onLoadedMetadata={handleLoadedMetadata}
         onPlay={() => setIsPlaying(true)}
@@ -402,13 +417,21 @@ export const VideoPlayer = memo(function VideoPlayer({
             ? "opacity-100 scale-100"
             : !isPlaying
             ? "opacity-90 scale-100"
+            : showControls
+            ? "opacity-85 scale-100"
             : "opacity-0 scale-75"
         )}
       >
         <button
           type="button"
-          onClick={togglePlay}
-          className="pointer-events-auto flex size-16 sm:size-20 items-center justify-center rounded-full bg-black/55 text-white backdrop-blur-xl border border-white/20 shadow-2xl transition-transform active:scale-90 hover:scale-105 hover:bg-black/75 cursor-pointer"
+          onClick={(e) => {
+            e.stopPropagation()
+            togglePlay()
+          }}
+          className={cn(
+            "flex size-16 sm:size-20 items-center justify-center rounded-full bg-black/55 text-white backdrop-blur-xl border border-white/20 shadow-2xl transition-transform active:scale-90 hover:scale-105 hover:bg-black/75 cursor-pointer",
+            showCenterIcon || !isPlaying || showControls ? "pointer-events-auto" : "pointer-events-none"
+          )}
           aria-label={isPlaying ? "Pause video" : "Play video"}
         >
           {isPlaying ? (
@@ -425,6 +448,7 @@ export const VideoPlayer = memo(function VideoPlayer({
           "absolute top-2.5 left-13 md:top-3.5 md:left-15 z-20 flex items-center gap-1.5 rounded-full bg-black/60 px-2.5 py-1 text-xs font-semibold text-white/90 backdrop-blur-md border border-white/10 transition-opacity duration-300",
           showControls ? "opacity-100" : "opacity-0 pointer-events-none"
         )}
+        onClick={(e) => e.stopPropagation()}
       >
         <span className="size-2 rounded-full bg-emerald-400 animate-pulse" />
         <span>720p HD</span>
@@ -564,7 +588,10 @@ export const VideoPlayer = memo(function VideoPlayer({
           <div className="flex items-center gap-2 sm:gap-3">
             <button
               type="button"
-              onClick={togglePlay}
+              onClick={(e) => {
+                e.stopPropagation()
+                togglePlay()
+              }}
               className="p-1.5 rounded-lg text-white/90 hover:text-white hover:bg-white/15 transition-colors cursor-pointer"
               aria-label={isPlaying ? "Pause" : "Play"}
             >
