@@ -154,25 +154,12 @@ export const PhotoCard = memo(function PhotoCard({
     }
   }, [imageSrc, imageError, data.thumbnail, data.preview])
 
-  // Handle graceful image fallback across all media tiers and CDN fallback
+  // Handle graceful image fallback across all media tiers
   function handleImageError() {
-    // 1. If image failed on an external CDN (e.g. Brave Shields / privacy blocking), immediately fallback to first-party proxy
-    if (imageSrc && !imageSrc.startsWith('/media/')) {
-      const fallback = data.thumbnail || data.preview || data.key
-      if (fallback) {
-        const proxyUrl = toProxyMediaUrl(fallback)
-        if (proxyUrl && proxyUrl !== imageSrc) {
-          setImageSrc(proxyUrl)
-          return
-        }
-      }
-    }
-
-    // 2. Try higher-res tiers
-    if (data.preview && imageSrc !== data.preview && imageSrc !== toProxyMediaUrl(data.preview)) {
+    if (data.preview && imageSrc !== data.preview) {
       setImageSrc(data.preview)
-    } else if (data.key && imageSrc !== data.key && imageSrc !== toProxyMediaUrl(data.key)) {
-      setImageSrc(data.key)
+    } else if (data.thumbnail && imageSrc !== data.thumbnail) {
+      setImageSrc(data.thumbnail)
     } else {
       setImageError(true)
     }

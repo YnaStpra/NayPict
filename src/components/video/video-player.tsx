@@ -494,17 +494,9 @@ export const VideoPlayer = memo(function VideoPlayer({
           setShowControls(true)
           onEnded?.()
         }}
-        onError={(e) => {
+        onError={() => {
           setIsLoading(false)
           setIsBuffering(false)
-          const videoEl = e.currentTarget
-          if (videoEl.src && !videoEl.src.includes('/media/')) {
-            const proxy = toProxyMediaUrl(videoEl.src)
-            if (proxy && proxy !== videoEl.src) {
-              videoEl.src = proxy
-              videoEl.load()
-            }
-          }
         }}
         aria-label={alt}
       />

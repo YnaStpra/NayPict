@@ -1,85 +1,17 @@
 import { Hono, Context } from "hono";
-import { streamSSE } from "hono/streaming";
 import result from '@/server/model/result';
 import { commentService } from '@/server/service/comment-service';
-import { commentEventHub, type CommentEvent } from '@/server/lib/comment-event-hub';
 import { type CommentAddBo, type CommentDeleteBo, type CommentListAdminBo, type CommentReplyBo } from '@/server/entity/bo/comment';
-import { cache } from '@/server/infra/cache';
 import type { HonoEnv } from '../hono/type';
 
 // This module registers public and administrative photo comment interfaces.
 
 export function registerCommentApi(app: Hono<HonoEnv>) {
   // Real-time Server-Sent Events (SSE) endpoint for live comment updates.
+  // Decommissioned continuous 50-second serverless execution loop to preserve Vercel compute quotas.
+  // Replaced with client-side adaptive polling and BroadcastChannel cross-tab synchronization.
   app.get('/photos/:photoId/comments/sse', async (c: Context) => {
-    const photoId = c.req.param('photoId') ?? '';
-    if (!photoId) {
-      return c.text('photoId is required', 400);
-    }
-
-    return streamSSE(c, async (stream) => {
-      await stream.writeSSE({
-        event: 'connected',
-        data: JSON.stringify({ photoId, status: 'connected' }),
-      });
-
-      let lastReactionTs = Date.now();
-
-      const unsubscribe = commentEventHub.subscribe(photoId, async (event: CommentEvent) => {
-        try {
-          if (event.type === 'reaction_updated') {
-            lastReactionTs = Date.now();
-          }
-          await stream.writeSSE({
-            event: event.type,
-            data: JSON.stringify(event),
-          });
-        } catch (err) {
-          console.warn('[SSE] Failed to write event to stream:', err);
-        }
-      });
-
-      const pingInterval = setInterval(async () => {
-        try {
-          await stream.writeSSE({
-            event: 'ping',
-            data: 'heartbeat',
-          });
-        } catch {
-          clearInterval(pingInterval);
-        }
-      }, 15000);
-
-      const startTime = Date.now();
-      // Gracefully finish after 50 seconds so Vercel can recycle function before hard timeout;
-      // standard browser EventSource auto-reconnects seamlessly in 3s if still active
-      const MAX_STREAM_MS = 50_000;
-
-      while (!stream.aborted && Date.now() - startTime < MAX_STREAM_MS) {
-        await stream.sleep(2000);
-        if (stream.aborted) break;
-
-        // Poll distributed cache for cross-serverless reaction events
-        try {
-          const cachedEvent = await cache.get<{ photoId: string; totals: any; ts: number }>(`reaction_event:${photoId}`);
-          if (cachedEvent && cachedEvent.ts > lastReactionTs) {
-            lastReactionTs = cachedEvent.ts;
-            await stream.writeSSE({
-              event: 'reaction_updated',
-              data: JSON.stringify({
-                type: 'reaction_updated',
-                photoId,
-                totals: cachedEvent.totals,
-                timestamp: new Date(cachedEvent.ts).toISOString(),
-              }),
-            });
-          }
-        } catch {}
-      }
-
-      clearInterval(pingInterval);
-      unsubscribe();
-    });
+    return c.body(null, 204);
   });
 
   // Query comments for a specific photo (RESTful route).

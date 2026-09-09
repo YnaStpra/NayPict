@@ -13,6 +13,8 @@ function formatHttpUrl(input?: string | null) {
   return httpUrl.replace(/\/+$/, '');
 }
 
+const MEDIA_GATEWAY_DEFAULT = 'naypict-media-gateway.naypict.workers.dev';
+
 // Convert storage key to requestable file URL.
 function toMediaUrl(key: string, domain?: string | null) {
   if (!key || !key.trim()) {
@@ -20,7 +22,7 @@ function toMediaUrl(key: string, domain?: string | null) {
   }
 
   const encodedKey = key.split('/').map((segment) => encodeURIComponent(segment)).join('/');
-  const base = formatHttpUrl(domain);
+  const base = formatHttpUrl(domain || process.env.R2_MEDIA_GATEWAY_URL || MEDIA_GATEWAY_DEFAULT);
 
   // If public CDN domain is configured (e.g. *.r2.dev or custom media domain), deliver directly via global CDN edge
   // Only route via /media server proxy if domain is empty or points to private S3 API endpoint (r2.cloudflarestorage.com)
@@ -28,7 +30,7 @@ function toMediaUrl(key: string, domain?: string | null) {
     return `${base}/${encodedKey}`;
   }
 
-  return `/media/${encodedKey}`;
+  return `${formatHttpUrl(MEDIA_GATEWAY_DEFAULT)}/${encodedKey}`;
 }
 
 // Remove photoId query parameter from current browser address bar without page reload.
@@ -60,7 +62,8 @@ function setPhotoIdInUrl(photoId?: string | null) {
   }
 }
 
-// Safely extract media key and convert any URL (CDN or relative) into same-origin /media/ proxy path
+// Safely extract media key and convert any URL (CDN or relative) into optimized file URL.
+// Videos and derivatives always route to Cloudflare Worker Media Gateway to preserve Vercel bandwidth and execution time.
 function toProxyMediaUrl(urlOrKey?: string | null): string {
   if (!urlOrKey || !urlOrKey.trim()) {
     return '';
@@ -78,6 +81,14 @@ function toProxyMediaUrl(urlOrKey?: string | null): string {
 
   cleanKey = cleanKey.replace(/^\/+media\/+/, '').replace(/^\/+/, '');
   const encodedKey = cleanKey.split('/').map((segment) => encodeURIComponent(segment)).join('/');
+
+  const isVideo = Boolean(cleanKey.match(/\.(mp4|webm|mov|m4v|mkv)$/i));
+  const isDerivative = cleanKey.startsWith('previews/') || cleanKey.startsWith('thumbnails/');
+  if (isVideo || isDerivative) {
+    const gatewayBase = formatHttpUrl(process.env.R2_MEDIA_GATEWAY_URL || MEDIA_GATEWAY_DEFAULT);
+    return `${gatewayBase}/${encodedKey}`;
+  }
+
   return `/media/${encodedKey}`;
 }
 

@@ -28,6 +28,7 @@ const nextConfig: NextConfig = {
     optimizePackageImports: ['lucide-react', '@tabler/icons-react', 'recharts'],
   },
   images: {
+    unoptimized: true,
     formats: ['image/avif', 'image/webp'],
     remotePatterns: [
       // Allow derivatives served by the private-bucket media gateway.
