@@ -7,6 +7,8 @@ import { Slider } from "@/components/ui/slider"
 import { Switch } from "@/components/ui/switch"
 
 export interface PhotoUploadSettingsValue {
+  photoConcurrency: number
+  videoConcurrency: number
   concurrency: number
   retryOnFail: boolean
   allowDownload: boolean
@@ -17,16 +19,23 @@ export interface PhotoUploadSettingsValue {
 const STORAGE_KEY = "photo-upload-settings"
 
 const defaultSettings: PhotoUploadSettingsValue = {
-  concurrency: 4,
+  photoConcurrency: 8,
+  videoConcurrency: 4,
+  concurrency: 8,
   retryOnFail: false,
   allowDownload: false,
   compressImage: true,
   compressVideo: true,
 }
 
-// Limit the number of concurrencies to 1 arrive 12 between.
-function clampConcurrency(value: number) {
-  return Math.min(12, Math.max(1, Math.round(value)))
+// Limit the number of photo concurrencies between 1 and 8.
+function clampPhotoConcurrency(value: number) {
+  return Math.min(8, Math.max(1, Math.round(value)))
+}
+
+// Limit the number of video concurrencies between 1 and 4.
+function clampVideoConcurrency(value: number) {
+  return Math.min(4, Math.max(1, Math.round(value)))
 }
 
 // Read photo upload settings from local storage, Returns default value when read fails.
@@ -40,8 +49,17 @@ export function readPhotoUploadSettings(): PhotoUploadSettingsValue {
 
     const data = JSON.parse(raw) as Partial<PhotoUploadSettingsValue>
 
+    const photoConcurrency = clampPhotoConcurrency(
+      data.photoConcurrency ?? data.concurrency ?? defaultSettings.photoConcurrency
+    )
+    const videoConcurrency = clampVideoConcurrency(
+      data.videoConcurrency ?? defaultSettings.videoConcurrency
+    )
+
     return {
-      concurrency: clampConcurrency(data.concurrency ?? defaultSettings.concurrency),
+      photoConcurrency,
+      videoConcurrency,
+      concurrency: photoConcurrency,
       retryOnFail: data.retryOnFail ?? defaultSettings.retryOnFail,
       allowDownload: data.allowDownload ?? defaultSettings.allowDownload,
       compressImage: data.compressImage ?? defaultSettings.compressImage,
@@ -55,7 +73,9 @@ export function readPhotoUploadSettings(): PhotoUploadSettingsValue {
 // Write photo upload settings to local storage.
 function savePhotoUploadSettings(settings: PhotoUploadSettingsValue) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify({
-    concurrency: clampConcurrency(settings.concurrency),
+    photoConcurrency: clampPhotoConcurrency(settings.photoConcurrency),
+    videoConcurrency: clampVideoConcurrency(settings.videoConcurrency),
+    concurrency: clampPhotoConcurrency(settings.photoConcurrency),
     retryOnFail: settings.retryOnFail,
     allowDownload: settings.allowDownload,
     compressImage: settings.compressImage,
@@ -122,22 +142,43 @@ export function PhotoUploadSettings({ onChange }: { onChange?: () => void }) {
         </p>
       </div>
 
+      {/* Photo Concurrency */}
       <div className="flex flex-col gap-2">
         <div className="flex items-center justify-between text-sm font-medium">
-          <span>{t("concurrentUploads")}</span>
+          <span>Photo Upload Workers</span>
           <span className="text-xs font-bold px-2 py-0.5 rounded bg-muted text-foreground">
-            {settings.concurrency} parallel workers
+            {settings.photoConcurrency} parallel (max 8)
           </span>
         </div>
         <Slider
           min={1}
-          max={12}
+          max={8}
           step={1}
-          value={[settings.concurrency]}
-          onValueChange={(value) => updateSettings({ concurrency: value[0] })}
+          value={[settings.photoConcurrency]}
+          onValueChange={(value) => updateSettings({ photoConcurrency: value[0] })}
         />
         <p className="text-[10px] text-muted-foreground">
-          Increase parallel workers for faster batch uploads of large photo sets.
+          Parallel compression and upload workers for photos (up to 8).
+        </p>
+      </div>
+
+      {/* Video Concurrency */}
+      <div className="flex flex-col gap-2">
+        <div className="flex items-center justify-between text-sm font-medium">
+          <span>Video Upload &amp; Compress Workers</span>
+          <span className="text-xs font-bold px-2 py-0.5 rounded bg-muted text-foreground">
+            {settings.videoConcurrency} parallel (max 4)
+          </span>
+        </div>
+        <Slider
+          min={1}
+          max={4}
+          step={1}
+          value={[settings.videoConcurrency]}
+          onValueChange={(value) => updateSettings({ videoConcurrency: value[0] })}
+        />
+        <p className="text-[10px] text-muted-foreground">
+          Parallel compression and upload workers for videos (capped at 4 to prevent hardware encoder overload).
         </p>
       </div>
       <div className="flex flex-col gap-2">

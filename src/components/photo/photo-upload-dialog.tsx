@@ -81,6 +81,12 @@ function formatPhotoSize(size: number) {
   return `${(size / 1024 / 1024).toFixed(1)}MB`
 }
 
+// Helper to determine if an upload item is a video
+function isVideoItem(item: UploadPreview): boolean {
+  if (item.isVideo !== undefined) return item.isVideo
+  return item.file.type.startsWith("video/") || /\.(mp4|mov|webm|m4v|mkv)$/i.test(item.file.name)
+}
+
 let uploadItemCounter = 0
 
 function createUploadItemId(file: File): string {
@@ -428,7 +434,8 @@ export function PhotoUploadDialog() {
   const previewsRef = useRef<UploadPreview[]>([])
   const uploadQueueRef = useRef<UploadPreview[]>([])
   const uploadingRef = useRef(false)
-  const activeCountRef = useRef(0)
+  const activeVideoCountRef = useRef(0)
+  const activePhotoCountRef = useRef(0)
   const abortMapRef = useRef<Map<string, () => void>>(new Map())
   const pausedRef = useRef(false)
   const uploadStorageIdRef = useRef<string | null>(null)
@@ -542,7 +549,8 @@ export function PhotoUploadDialog() {
     detectedDuplicatesRef.current = []
     uploadingRef.current = false
     setUploading(false)
-    activeCountRef.current = 0
+    activeVideoCountRef.current = 0
+    activePhotoCountRef.current = 0
     abortMapRef.current.clear()
     pausedRef.current = false
     uploadStorageIdRef.current = null
@@ -576,6 +584,8 @@ export function PhotoUploadDialog() {
     abortMapRef.current.forEach((abort) => abort())
     abortMapRef.current.clear()
     uploadQueueRef.current = []
+    activeVideoCountRef.current = 0
+    activePhotoCountRef.current = 0
 
     const nextPreviews = previewsRef.current.map((preview) => {
       if (preview.status === "waiting" || (preview.status === "uploading" && abortingIds.has(preview.id))) {
@@ -685,7 +695,7 @@ export function PhotoUploadDialog() {
       const uploadSettings = readPhotoUploadSettings()
 
       // DUAL STORAGE ROUTING & DIRECT R2 UPLOAD FOR VIDEOS
-      const isVideo = item.file.type.startsWith("video/") || /\.(mp4|mov|webm|m4v|mkv)$/i.test(item.file.name)
+      const isVideo = isVideoItem(item)
       if (isVideo) {
         // Automatically route to dedicated video storage when in auto mode, or honor specific manual override
         const targetStorageId = (currentStorageId === "auto" || !currentStorageId)
@@ -1002,16 +1012,16 @@ export function PhotoUploadDialog() {
   function runNext() {
     if (pausedRef.current) return
 
-    if (!uploadQueueRef.current.length && activeCountRef.current === 0) {
+    const totalActive = activeVideoCountRef.current + activePhotoCountRef.current
+
+    if (!uploadQueueRef.current.length && totalActive === 0) {
       uploadingRef.current = false
       setUploading(false)
 
       const successItems = previewsRef.current.filter((p) => p.status === "success")
       const successCount = successItems.length
       if (successCount > 0) {
-        const videoSuccessCount = successItems.filter((p) =>
-          p.file.type.startsWith("video/") || /\.(mp4|mov|webm|m4v|mkv)$/i.test(p.file.name)
-        ).length
+        const videoSuccessCount = successItems.filter((p) => isVideoItem(p)).length
         const photoSuccessCount = successCount - videoSuccessCount
 
         if (photoSuccessCount > 0 && videoSuccessCount > 0) {
@@ -1035,15 +1045,45 @@ export function PhotoUploadDialog() {
 
     uploadingRef.current = true
     setUploading(true)
-    const concurrency = readPhotoUploadSettings().concurrency
+    const settings = readPhotoUploadSettings()
+    // Video concurrency capped at max 4; Photo concurrency capped at max 8
+    const maxPhotoWorkers = Math.min(8, Math.max(1, settings.photoConcurrency ?? 8))
+    const maxVideoWorkers = Math.min(4, Math.max(1, settings.videoConcurrency ?? 4))
 
-    while (activeCountRef.current < concurrency && uploadQueueRef.current.length) {
-      const preview = uploadQueueRef.current.shift()
-      if (!preview) continue
+    while (true) {
+      const canRunVideo = activeVideoCountRef.current < maxVideoWorkers
+      const canRunPhoto = activePhotoCountRef.current < maxPhotoWorkers
 
-      activeCountRef.current += 1
+      if (!canRunVideo && !canRunPhoto) {
+        break
+      }
+
+      // Find the next queued item eligible for an open worker slot
+      const nextIndex = uploadQueueRef.current.findIndex((item) => {
+        const isVid = isVideoItem(item)
+        return isVid ? canRunVideo : canRunPhoto
+      })
+
+      if (nextIndex === -1) {
+        break
+      }
+
+      const [preview] = uploadQueueRef.current.splice(nextIndex, 1)
+      if (!preview) break
+
+      const isVid = isVideoItem(preview)
+      if (isVid) {
+        activeVideoCountRef.current += 1
+      } else {
+        activePhotoCountRef.current += 1
+      }
+
       uploadPhoto(preview).finally(() => {
-        activeCountRef.current -= 1
+        if (isVid) {
+          activeVideoCountRef.current = Math.max(0, activeVideoCountRef.current - 1)
+        } else {
+          activePhotoCountRef.current = Math.max(0, activePhotoCountRef.current - 1)
+        }
         runNext()
       })
     }
@@ -1132,12 +1172,12 @@ export function PhotoUploadDialog() {
               <div className="flex items-center gap-2 flex-wrap">
                 <UploadCloud className="size-5 text-primary shrink-0" />
                 <DialogTitle className="text-lg font-bold">
-                  {previews.some((p) => p.file.type.startsWith("video/") || /\.(mp4|mov|webm|m4v|mkv)$/i.test(p.file.name))
+                  {previews.some((p) => isVideoItem(p))
                     ? "Upload Media"
                     : t("title")}
                 </DialogTitle>
                 {previews.length > 0 && (() => {
-                  const videoCount = previews.filter(p => p.file.type.startsWith("video/") || /\.(mp4|mov|webm|m4v|mkv)$/i.test(p.file.name)).length
+                  const videoCount = previews.filter((p) => isVideoItem(p)).length
                   const photoCount = previews.length - videoCount
                   return (
                     <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
@@ -1199,7 +1239,7 @@ export function PhotoUploadDialog() {
           >
             <div className="grid grid-cols-3 sm:grid-cols-4 content-start gap-2.5">
               {previews.map((preview) => {
-                const isVideo = preview.isVideo ?? (preview.file.type.startsWith("video/") || /\.(mp4|mov|webm|m4v|mkv)$/i.test(preview.file.name))
+                const isVideo = isVideoItem(preview)
                 return (
                   <div
                     key={preview.id}

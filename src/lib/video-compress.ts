@@ -859,12 +859,45 @@ async function compressWithNativeCanvas(
   });
 }
 
+// Concurrency semaphore: strictly cap simultaneous video compressions to 4 workers
+// to prevent hardware decoder contention, GPU memory exhaustion, and browser crashes.
+let activeVideoCompressions = 0;
+const videoCompressQueue: Array<() => void> = [];
+
+/**
+ * Acquire a compression execution slot (max 4 concurrent workers).
+ */
+async function acquireCompressSlot(): Promise<void> {
+  if (activeVideoCompressions < 4) {
+    activeVideoCompressions++;
+    return;
+  }
+  return new Promise<void>((resolve) => {
+    videoCompressQueue.push(() => {
+      activeVideoCompressions++;
+      resolve();
+    });
+  });
+}
+
+/**
+ * Release a compression execution slot and wake up the next queued task.
+ */
+function releaseCompressSlot(): void {
+  activeVideoCompressions = Math.max(0, activeVideoCompressions - 1);
+  const next = videoCompressQueue.shift();
+  if (next) {
+    next();
+  }
+}
+
 /**
  * Smart 720p Video Compressor:
  * - Uses Mediabunny (WebCodecs hardware acceleration) for ultra-fast, high-efficiency VBR encoding.
  * - Falls back seamlessly to native Canvas/WebAudio/MediaRecorder pipeline on legacy browsers.
  * - Downscales 4K and 1080p videos to optimized 720p HD (~1.1 Mbps) achieving ~85%-95% size reduction.
  * - Respects true aspect ratio (portrait 9:16, landscape 16:9, or square 1:1) and bakes rotation permanently into frames.
+ * - Strictly capped at 4 concurrent encoding workers to ensure system stability.
  */
 export async function compressVideoTo720p(
   file: File,
@@ -924,28 +957,33 @@ export async function compressVideoTo720p(
     bitrate: `${Math.round(finalBitrate / 1000)}kbps`,
   });
 
-  // 1. Primary Strategy: Blazing fast Mediabunny WebCodecs hardware GPU conversion
-  const mediabunnyResult = await compressWithMediabunny(
-    file,
-    meta,
-    targetWidth,
-    targetHeight,
-    finalBitrate,
-    onProgress
-  );
+  await acquireCompressSlot();
+  try {
+    // 1. Primary Strategy: Blazing fast Mediabunny WebCodecs hardware GPU conversion
+    const mediabunnyResult = await compressWithMediabunny(
+      file,
+      meta,
+      targetWidth,
+      targetHeight,
+      finalBitrate,
+      onProgress
+    );
 
-  if (mediabunnyResult) {
-    return mediabunnyResult;
+    if (mediabunnyResult) {
+      return mediabunnyResult;
+    }
+
+    // 2. Secondary Strategy: Resilient native canvas pipeline fallback
+    console.log("[VideoCompress] Falling back to native canvas pipeline");
+    return await compressWithNativeCanvas(
+      file,
+      meta,
+      targetWidth,
+      targetHeight,
+      finalBitrate,
+      onProgress
+    );
+  } finally {
+    releaseCompressSlot();
   }
-
-  // 2. Secondary Strategy: Resilient native canvas pipeline fallback
-  console.log("[VideoCompress] Falling back to native canvas pipeline");
-  return compressWithNativeCanvas(
-    file,
-    meta,
-    targetWidth,
-    targetHeight,
-    finalBitrate,
-    onProgress
-  );
 }
