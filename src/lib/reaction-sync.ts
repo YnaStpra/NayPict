@@ -33,26 +33,87 @@ const DEFAULT_STATE: PhotoReactionsVo = {
 class ReactionSyncManager {
   private cache = new Map<string, PhotoReactionsVo>();
   private listeners = new Map<string, Set<(data: PhotoReactionsVo) => void>>();
+  private pollTimers = new Map<string, NodeJS.Timeout>();
   private channel: BroadcastChannel | null = null;
 
   constructor() {
-    if (typeof window !== "undefined" && "BroadcastChannel" in window) {
-      try {
-        this.channel = new BroadcastChannel("naypict_reactions_sync");
-        this.channel.onmessage = (event) => {
-          if (event.data?.photoId && event.data?.state) {
-            this.setCacheAndNotify(event.data.photoId, event.data.state, false);
-          }
-        };
-      } catch (err) {
-        console.warn("[REACTION-SYNC] BroadcastChannel initialization skipped:", err);
+    if (typeof window !== "undefined") {
+      if ("BroadcastChannel" in window) {
+        try {
+          this.channel = new BroadcastChannel("naypict_reactions_sync");
+          this.channel.onmessage = (event) => {
+            if (event.data?.photoId && event.data?.state) {
+              this.setCacheAndNotify(event.data.photoId, event.data.state, false);
+            }
+          };
+        } catch (err) {
+          console.warn("[REACTION-SYNC] BroadcastChannel initialization skipped:", err);
+        }
       }
+
+      // Automatically re-synchronize active photos when user returns to the tab
+      const handleTabResume = () => {
+        if (typeof document !== "undefined" && document.visibilityState === "visible") {
+          this.listeners.forEach((set, id) => {
+            if (set.size > 0) {
+              this.fetch(id).catch(() => {});
+            }
+          });
+        }
+      };
+
+      window.addEventListener("focus", handleTabResume);
+      document.addEventListener("visibilitychange", handleTabResume);
     }
   }
 
   // Retrieve cached reactions for photoId if available
   public getCached(photoId: string): PhotoReactionsVo | undefined {
     return this.cache.get(photoId);
+  }
+
+  // Start adaptive polling heartbeat for an actively subscribed photo
+  private startPolling(photoId: string): void {
+    if (this.pollTimers.has(photoId)) return;
+
+    const timer = setInterval(() => {
+      if (typeof document !== "undefined" && document.visibilityState === "visible") {
+        const set = this.listeners.get(photoId);
+        if (set && set.size > 0) {
+          this.fetch(photoId).catch(() => {});
+        } else {
+          this.stopPolling(photoId);
+        }
+      }
+    }, 3500);
+
+    this.pollTimers.set(photoId, timer);
+  }
+
+  // Stop polling heartbeat for a photo
+  private stopPolling(photoId: string): void {
+    const timer = this.pollTimers.get(photoId);
+    if (timer) {
+      clearInterval(timer);
+      this.pollTimers.delete(photoId);
+    }
+  }
+
+  // Check if two reaction states differ to avoid redundant re-renders
+  private hasStateChanged(a?: PhotoReactionsVo, b?: PhotoReactionsVo): boolean {
+    if (!a || !b) return true;
+    return (
+      a.totals.love !== b.totals.love ||
+      a.totals.fire !== b.totals.fire ||
+      a.totals.camera !== b.totals.camera ||
+      a.totals.place !== b.totals.place ||
+      a.totals.clap !== b.totals.clap ||
+      a.userReactions.love !== b.userReactions.love ||
+      a.userReactions.fire !== b.userReactions.fire ||
+      a.userReactions.camera !== b.userReactions.camera ||
+      a.userReactions.place !== b.userReactions.place ||
+      a.userReactions.clap !== b.userReactions.clap
+    );
   }
 
   // Subscribe a component to reaction updates for a specific photo
@@ -62,6 +123,14 @@ class ReactionSyncManager {
     if (!this.listeners.has(photoId)) {
       this.listeners.set(photoId, new Set());
     }
+    const photoListeners = this.listeners.get(photoId)!;
+    photoListeners.add(listener);
+
+    // Start background polling heartbeat if this is the first listener for this photo
+    if (photoListeners.size === 1) {
+      this.startPolling(photoId);
+    }
+
     // Subscribe to real-time reaction updates via shared photoSse manager
     const unsubscribeSse = photoSse.subscribe(photoId, "reaction_updated", (payload) => {
       if (payload?.photoId === photoId && payload?.totals) {
@@ -95,6 +164,7 @@ class ReactionSyncManager {
         set.delete(listener);
         if (set.size === 0) {
           this.listeners.delete(photoId);
+          this.stopPolling(photoId);
         }
       }
     };
@@ -108,7 +178,10 @@ class ReactionSyncManager {
     try {
       const res = await photoReactionsGet({ photoId: cleanId, visitorId: getClientVisitorId() });
       if (res) {
-        this.setCacheAndNotify(cleanId, res, true);
+        const previous = this.cache.get(cleanId);
+        if (this.hasStateChanged(previous, res)) {
+          this.setCacheAndNotify(cleanId, res, true);
+        }
         return res;
       }
     } catch (err) {

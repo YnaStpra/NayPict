@@ -4,6 +4,7 @@ import result from '@/server/model/result';
 import { commentService } from '@/server/service/comment-service';
 import { commentEventHub, type CommentEvent } from '@/server/lib/comment-event-hub';
 import { type CommentAddBo, type CommentDeleteBo, type CommentListAdminBo, type CommentReplyBo } from '@/server/entity/bo/comment';
+import { cache } from '@/server/infra/cache';
 import type { HonoEnv } from '../hono/type';
 
 // This module registers public and administrative photo comment interfaces.
@@ -22,8 +23,13 @@ export function registerCommentApi(app: Hono<HonoEnv>) {
         data: JSON.stringify({ photoId, status: 'connected' }),
       });
 
+      let lastReactionTs = Date.now();
+
       const unsubscribe = commentEventHub.subscribe(photoId, async (event: CommentEvent) => {
         try {
+          if (event.type === 'reaction_updated') {
+            lastReactionTs = Date.now();
+          }
           await stream.writeSSE({
             event: event.type,
             data: JSON.stringify(event),
@@ -50,7 +56,25 @@ export function registerCommentApi(app: Hono<HonoEnv>) {
       const MAX_STREAM_MS = 50_000;
 
       while (!stream.aborted && Date.now() - startTime < MAX_STREAM_MS) {
-        await stream.sleep(2500);
+        await stream.sleep(2000);
+        if (stream.aborted) break;
+
+        // Poll distributed cache for cross-serverless reaction events
+        try {
+          const cachedEvent = await cache.get<{ photoId: string; totals: any; ts: number }>(`reaction_event:${photoId}`);
+          if (cachedEvent && cachedEvent.ts > lastReactionTs) {
+            lastReactionTs = cachedEvent.ts;
+            await stream.writeSSE({
+              event: 'reaction_updated',
+              data: JSON.stringify({
+                type: 'reaction_updated',
+                photoId,
+                totals: cachedEvent.totals,
+                timestamp: new Date(cachedEvent.ts).toISOString(),
+              }),
+            });
+          }
+        } catch {}
       }
 
       clearInterval(pingInterval);

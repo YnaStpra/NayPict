@@ -15,6 +15,7 @@ import { type PhotoReactionsVo, type ReactionTotalsVo, type UserReactionsVo } fr
 import { type InsightsTopReactionPhotoVo } from '@/server/entity/vo/insights';
 import { commentEventHub } from '@/server/lib/comment-event-hub';
 import { v4 as uuidv4 } from 'uuid';
+import { cache } from '@/server/infra/cache';
 import BizError from '@/server/error/biz-error';
 
 // This module handles visitor micro-reactions (Love, Fire, Camera, Place) and public claps/likes per photo.
@@ -192,6 +193,13 @@ const reactionService = {
       photoId,
       totals: freshState.totals,
     });
+
+    // Persist live reaction update into distributed cache so other serverless instances & SSE streams receive it
+    await cache.set(`reaction_event:${photoId}`, {
+      photoId,
+      totals: freshState.totals,
+      ts: Date.now(),
+    }, { ttl: 86400 }).catch(() => {});
 
     return freshState;
   },
