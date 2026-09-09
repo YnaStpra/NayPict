@@ -25,6 +25,7 @@ interface PhotoMasonryProps {
   photos: PhotoVo[]
   resetKey?: number
   groupByDate?: boolean
+  groupByType?: boolean
   onReachBottom: () => void
   onPhotoOpen?: (index: number) => void
   onPhotoDelete?: (photoIds: string[]) => void
@@ -119,6 +120,7 @@ const PhotoMasonry = memo(function PhotoMasonry({
   photos,
   resetKey = 0,
   groupByDate = false,
+  groupByType = false,
   onReachBottom,
   onPhotoOpen,
   onPhotoDelete,
@@ -182,6 +184,45 @@ const PhotoMasonry = memo(function PhotoMasonry({
 
     return groups
   }, [photos, groupByDate])
+
+  // Group photos by media type (Videos vs Photos) if enabled
+  const typeGroups = useMemo(() => {
+    if (!groupByType) return null
+
+    const groups: {
+      typeKey: string
+      typeLabel: string
+      icon: string
+      items: { photo: PhotoVo; globalIndex: number }[]
+    }[] = []
+
+    const groupMap = new Map<string, typeof groups[0]>()
+
+    photos.forEach((photo, globalIndex) => {
+      const isVideo = Boolean(
+        photo.type?.startsWith("video/") ||
+        photo.name?.toLowerCase().match(/\.(mp4|mov|webm|avi|mkv)$/)
+      )
+      const typeKey = isVideo ? "video" : "photo"
+      const typeLabel = isVideo ? "Videos" : "Photos"
+      const icon = isVideo ? "🎥" : "📷"
+
+      let group = groupMap.get(typeKey)
+      if (!group) {
+        group = {
+          typeKey,
+          typeLabel,
+          icon,
+          items: [],
+        }
+        groupMap.set(typeKey, group)
+        groups.push(group)
+      }
+      group.items.push({ photo, globalIndex })
+    })
+
+    return groups
+  }, [photos, groupByType])
 
 
   useEffect(() => {
@@ -488,6 +529,73 @@ const PhotoMasonry = memo(function PhotoMasonry({
                   </div>
 
                   {/* Responsive Masonry Grid for this date */}
+                  <div className="flex gap-1">
+                    {cols.map((colItems, colIdx) => (
+                      <div
+                        key={colIdx}
+                        className="flex flex-col gap-1 flex-1"
+                        style={{ maxWidth: `${columnWidth}px` }}
+                      >
+                        {colItems.map(({ photo, globalIndex }) => (
+                          <PhotoCard
+                            key={photo.photoId}
+                            data={photo}
+                            index={globalIndex}
+                            width={columnWidth}
+                            selected={visibleSelectedPhotoIds.includes(photo.photoId)}
+                            selectionActive={visibleSelectedPhotoIds.length > 0}
+                            onOpen={() => onPhotoOpen?.(globalIndex)}
+                            onSelectedChange={changePhotoSelected}
+                            onPhotoPin={onPhotoPin}
+                            touchHoverCloseRef={touchHoverCloseRef}
+                          />
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              )
+            })}
+          </div>
+        ) : groupByType && typeGroups ? (
+          <div className="space-y-6 pb-6">
+            {typeGroups.map((group) => {
+              const numCols = Math.max(1, Math.floor((width + 4) / (columnWidth + 4)))
+              const cols: { photo: PhotoVo; globalIndex: number; height: number }[][] = Array.from(
+                { length: numCols },
+                () => []
+              )
+              const colHeights = new Array(numCols).fill(0)
+
+              group.items.forEach(({ photo, globalIndex }) => {
+                const ratio = photo.width && photo.height ? photo.height / photo.width : 1
+                const h = Math.max(1, Math.round(columnWidth * ratio))
+                let minCol = 0
+                for (let c = 1; c < numCols; c++) {
+                  if (colHeights[c] < colHeights[minCol]) {
+                    minCol = c
+                  }
+                }
+                cols[minCol].push({ photo, globalIndex, height: h })
+                colHeights[minCol] += h + 4
+              })
+
+              return (
+                <section key={group.typeKey} className="space-y-2.5 pt-2">
+                  {/* Clean Media Type Header: Videos or Photos */}
+                  <div className="flex items-center justify-between py-1 px-1 border-b border-border/40">
+                    <div className="flex items-center gap-2">
+                      <span className="text-base">{group.icon}</span>
+                      <span className="text-sm sm:text-base font-bold text-foreground tracking-tight">
+                        {group.typeLabel}
+                      </span>
+                    </div>
+                    <span className="text-[11px] font-semibold text-muted-foreground px-2 py-0.5 rounded-full bg-muted border border-border/40">
+                      {group.items.length} {group.items.length === 1 ? (group.typeKey === "video" ? "video" : "photo") : (group.typeKey === "video" ? "videos" : "photos")}
+                    </span>
+                  </div>
+
+                  {/* Responsive Masonry Grid for this type group */}
                   <div className="flex gap-1">
                     {cols.map((colItems, colIdx) => (
                       <div

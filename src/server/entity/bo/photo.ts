@@ -19,7 +19,7 @@ interface PhotoListBo {
   shuffle?: boolean;
   // Filter by specific photo IDs (used for random-order pagination)
   photoIds?: string[] | null;
-  sortBy?: 'takenTime' | 'createTime' | 'size' | 'name' | null;
+  sortBy?: 'takenTime' | 'createTime' | 'size' | 'name' | 'type' | null;
   sortOrder?: 'asc' | 'desc' | null;
   keyword?: string | null;
   allowAllVisibility?: boolean | null;

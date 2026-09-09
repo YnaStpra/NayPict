@@ -66,14 +66,16 @@ const OnThisDayBanner = dynamic(
   { ssr: false }
 )
 
-type SortOptionKey = 'none' | 'takenTime_desc' | 'takenTime_asc' | 'createTime_desc' | 'createTime_asc' | 'size_desc' | 'size_asc' | 'name_asc' | 'name_desc'
+type SortOptionKey = 'none' | 'takenTime_desc' | 'takenTime_asc' | 'createTime_desc' | 'createTime_asc' | 'type_asc' | 'type_desc' | 'size_desc' | 'size_asc' | 'name_asc' | 'name_desc'
 
-const SORT_OPTIONS: { key: SortOptionKey; label: string; sortBy?: 'takenTime' | 'createTime' | 'size' | 'name' | null; sortOrder?: 'asc' | 'desc' | null; shuffle?: boolean }[] = [
+const SORT_OPTIONS: { key: SortOptionKey; label: string; sortBy?: 'takenTime' | 'createTime' | 'size' | 'name' | 'type' | null; sortOrder?: 'asc' | 'desc' | null; shuffle?: boolean }[] = [
   { key: 'none', label: 'Default / Random', sortBy: null, sortOrder: null, shuffle: true },
   { key: 'takenTime_desc', label: 'Taken Date (Newest)', sortBy: 'takenTime', sortOrder: 'desc', shuffle: false },
   { key: 'takenTime_asc', label: 'Taken Date (Oldest)', sortBy: 'takenTime', sortOrder: 'asc', shuffle: false },
   { key: 'createTime_desc', label: 'Recently Added', sortBy: 'createTime', sortOrder: 'desc', shuffle: false },
   { key: 'createTime_asc', label: 'Oldest Added', sortBy: 'createTime', sortOrder: 'asc', shuffle: false },
+  { key: 'type_asc', label: 'Media Type (Videos First)', sortBy: 'type', sortOrder: 'asc', shuffle: false },
+  { key: 'type_desc', label: 'Media Type (Photos First)', sortBy: 'type', sortOrder: 'desc', shuffle: false },
   { key: 'size_desc', label: 'File Size (Largest)', sortBy: 'size', sortOrder: 'desc', shuffle: false },
   { key: 'size_asc', label: 'File Size (Smallest)', sortBy: 'size', sortOrder: 'asc', shuffle: false },
   { key: 'name_asc', label: 'Name (A - Z)', sortBy: 'name', sortOrder: 'asc', shuffle: false },
@@ -437,7 +439,7 @@ export default function Page() {
                           className="h-8 gap-1.5 px-2.5 text-xs font-semibold rounded-lg shadow-2xs border-border/60"
                         >
                           <ArrowUpDown className="size-3.5 text-primary shrink-0" />
-                          <span className="hidden md:inline-block max-w-[140px] truncate">
+                          <span className="hidden md:inline-block max-w-[170px] truncate">
                             {SORT_OPTIONS.find((o) => o.key === sortKey)?.label || "Sort"}
                           </span>
                           <ChevronDown className="size-3 text-muted-foreground" />
@@ -448,7 +450,7 @@ export default function Page() {
                   </Tooltip>
                 </TooltipProvider>
 
-                <DropdownMenuContent align="end" className="w-56 z-[50]">
+                <DropdownMenuContent align="end" className="w-64 z-[50]">
                   <DropdownMenuLabel className="text-xs text-muted-foreground font-semibold px-2 py-1.5">
                     Sort By
                   </DropdownMenuLabel>
@@ -499,6 +501,7 @@ export default function Page() {
                     photos={photos}
                     resetKey={masonryKey}
                     groupByDate={groupByDate}
+                    groupByType={sortKey === 'type_asc' || sortKey === 'type_desc'}
                     onReachBottom={loadMorePhotos}
                     onPhotoOpen={openPhoto}
                     onPhotoDelete={recyclePhotos}

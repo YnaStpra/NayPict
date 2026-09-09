@@ -142,6 +142,14 @@ function usePhotoList(params: Partial<PhotoListBo> = {}, pageSize = PHOTO_LIST_P
           cursorTime = String(lastPhoto.size)
         } else if (queryParams.sortBy === "name") {
           cursorTime = lastPhoto.name
+        } else if (queryParams.sortBy === "type") {
+          const isVideo = Boolean(
+            lastPhoto.type?.startsWith("video/") ||
+            lastPhoto.name?.toLowerCase().match(/\.(mp4|mov|webm|avi|mkv)$/)
+          )
+          const isVideosFirst = queryParams.sortOrder === "asc"
+          const rank = isVideosFirst ? (isVideo ? 0 : 1) : (isVideo ? 1 : 0)
+          cursorTime = `${rank}__${lastPhoto.takenTime || lastPhoto.createTime || ""}`
         } else if (queryParams.status === PhotoStatusEnum.DELETE) {
           cursorTime = lastPhoto.recycleTime
         } else {

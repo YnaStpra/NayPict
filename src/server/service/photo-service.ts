@@ -132,6 +132,8 @@ const photoService = {
       orderColumn = photoTab.size;
     } else if (params.sortBy === 'name') {
       orderColumn = photoTab.name;
+    } else if (params.sortBy === 'type') {
+      orderColumn = photoTab.type;
     } else if (status === PhotoStatusEnum.DELETE) {
       orderColumn = photoTab.recycleTime;
     }
@@ -140,6 +142,15 @@ const photoService = {
     const isAsc = params.sortOrder === 'asc';
     const sortFn = isAsc ? asc : desc;
     const compFn = isAsc ? gt : lt;
+
+    // Media type rank expression:
+    // asc = Videos First (video = 0, photo = 1)
+    // desc = Photos First (photo = 0, video = 1)
+    const isVideosFirst = params.sortOrder === 'asc';
+    const isVideoSql = sql`(CASE WHEN ${photoTab.type} LIKE 'video/%' OR LOWER(${photoTab.name}) LIKE '%.mp4' OR LOWER(${photoTab.name}) LIKE '%.mov' OR LOWER(${photoTab.name}) LIKE '%.webm' THEN 1 ELSE 0 END)`;
+    const typeRankSql = isVideosFirst
+      ? sql<number>`(CASE WHEN ${isVideoSql} = 1 THEN 0 ELSE 1 END)`
+      : sql<number>`(CASE WHEN ${isVideoSql} = 1 THEN 1 ELSE 0 END)`;
 
     const baseWhereList = [
       eq(photoTab.status, status)
@@ -188,17 +199,46 @@ const photoService = {
     if (params.photoIds && params.photoIds.length > 0) {
       whereList.push(inArray(photoTab.photoId, params.photoIds));
     } else if (params.cursorPhotoId && params.cursorTime !== undefined && params.cursorTime !== null) {
-      const cursorVal = params.sortBy === 'size' ? Number(params.cursorTime) : params.cursorTime;
-      const cursorWhere = or(
-        compFn(orderColumn, cursorVal as any),
-        and(
-          eq(orderColumn, cursorVal as any),
-          compFn(photoTab.photoId, params.cursorPhotoId)
-        )
-      );
+      if (params.sortBy === 'type') {
+        let cursorRank = 0;
+        let cursorSubTime = '';
+        if (params.cursorTime.includes('__')) {
+          const parts = params.cursorTime.split('__');
+          cursorRank = Number(parts[0]) || 0;
+          cursorSubTime = parts[1] || '';
+        } else {
+          const isVideo = params.cursorTime.startsWith('video');
+          cursorRank = isVideosFirst ? (isVideo ? 0 : 1) : (isVideo ? 1 : 0);
+        }
 
-      if (cursorWhere) {
+        const timeCol = sql`COALESCE(${photoTab.takenTime}, '')`;
+        const cursorWhere = sql`(
+          ${typeRankSql} > ${cursorRank}
+          OR (
+            ${typeRankSql} = ${cursorRank}
+            AND (
+              ${timeCol} < ${cursorSubTime}
+              OR (
+                ${timeCol} = ${cursorSubTime}
+                AND ${photoTab.photoId} < ${params.cursorPhotoId}
+              )
+            )
+          )
+        )`;
         whereList.push(cursorWhere);
+      } else {
+        const cursorVal = params.sortBy === 'size' ? Number(params.cursorTime) : params.cursorTime;
+        const cursorWhere = or(
+          compFn(orderColumn, cursorVal as any),
+          and(
+            eq(orderColumn, cursorVal as any),
+            compFn(photoTab.photoId, params.cursorPhotoId)
+          )
+        );
+
+        if (cursorWhere) {
+          whereList.push(cursorWhere);
+        }
       }
     }
 
@@ -220,10 +260,18 @@ const photoService = {
         .orderBy(
           desc(albumPhotoTab.isPinned),
           desc(albumPhotoTab.pinnedAt),
-          params.photoIds?.length
-            ? sql`CASE ${photoTab.photoId} ${params.photoIds.map((id, i) => sql`WHEN ${id} THEN ${i}`).reduce((a, b) => sql`${a} ${b}`)} END`
-            : (params.shuffle && !params.sortBy && !params.cursorPhotoId ? sql`RANDOM()` : sortFn(orderColumn)),
-          sortFn(photoTab.photoId)
+          ...(params.sortBy === 'type'
+            ? [
+                asc(typeRankSql),
+                desc(sql`COALESCE(${photoTab.takenTime}, '')`),
+                desc(photoTab.photoId),
+              ]
+            : [
+                params.photoIds?.length
+                  ? sql`CASE ${photoTab.photoId} ${params.photoIds.map((id, i) => sql`WHEN ${id} THEN ${i}`).reduce((a, b) => sql`${a} ${b}`)} END`
+                  : (params.shuffle && !params.sortBy && !params.cursorPhotoId ? sql`RANDOM()` : sortFn(orderColumn)),
+                sortFn(photoTab.photoId),
+              ])
         )
         .offset(offset)
         .limit(size)
@@ -232,10 +280,18 @@ const photoService = {
         .from(photoTab)
         .where(and(...whereList))
         .orderBy(
-          params.photoIds?.length
-            ? sql`CASE ${photoTab.photoId} ${params.photoIds.map((id, i) => sql`WHEN ${id} THEN ${i}`).reduce((a, b) => sql`${a} ${b}`)} END`
-            : (params.shuffle && !params.sortBy && !params.cursorPhotoId ? sql`RANDOM()` : sortFn(orderColumn)),
-          sortFn(photoTab.photoId)
+          ...(params.sortBy === 'type'
+            ? [
+                asc(typeRankSql),
+                desc(sql`COALESCE(${photoTab.takenTime}, '')`),
+                desc(photoTab.photoId),
+              ]
+            : [
+                params.photoIds?.length
+                  ? sql`CASE ${photoTab.photoId} ${params.photoIds.map((id, i) => sql`WHEN ${id} THEN ${i}`).reduce((a, b) => sql`${a} ${b}`)} END`
+                  : (params.shuffle && !params.sortBy && !params.cursorPhotoId ? sql`RANDOM()` : sortFn(orderColumn)),
+                sortFn(photoTab.photoId),
+              ])
         )
         .offset(offset)
         .limit(size);

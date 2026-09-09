@@ -241,7 +241,7 @@ export default function AdminPhotosPage() {
   const [visibilityFilter, setVisibilityFilter] = useState<string>('all')
   const [downloadFilter, setDownloadFilter] = useState<string>('all')
   const [locationFilter, setLocationFilter] = useState<string>('all')
-  const [sortBy, setSortBy] = useState<'takenTime' | 'createTime' | 'size' | 'name'>('takenTime')
+  const [sortBy, setSortBy] = useState<'takenTime' | 'createTime' | 'size' | 'name' | 'type'>('takenTime')
   const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc')
   const [viewMode, setViewMode] = useState<'table' | 'grid'>('table')
 
@@ -616,6 +616,7 @@ export default function AdminPhotosPage() {
                   <SelectContent>
                     <SelectItem value="takenTime" className="text-xs">Date Taken</SelectItem>
                     <SelectItem value="createTime" className="text-xs">Upload Date</SelectItem>
+                    <SelectItem value="type" className="text-xs">Media Type</SelectItem>
                     <SelectItem value="size" className="text-xs">File Size</SelectItem>
                     <SelectItem value="name" className="text-xs">File Name</SelectItem>
                   </SelectContent>
