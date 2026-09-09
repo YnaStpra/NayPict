@@ -1342,20 +1342,26 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
 
   // lightbox Required picture list - uses HD preview as primary source
   const slides = useMemo<PhotoSlide[]>(() => (
-    photos.map((photo) => ({
-      photoId: photo.photoId,
-      key: photo.key,
-      originalSize: photo.size,
-      preview: photo.preview || photo.key || photo.thumbnail || "",
-      src: photo.preview || photo.key || photo.thumbnail || "",
-      thumbnail: photo.thumbnail || photo.preview || "",
-      thumbHashUrl: getThumbHashUrl(photo.thumbHash),
-      albums: photo.albums,
-      width: photo.width ?? undefined,
-      height: photo.height ?? undefined,
-      alt: photo.name,
-      mediaType: photo.type,
-    }))
+    photos.map((photo) => {
+      const isVideo = Boolean(photo.type?.startsWith("video/"))
+      const isDummyThumbHash = !photo.thumbHash || photo.thumbHash.startsWith("00080204") || photo.thumbHash.startsWith("00080205")
+      return {
+        photoId: photo.photoId,
+        key: photo.key,
+        originalSize: photo.size,
+        preview: photo.preview || photo.thumbnail || "",
+        src: isVideo
+          ? (photo.key?.startsWith("http") ? photo.key : (photo.key ? toProxyMediaUrl(photo.key) : (photo.preview || "")))
+          : (photo.preview || photo.key || photo.thumbnail || ""),
+        thumbnail: photo.thumbnail || photo.preview || "",
+        thumbHashUrl: isDummyThumbHash ? undefined : getThumbHashUrl(photo.thumbHash),
+        albums: photo.albums,
+        width: photo.width ?? undefined,
+        height: photo.height ?? undefined,
+        alt: photo.name,
+        mediaType: photo.type,
+      }
+    })
   ), [photos])
   const isCurrentVideo = Boolean(photos[viewIndex]?.type?.startsWith("video/"))
   const actionsVisible = showActions && zoomLevel <= 1 && controlsVisible
@@ -1964,13 +1970,7 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
                   style={slideTransformStyle}
                 >
                   <VideoPlayer
-                    src={
-                      (photoSlide.key?.startsWith("http://") || photoSlide.key?.startsWith("https://"))
-                        ? photoSlide.key
-                        : ((photoSlide.src?.startsWith("http://") || photoSlide.src?.startsWith("https://"))
-                            ? photoSlide.src
-                            : toProxyMediaUrl(photoSlide.src || photoSlide.key))
-                    }
+                    src={photoSlide.src || (photoSlide.key?.startsWith("http") ? photoSlide.key : toProxyMediaUrl(photoSlide.key))}
                     poster={photoSlide.preview || photoSlide.thumbnail}
                     alt={photoSlide.alt || "Video"}
                     isActive={isCurrentSlide}
@@ -2045,14 +2045,18 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
                   <video
                     src={
                       (photoSlide.key?.startsWith("http://") || photoSlide.key?.startsWith("https://"))
-                        ? photoSlide.key
-                        : ((photoSlide.src?.startsWith("http://") || photoSlide.src?.startsWith("https://"))
-                            ? photoSlide.src
-                            : toProxyMediaUrl(photoSlide.src || photoSlide.key))
+                        ? `${photoSlide.key}#t=0.5`
+                        : `${toProxyMediaUrl(photoSlide.key || photoSlide.src)}#t=0.5`
                     }
                     muted
                     playsInline
                     preload="metadata"
+                    onLoadedMetadata={(e) => {
+                      const v = e.currentTarget
+                      if (v.currentTime === 0 && (v.duration > 0.5 || isNaN(v.duration))) {
+                        try { v.currentTime = 0.5 } catch {}
+                      }
+                    }}
                     className="h-full w-full select-none object-cover pointer-events-none bg-neutral-950"
                   />
                 ) : (

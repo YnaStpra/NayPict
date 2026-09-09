@@ -11,6 +11,7 @@ import {
   RotateCcw,
   MessageSquare,
   CircleAlertIcon,
+  Loader2,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { formatVideoDuration } from "@/lib/video-compress"
@@ -63,6 +64,17 @@ export const VideoPlayer = memo(function VideoPlayer({
   const [isScrubbing, setIsScrubbing] = useState(false)
   const [showCenterIcon, setShowCenterIcon] = useState(false)
   const [centerIconState, setCenterIconState] = useState<"play" | "pause">("play")
+  const [isBuffering, setIsBuffering] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
+  const [hasFirstFrame, setHasFirstFrame] = useState(false)
+
+  // Reset video loading & buffering state when media source changes
+  useEffect(() => {
+    setIsLoading(true)
+    setIsBuffering(false)
+    setHasFirstFrame(false)
+    setIsPlaying(false)
+  }, [src])
 
   // Reset idle timer to hide controls after 2.5s of inactivity while playing
   const pingActivity = useCallback(() => {
@@ -92,12 +104,24 @@ export const VideoPlayer = memo(function VideoPlayer({
     if (!isActive) {
       video.pause()
       setIsPlaying(false)
+      setIsBuffering(false)
     } else if (autoPlay) {
-      void video.play().then(() => setIsPlaying(true)).catch(() => {
+      setIsBuffering(true)
+      void video.play().then(() => {
+        setIsPlaying(true)
+        setIsBuffering(false)
+        setIsLoading(false)
+      }).catch(() => {
         // Fallback to muted autoplay if browser autoplay policy blocks unmuted audio
         video.muted = true
         setIsMuted(true)
-        void video.play().then(() => setIsPlaying(true)).catch(() => {})
+        void video.play().then(() => {
+          setIsPlaying(true)
+          setIsBuffering(false)
+          setIsLoading(false)
+        }).catch(() => {
+          setIsBuffering(false)
+        })
       })
     }
   }, [isActive, autoPlay])
@@ -156,21 +180,28 @@ export const VideoPlayer = memo(function VideoPlayer({
     }
   }, [])
 
-  // Play / Pause toggle with center badge ripple
+  // Play / Pause toggle with immediate buffering indicator and center badge ripple
   const togglePlay = useCallback(() => {
     const video = videoRef.current
     if (!video) return
 
     if (video.paused || video.ended) {
+      setIsBuffering(true)
       void video.play().then(() => {
         setIsPlaying(true)
+        setIsBuffering(false)
+        setIsLoading(false)
         setCenterIconState("play")
         setShowCenterIcon(true)
         setTimeout(() => setShowCenterIcon(false), 500)
-      }).catch(() => {})
+      }).catch((err) => {
+        setIsBuffering(false)
+        console.warn("Video playback error:", err)
+      })
     } else {
       video.pause()
       setIsPlaying(false)
+      setIsBuffering(false)
       setCenterIconState("pause")
       setShowCenterIcon(true)
       setTimeout(() => setShowCenterIcon(false), 500)
@@ -183,6 +214,11 @@ export const VideoPlayer = memo(function VideoPlayer({
     const video = videoRef.current
     if (!video || isScrubbing) return
     setCurrentTime(video.currentTime)
+    if (video.currentTime > 0) {
+      setHasFirstFrame(true)
+      setIsLoading(false)
+      setIsBuffering(false)
+    }
 
     if (video.buffered.length > 0 && video.duration > 0) {
       const bufferedEnd = video.buffered.end(video.buffered.length - 1)
@@ -194,8 +230,16 @@ export const VideoPlayer = memo(function VideoPlayer({
     const video = videoRef.current
     if (!video) return
     setDuration(video.duration || 0)
+    setIsLoading(false)
     if (autoPlay) {
-      void video.play().then(() => setIsPlaying(true)).catch(() => {})
+      setIsBuffering(true)
+      void video.play().then(() => {
+        setIsPlaying(true)
+        setIsBuffering(false)
+        setIsLoading(false)
+      }).catch(() => {
+        setIsBuffering(false)
+      })
     }
   }, [autoPlay])
 
@@ -398,6 +442,19 @@ export const VideoPlayer = memo(function VideoPlayer({
       )}
       onMouseMove={handleMouseMove}
     >
+      {/* Visual Poster Overlay: Stays visible until video decodes and renders first playing frame */}
+      {poster && (
+        <img
+          src={poster}
+          alt={alt}
+          className={cn(
+            "absolute inset-0 size-full object-contain pointer-events-none transition-opacity duration-500 z-5",
+            hasFirstFrame && isPlaying ? "opacity-0" : "opacity-100"
+          )}
+          aria-hidden="true"
+        />
+      )}
+
       {/* Native HTML5 Video Element with Full Mobile Compatibility */}
       <video
         ref={videoRef}
@@ -409,6 +466,27 @@ export const VideoPlayer = memo(function VideoPlayer({
         className="max-h-full max-w-full object-contain cursor-pointer"
         onTimeUpdate={handleTimeUpdate}
         onLoadedMetadata={handleLoadedMetadata}
+        onLoadStart={() => setIsLoading(true)}
+        onLoadedData={() => {
+          setIsLoading(false)
+          setHasFirstFrame(true)
+        }}
+        onWaiting={() => setIsBuffering(true)}
+        onPlaying={() => {
+          setIsPlaying(true)
+          setIsBuffering(false)
+          setIsLoading(false)
+          setHasFirstFrame(true)
+        }}
+        onCanPlay={() => {
+          setIsBuffering(false)
+          setIsLoading(false)
+        }}
+        onSeeking={() => setIsBuffering(true)}
+        onSeeked={() => {
+          setIsBuffering(false)
+          setHasFirstFrame(true)
+        }}
         onPlay={() => setIsPlaying(true)}
         onPause={() => setIsPlaying(false)}
         onEnded={() => {
@@ -417,6 +495,8 @@ export const VideoPlayer = memo(function VideoPlayer({
           onEnded?.()
         }}
         onError={(e) => {
+          setIsLoading(false)
+          setIsBuffering(false)
           const videoEl = e.currentTarget
           if (videoEl.src && !videoEl.src.includes('/media/')) {
             const proxy = toProxyMediaUrl(videoEl.src)
@@ -435,11 +515,13 @@ export const VideoPlayer = memo(function VideoPlayer({
         onClick={handleScreenClick}
       />
 
-      {/* Big Center Play/Pause Indicator (Pops and ripples on toggle) */}
+      {/* Center Play/Pause & Buffering Indicator */}
       <div
         className={cn(
-          "pointer-events-none absolute inset-0 z-20 flex items-center justify-center transition-all duration-300",
-          showCenterIcon
+          "pointer-events-none absolute inset-0 z-20 flex flex-col items-center justify-center gap-3 transition-all duration-300",
+          isLoading || isBuffering
+            ? "opacity-100 scale-100"
+            : showCenterIcon
             ? "opacity-100 scale-100"
             : !isPlaying
             ? "opacity-90 scale-100"
@@ -448,24 +530,36 @@ export const VideoPlayer = memo(function VideoPlayer({
             : "opacity-0 scale-75"
         )}
       >
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation()
-            togglePlay()
-          }}
-          className={cn(
-            "flex size-16 sm:size-20 items-center justify-center rounded-full bg-black/55 text-white backdrop-blur-xl border border-white/20 shadow-2xl transition-transform active:scale-90 hover:scale-105 hover:bg-black/75 cursor-pointer",
-            showCenterIcon || !isPlaying || showControls ? "pointer-events-auto" : "pointer-events-none"
-          )}
-          aria-label={isPlaying ? "Pause video" : "Play video"}
-        >
-          {isPlaying ? (
-            <Pause className="size-8 sm:size-10 fill-current" />
-          ) : (
-            <Play className="size-8 sm:size-10 fill-current ml-1" />
-          )}
-        </button>
+        {isLoading || isBuffering ? (
+          <div className="flex flex-col items-center justify-center gap-2.5 pointer-events-auto">
+            <div className="flex size-16 sm:size-20 items-center justify-center rounded-full bg-black/65 text-white backdrop-blur-xl border border-white/25 shadow-2xl shadow-black/80">
+              <Loader2 className="size-8 sm:size-10 animate-spin text-emerald-400" />
+            </div>
+            <div className="flex items-center gap-2 px-3.5 py-1 rounded-full bg-black/80 backdrop-blur-md border border-white/15 text-white text-xs font-medium tracking-wide shadow-xl">
+              <span className="size-1.5 rounded-full bg-emerald-400 animate-ping" />
+              <span>{isLoading ? "Loading video..." : "Buffering..."}</span>
+            </div>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation()
+              togglePlay()
+            }}
+            className={cn(
+              "flex size-16 sm:size-20 items-center justify-center rounded-full bg-black/55 text-white backdrop-blur-xl border border-white/20 shadow-2xl transition-transform active:scale-90 hover:scale-105 hover:bg-black/75 cursor-pointer",
+              showCenterIcon || !isPlaying || showControls ? "pointer-events-auto" : "pointer-events-none"
+            )}
+            aria-label={isPlaying ? "Pause video" : "Play video"}
+          >
+            {isPlaying ? (
+              <Pause className="size-8 sm:size-10 fill-current" />
+            ) : (
+              <Play className="size-8 sm:size-10 fill-current ml-1" />
+            )}
+          </button>
+        )}
       </div>
 
       {/* Top Floating Glass Badge for Video Tag (Shifted right to avoid overlapping back/close button) */}
