@@ -28,6 +28,7 @@ import {
   Loader2,
   LocateFixed,
   MapPin,
+  Play,
   Sparkles,
   X,
 } from "lucide-react"
@@ -599,6 +600,10 @@ export default function PhotoMapView() {
       const isSelected = selectedCluster?.id === cluster.id
       const count = cluster.photos.length
       const isMulti = count > 1
+      const isTopVideo = Boolean(
+        topPhoto.type?.startsWith("video/") ||
+        topPhoto.name?.toLowerCase().match(/\.(mp4|mov|webm|avi|mkv)$/)
+      )
 
       // Custom HTML pin marker with ultra-high-contrast dual contour, luminescent ambient halo, ground anchor shadow, and calibrated pointer
       const customIcon = L.divIcon({
@@ -634,6 +639,13 @@ export default function PhotoMapView() {
                 imgUrl
                   ? `<img src="${imgUrl}" alt="" onerror="if(this.src&&!this.src.includes('/media/')){this.src=this.src.replace(/^https?:\\/\\/[^\\/]+/, '/media')}" style="position: absolute !important; top: 0 !important; left: 0 !important; width: 100% !important; height: 100% !important; min-width: 100% !important; min-height: 100% !important; max-width: none !important; max-height: none !important; object-fit: cover !important; object-position: center center !important; display: block !important;" loading="lazy" decoding="async" />`
                   : `<div class="w-full h-full bg-emerald-600 flex items-center justify-center text-white text-xs font-bold">📷</div>`
+              }
+              ${
+                isTopVideo
+                  ? `<div style="position: absolute; bottom: 2px; right: 2px; width: 13px; height: 13px; border-radius: 4px; background: rgba(0,0,0,0.85); display: flex; align-items: center; justify-content: center; color: white; border: 1px solid rgba(255,255,255,0.3); z-index: 5; pointer-events: none;">
+                      <svg style="width: 7px; height: 7px; fill: currentColor; margin-left: 1px;" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                    </div>`
+                  : ""
               }
             </div>
 
@@ -682,6 +694,14 @@ export default function PhotoMapView() {
             ${
               count > 1
                 ? `<div class="absolute bottom-1 right-1 px-1.5 py-0.5 rounded-full bg-black/70 backdrop-blur-md text-[10px] font-bold text-white border border-white/20">✨ ${count} Photos</div>`
+                : ""
+            }
+            ${
+              isTopVideo
+                ? `<div class="absolute top-1 left-1 px-1.5 py-0.5 rounded-full bg-black/80 backdrop-blur-md text-[9px] font-bold text-white border border-white/20 flex items-center gap-1">
+                    <svg class="w-2.5 h-2.5 fill-current text-emerald-400" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                    <span>Video</span>
+                  </div>`
                 : ""
             }
           </div>
@@ -824,6 +844,23 @@ export default function PhotoMapView() {
   const currentPhoto = selectedCluster
     ? selectedCluster.photos[activePhotoIndex] || selectedCluster.photos[0]
     : null
+
+  // Determine if active media in selected spot preview is a video
+  const isCurrentVideo = Boolean(
+    currentPhoto?.type?.startsWith("video/") ||
+    currentPhoto?.name?.toLowerCase().match(/\.(mp4|mov|webm|avi|mkv)$/)
+  )
+
+  // Parse video duration from exif metadata if present
+  const currentVideoDuration = useMemo(() => {
+    if (!isCurrentVideo || !currentPhoto?.exif) return null
+    try {
+      const parsed = typeof currentPhoto.exif === "string" ? JSON.parse(currentPhoto.exif) : currentPhoto.exif
+      return parsed?.Duration || null
+    } catch {
+      return null
+    }
+  }, [isCurrentVideo, currentPhoto?.exif])
 
   // Next / Prev handlers for clustered photo browsing
   const handleNextPhoto = useCallback(() => {
@@ -1258,58 +1295,82 @@ export default function PhotoMapView() {
 
                 {/* Swipe Guidance Hint (for mobile users when spot has > 1 photo) */}
                 {selectedCluster.photos.length > 1 && (
-                  <div className="absolute bottom-2 inset-x-0 flex justify-center pointer-events-none sm:hidden">
-                    <span className="text-[10px] text-white/75 bg-black/50 px-2 py-0.5 rounded-full backdrop-blur-xs font-medium border border-white/10">
+                  <div className="absolute bottom-2.5 inset-x-0 flex justify-center pointer-events-none sm:hidden z-10">
+                    <span className="text-[10px] text-white/80 bg-black/60 px-2.5 py-0.5 rounded-full backdrop-blur-xs font-medium border border-white/10 shadow-xs">
                       Swipe ‹ › to browse
                     </span>
                   </div>
                 )}
 
-                {/* Close Button */}
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    setSelectedCluster(null)
-                  }}
-                  className="absolute top-3 right-3 p-1.5 rounded-full bg-black/60 text-white hover:bg-black/80 backdrop-blur-md transition-colors cursor-pointer z-10"
-                  title="Close Preview"
-                >
-                  <X className="size-4" />
-                </button>
-
-                {/* Admin Set Cover Button (When spot has > 1 photo) */}
-                {isAdmin && selectedCluster.photos.length > 1 && (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      handleSetSpotCover(selectedCluster, currentPhoto)
-                    }}
-                    className={`absolute top-3 right-11 px-2.5 py-1 rounded-full backdrop-blur-md text-[11px] font-bold shadow-lg transition-all cursor-pointer flex items-center gap-1 z-10 ${
-                      isCoverPhoto
-                        ? "bg-amber-500 text-black ring-2 ring-amber-300 shadow-amber-500/40"
-                        : "bg-black/60 text-white hover:bg-black/80 hover:text-amber-300"
-                    }`}
-                    title={
-                      isCoverPhoto
-                        ? "This media is the active pin cover"
-                        : "Set this media as the map pin cover"
-                    }
-                  >
-                    <Sparkles className={`size-3 ${isCoverPhoto ? "fill-current text-black" : "text-amber-300"}`} />
-                    <span>{isCoverPhoto ? "Pin Cover" : "Set as Cover"}</span>
-                  </button>
-                )}
-
-                {/* Cluster Multi-Photo Badge */}
-                {selectedCluster.photos.length > 1 && (
-                  <div className="absolute top-3 left-3 px-2.5 py-1 rounded-full bg-emerald-500/90 text-white text-[11px] font-bold shadow-lg backdrop-blur-md flex items-center gap-1.5">
-                    <Images className="size-3" />
-                    <span>
-                      {activePhotoIndex + 1} / {selectedCluster.photos.length} Items at This Spot
-                    </span>
+                {/* Center Play Button Overlay for Video */}
+                {isCurrentVideo && (
+                  <div className="pointer-events-none absolute inset-0 flex items-center justify-center z-10">
+                    <div className="flex size-13 sm:size-14 items-center justify-center rounded-full bg-black/60 text-white backdrop-blur-md border border-white/25 shadow-2xl transition-transform group-hover:scale-110">
+                      <Play className="size-6 fill-current ml-0.5 text-white" />
+                    </div>
                   </div>
                 )}
+
+                {/* Video Duration / Type Badge on Preview */}
+                {isCurrentVideo && (
+                  <div className="absolute bottom-2.5 right-2.5 z-10 flex items-center gap-1 rounded-full bg-black/75 text-white backdrop-blur-md px-2 py-0.5 text-[10px] font-bold shadow-md border border-white/20 pointer-events-none">
+                    <Play className="size-2.5 fill-current text-emerald-400" />
+                    <span>{currentVideoDuration || "Video"}</span>
+                  </div>
+                )}
+
+                {/* Unified Top Floating Header (Prevents button collisions) */}
+                <div className="absolute top-2.5 inset-x-2.5 flex items-center justify-between gap-1.5 z-20 pointer-events-none">
+                  {/* Left: Cluster Multi-Photo Badge */}
+                  {selectedCluster.photos.length > 1 ? (
+                    <div className="pointer-events-auto px-2.5 py-1 rounded-full bg-emerald-500/90 text-white text-[11px] font-bold shadow-lg backdrop-blur-md flex items-center gap-1.5 min-w-0 max-w-[58%] border border-white/10">
+                      <Images className="size-3 shrink-0" />
+                      <span className="truncate">
+                        {activePhotoIndex + 1} / {selectedCluster.photos.length}
+                        <span className="hidden xs:inline ml-1">Items</span>
+                      </span>
+                    </div>
+                  ) : <div />}
+
+                  {/* Right: Actions (Set as Cover + Close Button) */}
+                  <div className="pointer-events-auto flex items-center gap-1.5 shrink-0">
+                    {isAdmin && selectedCluster.photos.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleSetSpotCover(selectedCluster, currentPhoto)
+                        }}
+                        className={`px-2.5 py-1 rounded-full backdrop-blur-md text-[11px] font-bold shadow-lg transition-all cursor-pointer flex items-center gap-1 shrink-0 ${
+                          isCoverPhoto
+                            ? "bg-amber-500 text-black ring-2 ring-amber-300 shadow-amber-500/40"
+                            : "bg-black/60 text-white hover:bg-black/80 hover:text-amber-300 border border-white/15"
+                        }`}
+                        title={
+                          isCoverPhoto
+                            ? "This media is the active pin cover"
+                            : "Set this media as the map pin cover"
+                        }
+                      >
+                        <Sparkles className={`size-3 shrink-0 ${isCoverPhoto ? "fill-current text-black" : "text-amber-300"}`} />
+                        <span className="whitespace-nowrap">{isCoverPhoto ? "Cover" : "Set Cover"}</span>
+                      </button>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setSelectedCluster(null)
+                      }}
+                      className="p-1.5 rounded-full bg-black/60 text-white hover:bg-black/80 backdrop-blur-md transition-colors cursor-pointer border border-white/15 shrink-0"
+                      title="Close Preview"
+                      aria-label="Close Preview"
+                    >
+                      <X className="size-4" />
+                    </button>
+                  </div>
+                </div>
 
                 {/* Left/Right Arrows if multiple photos in cluster */}
                 {selectedCluster.photos.length > 1 && (
@@ -1356,6 +1417,10 @@ export default function PhotoMapView() {
                   const thumb = p.thumbnail || p.preview || ""
                   const ph = getThumbHashUrl(p.thumbHash)
                   const isCover = p.photoId === activeCoverId
+                  const isItemVideo = Boolean(
+                    p.type?.startsWith("video/") ||
+                    p.name?.toLowerCase().match(/\.(mp4|mov|webm|avi|mkv)$/)
+                  )
 
                   return (
                     <button
@@ -1394,8 +1459,14 @@ export default function PhotoMapView() {
                         />
                       )}
                       {isCover && (
-                        <div className="absolute top-0.5 right-0.5 size-3 rounded-full bg-amber-500 text-black flex items-center justify-center text-[7px] font-black shadow-xs pointer-events-none">
+                        <div className="absolute top-0.5 right-0.5 size-3 rounded-full bg-amber-500 text-black flex items-center justify-center text-[7px] font-black shadow-xs pointer-events-none z-10">
                           ★
+                        </div>
+                      )}
+                      {/* Video Indicator on Thumbnail */}
+                      {isItemVideo && (
+                        <div className="absolute bottom-0.5 right-0.5 size-3.5 rounded bg-black/85 backdrop-blur-xs flex items-center justify-center text-white pointer-events-none shadow-xs border border-white/20 z-10">
+                          <Play className="size-2 fill-current text-white ml-0.5" />
                         </div>
                       )}
                     </button>
@@ -1407,9 +1478,17 @@ export default function PhotoMapView() {
 
           <div className="p-4 space-y-2.5">
             <div>
-              <h3 className="font-bold text-sm text-foreground truncate" title={currentPhoto.name}>
-                {currentPhoto.name}
-              </h3>
+              <div className="flex items-center gap-1.5 min-w-0">
+                <h3 className="font-bold text-sm text-foreground truncate flex-1" title={currentPhoto.name}>
+                  {currentPhoto.name}
+                </h3>
+                {isCurrentVideo && (
+                  <span className="shrink-0 px-1.5 py-0.5 rounded-md bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 text-[10px] font-bold border border-emerald-500/30 flex items-center gap-0.5">
+                    <Play className="size-2.5 fill-current" />
+                    <span>VIDEO</span>
+                  </span>
+                )}
+              </div>
               {currentPhoto.takenTime && (
                 <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-0.5">
                   <Calendar className="size-3 text-primary" />
@@ -1578,6 +1657,11 @@ export default function PhotoMapView() {
                     const topPhoto = spot.photos[0]
                     const thumb = topPhoto?.thumbnail || topPhoto?.preview || ""
                     const ph = getThumbHashUrl(topPhoto?.thumbHash)
+                    const isTopVideo = Boolean(
+                      topPhoto?.type?.startsWith("video/") ||
+                      topPhoto?.name?.toLowerCase().match(/\.(mp4|mov|webm|avi|mkv)$/)
+                    )
+
                     return (
                       <div
                         key={spot.id}
@@ -1626,7 +1710,13 @@ export default function PhotoMapView() {
                             <MapPin className="size-2.5" />
                             <span>{spot.photos.length} Items</span>
                           </span>
-                          {isAdmin && (
+                          {isTopVideo && (
+                            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-black/75 text-white shadow-md flex items-center gap-0.5 border border-white/20">
+                              <Play className="size-2 fill-current text-emerald-400" />
+                              <span>Video</span>
+                            </span>
+                          )}
+                          {isAdmin && !isTopVideo && (
                             <button
                               type="button"
                               onClick={(e) => {
@@ -1671,6 +1761,11 @@ export default function PhotoMapView() {
                     const isSelected = currentPhoto?.photoId === photo.photoId
                     const thumb = photo.thumbnail || photo.preview || ""
                     const ph = getThumbHashUrl(photo.thumbHash)
+                    const isPhotoVideo = Boolean(
+                      photo.type?.startsWith("video/") ||
+                      photo.name?.toLowerCase().match(/\.(mp4|mov|webm|avi|mkv)$/)
+                    )
+
                     return (
                       <div
                         key={photo.photoId}
@@ -1705,6 +1800,11 @@ export default function PhotoMapView() {
                           />
                         )}
                         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-80 group-hover:opacity-100 transition-opacity" />
+                        {isPhotoVideo && (
+                          <div className="absolute top-1.5 right-1.5 size-4 rounded-md bg-black/80 backdrop-blur-xs flex items-center justify-center text-white pointer-events-none shadow-xs border border-white/20 z-10">
+                            <Play className="size-2.5 fill-current text-white ml-0.5" />
+                          </div>
+                        )}
                         <div className="absolute bottom-1.5 left-1.5 right-1.5">
                           <p className="text-[10px] font-semibold text-white truncate leading-tight">
                             {photo.name}
@@ -1724,6 +1824,11 @@ export default function PhotoMapView() {
               {untaggedPhotos.map((photo) => {
                 const thumb = photo.thumbnail || photo.preview || ""
                 const ph = getThumbHashUrl(photo.thumbHash)
+                const isPhotoVideo = Boolean(
+                  photo.type?.startsWith("video/") ||
+                  photo.name?.toLowerCase().match(/\.(mp4|mov|webm|avi|mkv)$/)
+                )
+
                 return (
                   <div
                     key={photo.photoId}
@@ -1757,6 +1862,12 @@ export default function PhotoMapView() {
                       <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-500 text-black">
                         No GPS
                       </span>
+                      {isPhotoVideo && (
+                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-black/75 text-white flex items-center gap-0.5 border border-white/20">
+                          <Play className="size-2 fill-current text-emerald-400" />
+                          <span>Video</span>
+                        </span>
+                      )}
                     </div>
                     <div className="relative z-10 space-y-1">
                       <p className="text-[10px] font-semibold text-white truncate leading-tight">

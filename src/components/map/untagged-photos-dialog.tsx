@@ -11,6 +11,7 @@ import {
   Image as ImageIcon,
   LoaderCircle,
   MapPin,
+  Play,
   Search,
   X,
 } from "lucide-react"
@@ -255,42 +256,55 @@ export function UntaggedPhotosDialog({
                         {isSelected && <Check className="size-3 stroke-[3]" />}
                       </div>
 
-                      <div className="relative size-12 rounded-xl overflow-hidden bg-neutral-900 shrink-0 border border-border/50">
-                        {(() => {
-                          const ph = getThumbHashUrl(photo.thumbHash)
-                          return (
-                            <>
-                              {ph && (
-                                <img
-                                  src={ph}
-                                  alt=""
-                                  className="absolute inset-0 h-full w-full object-cover blur-xs scale-110"
-                                  aria-hidden
-                                />
-                              )}
-                              {imgUrl ? (
-                                <img
-                                  src={imgUrl}
-                                  alt={photo.name}
-                                  loading="lazy"
-                                  decoding="async"
-                                  onError={(e) => {
-                                    const el = e.currentTarget
-                                    if (el.src && !el.src.includes('/media/')) {
-                                      el.src = toProxyMediaUrl(el.src)
-                                    }
-                                  }}
-                                  className="absolute inset-0 h-full w-full object-cover transition-transform group-hover:scale-105"
-                                />
-                              ) : (
-                                <div className="w-full h-full flex items-center justify-center text-muted-foreground">
-                                  <ImageIcon className="size-5" />
-                                </div>
-                              )}
-                            </>
-                          )
-                        })()}
-                      </div>
+                      {(() => {
+                        const isPhotoVideo = Boolean(
+                          photo.type?.startsWith("video/") ||
+                          photo.name?.toLowerCase().match(/\.(mp4|mov|webm|avi|mkv)$/)
+                        )
+                        return (
+                          <div className="relative size-12 rounded-xl overflow-hidden bg-neutral-900 shrink-0 border border-border/50">
+                            {(() => {
+                              const ph = getThumbHashUrl(photo.thumbHash)
+                              return (
+                                <>
+                                  {ph && (
+                                    <img
+                                      src={ph}
+                                      alt=""
+                                      className="absolute inset-0 h-full w-full object-cover blur-xs scale-110"
+                                      aria-hidden
+                                    />
+                                  )}
+                                  {imgUrl ? (
+                                    <img
+                                      src={imgUrl}
+                                      alt={photo.name}
+                                      loading="lazy"
+                                      decoding="async"
+                                      onError={(e) => {
+                                        const el = e.currentTarget
+                                        if (el.src && !el.src.includes('/media/')) {
+                                          el.src = toProxyMediaUrl(el.src)
+                                        }
+                                      }}
+                                      className="absolute inset-0 h-full w-full object-cover transition-transform group-hover:scale-105"
+                                    />
+                                  ) : (
+                                    <div className="w-full h-full flex items-center justify-center text-muted-foreground">
+                                      <ImageIcon className="size-5" />
+                                    </div>
+                                  )}
+                                </>
+                              )
+                            })()}
+                            {isPhotoVideo && (
+                              <div className="absolute bottom-1 right-1 size-3.5 rounded bg-black/85 backdrop-blur-xs flex items-center justify-center text-white pointer-events-none shadow-xs border border-white/20 z-10">
+                                <Play className="size-2 fill-current text-white ml-0.5" />
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })()}
 
                       {/* Photo Details */}
                       <div className="min-w-0 space-y-0.5">

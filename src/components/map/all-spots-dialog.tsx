@@ -8,6 +8,7 @@ import {
   Images,
   LocateFixed,
   MapPin,
+  Play,
   Search,
   SlidersHorizontal,
   Sparkles,
@@ -210,56 +211,69 @@ export function AllSpotsDialog({
                     {/* Left Side: Main Cover Photo Preview & Location Details */}
                     <div className="flex items-start sm:items-center gap-3.5 min-w-0 flex-1">
                       {/* Cover Photo Thumbnail */}
-                      <div
-                        className="relative shrink-0 w-16 h-16 rounded-2xl overflow-hidden bg-neutral-900 border border-white/40 shadow-md cursor-pointer group"
-                        onClick={() => onOpenViewer(spot.photos, 0)}
-                        title="Open media at this spot"
-                      >
-                        {topPhoto && (
-                          <>
-                            {(() => {
-                              const ph = getThumbHashUrl(topPhoto.thumbHash)
-                              const thumb = topPhoto.thumbnail || topPhoto.preview || ""
-                              return (
-                                <>
-                                  {ph && (
-                                    <img
-                                      src={ph}
-                                      alt=""
-                                      className="absolute inset-0 h-full w-full object-cover blur-xs scale-110"
-                                      aria-hidden
-                                    />
-                                  )}
-                                  {thumb && (
-                                    <img
-                                      src={thumb}
-                                      alt={topPhoto.name}
-                                      loading="lazy"
-                                      decoding="async"
-                                      onError={(e) => {
-                                        const el = e.currentTarget
-                                        if (el.src && !el.src.includes('/media/')) {
-                                          el.src = toProxyMediaUrl(el.src)
-                                        }
-                                      }}
-                                      className="absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-110"
-                                    />
-                                  )}
-                                </>
-                              )
-                            })()}
-                          </>
-                        )}
-                        <div className="absolute top-1 left-1 px-1 rounded-md bg-amber-500 text-black text-[9px] font-black leading-tight flex items-center gap-0.5 shadow-sm" title="Pin Cover Media">
-                          ★
-                        </div>
-                        {spot.photos.length > 1 && (
-                          <div className="absolute bottom-1 right-1 px-1.5 py-0.5 rounded-md bg-black/75 text-white text-[10px] font-black leading-none backdrop-blur-xs flex items-center gap-0.5">
-                            <Images className="size-2.5" />
-                            <span>{spot.photos.length}</span>
+                      {(() => {
+                        const isTopVideo = Boolean(
+                          topPhoto?.type?.startsWith("video/") ||
+                          topPhoto?.name?.toLowerCase().match(/\.(mp4|mov|webm|avi|mkv)$/)
+                        )
+                        return (
+                          <div
+                            className="relative shrink-0 w-16 h-16 rounded-2xl overflow-hidden bg-neutral-900 border border-white/40 shadow-md cursor-pointer group"
+                            onClick={() => onOpenViewer(spot.photos, 0)}
+                            title="Open media at this spot"
+                          >
+                            {topPhoto && (
+                              <>
+                                {(() => {
+                                  const ph = getThumbHashUrl(topPhoto.thumbHash)
+                                  const thumb = topPhoto.thumbnail || topPhoto.preview || ""
+                                  return (
+                                    <>
+                                      {ph && (
+                                        <img
+                                          src={ph}
+                                          alt=""
+                                          className="absolute inset-0 h-full w-full object-cover blur-xs scale-110"
+                                          aria-hidden
+                                        />
+                                      )}
+                                      {thumb && (
+                                        <img
+                                          src={thumb}
+                                          alt={topPhoto.name}
+                                          loading="lazy"
+                                          decoding="async"
+                                          onError={(e) => {
+                                            const el = e.currentTarget
+                                            if (el.src && !el.src.includes('/media/')) {
+                                              el.src = toProxyMediaUrl(el.src)
+                                            }
+                                          }}
+                                          className="absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-110"
+                                        />
+                                      )}
+                                    </>
+                                  )
+                                })()}
+                              </>
+                            )}
+                            <div className="absolute top-1 left-1 px-1 rounded-md bg-amber-500 text-black text-[9px] font-black leading-tight flex items-center gap-0.5 shadow-sm" title="Pin Cover Media">
+                              ★
+                            </div>
+                            {isTopVideo && (
+                              <div className="absolute bottom-1 left-1 size-4 rounded-md bg-black/85 backdrop-blur-xs flex items-center justify-center text-white pointer-events-none shadow-xs border border-white/20 z-10">
+                                <Play className="size-2.5 fill-current text-white ml-0.5" />
+                              </div>
+                            )}
+                            {spot.photos.length > 1 && (
+                              <div className="absolute bottom-1 right-1 px-1.5 py-0.5 rounded-md bg-black/75 text-white text-[10px] font-black leading-none backdrop-blur-xs flex items-center gap-0.5">
+                                <Images className="size-2.5" />
+                                <span>{spot.photos.length}</span>
+                              </div>
+                            )}
                           </div>
-                        )}
-                      </div>
+                        )
+                      })()}
 
                       {/* Spot Info */}
                       <div className="min-w-0 space-y-1">
@@ -355,6 +369,10 @@ export function AllSpotsDialog({
                           const isCover = photo.photoId === currentCoverPhotoId
                           const thumb = photo.thumbnail || photo.preview || ""
                           const ph = getThumbHashUrl(photo.thumbHash)
+                          const isPhotoVideo = Boolean(
+                            photo.type?.startsWith("video/") ||
+                            photo.name?.toLowerCase().match(/\.(mp4|mov|webm|avi|mkv)$/)
+                          )
 
                           return (
                             <button
@@ -398,6 +416,11 @@ export function AllSpotsDialog({
                               {isCover && (
                                 <div className="absolute top-0.5 right-0.5 size-3.5 rounded-full bg-amber-500 text-black flex items-center justify-center text-[8px] font-black shadow-xs">
                                   ★
+                                </div>
+                              )}
+                              {isPhotoVideo && (
+                                <div className="absolute top-0.5 left-0.5 size-3.5 rounded bg-black/85 backdrop-blur-xs flex items-center justify-center text-white pointer-events-none shadow-xs border border-white/20 z-10">
+                                  <Play className="size-2 fill-current text-white ml-0.5" />
                                 </div>
                               )}
                               <div className="absolute bottom-0 inset-x-0 bg-black/75 text-[8px] font-bold text-white py-0.2 text-center truncate px-0.5">
