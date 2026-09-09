@@ -1,12 +1,13 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 // This module manages real-time event distribution across UI components and browser tabs
 // using BroadcastChannel without opening long-lived serverless SSE streams, preserving Vercel compute quotas.
 
-type SseCallback = (payload: unknown) => void;
+export type SseCallback<T = any> = (payload: T) => void;
 
 interface PhotoBroadcastMessage {
   photoId: string;
   eventName: string;
-  payload: unknown;
+  payload: any;
 }
 
 class PhotoSseManager {
@@ -31,7 +32,7 @@ class PhotoSseManager {
 
   // Subscribe a component to a specific event on a photo.
   // Returns an unsubscribe function.
-  public subscribe(photoId: string, eventName: string, callback: SseCallback): () => void {
+  public subscribe<T = any>(photoId: string, eventName: string, callback: SseCallback<T>): () => void {
     if (!photoId) return () => {};
 
     const cleanId = photoId.trim();
@@ -40,12 +41,12 @@ class PhotoSseManager {
     if (!this.listeners.has(key)) {
       this.listeners.set(key, new Set());
     }
-    this.listeners.get(key)!.add(callback);
+    this.listeners.get(key)!.add(callback as SseCallback);
 
     return () => {
       const set = this.listeners.get(key);
       if (set) {
-        set.delete(callback);
+        set.delete(callback as SseCallback);
         if (set.size === 0) {
           this.listeners.delete(key);
         }
@@ -54,7 +55,7 @@ class PhotoSseManager {
   }
 
   // Publish an event locally and broadcast across tabs to notify listeners instantly with 0 server compute.
-  public publish(photoId: string, eventName: string, payload: unknown): void {
+  public publish(photoId: string, eventName: string, payload: any): void {
     if (!photoId || !eventName) return;
     const cleanId = photoId.trim();
 
@@ -70,7 +71,7 @@ class PhotoSseManager {
   }
 
   // Dispatch incoming event to all matching registered listeners
-  private dispatch(photoId: string, eventName: string, payload: unknown): void {
+  private dispatch(photoId: string, eventName: string, payload: any): void {
     const key = `${photoId}:${eventName}`;
     const set = this.listeners.get(key);
     if (!set || set.size === 0) return;

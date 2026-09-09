@@ -645,13 +645,14 @@ const insightsService = {
 
       // 8. Reactions aggregated breakdown
       const totals = await reactionService.getPhotoReactions(photoId);
+      const t = totals.totals;
       const reactions = {
-        total: totals.total,
-        love: totals.love,
-        fire: totals.fire,
-        camera: totals.camera,
-        place: totals.place,
-        clap: totals.clap,
+        total: (t.love || 0) + (t.fire || 0) + (t.camera || 0) + (t.place || 0) + (t.clap || 0),
+        love: t.love,
+        fire: t.fire,
+        camera: t.camera,
+        place: t.place,
+        clap: t.clap,
       };
 
       // 9. 30-day views trend chart for this photo

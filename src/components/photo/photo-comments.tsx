@@ -166,7 +166,7 @@ export function PhotoComments({ photoId }: PhotoCommentsProps) {
     // Adaptive low-frequency polling while comments drawer is actively open (8s interval, only when tab is visible)
     const pollInterval = setInterval(() => {
       if (typeof document !== "undefined" && document.visibilityState === "visible") {
-        commentListGet({ photoId, page: 1, limit: 100 })
+        commentList(photoId)
           .then((data) => {
             if (isMounted && Array.isArray(data)) {
               setComments(data);
