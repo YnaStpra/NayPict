@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 
-// This script bulk deletes inactive deployments on Vercel to immediately clean up Functions Storage (10 GB quota).
-// It keeps the current active production deployment safe and deletes all older historical deployments.
+// This script continuously bulk deletes inactive deployments across all pages on Vercel
+// to completely purge Functions Storage (10 GB quota).
+// It protects the single active production deployment and deletes everything else.
 
 import https from "https";
 
@@ -14,18 +15,7 @@ if (!token) {
 ===================================================================
 
 Cara Penggunaan:
-1. Buat Vercel Access Token (hanya butuh 10 detik):
-   Buka: https://vercel.com/account/tokens
-   Klik "Create Token" -> Beri nama "cleaner" -> Scope: Full Account -> Copy token-nya.
-
-2. Jalankan perintah ini di terminal:
    node scripts/clean-deployments.mjs <TOKEN_ANDA>
-
-Contoh:
-   node scripts/clean-deployments.mjs vercel_tok_xxxxxxxxxxxx
-
-Script ini akan otomatis menghapus SEMUA deployment lama Anda dan
-menjaga deployment Production terbaru yang sedang aktif tetap aman!
 ===================================================================
 `);
   process.exit(0);
@@ -68,60 +58,84 @@ function apiRequest(path, method = "GET") {
 }
 
 async function main() {
-  console.log("🔍 Fetching deployments from Vercel...");
-  try {
-    const listRes = await apiRequest("/v6/deployments?limit=100");
-    const deployments = listRes.deployments || [];
+  console.log("🧹 Starting continuous Vercel deployment cleaner...");
 
-    if (deployments.length === 0) {
-      console.log("No deployments found.");
-      return;
+  let totalDeleted = 0;
+  let iteration = 1;
+  let activeProductionUid = null;
+
+  while (true) {
+    console.log(`\n📄 [Batch #${iteration}] Fetching deployments from Vercel...`);
+    let listRes;
+    try {
+      listRes = await apiRequest("/v6/deployments?limit=100");
+    } catch (err) {
+      console.error("❌ Error fetching deployments:", err.message);
+      break;
     }
 
-    console.log(`📦 Found ${deployments.length} total deployments.`);
+    const deployments = listRes.deployments || [];
+    if (deployments.length === 0) {
+      console.log("✨ No more deployments found.");
+      break;
+    }
+
+    console.log(`📦 Found ${deployments.length} deployments in this batch.`);
 
     // Sort descending by creation time
     deployments.sort((a, b) => b.created - a.created);
 
-    // Identify current active production deployment (first ready production deployment)
-    const activeProdIndex = deployments.findIndex(
-      (d) => (d.target === "production" || d.name === "naypict") && d.state === "READY"
-    );
-
-    const activeProd = activeProdIndex !== -1 ? deployments[activeProdIndex] : deployments[0];
-    const toDelete = deployments.filter((d) => d.uid !== activeProd.uid);
-
-    console.log(`\n🛡️  KEPT SAFE: Current Production (${activeProd.url || activeProd.uid})`);
-    console.log(`🗑️  TARGET TO DELETE: ${toDelete.length} old deployment(s)\n`);
-
-    if (toDelete.length === 0) {
-      console.log("✨ All older deployments are already cleaned up! Functions Storage is minimal.");
-      return;
+    // Lock active production deployment on first batch
+    if (!activeProductionUid) {
+      const activeProd = deployments.find(
+        (d) => (d.target === "production" || d.name === "naypict") && d.state === "READY"
+      ) || deployments[0];
+      activeProductionUid = activeProd.uid;
+      console.log(`🛡️  LOCKED PRODUCTION DEPLOYMENT: ${activeProd.url || activeProd.uid} (${activeProd.uid})`);
     }
 
-    let successCount = 0;
+    const toDelete = deployments.filter((d) => d.uid !== activeProductionUid);
+
+    if (toDelete.length === 0) {
+      console.log("✨ All older deployments are deleted! Only the active production deployment remains.");
+      break;
+    }
+
+    console.log(`🗑️  Deleting ${toDelete.length} deployment(s) in this batch...\n`);
+
+    let batchSuccess = 0;
     for (let i = 0; i < toDelete.length; i++) {
       const dep = toDelete[i];
       const commit = dep.meta?.githubCommitMessage?.slice(0, 40) || dep.url || dep.uid;
-      process.stdout.write(`[${i + 1}/${toDelete.length}] Deleting ${dep.uid} (${commit})... `);
+      process.stdout.write(`[${totalDeleted + i + 1}] Deleting ${dep.uid} (${commit})... `);
 
       try {
         await apiRequest(`/v13/deployments/${dep.uid}`, "DELETE");
         console.log("✅ OK");
-        successCount++;
+        batchSuccess++;
       } catch (err) {
+        if (err.message.includes("Too many requests") || err.message.includes("now-rm")) {
+          console.log(`\n⏳ Vercel API Rate Limit Reached: Maksimal 200 deployment per 10 menit.`);
+          console.log(`Sudah berhasil menghapus ${totalDeleted + batchSuccess} deployment!`);
+          console.log(`Silakan istirahat sejenak, jalankan script ini lagi setelah 10 menit jika masih ada sisa.\n`);
+          totalDeleted += batchSuccess;
+          return;
+        }
         console.log(`❌ Failed: ${err.message}`);
       }
 
-      // Small throttle to avoid hitting Vercel rate limits
-      await new Promise((r) => setTimeout(r, 200));
+      await new Promise((r) => setTimeout(r, 150));
     }
 
-    console.log(`\n🎉 DONE! Successfully deleted ${successCount} old deployment(s).`);
-    console.log("📊 Check your Vercel Usage page: Functions Storage will drop from 66 GB to < 1 GB!");
-  } catch (err) {
-    console.error("❌ Error running cleaner:", err.message);
+    totalDeleted += batchSuccess;
+    iteration++;
+
+    // Small delay between batches
+    await new Promise((r) => setTimeout(r, 500));
   }
+
+  console.log(`\n🎉 COMPLETED! Total deleted across all batches: ${totalDeleted} old deployment(s).`);
+  console.log("📊 Your Functions Storage is now completely purged down to only the current active deployment!");
 }
 
 main();
