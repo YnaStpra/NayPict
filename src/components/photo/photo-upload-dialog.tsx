@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState, type ChangeEvent } from "react"
+import { useCallback, useEffect, useRef, useState, type ChangeEvent } from "react"
 import { CheckIcon, CircleAlertIcon, PlusIcon, SettingsIcon, Trash2Icon, CopyIcon, ShieldAlertIcon, CheckCircle2Icon, Loader2, UploadCloud, X, Play, RotateCcw } from "lucide-react"
 import { toast } from "sonner"
 import { sha1 } from "hash-wasm"
@@ -436,6 +436,10 @@ export function PhotoUploadDialog() {
   // Track detected duplicate pairs during upload batch
   const detectedDuplicatesRef = useRef<DuplicateReviewPair[]>([])
 
+  // Queue to sequentially extract video metadata to prevent browser decoder overload
+  const videoMetaQueueRef = useRef<{ id: string; file: File }[]>([])
+  const isProcessingVideoMetaRef = useRef(false)
+
   const [previews, setPreviewsState] = useState<UploadPreview[]>([])
   const [uploading, setUploading] = useState(false)
   const [storageId, setStorageId] = useState<string | null>(null)
@@ -493,6 +497,40 @@ export function PhotoUploadDialog() {
       setPreviewsState(next)
     }
   }
+
+  // Sequentially process video metadata extraction to guarantee zero hardware decoder contention
+  const processVideoMetaQueue = useCallback(() => {
+    if (isProcessingVideoMetaRef.current) return
+    const nextItem = videoMetaQueueRef.current.shift()
+    if (!nextItem) return
+
+    isProcessingVideoMetaRef.current = true
+    extractVideoMetadata(nextItem.file)
+      .then((meta) => {
+        setPreviews((prev) =>
+          prev.map((p) =>
+            p.id === nextItem.id
+              ? {
+                  ...p,
+                  cover: meta.posterBase64 || p.cover,
+                  isThumbnailLoading: false,
+                  videoDuration: meta.duration,
+                  cachedMeta: meta,
+                }
+              : p
+          )
+        )
+      })
+      .catch(() => {
+        setPreviews((prev) =>
+          prev.map((p) => (p.id === nextItem.id ? { ...p, isThumbnailLoading: false } : p))
+        )
+      })
+      .finally(() => {
+        isProcessingVideoMetaRef.current = false
+        processVideoMetaQueue()
+      })
+  }, [])
 
   function openFilePicker() {
     fileInputRef.current?.click()
@@ -572,32 +610,13 @@ export function PhotoUploadDialog() {
     const nextPreviews = [...previewsRef.current, ...newItems]
     setPreviews(nextPreviews)
 
-    // For video files, eagerly extract poster frame in background for modal thumbnail
+    // For video files, enqueue sequential poster extraction so browser decoders never choke
     newItems.forEach((item) => {
       if (item.isVideo) {
-        extractVideoMetadata(item.file)
-          .then((meta) => {
-            setPreviews((prev) =>
-              prev.map((p) =>
-                p.id === item.id
-                  ? {
-                      ...p,
-                      cover: meta.posterBase64 || p.cover,
-                      isThumbnailLoading: false,
-                      videoDuration: meta.duration,
-                      cachedMeta: meta,
-                    }
-                  : p
-              )
-            )
-          })
-          .catch(() => {
-            setPreviews((prev) =>
-              prev.map((p) => (p.id === item.id ? { ...p, isThumbnailLoading: false } : p))
-            )
-          })
+        videoMetaQueueRef.current.push({ id: item.id, file: item.file })
       }
     })
+    processVideoMetaQueue()
 
     if (fileInputRef.current) fileInputRef.current.value = ""
 
@@ -673,8 +692,15 @@ export function PhotoUploadDialog() {
           ? (videoStorage?.storageId || photoStorage?.storageId)
           : currentStorageId
 
-        // 1. Extract video metadata & high-quality poster frame (reuse cached metadata if available)
-        const meta = item.cachedMeta || (await extractVideoMetadata(item.file))
+        // 1. Extract video metadata & high-quality poster frame (reuse cached metadata if valid)
+        let meta = item.cachedMeta
+        if (!meta || !meta.posterBase64) {
+          setPreviews((prev) =>
+            prev.map((p) => (p.id === item.id ? { ...p, statusText: "Extracting video thumbnail..." } : p))
+          )
+          meta = await extractVideoMetadata(item.file)
+          item.cachedMeta = meta
+        }
 
         if (pausedRef.current) {
           setPreviews((prev) => prev.map((p) => (p.id === item.id ? { ...p, progress: 0, status: "new" } : p)))

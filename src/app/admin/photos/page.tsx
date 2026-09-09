@@ -141,10 +141,12 @@ function AdminPhotoThumbnail({
   const isVideo = Boolean(photo.type?.startsWith('video/') || /\.(mp4|webm|mov|m4v|mkv)$/i.test(photo.name))
   const [imgSrc, setImgSrc] = useState<string | null>(photo.thumbnail || photo.preview || '')
   const [hasError, setHasError] = useState(false)
-  const thumbHashUrl = getThumbHashUrl(photo.thumbHash)
+  const isDummyThumbHash = !photo.thumbHash || photo.thumbHash.startsWith("00080204") || photo.thumbHash.startsWith("00080205")
+  const thumbHashUrl = isDummyThumbHash ? null : getThumbHashUrl(photo.thumbHash)
   const videoSrc = photo.key?.startsWith('http')
     ? photo.key
     : (photo.key ? toProxyMediaUrl(photo.key) : undefined)
+  const videoPosterSrc = videoSrc ? (videoSrc.includes('#') ? videoSrc : `${videoSrc}#t=0.5`) : undefined
 
   useEffect(() => {
     setImgSrc(photo.thumbnail || photo.preview || '')
@@ -192,12 +194,18 @@ function AdminPhotoThumbnail({
           className={`absolute inset-0 size-full object-cover ${imgClassName}`}
           onError={handleImgError}
         />
-      ) : isVideo && videoSrc ? (
+      ) : isVideo && videoPosterSrc ? (
         <video
-          src={videoSrc}
+          src={videoPosterSrc}
           preload="metadata"
           muted
           playsInline
+          onLoadedMetadata={(e) => {
+            const v = e.currentTarget
+            if (v.currentTime === 0 && (v.duration > 0.5 || isNaN(v.duration))) {
+              try { v.currentTime = 0.5 } catch {}
+            }
+          }}
           className={`absolute inset-0 size-full object-cover pointer-events-none bg-neutral-950 ${imgClassName}`}
         />
       ) : (

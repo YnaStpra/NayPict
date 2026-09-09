@@ -329,8 +329,8 @@ export async function extractVideoMetadata(file: File): Promise<VideoMetadata> {
 
     const finishWithSnapshot = () => {
       const snap = takeSnapshot();
-      const finalPoster = snap.poster || fallbackPoster;
-      const finalHash = snap.hash || fallbackThumbHash;
+      const finalPoster = (!snap.isBlack && snap.poster) ? snap.poster : fallbackPoster;
+      const finalHash = (!snap.isBlack && snap.hash) ? snap.hash : fallbackThumbHash;
       const { width: finalWidth, height: finalHeight } = getVisualDimensions();
       const finalDuration = (video.duration && !isNaN(video.duration)) ? video.duration : (knownDuration || 0);
       cleanup();
@@ -345,7 +345,7 @@ export async function extractVideoMetadata(file: File): Promise<VideoMetadata> {
 
     const timeout = setTimeout(() => {
       finishWithSnapshot();
-    }, 6000);
+    }, 12000);
 
     let hasSought = false;
 
@@ -366,42 +366,60 @@ export async function extractVideoMetadata(file: File): Promise<VideoMetadata> {
 
       if (rawW > 0 && rawH > 0 && video.readyState >= 2) {
         const initialSnap = takeSnapshot();
-        if (initialSnap.poster) {
+        if (!initialSnap.isBlack && initialSnap.poster) {
           fallbackPoster = initialSnap.poster;
           fallbackThumbHash = initialSnap.hash;
-        }
-
-        if (!initialSnap.isBlack) {
           clearTimeout(timeout);
           finishWithSnapshot();
           return;
         }
 
-        if (!hasSought && duration > 0.5) {
+        if (!hasSought) {
           hasSought = true;
-          const targetTime = duration > 2 ? Math.min(1.0, duration / 4) : 0.2;
+          const seekTargets = duration > 3
+            ? [1.0, 2.0, Math.min(5.0, duration / 2), 0.5]
+            : [Math.min(1.0, Math.max(0.2, duration * 0.5)), 0.2];
+          let seekIdx = 0;
 
-          const seekTimer = setTimeout(() => {
-            finishWithSnapshot();
-          }, 2000);
-
-          video.onseeked = () => {
-            clearTimeout(seekTimer);
-            const snap = takeSnapshot();
-            if (snap.poster) {
-              fallbackPoster = snap.poster;
-              fallbackThumbHash = snap.hash;
+          const tryNextSeek = () => {
+            if (finished) return;
+            if (seekIdx >= seekTargets.length) {
+              clearTimeout(timeout);
+              finishWithSnapshot();
+              return;
             }
-            clearTimeout(timeout);
-            finishWithSnapshot();
+
+            const targetTime = seekTargets[seekIdx++];
+            const seekTimer = setTimeout(() => {
+              tryNextSeek();
+            }, 3000);
+
+            video.onseeked = () => {
+              clearTimeout(seekTimer);
+              // Give browser decoder 60ms to paint decoded frame onto canvas surface
+              setTimeout(() => {
+                if (finished) return;
+                const snap = takeSnapshot();
+                if (!snap.isBlack && snap.poster) {
+                  fallbackPoster = snap.poster;
+                  fallbackThumbHash = snap.hash;
+                  clearTimeout(timeout);
+                  finishWithSnapshot();
+                  return;
+                }
+                tryNextSeek();
+              }, 60);
+            };
+
+            try {
+              video.currentTime = targetTime;
+            } catch {
+              clearTimeout(seekTimer);
+              tryNextSeek();
+            }
           };
 
-          try {
-            video.currentTime = targetTime;
-          } catch {
-            clearTimeout(seekTimer);
-            finishWithSnapshot();
-          }
+          tryNextSeek();
           return;
         }
 

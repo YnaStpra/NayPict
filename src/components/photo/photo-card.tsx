@@ -97,7 +97,8 @@ export const PhotoCard = memo(function PhotoCard({
   const locale = useLocale()
   const src = data.thumbnail || data.preview || data.key
   const ratio = data.width && data.height ? data.height / data.width : 1
-  const placeholder = useMemo(() => getThumbHashUrl(data.thumbHash), [data.thumbHash])
+  const isDummyThumbHash = !data.thumbHash || data.thumbHash.startsWith("00080204") || data.thumbHash.startsWith("00080205")
+  const placeholder = useMemo(() => (isDummyThumbHash ? undefined : getThumbHashUrl(data.thumbHash)), [data.thumbHash, isDummyThumbHash])
   // showTouchHover Record whether floating information is displayed after long pressing on the mobile terminal.
   const [showTouchHover, setShowTouchHover] = useState(false)
   // holdHover Momentarily lock hover information when clicking to open viewer, Avoid instant retraction of zoom animation.
@@ -105,6 +106,13 @@ export const PhotoCard = memo(function PhotoCard({
   const isVideo = Boolean(data.type?.startsWith("video/"))
   // Multi-tier fallback src state: thumbnail -> preview -> (photos only: original key)
   const [imageSrc, setImageSrc] = useState<string | null>(() => data.thumbnail || data.preview || (isVideo ? null : data.key) || null)
+  // videoPosterUrl computes Media Fragment URL (#t=0.5) so HTML5 video decodes 0.5s instead of black frame 0
+  const videoPosterUrl = useMemo(() => {
+    if (!isVideo || !data.key) return undefined
+    const base = data.key.startsWith('http') ? data.key : toProxyMediaUrl(data.key)
+    if (!base) return undefined
+    return base.includes('#') ? base : `${base}#t=0.5`
+  }, [isVideo, data.key])
   // imageError Record whether all photo URLs failed to load.
   const [imageError, setImageError] = useState(false)
   // isMobile Determine whether the current viewport is the mobile terminal.
@@ -304,10 +312,16 @@ export const PhotoCard = memo(function PhotoCard({
         isVideo ? (
           <div className="absolute inset-0 bg-neutral-950 flex items-center justify-center overflow-hidden">
             <video
-              src={data.key?.startsWith('http') ? data.key : (data.key ? toProxyMediaUrl(data.key) : undefined)}
+              src={videoPosterUrl}
               muted
               playsInline
               preload="metadata"
+              onLoadedMetadata={(e) => {
+                const v = e.currentTarget
+                if (v.currentTime === 0 && (v.duration > 0.5 || isNaN(v.duration))) {
+                  try { v.currentTime = 0.5 } catch {}
+                }
+              }}
               className="absolute inset-0 h-full w-full object-cover pointer-events-none bg-neutral-950"
             />
             <div className="absolute inset-0 bg-black/20 pointer-events-none" />

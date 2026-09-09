@@ -58,13 +58,20 @@ function DialogPhotoThumbnail({
 
   if (hasError || !currentSrc) {
     if (isVideo && videoSrc) {
+      const videoPosterSrc = videoSrc.includes('#') ? videoSrc : `${videoSrc}#t=0.5`
       return (
         <div className="relative size-16 rounded-lg overflow-hidden shrink-0 border border-border/60 bg-neutral-950">
           <video
-            src={videoSrc}
+            src={videoPosterSrc}
             preload="metadata"
             muted
             playsInline
+            onLoadedMetadata={(e) => {
+              const v = e.currentTarget
+              if (v.currentTime === 0 && (v.duration > 0.5 || isNaN(v.duration))) {
+                try { v.currentTime = 0.5 } catch {}
+              }
+            }}
             className="size-full object-cover pointer-events-none"
           />
           <div className="absolute bottom-1 right-1 px-1 py-0.5 rounded bg-black/80 text-[9px] font-medium text-white flex items-center gap-0.5">
