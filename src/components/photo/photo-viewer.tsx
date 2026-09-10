@@ -1367,7 +1367,7 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
         originalSize: photo.size,
         preview: photo.preview || photo.thumbnail || "",
         src: isVideo
-          ? (photo.key?.startsWith("http") ? photo.key : (photo.key ? toProxyMediaUrl(photo.key) : (photo.preview || "")))
+          ? toProxyMediaUrl(photo.key || photo.preview || "")
           : (photo.preview || photo.key || photo.thumbnail || ""),
         thumbnail: photo.thumbnail || photo.preview || "",
         thumbHashUrl: isDummyThumbHash ? undefined : getThumbHashUrl(photo.thumbHash),
@@ -1978,7 +1978,7 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
                   style={slideTransformStyle}
                 >
                   <VideoPlayer
-                    src={photoSlide.src || (photoSlide.key?.startsWith("http") ? photoSlide.key : toProxyMediaUrl(photoSlide.key))}
+                    src={toProxyMediaUrl(photoSlide.src || photoSlide.key)}
                     poster={photoSlide.preview || photoSlide.thumbnail}
                     alt={photoSlide.alt || "Video"}
                     isActive={isCurrentSlide}

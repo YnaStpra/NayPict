@@ -429,13 +429,11 @@ const photoService = {
           desc(albumPhotoTab.pinnedAt),
           sql`RANDOM()`
         )
-        .limit(500)
       : await orm
         .select({ photoId: photoTab.photoId })
         .from(photoTab)
         .where(and(...whereList))
-        .orderBy(sql`RANDOM()`)
-        .limit(500);
+        .orderBy(sql`RANDOM()`);
 
     return rows.map((row: any) => row.photoId);
   },
@@ -1655,9 +1653,9 @@ const photoService = {
     const isVideo = Boolean(photo.type?.startsWith('video/'));
     const isAllowed = isVideo || photo.allowDownload === 1 || Boolean(currentUserId);
     // Protected photo originals always traverse the same-origin authorization proxy; the CDN only serves derivatives.
-    // For videos, if a CDN domain is configured, deliver directly via CDN edge to completely bypass Vercel bandwidth.
+    // For videos, always route via same-origin /media proxy to guarantee full RFC 7233 HTTP 206 Range seeking support.
     const key = isAllowed && rawKey
-      ? (isVideo && domain ? toMediaUrl(rawKey, domain) : toProxyMediaUrl(rawKey))
+      ? (isVideo ? toProxyMediaUrl(rawKey) : (domain ? toMediaUrl(rawKey, domain) : toProxyMediaUrl(rawKey)))
       : null;
     const isLocationIgnored = exifRow?.latitude === 999 && exifRow?.longitude === 999;
     const latitude = isLocationIgnored ? null : (exifRow?.latitude ?? null);

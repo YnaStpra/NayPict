@@ -82,9 +82,8 @@ function toProxyMediaUrl(urlOrKey?: string | null): string {
   cleanKey = cleanKey.replace(/^\/+media\/+/, '').replace(/^\/+/, '');
   const encodedKey = cleanKey.split('/').map((segment) => encodeURIComponent(segment)).join('/');
 
-  const isVideo = Boolean(cleanKey.match(/\.(mp4|webm|mov|m4v|mkv)$/i));
   const isDerivative = cleanKey.startsWith('previews/') || cleanKey.startsWith('thumbnails/');
-  if (isVideo || isDerivative) {
+  if (isDerivative) {
     const gatewayBase = formatHttpUrl(process.env.R2_MEDIA_GATEWAY_URL || MEDIA_GATEWAY_DEFAULT);
     return `${gatewayBase}/${encodedKey}`;
   }

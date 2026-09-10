@@ -478,7 +478,7 @@ const insightsService = {
         const isVideo = Boolean(item.type?.startsWith('video/'));
         const originalKey = files?.originalKey;
         const key = originalKey
-          ? (isVideo && domain ? toMediaUrl(originalKey, domain) : toProxyMediaUrl(originalKey))
+          ? (isVideo ? toProxyMediaUrl(originalKey) : (domain ? toMediaUrl(originalKey, domain) : toProxyMediaUrl(originalKey)))
           : null;
 
         return {
@@ -568,7 +568,7 @@ const insightsService = {
       const thumbnail = toMediaUrl(thumbnailKey, domain);
       const preview = toMediaUrl(previewKey, domain);
       const key = originalKey
-        ? (isVideo && domain ? toMediaUrl(originalKey, domain) : toProxyMediaUrl(originalKey))
+        ? (isVideo ? toProxyMediaUrl(originalKey) : (domain ? toMediaUrl(originalKey, domain) : toProxyMediaUrl(originalKey)))
         : null;
 
       const now = new Date();
