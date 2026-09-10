@@ -131,16 +131,20 @@ function buildObjectHeaders(object, allowedOrigin, requestOrigin) {
   const headers = buildBaseHeaders(allowedOrigin, requestOrigin)
   object.writeHttpMetadata(headers)
   headers.set("Cache-Control", PUBLIC_CACHE_CONTROL)
-  headers.set("Content-Length", String(object.size))
   headers.set("ETag", object.httpEtag)
   headers.set("Last-Modified", object.uploaded.toUTCString())
   headers.set("Accept-Ranges", "bytes")
-
   if ("range" in object && object.range) {
     const start = object.range.offset ?? 0
-    const end = start + object.size - 1
-    const total = object.range.total ?? "*"
+    const sliceLength = ("length" in object.range && typeof object.range.length === "number")
+      ? object.range.length
+      : Math.max(0, object.size - start)
+    const end = Math.max(start, start + sliceLength - 1)
+    const total = object.size
     headers.set("Content-Range", `bytes ${start}-${end}/${total}`)
+    headers.set("Content-Length", String(sliceLength))
+  } else {
+    headers.set("Content-Length", String(object.size))
   }
 
   if (!headers.has("Content-Type")) {

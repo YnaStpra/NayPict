@@ -1131,6 +1131,18 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
   const [ambientGlow, setAmbientGlow] = useState(true)
   // Whether user is currently seeking or scrubbing video/volume (disables swipe carousel)
   const [isVideoScrubbing, setIsVideoScrubbing] = useState(false)
+
+  // Stable callbacks for video player interaction bar buttons to prevent unnecessary re-renders
+  const handleOpenComments = useCallback(() => {
+    setInfoTab("comments")
+    setInfoOpen(true)
+  }, [setInfoOpen])
+
+  const handleOpenInfo = useCallback(() => {
+    setInfoTab("info")
+    setInfoOpen(true)
+  }, [setInfoOpen])
+
   // Drag-to-dismiss gesture state (supports bidirectional vertical dismiss: swipe up or swipe down)
   const [dragOffset, setDragOffset] = useState<{ x: number; y: number } | null>(null)
   const [isDismissing, setIsDismissing] = useState(false)
@@ -1973,15 +1985,8 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
                     autoPlay={isCurrentSlide}
                     photoId={photoSlide.photoId}
                     isCinematicMode={isCinematicMode}
-                    onScrubbingChange={setIsVideoScrubbing}
-                    onOpenComments={() => {
-                      setInfoTab("comments")
-                      setInfoOpen(true)
-                    }}
-                    onOpenInfo={() => {
-                      setInfoTab("info")
-                      setInfoOpen(true)
-                    }}
+                    onOpenComments={handleOpenComments}
+                    onOpenInfo={handleOpenInfo}
                     className="w-full h-full"
                   />
                 </div>

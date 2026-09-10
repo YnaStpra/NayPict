@@ -56,10 +56,15 @@ export const VideoPlayer = memo(function VideoPlayer({
   const volumeInputRef = useRef<HTMLInputElement>(null)
   const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const isScrubbingRef = useRef(false)
+  const isSeekingRef = useRef(false)
+  const scrubTimeRef = useRef(0)
   const wasPlayingRef = useRef(false)
+  const seekDebounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const seekSafetyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
+  const [scrubTime, setScrubTime] = useState(0)
   const [duration, setDuration] = useState(0)
   const [bufferedPercent, setBufferedPercent] = useState(0)
   const [isMuted, setIsMuted] = useState(false)
@@ -147,6 +152,14 @@ export const VideoPlayer = memo(function VideoPlayer({
         video.removeAttribute("src")
         video.load()
       }
+      if (seekDebounceTimerRef.current) {
+        clearTimeout(seekDebounceTimerRef.current)
+        seekDebounceTimerRef.current = null
+      }
+      if (seekSafetyTimerRef.current) {
+        clearTimeout(seekSafetyTimerRef.current)
+        seekSafetyTimerRef.current = null
+      }
     }
   }, [])
 
@@ -183,7 +196,7 @@ export const VideoPlayer = memo(function VideoPlayer({
   // Time update and buffer progress
   const handleTimeUpdate = useCallback(() => {
     const video = videoRef.current
-    if (!video || isScrubbingRef.current) return
+    if (!video || isScrubbingRef.current || isSeekingRef.current || video.seeking) return
     setCurrentTime(video.currentTime)
     if (video.currentTime > 0) {
       setHasFirstFrame(true)
@@ -382,38 +395,53 @@ export const VideoPlayer = memo(function VideoPlayer({
     }
   }, [])
 
-  // High-precision scrubber seeking supporting direct taps & fluid dragging
-  const updateScrubberTime = useCallback((clientX: number) => {
-    const track = timelineTrackRef.current
+  // Dedicated helper to commit seeking on video element safely
+  const seekVideo = useCallback((targetTime: number) => {
     const video = videoRef.current
-    if (!track || !video || !duration || duration <= 0 || isNaN(clientX)) return
+    if (!video || isNaN(targetTime) || !isFinite(targetTime)) return
+
+    const clampedTime = Math.max(0, Math.min(targetTime, duration > 0 ? duration : targetTime))
+
+    isSeekingRef.current = true
+    setIsBuffering(true)
+    setCurrentTime(clampedTime)
+    video.currentTime = clampedTime
+
+    const mediaKey = photoId || src
+    if (mediaKey) {
+      globalVideoPositions.set(mediaKey, clampedTime)
+    }
+
+    if (seekSafetyTimerRef.current) {
+      clearTimeout(seekSafetyTimerRef.current)
+    }
+    seekSafetyTimerRef.current = setTimeout(() => {
+      isSeekingRef.current = false
+      setIsBuffering(false)
+    }, 2500)
+  }, [duration, photoId, src])
+
+  // Calculate video target time from pointer clientX coordinate relative to track
+  const calculateTimeFromClientX = useCallback((clientX: number): number | null => {
+    const track = timelineTrackRef.current
+    if (!track || !duration || duration <= 0 || isNaN(clientX)) return null
 
     const rect = track.getBoundingClientRect()
-    if (rect.width <= 0) return
+    if (rect.width <= 0) return null
 
     const offsetX = Math.max(0, Math.min(clientX - rect.left, rect.width))
     const percent = Math.max(0, Math.min(offsetX / rect.width, 1))
-    const targetTime = Math.max(0, Math.min(percent * duration, duration))
-
-    if (!isNaN(targetTime) && isFinite(targetTime)) {
-      setCurrentTime(targetTime)
-      video.currentTime = targetTime
-
-      const mediaKey = photoId || src
-      if (mediaKey) {
-        globalVideoPositions.set(mediaKey, targetTime)
-      }
-    }
-  }, [duration, photoId, src])
+    return Math.max(0, Math.min(percent * duration, duration))
+  }, [duration])
 
   const handleScrubberPointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     e.stopPropagation()
     const video = videoRef.current
-    if (video) {
-      wasPlayingRef.current = !video.paused
-      if (wasPlayingRef.current) {
-        video.pause()
-      }
+    if (!video || !duration || duration <= 0) return
+
+    wasPlayingRef.current = !video.paused
+    if (wasPlayingRef.current) {
+      video.pause()
     }
 
     try {
@@ -430,8 +458,13 @@ export const VideoPlayer = memo(function VideoPlayer({
     }
     setShowControls(true)
 
-    updateScrubberTime(e.clientX)
-  }, [onScrubbingChange, updateScrubberTime])
+    const targetTime = calculateTimeFromClientX(e.clientX)
+    if (targetTime !== null) {
+      scrubTimeRef.current = targetTime
+      setScrubTime(targetTime)
+      seekVideo(targetTime)
+    }
+  }, [calculateTimeFromClientX, duration, onScrubbingChange, seekVideo])
 
   const handleScrubberPointerMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     if (!isScrubbingRef.current) return
@@ -443,8 +476,21 @@ export const VideoPlayer = memo(function VideoPlayer({
     }
     setShowControls(true)
 
-    updateScrubberTime(e.clientX)
-  }, [updateScrubberTime])
+    const targetTime = calculateTimeFromClientX(e.clientX)
+    if (targetTime !== null) {
+      scrubTimeRef.current = targetTime
+      setScrubTime(targetTime)
+
+      if (seekDebounceTimerRef.current) {
+        clearTimeout(seekDebounceTimerRef.current)
+      }
+      seekDebounceTimerRef.current = setTimeout(() => {
+        if (isScrubbingRef.current) {
+          seekVideo(scrubTimeRef.current)
+        }
+      }, 50)
+    }
+  }, [calculateTimeFromClientX, seekVideo])
 
   const handleScrubberPointerUp = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     if (!isScrubbingRef.current) return
@@ -454,11 +500,24 @@ export const VideoPlayer = memo(function VideoPlayer({
       e.currentTarget.releasePointerCapture(e.pointerId)
     } catch {}
 
+    if (seekDebounceTimerRef.current) {
+      clearTimeout(seekDebounceTimerRef.current)
+      seekDebounceTimerRef.current = null
+    }
+
+    let finalTime = scrubTimeRef.current
+    if (typeof e.clientX === "number" && e.clientX > 0) {
+      const calculated = calculateTimeFromClientX(e.clientX)
+      if (calculated !== null) {
+        finalTime = calculated
+      }
+    }
+
     isScrubbingRef.current = false
     setIsScrubbing(false)
     onScrubbingChange?.(false)
 
-    updateScrubberTime(e.clientX)
+    seekVideo(finalTime)
 
     const video = videoRef.current
     if (video && wasPlayingRef.current) {
@@ -466,7 +525,7 @@ export const VideoPlayer = memo(function VideoPlayer({
     }
 
     pingActivity()
-  }, [onScrubbingChange, pingActivity, updateScrubberTime])
+  }, [calculateTimeFromClientX, onScrubbingChange, pingActivity, seekVideo])
 
   // Keyboard controls (Space = play/pause, Left/Right = 5s skip, M = mute)
   useEffect(() => {
@@ -485,16 +544,14 @@ export const VideoPlayer = memo(function VideoPlayer({
         e.preventDefault()
         const video = videoRef.current
         if (video) {
-          video.currentTime = Math.max(0, video.currentTime - 5)
-          setCurrentTime(video.currentTime)
+          seekVideo(Math.max(0, video.currentTime - 5))
         }
         pingActivity()
       } else if (e.key === "ArrowRight") {
         e.preventDefault()
         const video = videoRef.current
         if (video) {
-          video.currentTime = Math.min(duration, video.currentTime + 5)
-          setCurrentTime(video.currentTime)
+          seekVideo(Math.min(duration, video.currentTime + 5))
         }
         pingActivity()
       } else if (e.key === "m" || e.key === "M") {
@@ -547,7 +604,8 @@ export const VideoPlayer = memo(function VideoPlayer({
     })
   }, [isPlaying])
 
-  const progressPercent = duration > 0 ? (currentTime / duration) * 100 : 0
+  const displayTime = isScrubbing ? scrubTime : currentTime
+  const progressPercent = duration > 0 ? (displayTime / duration) * 100 : 0
 
   return (
     <div
@@ -598,10 +656,26 @@ export const VideoPlayer = memo(function VideoPlayer({
           setIsBuffering(false)
           setIsLoading(false)
         }}
-        onSeeking={() => setIsBuffering(true)}
+        onSeeking={() => {
+          isSeekingRef.current = true
+          setIsBuffering(true)
+        }}
         onSeeked={() => {
+          if (seekSafetyTimerRef.current) {
+            clearTimeout(seekSafetyTimerRef.current)
+            seekSafetyTimerRef.current = null
+          }
+          isSeekingRef.current = false
           setIsBuffering(false)
           setHasFirstFrame(true)
+          const video = videoRef.current
+          if (video && !isScrubbingRef.current) {
+            setCurrentTime(video.currentTime)
+            const mediaKey = photoId || src
+            if (mediaKey && video.currentTime > 0) {
+              globalVideoPositions.set(mediaKey, video.currentTime)
+            }
+          }
         }}
         onPlay={() => setIsPlaying(true)}
         onPause={() => setIsPlaying(false)}
@@ -766,7 +840,7 @@ export const VideoPlayer = memo(function VideoPlayer({
           aria-label="Video timeline scrubber"
           aria-valuemin={0}
           aria-valuemax={duration || 100}
-          aria-valuenow={currentTime}
+          aria-valuenow={displayTime}
           className="relative flex items-center w-full h-8 mb-1 group/scrubber cursor-pointer touch-none select-none py-2"
           onPointerDown={handleScrubberPointerDown}
           onPointerMove={handleScrubberPointerMove}
@@ -783,16 +857,16 @@ export const VideoPlayer = memo(function VideoPlayer({
             />
             {/* Played Progress */}
             <div
-              className="absolute left-0 top-0 h-full bg-white transition-all"
-              style={{ width: `${progressPercent}%` }}
+              className={cn("absolute left-0 top-0 h-full bg-white", isScrubbing ? "transition-none" : "transition-[width] duration-100")}
+              style={{ width: `${Math.min(Math.max(progressPercent, 0), 100)}%` }}
             />
           </div>
 
           {/* Scrubber Thumb Knob */}
           <div
             className={cn(
-              "absolute top-1/2 -translate-y-1/2 -translate-x-1/2 size-3.5 sm:size-4 rounded-full bg-white shadow-md border-2 border-emerald-500 pointer-events-none transition-transform duration-75",
-              isScrubbing ? "scale-125 opacity-100" : "scale-100 opacity-90 group-hover/scrubber:scale-110 sm:scale-0 sm:group-hover/scrubber:scale-100"
+              "absolute top-1/2 -translate-y-1/2 -translate-x-1/2 size-3.5 sm:size-4 rounded-full bg-white shadow-md border-2 border-emerald-500 pointer-events-none",
+              isScrubbing ? "scale-125 opacity-100 transition-none" : "scale-100 opacity-90 transition-transform duration-75 group-hover/scrubber:scale-110 sm:scale-0 sm:group-hover/scrubber:scale-100"
             )}
             style={{ left: `${Math.min(Math.max(progressPercent, 0), 100)}%` }}
           />
@@ -845,7 +919,7 @@ export const VideoPlayer = memo(function VideoPlayer({
 
             {/* Time Display */}
             <div className="text-[11px] sm:text-xs font-medium text-white/80 tabular-nums">
-              <span>{formatVideoDuration(currentTime)}</span>
+              <span>{formatVideoDuration(displayTime)}</span>
               <span className="mx-1 text-white/40">/</span>
               <span>{formatVideoDuration(duration)}</span>
             </div>
@@ -856,10 +930,9 @@ export const VideoPlayer = memo(function VideoPlayer({
             <button
               type="button"
               onClick={() => {
+                seekVideo(0)
                 const video = videoRef.current
                 if (video) {
-                  video.currentTime = 0
-                  setCurrentTime(0)
                   void video.play().then(() => setIsPlaying(true)).catch(() => {})
                 }
               }}

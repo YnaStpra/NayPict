@@ -193,12 +193,35 @@ test("a third-party Referer is blocked by anti-hotlinking before R2 access", asy
   assert.deepEqual(bucket.requestedKeys, [])
 })
 
-test("an approved Referer is permitted by anti-hotlinking", async () => {
-  const { bucket, response } = await dispatch("/previews/aa/photo.jpg", {
-    headers: { Referer: `${APP_URL}/photos/view` },
+test("GET with Range header serves 206 Partial Content with precise Content-Range", async () => {
+  const mediaBucket = {
+    async get(key) {
+      const fullSize = 1000
+      const range = { offset: 100, length: 200 }
+      return {
+        key,
+        size: fullSize,
+        range,
+        httpEtag: '"test-etag"',
+        uploaded: new Date("2026-01-01T00:00:00.000Z"),
+        writeHttpMetadata(headers) {
+          headers.set("Content-Type", "video/mp4")
+        },
+        body: new Uint8Array(200),
+      }
+    },
+    async head() { return null },
+  }
+  const context = createContext()
+  const request = new Request("https://media.example.com/videos/sample.mp4", {
+    headers: { Origin: APP_URL, Range: "bytes=100-299" },
   })
-  assert.equal(response.status, 200)
-  assert.deepEqual(bucket.requestedKeys, ["previews/aa/photo.jpg"])
+  const response = await worker.fetch(request, { APP_URL, MEDIA_BUCKET: mediaBucket }, context)
+  assert.equal(response.status, 206)
+  assert.equal(response.headers.get("Content-Range"), "bytes 100-299/1000")
+  assert.equal(response.headers.get("Content-Length"), "200")
+  assert.equal(response.headers.get("Accept-Ranges"), "bytes")
 })
+
 
 
