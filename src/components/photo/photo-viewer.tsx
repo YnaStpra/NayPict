@@ -1768,7 +1768,7 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
         }}
         carousel={{
           spacing: 0,
-          preload: isAnySubModalOpen ? 0 : (typeof window !== "undefined" && window.innerWidth < 768 ? 1 : 2),
+          preload: isAnySubModalOpen ? 0 : 2,
         }}
         animation={{
           fade: 200,
@@ -1851,7 +1851,7 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
                 {/* Right-side toolbar */}
                 <div
                   className={[
-                    "absolute top-2 right-2 md:top-3 md:right-4 z-40 flex items-center gap-1.5",
+                    "absolute top-2 right-2 md:top-3 md:right-4 z-40 flex items-center gap-1.5 max-w-[calc(100vw-3.75rem)] overflow-x-auto no-scrollbar",
                     getActionVisibleClass(actionsVisible),
                   ].join(" ")}
                 >
@@ -1865,29 +1865,11 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
                       )}
                       {!isCurrentVideo && (
                         <>
-                          <LoadOriginalButton
-                            showActions={actionsVisible}
-                            originalPhoto={originalPhoto}
-                            getPhotoCache={getPhotoCache}
-                            onLoadOriginal={loadOriginalPhoto}
-                          />
                           <RotateButton showActions={actionsVisible} onRotate={rotatePhoto} />
                           <StoryCardButton showActions={actionsVisible} onOpenStory={() => setStoryDialogOpen(true)} />
                         </>
                       )}
                       <ShareButton showActions={actionsVisible} />
-                      <CommentsButton
-                        showActions={actionsVisible}
-                        open={infoOpen && infoTab === "comments"}
-                        onToggle={() => {
-                          if (infoOpen && infoTab === "comments") {
-                            setInfoOpen(false)
-                          } else {
-                            setInfoTab("comments")
-                            setInfoOpen(true)
-                          }
-                        }}
-                      />
                       <InfoButton
                         showActions={actionsVisible}
                         open={infoOpen && infoTab === "info"}
