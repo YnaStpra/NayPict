@@ -5,8 +5,8 @@ import { type PhotoReactionsVo, type ReactionTotalsVo, type UserReactionsVo } fr
 import { type ReactionType } from "@/server/entity/bo/reaction";
 import { photoSse } from "@/lib/photo-sse";
 
-type EmojiReactionKey = "love" | "fire" | "camera" | "place";
-const EMOJI_KEYS: EmojiReactionKey[] = ["love", "fire", "camera", "place"];
+type ReactionKey = "love" | "fire" | "clap" | "camera" | "place";
+const ALL_KEYS: ReactionKey[] = ["love", "fire", "clap", "camera", "place"];
 
 // Client visitor identifier resolver
 export function getClientVisitorId(): string {
@@ -207,34 +207,38 @@ class ReactionSyncManager {
     // 1. Compute optimistic state
     const optimistic: PhotoReactionsVo = JSON.parse(JSON.stringify(current));
 
-    if (type === "clap") {
-      const isCurrentlyLiked = optimistic.userReactions.clap > 0;
-      optimistic.userReactions.clap = isCurrentlyLiked ? 0 : 1;
-      optimistic.totals.clap = Math.max(0, optimistic.totals.clap + (isCurrentlyLiked ? -1 : 1));
+    const isCurrentlyActive = type === "clap"
+      ? optimistic.userReactions.clap > 0
+      : Boolean(optimistic.userReactions[type as "love" | "fire" | "camera" | "place"]);
+
+    const activeOtherKey = ALL_KEYS.find((k) => {
+      if (k === type) return false;
+      return k === "clap" ? optimistic.userReactions.clap > 0 : Boolean(optimistic.userReactions[k]);
+    });
+
+    // Clear all user reaction states
+    optimistic.userReactions.love = false;
+    optimistic.userReactions.fire = false;
+    optimistic.userReactions.camera = false;
+    optimistic.userReactions.place = false;
+    optimistic.userReactions.clap = 0;
+
+    // Decrement previous reaction if switching
+    if (activeOtherKey) {
+      optimistic.totals[activeOtherKey] = Math.max(0, optimistic.totals[activeOtherKey] - 1);
+    }
+
+    if (isCurrentlyActive) {
+      // Toggle OFF
+      optimistic.totals[type] = Math.max(0, optimistic.totals[type] - 1);
     } else {
-      const emojiType = type as EmojiReactionKey;
-      const isCurrentlyActive = Boolean(optimistic.userReactions[emojiType]);
-      const activeOtherEmoji = EMOJI_KEYS.find(
-        (k) => k !== emojiType && Boolean(optimistic.userReactions[k])
-      );
-
-      EMOJI_KEYS.forEach((k) => {
-        optimistic.userReactions[k] = false;
-      });
-
-      if (!isCurrentlyActive) {
-        optimistic.userReactions[emojiType] = true;
-      }
-
-      if (activeOtherEmoji) {
-        optimistic.totals[activeOtherEmoji] = Math.max(0, optimistic.totals[activeOtherEmoji] - 1);
-      }
-
-      if (isCurrentlyActive) {
-        optimistic.totals[emojiType] = Math.max(0, optimistic.totals[emojiType] - 1);
+      // Toggle ON
+      if (type === "clap") {
+        optimistic.userReactions.clap = 1;
       } else {
-        optimistic.totals[emojiType] = optimistic.totals[emojiType] + 1;
+        optimistic.userReactions[type as "love" | "fire" | "camera" | "place"] = true;
       }
+      optimistic.totals[type] = optimistic.totals[type] + 1;
     }
 
     // Immediately dispatch optimistic state to all subscribers and tabs
@@ -246,7 +250,7 @@ class ReactionSyncManager {
         photoId: cleanId,
         visitorId: getClientVisitorId(),
         reactionType: type,
-        count: type === "clap" ? 1 : undefined,
+        count: 1,
       });
 
       if (confirmed) {

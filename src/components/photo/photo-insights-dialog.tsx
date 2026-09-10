@@ -311,7 +311,7 @@ export function PhotoInsightsDialog({ photoId, open, onOpenChange, onReactionRes
               </div>
 
               {/* Reaction Emojis Grid */}
-              <div className="grid grid-cols-5 gap-1.5 text-center">
+              <div className="grid grid-cols-3 gap-2 text-center">
                 <div className="p-2 rounded-lg bg-muted/60 border border-border/50">
                   <div className="text-base">❤️</div>
                   <div className="text-[10px] text-muted-foreground mt-0.5">Love</div>
@@ -323,18 +323,8 @@ export function PhotoInsightsDialog({ photoId, open, onOpenChange, onReactionRes
                   <div className="text-xs font-bold text-foreground mt-0.5">{detail.reactions?.fire || 0}</div>
                 </div>
                 <div className="p-2 rounded-lg bg-muted/60 border border-border/50">
-                  <div className="text-base">📸</div>
-                  <div className="text-[10px] text-muted-foreground mt-0.5">Shot</div>
-                  <div className="text-xs font-bold text-foreground mt-0.5">{detail.reactions?.camera || 0}</div>
-                </div>
-                <div className="p-2 rounded-lg bg-muted/60 border border-border/50">
-                  <div className="text-base">📍</div>
-                  <div className="text-[10px] text-muted-foreground mt-0.5">Place</div>
-                  <div className="text-xs font-bold text-foreground mt-0.5">{detail.reactions?.place || 0}</div>
-                </div>
-                <div className="p-2 rounded-lg bg-muted/60 border border-border/50">
-                  <div className="text-base">👏</div>
-                  <div className="text-[10px] text-muted-foreground mt-0.5">Likes</div>
+                  <div className="text-base">👍</div>
+                  <div className="text-[10px] text-muted-foreground mt-0.5">Like</div>
                   <div className="text-xs font-bold text-foreground mt-0.5">{detail.reactions?.clap || 0}</div>
                 </div>
               </div>

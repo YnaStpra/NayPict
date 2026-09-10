@@ -121,67 +121,38 @@ const reactionService = {
       throw new BizError('common.paramError');
     }
 
-    if (reactionType === 'clap') {
-      // 1-Like Toggle: A visitor can give at most 1 Like per photo
-      const [existingClap] = await orm
-        .select()
-        .from(photoReactionTab)
-        .where(
-          and(
-            eq(photoReactionTab.photoId, photoId),
-            eq(photoReactionTab.visitorId, visitorId),
-            eq(photoReactionTab.reactionType, 'clap')
-          )
+    // Mutually Exclusive Unified Reaction: A visitor can choose 1 reaction per photo (Love, Fire, Like)
+    const existingReactions = await orm
+      .select()
+      .from(photoReactionTab)
+      .where(
+        and(
+          eq(photoReactionTab.photoId, photoId),
+          eq(photoReactionTab.visitorId, visitorId),
+          inArray(photoReactionTab.reactionType, VALID_REACTION_TYPES)
         )
-        .limit(1);
+      );
 
-      if (existingClap) {
-        // Already liked -> Toggle OFF (Unlike)
-        await orm.delete(photoReactionTab).where(eq(photoReactionTab.id, existingClap.id));
-      } else {
-        // Not liked yet -> Toggle ON (1 Like)
-        await orm.insert(photoReactionTab).values({
-          id: uuidv4(),
-          photoId,
-          visitorId,
-          reactionType: 'clap',
-          count: 1,
-        });
-      }
+    const sameExisting = existingReactions.find((r) => r.reactionType === reactionType);
+
+    if (sameExisting) {
+      // User clicked the currently active reaction -> Toggle OFF
+      await orm.delete(photoReactionTab).where(eq(photoReactionTab.id, sameExisting.id));
     } else {
-      // Mutually Exclusive Emoji Reaction: A visitor can only choose 1 emoji reaction per photo
-      const existingEmojis = await orm
-        .select()
-        .from(photoReactionTab)
-        .where(
-          and(
-            eq(photoReactionTab.photoId, photoId),
-            eq(photoReactionTab.visitorId, visitorId),
-            inArray(photoReactionTab.reactionType, EMOJI_REACTION_TYPES)
-          )
-        );
-
-      const sameExisting = existingEmojis.find((r) => r.reactionType === reactionType);
-
-      if (sameExisting) {
-        // User clicked the currently active emoji reaction -> Toggle OFF
-        await orm.delete(photoReactionTab).where(eq(photoReactionTab.id, sameExisting.id));
-      } else {
-        // User selected a new/different emoji -> Remove previous emoji reaction first
-        if (existingEmojis.length > 0) {
-          const idsToDelete = existingEmojis.map((r) => r.id);
-          await orm.delete(photoReactionTab).where(inArray(photoReactionTab.id, idsToDelete));
-        }
-
-        // Insert new emoji reaction
-        await orm.insert(photoReactionTab).values({
-          id: uuidv4(),
-          photoId,
-          visitorId,
-          reactionType,
-          count: 1,
-        });
+      // User selected a new/different reaction -> Remove previous reaction first
+      if (existingReactions.length > 0) {
+        const idsToDelete = existingReactions.map((r) => r.id);
+        await orm.delete(photoReactionTab).where(inArray(photoReactionTab.id, idsToDelete));
       }
+
+      // Insert new reaction
+      await orm.insert(photoReactionTab).values({
+        id: uuidv4(),
+        photoId,
+        visitorId,
+        reactionType,
+        count: 1,
+      });
     }
 
     // Return the fresh aggregated reactions state using master client to avoid replication lag

@@ -552,11 +552,7 @@ export default function AdminInsightsPage() {
                       <span>•</span>
                       <span title="Fire">🔥 {overview.reactionsBreakdown?.fire || 0}</span>
                       <span>•</span>
-                      <span title="Great Shot">📸 {overview.reactionsBreakdown?.camera || 0}</span>
-                      <span>•</span>
-                      <span title="Want to Visit">📍 {overview.reactionsBreakdown?.place || 0}</span>
-                      <span>•</span>
-                      <span title="Likes/Claps">👏 {overview.reactionsBreakdown?.clap || 0}</span>
+                      <span title="Likes">👍 {overview.reactionsBreakdown?.clap || 0}</span>
                     </div>
                   </CardContent>
                 </Card>
@@ -778,7 +774,7 @@ export default function AdminInsightsPage() {
                                 )}
                                 {photo.reactions.clap > 0 && (
                                   <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[10px] bg-muted border border-border/70 text-foreground font-medium">
-                                    👏 {photo.reactions.clap}
+                                    👍 {photo.reactions.clap}
                                   </span>
                                 )}
                               </div>

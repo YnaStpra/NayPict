@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef, useCallback } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { Flame, Heart, Camera, MapPin } from "lucide-react"
+import { Flame, Heart, ThumbsUp } from "lucide-react"
 import { type ReactionTotalsVo, type UserReactionsVo } from "@/server/entity/vo/reaction"
 import { type ReactionType } from "@/server/entity/bo/reaction"
 import { reactionSync } from "@/lib/reaction-sync"
@@ -50,24 +50,16 @@ const REACTION_CONFIG: {
     activeColor: "bg-amber-500/25 text-amber-300 border-amber-500/40 shadow-[0_0_12px_rgba(245,158,11,0.3)]",
   },
   {
-    type: "camera",
-    label: "Great Shot",
-    emoji: "📸",
-    icon: Camera,
+    type: "clap",
+    label: "Like",
+    emoji: "👍",
+    icon: ThumbsUp,
     color: "text-sky-400 hover:text-sky-300 hover:bg-sky-500/15",
     activeColor: "bg-sky-500/25 text-sky-300 border-sky-500/40 shadow-[0_0_12px_rgba(14,165,233,0.3)]",
   },
-  {
-    type: "place",
-    label: "Want to Visit",
-    emoji: "📍",
-    icon: MapPin,
-    color: "text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/15",
-    activeColor: "bg-emerald-500/25 text-emerald-300 border-emerald-500/40 shadow-[0_0_12px_rgba(16,185,129,0.3)]",
-  },
 ]
 
-// Render interactive quick emoji reactions and public claps for a photo.
+// Render interactive quick emoji reactions and likes for a photo.
 export function PhotoReactions({ photoId, className = "", compact = false }: PhotoReactionsProps) {
   const [totals, setTotals] = useState<ReactionTotalsVo>(() => {
     const cached = reactionSync.getCached(photoId)
@@ -143,10 +135,10 @@ export function PhotoReactions({ photoId, className = "", compact = false }: Pho
     }, 1400)
   }, [])
 
-  // Handle emoji reaction toggle with mutual exclusivity
-  const handleEmojiReaction = async (type: ReactionType, emoji: string, e: React.MouseEvent<HTMLButtonElement>) => {
+  // Handle reaction toggle with mutual exclusivity
+  const handleReaction = async (type: ReactionType, emoji: string, e: React.MouseEvent<HTMLButtonElement>) => {
     e.stopPropagation()
-    if (type === "clap" || !photoId) return
+    if (!photoId) return
 
     // Safe haptic feedback
     try {
@@ -155,34 +147,16 @@ export function PhotoReactions({ photoId, className = "", compact = false }: Pho
       }
     } catch {}
 
-    const isCurrentlyActive = Boolean(userReactions[type as keyof UserReactionsVo])
+    const isCurrentlyActive = type === "clap"
+      ? userReactions.clap > 0
+      : Boolean(userReactions[type as keyof UserReactionsVo])
+
     if (!isCurrentlyActive) {
       triggerParticleBurst(emoji, e)
     }
 
     // Immediately toggle reaction via synchronized reactive store
     await reactionSync.toggleReaction(photoId, type)
-  }
-
-  // Handle 1-Like toggle
-  const handleLike = async (e: React.MouseEvent<HTMLButtonElement>) => {
-    e.stopPropagation()
-    if (!photoId) return
-
-    // Safe haptic feedback
-    try {
-      if (typeof navigator !== "undefined" && navigator.vibrate) {
-        navigator.vibrate(15)
-      }
-    } catch {}
-
-    const isCurrentlyLiked = userReactions.clap > 0
-    if (!isCurrentlyLiked) {
-      triggerParticleBurst("👏", e)
-    }
-
-    // Immediately toggle like via synchronized reactive store
-    await reactionSync.toggleReaction(photoId, "clap")
   }
 
   return (
@@ -211,73 +185,45 @@ export function PhotoReactions({ photoId, className = "", compact = false }: Pho
         </AnimatePresence>
       </div>
 
-      <div className={`flex items-center ${compact ? "gap-1 flex-nowrap" : "justify-between gap-1.5 flex-wrap"}`}>
-        {/* Emoji Reactions Cluster (Mutually Exclusive) */}
-        <div className={`flex items-center ${compact ? "gap-1" : "gap-1.5 flex-wrap"}`}>
-          {REACTION_CONFIG.map((item) => {
-            const Icon = item.icon
-            const isActive = Boolean(userReactions[item.type as keyof UserReactionsVo])
-            const count = totals[item.type as keyof ReactionTotalsVo] || 0
+      {/* Unified Reaction Cluster (Love, Fire, Like) */}
+      <div className={`flex items-center ${compact ? "gap-1 flex-nowrap" : "gap-1.5 flex-wrap"}`}>
+        {REACTION_CONFIG.map((item) => {
+          const Icon = item.icon
+          const isActive = item.type === "clap"
+            ? userReactions.clap > 0
+            : Boolean(userReactions[item.type as keyof UserReactionsVo])
+          const count = totals[item.type as keyof ReactionTotalsVo] || 0
 
-            return (
-              <button
-                key={item.type}
-                type="button"
-                onClick={(e) => handleEmojiReaction(item.type, item.emoji, e)}
-                title={isActive ? `Remove ${item.label}` : item.label}
-                aria-label={item.label}
-                className={`group relative flex items-center gap-1 rounded-full text-xs font-medium border transition-all duration-200 active:scale-95 cursor-pointer touch-manipulation min-h-[28px] ${
-                  compact ? "px-2 py-0.5 text-[10px]" : "px-2.5 py-1 backdrop-blur-md"
-                } ${
-                  isActive
-                    ? item.activeColor
-                    : "border-white/10 bg-white/5 text-white/70 hover:bg-white/10 hover:text-white"
-                }`}
-              >
-                <Icon className={`${compact ? "size-3" : "size-3.5"} transition-transform group-hover:scale-120 ${isActive ? "scale-110" : ""}`} />
-                {count > 0 && (
-                  <motion.span
-                    key={count}
-                    initial={{ scale: 1.4, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
-                    transition={{ type: "spring", stiffness: 500, damping: 25 }}
-                    className={`${compact ? "text-[10px]" : "text-[11px]"} font-semibold tabular-nums ${isActive ? "text-white" : "text-white/80"}`}
-                  >
-                    {count}
-                  </motion.span>
-                )}
-              </button>
-            )
-          })}
-        </div>
-
-        {/* Public Like Button (Independent 1-Like per Visitor) */}
-        <button
-          type="button"
-          onClick={handleLike}
-          title={userReactions.clap > 0 ? "Unlike this photo" : "Like this photo"}
-          aria-label="Like this photo"
-          className={`group relative flex items-center gap-1 rounded-full text-xs font-semibold border transition-all duration-200 active:scale-95 cursor-pointer touch-manipulation min-h-[28px] ${
-            compact ? "px-2.5 py-0.5 text-[10px]" : "px-3 py-1 backdrop-blur-md"
-          } ${
-            userReactions.clap > 0
-              ? "bg-amber-500/25 text-amber-300 border-amber-500/40 shadow-[0_0_12px_rgba(245,158,11,0.3)]"
-              : "border-white/10 bg-white/5 text-white/80 hover:bg-white/10 hover:text-white"
-          }`}
-        >
-          <span className={`${compact ? "text-xs" : "text-sm"} transition-transform group-hover:scale-125 ${userReactions.clap > 0 ? "scale-110" : ""}`}>
-            👏
-          </span>
-          <motion.span
-            key={totals.clap}
-            initial={{ scale: 1.3, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ type: "spring", stiffness: 500, damping: 25 }}
-            className={`${compact ? "text-[10px]" : "text-[11px]"} font-bold tabular-nums text-white`}
-          >
-            {totals.clap || 0}
-          </motion.span>
-        </button>
+          return (
+            <button
+              key={item.type}
+              type="button"
+              onClick={(e) => handleReaction(item.type, item.emoji, e)}
+              title={isActive ? `Remove ${item.label}` : item.label}
+              aria-label={item.label}
+              className={`group relative flex items-center gap-1 rounded-full text-xs font-medium border transition-all duration-200 active:scale-95 cursor-pointer touch-manipulation min-h-[28px] ${
+                compact ? "px-2 py-0.5 text-[10px]" : "px-2.5 py-1 backdrop-blur-md"
+              } ${
+                isActive
+                  ? item.activeColor
+                  : "border-white/10 bg-white/5 text-white/70 hover:bg-white/10 hover:text-white"
+              }`}
+            >
+              <Icon className={`${compact ? "size-3" : "size-3.5"} transition-transform group-hover:scale-120 ${isActive ? "scale-110" : ""}`} />
+              {count > 0 && (
+                <motion.span
+                  key={count}
+                  initial={{ scale: 1.4, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  transition={{ type: "spring", stiffness: 500, damping: 25 }}
+                  className={`${compact ? "text-[10px]" : "text-[11px]"} font-semibold tabular-nums ${isActive ? "text-white" : "text-white/80"}`}
+                >
+                  {count}
+                </motion.span>
+              )}
+            </button>
+          )
+        })}
       </div>
     </div>
   )
