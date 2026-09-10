@@ -34,6 +34,7 @@ export interface VideoPlayerProps {
   onOpenComments?: () => void
   onOpenInfo?: () => void
   onEnded?: () => void
+  onFullscreenChange?: (isFullscreen: boolean) => void
 }
 
 export const VideoPlayer = memo(function VideoPlayer({
@@ -49,6 +50,7 @@ export const VideoPlayer = memo(function VideoPlayer({
   onOpenComments,
   onOpenInfo,
   onEnded,
+  onFullscreenChange,
 }: VideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -105,7 +107,12 @@ export const VideoPlayer = memo(function VideoPlayer({
     window.innerWidth < 768 ||
     /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent)
   )
-  const shouldRotateMobile = isFullscreen && isMobileClient && isVideoLandscape && isScreenPortrait
+  const shouldRotateMobile = isFullscreen && !isCinematicMode && isMobileClient && isVideoLandscape && isScreenPortrait
+
+  // Notify parent component of fullscreen state changes (e.g. to disable Lightbox swipe gestures while in video fullscreen)
+  useEffect(() => {
+    onFullscreenChange?.(isFullscreen)
+  }, [isFullscreen, onFullscreenChange])
 
   // Reset video loading & buffering state when media source changes
   useEffect(() => {
@@ -411,22 +418,25 @@ export const VideoPlayer = memo(function VideoPlayer({
   }, [isFullscreen, toggleFullscreen])
 
   // Synchronize fullscreen state changes from native browser events
+  // Strictly verifies document.fullscreenElement === containerRef.current so Lightbox Cinematic Mode (document.documentElement) is not confused with Video Fullscreen
   useEffect(() => {
     const handleFullscreenStateChange = () => {
-      const isNativeFs = Boolean(
-        document.fullscreenElement ||
-        (document as any).webkitFullscreenElement
+      const isOurContainer = Boolean(
+        (document.fullscreenElement && document.fullscreenElement === containerRef.current) ||
+        ((document as any).webkitFullscreenElement && (document as any).webkitFullscreenElement === containerRef.current)
       )
-      if (isNativeFs) {
+      if (isOurContainer) {
         setIsFullscreen(true)
       } else {
-        setIsFullscreen(false)
-        try {
-          const screenAny = typeof screen !== "undefined" ? (screen as any) : null
-          if (screenAny?.orientation?.unlock) {
-            screenAny.orientation.unlock()
-          }
-        } catch {}
+        if (isFullscreen) {
+          setIsFullscreen(false)
+          try {
+            const screenAny = typeof screen !== "undefined" ? (screen as any) : null
+            if (screenAny?.orientation?.unlock) {
+              screenAny.orientation.unlock()
+            }
+          } catch {}
+        }
       }
     }
 
@@ -776,7 +786,7 @@ export const VideoPlayer = memo(function VideoPlayer({
         className
       )}
       style={
-        isFullscreen
+        isFullscreen && !isCinematicMode
           ? {
               position: "fixed",
               inset: 0,
@@ -938,7 +948,7 @@ export const VideoPlayer = memo(function VideoPlayer({
       </div>
 
       {/* Exit Fullscreen Floating Button (Visible in fullscreen mode) */}
-      {isFullscreen && (
+      {isFullscreen && !isCinematicMode && (
         <button
           type="button"
           onClick={(e) => {
@@ -960,7 +970,7 @@ export const VideoPlayer = memo(function VideoPlayer({
       <div
         className={cn(
           "absolute top-2.5 md:top-3.5 z-20 flex items-center gap-1.5 rounded-full bg-black/60 px-2.5 py-1 text-xs font-semibold text-white/90 backdrop-blur-md border border-white/10 transition-all duration-300",
-          isFullscreen ? "left-24 md:left-28" : "left-13 md:left-15",
+          isFullscreen && !isCinematicMode ? "left-24 md:left-28" : "left-13 md:left-15",
           showControls ? "opacity-100" : "opacity-0 pointer-events-none"
         )}
         onClick={(e) => e.stopPropagation()}

@@ -1131,6 +1131,14 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
   const [ambientGlow, setAmbientGlow] = useState(true)
   // Whether user is currently seeking or scrubbing video/volume (disables swipe carousel)
   const [isVideoScrubbing, setIsVideoScrubbing] = useState(false)
+  // Whether the current video player is in fullscreen mode (disables swipe carousel during fullscreen)
+  const [isVideoFullscreen, setIsVideoFullscreen] = useState(false)
+
+  // Reset video fullscreen and scrubbing flags on slide transition or viewer close
+  useEffect(() => {
+    setIsVideoFullscreen(false)
+    setIsVideoScrubbing(false)
+  }, [viewIndex, open])
 
   // Stable callbacks for video player interaction bar buttons to prevent unnecessary re-renders
   const handleOpenComments = useCallback(() => {
@@ -1733,7 +1741,7 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
         controller={{
           closeOnBackdropClick: !isAnySubModalOpen,
           closeOnEscape: !isAnySubModalOpen,
-          disableSwipeNavigation: isCurrentVideo || fullscreenOpen || isCinematicMode,
+          disableSwipeNavigation: isVideoFullscreen || isVideoScrubbing || fullscreenOpen || isCinematicMode,
         }}
         portal={{
           container: {
@@ -1977,6 +1985,10 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
               return (
                 <div
                   className="relative flex h-full w-full items-center justify-center overflow-hidden p-0 touch-none select-none"
+                  onPointerDown={!isVideoFullscreen ? handleSlidePointerDown : undefined}
+                  onPointerMove={!isVideoFullscreen ? handleSlidePointerMove : undefined}
+                  onPointerUp={!isVideoFullscreen ? handleSlidePointerUp : undefined}
+                  onPointerCancel={!isVideoFullscreen ? handleSlidePointerCancel : undefined}
                   style={slideTransformStyle}
                 >
                   <VideoPlayer
@@ -1987,6 +1999,8 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
                     autoPlay={isCurrentSlide}
                     photoId={photoSlide.photoId}
                     isCinematicMode={isCinematicMode}
+                    onScrubbingChange={setIsVideoScrubbing}
+                    onFullscreenChange={setIsVideoFullscreen}
                     onOpenComments={handleOpenComments}
                     onOpenInfo={handleOpenInfo}
                     className="w-full h-full"
