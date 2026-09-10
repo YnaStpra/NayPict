@@ -223,5 +223,24 @@ test("GET with Range header serves 206 Partial Content with precise Content-Rang
   assert.equal(response.headers.get("Accept-Ranges"), "bytes")
 })
 
+test("GET handles single and double-encoded spaces in video filenames", async () => {
+  const bucket = createBucket()
+  const context = createContext()
 
+  const req1 = new Request("https://media.example.com/originals/admin/reels%201.mp4", {
+    headers: { Origin: APP_URL },
+  })
+  const res1 = await worker.fetch(req1, { APP_URL, MEDIA_BUCKET: bucket }, context)
+  assert.equal(res1.status, 200)
 
+  const req2 = new Request("https://media.example.com/originals/admin/reels%25202.mp4", {
+    headers: { Origin: APP_URL },
+  })
+  const res2 = await worker.fetch(req2, { APP_URL, MEDIA_BUCKET: bucket }, context)
+  assert.equal(res2.status, 200)
+
+  assert.deepEqual(bucket.requestedKeys, [
+    "originals/admin/reels 1.mp4",
+    "originals/admin/reels 2.mp4",
+  ])
+})

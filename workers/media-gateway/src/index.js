@@ -90,7 +90,16 @@ function parseObjectKey(url) {
   const encodedKey = url.pathname.replace(/^\/+/, "")
 
   try {
-    return decodeURIComponent(encodedKey)
+    let key = decodeURIComponent(encodedKey)
+    if (key.includes("%")) {
+      try {
+        const doubleDecoded = decodeURIComponent(key)
+        if (doubleDecoded !== key) {
+          key = doubleDecoded
+        }
+      } catch {}
+    }
+    return key
   } catch {
     return null
   }

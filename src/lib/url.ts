@@ -15,13 +15,29 @@ function formatHttpUrl(input?: string | null) {
 
 const MEDIA_GATEWAY_DEFAULT = 'naypict-media-gateway.naypict.workers.dev';
 
+// Safely decode percent-encoded string repeatedly until normalized to prevent double/triple-encoding bugs.
+function safeDecodeKey(key: string): string {
+  let current = key;
+  for (let i = 0; i < 3; i++) {
+    try {
+      const decoded = decodeURIComponent(current);
+      if (decoded === current) break;
+      current = decoded;
+    } catch {
+      break;
+    }
+  }
+  return current;
+}
+
 // Convert storage key to requestable file URL.
 function toMediaUrl(key: string, domain?: string | null) {
   if (!key || !key.trim()) {
     return '';
   }
 
-  const encodedKey = key.split('/').map((segment) => encodeURIComponent(segment)).join('/');
+  const cleanKey = safeDecodeKey(key.trim());
+  const encodedKey = cleanKey.split('/').map((segment) => encodeURIComponent(segment)).join('/');
   const base = formatHttpUrl(domain || process.env.R2_MEDIA_GATEWAY_URL || MEDIA_GATEWAY_DEFAULT);
 
   // If public CDN domain is configured (e.g. *.r2.dev or custom media domain), deliver directly via global CDN edge
@@ -80,6 +96,7 @@ function toProxyMediaUrl(urlOrKey?: string | null): string {
   }
 
   cleanKey = cleanKey.replace(/^\/+media\/+/, '').replace(/^\/+/, '');
+  cleanKey = safeDecodeKey(cleanKey);
   const encodedKey = cleanKey.split('/').map((segment) => encodeURIComponent(segment)).join('/');
 
   const isDerivative = cleanKey.startsWith('previews/') || cleanKey.startsWith('thumbnails/');

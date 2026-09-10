@@ -255,6 +255,7 @@ function loadPreviewImage(
   }
 
   const img = new Image()
+  img.decoding = "async"
   const abortPreview = () => {
     img.onload = null
     img.onerror = null
@@ -555,12 +556,17 @@ function PhotoViewerAmbientGlow({
   return (
     <div
       className="fixed inset-0 z-[-5] pointer-events-none select-none flex items-center justify-center overflow-hidden transition-opacity duration-300"
-      style={{ opacity: dragOpacity }}
+      style={{
+        opacity: dragOpacity,
+        willChange: "opacity, transform",
+        transform: "translateZ(0)",
+      }}
     >
       <img
         src={thumbHashUrl}
         alt=""
-        className="w-[85vw] h-[85vh] max-w-[1400px] max-h-[1000px] rounded-full blur-[80px] md:blur-[140px] opacity-65 dark:opacity-75 scale-125 object-cover pointer-events-none transition-all duration-700 ease-out"
+        decoding="async"
+        className="w-[85vw] h-[85vh] max-w-[1400px] max-h-[1000px] rounded-full blur-[36px] md:blur-[140px] opacity-65 dark:opacity-75 scale-125 object-cover pointer-events-none transition-all duration-700 ease-out"
         aria-hidden
       />
       <div
@@ -1762,12 +1768,15 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
         }}
         carousel={{
           spacing: 0,
-          preload: isAnySubModalOpen ? 0 : (innerWidth < 768 ? 10 : 22),
+          preload: isAnySubModalOpen ? 0 : (typeof window !== "undefined" && window.innerWidth < 768 ? 1 : 2),
         }}
         animation={{
-          fade: 250,
+          fade: 200,
+          swipe: 220,
+          navigation: 250,
           easing: {
             fade: "ease-out",
+            swipe: "cubic-bezier(0.25, 1, 0.5, 1)",
             navigation: "cubic-bezier(0.22, 1, 0.36, 1)",
           },
         }}
@@ -1973,12 +1982,7 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
                   transform: `translate3d(${currentDragX * 0.35}px, ${currentDragY}px, 0) scale(${dragScale}) rotate(${dragRotate}deg)`,
                   transition: "none",
                 }
-              : isVideo
-              ? {}
-              : {
-                  transform: "translate3d(0, 0, 0) scale(1) rotate(0deg)",
-                  transition: "transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1)",
-                }
+              : {}
 
             if (isVideo) {
               const isCurrentSlide = offset === 0
@@ -1989,10 +1993,15 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
                   onPointerMove={!isVideoFullscreen ? handleSlidePointerMove : undefined}
                   onPointerUp={!isVideoFullscreen ? handleSlidePointerUp : undefined}
                   onPointerCancel={!isVideoFullscreen ? handleSlidePointerCancel : undefined}
-                  style={slideTransformStyle}
+                  style={{
+                    ...slideTransformStyle,
+                    contain: "layout paint",
+                    transform: slideTransformStyle.transform || "translateZ(0)",
+                    willChange: dragOffset ? "transform" : "auto",
+                  }}
                 >
                   <VideoPlayer
-                    src={toProxyMediaUrl(photoSlide.src || photoSlide.key)}
+                    src={photoSlide.src || toProxyMediaUrl(photoSlide.key)}
                     poster={photoSlide.preview || photoSlide.thumbnail}
                     alt={photoSlide.alt || "Video"}
                     isActive={isCurrentSlide}
@@ -2016,12 +2025,18 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
                 onPointerMove={handleSlidePointerMove}
                 onPointerUp={handleSlidePointerUp}
                 onPointerCancel={handleSlidePointerCancel}
-                style={slideTransformStyle}
+                style={{
+                  ...slideTransformStyle,
+                  contain: "layout paint",
+                  transform: slideTransformStyle.transform || "translateZ(0)",
+                  willChange: dragOffset ? "transform" : "auto",
+                }}
               >
                 {photoSlide.thumbHashUrl && (
                   <img
                     src={photoSlide.thumbHashUrl}
                     alt=""
+                    decoding="async"
                     className="absolute inset-0 h-full w-full scale-110 blur-sm"
                     aria-hidden
                   />
@@ -2054,7 +2069,8 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
                   <img
                     src={photoSlide.thumbHashUrl}
                     alt=""
-                    className="absolute inset-0 h-full w-full scale-110 blur-sm object-cover"
+                    decoding="async"
+                    className="absolute inset-0 h-full w-full object-cover"
                     aria-hidden
                   />
                 )}
