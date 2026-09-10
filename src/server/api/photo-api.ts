@@ -21,6 +21,7 @@ import {
   type PhotoTakenDateListBo,
 } from '@/server/entity/bo/photo';
 import { downloadRateLimiter } from '@/server/lib/rate-limiter';
+import { getClientIp } from '@/server/lib/ip';
 import { settingService } from '@/server/service/setting-service';
 import { SettingWatermarkEnum } from '@/server/enums/setting-enum';
 import { applyWatermark } from '@/server/lib/photo-watermark';
@@ -188,10 +189,7 @@ export function registerPhotoApi(app: Hono<HonoEnv>) {
 
     // Rate limiting for public/unauthenticated requests (max 30 downloads per 5 mins per IP)
     if (!userId) {
-      const clientIp =
-        c.req.header('x-forwarded-for')?.split(',')[0].trim() ||
-        c.req.header('x-real-ip') ||
-        'unknown';
+      const clientIp = getClientIp(c);
       const rateLimit = await downloadRateLimiter.consume(clientIp);
       if (!rateLimit.allowed) {
         return c.json({
@@ -248,10 +246,7 @@ export function registerPhotoApi(app: Hono<HonoEnv>) {
 
     // Rate limiting for public/unauthenticated requests (max 30 downloads per 5 mins per IP)
     if (!userId) {
-      const clientIp =
-        c.req.header('x-forwarded-for')?.split(',')[0].trim() ||
-        c.req.header('x-real-ip') ||
-        'unknown';
+      const clientIp = getClientIp(c);
       const rateLimit = await downloadRateLimiter.consume(clientIp);
       if (!rateLimit.allowed) {
         return c.json({

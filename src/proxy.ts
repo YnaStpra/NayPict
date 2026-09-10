@@ -5,6 +5,7 @@ import { getLoginInfo } from '@/lib/cookie';
 import { UserTypeEnum } from '@/server/enums/user-enum';
 import { type AuthInfo } from '@/server/entity/vo/auth';
 import { cache } from '@/server/infra/cache';
+import { userService } from '@/server/service/user-service';
 
 // This module proxy page routing, Jump to login page when not logged in.
 
@@ -81,6 +82,25 @@ export async function proxy(req: NextRequest) {
     authInfo = await cache.get<AuthInfo>(AUTH_CACHE_KEY + userId);
   } catch (err) {
     console.error('Proxy cache get error:', err);
+  }
+
+  if (!authInfo) {
+    try {
+      const user = await userService.getById(userId);
+      if (user) {
+        authInfo = {
+          userId: user.userId,
+          username: user.username,
+          avatar: user.avatar,
+          type: user.type,
+          tokenVersion,
+          uuidList: [uuid],
+        };
+        await cache.set(AUTH_CACHE_KEY + userId, authInfo).catch(() => {});
+      }
+    } catch (err) {
+      console.error('Proxy DB fallback get error:', err);
+    }
   }
 
   const cachedTokenVersion = authInfo?.tokenVersion ?? 1;

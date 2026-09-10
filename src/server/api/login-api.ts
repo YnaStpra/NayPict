@@ -5,6 +5,7 @@ import result from "@/server/model/result";
 import { type LoginBo } from "@/server/entity/bo/login";
 import { getLoginInfo } from "@/lib/cookie";
 import { loginService } from "@/server/service/login-service";
+import { getClientIp } from "@/server/lib/ip";
 import type { HonoEnv } from '../hono/type';
 
 // This module registers login and logout interfaces.
@@ -14,11 +15,8 @@ export function registerLoginApi(app: Hono<HonoEnv>) {
   app.post('/login', async (c: Context) => {
     const params = await c.req.json<LoginBo>();
 
-    // Resolve real client IP and device metadata for rate limiting and anomaly detection (HIGH-02, ANOMALY-01)
-    const clientIp =
-      c.req.header('x-forwarded-for')?.split(',')[0].trim() ||
-      c.req.header('x-real-ip') ||
-      'unknown';
+    // Resolve verified client IP and device metadata for rate limiting and anomaly detection (HIGH-02, ANOMALY-01)
+    const clientIp = getClientIp(c);
     const userAgent = c.req.header('user-agent') || 'unknown';
     const acceptLanguage = c.req.header('accept-language') || '';
 

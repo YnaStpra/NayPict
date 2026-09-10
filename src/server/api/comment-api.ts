@@ -2,6 +2,7 @@ import { Hono, Context } from "hono";
 import result from '@/server/model/result';
 import { commentService } from '@/server/service/comment-service';
 import { type CommentAddBo, type CommentDeleteBo, type CommentListAdminBo, type CommentReplyBo } from '@/server/entity/bo/comment';
+import { getClientIp } from '@/server/lib/ip';
 import type { HonoEnv } from '../hono/type';
 
 // This module registers public and administrative photo comment interfaces.
@@ -33,10 +34,7 @@ export function registerCommentApi(app: Hono<HonoEnv>) {
     const photoId = c.req.param('photoId') ?? '';
     const body = await c.req.json<CommentAddBo>().catch(() => ({ photoId: '', name: '', content: '' }));
 
-    const clientIp =
-      c.req.header('x-forwarded-for')?.split(',')[0].trim() ||
-      c.req.header('x-real-ip') ||
-      'unknown';
+    const clientIp = getClientIp(c);
 
     const data = await commentService.add({
       ...body,
@@ -50,10 +48,7 @@ export function registerCommentApi(app: Hono<HonoEnv>) {
   app.post('/photo/comment/add', async (c: Context) => {
     const body = await c.req.json<CommentAddBo>().catch(() => ({ photoId: '', name: '', content: '' }));
 
-    const clientIp =
-      c.req.header('x-forwarded-for')?.split(',')[0].trim() ||
-      c.req.header('x-real-ip') ||
-      'unknown';
+    const clientIp = getClientIp(c);
 
     const data = await commentService.add(body, clientIp);
     return c.json(result.ok(data));
