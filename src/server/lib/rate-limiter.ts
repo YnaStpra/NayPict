@@ -298,5 +298,12 @@ export const photoListRateLimiter = new DistributedRateLimiter({
   windowMs: 60 * 1000, // 1 minute
 })
 
+// 7. Account Lockout Rate Limiter: Max 10 failed login attempts per 15 minutes per username (Anti-Distributed Password Spraying)
+export const accountLockoutRateLimiter = new DistributedRateLimiter({
+  name: 'account-lockout',
+  limit: 10,
+  windowMs: 15 * 60 * 1000, // 15 minutes
+})
+
 
 

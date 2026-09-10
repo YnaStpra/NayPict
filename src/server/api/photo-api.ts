@@ -22,6 +22,7 @@ import {
 } from '@/server/entity/bo/photo';
 import { downloadRateLimiter, photoListRateLimiter } from '@/server/lib/rate-limiter';
 import { getClientIp } from '@/server/lib/ip';
+import { logSecurityAudit } from '@/server/lib/audit';
 import { settingService } from '@/server/service/setting-service';
 import { SettingWatermarkEnum } from '@/server/enums/setting-enum';
 import { applyWatermark } from '@/server/lib/photo-watermark';
@@ -359,7 +360,13 @@ export function registerPhotoApi(app: Hono<HonoEnv>) {
 
   // Clean up photo files in recycle bin.
   app.post('/photo/clear', async (c: Context) => {
-    await photoService.clear(getUserId());
+    const userId = getUserId();
+    await photoService.clear(userId);
+    logSecurityAudit({
+      action: 'RECYCLE_BIN_CLEAR',
+      userId,
+      clientIp: getClientIp(c),
+    });
     return c.json(result.ok());
   });
 

@@ -35,6 +35,26 @@ function isOriginAllowed(origin, allowedOrigin) {
   return false
 }
 
+// Check if an HTTP referer belongs to NayPict or approved environments (Anti-Hotlinking).
+function isRefererAllowed(referer, allowedOrigin) {
+  if (!referer) return true
+  try {
+    const parsed = new URL(referer)
+    const host = parsed.hostname.toLowerCase()
+    if (allowedOrigin) {
+      try {
+        const allowedHost = new URL(allowedOrigin).hostname.toLowerCase()
+        if (host === allowedHost) return true
+      } catch {}
+    }
+    if (host === "naypict.my.id" || host.endsWith(".naypict.my.id")) return true
+    if (host.endsWith(".vercel.app")) return true
+    if (host === "localhost" || host === "127.0.0.1") return true
+  } catch {}
+  return false
+}
+
+
 // Build the CORS and defensive response headers dynamically reflecting approved request origin.
 function buildBaseHeaders(allowedOrigin, requestOrigin) {
   const originHeader = (requestOrigin && isOriginAllowed(requestOrigin, allowedOrigin))
@@ -308,6 +328,11 @@ const mediaGateway = {
 
     if (!isRequestOriginAllowed(request, allowedOrigin)) {
       return errorResponse("Origin not allowed.", 403, allowedOrigin)
+    }
+
+    const referer = request.headers.get("Referer")
+    if (referer && !isRefererAllowed(referer, allowedOrigin)) {
+      return errorResponse("Hotlinking forbidden.", 403, allowedOrigin)
     }
 
     if (!env.MEDIA_BUCKET) {

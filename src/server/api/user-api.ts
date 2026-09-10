@@ -2,6 +2,8 @@ import { Hono, Context } from 'hono';
 import result from '@/server/model/result';
 import { type UserAddBo, type UserDeleteBo, type UserSetAvatarBo, type UserSetBo, type UserPasswordBo, type UserToggleStatusBo } from '@/server/entity/bo/user';
 import { getUserId } from '@/server/security/context';
+import { getClientIp } from '@/server/lib/ip';
+import { logSecurityAudit } from '@/server/lib/audit';
 import { userService } from '@/server/service/user-service';
 import type { HonoEnv } from '../hono/type';
 
@@ -22,22 +24,43 @@ export function registerUserApi(app: Hono<HonoEnv>) {
 
   // Add user.
   app.post('/user/add', async (c: Context) => {
+    const currentUserId = getUserId();
     const params = await c.req.json<UserAddBo>();
     await userService.add(params);
+    logSecurityAudit({
+      action: 'USER_ADD',
+      userId: currentUserId,
+      clientIp: getClientIp(c),
+      details: { username: params.username, type: params.type },
+    });
     return c.json(result.ok());
   });
 
   // Modify user information.
   app.post('/user/set', async (c: Context) => {
+    const currentUserId = getUserId();
     const params = await c.req.json<UserSetBo>();
-    await userService.set(params);
+    await userService.set(params, currentUserId);
+    logSecurityAudit({
+      action: 'USER_SET',
+      userId: currentUserId,
+      clientIp: getClientIp(c),
+      targetId: params.userId,
+      details: { username: params.username, type: params.type },
+    });
     return c.json(result.ok());
   });
 
   // Modify the current login user password.
   app.post('/user/setUserPassword', async (c: Context) => {
+    const currentUserId = getUserId();
     const params = await c.req.json<UserPasswordBo>();
-    await userService.setUserPassword(params, getUserId());
+    await userService.setUserPassword(params, currentUserId);
+    logSecurityAudit({
+      action: 'USER_CHANGE_PASSWORD',
+      userId: currentUserId,
+      clientIp: getClientIp(c),
+    });
     return c.json(result.ok());
   });
 
@@ -67,15 +90,29 @@ export function registerUserApi(app: Hono<HonoEnv>) {
 
   // Switch the specified user's enabled status.
   app.post('/user/toggleStatus', async (c: Context) => {
+    const currentUserId = getUserId();
     const params = await c.req.json<UserToggleStatusBo>();
-    await userService.toggleStatus(params);
+    await userService.toggleStatus(params, currentUserId);
+    logSecurityAudit({
+      action: 'USER_TOGGLE_STATUS',
+      userId: currentUserId,
+      clientIp: getClientIp(c),
+      targetId: params.userId,
+    });
     return c.json(result.ok());
   });
 
   // Delete the specified user and its associated data.
   app.post('/user/delete', async (c: Context) => {
+    const currentUserId = getUserId();
     const params = await c.req.json<UserDeleteBo>();
-    await userService.delete(params.userId);
+    await userService.delete(params.userId, currentUserId);
+    logSecurityAudit({
+      action: 'USER_DELETE',
+      userId: currentUserId,
+      clientIp: getClientIp(c),
+      targetId: params.userId,
+    });
     return c.json(result.ok());
   });
 }
