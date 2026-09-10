@@ -86,7 +86,7 @@ const totpService = {
     }
 
     const otpauthUrl = generateOtpAuthUrl(secret, username, 'NayPict');
-    const qrCodeUrl = getQrCodeImageUrl(otpauthUrl);
+    const qrCodeUrl = await getQrCodeImageUrl(otpauthUrl);
 
     return {
       secret,

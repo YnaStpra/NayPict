@@ -3,6 +3,8 @@ import { type Storage, type StorageInto } from '@/server/entity/storage';
 import { type StorageDeleteBo, type StorageSetTopBo, type StorageToggleStatusBo } from '@/server/entity/bo/storage';
 import result from '@/server/model/result';
 import { getUserId } from '@/server/security/context';
+import { getClientIp } from '@/server/lib/ip';
+import { logSecurityAudit } from '@/server/lib/audit';
 import { storageService } from '@/server/service/storage-service';
 import type { HonoEnv } from '../hono/type';
 
@@ -23,8 +25,15 @@ export function registerStorageApi(app: Hono<HonoEnv>) {
 
   // Add the current user's storage configuration.
   app.post('/storage/add', async (c: Context) => {
+    const userId = getUserId();
     const body = await c.req.json<StorageInto>();
-    await storageService.add(body, getUserId());
+    await storageService.add(body, userId);
+    logSecurityAudit({
+      action: 'STORAGE_ADD',
+      userId,
+      clientIp: getClientIp(c),
+      details: { name: body.name, type: body.type },
+    });
     return c.json(result.ok());
   });
 
@@ -32,6 +41,13 @@ export function registerStorageApi(app: Hono<HonoEnv>) {
   app.post('/storage/set', async (c: Context) => {
     const body = await c.req.json<Storage>();
     await storageService.set(body);
+    logSecurityAudit({
+      action: 'STORAGE_SET',
+      userId: getUserId(),
+      clientIp: getClientIp(c),
+      targetId: body.storageId,
+      details: { name: body.name, type: body.type },
+    });
     return c.json(result.ok());
   });
 
@@ -46,6 +62,12 @@ export function registerStorageApi(app: Hono<HonoEnv>) {
   app.post('/storage/toggleStatus', async (c: Context) => {
     const body = await c.req.json<StorageToggleStatusBo>();
     await storageService.toggleStatus(body);
+    logSecurityAudit({
+      action: 'STORAGE_TOGGLE_STATUS',
+      userId: getUserId(),
+      clientIp: getClientIp(c),
+      targetId: body.storageId,
+    });
     return c.json(result.ok());
   });
 
@@ -53,6 +75,12 @@ export function registerStorageApi(app: Hono<HonoEnv>) {
   app.post('/storage/delete', async (c: Context) => {
     const body = await c.req.json<StorageDeleteBo>();
     await storageService.delete(body.storageId);
+    logSecurityAudit({
+      action: 'STORAGE_DELETE',
+      userId: getUserId(),
+      clientIp: getClientIp(c),
+      targetId: body.storageId,
+    });
     return c.json(result.ok());
   });
 }

@@ -184,3 +184,21 @@ test("GET falls back to VIDEO_BUCKET when key is not in MEDIA_BUCKET", async () 
   assert.deepEqual(videoBucket.requestedKeys, ["videos/sample.mp4"])
 })
 
+test("a third-party Referer is blocked by anti-hotlinking before R2 access", async () => {
+  const { bucket, response } = await dispatch("/previews/aa/photo.jpg", {
+    headers: { Referer: "https://evil-hotlinker.example/blog/page.html" },
+  })
+  assert.equal(response.status, 403)
+  assert.equal(await response.text(), "Hotlinking forbidden.")
+  assert.deepEqual(bucket.requestedKeys, [])
+})
+
+test("an approved Referer is permitted by anti-hotlinking", async () => {
+  const { bucket, response } = await dispatch("/previews/aa/photo.jpg", {
+    headers: { Referer: `${APP_URL}/photos/view` },
+  })
+  assert.equal(response.status, 200)
+  assert.deepEqual(bucket.requestedKeys, ["previews/aa/photo.jpg"])
+})
+
+

@@ -1,5 +1,8 @@
 import { Hono, type Context } from 'hono';
 import result from '@/server/model/result';
+import { getUserId } from '@/server/security/context';
+import { getClientIp } from '@/server/lib/ip';
+import { logSecurityAudit } from '@/server/lib/audit';
 import { backupService } from '@/server/service/backup-service';
 import type { HonoEnv } from '../hono/type';
 
@@ -16,6 +19,13 @@ export function registerBackupApi(app: Hono<HonoEnv>) {
   app.post('/backup/export', async (c: Context) => {
     const body = (await c.req.json().catch(() => ({}))) as { password?: string };
     const { buffer, fileName } = await backupService.createEncryptedBackup(body?.password);
+
+    logSecurityAudit({
+      action: 'BACKUP_EXPORT',
+      userId: getUserId(),
+      clientIp: getClientIp(c),
+      details: { fileName, sizeBytes: buffer.length },
+    });
 
     c.header('Content-Type', 'application/octet-stream');
     c.header('Content-Disposition', `attachment; filename="${fileName}"`);

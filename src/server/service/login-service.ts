@@ -17,7 +17,7 @@ import { parseUserAgent } from '@/server/lib/user-agent';
 import { type LoginVo } from '@/server/entity/vo/login';
 import { totpService } from '@/server/service/totp-service';
 import { userService } from '@/server/service/user-service';
-import { loginRateLimiter } from '@/server/lib/rate-limiter';
+import { accountLockoutRateLimiter, loginRateLimiter } from '@/server/lib/rate-limiter';
 import { verifyTurnstileToken } from '@/server/lib/turnstile';
 
 // This module handles login authentication related services.
@@ -153,6 +153,7 @@ const loginService = {
       await cache.delete(`temp_2fa_${params.tempToken}`);
       await cache.delete(attemptKey);
       await loginRateLimiter.reset(clientIp);
+      await accountLockoutRateLimiter.reset(user.username.trim().toLowerCase());
 
       // Record verified device fingerprint upon successful 2FA
       const fingerprintKey = `known_devices_${user.userId}`;
@@ -168,14 +169,24 @@ const loginService = {
       return { token, user: userVo, isNewDevice };
     }
 
-    if (!params.username?.trim() || !params.password?.trim()) {
+    const username = params.username?.trim();
+    const normalizedUsername = username?.toLowerCase();
+
+    if (!username || !params.password?.trim()) {
       throw new BizError("login.credentialsRequired");
     }
 
-    const [user] = await orm.select().from(userTab).where(eq(userTab.username, params.username)).limit(1);
+    // Account-Level Lockout (Anti-Distributed Password Spraying): max 10 failed attempts per 15 minutes per username
+    const accountLimit = await accountLockoutRateLimiter.check(normalizedUsername);
+    if (!accountLimit.allowed) {
+      throw new BizError('login.accountLocked');
+    }
+
+    const [user] = await orm.select().from(userTab).where(eq(userTab.username, username)).limit(1);
 
     if (!user) {
       await loginRateLimiter.consume(clientIp);
+      await accountLockoutRateLimiter.consume(normalizedUsername);
       throw new BizError("login.invalidCredentials");
     }
 
@@ -187,6 +198,7 @@ const loginService = {
 
     if (!isValidPassword) {
       await loginRateLimiter.consume(clientIp);
+      await accountLockoutRateLimiter.consume(normalizedUsername);
       throw new BizError('login.invalidCredentials');
     }
 
@@ -226,6 +238,7 @@ const loginService = {
           await totpService.verifyLoginTotp(user.userId, params.code);
         } catch {
           await loginRateLimiter.consume(clientIp);
+          await accountLockoutRateLimiter.consume(normalizedUsername);
           throw new BizError('totp.invalidCode');
         }
       } else {
@@ -244,8 +257,9 @@ const loginService = {
       }
     }
 
-    // Reset rate limiter on successful authentication
+    // Reset rate limiters on successful authentication
     await loginRateLimiter.reset(clientIp);
+    await accountLockoutRateLimiter.reset(normalizedUsername);
 
     // Save trusted device fingerprint
     const updatedDevices = [...knownDevices.filter((d) => d !== deviceFingerprint), deviceFingerprint].slice(-10);

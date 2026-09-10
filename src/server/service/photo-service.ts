@@ -85,10 +85,30 @@ export function invalidatePhotoFastPathCache(): void {
   publicFastPathCache.clear();
 }
 
+const ALLOWED_UPLOAD_MIMES = new Set([
+  'image/jpeg',
+  'image/jpg',
+  'image/png',
+  'image/gif',
+  'image/webp',
+  'image/avif',
+  'image/heic',
+  'image/heif',
+  'image/tiff',
+  'image/bmp',
+  'image/jxl',
+  'video/mp4',
+  'video/quicktime',
+  'video/webm',
+  'video/x-m4v',
+  'video/x-matroska',
+  'video/ogg',
+]);
+
 // Resolve canonical MIME type matching file extension when client MIME is absent or generic.
 function getCanonicalMimeType(filename: string, fileType?: string): string {
-  const cleanType = fileType?.split(';')[0]?.trim();
-  if (cleanType && cleanType !== 'application/octet-stream') {
+  const cleanType = fileType?.split(';')[0]?.trim().toLowerCase();
+  if (cleanType && cleanType !== 'application/octet-stream' && ALLOWED_UPLOAD_MIMES.has(cleanType)) {
     return cleanType;
   }
   const ext = filename.split('.').pop()?.toLowerCase() || '';
@@ -98,6 +118,7 @@ function getCanonicalMimeType(filename: string, fileType?: string): string {
     webm: 'video/webm',
     m4v: 'video/x-m4v',
     mkv: 'video/x-matroska',
+    ogv: 'video/ogg',
     jpg: 'image/jpeg',
     jpeg: 'image/jpeg',
     png: 'image/png',
@@ -105,9 +126,16 @@ function getCanonicalMimeType(filename: string, fileType?: string): string {
     gif: 'image/gif',
     avif: 'image/avif',
     heic: 'image/heic',
+    heif: 'image/heif',
+    tiff: 'image/tiff',
+    bmp: 'image/bmp',
     jxl: 'image/jxl',
   };
-  return mimeMap[ext] || 'image/jpeg';
+  const resolved = mimeMap[ext];
+  if (!resolved || !ALLOWED_UPLOAD_MIMES.has(resolved)) {
+    throw new BizError('photo.invalidFileType');
+  }
+  return resolved;
 }
 
 const photoService = {
@@ -121,7 +149,8 @@ const photoService = {
       if (cached) return cached;
     }
 
-    const size = params.size && params.size > 0 ? params.size : PHOTO_LIST_PAGE_SIZE;
+    // Clamp pagination size between 1 and 100 to prevent denial-of-service via excessive memory allocation
+    const size = Math.min(Math.max(1, params.size || PHOTO_LIST_PAGE_SIZE), 100);
     const status = params.status ?? PhotoStatusEnum.NORMAL;
 
     // Determine target sort column
@@ -157,7 +186,8 @@ const photoService = {
     ];
 
     if (params.keyword?.trim()) {
-      baseWhereList.push(ilike(photoTab.name, `%${params.keyword.trim()}%`));
+      const sanitized = params.keyword.trim().slice(0, 100).replace(/[%_\\]/g, '\\$&');
+      baseWhereList.push(ilike(photoTab.name, `%${sanitized}%`));
     }
 
     if (params.allowDownload !== undefined && params.allowDownload !== null) {
@@ -399,11 +429,13 @@ const photoService = {
           desc(albumPhotoTab.pinnedAt),
           sql`RANDOM()`
         )
+        .limit(500)
       : await orm
         .select({ photoId: photoTab.photoId })
         .from(photoTab)
         .where(and(...whereList))
-        .orderBy(sql`RANDOM()`);
+        .orderBy(sql`RANDOM()`)
+        .limit(500);
 
     return rows.map((row: any) => row.photoId);
   },
@@ -571,16 +603,16 @@ const photoService = {
     }
   },
 
-  // Generate storage based on original file name key, like key If it already exists, append a timestamp before the extension..
+  // Generate storage based on original file name key, ensuring filename is sanitized against path traversal.
   async resolvePhotoKey(userId: string, name: string) {
 
-    const trimmedName = name.trim();
+    const safeName = sanitizeFileName(name.trim());
 
-    if (!trimmedName) {
+    if (!safeName) {
       throw new BizError('photo.fileNameRequired');
     }
 
-    let key = buildPhotoKey(userId, trimmedName);
+    let key = buildPhotoKey(userId, safeName);
     const [existing] = await orm
       .select({ fileId: fileTab.fileId })
       .from(fileTab)
@@ -588,7 +620,7 @@ const photoService = {
       .limit(1);
 
     if (existing) {
-      const { baseName, extName } = splitFileName(trimmedName);
+      const { baseName, extName } = splitFileName(safeName);
       key = buildPhotoKey(userId, `${baseName}_${formatFileTimestamp()}${extName}`);
     }
 
@@ -1175,6 +1207,9 @@ const photoService = {
     if (!params.photoIds?.length) {
       throw new BizError('photo.selectRequired');
     }
+    if (params.photoIds.length > 500) {
+      throw new BizError('photo.batchLimitExceeded');
+    }
 
     const whereList = [inArray(photoTab.photoId, params.photoIds)];
     if (userId) {
@@ -1213,6 +1248,9 @@ const photoService = {
     if (!params.photoIds?.length) {
       throw new BizError('photo.selectRequired');
     }
+    if (params.photoIds.length > 500) {
+      throw new BizError('photo.batchLimitExceeded');
+    }
 
     if (!params.visibility) {
       throw new BizError('photo.visibilityRequired');
@@ -1237,6 +1275,9 @@ const photoService = {
     if (!params.photoIds?.length) {
       throw new BizError('photo.selectRequired');
     }
+    if (params.photoIds.length > 500) {
+      throw new BizError('photo.batchLimitExceeded');
+    }
 
     const whereList = [inArray(photoTab.photoId, params.photoIds)];
     if (userId) {
@@ -1257,6 +1298,9 @@ const photoService = {
   async delete(params: PhotoDeleteBo, userId?: string): Promise<void> {
     if (!params.photoIds?.length) {
       throw new BizError('photo.selectRequired');
+    }
+    if (params.photoIds.length > 500) {
+      throw new BizError('photo.batchLimitExceeded');
     }
 
     const fileStorageList = await storageService.list();
@@ -1474,6 +1518,9 @@ const photoService = {
     if (!params.photoIds?.length) {
       throw new BizError('photo.selectRequired');
     }
+    if (params.photoIds.length > 500) {
+      throw new BizError('photo.batchLimitExceeded');
+    }
 
     // Strictly verify photo ownership (IDOR prevention)
     const selectWhere = [inArray(photoTab.photoId, params.photoIds)];
@@ -1615,13 +1662,38 @@ const photoService = {
     const isLocationIgnored = exifRow?.latitude === 999 && exifRow?.longitude === 999;
     const latitude = isLocationIgnored ? null : (exifRow?.latitude ?? null);
     const longitude = isLocationIgnored ? null : (exifRow?.longitude ?? null);
+    const altitude = isLocationIgnored ? null : (exifRow?.altitude ?? null);
+
+    let sanitizedExif = exifRow?.exif ?? null;
+    if (isLocationIgnored && sanitizedExif) {
+      try {
+        const parsed = JSON.parse(sanitizedExif);
+        if (parsed && typeof parsed === 'object') {
+          for (const key of Object.keys(parsed)) {
+            const lower = key.toLowerCase();
+            if (
+              lower.startsWith('gps') ||
+              lower.includes('latitude') ||
+              lower.includes('longitude') ||
+              lower.includes('altitude') ||
+              lower.includes('position')
+            ) {
+              delete parsed[key];
+            }
+          }
+          sanitizedExif = JSON.stringify(parsed);
+        }
+      } catch {
+        sanitizedExif = null;
+      }
+    }
 
     return {
       ...photo,
-      exif: exifRow?.exif ?? null,
+      exif: sanitizedExif,
       latitude,
       longitude,
-      altitude: exifRow?.altitude ?? null,
+      altitude,
       key,
       preview: toMediaUrl(preview, domain) ?? '',
       thumbnail: toMediaUrl(thumbnail, domain) ?? '',

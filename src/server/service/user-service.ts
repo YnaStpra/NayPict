@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars */
 import { hashPassword } from '@/server/lib/crypto';
 import { createId } from '@/server/lib/id';
-import { count, eq, inArray, sql, sum } from 'drizzle-orm';
+import { and, count, eq, inArray, ne, sql, sum } from 'drizzle-orm';
 import { userTab } from '@/server/entity/user';
 import { type UserAddBo, type UserSetAvatarBo, type UserSetBo, type UserPasswordBo, type UserToggleStatusBo } from '@/server/entity/bo/user';
 import { photoTab } from '@/server/entity/photo';
@@ -239,8 +239,8 @@ const userService = {
 
   },
 
-  // Modify user information.
-  async set(params: UserSetBo): Promise<void> {
+  // Modify user information with demotion safeguards.
+  async set(params: UserSetBo, currentUserId?: string): Promise<void> {
     const userId = params.userId?.trim();
     const username = params.username?.trim();
 
@@ -258,7 +258,8 @@ const userService = {
 
     const [user] = await orm
       .select({
-        userId: userTab.userId
+        userId: userTab.userId,
+        type: userTab.type,
       })
       .from(userTab)
       .where(eq(userTab.userId, userId))
@@ -266,6 +267,29 @@ const userService = {
 
     if (!user) {
       throw new BizError('user.notFound');
+    }
+
+    // Demotion safeguards: prevent removing the last admin or demoting self
+    if (user.type === UserTypeEnum.ADMIN && params.type !== UserTypeEnum.ADMIN) {
+      if (currentUserId && userId === currentUserId) {
+        throw new BizError('user.selfDemoteForbidden');
+      }
+
+      const adminCount = await orm
+        .select({ count: count() })
+        .from(userTab)
+        .where(
+          and(
+            eq(userTab.type, UserTypeEnum.ADMIN),
+            ne(userTab.userId, userId),
+            ne(userTab.status, UserStatusEnum.DISABLE)
+          )
+        );
+
+      const remainingAdmins = Number(adminCount[0]?.count || 0);
+      if (remainingAdmins === 0) {
+        throw new BizError('user.lastAdminForbidden');
+      }
     }
 
     const [existsUser] = await orm
@@ -339,15 +363,16 @@ const userService = {
     await cache.delete(AUTH_CACHE_KEY + userId);
   },
 
-  // Toggle the enabled status of a specified user.
-  async toggleStatus(params: UserToggleStatusBo): Promise<void> {
+  // Toggle the enabled status of a specified user with self-protection and last-admin safeguard.
+  async toggleStatus(params: UserToggleStatusBo, currentUserId?: string): Promise<void> {
     if (!params.userId) {
       throw new BizError('user.selectRequired');
     }
 
     const [user] = await orm
       .select({
-        status: userTab.status
+        status: userTab.status,
+        type: userTab.type,
       })
       .from(userTab)
       .where(eq(userTab.userId, params.userId))
@@ -355,6 +380,31 @@ const userService = {
 
     if (!user) {
       throw new BizError('user.notFound');
+    }
+
+    // If currently enabled and attempting to disable:
+    if (user.status !== UserStatusEnum.DISABLE) {
+      if (currentUserId && params.userId === currentUserId) {
+        throw new BizError('user.selfDisableForbidden');
+      }
+
+      if (user.type === UserTypeEnum.ADMIN) {
+        const adminCount = await orm
+          .select({ count: count() })
+          .from(userTab)
+          .where(
+            and(
+              eq(userTab.type, UserTypeEnum.ADMIN),
+              ne(userTab.userId, params.userId),
+              ne(userTab.status, UserStatusEnum.DISABLE)
+            )
+          );
+
+        const remainingAdmins = Number(adminCount[0]?.count || 0);
+        if (remainingAdmins === 0) {
+          throw new BizError('user.lastAdminForbidden');
+        }
+      }
     }
 
     await orm.update(userTab)
@@ -369,16 +419,47 @@ const userService = {
     await cache.delete(AUTH_CACHE_KEY + params.userId);
   },
 
-  // Delete the specified user and their associated albums, and move the photo to the recycle bin.
-  async delete(deleteUserId: string): Promise<void> {
+  // Delete the specified user and their associated albums, with self-deletion and last-admin safeguard.
+  async delete(deleteUserId: string, currentUserId?: string): Promise<void> {
+    if (!deleteUserId) {
+      throw new BizError('user.selectRequired');
+    }
+
+    if (currentUserId && deleteUserId === currentUserId) {
+      throw new BizError('user.selfDeletionForbidden');
+    }
 
     const [user] = await orm
       .select({
-        avatar: userTab.avatar
+        avatar: userTab.avatar,
+        type: userTab.type,
       })
       .from(userTab)
       .where(eq(userTab.userId, deleteUserId))
       .limit(1);
+
+    if (!user) {
+      throw new BizError('user.notFound');
+    }
+
+    // Ensure the last admin cannot be deleted
+    if (user.type === UserTypeEnum.ADMIN) {
+      const adminCount = await orm
+        .select({ count: count() })
+        .from(userTab)
+        .where(
+          and(
+            eq(userTab.type, UserTypeEnum.ADMIN),
+            ne(userTab.userId, deleteUserId),
+            ne(userTab.status, UserStatusEnum.DISABLE)
+          )
+        );
+
+      const remainingAdmins = Number(adminCount[0]?.count || 0);
+      if (remainingAdmins === 0) {
+        throw new BizError('user.lastAdminForbidden');
+      }
+    }
 
     if (user?.avatar) {
       await storage.delete(`profile/${user.avatar}`, 'local');

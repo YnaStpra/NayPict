@@ -70,7 +70,8 @@ const commentService = {
       }
 
       if (keyword) {
-        const pattern = `%${keyword}%`;
+        const sanitizedKeyword = keyword.slice(0, 100).replace(/[%_\\]/g, '\\$&');
+        const pattern = `%${sanitizedKeyword}%`;
         conditions.push(
           or(
             ilike(commentTab.name, pattern),

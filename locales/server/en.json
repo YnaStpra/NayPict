@@ -9,6 +9,7 @@
   "album.selectRequired": "Select at least one album.",
   "photo.selectRequired": "Select at least one item.",
   "photo.fileNameRequired": "File name is required.",
+  "photo.batchLimitExceeded": "Maximum 500 items can be processed in a single batch.",
   "login.credentialsRequired": "Username and password are required.",
   "login.invalidCredentials": "Incorrect username or password.",
   "user.disabled": "This user has been disabled.",
@@ -37,6 +38,7 @@
   "photo.fileTooLarge": "File size exceeds the allowed limit.",
   "photo.maliciousFileDetected": "Malicious script payload detected. Upload rejected for security.",
   "photo.emptyFile": "Uploaded file is empty.",
+  "reaction.tooManyRequests": "Too many reactions. Please wait a moment before trying again.",
   "totp.notConfigured": "2FA is not configured for this account.",
   "totp.invalidCode": "Invalid 2FA verification code.",
   "totp.codeAlreadyUsed": "This 2FA code has already been used.",
@@ -57,5 +59,11 @@
   "login.captchaFailed": "Security verification failed. Please complete the captcha.",
   "csrf.originMismatch": "Request origin validation failed. Action blocked by CSRF protection.",
   "csrf.originRequired": "Origin header is required for sensitive administrative operations.",
-  "csrf.invalidHeader": "Invalid request headers for sensitive operation."
+  "csrf.invalidHeader": "Invalid request headers for sensitive operation.",
+  "login.accountLocked": "This account is temporarily locked due to multiple failed login attempts. Please try again in 15 minutes.",
+  "user.selfDeletionForbidden": "You cannot delete your own account.",
+  "user.selfDisableForbidden": "You cannot disable your own account.",
+  "user.selfDemoteForbidden": "You cannot demote your own administrator privileges.",
+  "user.lastAdminForbidden": "Cannot remove, disable, or demote the last active administrator account."
 }
+

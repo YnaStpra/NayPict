@@ -45,9 +45,36 @@ export async function verifyTurnstileToken(token: string, remoteIp?: string): Pr
     const outcome = (await response.json()) as TurnstileVerifyResponse;
     if (!outcome.success) {
       console.warn('[TURNSTILE] Verification failed with error codes:', outcome['error-codes']);
+      return false;
     }
 
-    return Boolean(outcome.success);
+    // Verify token was solved on an authorized domain to prevent cross-domain token replay
+    if (process.env.NODE_ENV === 'production' && outcome.hostname) {
+      const allowedHosts = ['naypict.my.id', 'www.naypict.my.id'];
+      if (process.env.APP_URL) {
+        try {
+          allowedHosts.push(new URL(process.env.APP_URL).hostname.toLowerCase());
+        } catch {}
+      }
+      if (process.env.NEXT_PUBLIC_APP_URL) {
+        try {
+          allowedHosts.push(new URL(process.env.NEXT_PUBLIC_APP_URL).hostname.toLowerCase());
+        } catch {}
+      }
+
+      const host = outcome.hostname.toLowerCase();
+      const isHostAllowed =
+        allowedHosts.includes(host) ||
+        host.endsWith('.naypict.my.id') ||
+        host.endsWith('.vercel.app');
+
+      if (!isHostAllowed) {
+        console.warn(`[TURNSTILE REJECTED] Hostname mismatch: solved on "${outcome.hostname}"`);
+        return false;
+      }
+    }
+
+    return true;
   } catch (err) {
     console.error('[TURNSTILE] Unexpected error during token verification:', err);
     return false;

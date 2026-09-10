@@ -53,6 +53,10 @@ const nextConfig: NextConfig = {
       { key: 'X-Content-Type-Options', value: 'nosniff' },
       // Limit referrer information leakage
       { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+      // Cross-Origin Opener Policy: isolate browsing context while allowing legitimate popups (mitigates Spectre & cross-window attacks)
+      { key: 'Cross-Origin-Opener-Policy', value: 'same-origin-allow-popups' },
+      // Prevent Adobe Flash / Acrobat cross-domain policy file inspection
+      { key: 'X-Permitted-Cross-Domain-Policies', value: 'none' },
       // Disable browser features not required by this app
       { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=(), interest-cohort=()' },
       // Force HTTPS (only meaningful in production behind HTTPS)

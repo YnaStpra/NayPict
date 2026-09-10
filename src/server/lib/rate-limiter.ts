@@ -284,3 +284,26 @@ export const totpRateLimiter = new DistributedRateLimiter({
   windowMs: 5 * 60 * 1000, // 5 minutes
 })
 
+// 5. Reaction Rate Limiter: Max 30 reactions per 1 minute per IP
+export const reactionRateLimiter = new DistributedRateLimiter({
+  name: 'reaction',
+  limit: 30,
+  windowMs: 60 * 1000, // 1 minute
+})
+
+// 6. Photo List Read Rate Limiter: Max 120 requests per 1 minute per IP
+export const photoListRateLimiter = new DistributedRateLimiter({
+  name: 'photo-list',
+  limit: 120,
+  windowMs: 60 * 1000, // 1 minute
+})
+
+// 7. Account Lockout Rate Limiter: Max 10 failed login attempts per 15 minutes per username (Anti-Distributed Password Spraying)
+export const accountLockoutRateLimiter = new DistributedRateLimiter({
+  name: 'account-lockout',
+  limit: 10,
+  windowMs: 15 * 60 * 1000, // 15 minutes
+})
+
+
+
