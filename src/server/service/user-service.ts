@@ -20,6 +20,17 @@ import { storage } from '@/server/storage/storage';
 
 // This module handles user data query and writing related services.
 
+// Validate password length according to OWASP guidelines (min 8 characters, max 128 characters).
+function validatePasswordComplexity(password?: string): void {
+  const trimmed = password?.trim();
+  if (!trimmed || trimmed.length < 8) {
+    throw new BizError('user.passwordLengthInvalid');
+  }
+  if (trimmed.length > 128) {
+    throw new BizError('user.passwordTooLong');
+  }
+}
+
 const userService = {
 
   // According to environment variables ADMIN, PASSWORD initialize administrator: create if not exists, skip if exists.
@@ -201,6 +212,8 @@ const userService = {
       throw new BizError('user.credentialsRequired');
     }
 
+    validatePasswordComplexity(params.password);
+
     if (!params.type) {
       throw new BizError('user.typeRequired');
     }
@@ -269,6 +282,7 @@ const userService = {
 
     const nextPassword = params.password?.trim();
     if (nextPassword) {
+      validatePasswordComplexity(nextPassword);
       const password = await hashPassword(nextPassword);
       await orm.update(userTab)
         .set({
@@ -308,6 +322,8 @@ const userService = {
     if (!params.password?.trim()) {
       throw new BizError('user.passwordRequired');
     }
+
+    validatePasswordComplexity(params.password);
 
     const password = await hashPassword(params.password.trim());
 

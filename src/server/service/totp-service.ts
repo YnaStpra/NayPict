@@ -7,13 +7,19 @@ import { generateOtpAuthUrl, generateTotpSecret, getQrCodeImageUrl, verifyTotpCo
 import { type TotpSetupVo, type TotpStatusVo } from '@/server/entity/vo/totp';
 import { cache } from '@/server/infra/cache';
 import { AUTH_CACHE_KEY } from '@/server/const/cache';
+import { encryptData, decryptData } from '@/server/lib/crypto';
 
-// This module manages TOTP configuration, verification, and related session revocation.
+// This module manages TOTP configuration, verification, and related session revocation with AES-256-GCM encryption at rest.
 
 interface TotpUserData {
   secret: string;
   enabled: boolean;
   createTime: string;
+}
+
+// Retrieve master encryption key for 2FA secrets at rest.
+function getEncryptionKey(): string {
+  return process.env.TOTP_ENCRYPTION_KEY?.trim() || process.env.JWT_SECRET?.trim() || 'naypict-totp-default-encryption-key-2026';
 }
 
 const totpService = {
@@ -25,22 +31,14 @@ const totpService = {
 
   // Get user's TOTP configuration status.
   async getTotpStatus(userId: string): Promise<TotpStatusVo> {
-    const key = this.getSettingKey(userId);
-    const [row] = await orm.select().from(settingTab).where(eq(settingTab.key, key)).limit(1);
-
-    if (!row || !row.value) {
-      return { enabled: false, configured: false };
-    }
-
-    try {
-      const data: TotpUserData = JSON.parse(row.value);
-      return { enabled: Boolean(data.enabled), configured: Boolean(data.secret) };
-    } catch {
-      return { enabled: false, configured: false };
-    }
+    const data = await this.getTotpData(userId);
+    return {
+      enabled: Boolean(data?.enabled),
+      configured: Boolean(data?.secret),
+    };
   },
 
-  // Get user's TOTP configuration data.
+  // Get user's TOTP configuration data, decrypting secret from AES-256-GCM storage.
   async getTotpData(userId: string): Promise<TotpUserData | null> {
     const key = this.getSettingKey(userId);
     const [row] = await orm.select().from(settingTab).where(eq(settingTab.key, key)).limit(1);
@@ -50,13 +48,17 @@ const totpService = {
     }
 
     try {
-      return JSON.parse(row.value) as TotpUserData;
+      const data = JSON.parse(row.value) as TotpUserData;
+      if (data.secret) {
+        data.secret = await decryptData(data.secret, getEncryptionKey());
+      }
+      return data;
     } catch {
       return null;
     }
   },
 
-  // Initialize or setup Google Authenticator TOTP QR code for user.
+  // Initialize or setup Google Authenticator TOTP QR code for user with encrypted secret storage.
   async setupTotp(username: string, userId: string): Promise<TotpSetupVo> {
     const existingData = await this.getTotpData(userId);
     let secret = existingData?.secret;
@@ -64,8 +66,9 @@ const totpService = {
     if (!secret) {
       secret = generateTotpSecret(16);
       const key = this.getSettingKey(userId);
+      const encryptedSecret = await encryptData(secret, getEncryptionKey());
       const data: TotpUserData = {
-        secret,
+        secret: encryptedSecret,
         enabled: false,
         createTime: new Date().toISOString(),
       };
@@ -120,8 +123,9 @@ const totpService = {
     }
 
     const key = this.getSettingKey(userId);
+    const encryptedSecret = await encryptData(secret, getEncryptionKey());
     const updatedData: TotpUserData = {
-      secret,
+      secret: encryptedSecret,
       enabled: true,
       createTime: existingData?.createTime || new Date().toISOString(),
     };
@@ -154,8 +158,10 @@ const totpService = {
     if (!existingData) return;
 
     const key = this.getSettingKey(userId);
+    const encryptedSecret = await encryptData(existingData.secret, getEncryptionKey());
     const updatedData: TotpUserData = {
       ...existingData,
+      secret: encryptedSecret,
       enabled: false,
     };
 

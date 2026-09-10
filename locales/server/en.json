@@ -20,6 +20,8 @@
   "user.selectRequired": "Select a user.",
   "user.notFound": "User not found.",
   "user.passwordRequired": "Password is required.",
+  "user.passwordLengthInvalid": "Password must be at least 8 characters long.",
+  "user.passwordTooLong": "Password cannot exceed 128 characters.",
   "storage.nameRequired": "Storage name is required.",
   "storage.typeRequired": "Select a storage type.",
   "storage.nameExists": "A storage location with this name already exists.",

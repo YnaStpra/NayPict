@@ -128,3 +128,67 @@ export async function verifyPassword(
   const result = await verifyPasswordDetailed(inputPassword, salt, storedHash);
   return result.valid;
 }
+
+// Encrypt plain text using AES-256-GCM with a derived 256-bit key.
+export async function encryptData(plainText: string, secretKey: string): Promise<string> {
+  const enc = new TextEncoder();
+  const keyDigest = await crypto.subtle.digest('SHA-256', enc.encode(secretKey));
+  const cryptoKey = await crypto.subtle.importKey(
+    'raw',
+    keyDigest,
+    { name: 'AES-GCM' },
+    false,
+    ['encrypt']
+  );
+
+  const iv = new Uint8Array(12);
+  crypto.getRandomValues(iv);
+
+  const cipherBuffer = await crypto.subtle.encrypt(
+    { name: 'AES-GCM', iv },
+    cryptoKey,
+    enc.encode(plainText)
+  );
+
+  const ivHex = hashToHex(iv.buffer);
+  const cipherHex = hashToHex(cipherBuffer);
+
+  return `enc:v1:${ivHex}:${cipherHex}`;
+}
+
+// Decrypt AES-256-GCM encrypted payload, or return as-is if unencrypted legacy format.
+export async function decryptData(cipherText: string, secretKey: string): Promise<string> {
+  if (!cipherText || !cipherText.startsWith('enc:v1:')) {
+    return cipherText;
+  }
+
+  const parts = cipherText.split(':');
+  if (parts.length !== 4) {
+    return cipherText;
+  }
+
+  const ivHex = parts[2];
+  const cipherHex = parts[3];
+
+  const iv = new Uint8Array(ivHex.match(/.{1,2}/g)?.map((byte) => parseInt(byte, 16)) || []);
+  const cipherBytes = new Uint8Array(cipherHex.match(/.{1,2}/g)?.map((byte) => parseInt(byte, 16)) || []);
+
+  const enc = new TextEncoder();
+  const keyDigest = await crypto.subtle.digest('SHA-256', enc.encode(secretKey));
+  const cryptoKey = await crypto.subtle.importKey(
+    'raw',
+    keyDigest,
+    { name: 'AES-GCM' },
+    false,
+    ['decrypt']
+  );
+
+  const decryptedBuffer = await crypto.subtle.decrypt(
+    { name: 'AES-GCM', iv },
+    cryptoKey,
+    cipherBytes
+  );
+
+  return new TextDecoder().decode(decryptedBuffer);
+}
+

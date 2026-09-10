@@ -34,9 +34,12 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
+# env files (prevent secret leaks)
 .env
-.env.local
+.env*.local
+.env.production*
+.env.development*
+.env.test*
 
 # typescript
 *.tsbuildinfo

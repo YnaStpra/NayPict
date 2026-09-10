@@ -21,9 +21,6 @@ const nextConfig: NextConfig = {
   serverExternalPackages: ['exiftool-vendored', 'better-sqlite3'],
   // Always use standalone output for Docker/Render; Vercel ignores this setting.
   output: 'standalone',
-  typescript: {
-    ignoreBuildErrors: true,
-  },
   experimental: {
     optimizePackageImports: ['lucide-react', '@tabler/icons-react', 'recharts'],
   },
@@ -69,7 +66,7 @@ const nextConfig: NextConfig = {
         key: 'Content-Security-Policy',
         value: [
           "default-src 'self'",
-          "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://challenges.cloudflare.com",
+          "script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com",
           "frame-src 'self' https://challenges.cloudflare.com",
           "style-src 'self' 'unsafe-inline'",
           "img-src 'self' data: blob: https:",
