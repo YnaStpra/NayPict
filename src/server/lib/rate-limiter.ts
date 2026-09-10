@@ -284,3 +284,11 @@ export const totpRateLimiter = new DistributedRateLimiter({
   windowMs: 5 * 60 * 1000, // 5 minutes
 })
 
+// 5. Reaction Rate Limiter: Max 30 reactions per 1 minute per IP
+export const reactionRateLimiter = new DistributedRateLimiter({
+  name: 'reaction',
+  limit: 30,
+  windowMs: 60 * 1000, // 1 minute
+})
+
+

@@ -37,6 +37,7 @@
   "photo.fileTooLarge": "File size exceeds the allowed limit.",
   "photo.maliciousFileDetected": "Malicious script payload detected. Upload rejected for security.",
   "photo.emptyFile": "Uploaded file is empty.",
+  "reaction.tooManyRequests": "Too many reactions. Please wait a moment before trying again.",
   "totp.notConfigured": "2FA is not configured for this account.",
   "totp.invalidCode": "Invalid 2FA verification code.",
   "totp.codeAlreadyUsed": "This 2FA code has already been used.",

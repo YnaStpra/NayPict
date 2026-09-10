@@ -571,16 +571,16 @@ const photoService = {
     }
   },
 
-  // Generate storage based on original file name key, like key If it already exists, append a timestamp before the extension..
+  // Generate storage based on original file name key, ensuring filename is sanitized against path traversal.
   async resolvePhotoKey(userId: string, name: string) {
 
-    const trimmedName = name.trim();
+    const safeName = sanitizeFileName(name.trim());
 
-    if (!trimmedName) {
+    if (!safeName) {
       throw new BizError('photo.fileNameRequired');
     }
 
-    let key = buildPhotoKey(userId, trimmedName);
+    let key = buildPhotoKey(userId, safeName);
     const [existing] = await orm
       .select({ fileId: fileTab.fileId })
       .from(fileTab)
@@ -588,7 +588,7 @@ const photoService = {
       .limit(1);
 
     if (existing) {
-      const { baseName, extName } = splitFileName(trimmedName);
+      const { baseName, extName } = splitFileName(safeName);
       key = buildPhotoKey(userId, `${baseName}_${formatFileTimestamp()}${extName}`);
     }
 

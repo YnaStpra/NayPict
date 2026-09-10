@@ -1,4 +1,5 @@
 import crypto from 'crypto';
+import QRCode from 'qrcode';
 
 // Base32 Alphabet for RFC 6238 TOTP (Google Authenticator)
 const BASE32_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
@@ -56,15 +57,19 @@ export function getTotpCode(secret: string, timeStep: number = Math.floor(Date.n
   return otp;
 }
 
-// Verify TOTP code with time drift window (+-1 step = 90s margin)
+// Verify TOTP code with time drift window (+-1 step = 90s margin) using constant-time comparison
 export function verifyTotpCode(secret: string, code: string, window: number = 1): boolean {
   if (!secret || !code || code.length !== 6) return false;
   const cleanCode = code.trim();
+  if (cleanCode.length !== 6) return false;
+
   const currentStep = Math.floor(Date.now() / 1000 / 30);
+  const codeBuffer = Buffer.from(cleanCode);
 
   for (let stepOffset = -window; stepOffset <= window; stepOffset++) {
     const validCode = getTotpCode(secret, currentStep + stepOffset);
-    if (validCode === cleanCode) {
+    const validBuffer = Buffer.from(validCode);
+    if (codeBuffer.length === validBuffer.length && crypto.timingSafeEqual(codeBuffer, validBuffer)) {
       return true;
     }
   }
@@ -76,7 +81,12 @@ export function generateOtpAuthUrl(secret: string, accountName: string = 'admin'
   return `otpauth://totp/${encodeURIComponent(issuer)}:${encodeURIComponent(accountName)}?secret=${secret}&issuer=${encodeURIComponent(issuer)}`;
 }
 
-// Generate QR Code image URL via QuickChart QR API
-export function getQrCodeImageUrl(otpauthUrl: string): string {
-  return `https://quickchart.io/qr?text=${encodeURIComponent(otpauthUrl)}&size=220&margin=1`;
+// Generate local in-memory Data URI QR Code without leaking secrets to third-party APIs
+export async function getQrCodeImageUrl(otpauthUrl: string): Promise<string> {
+  return QRCode.toDataURL(otpauthUrl, {
+    width: 220,
+    margin: 1,
+    errorCorrectionLevel: 'M',
+  });
 }
+

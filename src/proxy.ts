@@ -9,7 +9,7 @@ import { userService } from '@/server/service/user-service';
 
 // This module proxy page routing, Jump to login page when not logged in.
 
-const SYSTEM_PATHS = ['/users', '/settings', '/storage', '/archive', '/comments', '/duplicates', '/admin', '/trash'];
+const SYSTEM_PATHS = ['/users', '/settings', '/storage', '/archive', '/comments', '/duplicates', '/admin', '/trash', '/insights'];
 const PUBLIC_FILE_REG = /\.(?:png|jpg|jpeg|gif|webp|svg|ico)$/i;
 
 // Determine whether the current path allows unlogged access.
