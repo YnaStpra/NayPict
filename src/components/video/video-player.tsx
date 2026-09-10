@@ -55,6 +55,8 @@ export const VideoPlayer = memo(function VideoPlayer({
   const timelineTrackRef = useRef<HTMLDivElement>(null)
   const volumeInputRef = useRef<HTMLInputElement>(null)
   const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const previewVideoRef = useRef<HTMLVideoElement>(null)
+  const previewSeekTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const isScrubbingRef = useRef(false)
   const isSeekingRef = useRef(false)
   const scrubTimeRef = useRef(0)
@@ -65,6 +67,9 @@ export const VideoPlayer = memo(function VideoPlayer({
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
   const [scrubTime, setScrubTime] = useState(0)
+  const [hoverTime, setHoverTime] = useState<number | null>(null)
+  const [isHoveringTimeline, setIsHoveringTimeline] = useState(false)
+  const [previewX, setPreviewX] = useState<number | null>(null)
   const [duration, setDuration] = useState(0)
   const [bufferedPercent, setBufferedPercent] = useState(0)
   const [isMuted, setIsMuted] = useState(false)
@@ -87,21 +92,21 @@ export const VideoPlayer = memo(function VideoPlayer({
     setIsPlaying(false)
   }, [src])
 
-  // Reset idle timer to hide controls after 2.5s of inactivity while playing
+  // Reset idle timer to hide controls after 2.5s of inactivity (applies to both playing and paused states)
   const pingActivity = useCallback(() => {
     setShowControls(true)
     if (idleTimerRef.current) {
       clearTimeout(idleTimerRef.current)
       idleTimerRef.current = null
     }
-    if (isPlaying && !isScrubbingRef.current) {
+    if (!isScrubbingRef.current) {
       idleTimerRef.current = setTimeout(() => {
         if (!isScrubbingRef.current) {
           setShowControls(false)
         }
       }, 2500)
     }
-  }, [isPlaying])
+  }, [])
 
   useEffect(() => {
     pingActivity()
@@ -152,6 +157,12 @@ export const VideoPlayer = memo(function VideoPlayer({
         video.removeAttribute("src")
         video.load()
       }
+      const previewVideo = previewVideoRef.current
+      if (previewVideo) {
+        previewVideo.pause()
+        previewVideo.removeAttribute("src")
+        previewVideo.load()
+      }
       if (seekDebounceTimerRef.current) {
         clearTimeout(seekDebounceTimerRef.current)
         seekDebounceTimerRef.current = null
@@ -159,6 +170,10 @@ export const VideoPlayer = memo(function VideoPlayer({
       if (seekSafetyTimerRef.current) {
         clearTimeout(seekSafetyTimerRef.current)
         seekSafetyTimerRef.current = null
+      }
+      if (previewSeekTimerRef.current) {
+        clearTimeout(previewSeekTimerRef.current)
+        previewSeekTimerRef.current = null
       }
     }
   }, [])
@@ -464,10 +479,19 @@ export const VideoPlayer = memo(function VideoPlayer({
       setScrubTime(targetTime)
       seekVideo(targetTime)
     }
-  }, [calculateTimeFromClientX, duration, onScrubbingChange, seekVideo])
+
+    const track = timelineTrackRef.current
+    if (track) {
+      const rect = track.getBoundingClientRect()
+      const cardWidth = isVideoLandscape
+        ? (typeof window !== "undefined" && window.innerWidth < 640 ? 144 : 176)
+        : (typeof window !== "undefined" && window.innerWidth < 640 ? 88 : 110)
+      const clampedX = Math.max(cardWidth / 2 + 4, Math.min(e.clientX - rect.left, rect.width - cardWidth / 2 - 4))
+      setPreviewX(clampedX)
+    }
+  }, [calculateTimeFromClientX, duration, isVideoLandscape, onScrubbingChange, seekVideo])
 
   const handleScrubberPointerMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
-    if (!isScrubbingRef.current) return
     e.stopPropagation()
 
     if (idleTimerRef.current) {
@@ -477,7 +501,19 @@ export const VideoPlayer = memo(function VideoPlayer({
     setShowControls(true)
 
     const targetTime = calculateTimeFromClientX(e.clientX)
-    if (targetTime !== null) {
+    if (targetTime === null) return
+
+    const track = timelineTrackRef.current
+    if (track) {
+      const rect = track.getBoundingClientRect()
+      const cardWidth = isVideoLandscape
+        ? (typeof window !== "undefined" && window.innerWidth < 640 ? 144 : 176)
+        : (typeof window !== "undefined" && window.innerWidth < 640 ? 88 : 110)
+      const clampedX = Math.max(cardWidth / 2 + 4, Math.min(e.clientX - rect.left, rect.width - cardWidth / 2 - 4))
+      setPreviewX(clampedX)
+    }
+
+    if (isScrubbingRef.current) {
       scrubTimeRef.current = targetTime
       setScrubTime(targetTime)
 
@@ -489,8 +525,11 @@ export const VideoPlayer = memo(function VideoPlayer({
           seekVideo(scrubTimeRef.current)
         }
       }, 50)
+    } else if (e.pointerType === "mouse") {
+      setHoverTime(targetTime)
+      setIsHoveringTimeline(true)
     }
-  }, [calculateTimeFromClientX, seekVideo])
+  }, [calculateTimeFromClientX, isVideoLandscape, seekVideo])
 
   const handleScrubberPointerUp = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     if (!isScrubbingRef.current) return
@@ -515,6 +554,9 @@ export const VideoPlayer = memo(function VideoPlayer({
 
     isScrubbingRef.current = false
     setIsScrubbing(false)
+    setIsHoveringTimeline(false)
+    setHoverTime(null)
+    setPreviewX(null)
     onScrubbingChange?.(false)
 
     seekVideo(finalTime)
@@ -526,6 +568,66 @@ export const VideoPlayer = memo(function VideoPlayer({
 
     pingActivity()
   }, [calculateTimeFromClientX, onScrubbingChange, pingActivity, seekVideo])
+
+  const handleScrubberPointerEnter = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.pointerType === "mouse" && duration > 0) {
+      setIsHoveringTimeline(true)
+      const targetTime = calculateTimeFromClientX(e.clientX)
+      if (targetTime !== null) {
+        setHoverTime(targetTime)
+        const track = timelineTrackRef.current
+        if (track) {
+          const rect = track.getBoundingClientRect()
+          const cardWidth = isVideoLandscape
+            ? (typeof window !== "undefined" && window.innerWidth < 640 ? 144 : 176)
+            : (typeof window !== "undefined" && window.innerWidth < 640 ? 88 : 110)
+          const clampedX = Math.max(cardWidth / 2 + 4, Math.min(e.clientX - rect.left, rect.width - cardWidth / 2 - 4))
+          setPreviewX(clampedX)
+        }
+      }
+    }
+  }, [calculateTimeFromClientX, duration, isVideoLandscape])
+
+  const handleScrubberPointerLeave = useCallback(() => {
+    if (!isScrubbingRef.current) {
+      setIsHoveringTimeline(false)
+      setHoverTime(null)
+      setPreviewX(null)
+    }
+  }, [])
+
+  const previewTime = isScrubbing ? scrubTime : hoverTime
+  const previewPercent = duration > 0 && previewTime !== null ? (previewTime / duration) * 100 : 0
+
+  const handlePreviewLoadedMetadata = useCallback(() => {
+    const pVid = previewVideoRef.current
+    if (pVid && previewTime !== null && isFinite(previewTime)) {
+      pVid.currentTime = Math.max(0, Math.min(previewTime, duration > 0 ? duration : previewTime))
+    }
+  }, [duration, previewTime])
+
+  // Synchronize miniature preview video frame with scrub / hover timestamp
+  useEffect(() => {
+    if ((!isScrubbing && !isHoveringTimeline) || previewTime === null) return
+    const pVid = previewVideoRef.current
+    if (!pVid) return
+
+    if (previewSeekTimerRef.current) {
+      clearTimeout(previewSeekTimerRef.current)
+    }
+    previewSeekTimerRef.current = setTimeout(() => {
+      if (pVid && isFinite(previewTime) && !isNaN(previewTime)) {
+        pVid.currentTime = Math.max(0, Math.min(previewTime, duration > 0 ? duration : previewTime))
+      }
+    }, 35)
+
+    return () => {
+      if (previewSeekTimerRef.current) {
+        clearTimeout(previewSeekTimerRef.current)
+        previewSeekTimerRef.current = null
+      }
+    }
+  }, [previewTime, isScrubbing, isHoveringTimeline, duration])
 
   // Keyboard controls (Space = play/pause, Left/Right = 5s skip, M = mute)
   useEffect(() => {
@@ -564,14 +666,14 @@ export const VideoPlayer = memo(function VideoPlayer({
     return () => window.removeEventListener("keydown", handleKeyDown)
   }, [togglePlay, toggleMute, duration, pingActivity])
 
-  // Keep controls alive on mouse move while controls are visible
+  // Keep controls alive on mouse move while controls are visible (both playing and paused)
   const handleMouseMove = useCallback(() => {
     if (showControls) {
       if (idleTimerRef.current) {
         clearTimeout(idleTimerRef.current)
         idleTimerRef.current = null
       }
-      if (isPlaying && !isScrubbingRef.current) {
+      if (!isScrubbingRef.current) {
         idleTimerRef.current = setTimeout(() => {
           if (!isScrubbingRef.current) {
             setShowControls(false)
@@ -579,7 +681,7 @@ export const VideoPlayer = memo(function VideoPlayer({
         }, 2500)
       }
     }
-  }, [showControls, isPlaying])
+  }, [showControls])
 
   // Toggle controls overlay visibility on screen click without toggling playback
   const handleScreenClick = useCallback((e: React.MouseEvent) => {
@@ -590,19 +692,17 @@ export const VideoPlayer = memo(function VideoPlayer({
         clearTimeout(idleTimerRef.current)
         idleTimerRef.current = null
       }
-      if (next) {
+      if (next && !isScrubbingRef.current) {
         // Reset 2.5s auto-hide timer when revealing controls
-        if (isPlaying && !isScrubbingRef.current) {
-          idleTimerRef.current = setTimeout(() => {
-            if (!isScrubbingRef.current) {
-              setShowControls(false)
-            }
-          }, 2500)
-        }
+        idleTimerRef.current = setTimeout(() => {
+          if (!isScrubbingRef.current) {
+            setShowControls(false)
+          }
+        }, 2500)
       }
       return next
     })
-  }, [isPlaying])
+  }, [])
 
   const displayTime = isScrubbing ? scrubTime : currentTime
   const progressPercent = duration > 0 ? (displayTime / duration) * 100 : 0
@@ -616,14 +716,14 @@ export const VideoPlayer = memo(function VideoPlayer({
       )}
       onMouseMove={handleMouseMove}
     >
-      {/* Visual Poster Overlay: Stays visible until video decodes and renders first playing frame */}
+      {/* Visual Poster Overlay: Stays visible until video decodes and renders first frame */}
       {poster && (
         <img
           src={poster}
           alt={alt}
           className={cn(
             "absolute inset-0 size-full object-contain pointer-events-none transition-opacity duration-500 z-5",
-            hasFirstFrame && isPlaying ? "opacity-0" : "opacity-100"
+            hasFirstFrame ? "opacity-0 pointer-events-none" : "opacity-100"
           )}
           aria-hidden="true"
         />
@@ -655,6 +755,7 @@ export const VideoPlayer = memo(function VideoPlayer({
         onCanPlay={() => {
           setIsBuffering(false)
           setIsLoading(false)
+          setHasFirstFrame(true)
         }}
         onSeeking={() => {
           isSeekingRef.current = true
@@ -709,11 +810,9 @@ export const VideoPlayer = memo(function VideoPlayer({
             ? "opacity-100 scale-100"
             : showCenterIcon
             ? "opacity-100 scale-100"
-            : !isPlaying
-            ? "opacity-90 scale-100"
             : showControls
-            ? "opacity-85 scale-100"
-            : "opacity-0 scale-75"
+            ? "opacity-90 scale-100"
+            : "opacity-0 scale-75 pointer-events-none"
         )}
       >
         {isLoading || isBuffering ? (
@@ -735,7 +834,7 @@ export const VideoPlayer = memo(function VideoPlayer({
             }}
             className={cn(
               "flex size-16 sm:size-20 items-center justify-center rounded-full bg-black/55 text-white backdrop-blur-xl border border-white/20 shadow-2xl transition-transform active:scale-90 hover:scale-105 hover:bg-black/75 cursor-pointer",
-              showCenterIcon || !isPlaying || showControls ? "pointer-events-auto" : "pointer-events-none"
+              showCenterIcon || showControls ? "pointer-events-auto" : "pointer-events-none"
             )}
             aria-label={isPlaying ? "Pause video" : "Play video"}
           >
@@ -777,7 +876,10 @@ export const VideoPlayer = memo(function VideoPlayer({
         {/* Quick Interaction Bar (Reactions, Comments, Info) - Stacked cleanly above Scrubber with zero overlap */}
         {photoId && !isCinematicMode && !isFullscreen && (
           <div
-            className="flex items-center mb-2.5 sm:mb-3 pointer-events-auto max-w-full overflow-x-auto no-scrollbar touch-none"
+            className={cn(
+              "flex items-center mb-2.5 sm:mb-3 pointer-events-auto max-w-full overflow-x-auto no-scrollbar touch-none transition-opacity duration-200",
+              isScrubbing ? "opacity-0 pointer-events-none" : "opacity-100"
+            )}
             onClick={(e) => {
               e.stopPropagation()
               pingActivity()
@@ -833,7 +935,7 @@ export const VideoPlayer = memo(function VideoPlayer({
           </div>
         )}
 
-        {/* Timeline Scrubber */}
+        {/* Timeline Scrubber with Floating Thumbnail Preview */}
         <div
           ref={timelineTrackRef}
           role="slider"
@@ -846,8 +948,49 @@ export const VideoPlayer = memo(function VideoPlayer({
           onPointerMove={handleScrubberPointerMove}
           onPointerUp={handleScrubberPointerUp}
           onPointerCancel={handleScrubberPointerUp}
+          onPointerEnter={handleScrubberPointerEnter}
+          onPointerLeave={handleScrubberPointerLeave}
           onClick={(e) => e.stopPropagation()}
         >
+          {/* Floating Thumbnail Preview Tooltip (Shown on scrub or hover) */}
+          {(isScrubbing || isHoveringTimeline) && previewTime !== null && duration > 0 && (
+            <div
+              className="absolute bottom-[calc(100%+8px)] -translate-x-1/2 pointer-events-none z-30 flex flex-col items-center transition-opacity duration-150 animate-in fade-in zoom-in-95"
+              style={{
+                left: previewX !== null ? `${previewX}px` : `${Math.min(Math.max(previewPercent, 0), 100)}%`,
+              }}
+            >
+              <div
+                className={cn(
+                  "relative overflow-hidden rounded-lg border border-white/25 bg-black/90 shadow-2xl backdrop-blur-md flex items-center justify-center",
+                  isVideoLandscape
+                    ? "w-36 h-20 sm:w-44 sm:h-25"
+                    : "w-20 h-36 sm:w-24 sm:h-42"
+                )}
+              >
+                {/* Miniature Video Frame Preview */}
+                <video
+                  ref={previewVideoRef}
+                  src={src}
+                  muted
+                  playsInline
+                  webkit-playsinline="true"
+                  preload="metadata"
+                  onLoadedMetadata={handlePreviewLoadedMetadata}
+                  className="size-full object-cover"
+                />
+
+                {/* Glass Time Badge */}
+                <div className="absolute bottom-1 px-1.5 py-0.5 rounded bg-black/85 backdrop-blur-md text-[10px] sm:text-[11px] font-mono font-semibold text-white tracking-wider border border-white/15 shadow-md">
+                  {formatVideoDuration(previewTime)}
+                </div>
+              </div>
+
+              {/* Bottom Arrow Pointer */}
+              <div className="size-2 -mt-1 rotate-45 bg-black/90 border-r border-b border-white/25 shadow-md" />
+            </div>
+          )}
+
           {/* Progress Bar Background */}
           <div className="relative w-full h-1.5 sm:h-2 rounded-full bg-white/20 overflow-hidden backdrop-blur-sm pointer-events-none group-hover/scrubber:h-2.5 transition-all">
             {/* Buffered Progress */}
