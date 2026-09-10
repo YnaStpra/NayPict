@@ -338,6 +338,25 @@ export const VideoPlayer = memo(function VideoPlayer({
     const container = containerRef.current
     if (!video || !container) return
 
+    // 1. Check if browser supports Element Fullscreen API (Android Chrome, Samsung Internet, Firefox, Desktop browsers)
+    const supportsElementFullscreen = Boolean(
+      container.requestFullscreen ||
+      (container as any).webkitRequestFullscreen
+    )
+
+    // 2. On iOS Safari / iPhone / WebKit mobile without Element Fullscreen support:
+    // Launch Apple's native video fullscreen player directly.
+    // This avoids WebKit's broken compositing bug (blank black screen caused by nested fixed/rotated containers in transformed slides)
+    if (!supportsElementFullscreen && typeof (video as any).webkitEnterFullscreen === "function") {
+      try {
+        ;(video as any).webkitEnterFullscreen()
+        pingActivity()
+        return
+      } catch (err) {
+        console.warn("webkitEnterFullscreen error:", err)
+      }
+    }
+
     const isCurrentlyFullscreen = isFullscreen || Boolean(
       document.fullscreenElement ||
       (document as any).webkitFullscreenElement
@@ -362,7 +381,7 @@ export const VideoPlayer = memo(function VideoPlayer({
       return
     }
 
-    // Entering Fullscreen mode
+    // Entering Fullscreen mode on devices supporting container fullscreen (Android, PC, Mac)
     setIsFullscreen(true)
 
     // Request native container fullscreen (supported on Android Chrome, Samsung Internet, Firefox, desktop browsers)
