@@ -180,11 +180,9 @@
     padding-bottom: 0;
 }
 
-/* Seamlessly hide thumbnails during Cinematic mode or Fullscreen without unmounting the Lightbox DOM */
+/* Seamlessly hide thumbnails container during Cinematic mode or Fullscreen without unmounting the Lightbox DOM */
 .yarl-cinematic-mode .yarl__thumbnails_container,
-.yarl-cinematic-mode .yarl__thumbnails,
-.yarl-fullscreen-active .yarl__thumbnails_container,
-.yarl-fullscreen-active .yarl__thumbnails {
+.yarl-fullscreen-active .yarl__thumbnails_container {
     display: none !important;
 }
 

@@ -1693,9 +1693,7 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
   }
 
   // Sidebar narrows when expanded lightbox width, Leave space for the information panel on the right.
-  const lightboxClassName = isCinematicMode
-    ? "w-full fixed inset-0 z-50 bg-black transition-colors duration-300"
-    : infoOpen && !fullscreenOpen
+  const lightboxClassName = infoOpen && !fullscreenOpen && !isCinematicMode
     ? "w-0 md:w-[calc(100%-(0.25rem*84))]"
     : "w-full"
 
