@@ -83,6 +83,29 @@ export const VideoPlayer = memo(function VideoPlayer({
   const [isLoading, setIsLoading] = useState(true)
   const [hasFirstFrame, setHasFirstFrame] = useState(false)
   const [isVideoLandscape, setIsVideoLandscape] = useState(false)
+  const [isScreenPortrait, setIsScreenPortrait] = useState(false)
+
+  // Track mobile device viewport orientation dynamically
+  useEffect(() => {
+    const updateOrientation = () => {
+      if (typeof window !== "undefined") {
+        setIsScreenPortrait(window.innerHeight > window.innerWidth)
+      }
+    }
+    updateOrientation()
+    window.addEventListener("resize", updateOrientation)
+    window.addEventListener("orientationchange", updateOrientation)
+    return () => {
+      window.removeEventListener("resize", updateOrientation)
+      window.removeEventListener("orientationchange", updateOrientation)
+    }
+  }, [])
+
+  const isMobileClient = typeof window !== "undefined" && (
+    window.innerWidth < 768 ||
+    /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent)
+  )
+  const shouldRotateMobile = isFullscreen && isMobileClient && isVideoLandscape && isScreenPortrait
 
   // Reset video loading & buffering state when media source changes
   useEffect(() => {
@@ -302,16 +325,15 @@ export const VideoPlayer = memo(function VideoPlayer({
     pingActivity()
   }, [pingActivity])
 
-  // Native Fullscreen toggle supporting mobile (iOS Safari, Android Chrome) and PC/Desktop
+  // Native & Adaptive Fullscreen toggle supporting mobile (iOS Safari, Android Chrome, Samsung) and PC/Desktop
   const toggleFullscreen = useCallback(async () => {
     const video = videoRef.current
     const container = containerRef.current
     if (!video || !container) return
 
-    const isCurrentlyFullscreen = Boolean(
+    const isCurrentlyFullscreen = isFullscreen || Boolean(
       document.fullscreenElement ||
-      (document as any).webkitFullscreenElement ||
-      (video as any).webkitDisplayingFullscreen
+      (document as any).webkitFullscreenElement
     )
 
     if (isCurrentlyFullscreen) {
@@ -333,54 +355,72 @@ export const VideoPlayer = memo(function VideoPlayer({
       return
     }
 
-    // iOS Safari: Enter native fullscreen on video element
-    if (typeof (video as any).webkitEnterFullscreen === "function") {
-      try {
-        (video as any).webkitEnterFullscreen()
-        setIsFullscreen(true)
-        pingActivity()
-        return
-      } catch {}
-    }
+    // Entering Fullscreen mode
+    setIsFullscreen(true)
 
-    // Android & Desktop: Request native fullscreen on container
+    // Request native container fullscreen (supported on Android Chrome, Samsung Internet, Firefox, desktop browsers)
     try {
       if (container.requestFullscreen) {
         await container.requestFullscreen()
       } else if ((container as any).webkitRequestFullscreen) {
         await (container as any).webkitRequestFullscreen()
-      } else if (video.requestFullscreen) {
-        await video.requestFullscreen()
       }
-      setIsFullscreen(true)
+    } catch {}
 
-      // On mobile devices with orientation lock support (e.g. Android Chrome):
-      // If video is landscape, orient to landscape
-      const isMobile = window.innerWidth < 768 || /Android|Mobile/i.test(navigator.userAgent)
-      const isLandscape = (video.videoWidth || 0) > (video.videoHeight || 0)
-      if (isMobile && isLandscape) {
-        try {
-          const screenAny = typeof screen !== "undefined" ? (screen as any) : null
-          if (screenAny?.orientation?.lock) {
-            void screenAny.orientation.lock("landscape").catch(() => {})
-          }
-        } catch {}
-      }
-    } catch (err) {
-      console.warn("Fullscreen request failed:", err)
+    // On mobile devices with orientation lock support (e.g. Android Chrome, Samsung Internet):
+    // If video is landscape, attempt physical orientation lock
+    if (isMobileClient && isVideoLandscape) {
+      try {
+        const screenAny = typeof screen !== "undefined" ? (screen as any) : null
+        if (screenAny?.orientation?.lock) {
+          await screenAny.orientation.lock("landscape").catch(() => {
+            return screenAny.orientation.lock("landscape-primary").catch(() => {})
+          })
+        }
+      } catch {}
     }
+
     pingActivity()
-  }, [pingActivity])
+  }, [isFullscreen, isMobileClient, isVideoLandscape, pingActivity])
+
+  // Prevent background body scrolling while in fullscreen mode
+  useEffect(() => {
+    if (isFullscreen && typeof document !== "undefined") {
+      const originalOverflow = document.body.style.overflow
+      document.body.style.overflow = "hidden"
+      return () => {
+        document.body.style.overflow = originalOverflow
+      }
+    }
+  }, [isFullscreen])
+
+  // Handle escape key to exit fullscreen smoothly
+  useEffect(() => {
+    if (!isFullscreen) return
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        toggleFullscreen()
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown)
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown)
+    }
+  }, [isFullscreen, toggleFullscreen])
 
   // Synchronize fullscreen state changes from native browser events
   useEffect(() => {
     const handleFullscreenStateChange = () => {
-      const isFs = Boolean(
+      const isNativeFs = Boolean(
         document.fullscreenElement ||
         (document as any).webkitFullscreenElement
       )
-      setIsFullscreen(isFs)
-      if (!isFs) {
+      if (isNativeFs) {
+        setIsFullscreen(true)
+      } else {
+        setIsFullscreen(false)
         try {
           const screenAny = typeof screen !== "undefined" ? (screen as any) : null
           if (screenAny?.orientation?.unlock) {
@@ -436,18 +476,24 @@ export const VideoPlayer = memo(function VideoPlayer({
     }, 2500)
   }, [duration, photoId, src])
 
-  // Calculate video target time from pointer clientX coordinate relative to track
-  const calculateTimeFromClientX = useCallback((clientX: number): number | null => {
+  // Calculate video target time from pointer client coordinates (supports standard view and 90deg rotated mobile view)
+  const calculateTimeFromPointer = useCallback((clientX: number, clientY: number): number | null => {
     const track = timelineTrackRef.current
-    if (!track || !duration || duration <= 0 || isNaN(clientX)) return null
+    if (!track || !duration || duration <= 0) return null
 
     const rect = track.getBoundingClientRect()
-    if (rect.width <= 0) return null
-
-    const offsetX = Math.max(0, Math.min(clientX - rect.left, rect.width))
-    const percent = Math.max(0, Math.min(offsetX / rect.width, 1))
-    return Math.max(0, Math.min(percent * duration, duration))
-  }, [duration])
+    if (shouldRotateMobile) {
+      if (rect.height <= 0) return null
+      const offsetY = Math.max(0, Math.min(clientY - rect.top, rect.height))
+      const percent = Math.max(0, Math.min(offsetY / rect.height, 1))
+      return Math.max(0, Math.min(percent * duration, duration))
+    } else {
+      if (rect.width <= 0) return null
+      const offsetX = Math.max(0, Math.min(clientX - rect.left, rect.width))
+      const percent = Math.max(0, Math.min(offsetX / rect.width, 1))
+      return Math.max(0, Math.min(percent * duration, duration))
+    }
+  }, [duration, shouldRotateMobile])
 
   const handleScrubberPointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     e.stopPropagation()
@@ -473,7 +519,7 @@ export const VideoPlayer = memo(function VideoPlayer({
     }
     setShowControls(true)
 
-    const targetTime = calculateTimeFromClientX(e.clientX)
+    const targetTime = calculateTimeFromPointer(e.clientX, e.clientY)
     if (targetTime !== null) {
       scrubTimeRef.current = targetTime
       setScrubTime(targetTime)
@@ -486,10 +532,15 @@ export const VideoPlayer = memo(function VideoPlayer({
       const cardWidth = isVideoLandscape
         ? (typeof window !== "undefined" && window.innerWidth < 640 ? 144 : 176)
         : (typeof window !== "undefined" && window.innerWidth < 640 ? 88 : 110)
-      const clampedX = Math.max(cardWidth / 2 + 4, Math.min(e.clientX - rect.left, rect.width - cardWidth / 2 - 4))
-      setPreviewX(clampedX)
+      if (shouldRotateMobile) {
+        const clampedY = Math.max(cardWidth / 2 + 4, Math.min(e.clientY - rect.top, rect.height - cardWidth / 2 - 4))
+        setPreviewX(clampedY)
+      } else {
+        const clampedX = Math.max(cardWidth / 2 + 4, Math.min(e.clientX - rect.left, rect.width - cardWidth / 2 - 4))
+        setPreviewX(clampedX)
+      }
     }
-  }, [calculateTimeFromClientX, duration, isVideoLandscape, onScrubbingChange, seekVideo])
+  }, [calculateTimeFromPointer, duration, isVideoLandscape, onScrubbingChange, seekVideo, shouldRotateMobile])
 
   const handleScrubberPointerMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     e.stopPropagation()
@@ -500,7 +551,7 @@ export const VideoPlayer = memo(function VideoPlayer({
     }
     setShowControls(true)
 
-    const targetTime = calculateTimeFromClientX(e.clientX)
+    const targetTime = calculateTimeFromPointer(e.clientX, e.clientY)
     if (targetTime === null) return
 
     const track = timelineTrackRef.current
@@ -509,8 +560,13 @@ export const VideoPlayer = memo(function VideoPlayer({
       const cardWidth = isVideoLandscape
         ? (typeof window !== "undefined" && window.innerWidth < 640 ? 144 : 176)
         : (typeof window !== "undefined" && window.innerWidth < 640 ? 88 : 110)
-      const clampedX = Math.max(cardWidth / 2 + 4, Math.min(e.clientX - rect.left, rect.width - cardWidth / 2 - 4))
-      setPreviewX(clampedX)
+      if (shouldRotateMobile) {
+        const clampedY = Math.max(cardWidth / 2 + 4, Math.min(e.clientY - rect.top, rect.height - cardWidth / 2 - 4))
+        setPreviewX(clampedY)
+      } else {
+        const clampedX = Math.max(cardWidth / 2 + 4, Math.min(e.clientX - rect.left, rect.width - cardWidth / 2 - 4))
+        setPreviewX(clampedX)
+      }
     }
 
     if (isScrubbingRef.current) {
@@ -529,7 +585,7 @@ export const VideoPlayer = memo(function VideoPlayer({
       setHoverTime(targetTime)
       setIsHoveringTimeline(true)
     }
-  }, [calculateTimeFromClientX, isVideoLandscape, seekVideo])
+  }, [calculateTimeFromPointer, isVideoLandscape, seekVideo, shouldRotateMobile])
 
   const handleScrubberPointerUp = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     if (!isScrubbingRef.current) return
@@ -545,8 +601,8 @@ export const VideoPlayer = memo(function VideoPlayer({
     }
 
     let finalTime = scrubTimeRef.current
-    if (typeof e.clientX === "number" && e.clientX > 0) {
-      const calculated = calculateTimeFromClientX(e.clientX)
+    if (typeof e.clientX === "number" && typeof e.clientY === "number") {
+      const calculated = calculateTimeFromPointer(e.clientX, e.clientY)
       if (calculated !== null) {
         finalTime = calculated
       }
@@ -567,12 +623,12 @@ export const VideoPlayer = memo(function VideoPlayer({
     }
 
     pingActivity()
-  }, [calculateTimeFromClientX, onScrubbingChange, pingActivity, seekVideo])
+  }, [calculateTimeFromPointer, onScrubbingChange, pingActivity, seekVideo])
 
   const handleScrubberPointerEnter = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     if (e.pointerType === "mouse" && duration > 0) {
       setIsHoveringTimeline(true)
-      const targetTime = calculateTimeFromClientX(e.clientX)
+      const targetTime = calculateTimeFromPointer(e.clientX, e.clientY)
       if (targetTime !== null) {
         setHoverTime(targetTime)
         const track = timelineTrackRef.current
@@ -581,12 +637,17 @@ export const VideoPlayer = memo(function VideoPlayer({
           const cardWidth = isVideoLandscape
             ? (typeof window !== "undefined" && window.innerWidth < 640 ? 144 : 176)
             : (typeof window !== "undefined" && window.innerWidth < 640 ? 88 : 110)
-          const clampedX = Math.max(cardWidth / 2 + 4, Math.min(e.clientX - rect.left, rect.width - cardWidth / 2 - 4))
-          setPreviewX(clampedX)
+          if (shouldRotateMobile) {
+            const clampedY = Math.max(cardWidth / 2 + 4, Math.min(e.clientY - rect.top, rect.height - cardWidth / 2 - 4))
+            setPreviewX(clampedY)
+          } else {
+            const clampedX = Math.max(cardWidth / 2 + 4, Math.min(e.clientX - rect.left, rect.width - cardWidth / 2 - 4))
+            setPreviewX(clampedX)
+          }
         }
       }
     }
-  }, [calculateTimeFromClientX, duration, isVideoLandscape])
+  }, [calculateTimeFromPointer, duration, isVideoLandscape, shouldRotateMobile])
 
   const handleScrubberPointerLeave = useCallback(() => {
     if (!isScrubbingRef.current) {
@@ -711,11 +772,40 @@ export const VideoPlayer = memo(function VideoPlayer({
     <div
       ref={containerRef}
       className={cn(
-        "group relative flex items-center justify-center w-full h-full select-none overflow-hidden bg-black",
+        "group relative flex items-center justify-center w-full h-full select-none overflow-hidden bg-black transition-all duration-300",
         className
       )}
+      style={
+        isFullscreen
+          ? {
+              position: "fixed",
+              inset: 0,
+              width: "100vw",
+              height: "100vh",
+              zIndex: 99999,
+              background: "#000",
+            }
+          : undefined
+      }
       onMouseMove={handleMouseMove}
     >
+      {/* Inner Rotatable Player Surface */}
+      <div
+        className="relative flex items-center justify-center w-full h-full transition-all duration-300"
+        style={
+          shouldRotateMobile
+            ? {
+                position: "absolute",
+                top: "50%",
+                left: "50%",
+                width: typeof window !== "undefined" ? `${window.innerHeight}px` : "100vh",
+                height: typeof window !== "undefined" ? `${window.innerWidth}px` : "100vw",
+                transform: "translate(-50%, -50%) rotate(90deg)",
+                transformOrigin: "center center",
+              }
+            : undefined
+        }
+      >
       {/* Visual Poster Overlay: Stays visible until video decodes and renders first frame */}
       {poster && (
         <img
@@ -847,10 +937,30 @@ export const VideoPlayer = memo(function VideoPlayer({
         )}
       </div>
 
-      {/* Top Floating Glass Badge for Video Tag (Shifted right to avoid overlapping back/close button) */}
+      {/* Exit Fullscreen Floating Button (Visible in fullscreen mode) */}
+      {isFullscreen && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation()
+            toggleFullscreen()
+          }}
+          className={cn(
+            "absolute top-2.5 left-2.5 md:top-3.5 md:left-3.5 z-30 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/75 backdrop-blur-md text-white border border-white/20 shadow-xl transition-all duration-300 cursor-pointer hover:bg-black/90 active:scale-95",
+            showControls ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-2 pointer-events-none"
+          )}
+          aria-label="Exit Fullscreen"
+        >
+          <Minimize className="size-4 text-emerald-400" />
+          <span className="text-xs font-semibold tracking-wide">Exit</span>
+        </button>
+      )}
+
+      {/* Top Floating Glass Badge for Video Tag (Shifted right to avoid overlapping back/close button or exit button) */}
       <div
         className={cn(
-          "absolute top-2.5 left-13 md:top-3.5 md:left-15 z-20 flex items-center gap-1.5 rounded-full bg-black/60 px-2.5 py-1 text-xs font-semibold text-white/90 backdrop-blur-md border border-white/10 transition-opacity duration-300",
+          "absolute top-2.5 md:top-3.5 z-20 flex items-center gap-1.5 rounded-full bg-black/60 px-2.5 py-1 text-xs font-semibold text-white/90 backdrop-blur-md border border-white/10 transition-all duration-300",
+          isFullscreen ? "left-24 md:left-28" : "left-13 md:left-15",
           showControls ? "opacity-100" : "opacity-0 pointer-events-none"
         )}
         onClick={(e) => e.stopPropagation()}
@@ -1100,6 +1210,7 @@ export const VideoPlayer = memo(function VideoPlayer({
             </button>
           </div>
         </div>
+      </div>
       </div>
     </div>
   )

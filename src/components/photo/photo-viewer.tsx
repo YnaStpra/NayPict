@@ -1965,6 +1965,8 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
                   transform: `translate3d(${currentDragX * 0.35}px, ${currentDragY}px, 0) scale(${dragScale}) rotate(${dragRotate}deg)`,
                   transition: "none",
                 }
+              : isVideo
+              ? {}
               : {
                   transform: "translate3d(0, 0, 0) scale(1) rotate(0deg)",
                   transition: "transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1)",
