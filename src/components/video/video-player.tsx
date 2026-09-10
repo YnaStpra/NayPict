@@ -52,9 +52,10 @@ export const VideoPlayer = memo(function VideoPlayer({
 }: VideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
-  const scrubberInputRef = useRef<HTMLInputElement>(null)
+  const timelineTrackRef = useRef<HTMLDivElement>(null)
   const volumeInputRef = useRef<HTMLInputElement>(null)
   const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const isScrubbingRef = useRef(false)
 
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
@@ -85,18 +86,24 @@ export const VideoPlayer = memo(function VideoPlayer({
     setShowControls(true)
     if (idleTimerRef.current) {
       clearTimeout(idleTimerRef.current)
+      idleTimerRef.current = null
     }
-    if (isPlaying && !isScrubbing) {
+    if (isPlaying && !isScrubbingRef.current) {
       idleTimerRef.current = setTimeout(() => {
-        setShowControls(false)
+        if (!isScrubbingRef.current) {
+          setShowControls(false)
+        }
       }, 2500)
     }
-  }, [isPlaying, isScrubbing])
+  }, [isPlaying])
 
   useEffect(() => {
     pingActivity()
     return () => {
-      if (idleTimerRef.current) clearTimeout(idleTimerRef.current)
+      if (idleTimerRef.current) {
+        clearTimeout(idleTimerRef.current)
+        idleTimerRef.current = null
+      }
     }
   }, [isPlaying, isScrubbing, pingActivity])
 
@@ -142,47 +149,6 @@ export const VideoPlayer = memo(function VideoPlayer({
     }
   }, [])
 
-  // Stop native gesture propagation on range inputs to prevent lightbox carousel swipe hijacking
-  useEffect(() => {
-    const scrubber = scrubberInputRef.current
-    const volumeEl = volumeInputRef.current
-
-    const stopNativeGesture = (e: Event) => {
-      e.stopPropagation()
-      if (typeof e.stopImmediatePropagation === "function") {
-        e.stopImmediatePropagation()
-      }
-    }
-
-    const elements = [scrubber, volumeEl].filter(Boolean) as HTMLInputElement[]
-    const events = [
-      "pointerdown",
-      "pointermove",
-      "pointerup",
-      "pointercancel",
-      "touchstart",
-      "touchmove",
-      "touchend",
-      "touchcancel",
-      "mousedown",
-      "mousemove",
-      "mouseup",
-    ]
-
-    elements.forEach((el) => {
-      events.forEach((evt) => {
-        el.addEventListener(evt, stopNativeGesture, { passive: false })
-      })
-    })
-
-    return () => {
-      elements.forEach((el) => {
-        events.forEach((evt) => {
-          el.removeEventListener(evt, stopNativeGesture)
-        })
-      })
-    }
-  }, [])
 
   // Play / Pause toggle with immediate buffering indicator and center badge ripple
   const togglePlay = useCallback(() => {
@@ -216,7 +182,7 @@ export const VideoPlayer = memo(function VideoPlayer({
   // Time update and buffer progress
   const handleTimeUpdate = useCallback(() => {
     const video = videoRef.current
-    if (!video || isScrubbing) return
+    if (!video || isScrubbingRef.current) return
     setCurrentTime(video.currentTime)
     if (video.currentTime > 0) {
       setHasFirstFrame(true)
@@ -232,7 +198,7 @@ export const VideoPlayer = memo(function VideoPlayer({
       const bufferedEnd = video.buffered.end(video.buffered.length - 1)
       setBufferedPercent((bufferedEnd / video.duration) * 100)
     }
-  }, [isScrubbing, photoId, src])
+  }, [photoId, src])
 
   const handleLoadedMetadata = useCallback(() => {
     const video = videoRef.current
@@ -290,28 +256,22 @@ export const VideoPlayer = memo(function VideoPlayer({
   }, [pingActivity])
 
   const handleVolumeStart = useCallback((e?: React.SyntheticEvent | Event) => {
-    if (e) {
-      e.stopPropagation()
-      if ("nativeEvent" in e && e.nativeEvent && typeof (e.nativeEvent as Event).stopImmediatePropagation === "function") {
-        (e.nativeEvent as Event).stopImmediatePropagation()
-      }
-    }
+    e?.stopPropagation()
+    isScrubbingRef.current = true
     setIsScrubbing(true)
-    onScrubbingChange?.(true)
+    if (idleTimerRef.current) {
+      clearTimeout(idleTimerRef.current)
+      idleTimerRef.current = null
+    }
     setShowControls(true)
-  }, [onScrubbingChange])
+  }, [])
 
   const handleVolumeEnd = useCallback((e?: React.SyntheticEvent | Event) => {
-    if (e) {
-      e.stopPropagation()
-      if ("nativeEvent" in e && e.nativeEvent && typeof (e.nativeEvent as Event).stopImmediatePropagation === "function") {
-        (e.nativeEvent as Event).stopImmediatePropagation()
-      }
-    }
+    e?.stopPropagation()
+    isScrubbingRef.current = false
     setIsScrubbing(false)
-    onScrubbingChange?.(false)
     pingActivity()
-  }, [onScrubbingChange, pingActivity])
+  }, [pingActivity])
 
   // Native Fullscreen toggle supporting mobile (iOS Safari, Android Chrome) and PC/Desktop
   const toggleFullscreen = useCallback(async () => {
@@ -421,47 +381,97 @@ export const VideoPlayer = memo(function VideoPlayer({
     }
   }, [])
 
-  // Scrubber seeking
-  const handleSeekChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    e.stopPropagation()
-    const newTime = parseFloat(e.target.value)
-    setCurrentTime(newTime)
+  // High-precision scrubber seeking supporting both direct taps & fluid touch/pointer dragging
+  const updateScrubberTime = useCallback((clientX: number) => {
+    const track = timelineTrackRef.current
     const video = videoRef.current
-    if (video) {
-      video.currentTime = newTime
-    }
-  }, [])
+    if (!track || !video || !duration || duration <= 0) return
 
-  const handleSeekStart = useCallback((e?: React.SyntheticEvent | Event) => {
-    if (e) {
-      e.stopPropagation()
-      if ("nativeEvent" in e && e.nativeEvent && typeof (e.nativeEvent as Event).stopImmediatePropagation === "function") {
-        (e.nativeEvent as Event).stopImmediatePropagation()
-      }
+    const rect = track.getBoundingClientRect()
+    if (rect.width <= 0) return
+
+    const offsetX = Math.max(0, Math.min(clientX - rect.left, rect.width))
+    const percent = offsetX / rect.width
+    const targetTime = Math.max(0, Math.min(percent * duration, duration))
+
+    setCurrentTime(targetTime)
+    video.currentTime = targetTime
+
+    const mediaKey = photoId || src
+    if (mediaKey) {
+      globalVideoPositions.set(mediaKey, targetTime)
     }
+  }, [duration, photoId, src])
+
+  const handleScrubberPointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    e.stopPropagation()
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId)
+    } catch {}
+
+    isScrubbingRef.current = true
     setIsScrubbing(true)
     onScrubbingChange?.(true)
+
+    if (idleTimerRef.current) {
+      clearTimeout(idleTimerRef.current)
+      idleTimerRef.current = null
+    }
     setShowControls(true)
-  }, [onScrubbingChange])
 
-  const handleSeekMove = useCallback((e: React.SyntheticEvent | Event) => {
+    updateScrubberTime(e.clientX)
+
+    const handleWindowPointerMove = (moveEvent: PointerEvent) => {
+      if (!isScrubbingRef.current) return
+      updateScrubberTime(moveEvent.clientX)
+    }
+
+    const handleWindowPointerUp = (upEvent: PointerEvent) => {
+      window.removeEventListener("pointermove", handleWindowPointerMove)
+      window.removeEventListener("pointerup", handleWindowPointerUp)
+      window.removeEventListener("pointercancel", handleWindowPointerUp)
+
+      isScrubbingRef.current = false
+      setIsScrubbing(false)
+      onScrubbingChange?.(false)
+
+      updateScrubberTime(upEvent.clientX)
+      pingActivity()
+    }
+
+    window.addEventListener("pointermove", handleWindowPointerMove)
+    window.addEventListener("pointerup", handleWindowPointerUp)
+    window.addEventListener("pointercancel", handleWindowPointerUp)
+  }, [onScrubbingChange, pingActivity, updateScrubberTime])
+
+  const handleScrubberPointerMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    if (!isScrubbingRef.current) return
     e.stopPropagation()
-    if ("nativeEvent" in e && e.nativeEvent && typeof (e.nativeEvent as Event).stopImmediatePropagation === "function") {
-      (e.nativeEvent as Event).stopImmediatePropagation()
-    }
-  }, [])
 
-  const handleSeekEnd = useCallback((e?: React.SyntheticEvent | Event) => {
-    if (e) {
-      e.stopPropagation()
-      if ("nativeEvent" in e && e.nativeEvent && typeof (e.nativeEvent as Event).stopImmediatePropagation === "function") {
-        (e.nativeEvent as Event).stopImmediatePropagation()
-      }
+    if (idleTimerRef.current) {
+      clearTimeout(idleTimerRef.current)
+      idleTimerRef.current = null
     }
+    setShowControls(true)
+
+    updateScrubberTime(e.clientX)
+  }, [updateScrubberTime])
+
+  const handleScrubberPointerUp = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    if (!isScrubbingRef.current) return
+    e.stopPropagation()
+
+    try {
+      e.currentTarget.releasePointerCapture(e.pointerId)
+    } catch {}
+
+    isScrubbingRef.current = false
     setIsScrubbing(false)
     onScrubbingChange?.(false)
+
+    updateScrubberTime(e.clientX)
     pingActivity()
-  }, [onScrubbingChange, pingActivity])
+  }, [onScrubbingChange, pingActivity, updateScrubberTime])
 
   // Keyboard controls (Space = play/pause, Left/Right = 5s skip, M = mute)
   useEffect(() => {
@@ -505,32 +515,42 @@ export const VideoPlayer = memo(function VideoPlayer({
   // Keep controls alive on mouse move while controls are visible
   const handleMouseMove = useCallback(() => {
     if (showControls) {
-      if (idleTimerRef.current) clearTimeout(idleTimerRef.current)
-      if (isPlaying && !isScrubbing) {
+      if (idleTimerRef.current) {
+        clearTimeout(idleTimerRef.current)
+        idleTimerRef.current = null
+      }
+      if (isPlaying && !isScrubbingRef.current) {
         idleTimerRef.current = setTimeout(() => {
-          setShowControls(false)
+          if (!isScrubbingRef.current) {
+            setShowControls(false)
+          }
         }, 2500)
       }
     }
-  }, [showControls, isPlaying, isScrubbing])
+  }, [showControls, isPlaying])
 
   // Toggle controls overlay visibility on screen click without toggling playback
   const handleScreenClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation()
     setShowControls((prev) => {
       const next = !prev
-      if (idleTimerRef.current) clearTimeout(idleTimerRef.current)
+      if (idleTimerRef.current) {
+        clearTimeout(idleTimerRef.current)
+        idleTimerRef.current = null
+      }
       if (next) {
         // Reset 2.5s auto-hide timer when revealing controls
-        if (isPlaying && !isScrubbing) {
+        if (isPlaying && !isScrubbingRef.current) {
           idleTimerRef.current = setTimeout(() => {
-            setShowControls(false)
+            if (!isScrubbingRef.current) {
+              setShowControls(false)
+            }
           }, 2500)
         }
       }
       return next
     })
-  }, [isPlaying, isScrubbing])
+  }, [isPlaying])
 
   const progressPercent = duration > 0 ? (currentTime / duration) * 100 : 0
 
@@ -674,19 +694,16 @@ export const VideoPlayer = memo(function VideoPlayer({
       {/* Bottom Floating Control Bar */}
       <div
         className={cn(
-          "absolute inset-x-0 bottom-0 z-30 flex flex-col justify-end p-3 sm:p-5 bg-gradient-to-t from-black/85 via-black/40 to-transparent transition-all duration-300 touch-none",
+          "absolute inset-x-0 bottom-0 z-30 flex flex-col justify-end p-3 sm:p-5 bg-gradient-to-t from-black/85 via-black/40 to-transparent transition-all duration-300",
           showControls ? "opacity-100 translate-y-0" : "opacity-0 translate-y-3 pointer-events-none"
         )}
         onClick={(e) => e.stopPropagation()}
-        onPointerDown={(e) => e.stopPropagation()}
-        onPointerMove={(e) => e.stopPropagation()}
-        onPointerUp={(e) => e.stopPropagation()}
-        onTouchStart={(e) => e.stopPropagation()}
-        onTouchMove={(e) => e.stopPropagation()}
-        onTouchEnd={(e) => e.stopPropagation()}
-        onMouseDown={(e) => e.stopPropagation()}
-        onMouseMove={(e) => e.stopPropagation()}
-        onMouseUp={(e) => e.stopPropagation()}
+        onPointerDown={(e) => {
+          e.stopPropagation()
+          pingActivity()
+        }}
+        onMouseMove={pingActivity}
+        onPointerMove={pingActivity}
       >
         {/* Quick Interaction Bar (Reactions, Comments, Info) - Stacked cleanly above Scrubber with zero overlap */}
         {photoId && !isCinematicMode && !isFullscreen && (
@@ -749,19 +766,21 @@ export const VideoPlayer = memo(function VideoPlayer({
 
         {/* Timeline Scrubber */}
         <div
-          className="relative flex items-center w-full mb-2 group/slider py-1 touch-none select-none"
-          onPointerDown={(e) => e.stopPropagation()}
-          onPointerMove={handleSeekMove}
-          onPointerUp={(e) => e.stopPropagation()}
-          onTouchStart={(e) => e.stopPropagation()}
-          onTouchMove={handleSeekMove}
-          onTouchEnd={(e) => e.stopPropagation()}
-          onMouseDown={(e) => e.stopPropagation()}
-          onMouseMove={handleSeekMove}
-          onMouseUp={(e) => e.stopPropagation()}
+          ref={timelineTrackRef}
+          role="slider"
+          aria-label="Video timeline scrubber"
+          aria-valuemin={0}
+          aria-valuemax={duration || 100}
+          aria-valuenow={currentTime}
+          className="relative flex items-center w-full h-8 mb-1 group/scrubber cursor-pointer touch-none select-none py-2"
+          onPointerDown={handleScrubberPointerDown}
+          onPointerMove={handleScrubberPointerMove}
+          onPointerUp={handleScrubberPointerUp}
+          onPointerCancel={handleScrubberPointerUp}
+          onClick={(e) => e.stopPropagation()}
         >
           {/* Progress Bar Background */}
-          <div className="relative w-full h-1.5 sm:h-2 rounded-full bg-white/20 overflow-hidden backdrop-blur-sm pointer-events-none">
+          <div className="relative w-full h-1.5 sm:h-2 rounded-full bg-white/20 overflow-hidden backdrop-blur-sm pointer-events-none group-hover/scrubber:h-2.5 transition-all">
             {/* Buffered Progress */}
             <div
               className="absolute left-0 top-0 h-full bg-white/30 transition-all duration-200"
@@ -774,28 +793,13 @@ export const VideoPlayer = memo(function VideoPlayer({
             />
           </div>
 
-          {/* Invisible Range Input on top for touch/mouse dragging */}
-          <input
-            ref={scrubberInputRef}
-            type="range"
-            min={0}
-            max={duration || 100}
-            step={0.1}
-            value={currentTime}
-            onChange={handleSeekChange}
-            onPointerDown={handleSeekStart}
-            onPointerMove={handleSeekMove}
-            onPointerUp={handleSeekEnd}
-            onPointerCancel={handleSeekEnd}
-            onTouchStart={handleSeekStart}
-            onTouchMove={handleSeekMove}
-            onTouchEnd={handleSeekEnd}
-            onTouchCancel={handleSeekEnd}
-            onMouseDown={handleSeekStart}
-            onMouseMove={handleSeekMove}
-            onMouseUp={handleSeekEnd}
-            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer touch-none select-none"
-            aria-label="Seek video"
+          {/* Scrubber Thumb Knob */}
+          <div
+            className={cn(
+              "absolute top-1/2 -translate-y-1/2 -translate-x-1/2 size-3.5 sm:size-4 rounded-full bg-white shadow-md border-2 border-emerald-500 pointer-events-none transition-transform duration-75",
+              isScrubbing ? "scale-125 opacity-100" : "scale-100 opacity-90 group-hover/scrubber:scale-110 sm:scale-0 sm:group-hover/scrubber:scale-100"
+            )}
+            style={{ left: `${Math.min(Math.max(progressPercent, 0), 100)}%` }}
           />
         </div>
 
@@ -838,16 +842,7 @@ export const VideoPlayer = memo(function VideoPlayer({
                 value={isMuted ? 0 : volume}
                 onChange={handleVolumeChange}
                 onPointerDown={handleVolumeStart}
-                onPointerMove={handleSeekMove}
                 onPointerUp={handleVolumeEnd}
-                onPointerCancel={handleVolumeEnd}
-                onTouchStart={handleVolumeStart}
-                onTouchMove={handleSeekMove}
-                onTouchEnd={handleVolumeEnd}
-                onTouchCancel={handleVolumeEnd}
-                onMouseDown={handleVolumeStart}
-                onMouseMove={handleSeekMove}
-                onMouseUp={handleVolumeEnd}
                 className="hidden sm:block w-16 h-1 accent-white bg-white/30 rounded-lg cursor-pointer transition-all touch-none select-none"
                 aria-label="Volume slider"
               />
