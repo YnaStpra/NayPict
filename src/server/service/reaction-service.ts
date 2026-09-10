@@ -324,7 +324,7 @@ const reactionService = {
         const isVideo = Boolean(photo.type?.startsWith('video/'));
         const originalKey = files?.originalKey;
         const key = originalKey
-          ? (isVideo ? toProxyMediaUrl(originalKey) : (domain ? toMediaUrl(originalKey, domain) : toProxyMediaUrl(originalKey)))
+          ? (domain ? toMediaUrl(originalKey, domain) : toProxyMediaUrl(originalKey))
           : null;
 
         resultList.push({

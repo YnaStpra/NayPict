@@ -1653,9 +1653,9 @@ const photoService = {
     const isVideo = Boolean(photo.type?.startsWith('video/'));
     const isAllowed = isVideo || photo.allowDownload === 1 || Boolean(currentUserId);
     // Protected photo originals always traverse the same-origin authorization proxy; the CDN only serves derivatives.
-    // For videos, always route via same-origin /media proxy to guarantee full RFC 7233 HTTP 206 Range seeking support.
+    // For videos and derivatives, deliver directly via Cloudflare Worker Media Gateway to eliminate Vercel serverless execution & transfer.
     const key = isAllowed && rawKey
-      ? (isVideo ? toProxyMediaUrl(rawKey) : (domain ? toMediaUrl(rawKey, domain) : toProxyMediaUrl(rawKey)))
+      ? (domain ? toMediaUrl(rawKey, domain) : toProxyMediaUrl(rawKey))
       : null;
     const isLocationIgnored = exifRow?.latitude === 999 && exifRow?.longitude === 999;
     const latitude = isLocationIgnored ? null : (exifRow?.latitude ?? null);
