@@ -1508,6 +1508,7 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
   function handleView(nextIndex: number) {
     setIsVideoScrubbing(false)
     setViewIndex(nextIndex)
+    setShowActions(true)
 
     const photo = photos[nextIndex]
     if (!photo) return
@@ -1654,29 +1655,31 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
       setDragOffset(null)
       isDraggingRef.current = false
 
-      // Distinguish Single Tap (toggle UI) vs Double Tap (Smart Zoom):
+      // Distinguish Single Tap (toggle UI) vs Double Tap (Smart Zoom) for static photos (Video slides delegate to VideoPlayer):
       if (Math.abs(dx) < 10 && Math.abs(dy) < 10) {
-        const now = Date.now()
-        const timeSinceLastTap = now - lastTapTimeRef.current
+        if (!isCurrentVideo) {
+          const now = Date.now()
+          const timeSinceLastTap = now - lastTapTimeRef.current
 
-        if (timeSinceLastTap < 300) {
-          // Double Tap: Cancel single-tap timer so Lightbox Zoom plugin can handle zoom cleanly
-          if (singleTapTimerRef.current) {
-            clearTimeout(singleTapTimerRef.current)
-            singleTapTimerRef.current = null
-          }
-          lastTapTimeRef.current = 0
-        } else {
-          lastTapTimeRef.current = now
-          if (singleTapTimerRef.current) {
-            clearTimeout(singleTapTimerRef.current)
-          }
-          singleTapTimerRef.current = setTimeout(() => {
-            if (zoomLevel <= 1) {
-              setShowActions((prev) => !prev)
+          if (timeSinceLastTap < 300) {
+            // Double Tap: Cancel single-tap timer so Lightbox Zoom plugin can handle zoom cleanly
+            if (singleTapTimerRef.current) {
+              clearTimeout(singleTapTimerRef.current)
+              singleTapTimerRef.current = null
             }
-            singleTapTimerRef.current = null
-          }, 280)
+            lastTapTimeRef.current = 0
+          } else {
+            lastTapTimeRef.current = now
+            if (singleTapTimerRef.current) {
+              clearTimeout(singleTapTimerRef.current)
+            }
+            singleTapTimerRef.current = setTimeout(() => {
+              if (zoomLevel <= 1) {
+                setShowActions((prev) => !prev)
+              }
+              singleTapTimerRef.current = null
+            }, 280)
+          }
         }
       }
     }
@@ -1990,6 +1993,8 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
                     autoPlay={isCurrentSlide}
                     photoId={photoSlide.photoId}
                     isCinematicMode={isCinematicMode}
+                    controlsVisible={isCurrentSlide ? actionsVisible : false}
+                    onControlsVisibleChange={isCurrentSlide ? setShowActions : undefined}
                     onScrubbingChange={setIsVideoScrubbing}
                     onFullscreenChange={setIsVideoFullscreen}
                     onOpenComments={handleOpenComments}

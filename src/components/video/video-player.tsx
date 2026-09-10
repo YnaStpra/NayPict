@@ -33,6 +33,8 @@ export interface VideoPlayerProps {
   onScrubbingChange?: (isScrubbing: boolean) => void
   onOpenComments?: () => void
   onOpenInfo?: () => void
+  controlsVisible?: boolean
+  onControlsVisibleChange?: (visible: boolean) => void
   onEnded?: () => void
   onFullscreenChange?: (isFullscreen: boolean) => void
 }
@@ -49,6 +51,8 @@ export const VideoPlayer = memo(function VideoPlayer({
   onScrubbingChange,
   onOpenComments,
   onOpenInfo,
+  controlsVisible: controlsVisibleProp,
+  onControlsVisibleChange,
   onEnded,
   onFullscreenChange,
 }: VideoPlayerProps) {
@@ -77,7 +81,18 @@ export const VideoPlayer = memo(function VideoPlayer({
   const [isMuted, setIsMuted] = useState(false)
   const [volume, setVolume] = useState(1)
   const [isFullscreen, setIsFullscreen] = useState(false)
-  const [showControls, setShowControls] = useState(true)
+  const isControlled = controlsVisibleProp !== undefined
+  const [internalShowControls, setInternalShowControls] = useState(true)
+  const showControls = isControlled ? controlsVisibleProp : internalShowControls
+
+  // Dispatch visibility update to both local state and parent PhotoViewer
+  const updateControlsVisibility = useCallback((visible: boolean) => {
+    setInternalShowControls(visible)
+    if (isActive) {
+      onControlsVisibleChange?.(visible)
+    }
+  }, [isActive, onControlsVisibleChange])
+
   const [isScrubbing, setIsScrubbing] = useState(false)
   const [showCenterIcon, setShowCenterIcon] = useState(false)
   const [centerIconState, setCenterIconState] = useState<"play" | "pause">("play")
@@ -122,21 +137,21 @@ export const VideoPlayer = memo(function VideoPlayer({
     setIsPlaying(false)
   }, [src])
 
-  // Reset idle timer to hide controls after 2.5s of inactivity (applies to both playing and paused states)
+  // Reset idle timer to hide controls after 2.8s of inactivity while playing (synchronized with PhotoViewer overlay)
   const pingActivity = useCallback(() => {
-    setShowControls(true)
+    updateControlsVisibility(true)
     if (idleTimerRef.current) {
       clearTimeout(idleTimerRef.current)
       idleTimerRef.current = null
     }
-    if (!isScrubbingRef.current) {
+    if (isPlaying && !isScrubbingRef.current) {
       idleTimerRef.current = setTimeout(() => {
         if (!isScrubbingRef.current) {
-          setShowControls(false)
+          updateControlsVisibility(false)
         }
-      }, 2500)
+      }, 2800)
     }
-  }, [])
+  }, [isPlaying, updateControlsVisibility])
 
   useEffect(() => {
     pingActivity()
@@ -227,6 +242,17 @@ export const VideoPlayer = memo(function VideoPlayer({
         setIsBuffering(false)
         console.warn("Video playback error:", err)
       })
+      // Reset idle timer when starting playback
+      if (idleTimerRef.current) {
+        clearTimeout(idleTimerRef.current)
+        idleTimerRef.current = null
+      }
+      updateControlsVisibility(true)
+      idleTimerRef.current = setTimeout(() => {
+        if (!isScrubbingRef.current) {
+          updateControlsVisibility(false)
+        }
+      }, 2800)
     } else {
       video.pause()
       setIsPlaying(false)
@@ -234,9 +260,14 @@ export const VideoPlayer = memo(function VideoPlayer({
       setCenterIconState("pause")
       setShowCenterIcon(true)
       setTimeout(() => setShowCenterIcon(false), 500)
+      // Cancel idle timer so controls remain visible while paused
+      if (idleTimerRef.current) {
+        clearTimeout(idleTimerRef.current)
+        idleTimerRef.current = null
+      }
+      updateControlsVisibility(true)
     }
-    pingActivity()
-  }, [pingActivity])
+  }, [updateControlsVisibility])
 
   // Time update and buffer progress
   const handleTimeUpdate = useCallback(() => {
@@ -322,8 +353,8 @@ export const VideoPlayer = memo(function VideoPlayer({
       clearTimeout(idleTimerRef.current)
       idleTimerRef.current = null
     }
-    setShowControls(true)
-  }, [])
+    updateControlsVisibility(true)
+  }, [updateControlsVisibility])
 
   const handleVolumeEnd = useCallback((e?: React.SyntheticEvent | Event) => {
     e?.stopPropagation()
@@ -546,7 +577,7 @@ export const VideoPlayer = memo(function VideoPlayer({
       clearTimeout(idleTimerRef.current)
       idleTimerRef.current = null
     }
-    setShowControls(true)
+    updateControlsVisibility(true)
 
     const targetTime = calculateTimeFromPointer(e.clientX, e.clientY)
     if (targetTime !== null) {
@@ -569,7 +600,7 @@ export const VideoPlayer = memo(function VideoPlayer({
         setPreviewX(clampedX)
       }
     }
-  }, [calculateTimeFromPointer, duration, isVideoLandscape, onScrubbingChange, seekVideo, shouldRotateMobile])
+  }, [calculateTimeFromPointer, duration, isVideoLandscape, onScrubbingChange, seekVideo, shouldRotateMobile, updateControlsVisibility])
 
   const handleScrubberPointerMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     e.stopPropagation()
@@ -578,7 +609,7 @@ export const VideoPlayer = memo(function VideoPlayer({
       clearTimeout(idleTimerRef.current)
       idleTimerRef.current = null
     }
-    setShowControls(true)
+    updateControlsVisibility(true)
 
     const targetTime = calculateTimeFromPointer(e.clientX, e.clientY)
     if (targetTime === null) return
@@ -614,7 +645,7 @@ export const VideoPlayer = memo(function VideoPlayer({
       setHoverTime(targetTime)
       setIsHoveringTimeline(true)
     }
-  }, [calculateTimeFromPointer, isVideoLandscape, seekVideo, shouldRotateMobile])
+  }, [calculateTimeFromPointer, isVideoLandscape, seekVideo, shouldRotateMobile, updateControlsVisibility])
 
   const handleScrubberPointerUp = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     if (!isScrubbingRef.current) return
@@ -756,43 +787,41 @@ export const VideoPlayer = memo(function VideoPlayer({
     return () => window.removeEventListener("keydown", handleKeyDown)
   }, [togglePlay, toggleMute, duration, pingActivity])
 
-  // Keep controls alive on mouse move while controls are visible (both playing and paused)
+  // Keep controls alive on mouse move while controls are visible and video is playing
   const handleMouseMove = useCallback(() => {
     if (showControls) {
       if (idleTimerRef.current) {
         clearTimeout(idleTimerRef.current)
         idleTimerRef.current = null
       }
-      if (!isScrubbingRef.current) {
+      if (isPlaying && !isScrubbingRef.current) {
         idleTimerRef.current = setTimeout(() => {
           if (!isScrubbingRef.current) {
-            setShowControls(false)
+            updateControlsVisibility(false)
           }
-        }, 2500)
+        }, 2800)
       }
     }
-  }, [showControls])
+  }, [showControls, isPlaying, updateControlsVisibility])
 
-  // Toggle controls overlay visibility on screen click without toggling playback
+  // Toggle controls overlay visibility on screen click without toggling playback (synchronized with PhotoViewer)
   const handleScreenClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation()
-    setShowControls((prev) => {
-      const next = !prev
-      if (idleTimerRef.current) {
-        clearTimeout(idleTimerRef.current)
-        idleTimerRef.current = null
-      }
-      if (next && !isScrubbingRef.current) {
-        // Reset 2.5s auto-hide timer when revealing controls
-        idleTimerRef.current = setTimeout(() => {
-          if (!isScrubbingRef.current) {
-            setShowControls(false)
-          }
-        }, 2500)
-      }
-      return next
-    })
-  }, [])
+    const next = !showControls
+    if (idleTimerRef.current) {
+      clearTimeout(idleTimerRef.current)
+      idleTimerRef.current = null
+    }
+    updateControlsVisibility(next)
+    if (next && isPlaying && !isScrubbingRef.current) {
+      // Reset auto-hide timer when revealing controls while playing
+      idleTimerRef.current = setTimeout(() => {
+        if (!isScrubbingRef.current) {
+          updateControlsVisibility(false)
+        }
+      }, 2800)
+    }
+  }, [showControls, isPlaying, updateControlsVisibility])
 
   const displayTime = isScrubbing ? scrubTime : currentTime
   const progressPercent = duration > 0 ? (displayTime / duration) * 100 : 0
@@ -905,7 +934,7 @@ export const VideoPlayer = memo(function VideoPlayer({
             globalVideoPositions.delete(mediaKey)
           }
           setIsPlaying(false)
-          setShowControls(true)
+          updateControlsVisibility(true)
           onEnded?.()
         }}
         onError={() => {
