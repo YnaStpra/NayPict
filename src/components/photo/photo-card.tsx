@@ -243,11 +243,12 @@ export const PhotoCard = memo(function PhotoCard({
   }
 
   const cardHeight = Math.max(1, Math.round(width * ratio))
+  const staggerDelay = Math.min(320, ((index ?? 0) % 12) * 28)
 
   return (
     <div
       ref={cardRef}
-      className="group relative overflow-hidden houdini-smooth-card touch-press-feedback [content-visibility:auto] touch-manipulation"
+      className="group relative overflow-hidden houdini-smooth-card touch-press-feedback cascade-wave-card [content-visibility:auto] touch-manipulation"
       onClick={handlePhotoClick}
       onContextMenu={handlePhotoContextMenu}
       onMouseEnter={handleMouseEnter}
@@ -260,6 +261,7 @@ export const PhotoCard = memo(function PhotoCard({
         ["containIntrinsicSize" as string]: `auto ${width}px ${cardHeight}px`,
         transform: "translateZ(0)",
         willChange: "auto",
+        ["--card-stagger" as string]: `${staggerDelay}ms`,
         backgroundColor: placeholder ? undefined : "rgba(128,128,128,0.08)",
         backgroundImage: placeholder ? `url("${placeholder}")` : undefined,
         backgroundSize: "cover",
@@ -323,13 +325,13 @@ export const PhotoCard = memo(function PhotoCard({
           <span>Pinned</span>
         </div>
       )}
-      {/* Video Duration Badge (Always visible in album grid) */}
+      {/* Video Duration Badge (Always visible in album grid with Living Aura) */}
       {isVideo && (
         <div
-          className="absolute top-2 right-2 z-10 flex items-center gap-1 rounded-full bg-black/75 text-white backdrop-blur-md px-2 py-0.5 text-[11px] font-bold shadow-md border border-white/20"
+          className="absolute top-2 right-2 z-10 flex items-center gap-1 rounded-full bg-black/75 text-white backdrop-blur-md px-2 py-0.5 text-[11px] font-bold shadow-md border border-white/20 video-living-badge"
           title={`Video ${videoDuration ? `(${videoDuration})` : ""}`}
         >
-          <Play className="size-2.5 fill-current text-emerald-400" />
+          <Play className="size-2.5 fill-current text-emerald-400 animate-pulse" />
           <span>{videoDuration || "Video"}</span>
         </div>
       )}

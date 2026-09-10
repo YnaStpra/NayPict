@@ -1199,11 +1199,36 @@ export const VideoPlayer = memo(function VideoPlayer({
               />
             </div>
 
-            {/* Time Display */}
-            <div className="text-[11px] sm:text-xs font-medium text-white/80 tabular-nums">
+            {/* Time Display with Living Audio Waveform Equalizer */}
+            <div className="text-[11px] sm:text-xs font-medium text-white/80 tabular-nums flex items-center gap-1.5">
               <span>{formatVideoDuration(displayTime)}</span>
-              <span className="mx-1 text-white/40">/</span>
+              <span className="text-white/40">/</span>
               <span>{formatVideoDuration(duration)}</span>
+
+              {/* Dynamic Audio Equalizer Bars (Active when playing) */}
+              <div
+                className="flex items-end gap-[2px] h-3.5 px-1 py-0.5 rounded-sm bg-white/5 border border-white/10 ml-0.5 select-none"
+                title={isPlaying ? "Playing media audio" : "Paused"}
+              >
+                <span
+                  className={cn(
+                    "w-[2.5px] rounded-full bg-emerald-400 transition-all",
+                    isPlaying ? "audio-bar-1" : "h-[3px] opacity-50"
+                  )}
+                />
+                <span
+                  className={cn(
+                    "w-[2.5px] rounded-full bg-emerald-400 transition-all",
+                    isPlaying ? "audio-bar-2" : "h-[5px] opacity-50"
+                  )}
+                />
+                <span
+                  className={cn(
+                    "w-[2.5px] rounded-full bg-emerald-400 transition-all",
+                    isPlaying ? "audio-bar-3" : "h-[2.5px] opacity-50"
+                  )}
+                />
+              </div>
             </div>
           </div>
 

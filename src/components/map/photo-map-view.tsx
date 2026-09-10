@@ -606,26 +606,53 @@ export default function PhotoMapView() {
         topPhoto.name?.toLowerCase().match(/\.(mp4|mov|webm|avi|mkv)$/)
       )
 
+      const secondPhoto = cluster.photos[1]
+      const secondRaw = secondPhoto?.thumbnail || secondPhoto?.preview || ""
+      const secondImgUrl = secondRaw ? encodeURI(secondRaw).replace(/"/g, '&quot;').replace(/'/g, '&#39;') : ""
+
+      const thirdPhoto = cluster.photos[2]
+      const thirdRaw = thirdPhoto?.thumbnail || thirdPhoto?.preview || ""
+      const thirdImgUrl = thirdRaw ? encodeURI(thirdRaw).replace(/"/g, '&quot;').replace(/'/g, '&#39;') : ""
+
       // Custom HTML pin marker with ultra-high-contrast dual contour, luminescent ambient halo, ground anchor shadow, and calibrated pointer
       const customIcon = L.divIcon({
         className: "photo-marker-icon",
         html: `
-          <div class="relative cursor-pointer transition-all duration-200 transform hover:scale-110 select-none ${
-            isSelected ? "scale-115 z-50" : ""
+          <div class="group relative cursor-pointer transition-all duration-200 transform hover:scale-110 select-none ${
+            isSelected ? "scale-115 z-50 pin-deck-fanned" : ""
           }">
             <!-- High-Contrast Ground Anchor Shadow on Map Surface -->
             <div class="absolute -bottom-2 left-1/2 -translate-x-1/2 w-6 h-2 bg-black/85 rounded-full blur-[1.5px] pointer-events-none"></div>
 
-            <!-- Luminescent Ambient Halo / Glow (Continuous Visibility) -->
+            <!-- Luminescent Ambient Halo & Dual Concentric Sonar Waves -->
             <div class="pin-contrast-halo ${isSelected ? "pin-contrast-halo-selected" : ""}"></div>
-            ${isSelected || count > 3 ? `<div class="radar-pin-halo"></div>` : ""}
+            ${
+              isSelected || count > 2
+                ? `
+              <div class="radar-pin-halo"></div>
+              <div class="radar-pin-halo radar-pin-halo-delay"></div>
+            `
+                : ""
+            }
 
             ${
               isMulti
                 ? `
-              <!-- Stacked cards behind for multi-photo depth with high-contrast emerald & black borders -->
-              <div class="absolute inset-0 rounded-2xl bg-neutral-900 border-2 border-emerald-500/90 rotate-6 scale-95 shadow-md shadow-black/80 ring-1 ring-black/90 pointer-events-none"></div>
-              <div class="absolute inset-0 rounded-2xl bg-neutral-900 border-2 border-emerald-400/90 -rotate-3 scale-95 shadow-md shadow-black/80 ring-1 ring-black/90 pointer-events-none"></div>
+              <!-- 3D Photo Deck Fan-out Underlays with real thumbnail previews -->
+              <div class="absolute inset-0 rounded-2xl bg-neutral-900 border-2 border-emerald-500/90 shadow-md shadow-black/80 ring-1 ring-black/90 pointer-events-none pin-deck-underlay-right overflow-hidden">
+                ${
+                  secondImgUrl
+                    ? `<img src="${secondImgUrl}" alt="" class="w-full h-full object-cover opacity-85" loading="lazy" decoding="async" />`
+                    : `<div class="w-full h-full bg-neutral-800"></div>`
+                }
+              </div>
+              <div class="absolute inset-0 rounded-2xl bg-neutral-900 border-2 border-emerald-400/90 shadow-md shadow-black/80 ring-1 ring-black/90 pointer-events-none pin-deck-underlay-left overflow-hidden">
+                ${
+                  thirdImgUrl
+                    ? `<img src="${thirdImgUrl}" alt="" class="w-full h-full object-cover opacity-75" loading="lazy" decoding="async" />`
+                    : `<div class="w-full h-full bg-neutral-800"></div>`
+                }
+              </div>
             `
                 : ""
             }
@@ -1229,9 +1256,9 @@ export default function PhotoMapView() {
       {selectedCluster && currentPhoto && (
         <div
           ref={spotCardRef}
-          className="absolute z-20 overflow-hidden backdrop-blur-2xl bg-background/90 dark:bg-neutral-900/90 border border-border/80 shadow-2xl transition-all
-            bottom-4 inset-x-3 mx-auto max-w-sm w-auto rounded-3xl animate-in fade-in slide-in-from-bottom-4 duration-200
-            sm:bottom-auto sm:top-20 sm:right-4 sm:left-auto sm:mx-0 sm:w-80 sm:max-w-none sm:slide-in-from-bottom-0 sm:zoom-in-95
+          className="absolute z-20 overflow-hidden backdrop-blur-2xl bg-background/90 dark:bg-neutral-900/90 border border-border/80 shadow-2xl transition-all floating-polaroid-card
+            bottom-4 inset-x-3 mx-auto max-w-sm w-auto rounded-3xl
+            sm:bottom-auto sm:top-20 sm:right-4 sm:left-auto sm:mx-0 sm:w-80 sm:max-w-none
             max-h-[calc(100dvh-7.5rem)] flex flex-col"
         >
           {/* Main Photo Image with Instant ThumbHash Blur and Eager Thumbnail Loading */}

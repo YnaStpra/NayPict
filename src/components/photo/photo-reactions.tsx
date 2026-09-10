@@ -18,6 +18,11 @@ interface Particle {
   emoji: string
   x: number
   y: number
+  targetX: number
+  targetY: number
+  rotate: number
+  scale: number
+  duration: number
 }
 
 const REACTION_CONFIG: {
@@ -101,22 +106,41 @@ export function PhotoReactions({ photoId, className = "", compact = false }: Pho
     }
   }, [photoId])
 
-  // Spawn floating emoji particles on tap
-  const triggerParticle = useCallback((emoji: string, e: React.MouseEvent<HTMLButtonElement>) => {
+  // Spawn celebratory fountain of floating emoji particles on tap
+  const triggerParticleBurst = useCallback((emoji: string, e: React.MouseEvent<HTMLButtonElement>) => {
     const rect = e.currentTarget.getBoundingClientRect()
-    const newId = ++particleIdRef.current
-    const particle: Particle = {
-      id: newId,
-      emoji,
-      x: rect.left + rect.width / 2 + (Math.random() * 20 - 10),
-      y: rect.top - 10,
+    const centerX = rect.left + rect.width / 2
+    const startY = rect.top - 6
+
+    const newParticles: Particle[] = []
+    const count = 6
+    const emojis = [emoji, emoji, "✨", emoji, emoji, "✨"]
+
+    for (let i = 0; i < count; i++) {
+      const newId = ++particleIdRef.current
+      const progress = (i / (count - 1)) - 0.5 // -0.5 to +0.5
+      const spreadX = progress * (60 + Math.random() * 20)
+      const liftY = -(70 + Math.random() * 45)
+
+      newParticles.push({
+        id: newId,
+        emoji: emojis[i % emojis.length],
+        x: centerX + (Math.random() * 10 - 5),
+        y: startY,
+        targetX: centerX + spreadX,
+        targetY: startY + liftY,
+        rotate: (Math.random() - 0.5) * 50,
+        scale: 1.1 + Math.random() * 0.45,
+        duration: 0.85 + Math.random() * 0.35,
+      })
     }
 
-    setParticles((prev) => [...prev.slice(-10), particle])
+    setParticles((prev) => [...prev.slice(-24), ...newParticles])
 
     setTimeout(() => {
-      setParticles((prev) => prev.filter((p) => p.id !== newId))
-    }, 1200)
+      const idsToRemove = new Set(newParticles.map((p) => p.id))
+      setParticles((prev) => prev.filter((p) => !idsToRemove.has(p.id)))
+    }, 1400)
   }, [])
 
   // Handle emoji reaction toggle with mutual exclusivity
@@ -133,7 +157,7 @@ export function PhotoReactions({ photoId, className = "", compact = false }: Pho
 
     const isCurrentlyActive = Boolean(userReactions[type as keyof UserReactionsVo])
     if (!isCurrentlyActive) {
-      triggerParticle(emoji, e)
+      triggerParticleBurst(emoji, e)
     }
 
     // Immediately toggle reaction via synchronized reactive store
@@ -154,7 +178,7 @@ export function PhotoReactions({ photoId, className = "", compact = false }: Pho
 
     const isCurrentlyLiked = userReactions.clap > 0
     if (!isCurrentlyLiked) {
-      triggerParticle("👏", e)
+      triggerParticleBurst("👏", e)
     }
 
     // Immediately toggle like via synchronized reactive store
@@ -163,22 +187,23 @@ export function PhotoReactions({ photoId, className = "", compact = false }: Pho
 
   return (
     <div className={`${compact ? "space-y-0" : "space-y-2.5"} select-none ${className}`}>
-      {/* Floating Particles Portal */}
+      {/* Celebratory Floating Particles Portal */}
       <div className="fixed inset-0 pointer-events-none z-[99999] overflow-hidden">
         <AnimatePresence>
           {particles.map((p) => (
             <motion.div
               key={p.id}
-              initial={{ opacity: 1, y: p.y, x: p.x, scale: 0.8 }}
+              initial={{ opacity: 1, y: p.y, x: p.x, scale: 0.5, rotate: 0 }}
               animate={{
-                opacity: 0,
-                y: p.y - 70 - Math.random() * 30,
-                x: p.x + (Math.random() * 30 - 15),
-                scale: 1.4,
+                opacity: [1, 1, 0],
+                y: p.targetY,
+                x: p.targetX,
+                scale: p.scale,
+                rotate: p.rotate,
               }}
               exit={{ opacity: 0 }}
-              transition={{ duration: 0.9, ease: "easeOut" }}
-              className="fixed text-xl drop-shadow-lg"
+              transition={{ duration: p.duration, ease: [0.22, 1, 0.36, 1] }}
+              className="fixed text-xl drop-shadow-lg pointer-events-none"
             >
               {p.emoji}
             </motion.div>

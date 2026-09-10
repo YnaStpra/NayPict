@@ -102,14 +102,20 @@ export const AlbumCard = memo(function AlbumCard({ data, width, href, onRename, 
         ["--intrinsic-height" as string]: `${width}px`,
       }}
     >
+      {/* 3D Physical Photo Stack Underlay Layers */}
+      <div className="absolute inset-1.5 rounded-2xl bg-neutral-900/90 border border-white/10 shadow-lg pointer-events-none album-stack-layer-1" />
+      <div className="absolute inset-1.5 rounded-2xl bg-neutral-950/95 border border-white/15 shadow-xl pointer-events-none album-stack-layer-2" />
+
       <Link
         href={targetHref}
         prefetch={false}
-        className={`absolute inset-0 block ${isOpening ? "pointer-events-none cursor-wait" : ""}`}
+        className={`absolute inset-0 block rounded-2xl overflow-hidden ${isOpening ? "pointer-events-none cursor-wait" : ""}`}
         onClick={handleAlbumClick}
         onMouseEnter={handlePrefetch}
         onTouchStart={handlePrefetch}
       >
+        {/* Specular Light Sheen Reflection Sweep */}
+        <div className="specular-glass-sheen" />
         {thumbnailSrc ? (
           <img
             src={thumbnailSrc}
