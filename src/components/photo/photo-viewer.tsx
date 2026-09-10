@@ -1721,7 +1721,7 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
         controller={{
           closeOnBackdropClick: !isAnySubModalOpen,
           closeOnEscape: !isAnySubModalOpen,
-          disableSwipeNavigation: isVideoScrubbing,
+          disableSwipeNavigation: isCurrentVideo || fullscreenOpen || isCinematicMode,
         }}
         portal={{
           container: {

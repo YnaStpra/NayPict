@@ -56,6 +56,7 @@ export const VideoPlayer = memo(function VideoPlayer({
   const volumeInputRef = useRef<HTMLInputElement>(null)
   const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const isScrubbingRef = useRef(false)
+  const wasPlayingRef = useRef(false)
 
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
@@ -381,30 +382,40 @@ export const VideoPlayer = memo(function VideoPlayer({
     }
   }, [])
 
-  // High-precision scrubber seeking supporting both direct taps & fluid touch/pointer dragging
+  // High-precision scrubber seeking supporting direct taps & fluid dragging
   const updateScrubberTime = useCallback((clientX: number) => {
     const track = timelineTrackRef.current
     const video = videoRef.current
-    if (!track || !video || !duration || duration <= 0) return
+    if (!track || !video || !duration || duration <= 0 || isNaN(clientX)) return
 
     const rect = track.getBoundingClientRect()
     if (rect.width <= 0) return
 
     const offsetX = Math.max(0, Math.min(clientX - rect.left, rect.width))
-    const percent = offsetX / rect.width
+    const percent = Math.max(0, Math.min(offsetX / rect.width, 1))
     const targetTime = Math.max(0, Math.min(percent * duration, duration))
 
-    setCurrentTime(targetTime)
-    video.currentTime = targetTime
+    if (!isNaN(targetTime) && isFinite(targetTime)) {
+      setCurrentTime(targetTime)
+      video.currentTime = targetTime
 
-    const mediaKey = photoId || src
-    if (mediaKey) {
-      globalVideoPositions.set(mediaKey, targetTime)
+      const mediaKey = photoId || src
+      if (mediaKey) {
+        globalVideoPositions.set(mediaKey, targetTime)
+      }
     }
   }, [duration, photoId, src])
 
   const handleScrubberPointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     e.stopPropagation()
+    const video = videoRef.current
+    if (video) {
+      wasPlayingRef.current = !video.paused
+      if (wasPlayingRef.current) {
+        video.pause()
+      }
+    }
+
     try {
       e.currentTarget.setPointerCapture(e.pointerId)
     } catch {}
@@ -420,29 +431,7 @@ export const VideoPlayer = memo(function VideoPlayer({
     setShowControls(true)
 
     updateScrubberTime(e.clientX)
-
-    const handleWindowPointerMove = (moveEvent: PointerEvent) => {
-      if (!isScrubbingRef.current) return
-      updateScrubberTime(moveEvent.clientX)
-    }
-
-    const handleWindowPointerUp = (upEvent: PointerEvent) => {
-      window.removeEventListener("pointermove", handleWindowPointerMove)
-      window.removeEventListener("pointerup", handleWindowPointerUp)
-      window.removeEventListener("pointercancel", handleWindowPointerUp)
-
-      isScrubbingRef.current = false
-      setIsScrubbing(false)
-      onScrubbingChange?.(false)
-
-      updateScrubberTime(upEvent.clientX)
-      pingActivity()
-    }
-
-    window.addEventListener("pointermove", handleWindowPointerMove)
-    window.addEventListener("pointerup", handleWindowPointerUp)
-    window.addEventListener("pointercancel", handleWindowPointerUp)
-  }, [onScrubbingChange, pingActivity, updateScrubberTime])
+  }, [onScrubbingChange, updateScrubberTime])
 
   const handleScrubberPointerMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     if (!isScrubbingRef.current) return
@@ -470,6 +459,12 @@ export const VideoPlayer = memo(function VideoPlayer({
     onScrubbingChange?.(false)
 
     updateScrubberTime(e.clientX)
+
+    const video = videoRef.current
+    if (video && wasPlayingRef.current) {
+      void video.play().catch(() => {})
+    }
+
     pingActivity()
   }, [onScrubbingChange, pingActivity, updateScrubberTime])
 
