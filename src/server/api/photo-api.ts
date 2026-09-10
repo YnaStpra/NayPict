@@ -20,11 +20,13 @@ import {
   type PhotoSetVisibilityBo,
   type PhotoTakenDateListBo,
 } from '@/server/entity/bo/photo';
-import { downloadRateLimiter } from '@/server/lib/rate-limiter';
+import { downloadRateLimiter, photoListRateLimiter } from '@/server/lib/rate-limiter';
 import { getClientIp } from '@/server/lib/ip';
 import { settingService } from '@/server/service/setting-service';
 import { SettingWatermarkEnum } from '@/server/enums/setting-enum';
 import { applyWatermark } from '@/server/lib/photo-watermark';
+import sharp from 'sharp';
+import { SHARP_SECURITY_OPTIONS } from '@/server/lib/photo-process';
 import type { HonoEnv } from '../hono/type';
 
 // This module registers photo-related interfaces.
@@ -137,9 +139,17 @@ export function registerPhotoApi(app: Hono<HonoEnv>) {
     return c.json(result.ok(data));
   });
 
-  // Query the photo list by pagination and conditions.
+  // Query the photo list by pagination and conditions (public requests subject to distributed rate limiting).
   app.post('/photo/list', async (c: Context) => {
     const userId = getUserId();
+    if (!userId) {
+      const clientIp = getClientIp(c);
+      const rateLimit = await photoListRateLimiter.consume(clientIp);
+      if (!rateLimit.allowed) {
+        return c.json(result.fail("Rate limit exceeded. Please wait a moment before loading more photos.", 429), 429);
+      }
+    }
+
     applyPublicCacheHeaders(c, userId);
     const body = await c.req.json<PhotoListBo>();
     const data = await photoService.list(body, userId);
@@ -234,6 +244,23 @@ export function registerPhotoApi(app: Hono<HonoEnv>) {
         c.header('Content-Disposition', `attachment; filename="${encodeURIComponent(photoData.fileName)}"`);
         c.header('Content-Length', String(buffer.length));
         return c.body(new Uint8Array(buffer));
+      }
+    }
+
+    // Protect photographer location privacy: Strip GPS coordinates from public image downloads (under 4.5MB serverless limit)
+    if (!userId && photo.type?.startsWith('image/')) {
+      const photoData = await photoService.getOriginalPhotoBuffer(photoId);
+      if (photoData && photoData.buffer.length < 4.5 * 1024 * 1024) {
+        try {
+          const metadata = await sharp(photoData.buffer, SHARP_SECURITY_OPTIONS).metadata();
+          const sanitized = await sharp(photoData.buffer, SHARP_SECURITY_OPTIONS)
+            .withMetadata({ orientation: metadata.orientation })
+            .toBuffer();
+          c.header('Content-Type', photoData.contentType || 'image/jpeg');
+          c.header('Content-Disposition', `attachment; filename="${encodeURIComponent(photoData.fileName)}"`);
+          c.header('Content-Length', String(sanitized.length));
+          return c.body(new Uint8Array(sanitized));
+        } catch {}
       }
     }
 

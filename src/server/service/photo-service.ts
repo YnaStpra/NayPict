@@ -121,7 +121,8 @@ const photoService = {
       if (cached) return cached;
     }
 
-    const size = params.size && params.size > 0 ? params.size : PHOTO_LIST_PAGE_SIZE;
+    // Clamp pagination size between 1 and 100 to prevent denial-of-service via excessive memory allocation
+    const size = Math.min(Math.max(1, params.size || PHOTO_LIST_PAGE_SIZE), 100);
     const status = params.status ?? PhotoStatusEnum.NORMAL;
 
     // Determine target sort column
@@ -157,7 +158,8 @@ const photoService = {
     ];
 
     if (params.keyword?.trim()) {
-      baseWhereList.push(ilike(photoTab.name, `%${params.keyword.trim()}%`));
+      const sanitized = params.keyword.trim().slice(0, 100).replace(/[%_\\]/g, '\\$&');
+      baseWhereList.push(ilike(photoTab.name, `%${sanitized}%`));
     }
 
     if (params.allowDownload !== undefined && params.allowDownload !== null) {
@@ -399,11 +401,13 @@ const photoService = {
           desc(albumPhotoTab.pinnedAt),
           sql`RANDOM()`
         )
+        .limit(500)
       : await orm
         .select({ photoId: photoTab.photoId })
         .from(photoTab)
         .where(and(...whereList))
-        .orderBy(sql`RANDOM()`);
+        .orderBy(sql`RANDOM()`)
+        .limit(500);
 
     return rows.map((row: any) => row.photoId);
   },
