@@ -185,31 +185,6 @@ export const PhotoCard = memo(function PhotoCard({
     }
   }
 
-  // Proximity prefetching on mobile when photo rests near center of viewport
-  useEffect(() => {
-    if (!isMobile || !cardRef.current) return
-    const targetUrl = data.preview || data.key
-    if (!targetUrl || prefetchedPreviewUrls.has(targetUrl)) return
-
-    const el = cardRef.current
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const entry = entries[0]
-        if (entry?.isIntersecting) {
-          prefetchPhotoHighRes(targetUrl)
-          observer.disconnect()
-        }
-      },
-      {
-        // Focus on middle 50% vertical band of the phone screen
-        rootMargin: "-25% 0px -25% 0px",
-        threshold: 0.5,
-      }
-    )
-
-    observer.observe(el)
-    return () => observer.disconnect()
-  }, [isMobile, data.preview, data.key])
 
   // Toggle the selection status of the current photo.
   function changeSelected(checked: boolean) {

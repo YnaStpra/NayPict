@@ -532,8 +532,9 @@ export function InfiniteGallery(props: InfiniteGalleryProps) {
             const hPx = t.h * PX_PER_UNIT
 
             // Dynamic Memory-Bounded Frustum Culling: Skip DOM allocation and transform calculation for off-screen tiles
-            const marginX = cW * 0.25
-            const marginY = cH * 0.25
+            const isMobileScreen = typeof window !== "undefined" && window.innerWidth < 768
+            const marginX = cW * (isMobileScreen ? 0.08 : 0.25)
+            const marginY = cH * (isMobileScreen ? 0.08 : 0.25)
             const tileRadius = Math.max(wPx, hPx) * s * 0.8
             if (
               dxPx + tileRadius < -cW / 2 - marginX ||

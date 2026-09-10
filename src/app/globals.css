@@ -198,19 +198,19 @@ body:has([data-slot="alert-dialog-content"]) .yarl__container,
 
 @keyframes neon-glow-pulse {
   0%, 100% {
-    box-shadow: 0 0 6px #ec4899, 0 0 14px #a855f7, 0 0 24px #ec4899;
-    filter: drop-shadow(0 0 4px #ec4899) drop-shadow(0 0 8px #a855f7);
+    box-shadow: 0 0 10px rgba(236, 72, 153, 0.6);
     color: #f472b6;
+    opacity: 0.95;
   }
   33% {
-    box-shadow: 0 0 8px #06b6d4, 0 0 16px #3b82f6, 0 0 28px #06b6d4;
-    filter: drop-shadow(0 0 6px #22d3ee) drop-shadow(0 0 10px #3b82f6);
+    box-shadow: 0 0 12px rgba(6, 182, 212, 0.6);
     color: #22d3ee;
+    opacity: 1;
   }
   66% {
-    box-shadow: 0 0 7px #f59e0b, 0 0 15px #f59e0b, 0 0 26px #ef4444;
-    filter: drop-shadow(0 0 5px #fbbf24) drop-shadow(0 0 9px #f59e0b);
+    box-shadow: 0 0 10px rgba(245, 158, 11, 0.6);
     color: #fbbf24;
+    opacity: 0.95;
   }
 }
 
@@ -229,6 +229,8 @@ body:has([data-slot="alert-dialog-content"]) .yarl__container,
 
 .animate-neon-glow {
   animation: neon-glow-pulse 3s infinite ease-in-out;
+  will-change: opacity, box-shadow;
+  transform: translateZ(0);
 }
 
 .animate-neon-flicker {
@@ -409,6 +411,25 @@ body {
   animation: border-beam-spin 6s linear infinite;
   pointer-events: none;
   z-index: 0;
+  will-change: transform;
+  transform: translateZ(0);
+}
+
+@media (max-width: 640px) {
+  .border-beam-ray {
+    inset: -100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 /* Magnetic Button Shimmer Sweep Effect */

@@ -165,7 +165,7 @@ export function OnThisDayBanner({ onPhotoClick }: OnThisDayBannerProps) {
                 role="button"
                 tabIndex={0}
                 aria-label={`View ${photo.name} from ${yearsAgoText}`}
-                className="group relative flex-none w-[240px] sm:w-[260px] md:w-[280px] aspect-[4/3] rounded-xl overflow-hidden bg-muted cursor-pointer border border-border/50 hover:border-amber-500/50 shadow-xs hover:shadow-md transition-all duration-300 snap-start focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary select-none"
+                className="group relative flex-none w-[240px] sm:w-[260px] md:w-[280px] aspect-[4/3] rounded-xl overflow-hidden bg-muted cursor-pointer border border-border/50 hover:border-amber-500/50 shadow-xs hover:shadow-md transition-all duration-300 snap-start focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary select-none [contain:paint_layout] transform-gpu"
               >
                 {/* ThumbHash Blur Placeholder */}
                 {thumbHash && (
@@ -173,7 +173,8 @@ export function OnThisDayBanner({ onPhotoClick }: OnThisDayBannerProps) {
                     src={thumbHash}
                     alt=""
                     aria-hidden
-                    className="absolute inset-0 h-full w-full object-cover scale-110 blur-sm"
+                    decoding="async"
+                    className="absolute inset-0 h-full w-full object-cover"
                   />
                 )}
 
