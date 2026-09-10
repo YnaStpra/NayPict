@@ -43,6 +43,10 @@ import { UserTypeEnum } from "@/server/enums/user-enum"
 import { useTranslations } from "next-intl"
 import { useModalBackHandler } from "@/hooks/use-modal-back-handler"
 
+// Stable plugin references to prevent Lightbox DOM teardown and video restarts during view mode toggles
+const VIDEO_PLUGINS = [Thumbnails, Fullscreen]
+const PHOTO_PLUGINS = [Thumbnails, Fullscreen, Zoom]
+
 interface PhotoViewerProps {
   // Controls viewer visibility.
   open: boolean
@@ -1701,6 +1705,8 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
       <Lightbox
         className={cn(
           lightboxClassName,
+          isCinematicMode && "yarl-cinematic-mode",
+          fullscreenOpen && "yarl-fullscreen-active",
           isAnySubModalOpen && "pointer-events-none select-none touch-none yarl-modal-active"
         )}
         open={open}
@@ -1724,15 +1730,7 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
             style: photoViewerPortalStyle,
           },
         }}
-        plugins={
-          isCurrentVideo
-            ? fullscreenOpen || isCinematicMode
-              ? [Fullscreen]
-              : [Thumbnails, Fullscreen]
-            : fullscreenOpen || isCinematicMode
-            ? [Fullscreen, Zoom]
-            : [Thumbnails, Fullscreen, Zoom]
-        }
+        plugins={isCurrentVideo ? VIDEO_PLUGINS : PHOTO_PLUGINS}
         zoom={{
           scrollToZoom: !isAnySubModalOpen,
           wheelZoomDistanceFactor: isAnySubModalOpen ? 0 : 100,
