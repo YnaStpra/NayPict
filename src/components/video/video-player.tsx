@@ -71,34 +71,6 @@ export const VideoPlayer = memo(function VideoPlayer({
   const [isLoading, setIsLoading] = useState(true)
   const [hasFirstFrame, setHasFirstFrame] = useState(false)
   const [isVideoLandscape, setIsVideoLandscape] = useState(false)
-  const [isMobileFullscreen, setIsMobileFullscreen] = useState(false)
-  const [isScreenPortrait, setIsScreenPortrait] = useState(true)
-
-  // Track viewport aspect ratio (portrait vs landscape) for mobile rotation
-  useEffect(() => {
-    const handleResize = () => {
-      if (typeof window !== "undefined") {
-        setIsScreenPortrait(window.innerHeight >= window.innerWidth)
-      }
-    }
-    handleResize()
-    window.addEventListener("resize", handleResize)
-    window.addEventListener("orientationchange", handleResize)
-    return () => {
-      window.removeEventListener("resize", handleResize)
-      window.removeEventListener("orientationchange", handleResize)
-    }
-  }, [])
-
-  // Mobile client detection helper
-  const isMobileClient = useCallback(() => {
-    if (typeof window === "undefined") return false
-    return (
-      window.innerWidth < 768 ||
-      /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
-      (navigator.maxTouchPoints > 0 && window.innerWidth <= 1024)
-    )
-  }, [])
 
   // Reset video loading & buffering state when media source changes
   useEffect(() => {
@@ -341,116 +313,113 @@ export const VideoPlayer = memo(function VideoPlayer({
     pingActivity()
   }, [onScrubbingChange, pingActivity])
 
-  // Fullscreen toggle (rotates 90 degrees for landscape video on mobile; native fullscreen on PC/Desktop)
+  // Native Fullscreen toggle supporting mobile (iOS Safari, Android Chrome) and PC/Desktop
   const toggleFullscreen = useCallback(async () => {
+    const video = videoRef.current
     const container = containerRef.current
-    if (!container) return
+    if (!video || !container) return
 
-    const isMobile = isMobileClient()
+    const isCurrentlyFullscreen = Boolean(
+      document.fullscreenElement ||
+      (document as any).webkitFullscreenElement ||
+      (video as any).webkitDisplayingFullscreen
+    )
 
-    if (isMobile) {
-      if (isMobileFullscreen) {
-        setIsMobileFullscreen(false)
-        setIsFullscreen(false)
-        if (typeof document !== "undefined") {
-          document.body.style.overflow = ""
-        }
-        try {
-          const screenAny = typeof screen !== "undefined" ? (screen as any) : null
-          if (screenAny?.orientation?.unlock) {
-            screenAny.orientation.unlock()
-          }
-        } catch {}
-      } else {
-        setIsMobileFullscreen(true)
-        setIsFullscreen(true)
-        if (typeof document !== "undefined") {
-          document.body.style.overflow = "hidden"
-        }
-        try {
-          // Attempt native orientation lock if supported by mobile device (Android Chrome)
-          const screenAny = typeof screen !== "undefined" ? (screen as any) : null
-          if (isVideoLandscape && screenAny?.orientation?.lock) {
-            void screenAny.orientation.lock("landscape").catch(() => {})
-          }
-        } catch {}
-      }
-      pingActivity()
-      return
-    }
-
-    // PC / Desktop: Standard Fullscreen without rotation
-    if (!document.fullscreenElement) {
-      try {
-        if (container.requestFullscreen) {
-          await container.requestFullscreen()
-        } else if ((container as any).webkitRequestFullscreen) {
-          await (container as any).webkitRequestFullscreen()
-        }
-        setIsFullscreen(true)
-      } catch {}
-    } else {
+    if (isCurrentlyFullscreen) {
       try {
         if (document.exitFullscreen) {
           await document.exitFullscreen()
         } else if ((document as any).webkitExitFullscreen) {
           await (document as any).webkitExitFullscreen()
         }
-        setIsFullscreen(false)
       } catch {}
-    }
-    pingActivity()
-  }, [isMobileClient, isMobileFullscreen, isVideoLandscape, pingActivity])
-
-  // Synchronize desktop native fullscreen changes (e.g. user presses Esc in browser)
-  useEffect(() => {
-    const handleNativeFullscreenChange = () => {
-      if (!isMobileClient()) {
-        setIsFullscreen(Boolean(document.fullscreenElement))
-      }
-    }
-    document.addEventListener("fullscreenchange", handleNativeFullscreenChange)
-    document.addEventListener("webkitfullscreenchange", handleNativeFullscreenChange)
-    return () => {
-      document.removeEventListener("fullscreenchange", handleNativeFullscreenChange)
-      document.removeEventListener("webkitfullscreenchange", handleNativeFullscreenChange)
-    }
-  }, [isMobileClient])
-
-  // Handle escape key and browser popstate for mobile fullscreen mode
-  useEffect(() => {
-    if (!isMobileFullscreen) return
-
-    const handleExitMobile = () => {
-      setIsMobileFullscreen(false)
-      setIsFullscreen(false)
-      if (typeof document !== "undefined") {
-        document.body.style.overflow = ""
-      }
       try {
         const screenAny = typeof screen !== "undefined" ? (screen as any) : null
         if (screenAny?.orientation?.unlock) {
           screenAny.orientation.unlock()
         }
       } catch {}
+      setIsFullscreen(false)
+      pingActivity()
+      return
     }
 
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        handleExitMobile()
+    // iOS Safari: Enter native fullscreen on video element
+    if (typeof (video as any).webkitEnterFullscreen === "function") {
+      try {
+        (video as any).webkitEnterFullscreen()
+        setIsFullscreen(true)
+        pingActivity()
+        return
+      } catch {}
+    }
+
+    // Android & Desktop: Request native fullscreen on container
+    try {
+      if (container.requestFullscreen) {
+        await container.requestFullscreen()
+      } else if ((container as any).webkitRequestFullscreen) {
+        await (container as any).webkitRequestFullscreen()
+      } else if (video.requestFullscreen) {
+        await video.requestFullscreen()
+      }
+      setIsFullscreen(true)
+
+      // On mobile devices with orientation lock support (e.g. Android Chrome):
+      // If video is landscape, orient to landscape
+      const isMobile = window.innerWidth < 768 || /Android|Mobile/i.test(navigator.userAgent)
+      const isLandscape = (video.videoWidth || 0) > (video.videoHeight || 0)
+      if (isMobile && isLandscape) {
+        try {
+          const screenAny = typeof screen !== "undefined" ? (screen as any) : null
+          if (screenAny?.orientation?.lock) {
+            void screenAny.orientation.lock("landscape").catch(() => {})
+          }
+        } catch {}
+      }
+    } catch (err) {
+      console.warn("Fullscreen request failed:", err)
+    }
+    pingActivity()
+  }, [pingActivity])
+
+  // Synchronize fullscreen state changes from native browser events
+  useEffect(() => {
+    const handleFullscreenStateChange = () => {
+      const isFs = Boolean(
+        document.fullscreenElement ||
+        (document as any).webkitFullscreenElement
+      )
+      setIsFullscreen(isFs)
+      if (!isFs) {
+        try {
+          const screenAny = typeof screen !== "undefined" ? (screen as any) : null
+          if (screenAny?.orientation?.unlock) {
+            screenAny.orientation.unlock()
+          }
+        } catch {}
       }
     }
 
-    window.addEventListener("popstate", handleExitMobile)
-    window.addEventListener("keydown", handleKeyDown)
+    const video = videoRef.current
+    const handleWebkitVideoEndFullscreen = () => {
+      setIsFullscreen(false)
+    }
+
+    document.addEventListener("fullscreenchange", handleFullscreenStateChange)
+    document.addEventListener("webkitfullscreenchange", handleFullscreenStateChange)
+    if (video) {
+      video.addEventListener("webkitendfullscreen", handleWebkitVideoEndFullscreen)
+    }
+
     return () => {
-      window.removeEventListener("popstate", handleExitMobile)
-      window.removeEventListener("keydown", handleKeyDown)
-      if (typeof document !== "undefined") {
-        document.body.style.overflow = ""
+      document.removeEventListener("fullscreenchange", handleFullscreenStateChange)
+      document.removeEventListener("webkitfullscreenchange", handleFullscreenStateChange)
+      if (video) {
+        video.removeEventListener("webkitendfullscreen", handleWebkitVideoEndFullscreen)
       }
     }
-  }, [isMobileFullscreen])
+  }, [])
 
   // Scrubber seeking
   const handleSeekChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -564,59 +533,16 @@ export const VideoPlayer = memo(function VideoPlayer({
   }, [isPlaying, isScrubbing])
 
   const progressPercent = duration > 0 ? (currentTime / duration) * 100 : 0
-  const shouldRotateMobile = isMobileFullscreen && isVideoLandscape && isScreenPortrait
 
   return (
     <div
       ref={containerRef}
       className={cn(
-        "group relative flex items-center justify-center w-full h-full select-none overflow-hidden bg-black transition-all duration-300",
-        isMobileFullscreen && !shouldRotateMobile && "!fixed !inset-0 !w-full !h-full !z-[99999]",
-        isMobileFullscreen && shouldRotateMobile && "!fixed !top-1/2 !left-1/2 !w-[100dvh] !h-[100dvw] !-translate-x-1/2 !-translate-y-1/2 !rotate-90 !z-[99999] origin-center",
+        "group relative flex items-center justify-center w-full h-full select-none overflow-hidden bg-black",
         className
       )}
-      style={
-        isMobileFullscreen && shouldRotateMobile
-          ? {
-              width: "100dvh",
-              height: "100dvw",
-              position: "fixed",
-              top: "50%",
-              left: "50%",
-              transform: "translate(-50%, -50%) rotate(90deg)",
-              transformOrigin: "center center",
-              zIndex: 99999,
-            }
-          : isMobileFullscreen
-          ? {
-              position: "fixed",
-              inset: 0,
-              width: "100vw",
-              height: "100vh",
-              zIndex: 99999,
-            }
-          : undefined
-      }
       onMouseMove={handleMouseMove}
     >
-      {/* Mobile Fullscreen Header Exit Button (TikTok / YouTube mobile style) */}
-      {isMobileFullscreen && (
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation()
-            toggleFullscreen()
-          }}
-          className={cn(
-            "absolute top-3 left-3 z-40 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/65 backdrop-blur-md text-white border border-white/20 shadow-xl transition-all duration-300 cursor-pointer hover:bg-black/85 active:scale-95",
-            showControls ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-2 pointer-events-none"
-          )}
-          aria-label="Exit Fullscreen"
-        >
-          <Minimize className="size-4" />
-          <span className="text-xs font-semibold tracking-wide">Exit</span>
-        </button>
-      )}
       {/* Visual Poster Overlay: Stays visible until video decodes and renders first playing frame */}
       {poster && (
         <img
@@ -763,7 +689,7 @@ export const VideoPlayer = memo(function VideoPlayer({
         onMouseUp={(e) => e.stopPropagation()}
       >
         {/* Quick Interaction Bar (Reactions, Comments, Info) - Stacked cleanly above Scrubber with zero overlap */}
-        {photoId && !isCinematicMode && !isMobileFullscreen && (
+        {photoId && !isCinematicMode && !isFullscreen && (
           <div
             className="flex items-center mb-2.5 sm:mb-3 pointer-events-auto max-w-full overflow-x-auto no-scrollbar touch-none"
             onClick={(e) => {
