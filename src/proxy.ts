@@ -68,7 +68,10 @@ export async function proxy(req: NextRequest) {
 
   if (!userId || !uuid) {
     if (isPublicPath(pathname)) {
-      return clearLoginCookies(NextResponse.next());
+      const hasTokenCookie = Boolean(
+        cookie && (cookie.includes(TOKEN_COOKIE_NAME) || cookie.includes('token'))
+      );
+      return hasTokenCookie ? clearLoginCookies(NextResponse.next()) : NextResponse.next();
     }
 
     const loginUrl = req.nextUrl.clone();

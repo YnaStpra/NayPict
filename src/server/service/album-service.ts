@@ -338,6 +338,10 @@ const albumService = {
       throw new BizError('photo.selectRequired');
     }
 
+    if (params.photoIds.length > 500) {
+      throw new BizError('photo.batchLimitExceeded');
+    }
+
     if (!params.albumIds?.length) {
       throw new BizError('album.selectRequired');
     }
@@ -422,6 +426,10 @@ const albumService = {
 
     if (!params.photoIds?.length) {
       throw new BizError('photo.selectRequired');
+    }
+
+    if (params.photoIds.length > 500) {
+      throw new BizError('photo.batchLimitExceeded');
     }
 
     const [album] = await orm

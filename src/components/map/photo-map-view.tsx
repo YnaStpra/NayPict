@@ -596,7 +596,8 @@ export default function PhotoMapView() {
       const topPhoto = cluster.photos[0]
       if (!topPhoto) return
 
-      const imgUrl = topPhoto.thumbnail || topPhoto.preview || ""
+      const rawImgUrl = topPhoto.thumbnail || topPhoto.preview || ""
+      const imgUrl = rawImgUrl ? encodeURI(rawImgUrl).replace(/"/g, '&quot;').replace(/'/g, '&#39;') : ""
       const isSelected = selectedCluster?.id === cluster.id
       const count = cluster.photos.length
       const isMulti = count > 1

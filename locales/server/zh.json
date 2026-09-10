@@ -9,6 +9,7 @@
   "album.selectRequired": "Please select an album",
   "photo.selectRequired": "Please select a photo",
   "photo.fileNameRequired": "File name cannot be empty",
+  "photo.batchLimitExceeded": "单次最多处理 500 个项目。",
   "login.credentialsRequired": "Username and password cannot be empty",
   "login.invalidCredentials": "Wrong username or password",
   "user.disabled": "User has been disabled",

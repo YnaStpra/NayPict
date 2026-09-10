@@ -56,12 +56,12 @@ const SYSTEM_PATHS = [
   '/photo/untagged',
   '/admin/insights',
   '/insights',
-  '/totp',
-  '/backup',
-  '/session'
+  '/backup'
 ];
 
 const PUBLIC_API_PATHS = [
+  '/health',
+  '/cron',
   '/login',
   '/logout',
   '/photo/list',

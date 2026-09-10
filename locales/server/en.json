@@ -9,6 +9,7 @@
   "album.selectRequired": "Select at least one album.",
   "photo.selectRequired": "Select at least one item.",
   "photo.fileNameRequired": "File name is required.",
+  "photo.batchLimitExceeded": "Maximum 500 items can be processed in a single batch.",
   "login.credentialsRequired": "Username and password are required.",
   "login.invalidCredentials": "Incorrect username or password.",
   "user.disabled": "This user has been disabled.",
