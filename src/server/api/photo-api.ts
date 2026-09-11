@@ -20,7 +20,7 @@ import {
   type PhotoSetVisibilityBo,
   type PhotoTakenDateListBo,
 } from '@/server/entity/bo/photo';
-import { downloadRateLimiter, photoListRateLimiter } from '@/server/lib/rate-limiter';
+import { downloadRateLimiter, photoListRateLimiter, uploadRateLimiter } from '@/server/lib/rate-limiter';
 import { getClientIp } from '@/server/lib/ip';
 import { logSecurityAudit } from '@/server/lib/audit';
 import { settingService } from '@/server/service/setting-service';
@@ -46,6 +46,13 @@ function applyPublicCacheHeaders(c: Context, userId?: string) {
 export function registerPhotoApi(app: Hono<HonoEnv>) {
   // Generate presigned PUT URL for direct-to-storage upload (S3 / Cloudflare R2).
   app.post('/photo/presignedUploadUrl', async (c: Context) => {
+    const clientIp = getClientIp(c);
+    const rateLimit = await uploadRateLimiter.consume(clientIp);
+    if (!rateLimit.allowed) {
+      c.header('Retry-After', String(Math.ceil(rateLimit.resetMs / 1000)));
+      return c.json(result.fail('Upload rate limit exceeded. Please try again later.', 429), 429);
+    }
+
     const body = await c.req.json<{ filename: string; fileType: string; storageId?: string }>();
     const data = await photoService.getPresignedUploadUrl(body, getUserId());
     return c.json(result.ok(data));
@@ -53,6 +60,13 @@ export function registerPhotoApi(app: Hono<HonoEnv>) {
 
   // Initiate direct S3 / Cloudflare R2 multipart upload session for large video files.
   app.post('/photo/multipart/initiate', async (c: Context) => {
+    const clientIp = getClientIp(c);
+    const rateLimit = await uploadRateLimiter.consume(clientIp);
+    if (!rateLimit.allowed) {
+      c.header('Retry-After', String(Math.ceil(rateLimit.resetMs / 1000)));
+      return c.json(result.fail('Upload rate limit exceeded. Please try again later.', 429), 429);
+    }
+
     const body = await c.req.json<PhotoMultipartInitiateBo>();
     const data = await photoService.initiateMultipartUpload(body, getUserId());
     return c.json(result.ok(data));
@@ -319,12 +333,26 @@ export function registerPhotoApi(app: Hono<HonoEnv>) {
 
   // Upload a single photo.
   app.post('/photo/add', async (c: Context) => {
+    const clientIp = getClientIp(c);
+    const rateLimit = await uploadRateLimiter.consume(clientIp);
+    if (!rateLimit.allowed) {
+      c.header('Retry-After', String(Math.ceil(rateLimit.resetMs / 1000)));
+      return c.json(result.fail('Upload rate limit exceeded. Please try again later.', 429), 429);
+    }
+
     const data = await photoService.add(await c.req.formData(), getUserId());
     return c.json(result.ok(data));
   });
 
   // Register a video uploaded via presigned URL with poster derivatives and metadata.
   app.post('/photo/addVideo', async (c: Context) => {
+    const clientIp = getClientIp(c);
+    const rateLimit = await uploadRateLimiter.consume(clientIp);
+    if (!rateLimit.allowed) {
+      c.header('Retry-After', String(Math.ceil(rateLimit.resetMs / 1000)));
+      return c.json(result.fail('Upload rate limit exceeded. Please try again later.', 429), 429);
+    }
+
     const body = await c.req.json<PhotoAddVideoBo>();
     const data = await photoService.addVideo(body, getUserId());
     return c.json(result.ok(data));

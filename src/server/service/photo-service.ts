@@ -105,6 +105,15 @@ const ALLOWED_UPLOAD_MIMES = new Set([
   'video/ogg',
 ]);
 
+const ALLOWED_VIDEO_MIMES = new Set([
+  'video/mp4',
+  'video/quicktime',
+  'video/webm',
+  'video/x-m4v',
+  'video/x-matroska',
+  'video/ogg',
+]);
+
 // Resolve canonical MIME type matching file extension when client MIME is absent or generic.
 function getCanonicalMimeType(filename: string, fileType?: string): string {
   const cleanType = fileType?.split(';')[0]?.trim().toLowerCase();
@@ -1066,6 +1075,20 @@ const photoService = {
       posterBase64,
     } = params;
 
+    // Security: Enforce maximum file size limit (max 2GB for direct video upload)
+    if (size && size > 2 * 1024 * 1024 * 1024) {
+      throw new BizError('photo.fileTooLarge');
+    }
+
+    // Security: Enforce approved video MIME type allowlist
+    const cleanType = type?.split(';')[0]?.trim().toLowerCase();
+    const finalType = cleanType && ALLOWED_VIDEO_MIMES.has(cleanType)
+      ? cleanType
+      : getCanonicalMimeType(name, type);
+    if (!ALLOWED_VIDEO_MIMES.has(finalType)) {
+      throw new BizError('photo.invalidFileType');
+    }
+
     let fileStorageList = await storageService.getStorageList();
     let videoStorage: Storage | undefined = fileStorageList.find((s) => s.storageId === storageId) || fileStorageList[0];
 
@@ -1127,7 +1150,6 @@ const photoService = {
 
     const now = new Date().toISOString();
     const finalTakenTime = takenTime || (lastModified > 0 ? new Date(lastModified).toISOString() : now);
-    const finalType = type || 'video/mp4';
     const typeDesc = finalType.split('/').pop()?.toUpperCase() || 'MP4';
 
     const [photo] = await orm.insert(photoTab).values({

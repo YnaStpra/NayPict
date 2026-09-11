@@ -265,12 +265,6 @@ const loginService = {
     const updatedDevices = [...knownDevices.filter((d) => d !== deviceFingerprint), deviceFingerprint].slice(-10);
     await cache.set(fingerprintKey, updatedDevices, { ttl: 60 * 60 * 24 * 90 });
 
-    if (user.username === process.env.NEXT_PUBLIC_DEMO_USERNAME) {
-      const token = await createLoginToken(user.userId, 'demo', user.tokenVersion);
-      const userVo = await userService.getById(user.userId);
-      return { token, user: userVo, isNewDevice };
-    }
-
     const uuid = await this.saveAuthInfo(user, { ip: clientIp, userAgent: clientMeta?.userAgent });
     const token = await createLoginToken(user.userId, uuid, user.tokenVersion);
     const userVo = await userService.getById(user.userId);

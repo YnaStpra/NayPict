@@ -108,7 +108,7 @@ function validateImageMagicBytes(buffer: Buffer | Uint8Array): MagicBytesResult 
     return { valid: true, format: "tiff", mimeType: "image/tiff" };
   }
 
-  // 6. AVIF / HEIC / HEIF / MP4 container: bytes 4-8 = 'ftyp' (66 74 79 70)
+  // 6. AVIF / HEIC / HEIF / MP4 / QuickTime MOV container: bytes 4-8 = 'ftyp' (66 74 79 70)
   if (
     buffer.length >= 16 &&
     buffer[4] === 0x66 &&
@@ -123,9 +123,26 @@ function validateImageMagicBytes(buffer: Buffer | Uint8Array): MagicBytesResult 
     if (brand.includes("heic") || brand.includes("heix") || brand.includes("mif1") || brand.includes("msf1")) {
       return { valid: true, format: "heic", mimeType: "image/heic" };
     }
-    if (brand.includes("isom") || brand.includes("mp42")) {
+    if (
+      brand.includes("isom") ||
+      brand.includes("mp41") ||
+      brand.includes("mp42") ||
+      brand.includes("dash") ||
+      brand.includes("qt  ")
+    ) {
       return { valid: true, format: "mp4", mimeType: "video/mp4" };
     }
+  }
+
+  // 7. WebM / Matroska (EBML header: 1A 45 DF A3)
+  if (
+    buffer.length >= 4 &&
+    buffer[0] === 0x1a &&
+    buffer[1] === 0x45 &&
+    buffer[2] === 0xdf &&
+    buffer[3] === 0xa3
+  ) {
+    return { valid: true, format: "webm", mimeType: "video/webm" };
   }
 
   return { valid: false };

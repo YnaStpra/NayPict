@@ -41,7 +41,7 @@
     "exiftool-vendored": "^36.0.0",
     "framer-motion": "^13.0.0",
     "hash-wasm": "^4.12.0",
-    "hono": "4.13.1",
+    "hono": "4.13.7",
     "leaflet": "^1.9.4",
     "lucide-react": "^1.16.0",
     "masonic": "^4.1.0",

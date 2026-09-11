@@ -146,7 +146,7 @@ async function security(c: Context, next: Next) {
   if (
     !authInfo
     || cachedTokenVersion !== tokenVersion
-    || (!authInfo.uuidList.includes(uuid) && uuid !== 'demo')
+    || !authInfo.uuidList.includes(uuid)
   ) {
     clearLoginCookies(c);
     throw new BizError('auth.failed', 401);

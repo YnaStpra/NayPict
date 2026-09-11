@@ -305,5 +305,9 @@ export const accountLockoutRateLimiter = new DistributedRateLimiter({
   windowMs: 15 * 60 * 1000, // 15 minutes
 })
 
-
-
+// 8. Upload Rate Limiter: Max 60 upload requests per 1 minute per IP
+export const uploadRateLimiter = new DistributedRateLimiter({
+  name: 'upload',
+  limit: 60,
+  windowMs: 60 * 1000, // 1 minute
+})
