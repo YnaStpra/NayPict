@@ -1,4 +1,5 @@
 import { type Hono } from 'hono';
+import result from '@/server/model/result';
 import { syncService } from '@/server/service/sync-service';
 import type { HonoEnv } from '@/server/hono/type';
 
@@ -15,6 +16,6 @@ export function registerSyncApi(app: Hono<HonoEnv>) {
     // 99.8% of requests under viral traffic (1k - 10k users) are answered directly by Cloudflare CDN without hitting Vercel.
     c.header('Cache-Control', 'public, max-age=3, s-maxage=3, stale-while-revalidate=5');
 
-    return c.json(version);
+    return c.json(result.ok(version));
   });
 }
