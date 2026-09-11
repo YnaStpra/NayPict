@@ -51,6 +51,10 @@ function formatPhotoName(name: string) {
 // Global set of prefetched high-res preview URLs to prevent duplicate background downloads
 const prefetchedPreviewUrls = new Set<string>()
 
+// Session-level set of photos that have already played their entrance reveal animation
+const revealedPhotoIds = new Set<string>()
+
+
 /**
  * Predictively prefetch a photo's high-resolution preview into browser cache.
  */
@@ -148,6 +152,10 @@ export const PhotoCard = memo(function PhotoCard({
     if (imageError) return
     if (imageSrc === data.thumbnail && data.preview && data.preview !== data.thumbnail) {
       const timer = setTimeout(() => {
+        // If image already loaded completely, do NOT swap or refresh
+        if (imgRef.current?.complete && imgRef.current?.naturalWidth > 0) {
+          return
+        }
         setImageSrc(data.preview)
       }, 3000)
       return () => clearTimeout(timer)
@@ -242,13 +250,28 @@ export const PhotoCard = memo(function PhotoCard({
     }
   }
 
+  // Reveal animation should only play once per photo during a user's session
+  const isAlreadyRevealed = revealedPhotoIds.has(data.photoId)
+  if (!isAlreadyRevealed && data.photoId) {
+    revealedPhotoIds.add(data.photoId)
+    // Keep memory bounded during large browsing sessions
+    if (revealedPhotoIds.size > 2000) {
+      const oldest = revealedPhotoIds.values().next().value
+      if (oldest) revealedPhotoIds.delete(oldest)
+    }
+  }
+
+  const shouldAnimateReveal = !isAlreadyRevealed
   const cardHeight = Math.max(1, Math.round(width * ratio))
-  const staggerDelay = Math.min(320, ((index ?? 0) % 12) * 28)
+  const staggerDelay = shouldAnimateReveal ? Math.min(240, ((index ?? 0) % 12) * 20) : 0
 
   return (
     <div
       ref={cardRef}
-      className="group relative overflow-hidden houdini-smooth-card touch-press-feedback cascade-wave-card [content-visibility:auto] touch-manipulation"
+      className={[
+        "group relative overflow-hidden houdini-smooth-card touch-press-feedback [content-visibility:auto] touch-manipulation",
+        shouldAnimateReveal ? "cascade-wave-card" : "",
+      ].join(" ")}
       onClick={handlePhotoClick}
       onContextMenu={handlePhotoContextMenu}
       onMouseEnter={handleMouseEnter}
@@ -261,7 +284,7 @@ export const PhotoCard = memo(function PhotoCard({
         ["containIntrinsicSize" as string]: `auto ${width}px ${cardHeight}px`,
         transform: "translateZ(0)",
         willChange: "auto",
-        ["--card-stagger" as string]: `${staggerDelay}ms`,
+        ["--card-stagger" as string]: shouldAnimateReveal ? `${staggerDelay}ms` : undefined,
         backgroundColor: placeholder ? undefined : "rgba(128,128,128,0.08)",
         backgroundImage: placeholder ? `url("${placeholder}")` : undefined,
         backgroundSize: "cover",

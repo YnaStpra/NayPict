@@ -1,12 +1,14 @@
 "use client"
 
-import { useEffect, useLayoutEffect, useRef, useState } from "react"
+import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState, createContext, useContext } from "react"
 import { flushSync } from "react-dom"
 import {
   MasonryScroller,
   type Positioner,
+  type RenderComponentProps,
   usePositioner,
 } from "masonic"
+
 import { FolderOpen } from "lucide-react"
 
 import { useApp } from "@/app/provider"
@@ -21,6 +23,36 @@ interface AlbumMasonryProps {
   onAlbumDelete?: (album: AlbumVo) => void
   onAlbumChangeCover?: (album: AlbumVo) => void
 }
+
+interface AlbumMasonryContextValue {
+  onAlbumRename?: (album: AlbumVo) => void
+  onAlbumTop?: (album: AlbumVo) => void
+  onAlbumDelete?: (album: AlbumVo) => void
+  onAlbumChangeCover?: (album: AlbumVo) => void
+}
+
+const AlbumMasonryContext = createContext<AlbumMasonryContextValue | null>(null)
+
+// Standalone memoized item renderer with stable function identity for Masonic virtualizer
+const MasonicAlbumCard = memo(function MasonicAlbumCard({
+  data,
+  index,
+  width,
+}: RenderComponentProps<AlbumVo>) {
+  const ctx = useContext(AlbumMasonryContext)
+  return (
+    <AlbumCard
+      data={data}
+      index={index}
+      width={width}
+      onRename={ctx?.onAlbumRename}
+      onTop={ctx?.onAlbumTop}
+      onDelete={ctx?.onAlbumDelete}
+      onChangeCover={ctx?.onAlbumChangeCover}
+    />
+  )
+})
+
 
 // Convert rem unit to current root font size px safely.
 function remToPx(rem: number) {
@@ -184,25 +216,29 @@ export function AlbumMasonry({ albums, resetKey = 0, onAlbumRename, onAlbumTop, 
     )
   }
 
+  const albumContextValue = useMemo<AlbumMasonryContextValue>(
+    () => ({
+      onAlbumRename,
+      onAlbumTop,
+      onAlbumDelete,
+      onChangeCover: onAlbumChangeCover,
+    }),
+    [onAlbumRename, onAlbumTop, onAlbumDelete, onAlbumChangeCover]
+  )
+
   return (
-    <div ref={wrapRef} className="w-full overflow-x-hidden">
-      <MasonryScroller
-        items={albums}
-        positioner={positioner}
-        offset={wrapPosition.offset}
-        height={windowHeight}
-        itemKey={(item) => item.albumId}
-        overscanBy={1.5}
-        render={(props) => (
-          <AlbumCard
-            {...props}
-            onRename={onAlbumRename}
-            onTop={onAlbumTop}
-            onDelete={onAlbumDelete}
-            onChangeCover={onAlbumChangeCover}
-          />
-        )}
-      />
-    </div>
+    <AlbumMasonryContext.Provider value={albumContextValue}>
+      <div ref={wrapRef} className="w-full overflow-x-hidden">
+        <MasonryScroller
+          items={albums}
+          positioner={positioner}
+          offset={wrapPosition.offset}
+          height={windowHeight}
+          itemKey={(item) => item.albumId}
+          overscanBy={1.5}
+          render={MasonicAlbumCard}
+        />
+      </div>
+    </AlbumMasonryContext.Provider>
   )
 }

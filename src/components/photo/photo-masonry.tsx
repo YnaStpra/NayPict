@@ -1,12 +1,14 @@
 "use client"
 
-import { memo, useEffect, useMemo, useRef, useState, useLayoutEffect } from "react"
+import { memo, useEffect, useMemo, useRef, useState, useLayoutEffect, createContext, useContext, useCallback } from "react"
 import { flushSync } from "react-dom"
 import {
   MasonryScroller,
   type Positioner,
+  type RenderComponentProps,
   usePositioner,
 } from "masonic"
+
 
 import dynamic from "next/dynamic"
 import { useApp } from "@/app/provider"
@@ -35,6 +37,45 @@ interface PhotoMasonryProps {
   onPhotoPin?: (photoId: string, isPinned: boolean) => void
   onPhotosUpdated?: (photoIds: string[], changes: Partial<PhotoVo>) => void
 }
+
+interface PhotoMasonryContextValue {
+  selectedPhotoIds: string[]
+  selectionActive: boolean
+  onPhotoOpen?: (index: number) => void
+  onSelectedChange?: (photoId: string, selected: boolean) => void
+  onPhotoPin?: (photoId: string, isPinned: boolean) => void
+  touchHoverCloseRef: React.MutableRefObject<(() => void) | null>
+}
+
+const PhotoMasonryContext = createContext<PhotoMasonryContextValue | null>(null)
+
+// Standalone memoized item renderer with stable function identity to prevent Masonic from remounting cells on data append
+const MasonicPhotoCard = memo(function MasonicPhotoCard({
+  data,
+  index,
+  width,
+}: RenderComponentProps<PhotoVo>) {
+  const ctx = useContext(PhotoMasonryContext)
+  const isSelected = Boolean(ctx?.selectedPhotoIds.includes(data.photoId))
+  const handleOpen = useCallback(() => {
+    ctx?.onPhotoOpen?.(index)
+  }, [ctx, index])
+
+  return (
+    <PhotoCard
+      data={data}
+      index={index}
+      width={width}
+      selected={isSelected}
+      selectionActive={ctx?.selectionActive ?? false}
+      onOpen={handleOpen}
+      onSelectedChange={ctx?.onSelectedChange}
+      onPhotoPin={ctx?.onPhotoPin}
+      touchHoverCloseRef={ctx?.touchHoverCloseRef}
+    />
+  )
+})
+
 
 // Convert rem unit to current root font size px safely.
 function remToPx(rem: number) {
@@ -324,10 +365,10 @@ const PhotoMasonry = memo(function PhotoMasonry({
       const scrollHeight = document.documentElement.scrollHeight || document.body.scrollHeight
       const scrollY = window.scrollY || window.pageYOffset
       const bottomDistance = scrollHeight - scrollY - window.innerHeight
-      let threshold = isMobile ? 9000 : 4500
+      let threshold = isMobile ? 1200 : 1800
 
       if (photos.length >= 200) {
-        threshold *= 1.5
+        threshold *= 1.4
       }
 
       // Intelligent Predictive Prefetching: Scale threshold on fast downward scrolling
@@ -339,7 +380,7 @@ const PhotoMasonry = memo(function PhotoMasonry({
       lastScrollY = scrollY
 
       if (velocity > 0.8) {
-        threshold *= 1.6
+        threshold *= 1.8
       }
 
       if (bottomDistance <= threshold) {
@@ -470,8 +511,20 @@ const PhotoMasonry = memo(function PhotoMasonry({
     onPhotosUpdated?.(photoIds, changes)
   }
 
+  const masonryContextValue = useMemo<PhotoMasonryContextValue>(
+    () => ({
+      selectedPhotoIds: visibleSelectedPhotoIds,
+      selectionActive: visibleSelectedPhotoIds.length > 0,
+      onPhotoOpen,
+      onSelectedChange: changePhotoSelected,
+      onPhotoPin,
+      touchHoverCloseRef,
+    }),
+    [visibleSelectedPhotoIds, onPhotoOpen, onPhotoPin]
+  )
+
   return (
-    <>
+    <PhotoMasonryContext.Provider value={masonryContextValue}>
       <PhotoSelectionDrawer
         open={visibleSelectedPhotoIds.length > 0}
         selectedCount={visibleSelectedPhotoIds.length}
@@ -633,21 +686,11 @@ const PhotoMasonry = memo(function PhotoMasonry({
             height={windowHeight}
             itemKey={(item) => item.photoId}
             overscanBy={isMobile ? 1.25 : 2}
-            render={(props) => (
-              <PhotoCard
-                {...props}
-                selected={visibleSelectedPhotoIds.includes(props.data.photoId)}
-                selectionActive={visibleSelectedPhotoIds.length > 0}
-                onOpen={() => onPhotoOpen?.(props.index)}
-                onSelectedChange={changePhotoSelected}
-                onPhotoPin={onPhotoPin}
-                touchHoverCloseRef={touchHoverCloseRef}
-              />
-            )}
+            render={MasonicPhotoCard}
           />
         )}
       </div>
-    </>
+    </PhotoMasonryContext.Provider>
   )
 })
 
