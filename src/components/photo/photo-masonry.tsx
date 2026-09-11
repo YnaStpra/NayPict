@@ -364,14 +364,14 @@ const PhotoMasonry = memo(function PhotoMasonry({
 
       const scrollHeight = document.documentElement.scrollHeight || document.body.scrollHeight
       const scrollY = window.scrollY || window.pageYOffset
-      const bottomDistance = scrollHeight - scrollY - window.innerHeight
-      let threshold = isMobile ? 1200 : 1800
+      const innerHeight = window.innerHeight
+      const bottomDistance = scrollHeight - scrollY - innerHeight
+      const maxScroll = scrollHeight - innerHeight
 
-      if (photos.length >= 200) {
-        threshold *= 1.4
-      }
+      // Calculate scroll progress percentage (0.0 to 1.0)
+      const scrollProgress = maxScroll > 0 ? scrollY / maxScroll : 0
 
-      // Intelligent Predictive Prefetching: Scale threshold on fast downward scrolling
+      // Velocity calculation for predictive prefetching on fast scrolling
       const now = Date.now()
       const dt = Math.max(1, now - lastScrollTime)
       const dy = scrollY - lastScrollY
@@ -379,11 +379,27 @@ const PhotoMasonry = memo(function PhotoMasonry({
       lastScrollTime = now
       lastScrollY = scrollY
 
+      // Proactive 75%-80% Threshold: Trigger next page when scroll progress touches 75%
+      // (drops to 70% during rapid downward scrolling to guarantee zero hitches)
+      const targetProgress = velocity > 0.8 ? 0.70 : 0.75
+
+      // Pixel-based threshold as secondary fallback
+      let distanceThreshold = isMobile ? 1400 : 2000
+      if (photos.length >= 200) {
+        distanceThreshold *= 1.4
+      }
       if (velocity > 0.8) {
-        threshold *= 1.8
+        distanceThreshold *= 1.8
       }
 
-      if (bottomDistance <= threshold) {
+      // Condition 1: User has actively scrolled down past 75% of the total page height
+      const isPastProgressThreshold = maxScroll > 0 && scrollY > 80 && scrollProgress >= targetProgress
+
+      // Condition 2: Remaining distance to bottom is within distance threshold
+      // (Only if user has scrolled, or if initial content doesn't even fill the viewport)
+      const isWithinDistanceThreshold = (scrollY > 80 || maxScroll <= 200) && bottomDistance <= distanceThreshold
+
+      if (isPastProgressThreshold || isWithinDistanceThreshold) {
         onReachBottomRef.current()
       }
       isChecking = false
