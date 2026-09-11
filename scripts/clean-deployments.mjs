@@ -92,6 +92,17 @@ async function main() {
       ) || deployments[0];
       activeProductionUid = activeProd.uid;
       console.log(`🛡️  LOCKED PRODUCTION DEPLOYMENT: ${activeProd.url || activeProd.uid} (${activeProd.uid})`);
+
+      // Ensure custom domain aliases are assigned before deleting older deployments
+      if (activeProd.target === "production") {
+        try {
+          const depDetails = await apiRequest(`/v13/deployments/${activeProd.uid}`);
+          if (!depDetails.aliasAssigned) {
+            console.log(`⏳ Waiting 8s for Vercel domain alias assignment on ${activeProd.uid}...`);
+            await new Promise((r) => setTimeout(r, 8000));
+          }
+        } catch {}
+      }
     }
 
     const toDelete = deployments.filter((d) => d.uid !== activeProductionUid);
