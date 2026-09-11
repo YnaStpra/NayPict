@@ -56,6 +56,7 @@ export default async function AlbumPhotoLayout({ children, params }: AlbumPhotoL
   return (
     <AlbumPhotoProvider
       initialPhotos={data.list}
+      initialTotal={data.total ?? 0}
       album={{
         albumId: album.albumId,
         name: album.name,

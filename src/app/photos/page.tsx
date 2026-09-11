@@ -40,6 +40,7 @@ import {
 import { PhotoDateDrawer } from "@/components/photo/photo-date-drawer"
 import { PhotoMasonrySkeleton } from "@/components/photo/photo-masonry-skeleton"
 import { BackToTopButton } from "@/components/ui/back-to-top-button"
+import { OdometerCounter } from "@/components/ui/odometer-counter"
 import { usePhotoContext } from "@/app/photos/provider"
 import { useApp } from "@/app/provider"
 import { UserTypeEnum } from "@/server/enums/user-enum"
@@ -87,7 +88,7 @@ const emptySubscribe = () => () => {}
 // Render photo list page with Masonry & Infinite Canvas mode support.
 export default function Page() {
   const t = useTranslations("photos")
-  const { initialPhotos } = usePhotoContext()
+  const { initialPhotos, initialTotal } = usePhotoContext()
   const { userInfo, sidebarOpen, setSidebarOpen, refreshAlbums } = useApp()
   const isAdmin = userInfo?.type === UserTypeEnum.ADMIN
 
@@ -126,7 +127,7 @@ export default function Page() {
     removePhotos,
     updatePhoto,
     updatePhotos,
-  } = usePhotoList({}, PHOTO_LIST_PAGE_SIZE, initialPhotos)
+  } = usePhotoList({}, PHOTO_LIST_PAGE_SIZE, initialPhotos, initialTotal)
 
   const handleSortChange = (key: SortOptionKey) => {
     setSortKey(key)
@@ -393,11 +394,11 @@ export default function Page() {
 
               {/* Photo Count Badge beside Grid Icon */}
               <div
-                className="flex items-center gap-1.5 bg-muted/70 text-foreground text-xs font-semibold px-2.5 py-1 rounded-lg border border-border/50 select-none shadow-2xs"
+                className="flex items-center gap-1.5 bg-muted/70 text-foreground text-xs font-semibold px-2.5 py-1 rounded-lg border border-border/50 select-none shadow-2xs tabular-nums"
                 title={`${totalCount} Items in Gallery`}
               >
                 <ImageIcon className="size-3.5 text-primary" />
-                <span>{totalCount}</span>
+                <OdometerCounter target={totalCount} duration={900} />
               </div>
 
               {/* Group Photos by Date Taken Toggle */}

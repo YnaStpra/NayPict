@@ -13,6 +13,7 @@ interface AlbumInfo {
 interface AlbumPhotoContextValue {
   // initialPhotos Save the first page of the album photos queried by the server.
   initialPhotos: PhotoVo[]
+  initialTotal: number
   album?: AlbumInfo | null
 }
 
@@ -21,6 +22,7 @@ interface AlbumPhotoProviderProps {
   children: React.ReactNode
   // initialPhotos Save the first page of the album photos queried by the server.
   initialPhotos: PhotoVo[]
+  initialTotal?: number
   album?: AlbumInfo | null
 }
 
@@ -38,9 +40,9 @@ function useAlbumPhotoContext() {
 }
 
 // Provide server-side prefetched photos for the album photo page client component.
-function AlbumPhotoProvider({ children, initialPhotos, album }: AlbumPhotoProviderProps) {
+function AlbumPhotoProvider({ children, initialPhotos, initialTotal = 0, album }: AlbumPhotoProviderProps) {
   return (
-    <AlbumPhotoContext.Provider value={{ initialPhotos, album }}>
+    <AlbumPhotoContext.Provider value={{ initialPhotos, initialTotal, album }}>
       {children}
     </AlbumPhotoContext.Provider>
   )

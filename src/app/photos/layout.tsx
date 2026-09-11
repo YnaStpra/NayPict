@@ -24,7 +24,7 @@ export default async function PhotoLayout({ children }: PhotoLayoutProps) {
   }, userId || undefined)
 
   return (
-    <PhotoProvider initialPhotos={data.list}>
+    <PhotoProvider initialPhotos={data.list} initialTotal={data.total ?? 0}>
       {children}
     </PhotoProvider>
   )

@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { photoList, photoRandomIdList } from "@/request/photo"
 import { PHOTO_LIST_PAGE_SIZE } from "@/server/const/global"
 import { type PhotoListBo } from "@/server/entity/bo/photo"
-import { PhotoStatusEnum } from "@/server/enums/photo-enum"
+import { PhotoStatusEnum, PhotoVisibilityEnum } from "@/server/enums/photo-enum"
 import { type PhotoVo } from "@/server/entity/vo/photo"
 
 type PhotoSortField = "takenTime" | "recycleTime"
@@ -30,7 +30,12 @@ function findPhotoInsertIndex(list: PhotoVo[], photo: PhotoVo, sortField: PhotoS
 }
 
 // Manage photo paged list, bottom loading and waterfall refresh markers.
-function usePhotoList(params: Partial<PhotoListBo> = {}, pageSize = PHOTO_LIST_PAGE_SIZE, initialPhotos?: PhotoVo[]) {
+function usePhotoList(
+  params: Partial<PhotoListBo> = {},
+  pageSize = PHOTO_LIST_PAGE_SIZE,
+  initialPhotos?: PhotoVo[],
+  initialTotal?: number
+) {
   const paramsKey = JSON.stringify(params)
   const initialParams = useMemo<Partial<PhotoListBo>>(() => JSON.parse(paramsKey) as Partial<PhotoListBo>, [paramsKey])
   const paramsRef = useRef<Partial<PhotoListBo>>(initialParams) // Save current list request parameters, updated by explicit refresh method.
@@ -52,7 +57,7 @@ function usePhotoList(params: Partial<PhotoListBo> = {}, pageSize = PHOTO_LIST_P
   const [photos, setPhotos] = useState<PhotoVo[]>(initialPhotoList) // Store the list of photos displayed on the current page.
   const [masonryKey, setMasonryKey] = useState(0) // Control waterfall flow to recalculate layout after list structure changes.
 
-  const [totalCount, setTotalCount] = useState<number>(() => initialPhotos ? initialPhotos.length : 0)
+  const [totalCount, setTotalCount] = useState<number>(() => initialTotal ?? (initialPhotos ? initialPhotos.length : 0))
 
   useEffect(() => {
     // Skip the browser's first page request when there is data on the first page from the server.
@@ -60,7 +65,7 @@ function usePhotoList(params: Partial<PhotoListBo> = {}, pageSize = PHOTO_LIST_P
       initialUsedRef.current = true
       photosRef.current = initialPhotoList
       setPhotos(initialPhotoList)
-      setTotalCount(initialPhotoList.length)
+      setTotalCount(initialTotal ?? initialPhotoList.length)
       const moreAvailable = initialPhotos ? initialPhotos.length === pageSize : true
       hasMoreRef.current = moreAvailable
       setHasMore(moreAvailable)
@@ -68,7 +73,7 @@ function usePhotoList(params: Partial<PhotoListBo> = {}, pageSize = PHOTO_LIST_P
       pageOffsetRef.current = initialPhotoList.length
       return
     }
-  }, [initialPhotos, pageSize, initialPhotoList])
+  }, [initialPhotos, pageSize, initialPhotoList, initialTotal])
 
   // Refresh waterfall layout calculations.
   const refreshMasonry = useCallback(() => {
@@ -343,15 +348,33 @@ function usePhotoList(params: Partial<PhotoListBo> = {}, pageSize = PHOTO_LIST_P
 
   // Update in-memory photo fields (e.g. visibility, allowDownload).
   const updatePhoto = useCallback((updatedPhoto: Partial<PhotoVo> & { photoId: string }) => {
+    // If photo is archived or moved out of gallery scope, remove it from view and decrement totalCount
+    if (
+      updatedPhoto.visibility === PhotoVisibilityEnum.ARCHIVED ||
+      (!paramsRef.current.albumId && updatedPhoto.visibility === PhotoVisibilityEnum.ALBUM_ONLY)
+    ) {
+      removePhotos([updatedPhoto.photoId])
+      return
+    }
+
     setPhotos((prev) => {
       const next = prev.map((p) => (p.photoId === updatedPhoto.photoId ? { ...p, ...updatedPhoto } : p))
       photosRef.current = next
       return next
     })
-  }, [])
+  }, [removePhotos])
 
   // Batch update in-memory photo fields across multiple photo IDs.
   const updatePhotos = useCallback((photoIds: string[], updatedFields: Partial<PhotoVo>) => {
+    // If photos are archived or moved out of gallery scope, remove them from view and decrement totalCount
+    if (
+      updatedFields.visibility === PhotoVisibilityEnum.ARCHIVED ||
+      (!paramsRef.current.albumId && updatedFields.visibility === PhotoVisibilityEnum.ALBUM_ONLY)
+    ) {
+      removePhotos(photoIds)
+      return
+    }
+
     const idSet = new Set(photoIds)
     setPhotos((prev) => {
       const next = prev.map((p) => (idSet.has(p.photoId) ? { ...p, ...updatedFields } : p))
@@ -359,7 +382,7 @@ function usePhotoList(params: Partial<PhotoListBo> = {}, pageSize = PHOTO_LIST_P
       return next
     })
     refreshMasonry()
-  }, [refreshMasonry])
+  }, [refreshMasonry, removePhotos])
 
   return {
     photos,

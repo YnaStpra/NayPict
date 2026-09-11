@@ -234,7 +234,7 @@ const photoService = {
     }
 
     // Exclude photos belonging to archived albums when browsing general feeds (not inside a specific album)
-    if (!params.albumId && status === PhotoStatusEnum.NORMAL && (!params.photoIds || params.photoIds.length === 0)) {
+    if (!params.albumId && status === PhotoStatusEnum.NORMAL) {
       baseWhereList.push(
         sql`NOT EXISTS (
           SELECT 1 FROM ${albumPhotoTab}
@@ -440,6 +440,18 @@ const photoService = {
       }
     }
 
+    // Exclude photos belonging to archived albums when browsing general feeds (not inside a specific album)
+    if (!params.albumId && status === PhotoStatusEnum.NORMAL) {
+      whereList.push(
+        sql`NOT EXISTS (
+          SELECT 1 FROM ${albumPhotoTab}
+          INNER JOIN ${albumTab} ON ${albumTab.albumId} = ${albumPhotoTab.albumId}
+          WHERE ${albumPhotoTab.photoId} = ${photoTab.photoId}
+          AND ${albumTab.isArchived} = 1
+        )`
+      );
+    }
+
     const rows = params.albumId
       ? await orm
         .select({ photoId: photoTab.photoId })
@@ -481,6 +493,18 @@ const photoService = {
           inArray(photoTab.visibility, [PhotoVisibilityEnum.BOTH, PhotoVisibilityEnum.GALLERY_ONLY]),
           isNull(photoTab.visibility)
         )!
+      );
+    }
+
+    // Exclude photos belonging to archived albums when browsing general feeds (not inside a specific album)
+    if (!params.albumId) {
+      whereList.push(
+        sql`NOT EXISTS (
+          SELECT 1 FROM ${albumPhotoTab}
+          INNER JOIN ${albumTab} ON ${albumTab.albumId} = ${albumPhotoTab.albumId}
+          WHERE ${albumPhotoTab.photoId} = ${photoTab.photoId}
+          AND ${albumTab.isArchived} = 1
+        )`
       );
     }
 

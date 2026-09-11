@@ -43,6 +43,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
+import { OdometerCounter } from "@/components/ui/odometer-counter"
 import { useAlbumPhotoContext } from "@/app/albums/[albumId]/provider"
 import { useApp } from "@/app/provider"
 import { PhotoDateDrawer } from "@/components/photo/photo-date-drawer"
@@ -87,7 +88,7 @@ export default function Page() {
   const isBrowser = useSyncExternalStore(emptySubscribe, () => true, () => false)
   const router = useRouter()
   const { albumId } = useParams<{ albumId: string }>()
-  const { initialPhotos, album } = useAlbumPhotoContext()
+  const { initialPhotos, initialTotal, album } = useAlbumPhotoContext()
   const { userInfo, sidebarOpen, setSidebarOpen, refreshAlbums } = useApp()
   const isAdmin = userInfo?.type === UserTypeEnum.ADMIN
   const currentAlbumName = useAlbumStore((state) => state.currentAlbumName)
@@ -120,7 +121,7 @@ export default function Page() {
     updatePhoto,
     updatePhotos,
     setPhotos,
-  } = usePhotoList({ albumId }, PHOTO_LIST_PAGE_SIZE, initialPhotos)
+  } = usePhotoList({ albumId }, PHOTO_LIST_PAGE_SIZE, initialPhotos, initialTotal)
 
   const handleSortChange = (key: SortOptionKey) => {
     setSortKey(key)
@@ -428,11 +429,11 @@ export default function Page() {
 
               {/* Photo Count Badge */}
               <div
-                className="hidden sm:flex items-center gap-1.5 bg-muted/70 text-foreground text-xs font-semibold px-2.5 py-1 rounded-lg border border-border/50 select-none shadow-2xs"
+                className="hidden sm:flex items-center gap-1.5 bg-muted/70 text-foreground text-xs font-semibold px-2.5 py-1 rounded-lg border border-border/50 select-none shadow-2xs tabular-nums"
                 title={`${totalCount} Photos`}
               >
                 <ImageIcon className="size-3.5 text-primary" />
-                <span>{totalCount}</span>
+                <OdometerCounter target={totalCount} duration={900} />
               </div>
 
               {/* Sort Dropdown */}

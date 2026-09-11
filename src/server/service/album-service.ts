@@ -507,6 +507,11 @@ const albumService = {
         eq(albumTab.albumId, params.albumId),
         eq(albumTab.userId, userId)
       ));
+
+    // Invalidate fast-path photo query cache so gallery updates immediately
+    import('@/server/service/photo-service')
+      .then((m) => m.invalidatePhotoFastPathCache())
+      .catch(() => {});
   },
 
   // Unarchive a photo album so it is restored to active albums and gallery.
@@ -520,6 +525,11 @@ const albumService = {
         eq(albumTab.albumId, params.albumId),
         eq(albumTab.userId, userId)
       ));
+
+    // Invalidate fast-path photo query cache so gallery updates immediately
+    import('@/server/service/photo-service')
+      .then((m) => m.invalidatePhotoFastPathCache())
+      .catch(() => {});
   },
 
   // Toggle photo pin status in a specific album (Max 3 pinned photos per album).

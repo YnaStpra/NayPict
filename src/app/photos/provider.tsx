@@ -6,6 +6,8 @@ import { type PhotoVo } from "@/server/entity/vo/photo"
 interface PhotoContextValue {
   // initialPhotos Save the first page of photos queried by the server.
   initialPhotos: PhotoVo[]
+  // initialTotal Total count of gallery photos calculated on the server.
+  initialTotal: number
 }
 
 interface PhotoProviderProps {
@@ -13,6 +15,8 @@ interface PhotoProviderProps {
   children: React.ReactNode
   // initialPhotos Save the first page of photos queried by the server.
   initialPhotos: PhotoVo[]
+  // initialTotal Total count of gallery photos calculated on the server.
+  initialTotal?: number
 }
 
 const PhotoContext = createContext<PhotoContextValue | null>(null)
@@ -29,9 +33,9 @@ function usePhotoContext() {
 }
 
 // Give /photo The client component under routing provides server-side prefetching of photos.
-function PhotoProvider({ children, initialPhotos }: PhotoProviderProps) {
+function PhotoProvider({ children, initialPhotos, initialTotal = 0 }: PhotoProviderProps) {
   return (
-    <PhotoContext.Provider value={{ initialPhotos }}>
+    <PhotoContext.Provider value={{ initialPhotos, initialTotal }}>
       {children}
     </PhotoContext.Provider>
   )
