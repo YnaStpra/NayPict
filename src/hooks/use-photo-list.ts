@@ -384,14 +384,97 @@ function usePhotoList(
     refreshMasonry()
   }, [refreshMasonry, removePhotos])
 
+  // Silently re-sync the list with server state without forcing scroll to top
+  const silentRefresh = useCallback((expectedPhotoCount?: number) => {
+    if (typeof expectedPhotoCount === "number") {
+      setTotalCount(expectedPhotoCount)
+    }
+
+    const queryParams = paramsRef.current
+    const isSortedMode = Boolean(queryParams.sortBy) || queryParams.status === PhotoStatusEnum.DELETE || queryParams.shuffle === false
+
+    if (!isSortedMode) {
+      photoRandomIdList({
+        status: queryParams.status ?? null,
+        albumId: queryParams.albumId ?? null,
+        startTakenTime: queryParams.startTakenTime ?? null,
+        endTakenTime: queryParams.endTakenTime ?? null,
+      })
+        .then((allIds) => {
+          const activeSet = new Set(allIds)
+          setTotalCount(allIds.length)
+
+          // 1. Remove any photos currently on screen that no longer exist or are now archived
+          const currentPhotos = photosRef.current
+          const filteredPhotos = currentPhotos.filter((p) => activeSet.has(p.photoId))
+
+          if (filteredPhotos.length !== currentPhotos.length) {
+            photosRef.current = filteredPhotos
+            setPhotos(filteredPhotos)
+            refreshMasonry()
+          }
+
+          // 2. If screen was empty or had fewer than pageSize photos, and new photos are available, fetch them
+          if (filteredPhotos.length < pageSize && allIds.length > filteredPhotos.length) {
+            const shownIds = new Set(filteredPhotos.map((p) => p.photoId))
+            const missingIds = allIds.filter((id) => !shownIds.has(id)).slice(0, pageSize - filteredPhotos.length)
+            if (missingIds.length > 0) {
+              loadPhotosByIds(missingIds, true)
+            }
+          }
+
+          // 3. Update shuffled IDs reference preserving existing order plus newly available IDs
+          if (allShuffledIdsRef.current) {
+            const existingActive = allShuffledIdsRef.current.filter((id) => activeSet.has(id))
+            const existingActiveSet = new Set(existingActive)
+            const newlyAdded = allIds.filter((id) => !existingActiveSet.has(id))
+            allShuffledIdsRef.current = [...existingActive, ...newlyAdded]
+          } else {
+            allShuffledIdsRef.current = allIds
+          }
+
+          const currentCount = photosRef.current.length
+          pageOffsetRef.current = currentCount
+          const more = currentCount < allIds.length
+          hasMoreRef.current = more
+          setHasMore(more)
+        })
+        .catch((err) => {
+          console.error("Silent sync failed:", err)
+        })
+    } else {
+      // In sorted mode, query the current slice quietly
+      const currentCount = Math.max(photosRef.current.length, pageSize)
+      photoList({
+        ...queryParams,
+        size: currentCount,
+        cursorPhotoId: null,
+        cursorTime: null,
+      })
+        .then((data) => {
+          photosRef.current = data.list
+          setPhotos(data.list)
+          if (data.total !== undefined) {
+            setTotalCount(data.total)
+          }
+          refreshMasonry()
+        })
+        .catch((err) => {
+          console.error("Silent sync sorted mode failed:", err)
+        })
+    }
+  }, [pageSize, loadPhotosByIds, refreshMasonry])
+
   return {
     photos,
     totalCount,
+    setTotalCount,
     hasMore,
     setPhotos,
     masonryKey,
     loadMorePhotos,
     refreshPhotoList,
+    silentRefresh,
     prependPhotos,
     removePhotos,
     updatePhoto,

@@ -24,6 +24,7 @@ import { albumAdd, albumArchive, albumDelete, albumList, albumSetName, albumSetT
 import { type AlbumVo } from "@/server/entity/vo/album"
 import { useTranslations } from "next-intl"
 import { toast } from "sonner"
+import { emitCatalogSync } from "@/lib/catalog-sync"
 
 import { UserTypeEnum } from "@/server/enums/user-enum"
 
@@ -63,7 +64,7 @@ export default function Page() {
   }, [])
 
   async function getAlbumList() {
-    const data = await albumList()
+    const data = await albumList(undefined, true)
 
     setAlbums(data)
     setAlbumListKey((prev) => prev + 1)
@@ -74,10 +75,26 @@ export default function Page() {
     await refreshAlbums()
   }
 
+  // Silently update album list when an album is mutated across devices or tabs
+  useEffect(() => {
+    const handleAlbumSync = () => {
+      albumList(undefined, true)
+        .then((fresh) => {
+          setAlbums(fresh)
+          setAlbumListKey((prev) => prev + 1)
+        })
+        .catch(() => {})
+    }
+
+    window.addEventListener("naypict:album-changed", handleAlbumSync)
+    return () => window.removeEventListener("naypict:album-changed", handleAlbumSync)
+  }, [])
+
   function addAlbum(name: string) {
     albumAdd({ name })
       .then(() => {
         toast.success(`Album "${name}" created successfully!`)
+        emitCatalogSync("album")
         void refreshAlbumData()
       })
       .catch((err: unknown) => {
@@ -95,6 +112,7 @@ export default function Page() {
     albumSetTop({
       albumId: album.albumId,
     }).then(() => {
+      emitCatalogSync("album")
       void refreshAlbumData()
     })
   }
@@ -113,6 +131,7 @@ export default function Page() {
     albumDelete({
       albumId: album.albumId,
     }).then(() => {
+      emitCatalogSync("all")
       void refreshAlbumData()
     })
   }
@@ -122,6 +141,7 @@ export default function Page() {
       .then(() => {
         setAlbums((prev) => prev.filter((a) => a.albumId !== album.albumId))
         toast.success(`Album "${album.name}" archived successfully!`)
+        emitCatalogSync("all")
         refreshAlbums()
       })
       .catch((err: unknown) => {
@@ -161,6 +181,7 @@ export default function Page() {
       albumId: album.albumId,
       name,
     }).then(() => {
+      emitCatalogSync("album")
       void refreshAlbumData()
     })
   }

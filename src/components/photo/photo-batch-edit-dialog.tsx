@@ -38,6 +38,7 @@ import { photoBatchEdit } from "@/request/photo"
 import { type PhotoVo } from "@/server/entity/vo/photo"
 import { decimalToDms, parseCoordinateString } from "@/lib/geo"
 import { useModalBackHandler } from "@/hooks/use-modal-back-handler"
+import { emitCatalogSync } from "@/lib/catalog-sync"
 
 interface PhotoBatchEditDialogProps {
   open: boolean
@@ -324,6 +325,7 @@ export function PhotoBatchEditDialog({
       await photoBatchEdit(payload as any)
       toast.success(`Successfully updated metadata for ${photoIds.length} item(s).`)
       onSuccess?.(photoIds, clientUpdates)
+      emitCatalogSync("all")
       handleOpenChange(false)
     } catch (err: any) {
       toast.error(err.message || "Failed to update metadata.")

@@ -46,6 +46,7 @@ import { useApp } from "@/app/provider"
 import { UserTypeEnum } from "@/server/enums/user-enum"
 import { useTranslations } from "next-intl"
 import { type PhotoOnThisDayItemVo, type PhotoVo } from "@/server/entity/vo/photo"
+import { emitCatalogSync } from "@/lib/catalog-sync"
 
 const AlbumSelectDialog = dynamic(
   () => import("@/components/album/album-select-dialog").then((mod) => mod.AlbumSelectDialog),
@@ -123,11 +124,29 @@ export default function Page() {
     masonryKey,
     loadMorePhotos,
     refreshPhotoList,
+    silentRefresh,
     prependPhotos,
     removePhotos,
     updatePhoto,
     updatePhotos,
   } = usePhotoList({}, PHOTO_LIST_PAGE_SIZE, initialPhotos, initialTotal)
+
+  // Silently re-sync photo list and animated counter when mutations occur across the app or tabs
+  useEffect(() => {
+    const handleSync = (e: Event) => {
+      const customEvent = e as CustomEvent<{ photoCount?: number; count?: number }>
+      const targetCount = customEvent.detail?.photoCount ?? customEvent.detail?.count
+      silentRefresh(targetCount)
+    }
+
+    window.addEventListener("naypict:photo-changed", handleSync)
+    window.addEventListener("naypict:album-changed", handleSync)
+
+    return () => {
+      window.removeEventListener("naypict:photo-changed", handleSync)
+      window.removeEventListener("naypict:album-changed", handleSync)
+    }
+  }, [silentRefresh])
 
   const handleSortChange = (key: SortOptionKey) => {
     setSortKey(key)
@@ -205,6 +224,7 @@ export default function Page() {
 
     queueMicrotask(() => {
       prependPhotos(photosToAdd)
+      emitCatalogSync("photo")
     })
   }, [prependPhotos, uploadedPhotos])
 
@@ -273,6 +293,7 @@ export default function Page() {
     photoRecycle({ photoIds })
       .then(() => {
         removePhotos(photoIds)
+        emitCatalogSync("photo")
       })
       .catch((err) => {
         console.error("Failed to recycle photos:", err)
@@ -310,6 +331,7 @@ export default function Page() {
 
       toast.success("Media albums updated successfully!")
       void refreshAlbums()
+      emitCatalogSync("all")
 
       const allAlbums = useAlbumStore.getState().albums
       const selectedAlbumObjs = allAlbums

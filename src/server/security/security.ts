@@ -80,7 +80,8 @@ const PUBLIC_API_PATHS = [
   '/photo/view',
   '/photo/share',
   '/location',
-  '/csp-report'
+  '/csp-report',
+  '/sync'
 ];
 
 // Determine whether the current path hits the specified interface or its subpath.

@@ -14,6 +14,7 @@ import { useAlbumStore } from "@/store/album-store"
 import { usePhotoStore } from "@/store/photo-store"
 import { useStorageStore } from "@/store/storage-store"
 import { TOKEN_COOKIE_MAX_AGE } from "@/server/const/global"
+import { useLiveCatalogSync } from "@/hooks/use-live-catalog-sync"
 
 const PhotoUploadDialog = dynamic(
   () => import("@/components/photo/photo-upload-dialog").then((mod) => mod.PhotoUploadDialog),
@@ -148,10 +149,22 @@ function Provider({ children, defaultTheme, defaultSidebarOpen, initialUserInfo,
       return Promise.resolve()
     }
 
-    return albumList().then((albums) => {
+    return albumList(undefined, true).then((albums) => {
       setAlbums(albums)
     })
   }, [isLogin, setAlbums])
+
+  // Mount global background catalog heartbeat synchronization
+  useLiveCatalogSync()
+
+  // Automatically update global album store whenever an album is mutated across components or tabs
+  useEffect(() => {
+    const handleAlbumSync = () => {
+      void refreshAlbums()
+    }
+    window.addEventListener("naypict:album-changed", handleAlbumSync)
+    return () => window.removeEventListener("naypict:album-changed", handleAlbumSync)
+  }, [refreshAlbums])
 
   const value = React.useMemo<AppContextValue>(
     () => ({

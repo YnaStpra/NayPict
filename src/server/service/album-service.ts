@@ -24,6 +24,7 @@ import { formatHttpUrl, toMediaUrl } from '@/lib/url';
 import { fileService } from '@/server/service/file-service';
 import { FileTypeEnum } from '@/server/enums/file-enum';
 import { type File } from '@/server/entity/file';
+import { syncService } from '@/server/service/sync-service';
 
 // Calculate cover score for a photo based on metadata.
 function calculateAlbumCoverScore(photo: {
@@ -211,6 +212,8 @@ const albumService = {
       updateTime: now,
     }).returning();
 
+    void syncService.bump('album');
+
     return album;
   },
 
@@ -260,6 +263,7 @@ const albumService = {
           updateTime: new Date().toISOString()
         })
         .where(eq(albumTab.albumId, params.albumId));
+      void syncService.bump('album');
       return;
     }
 
@@ -291,6 +295,8 @@ const albumService = {
           eq(albumTab.albumId, params.albumId),
           eq(albumTab.userId, userId)
         ));
+
+      void syncService.bump('album');
     }
   },
 
@@ -425,6 +431,8 @@ const albumService = {
         await orm.insert(albumPhotoTab).values(rows);
       }
     }
+
+    void syncService.bump('all');
   },
 
   // Remove photo associations.
@@ -462,6 +470,8 @@ const albumService = {
         eq(albumPhotoTab.albumId, params.albumId),
         inArray(albumPhotoTab.photoId, params.photoIds)
       ));
+
+    void syncService.bump('all');
   },
 
   // Modify album name.
@@ -481,6 +491,8 @@ const albumService = {
         eq(albumTab.albumId, params.albumId),
         eq(albumTab.userId, userId)
       ));
+
+    void syncService.bump('album');
   },
 
   // Pin album to top.
@@ -494,6 +506,8 @@ const albumService = {
         eq(albumTab.albumId, params.albumId),
         eq(albumTab.userId, userId)
       ));
+
+    void syncService.bump('album');
   },
 
   // Archive a photo album so it is hidden from the gallery and active albums.
@@ -508,10 +522,7 @@ const albumService = {
         eq(albumTab.userId, userId)
       ));
 
-    // Invalidate fast-path photo query cache so gallery updates immediately
-    import('@/server/service/photo-service')
-      .then((m) => m.invalidatePhotoFastPathCache())
-      .catch(() => {});
+    void syncService.bump('all');
   },
 
   // Unarchive a photo album so it is restored to active albums and gallery.
@@ -526,10 +537,7 @@ const albumService = {
         eq(albumTab.userId, userId)
       ));
 
-    // Invalidate fast-path photo query cache so gallery updates immediately
-    import('@/server/service/photo-service')
-      .then((m) => m.invalidatePhotoFastPathCache())
-      .catch(() => {});
+    void syncService.bump('all');
   },
 
   // Toggle photo pin status in a specific album (Max 3 pinned photos per album).
@@ -596,6 +604,8 @@ const albumService = {
       })
       .where(eq(albumPhotoTab.id, albumPhoto.id));
 
+    void syncService.bump('album');
+
     return { isPinned: nextPinned === 1 };
   },
 
@@ -624,6 +634,7 @@ const albumService = {
         eq(albumTab.userId, userId)
       ));
 
+    void syncService.bump('all');
   },
 
   // Delete all albums by user ID.

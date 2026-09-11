@@ -23,7 +23,8 @@ import { toast } from "sonner"
 import { PhotoMasonry } from "@/components/photo/photo-masonry"
 import { photoList, photoRecycle } from "@/request/photo"
 import { removePhotoIdFromUrl } from "@/lib/url"
-import { albumAddPhoto, albumDelete, albumRemovePhoto, albumUnarchive } from "@/request/album"
+import { albumAddPhoto, albumDelete, albumList, albumRemovePhoto, albumUnarchive } from "@/request/album"
+import { emitCatalogSync } from "@/lib/catalog-sync"
 import { useArchiveContext } from "@/app/archive/provider"
 import { useApp } from "@/app/provider"
 import { UserTypeEnum } from "@/server/enums/user-enum"
@@ -55,13 +56,40 @@ export default function ArchivePage() {
 
   const {
     photos,
+    totalCount,
     masonryKey,
     loadMorePhotos,
+    silentRefresh,
     removePhotos,
     updatePhoto,
     updatePhotos,
     setPhotos,
   } = usePhotoList({ visibility: PhotoVisibilityEnum.ARCHIVED }, PHOTO_LIST_PAGE_SIZE, initialPhotos)
+
+  // Listen for background catalog changes and update archived items seamlessly
+  useEffect(() => {
+    const handleAlbumSync = () => {
+      albumList({ isArchived: 1 }, true)
+        .then((fresh) => {
+          setArchivedAlbums(fresh)
+        })
+        .catch((err) => {
+          console.error("Failed to reload archived albums:", err)
+        })
+    }
+
+    const handlePhotoSync = () => {
+      silentRefresh()
+    }
+
+    window.addEventListener("naypict:album-changed", handleAlbumSync)
+    window.addEventListener("naypict:photo-changed", handlePhotoSync)
+
+    return () => {
+      window.removeEventListener("naypict:album-changed", handleAlbumSync)
+      window.removeEventListener("naypict:photo-changed", handlePhotoSync)
+    }
+  }, [silentRefresh])
 
   const [modelPhotoIndex, setModelPhotoIndex] = useState(0)
   const [showPhotoViewer, setShowPhotoViewer] = useState(false)
@@ -126,6 +154,7 @@ export default function ArchivePage() {
       .then(() => {
         removePhotos(photoIds)
         toast.success(t("photos.recycled") || "Moved to trash")
+        emitCatalogSync("photo")
       })
       .catch((err) => {
         console.error("Failed to recycle photos:", err)
@@ -164,6 +193,7 @@ export default function ArchivePage() {
       await Promise.all(tasks)
       toast.success(t("albums.updated") || "Albums updated")
       refreshAlbums()
+      emitCatalogSync("all")
     } catch (err) {
       console.error("Failed to update photo albums:", err)
     }
@@ -175,6 +205,7 @@ export default function ArchivePage() {
         setArchivedAlbums((prev) => prev.filter((a) => a.albumId !== album.albumId))
         toast.success(`Album "${album.name}" restored from archive!`)
         refreshAlbums()
+        emitCatalogSync("all")
       })
       .catch((err) => {
         console.error("Failed to unarchive album:", err)
@@ -188,6 +219,7 @@ export default function ArchivePage() {
         setArchivedAlbums((prev) => prev.filter((a) => a.albumId !== album.albumId))
         toast.success(`Album "${album.name}" deleted successfully!`)
         refreshAlbums()
+        emitCatalogSync("all")
       })
       .catch((err) => {
         console.error("Failed to delete album:", err)

@@ -58,6 +58,7 @@ import { type File as PhotoFile, fileTab } from '@/server/entity/file';
 import { fileService } from '@/server/service/file-service';
 import { commentService } from '@/server/service/comment-service';
 import { FileTypeEnum } from '@/server/enums/file-enum';
+import { syncService } from '@/server/service/sync-service';
 
 // This module handles business related to photo data query.
 
@@ -1079,6 +1080,8 @@ const photoService = {
 
     const domain = formatHttpUrl(fileStorage.domain);
 
+    void syncService.bump('photo', 1);
+
     return {
       photo: this.toPhotoVo(photo, files, fileStorage, domain, {
         photoId,
@@ -1253,6 +1256,9 @@ const photoService = {
     }
 
     const domain = formatHttpUrl(videoStorage.domain);
+
+    void syncService.bump('photo', 1);
+
     return {
       photo: this.toPhotoVo(photo, files, videoStorage, domain, {
         photoId,
@@ -1287,6 +1293,7 @@ const photoService = {
       .where(and(...whereList));
 
     invalidatePhotoFastPathCache();
+    void syncService.bump('photo', -params.photoIds.length);
   },
 
   // Move all photos of the specified user to the trash, And record the recycling time.
@@ -1304,6 +1311,7 @@ const photoService = {
       .where(whereList.length ? and(...whereList) : undefined);
 
     invalidatePhotoFastPathCache();
+    void syncService.bump('photo');
   },
 
   // Set the display scope / visibility of specified photos (Both, Gallery Only, Album Only, Archived).
@@ -1331,6 +1339,7 @@ const photoService = {
       .where(and(...whereList));
 
     invalidatePhotoFastPathCache();
+    void syncService.bump('all');
   },
 
   // Restore the specified photos in the current user's recycle bin.
@@ -1355,6 +1364,7 @@ const photoService = {
       .where(and(...whereList));
 
     invalidatePhotoFastPathCache();
+    void syncService.bump('photo', params.photoIds.length);
   },
 
   // Completely delete the specified photo files and database records of the current user.
@@ -1403,6 +1413,7 @@ const photoService = {
       .where(inArray(photoTab.photoId, photoIds));
 
     invalidatePhotoFastPathCache();
+    void syncService.bump('all');
   },
 
   // Clean the photo files and database records in the current user's Recycle Bin.
@@ -1417,6 +1428,8 @@ const photoService = {
       recycleTime: now,
       syncDelete
     });
+
+    void syncService.bump('all');
   },
 
   // Regularly clean up photo files and database records in the Recycle Bin that exceed the set retention days.
@@ -1691,6 +1704,7 @@ const photoService = {
     }
 
     invalidatePhotoFastPathCache();
+    void syncService.bump('photo');
   },
 
   // Get the specified type of storage from the file list key.

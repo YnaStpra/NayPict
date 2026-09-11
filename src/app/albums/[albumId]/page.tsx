@@ -27,6 +27,7 @@ import { albumAddPhoto, albumRemovePhoto, albumTogglePinPhoto, albumUnarchive } 
 import { useAlbumStore } from "@/store/album-store"
 import { usePhotoStore } from "@/store/photo-store"
 import type { PhotoVo } from "@/server/entity/vo/photo"
+import { emitCatalogSync } from "@/lib/catalog-sync"
 import { Archive, ArrowLeftIcon, ArrowUpDown, ChevronDown, ImageIcon, LayoutGrid, PlusIcon, Sparkles } from "lucide-react"
 import {
   DropdownMenu,
@@ -104,6 +105,7 @@ export default function Page() {
       setIsArchived(false)
       toast.success("Album restored from archive!")
       refreshAlbums()
+      emitCatalogSync("all")
     } catch (err) {
       console.error("Failed to unarchive album:", err)
       toast.error("Failed to restore album from archive.")
@@ -116,12 +118,28 @@ export default function Page() {
     masonryKey,
     loadMorePhotos,
     refreshPhotoList,
+    silentRefresh,
     prependPhotos,
     removePhotos,
     updatePhoto,
     updatePhotos,
     setPhotos,
   } = usePhotoList({ albumId }, PHOTO_LIST_PAGE_SIZE, initialPhotos, initialTotal)
+
+  // Listen for catalog events to re-sync album photos and metadata
+  useEffect(() => {
+    const handleSync = () => {
+      silentRefresh()
+    }
+
+    window.addEventListener("naypict:album-changed", handleSync)
+    window.addEventListener("naypict:photo-changed", handleSync)
+
+    return () => {
+      window.removeEventListener("naypict:album-changed", handleSync)
+      window.removeEventListener("naypict:photo-changed", handleSync)
+    }
+  }, [silentRefresh])
 
   const handleSortChange = (key: SortOptionKey) => {
     setSortKey(key)
@@ -176,6 +194,7 @@ export default function Page() {
 
     queueMicrotask(() => {
       prependPhotos(photosToAdd)
+      emitCatalogSync("photo")
     })
   }, [prependPhotos, uploadedPhotos])
 
@@ -235,6 +254,7 @@ export default function Page() {
     photoRecycle({ photoIds })
       .then(() => {
         removePhotos(photoIds)
+        emitCatalogSync("photo")
       })
       .catch((err) => {
         console.error("Failed to recycle photos:", err)
@@ -247,6 +267,7 @@ export default function Page() {
       .then(() => {
         removePhotos(photoIds)
         void refreshAlbums()
+        emitCatalogSync("all")
       })
       .catch((err) => {
         console.error("Failed to remove photos from album:", err)
@@ -285,6 +306,7 @@ export default function Page() {
 
       toast.success("Media albums updated successfully!")
       void refreshAlbums()
+      emitCatalogSync("all")
 
       // If removed from current album, remove from local list
       if (!albumIds.includes(albumId)) {
@@ -330,6 +352,7 @@ export default function Page() {
       } else {
         toast.success("Item unpinned from album.")
       }
+      emitCatalogSync("album")
     } catch (err: unknown) {
       // 2. Revert back to original state on server error
       if (rollbackPhotos) {

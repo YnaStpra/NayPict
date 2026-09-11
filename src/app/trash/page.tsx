@@ -33,6 +33,7 @@ import { UserTypeEnum } from "@/server/enums/user-enum"
 import { useTrashContext } from "@/app/trash/provider"
 import { useApp } from "@/app/provider"
 import { removePhotoIdFromUrl } from "@/lib/url"
+import { emitCatalogSync } from "@/lib/catalog-sync"
 
 const PhotoViewer = dynamic(
   () => import("@/components/photo/photo-viewer").then((mod) => mod.PhotoViewer),
@@ -67,9 +68,21 @@ export default function TrashPage() {
     setPhotos,
     masonryKey,
     loadMorePhotos,
+    silentRefresh,
     removePhotos,
     refreshMasonry,
   } = usePhotoList({ status: PhotoStatusEnum.DELETE }, PHOTO_LIST_PAGE_SIZE, initialPhotos)
+
+  useEffect(() => {
+    const handlePhotoSync = () => {
+      silentRefresh()
+    }
+
+    window.addEventListener("naypict:photo-changed", handlePhotoSync)
+    return () => {
+      window.removeEventListener("naypict:photo-changed", handlePhotoSync)
+    }
+  }, [silentRefresh])
 
   useLayoutEffect(() => {
     setIsBrowser(true)
@@ -157,6 +170,7 @@ export default function TrashPage() {
     photoDelete({ photoIds }).then(() => {
       removePhotos(photoIds)
       toast.success("Photo(s) permanently deleted")
+      emitCatalogSync("all")
     })
   }, [deletingPhotoIds, removePhotos])
 
@@ -168,6 +182,7 @@ export default function TrashPage() {
       photoClear().then(() => {
         setPhotos([])
         refreshMasonry()
+        emitCatalogSync("all")
       }),
       {
         loading: t("trash.clearing") || "Emptying trash",
@@ -181,6 +196,7 @@ export default function TrashPage() {
     photoRestore({ photoIds }).then(() => {
       removePhotos(photoIds)
       toast.success("Photo(s) restored")
+      emitCatalogSync("photo")
     })
   }, [removePhotos])
 

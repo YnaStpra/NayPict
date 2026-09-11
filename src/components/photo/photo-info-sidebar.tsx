@@ -21,6 +21,7 @@ import { PhotoComments } from "@/components/photo/photo-comments"
 import { PhotoLocationMap } from "@/components/photo/photo-location-map"
 import { PhotoReactions } from "@/components/photo/photo-reactions"
 import { photoSse } from "@/lib/photo-sse"
+import { emitCatalogSync } from "@/lib/catalog-sync"
 
 type PhotoInfoSidebarProps = {
   // Currently viewing photos.
@@ -284,6 +285,7 @@ export function PhotoInfoSidebar({
       }
       onPhotoUpdate?.(updatedPhoto)
       toast.success(t("visibilityUpdated") || "Display scope updated")
+      emitCatalogSync("all")
     } catch (err) {
       console.error("Failed to update photo visibility:", err)
       toast.error(t("visibilityUpdateFailed") || "Failed to update display scope")
