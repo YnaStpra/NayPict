@@ -124,6 +124,18 @@ export async function migrate(): Promise<void> {
       console.warn('[MIGRATE] Error ensuring photo_view table:', viewErr);
     }
 
+    // Ensure album table has is_archived column for album archiving.
+    try {
+      await sql`
+        ALTER TABLE "album" ADD COLUMN IF NOT EXISTS "is_archived" integer DEFAULT 0 NOT NULL;
+      `;
+      await sql`
+        CREATE INDEX IF NOT EXISTS "album_is_archived_idx" ON "album" ("is_archived");
+      `;
+    } catch (albumArchErr) {
+      console.warn('[MIGRATE] Error updating album is_archived column:', albumArchErr);
+    }
+
     // Ensure album_photo table has is_pinned and pinned_at columns.
     try {
       await sql`

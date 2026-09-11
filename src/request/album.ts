@@ -3,6 +3,7 @@ import { type Album } from "@/server/entity/album";
 import {
   type AlbumAddBo,
   type AlbumAddPhotoBo,
+  type AlbumArchiveBo,
   type AlbumDeleteBo,
   type AlbumRemovePhotoBo,
   type AlbumSetCoverBo,
@@ -33,29 +34,53 @@ export function invalidateAlbumCache() {
   cachedAlbumsTimestamp = 0;
 }
 
-// Query the list of all albums with SWR in-memory caching (30s stale window) & request deduplication.
-export function albumList(forceRefresh: boolean = false): Promise<AlbumVo[]> {
-  const now = Date.now();
-  if (!forceRefresh && cachedAlbums && now - cachedAlbumsTimestamp < 30000) {
-    return Promise.resolve(cachedAlbums);
-  }
+// Query the list of albums with optional archive filter, SWR in-memory caching & request deduplication.
+export function albumList(
+  paramsOrForce?: { isArchived?: number } | boolean,
+  forceRefresh: boolean = false
+): Promise<AlbumVo[]> {
+  const isArchived = typeof paramsOrForce === "object" ? (paramsOrForce?.isArchived ?? 0) : 0;
+  const force = typeof paramsOrForce === "boolean" ? paramsOrForce : forceRefresh;
 
-  if (inFlightAlbumPromise) {
+  // Only cache active albums (isArchived === 0)
+  if (isArchived === 0) {
+    const now = Date.now();
+    if (!force && cachedAlbums && now - cachedAlbumsTimestamp < 30000) {
+      return Promise.resolve(cachedAlbums);
+    }
+
+    if (inFlightAlbumPromise) {
+      return inFlightAlbumPromise;
+    }
+
+    inFlightAlbumPromise = http
+      .post<AlbumVo[]>('/album/list', { isArchived: 0 })
+      .then((albums) => {
+        cachedAlbums = albums;
+        cachedAlbumsTimestamp = Date.now();
+        return albums;
+      })
+      .finally(() => {
+        inFlightAlbumPromise = null;
+      });
+
     return inFlightAlbumPromise;
   }
 
-  inFlightAlbumPromise = http
-    .post<AlbumVo[]>('/album/list')
-    .then((albums) => {
-      cachedAlbums = albums;
-      cachedAlbumsTimestamp = Date.now();
-      return albums;
-    })
-    .finally(() => {
-      inFlightAlbumPromise = null;
-    });
+  // Archived albums query: direct request
+  return http.post<AlbumVo[]>('/album/list', { isArchived });
+}
 
-  return inFlightAlbumPromise;
+// Archive an album.
+export function albumArchive(params: AlbumArchiveBo) {
+  invalidateAlbumCache();
+  return http.post<void>('/album/archive', params);
+}
+
+// Unarchive an album.
+export function albumUnarchive(params: AlbumArchiveBo) {
+  invalidateAlbumCache();
+  return http.post<void>('/album/unarchive', params);
 }
 
 // Add album.
@@ -95,16 +120,19 @@ export function albumTogglePinPhoto(params: AlbumTogglePinPhotoBo) {
 
 // Delete album.
 export function albumDelete(params: AlbumDeleteBo) {
+  invalidateAlbumCache();
   return http.post<void>('/album/delete', params);
 }
 
 // Modify album name.
 export function albumSetName(params: AlbumSetNameBo) {
+  invalidateAlbumCache();
   return http.post<void>('/album/setName', params);
 }
 
 // Pin photo album.
 export function albumSetTop(params: AlbumSetTopBo) {
+  invalidateAlbumCache();
   return http.post<void>('/album/setTop', params);
 }
 

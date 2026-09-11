@@ -4,9 +4,16 @@ import { createContext, useContext } from "react"
 
 import { type PhotoVo } from "@/server/entity/vo/photo"
 
+interface AlbumInfo {
+  albumId: string
+  name: string
+  isArchived: number
+}
+
 interface AlbumPhotoContextValue {
   // initialPhotos Save the first page of the album photos queried by the server.
   initialPhotos: PhotoVo[]
+  album?: AlbumInfo | null
 }
 
 interface AlbumPhotoProviderProps {
@@ -14,6 +21,7 @@ interface AlbumPhotoProviderProps {
   children: React.ReactNode
   // initialPhotos Save the first page of the album photos queried by the server.
   initialPhotos: PhotoVo[]
+  album?: AlbumInfo | null
 }
 
 const AlbumPhotoContext = createContext<AlbumPhotoContextValue | null>(null)
@@ -30,9 +38,9 @@ function useAlbumPhotoContext() {
 }
 
 // Provide server-side prefetched photos for the album photo page client component.
-function AlbumPhotoProvider({ children, initialPhotos }: AlbumPhotoProviderProps) {
+function AlbumPhotoProvider({ children, initialPhotos, album }: AlbumPhotoProviderProps) {
   return (
-    <AlbumPhotoContext.Provider value={{ initialPhotos }}>
+    <AlbumPhotoContext.Provider value={{ initialPhotos, album }}>
       {children}
     </AlbumPhotoContext.Provider>
   )

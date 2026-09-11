@@ -12,6 +12,7 @@ export const albumTab = pgTable('album', {
   userId: text('user_id').notNull(),
   coverPhotoId: text('cover_photo_id'),
   isManualCover: integer('is_manual_cover').notNull().default(0),
+  isArchived: integer('is_archived').notNull().default(0),
 });
 
 export type Album = typeof albumTab.$inferSelect;

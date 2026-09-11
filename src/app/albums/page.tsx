@@ -20,7 +20,7 @@ import dynamic from "next/dynamic"
 import { useEffect, useState } from "react"
 import { useAlbumContext } from "@/app/albums/provider"
 import { useApp } from "@/app/provider"
-import { albumAdd, albumDelete, albumList, albumSetName, albumSetTop } from "@/request/album"
+import { albumAdd, albumArchive, albumDelete, albumList, albumSetName, albumSetTop } from "@/request/album"
 import { type AlbumVo } from "@/server/entity/vo/album"
 import { useTranslations } from "next-intl"
 import { toast } from "sonner"
@@ -115,6 +115,19 @@ export default function Page() {
     }).then(() => {
       void refreshAlbumData()
     })
+  }
+
+  function archiveAlbum(album: AlbumVo) {
+    albumArchive({ albumId: album.albumId })
+      .then(() => {
+        setAlbums((prev) => prev.filter((a) => a.albumId !== album.albumId))
+        toast.success(`Album "${album.name}" archived successfully!`)
+        refreshAlbums()
+      })
+      .catch((err: unknown) => {
+        console.error("Failed to archive album:", err)
+        toast.error("Failed to archive album.")
+      })
   }
 
   function confirmDeleteAlbum() {
@@ -219,6 +232,7 @@ export default function Page() {
               onAlbumTop={isAdmin ? topAlbum : undefined}
               onAlbumDelete={isAdmin ? openDeleteAlbum : undefined}
               onAlbumChangeCover={isAdmin ? openChangeCover : undefined}
+              onAlbumArchive={isAdmin ? archiveAlbum : undefined}
             />
           </div>
         </SidebarInset>

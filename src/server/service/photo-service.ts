@@ -2,6 +2,7 @@ import { and, asc, count, desc, eq, getTableColumns, gt, gte, ilike, inArray, is
 import { createId } from '@/server/lib/id';
 import { type Photo, photoTab } from '@/server/entity/photo';
 import { albumPhotoTab } from '@/server/entity/album-photo';
+import { albumTab } from '@/server/entity/album';
 import { orm } from '@/server/infra/db';
 import BizError from '@/server/error/biz-error';
 import { storage } from '@/server/storage/storage';
@@ -230,6 +231,18 @@ const photoService = {
           )!
         );
       }
+    }
+
+    // Exclude photos belonging to archived albums when browsing general feeds (not inside a specific album)
+    if (!params.albumId && status === PhotoStatusEnum.NORMAL && (!params.photoIds || params.photoIds.length === 0)) {
+      baseWhereList.push(
+        sql`NOT EXISTS (
+          SELECT 1 FROM ${albumPhotoTab}
+          INNER JOIN ${albumTab} ON ${albumTab.albumId} = ${albumPhotoTab.albumId}
+          WHERE ${albumPhotoTab.photoId} = ${photoTab.photoId}
+          AND ${albumTab.isArchived} = 1
+        )`
+      );
     }
 
     const whereList = [...baseWhereList];
@@ -542,6 +555,12 @@ const photoService = {
           inArray(photoTab.visibility, [PhotoVisibilityEnum.BOTH, PhotoVisibilityEnum.GALLERY_ONLY]),
           isNull(photoTab.visibility)
         )!,
+        sql`NOT EXISTS (
+          SELECT 1 FROM ${albumPhotoTab}
+          INNER JOIN ${albumTab} ON ${albumTab.albumId} = ${albumPhotoTab.albumId}
+          WHERE ${albumPhotoTab.photoId} = ${photoTab.photoId}
+          AND ${albumTab.isArchived} = 1
+        )`,
       ];
 
       const list = await orm
@@ -1985,7 +2004,13 @@ const photoService = {
         : or(
             inArray(photoTab.visibility, [PhotoVisibilityEnum.BOTH, PhotoVisibilityEnum.GALLERY_ONLY]),
             isNull(photoTab.visibility)
-          )
+          ),
+      sql`NOT EXISTS (
+        SELECT 1 FROM ${albumPhotoTab}
+        INNER JOIN ${albumTab} ON ${albumTab.albumId} = ${albumPhotoTab.albumId}
+        WHERE ${albumPhotoTab.photoId} = ${photoTab.photoId}
+        AND ${albumTab.isArchived} = 1
+      )`
     );
 
     const rows = await orm

@@ -5,6 +5,7 @@ import { albumService } from '@/server/service/album-service';
 import {
   type AlbumAddBo,
   type AlbumAddPhotoBo,
+  type AlbumArchiveBo,
   type AlbumDeleteBo,
   type AlbumRemovePhotoBo,
   type AlbumSetCoverBo,
@@ -20,14 +21,27 @@ export function registerAlbumApi(app: Hono<HonoEnv>) {
   // Query the photo album list.
   app.post('/album/list', async (c: Context) => {
     const userId = getUserId();
-    if (userId) {
+    let isArchived = 0;
+    const queryVal = c.req.query('isArchived');
+    if (queryVal !== undefined) {
+      isArchived = Number(queryVal) || 0;
+    } else {
+      try {
+        const body = await c.req.json<{ isArchived?: number }>().catch(() => null);
+        if (body && typeof body.isArchived === 'number') {
+          isArchived = body.isArchived;
+        }
+      } catch {}
+    }
+
+    if (userId || isArchived === 1) {
       c.header('Cache-Control', 'no-store, private');
     } else {
       c.header('Cache-Control', 'public, max-age=30, s-maxage=60, stale-while-revalidate=86400, stale-if-error=604800');
       c.header('CDN-Cache-Control', 'public, s-maxage=60, stale-while-revalidate=86400');
       c.header('Vary', 'Accept-Encoding, Cookie');
     }
-    const data = await albumService.list();
+    const data = await albumService.list(userId || undefined, isArchived);
     return c.json(result.ok(data));
   });
 
@@ -90,6 +104,20 @@ export function registerAlbumApi(app: Hono<HonoEnv>) {
   app.post('/album/setTop', async (c: Context) => {
     const body = await c.req.json<AlbumSetTopBo>();
     await albumService.setTop(body, getUserId());
+    return c.json(result.ok());
+  });
+
+  // Archive album.
+  app.post('/album/archive', async (c: Context) => {
+    const body = await c.req.json<AlbumArchiveBo>();
+    await albumService.archive(body, getUserId());
+    return c.json(result.ok());
+  });
+
+  // Unarchive album.
+  app.post('/album/unarchive', async (c: Context) => {
+    const body = await c.req.json<AlbumArchiveBo>();
+    await albumService.unarchive(body, getUserId());
     return c.json(result.ok());
   });
 

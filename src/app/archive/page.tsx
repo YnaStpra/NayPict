@@ -23,12 +23,14 @@ import { toast } from "sonner"
 import { PhotoMasonry } from "@/components/photo/photo-masonry"
 import { photoList, photoRecycle } from "@/request/photo"
 import { removePhotoIdFromUrl } from "@/lib/url"
-import { albumAddPhoto, albumRemovePhoto } from "@/request/album"
+import { albumAddPhoto, albumDelete, albumRemovePhoto, albumUnarchive } from "@/request/album"
 import { useArchiveContext } from "@/app/archive/provider"
 import { useApp } from "@/app/provider"
 import { UserTypeEnum } from "@/server/enums/user-enum"
 import { PhotoMasonrySkeleton } from "@/components/photo/photo-masonry-skeleton"
-import { Archive, ShieldAlert } from "lucide-react"
+import { AlbumCard } from "@/components/album/album-card"
+import { type AlbumVo } from "@/server/entity/vo/album"
+import { Archive, FolderArchive, ImageIcon, ShieldAlert } from "lucide-react"
 import { useTranslations } from "next-intl"
 
 const AlbumSelectDialog = dynamic(
@@ -46,9 +48,10 @@ const emptySubscribe = () => () => {}
 export default function ArchivePage() {
   const isBrowser = useSyncExternalStore(emptySubscribe, () => true, () => false)
   const t = useTranslations()
-  const { initialPhotos } = useArchiveContext()
+  const { initialPhotos, initialAlbums } = useArchiveContext()
   const { userInfo, sidebarOpen, setSidebarOpen, refreshAlbums } = useApp()
   const isAdmin = userInfo?.type === UserTypeEnum.ADMIN
+  const [archivedAlbums, setArchivedAlbums] = useState<AlbumVo[]>(initialAlbums || [])
 
   const {
     photos,
@@ -166,6 +169,32 @@ export default function ArchivePage() {
     }
   }
 
+  const unarchiveAlbum = useCallback((album: AlbumVo) => {
+    albumUnarchive({ albumId: album.albumId })
+      .then(() => {
+        setArchivedAlbums((prev) => prev.filter((a) => a.albumId !== album.albumId))
+        toast.success(`Album "${album.name}" restored from archive!`)
+        refreshAlbums()
+      })
+      .catch((err) => {
+        console.error("Failed to unarchive album:", err)
+        toast.error("Failed to restore album from archive.")
+      })
+  }, [refreshAlbums])
+
+  const deleteArchivedAlbum = useCallback((album: AlbumVo) => {
+    albumDelete({ albumId: album.albumId })
+      .then(() => {
+        setArchivedAlbums((prev) => prev.filter((a) => a.albumId !== album.albumId))
+        toast.success(`Album "${album.name}" deleted successfully!`)
+        refreshAlbums()
+      })
+      .catch((err) => {
+        console.error("Failed to delete album:", err)
+        toast.error("Failed to delete album.")
+      })
+  }, [refreshAlbums])
+
   if (!isAdmin) {
     return (
       <SidebarProvider open={sidebarOpen} onOpenChange={setSidebarOpen}>
@@ -208,28 +237,80 @@ export default function ArchivePage() {
             </div>
           </header>
 
-          <div className="px-3 md:pl-3 md:pr-2 pb-12">
+          <div className="px-3 md:pl-3 md:pr-2 pb-12 pt-3">
             {isBrowser ? (
-              photos.length === 0 ? (
+              archivedAlbums.length === 0 && photos.length === 0 ? (
                 <div className="flex h-[60vh] flex-col items-center justify-center gap-3 text-center px-4">
                   <div className="size-16 rounded-3xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center">
                     <Archive className="size-8 text-amber-500" />
                   </div>
                   <h3 className="text-lg font-bold">{t("archive.emptyTitle") || "No Archived Media"}</h3>
                   <p className="text-xs text-muted-foreground max-w-sm">
-                    {t("archive.emptyDescription") || "Photos and videos hidden from both Main Gallery and Albums will appear here."}
+                    {t("archive.emptyDescription") || "Archived albums and individual photos hidden from the public gallery will appear here."}
                   </p>
                 </div>
               ) : (
-                <PhotoMasonry
-                  photos={photos}
-                  resetKey={masonryKey}
-                  onReachBottom={loadMorePhotos}
-                  onPhotoOpen={openPhoto}
-                  onPhotoDelete={recyclePhotos}
-                  onAlbumOpen={openAlbumDialog}
-                  onPhotosUpdated={isAdmin ? updatePhotos : undefined}
-                />
+                <div className="space-y-8">
+                  {archivedAlbums.length > 0 && (
+                    <section className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className="flex size-7 items-center justify-center rounded-lg bg-amber-500/10 text-amber-500">
+                            <FolderArchive className="size-4" />
+                          </div>
+                          <div>
+                            <h2 className="text-base font-semibold tracking-tight flex items-center gap-2">
+                              <span>{t("archive.albumsTitle") || "Archived Albums"}</span>
+                              <span className="text-xs font-normal text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
+                                {archivedAlbums.length}
+                              </span>
+                            </h2>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
+                        {archivedAlbums.map((album) => (
+                          <AlbumCard
+                            key={album.albumId}
+                            data={album}
+                            isArchived={true}
+                            onUnarchive={isAdmin ? unarchiveAlbum : undefined}
+                            onDelete={isAdmin ? deleteArchivedAlbum : undefined}
+                          />
+                        ))}
+                      </div>
+                    </section>
+                  )}
+
+                  {archivedAlbums.length > 0 && photos.length > 0 && (
+                    <Separator className="my-6 opacity-60" />
+                  )}
+
+                  {photos.length > 0 && (
+                    <section className="space-y-3">
+                      <div className="flex items-center gap-2">
+                        <div className="flex size-7 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                          <ImageIcon className="size-4" />
+                        </div>
+                        <h2 className="text-base font-semibold tracking-tight flex items-center gap-2">
+                          <span>{t("archive.photosTitle") || "Archived Photos"}</span>
+                          <span className="text-xs font-normal text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
+                            {photos.length}
+                          </span>
+                        </h2>
+                      </div>
+                      <PhotoMasonry
+                        photos={photos}
+                        resetKey={masonryKey}
+                        onReachBottom={loadMorePhotos}
+                        onPhotoOpen={openPhoto}
+                        onPhotoDelete={recyclePhotos}
+                        onAlbumOpen={openAlbumDialog}
+                        onPhotosUpdated={isAdmin ? updatePhotos : undefined}
+                      />
+                    </section>
+                  )}
+                </div>
               )
             ) : (
               <PhotoMasonrySkeleton photos={initialPhotos} />

@@ -15,14 +15,26 @@ import {
 interface AlbumActionMenuProps {
   // Whether the current button icon displays a shadow.
   shadow?: boolean
-  onRename: () => void
-  onTop: () => void
-  onDelete: () => void
+  isArchived?: boolean
+  onRename?: () => void
+  onTop?: () => void
+  onDelete?: () => void
   onChangeCover?: () => void
+  onArchive?: () => void
+  onUnarchive?: () => void
 }
 
 // Render the more operations menu in the upper right corner of the album card.
-export function AlbumActionMenu({ shadow = true, onRename, onTop, onDelete, onChangeCover }: AlbumActionMenuProps) {
+export function AlbumActionMenu({
+  shadow = true,
+  isArchived = false,
+  onRename,
+  onTop,
+  onDelete,
+  onChangeCover,
+  onArchive,
+  onUnarchive,
+}: AlbumActionMenuProps) {
   const t = useTranslations("albums")
   // open Record whether the current drop-down menu is open, Used to hide icon shadow when open.
   const [open, setOpen] = useState(false)
@@ -45,21 +57,40 @@ export function AlbumActionMenu({ shadow = true, onRename, onTop, onDelete, onCh
           />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-32 min-w-32">
-        {onChangeCover && (
+      <DropdownMenuContent align="end" className="w-36 min-w-36">
+        {onChangeCover && !isArchived && (
           <DropdownMenuItem onSelect={onChangeCover}>
             Change Cover
           </DropdownMenuItem>
         )}
-        <DropdownMenuItem onSelect={onRename}>
-          {t("actions.rename")}
-        </DropdownMenuItem>
-        <DropdownMenuItem onSelect={onTop}>
-          {t("actions.pin")}
-        </DropdownMenuItem>
-        <DropdownMenuItem onSelect={onDelete}>
-          {t("actions.delete")}
-        </DropdownMenuItem>
+        {onRename && (
+          <DropdownMenuItem onSelect={onRename}>
+            {t("actions.rename")}
+          </DropdownMenuItem>
+        )}
+        {onTop && !isArchived && (
+          <DropdownMenuItem onSelect={onTop}>
+            {t("actions.pin")}
+          </DropdownMenuItem>
+        )}
+        {isArchived ? (
+          onUnarchive && (
+            <DropdownMenuItem onSelect={onUnarchive}>
+              Unarchive
+            </DropdownMenuItem>
+          )
+        ) : (
+          onArchive && (
+            <DropdownMenuItem onSelect={onArchive}>
+              Archive
+            </DropdownMenuItem>
+          )
+        )}
+        {onDelete && (
+          <DropdownMenuItem onSelect={onDelete} className="text-destructive focus:text-destructive">
+            {t("actions.delete")}
+          </DropdownMenuItem>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   )

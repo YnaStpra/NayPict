@@ -9,6 +9,7 @@ import BizError from '@/server/error/biz-error';
 import {
   type AlbumAddBo,
   type AlbumAddPhotoBo,
+  type AlbumArchiveBo,
   type AlbumDeleteBo,
   type AlbumRemovePhotoBo,
   type AlbumSetCoverBo,
@@ -77,11 +78,19 @@ function calculateAlbumCoverScore(photo: {
 const albumService = {
 
   // Query the list of photo albums with automatic cover resolution.
-  async list(userId?: string): Promise<AlbumVo[]> {
+  async list(userId?: string, isArchived: number = 0): Promise<AlbumVo[]> {
+
+    const albumConditions = [];
+    if (isArchived === 1) {
+      albumConditions.push(eq(albumTab.isArchived, 1));
+    } else {
+      albumConditions.push(or(eq(albumTab.isArchived, 0), isNull(albumTab.isArchived))!);
+    }
 
     const albumList = await orm
       .select()
       .from(albumTab)
+      .where(and(...albumConditions))
       .orderBy(desc(albumTab.sort));
 
     if (!albumList.length) {
@@ -156,6 +165,7 @@ const albumService = {
 
       return {
         ...album,
+        isArchived: album.isArchived ?? 0,
         thumbnail: thumbnail ? toMediaUrl(thumbnail, domain) : null,
         thumbHash: selectedCoverPhoto?.thumbHash ?? null,
         photoTotal: albumPhotos.length,
@@ -486,6 +496,32 @@ const albumService = {
       ));
   },
 
+  // Archive a photo album so it is hidden from the gallery and active albums.
+  async archive(params: AlbumArchiveBo, userId: string): Promise<void> {
+    await orm.update(albumTab)
+      .set({
+        isArchived: 1,
+        updateTime: new Date().toISOString()
+      })
+      .where(and(
+        eq(albumTab.albumId, params.albumId),
+        eq(albumTab.userId, userId)
+      ));
+  },
+
+  // Unarchive a photo album so it is restored to active albums and gallery.
+  async unarchive(params: AlbumArchiveBo, userId: string): Promise<void> {
+    await orm.update(albumTab)
+      .set({
+        isArchived: 0,
+        updateTime: new Date().toISOString()
+      })
+      .where(and(
+        eq(albumTab.albumId, params.albumId),
+        eq(albumTab.userId, userId)
+      ));
+  },
+
   // Toggle photo pin status in a specific album (Max 3 pinned photos per album).
   async togglePinPhoto(params: AlbumTogglePinPhotoBo, userId: string): Promise<{ isPinned: boolean }> {
     if (!params.albumId) {
@@ -641,7 +677,8 @@ const albumService = {
       photoTotal: photoList.length,
       coverPhotoId: coverPhoto?.photoId ?? null,
       suggestedCoverPhotoId: coverPhoto?.photoId ?? null,
-      isManualCover: false
+      isManualCover: false,
+      isArchived: 0
     };
   },
 

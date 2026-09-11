@@ -15,14 +15,28 @@ import { useAlbumStore } from "@/store/album-store"
 type AlbumCardProps = Partial<RenderComponentProps<AlbumVo>> & {
   data: AlbumVo
   href?: string
+  isArchived?: boolean
   onRename?: (album: AlbumVo) => void
   onTop?: (album: AlbumVo) => void
   onDelete?: (album: AlbumVo) => void
   onChangeCover?: (album: AlbumVo) => void
+  onArchive?: (album: AlbumVo) => void
+  onUnarchive?: (album: AlbumVo) => void
 }
 
 // Render a single album card in a virtual list.
-export const AlbumCard = memo(function AlbumCard({ data, width, href, onRename, onTop, onDelete, onChangeCover }: AlbumCardProps) {
+export const AlbumCard = memo(function AlbumCard({
+  data,
+  width,
+  href,
+  isArchived,
+  onRename,
+  onTop,
+  onDelete,
+  onChangeCover,
+  onArchive,
+  onUnarchive,
+}: AlbumCardProps) {
   const router = useRouter()
   const setCurrentAlbumName = useAlbumStore((state) => state.setCurrentAlbumName)
   const [thumbnailSrc, setThumbnailSrc] = useState<string | null>(() => data.thumbnail || null)
@@ -82,6 +96,16 @@ export const AlbumCard = memo(function AlbumCard({ data, width, href, onRename, 
     onChangeCover?.(data)
   }
 
+  // Hand over the archive operation and current album to the upper page.
+  function archiveAlbum() {
+    onArchive?.(data)
+  }
+
+  // Hand over the unarchive operation and current album to the upper page.
+  function unarchiveAlbum() {
+    onUnarchive?.(data)
+  }
+
   // Calibrated Responsive Sizes: Forces browser to select lightweight 480w thumbnail (saving 85% bandwidth)
   const effectiveSizes = "(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
 
@@ -91,15 +115,15 @@ export const AlbumCard = memo(function AlbumCard({ data, width, href, onRename, 
       style={{
         width,
         contain: "paint layout",
-        containIntrinsicSize: `auto ${width}px ${width}px`,
+        containIntrinsicSize: width ? `auto ${width}px ${width}px` : undefined,
         backgroundColor: placeholder ? undefined : "rgba(128,128,128,0.08)",
         backgroundImage: placeholder ? `url("${placeholder}")` : undefined,
         backgroundSize: "cover",
         backgroundPosition: "center",
         // Dynamic Layout Stability CSS Custom Properties (CLS = 0.000)
         ["--aspect-ratio" as string]: "1",
-        ["--intrinsic-width" as string]: `${width}px`,
-        ["--intrinsic-height" as string]: `${width}px`,
+        ["--intrinsic-width" as string]: width ? `${width}px` : undefined,
+        ["--intrinsic-height" as string]: width ? `${width}px` : undefined,
       }}
     >
       {/* 3D Physical Photo Stack Underlay Layers */}
@@ -163,14 +187,17 @@ export const AlbumCard = memo(function AlbumCard({ data, width, href, onRename, 
           </div>
         </div>
       </Link>
-      {onRename && onTop && onDelete && (
+      {(onRename || onTop || onDelete || onArchive || onUnarchive) && (
         <div className="absolute top-[4px] right-[4px] z-10">
           <AlbumActionMenu
             shadow={Boolean(thumbnailSrc)}
-            onRename={renameAlbum}
-            onTop={topAlbum}
-            onDelete={deleteAlbum}
+            isArchived={isArchived ?? data.isArchived === 1}
+            onRename={onRename ? renameAlbum : undefined}
+            onTop={onTop ? topAlbum : undefined}
+            onDelete={onDelete ? deleteAlbum : undefined}
             onChangeCover={onChangeCover ? changeCoverAlbum : undefined}
+            onArchive={onArchive ? archiveAlbum : undefined}
+            onUnarchive={onUnarchive ? unarchiveAlbum : undefined}
           />
         </div>
       )}

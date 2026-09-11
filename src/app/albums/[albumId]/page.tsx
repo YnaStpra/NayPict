@@ -23,11 +23,11 @@ import { PhotoMasonry } from "@/components/photo/photo-masonry"
 import { PHOTO_LIST_PAGE_SIZE } from "@/server/const/global"
 import { photoList, photoRecycle } from "@/request/photo"
 import { removePhotoIdFromUrl } from "@/lib/url"
-import { albumAddPhoto, albumRemovePhoto, albumTogglePinPhoto } from "@/request/album"
+import { albumAddPhoto, albumRemovePhoto, albumTogglePinPhoto, albumUnarchive } from "@/request/album"
 import { useAlbumStore } from "@/store/album-store"
 import { usePhotoStore } from "@/store/photo-store"
 import type { PhotoVo } from "@/server/entity/vo/photo"
-import { ArrowLeftIcon, ArrowUpDown, ChevronDown, ImageIcon, LayoutGrid, PlusIcon, Sparkles } from "lucide-react"
+import { Archive, ArrowLeftIcon, ArrowUpDown, ChevronDown, ImageIcon, LayoutGrid, PlusIcon, Sparkles } from "lucide-react"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -87,13 +87,27 @@ export default function Page() {
   const isBrowser = useSyncExternalStore(emptySubscribe, () => true, () => false)
   const router = useRouter()
   const { albumId } = useParams<{ albumId: string }>()
-  const { initialPhotos } = useAlbumPhotoContext()
+  const { initialPhotos, album } = useAlbumPhotoContext()
   const { userInfo, sidebarOpen, setSidebarOpen, refreshAlbums } = useApp()
   const isAdmin = userInfo?.type === UserTypeEnum.ADMIN
   const currentAlbumName = useAlbumStore((state) => state.currentAlbumName)
+  const albumDisplayName = album?.name || currentAlbumName || "Album"
+  const [isArchived, setIsArchived] = useState(album?.isArchived === 1)
   const albumIdRef = useRef(albumId)
   const [viewMode, setViewMode] = useState<"masonry" | "infinite">("masonry")
   const [sortKey, setSortKey] = useState<SortOptionKey>("none")
+
+  const handleUnarchiveAlbum = useCallback(async () => {
+    try {
+      await albumUnarchive({ albumId })
+      setIsArchived(false)
+      toast.success("Album restored from archive!")
+      refreshAlbums()
+    } catch (err) {
+      console.error("Failed to unarchive album:", err)
+      toast.error("Failed to restore album from archive.")
+    }
+  }, [albumId, refreshAlbums])
 
   const {
     photos,
@@ -348,17 +362,38 @@ export default function Page() {
                 variant="ghost"
                 size="icon-sm"
                 className="shrink-0"
-                onClick={() => router.push("/albums")}
-                aria-label="Back to albums"
+                onClick={() => router.push(isArchived ? "/archive" : "/albums")}
+                aria-label={isArchived ? "Back to archive" : "Back to albums"}
               >
                 <ArrowLeftIcon className="size-4" />
               </Button>
               <Separator orientation="vertical" className="mr-2 h-4" />
               <Breadcrumb>
                 <BreadcrumbList>
+                  {isArchived && (
+                    <>
+                      <BreadcrumbItem>
+                        <Button
+                          variant="link"
+                          className="h-auto p-0 text-xs font-normal text-muted-foreground hover:text-foreground"
+                          onClick={() => router.push("/archive")}
+                        >
+                          Archive
+                        </Button>
+                      </BreadcrumbItem>
+                      <BreadcrumbItem>
+                        <span className="text-muted-foreground">/</span>
+                      </BreadcrumbItem>
+                    </>
+                  )}
                   <BreadcrumbItem>
-                    <BreadcrumbPage className="line-clamp-1 max-w-[200px] text-sm md:max-w-none">
-                      {currentAlbumName || "..."}
+                    <BreadcrumbPage className="line-clamp-1 max-w-[200px] text-sm md:max-w-none flex items-center gap-1.5">
+                      <span>{albumDisplayName}</span>
+                      {isArchived && (
+                        <span className="text-[10px] uppercase font-semibold tracking-wider bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30 px-1.5 py-0.5 rounded">
+                          Archived
+                        </span>
+                      )}
                     </BreadcrumbPage>
                   </BreadcrumbItem>
                 </BreadcrumbList>
@@ -451,6 +486,24 @@ export default function Page() {
               )}
             </div>
           </header>
+          {isArchived && (
+            <div className="mx-3 my-2.5 flex items-center justify-between gap-3 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-2.5 text-xs md:text-sm text-amber-700 dark:text-amber-400">
+              <div className="flex items-center gap-2 font-medium">
+                <Archive className="size-4 shrink-0 text-amber-500" />
+                <span>This album is archived. Its photos and videos are hidden from the public gallery.</span>
+              </div>
+              {isAdmin && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-xs border-amber-500/40 bg-background/80 hover:bg-amber-500/20 text-foreground"
+                  onClick={handleUnarchiveAlbum}
+                >
+                  Unarchive Album
+                </Button>
+              )}
+            </div>
+          )}
           <div className="px-1 md:pl-1 md:pr-0">
             {isBrowser ? (
               viewMode === "infinite" ? (

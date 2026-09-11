@@ -18,17 +18,25 @@ import { type AlbumVo } from "@/server/entity/vo/album"
 interface AlbumMasonryProps {
   albums: AlbumVo[]
   resetKey?: number
+  isArchived?: boolean
+  emptyTitle?: string
+  emptyDescription?: string
   onAlbumRename?: (album: AlbumVo) => void
   onAlbumTop?: (album: AlbumVo) => void
   onAlbumDelete?: (album: AlbumVo) => void
   onAlbumChangeCover?: (album: AlbumVo) => void
+  onAlbumArchive?: (album: AlbumVo) => void
+  onAlbumUnarchive?: (album: AlbumVo) => void
 }
 
 interface AlbumMasonryContextValue {
+  isArchived?: boolean
   onAlbumRename?: (album: AlbumVo) => void
   onAlbumTop?: (album: AlbumVo) => void
   onAlbumDelete?: (album: AlbumVo) => void
   onAlbumChangeCover?: (album: AlbumVo) => void
+  onAlbumArchive?: (album: AlbumVo) => void
+  onAlbumUnarchive?: (album: AlbumVo) => void
 }
 
 const AlbumMasonryContext = createContext<AlbumMasonryContextValue | null>(null)
@@ -45,10 +53,13 @@ const MasonicAlbumCard = memo(function MasonicAlbumCard({
       data={data}
       index={index}
       width={width}
+      isArchived={ctx?.isArchived}
       onRename={ctx?.onAlbumRename}
       onTop={ctx?.onAlbumTop}
       onDelete={ctx?.onAlbumDelete}
       onChangeCover={ctx?.onAlbumChangeCover}
+      onArchive={ctx?.onAlbumArchive}
+      onUnarchive={ctx?.onAlbumUnarchive}
     />
   )
 })
@@ -102,7 +113,19 @@ function syncAlbumPositioner(items: AlbumVo[], columnWidth: number, positioner: 
 }
 
 // Rendering a virtual scrolling list of photo albums.
-export function AlbumMasonry({ albums, resetKey = 0, onAlbumRename, onAlbumTop, onAlbumDelete, onAlbumChangeCover }: AlbumMasonryProps) {
+export function AlbumMasonry({
+  albums,
+  resetKey = 0,
+  isArchived = false,
+  emptyTitle,
+  emptyDescription,
+  onAlbumRename,
+  onAlbumTop,
+  onAlbumDelete,
+  onAlbumChangeCover,
+  onAlbumArchive,
+  onAlbumUnarchive,
+}: AlbumMasonryProps) {
   const { sidebarOpen } = useApp()
   const wrapRef = useRef<HTMLDivElement | null>(null)
   const [windowHeight, setWindowHeight] = useState(() => (typeof window !== "undefined" ? window.innerHeight : 800))
@@ -202,15 +225,15 @@ export function AlbumMasonry({ albums, resetKey = 0, onAlbumRename, onAlbumTop, 
 
   if (!albums || albums.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] w-full text-center p-8">
+      <div className="flex flex-col items-center justify-center min-h-[40vh] w-full text-center p-8">
         <div className="flex size-20 items-center justify-center rounded-2xl bg-muted/50 border border-border/50 mb-4 shadow-sm">
           <FolderOpen className="size-10 text-muted-foreground/70" />
         </div>
         <h3 className="text-xl font-semibold text-foreground mb-1">
-          No albums yet
+          {emptyTitle || "No albums yet"}
         </h3>
         <p className="text-sm text-muted-foreground max-w-sm">
-          No albums have been added by the administrator yet. Please check back later!
+          {emptyDescription || "No albums have been added by the administrator yet. Please check back later!"}
         </p>
       </div>
     )
@@ -218,12 +241,15 @@ export function AlbumMasonry({ albums, resetKey = 0, onAlbumRename, onAlbumTop, 
 
   const albumContextValue = useMemo<AlbumMasonryContextValue>(
     () => ({
+      isArchived,
       onAlbumRename,
       onAlbumTop,
       onAlbumDelete,
       onChangeCover: onAlbumChangeCover,
+      onAlbumArchive,
+      onAlbumUnarchive,
     }),
-    [onAlbumRename, onAlbumTop, onAlbumDelete, onAlbumChangeCover]
+    [isArchived, onAlbumRename, onAlbumTop, onAlbumDelete, onAlbumChangeCover, onAlbumArchive, onAlbumUnarchive]
   )
 
   return (

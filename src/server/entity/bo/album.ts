@@ -38,9 +38,14 @@ interface AlbumTogglePinPhotoBo {
   photoId: string;
 }
 
+interface AlbumArchiveBo {
+  albumId: string;
+}
+
 export type {
   AlbumAddBo,
   AlbumAddPhotoBo,
+  AlbumArchiveBo,
   AlbumDeleteBo,
   AlbumRemovePhotoBo,
   AlbumSetCoverBo,
