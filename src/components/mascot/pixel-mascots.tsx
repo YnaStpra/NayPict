@@ -117,14 +117,41 @@ export function PixelMascots() {
     return () => clearInterval(interval)
   }, [isKuroMoving])
 
-  // Eye blinking animation timer (pauses if tab is in background)
+  // Eye blinking animation timer (completely suspended when tab is inactive)
   useEffect(() => {
-    const blinkInterval = setInterval(() => {
-      if (typeof document !== 'undefined' && document.hidden) return
-      setIsBlinking(true)
-      setTimeout(() => setIsBlinking(false), 220)
-    }, 4500)
-    return () => clearInterval(blinkInterval)
+    let blinkInterval: NodeJS.Timeout | null = null
+
+    const start = () => {
+      if (blinkInterval) clearInterval(blinkInterval)
+      blinkInterval = setInterval(() => {
+        setIsBlinking(true)
+        setTimeout(() => setIsBlinking(false), 220)
+      }, 4500)
+    }
+
+    const stop = () => {
+      if (blinkInterval) {
+        clearInterval(blinkInterval)
+        blinkInterval = null
+      }
+    }
+
+    const handleVisibility = () => {
+      if (typeof document !== 'undefined') {
+        if (document.hidden) stop()
+        else start()
+      }
+    }
+
+    if (typeof document === 'undefined' || !document.hidden) {
+      start()
+    }
+
+    document.addEventListener('visibilitychange', handleVisibility)
+    return () => {
+      stop()
+      document.removeEventListener('visibilitychange', handleVisibility)
+    }
   }, [])
 
   // Detect Lightbox Photo Viewer, Infinite Gallery, and Fullscreen/Cinematic modes
@@ -162,10 +189,11 @@ export function PixelMascots() {
     return { minX, maxX, isRelative: false }
   }, [])
 
-  // Autonomous Decision Engine (Every 4.5s) for Kuro using Hardware-Accelerated CSS Transitions
+  // Autonomous Decision Engine for Kuro using Hardware-Accelerated CSS Transitions (Paused when tab is hidden)
   useEffect(() => {
-    const decisionInterval = setInterval(() => {
-      if (typeof document !== 'undefined' && document.hidden) return
+    let decisionInterval: NodeJS.Timeout | null = null
+
+    const tick = () => {
       const { minX, maxX } = getBounds()
 
       if (!kuroBubble && kuroState !== 'angry' && kuroState !== 'annoyed' && !kuroState.startsWith('walk') && !kuroState.startsWith('run')) {
@@ -193,10 +221,35 @@ export function PixelMascots() {
           setKuroState(actsK[Math.floor(Math.random() * actsK.length)])
         }
       }
-    }, 4500)
+    }
 
+    const start = () => {
+      if (decisionInterval) clearInterval(decisionInterval)
+      decisionInterval = setInterval(tick, 4500)
+    }
+
+    const stop = () => {
+      if (decisionInterval) {
+        clearInterval(decisionInterval)
+        decisionInterval = null
+      }
+    }
+
+    const handleVisibility = () => {
+      if (typeof document !== 'undefined') {
+        if (document.hidden) stop()
+        else start()
+      }
+    }
+
+    if (typeof document === 'undefined' || !document.hidden) {
+      start()
+    }
+
+    document.addEventListener('visibilitychange', handleVisibility)
     return () => {
-      clearInterval(decisionInterval)
+      stop()
+      document.removeEventListener('visibilitychange', handleVisibility)
       if (kuroTimerRef.current) clearTimeout(kuroTimerRef.current)
     }
   }, [kuroState, kuroBubble, getBounds])

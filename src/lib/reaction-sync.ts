@@ -51,19 +51,30 @@ class ReactionSyncManager {
         }
       }
 
-      // Automatically re-synchronize active photos when user returns to the tab
-      const handleTabResume = () => {
-        if (typeof document !== "undefined" && document.visibilityState === "visible") {
+      // Automatically suspend background timers when tab is hidden and re-synchronize on resume
+      const handleVisibilityChange = () => {
+        if (typeof document === "undefined") return;
+        if (document.visibilityState === "visible") {
           this.listeners.forEach((set, id) => {
             if (set.size > 0) {
               this.fetch(id).catch(() => {});
+              this.startPolling(id);
             }
           });
+        } else {
+          // Tab inactive/standby: completely clear all background polling timers
+          this.pollTimers.forEach((timer) => clearInterval(timer));
+          this.pollTimers.clear();
         }
       };
 
-      window.addEventListener("focus", handleTabResume);
-      document.addEventListener("visibilitychange", handleTabResume);
+      window.addEventListener("focus", handleVisibilityChange);
+      document.addEventListener("visibilitychange", handleVisibilityChange);
+      document.addEventListener("freeze", () => {
+        this.pollTimers.forEach((timer) => clearInterval(timer));
+        this.pollTimers.clear();
+      });
+      document.addEventListener("resume", handleVisibilityChange);
     }
   }
 
@@ -75,6 +86,7 @@ class ReactionSyncManager {
   // Start adaptive polling heartbeat for an actively subscribed photo
   private startPolling(photoId: string): void {
     if (this.pollTimers.has(photoId)) return;
+    if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
 
     const timer = setInterval(() => {
       if (typeof document !== "undefined" && document.visibilityState === "visible") {
@@ -84,6 +96,8 @@ class ReactionSyncManager {
         } else {
           this.stopPolling(photoId);
         }
+      } else {
+        this.stopPolling(photoId);
       }
     }, 3500);
 

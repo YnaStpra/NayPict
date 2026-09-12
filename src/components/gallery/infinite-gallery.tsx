@@ -616,11 +616,12 @@ export function InfiniteGallery(props: InfiniteGalleryProps) {
     }
 
     let raf = 0
+    let isLoopRunning = false
 
     const loop = () => {
-      // Low-Power Throttling: Pause render iterations when tab is hidden / inactive to save 100% GPU/CPU
+      // Standby Mode: Halt render iterations when tab is hidden / inactive to allow browser tab freezing
       if (typeof document !== "undefined" && document.hidden) {
-        raf = requestAnimationFrame(loop)
+        isLoopRunning = false
         return
       }
 
@@ -661,9 +662,33 @@ export function InfiniteGallery(props: InfiniteGalleryProps) {
       project()
       raf = requestAnimationFrame(loop)
     }
-    raf = requestAnimationFrame(loop)
+
+    const startLoop = () => {
+      if (!isLoopRunning && (typeof document === "undefined" || !document.hidden)) {
+        isLoopRunning = true
+        cancelAnimationFrame(raf)
+        raf = requestAnimationFrame(loop)
+      }
+    }
+
+    const handleVisibility = () => {
+      if (typeof document !== "undefined") {
+        if (document.hidden) {
+          isLoopRunning = false
+          cancelAnimationFrame(raf)
+        } else {
+          startLoop()
+        }
+      }
+    }
+
+    startLoop()
+    document.addEventListener("visibilitychange", handleVisibility)
+
     return () => {
+      isLoopRunning = false
       cancelAnimationFrame(raf)
+      document.removeEventListener("visibilitychange", handleVisibility)
       ro.disconnect()
       Array.from(layerPools.keys()).forEach(disposeLayer)
     }
