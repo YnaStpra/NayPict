@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars */
-import { and, count, desc, eq, inArray, isNull, max, or } from 'drizzle-orm';
+import { and, count, desc, eq, inArray, isNull, max, or, sql } from 'drizzle-orm';
 import { createId } from '@/server/lib/id';
 import { type Album, albumTab } from '@/server/entity/album';
 import { albumPhotoTab } from '@/server/entity/album-photo';
@@ -109,6 +109,18 @@ const albumService = {
     ];
     if (userId) {
       wherePhotoList.push(eq(photoTab.userId, userId));
+    }
+
+    // For active albums (isArchived === 0), exclude photos that belong to any archived album
+    if (isArchived === 0) {
+      wherePhotoList.push(
+        sql`NOT EXISTS (
+          SELECT 1 FROM ${albumPhotoTab} ap_archived
+          INNER JOIN ${albumTab} a_archived ON a_archived.album_id = ap_archived.album_id
+          WHERE ap_archived.photo_id = ${photoTab.photoId}
+          AND a_archived.is_archived = 1
+        )`
+      );
     }
 
     const allAlbumPhotos = await orm
@@ -308,6 +320,24 @@ const albumService = {
     ];
     if (userId) {
       wherePhotoList.push(eq(photoTab.userId, userId));
+    }
+
+    // If target album is active, exclude photos belonging to any archived album
+    const [targetAlbum] = await orm
+      .select({ isArchived: albumTab.isArchived })
+      .from(albumTab)
+      .where(eq(albumTab.albumId, albumId))
+      .limit(1);
+
+    if (targetAlbum?.isArchived === 0) {
+      wherePhotoList.push(
+        sql`NOT EXISTS (
+          SELECT 1 FROM ${albumPhotoTab} ap_archived
+          INNER JOIN ${albumTab} a_archived ON a_archived.album_id = ap_archived.album_id
+          WHERE ap_archived.photo_id = ${photoTab.photoId}
+          AND a_archived.is_archived = 1
+        )`
+      );
     }
 
     const albumPhotos = await orm

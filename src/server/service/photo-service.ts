@@ -234,8 +234,18 @@ const photoService = {
       }
     }
 
-    // Exclude photos belonging to archived albums when browsing general feeds (not inside a specific album)
-    if (!params.albumId && status === PhotoStatusEnum.NORMAL) {
+    // Exclude photos belonging to archived albums when browsing general feeds or active albums
+    let isCurrentAlbumArchived = false;
+    if (params.albumId) {
+      const [currentAlbum] = await orm
+        .select({ isArchived: albumTab.isArchived })
+        .from(albumTab)
+        .where(eq(albumTab.albumId, params.albumId))
+        .limit(1);
+      isCurrentAlbumArchived = currentAlbum?.isArchived === 1;
+    }
+
+    if (!isCurrentAlbumArchived && status === PhotoStatusEnum.NORMAL) {
       baseWhereList.push(
         sql`NOT EXISTS (
           SELECT 1 FROM ${albumPhotoTab}
@@ -441,8 +451,18 @@ const photoService = {
       }
     }
 
-    // Exclude photos belonging to archived albums when browsing general feeds (not inside a specific album)
-    if (!params.albumId && status === PhotoStatusEnum.NORMAL) {
+    // Exclude photos belonging to archived albums when browsing general feeds or active albums
+    let isCurrentAlbumArchived = false;
+    if (params.albumId) {
+      const [currentAlbum] = await orm
+        .select({ isArchived: albumTab.isArchived })
+        .from(albumTab)
+        .where(eq(albumTab.albumId, params.albumId))
+        .limit(1);
+      isCurrentAlbumArchived = currentAlbum?.isArchived === 1;
+    }
+
+    if (!isCurrentAlbumArchived && status === PhotoStatusEnum.NORMAL) {
       whereList.push(
         sql`NOT EXISTS (
           SELECT 1 FROM ${albumPhotoTab}
@@ -497,8 +517,18 @@ const photoService = {
       );
     }
 
-    // Exclude photos belonging to archived albums when browsing general feeds (not inside a specific album)
-    if (!params.albumId) {
+    // Exclude photos belonging to archived albums when browsing general feeds or active albums
+    let isCurrentAlbumArchived = false;
+    if (params.albumId) {
+      const [currentAlbum] = await orm
+        .select({ isArchived: albumTab.isArchived })
+        .from(albumTab)
+        .where(eq(albumTab.albumId, params.albumId))
+        .limit(1);
+      isCurrentAlbumArchived = currentAlbum?.isArchived === 1;
+    }
+
+    if (!isCurrentAlbumArchived) {
       whereList.push(
         sql`NOT EXISTS (
           SELECT 1 FROM ${albumPhotoTab}
@@ -1518,6 +1548,20 @@ const photoService = {
 
     if (photo.visibility === PhotoVisibilityEnum.ARCHIVED && !currentUserId) {
       return null;
+    }
+
+    // Hide photos belonging to any archived album from unauthenticated visitors
+    if (!currentUserId) {
+      const [archivedAlbumRel] = await orm
+        .select({ id: albumPhotoTab.id })
+        .from(albumPhotoTab)
+        .innerJoin(albumTab, eq(albumTab.albumId, albumPhotoTab.albumId))
+        .where(and(eq(albumPhotoTab.photoId, photoId), eq(albumTab.isArchived, 1)))
+        .limit(1);
+
+      if (archivedAlbumRel) {
+        return null;
+      }
     }
 
     const fileStorageList = await storageService.getStorageList();
