@@ -11,11 +11,16 @@ import type { HonoEnv } from '../hono/type';
 // This module registers storage configuration related interfaces.
 
 export function registerStorageApi(app: Hono<HonoEnv>) {
-  // Query all normal storage configuration options.
-  app.post('/storage/select', async (c: Context) => {
+  // Query all normal storage configuration options (edge cached for 5 minutes).
+  const handleStorageSelect = async (c: Context) => {
+    c.header('Cache-Control', 'public, max-age=60, s-maxage=300, stale-while-revalidate=86400');
+    c.header('CDN-Cache-Control', 'public, s-maxage=300, stale-while-revalidate=86400');
     const data = await storageService.select();
     return c.json(result.ok(data));
-  });
+  };
+
+  app.get('/storage/select', handleStorageSelect);
+  app.post('/storage/select', handleStorageSelect);
 
   // Query the list of all storage configurations.
   app.post('/storage/list', async (c: Context) => {

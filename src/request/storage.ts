@@ -33,7 +33,7 @@ export function storageSelect(forceRefresh: boolean = false): Promise<StorageSel
   }
 
   inFlightStoragePromise = http
-    .post<StorageSelectVo[]>('/storage/select')
+    .get<StorageSelectVo[]>('/storage/select')
     .then((storages) => {
       cachedStorageSelect = storages;
       cachedStorageTimestamp = Date.now();

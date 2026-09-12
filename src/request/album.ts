@@ -54,7 +54,7 @@ export function albumList(
     }
 
     inFlightAlbumPromise = http
-      .post<AlbumVo[]>('/album/list', { isArchived: 0 })
+      .get<AlbumVo[]>('/album/list', { isArchived: 0 })
       .then((albums) => {
         cachedAlbums = albums;
         cachedAlbumsTimestamp = Date.now();
@@ -68,7 +68,7 @@ export function albumList(
   }
 
   // Archived albums query: direct request
-  return http.post<AlbumVo[]>('/album/list', { isArchived });
+  return http.get<AlbumVo[]>('/album/list', { isArchived });
 }
 
 // Archive an album.

@@ -82,13 +82,27 @@ async function post<T = unknown>(url: string, params: RequestParams = null) {
   return json.data as T;
 }
 
+// Append query parameters onto URL
+function appendQueryParams(url: string, params?: Record<string, unknown> | null): string {
+  if (!params) return url;
+  const searchParams = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== null && value !== '') {
+      searchParams.append(key, String(value));
+    }
+  }
+  const queryString = searchParams.toString();
+  if (!queryString) return url;
+  return url.includes('?') ? `${url}&${queryString}` : `${url}?${queryString}`;
+}
+
 // send GET Request and return interface data.
-async function get<T = unknown>(url: string) {
+async function get<T = unknown>(url: string, params?: Record<string, unknown> | null) {
   await sleep(MOCK_REQUEST_DELAY);
 
   let res: Response;
   try {
-    res = await fetch(buildUrl(url), {
+    res = await fetch(buildUrl(appendQueryParams(url, params)), {
       method: 'GET',
       credentials: 'include'
     });
@@ -122,8 +136,8 @@ async function get<T = unknown>(url: string) {
 
 const http = {
   // send GET request.
-  get<T = unknown>(url: string) {
-    return get<T>(url);
+  get<T = unknown>(url: string, params?: Record<string, unknown> | null) {
+    return get<T>(url, params);
   },
   // send POST request.
   post<T = unknown>(url: string, params: RequestParams = null) {

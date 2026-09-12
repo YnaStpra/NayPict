@@ -52,9 +52,9 @@ export function photoUntaggedList() {
   return http.get<PhotoVo[]>('/photos/untagged');
 }
 
-// Query the photo list by pagination and conditions.
+// Query the photo list by pagination and conditions (GET allows edge CDN caching).
 export function photoList(params: PhotoListBo) {
-  return http.post<PageVo<PhotoVo>>('/photo/list', params);
+  return http.get<PageVo<PhotoVo>>('/photo/list', params as unknown as Record<string, unknown>);
 }
 
 // Query photos taken on this day in previous years.
@@ -62,9 +62,9 @@ export function photoOnThisDay(params: PhotoOnThisDayBo = {}) {
   return http.post<PhotoOnThisDayVo>('/photo/onThisDay', params);
 }
 
-// Fetch all photo IDs in random order for client-side random pagination.
+// Fetch all photo IDs in random order for client-side random pagination (GET allows edge CDN caching).
 export function photoRandomIdList(params: PhotoRandomIdListBo) {
-  return http.post<string[]>('/photo/randomIdList', params);
+  return http.get<string[]>('/photo/randomIdList', params as unknown as Record<string, unknown>);
 }
 
 // Query the shooting date and number of existing photos by day.

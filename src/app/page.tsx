@@ -1,14 +1,12 @@
-import { cookies } from "next/headers"
 import { photoService } from "@/server/service/photo-service"
-import { getLoginInfo } from "@/lib/cookie"
 import { LandingClient } from "@/components/landing/landing-client"
 import { type PhotoVo } from "@/server/entity/vo/photo"
 
+// Revalidate landing showcase photos every 5 minutes (ISR) to eliminate serverless CPU burn
+export const revalidate = 300
+
 // Server-side Landing Page: Pre-fetches random gallery photos to eliminate loading flash and enable instant rendering
 export default async function Home() {
-  const cookieStore = await cookies()
-  const { userId } = await getLoginInfo(cookieStore.toString())
-
   let initialPhotos: PhotoVo[] = []
   try {
     const data = await photoService.list({
@@ -18,7 +16,7 @@ export default async function Home() {
       status: null,
       albumId: null,
       shuffle: true,
-    }, userId || undefined)
+    })
 
     initialPhotos = data.list || []
   } catch (err) {

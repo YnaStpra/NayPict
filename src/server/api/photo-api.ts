@@ -154,8 +154,24 @@ export function registerPhotoApi(app: Hono<HonoEnv>) {
     return c.json(result.ok(data));
   });
 
-  // Query the photo list by pagination and conditions (public requests subject to distributed rate limiting).
-  app.post('/photo/list', async (c: Context) => {
+  // Parse query parameters or JSON body into PhotoListBo
+  const parsePhotoListParams = async (c: Context): Promise<PhotoListBo> => {
+    if (c.req.method === 'GET') {
+      const q = c.req.query();
+      return {
+        size: Number(q.size) || 30,
+        cursorPhotoId: q.cursorPhotoId || null,
+        cursorTime: q.cursorTime || null,
+        status: q.status !== undefined && q.status !== '' ? Number(q.status) : null,
+        albumId: q.albumId || null,
+        shuffle: q.shuffle === 'true',
+      };
+    }
+    return c.req.json<PhotoListBo>().catch(() => ({ size: 30 }));
+  };
+
+  // Query the photo list by pagination and conditions (supports GET for edge caching).
+  const handlePhotoList = async (c: Context) => {
     const userId = getUserId();
     if (!userId) {
       const clientIp = getClientIp(c);
@@ -166,19 +182,31 @@ export function registerPhotoApi(app: Hono<HonoEnv>) {
     }
 
     applyPublicCacheHeaders(c, userId);
-    const body = await c.req.json<PhotoListBo>();
+    const body = await parsePhotoListParams(c);
     const data = await photoService.list(body, userId);
     return c.json(result.ok(data));
-  });
+  };
 
-  // Return all photo IDs in random order for client-side random pagination.
-  app.post('/photo/randomIdList', async (c: Context) => {
+  app.get('/photo/list', handlePhotoList);
+  app.post('/photo/list', handlePhotoList);
+
+  // Return all photo IDs in random order for client-side random pagination (supports GET for edge caching).
+  const handlePhotoRandomIdList = async (c: Context) => {
     const userId = getUserId();
     applyPublicCacheHeaders(c, userId);
-    const body = await c.req.json<PhotoRandomIdListBo>();
-    const data = await photoService.randomIdList(body, userId);
+    let albumId: string | null | undefined = null;
+    if (c.req.method === 'GET') {
+      albumId = c.req.query('albumId') || null;
+    } else {
+      const body = await c.req.json<PhotoRandomIdListBo>().catch(() => ({} as PhotoRandomIdListBo));
+      albumId = body.albumId;
+    }
+    const data = await photoService.randomIdList({ albumId }, userId);
     return c.json(result.ok(data));
-  });
+  };
+
+  app.get('/photo/randomIdList', handlePhotoRandomIdList);
+  app.post('/photo/randomIdList', handlePhotoRandomIdList);
 
   // Query photos taken on this day in previous years.
   app.post('/photo/onThisDay', async (c: Context) => {

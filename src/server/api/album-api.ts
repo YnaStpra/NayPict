@@ -18,8 +18,8 @@ import type { HonoEnv } from '../hono/type';
 // This module registers album-related interfaces.
 
 export function registerAlbumApi(app: Hono<HonoEnv>) {
-  // Query the photo album list.
-  app.post('/album/list', async (c: Context) => {
+  // Query the photo album list (supports GET for edge caching and POST for backward compatibility).
+  const handleAlbumList = async (c: Context) => {
     const userId = getUserId();
     let isArchived = 0;
     const queryVal = c.req.query('isArchived');
@@ -43,7 +43,10 @@ export function registerAlbumApi(app: Hono<HonoEnv>) {
     }
     const data = await albumService.list(userId || undefined, isArchived);
     return c.json(result.ok(data));
-  });
+  };
+
+  app.get('/album/list', handleAlbumList);
+  app.post('/album/list', handleAlbumList);
 
   // Query the virtual trash album.
   app.post('/album/trash', async (c: Context) => {
