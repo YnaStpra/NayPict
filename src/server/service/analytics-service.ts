@@ -1,4 +1,5 @@
 import { and, avg, count, countDistinct, desc, eq, gte, ilike, inArray, or, sql } from 'drizzle-orm';
+import { neon } from '@neondatabase/serverless';
 import { createId } from '@/server/lib/id';
 import { orm, readOrm } from '@/server/infra/db';
 import { visitorActivityTab, visitorSessionTab } from '@/server/entity/analytics';
@@ -28,6 +29,56 @@ import {
 // Live activity threshold in minutes for considering a visitor currently online.
 const LIVE_THRESHOLD_MINUTES = 5;
 
+let tablesEnsured = false;
+
+// Ensure visitor_session and visitor_activity tables exist before any analytics operations.
+async function ensureAnalyticsTables(): Promise<void> {
+  if (tablesEnsured || !process.env.DATABASE_URL) return;
+  try {
+    const rawSql = neon(process.env.DATABASE_URL);
+    await rawSql`
+      CREATE TABLE IF NOT EXISTS "visitor_session" (
+        "id" text PRIMARY KEY NOT NULL,
+        "visitor_id" text NOT NULL,
+        "ip" text DEFAULT '' NOT NULL,
+        "country" text DEFAULT '' NOT NULL,
+        "city" text DEFAULT '' NOT NULL,
+        "region" text DEFAULT '' NOT NULL,
+        "browser" text DEFAULT '' NOT NULL,
+        "browser_version" text DEFAULT '' NOT NULL,
+        "os" text DEFAULT '' NOT NULL,
+        "device" text DEFAULT 'Desktop' NOT NULL,
+        "referrer" text DEFAULT 'Direct' NOT NULL,
+        "landing_path" text DEFAULT '/' NOT NULL,
+        "started_at" timestamp DEFAULT now() NOT NULL,
+        "last_active_at" timestamp DEFAULT now() NOT NULL,
+        "duration_seconds" integer DEFAULT 0 NOT NULL,
+        "media_count" integer DEFAULT 0 NOT NULL,
+        "is_admin" integer DEFAULT 0 NOT NULL
+      );
+    `;
+    await rawSql`CREATE INDEX IF NOT EXISTS "visitor_session_started_at_idx" ON "visitor_session" ("started_at");`;
+    await rawSql`CREATE INDEX IF NOT EXISTS "visitor_session_last_active_idx" ON "visitor_session" ("last_active_at");`;
+    await rawSql`CREATE INDEX IF NOT EXISTS "visitor_session_visitor_id_idx" ON "visitor_session" ("visitor_id");`;
+    await rawSql`CREATE INDEX IF NOT EXISTS "visitor_session_ip_idx" ON "visitor_session" ("ip");`;
+
+    await rawSql`
+      CREATE TABLE IF NOT EXISTS "visitor_activity" (
+        "id" text PRIMARY KEY NOT NULL,
+        "session_id" text NOT NULL REFERENCES "visitor_session"("id") ON DELETE CASCADE,
+        "photo_id" text NOT NULL REFERENCES "photo"("photo_id") ON DELETE CASCADE,
+        "action" text DEFAULT 'view' NOT NULL,
+        "created_at" timestamp DEFAULT now() NOT NULL
+      );
+    `;
+    await rawSql`CREATE INDEX IF NOT EXISTS "visitor_activity_session_id_idx" ON "visitor_activity" ("session_id");`;
+    await rawSql`CREATE INDEX IF NOT EXISTS "visitor_activity_photo_id_idx" ON "visitor_activity" ("photo_id");`;
+    tablesEnsured = true;
+  } catch (err) {
+    console.warn('[ANALYTICS] Failed to ensure analytics tables:', err);
+  }
+}
+
 const analyticsService = {
 
   // Initialize a new visitor session with geolocation headers and client telemetry.
@@ -35,7 +86,9 @@ const analyticsService = {
     params: InitVisitorSessionBo,
     meta: { ip: string; country: string; city: string; region: string; isAdmin: boolean }
   ): Promise<{ sessionId: string }> {
+    await ensureAnalyticsTables();
     const sessionId = createId();
+
     const nowIso = new Date().toISOString();
 
     const cleanIp = (meta.ip || 'Unknown').split(',')[0].trim();
@@ -145,7 +198,9 @@ const analyticsService = {
 
   // Compute aggregate overview metrics, top devices, browsers, and country distributions.
   async getOverview(): Promise<AnalyticsOverviewVo> {
+    await ensureAnalyticsTables();
     const liveThresholdIso = new Date(Date.now() - LIVE_THRESHOLD_MINUTES * 60 * 1000).toISOString();
+
 
     // 1. Total sessions and unique visitors
     const [counts] = await readOrm
@@ -235,7 +290,9 @@ const analyticsService = {
 
   // Query paginated list of visitor sessions with optional filtering.
   async getSessions(params: VisitorSessionsQueryBo): Promise<VisitorSessionsListVo> {
+    await ensureAnalyticsTables();
     const page = Math.max(1, params.page || 1);
+
     const pageSize = Math.max(1, Math.min(params.pageSize || 20, 100));
     const offset = (page - 1) * pageSize;
 
@@ -309,11 +366,13 @@ const analyticsService = {
 
   // Inspect specific visitor session and retrieve chronological media view activity.
   async getSessionDetail(sessionId: string): Promise<VisitorSessionDetailVo | null> {
+    await ensureAnalyticsTables();
     const [session] = await readOrm
       .select()
       .from(visitorSessionTab)
       .where(eq(visitorSessionTab.id, sessionId))
       .limit(1);
+
 
     if (!session) {
       return null;

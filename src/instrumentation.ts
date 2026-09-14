@@ -20,12 +20,20 @@ export async function register() {
   // Reject legacy or native public R2 domains so originals cannot bypass the media authorization proxy.
   if (process.env.NODE_ENV === 'production' && !process.env.NEXT_PHASE?.includes('build')) {
     const legacyPublicUrl = process.env.R2_PUBLIC_URL?.trim();
-    const mediaGatewayUrl = process.env.R2_MEDIA_GATEWAY_URL?.trim();
+
+    const rawMediaGatewayUrl = process.env.R2_MEDIA_GATEWAY_URL?.trim();
+    const mediaGatewayUrl = rawMediaGatewayUrl
+      ? rawMediaGatewayUrl.startsWith('http://') || rawMediaGatewayUrl.startsWith('https://')
+        ? rawMediaGatewayUrl
+        : `https://${rawMediaGatewayUrl}`
+      : '';
     const gatewayHost = mediaGatewayUrl ? new URL(mediaGatewayUrl).hostname.toLowerCase() : '';
+
 
     if (legacyPublicUrl || gatewayHost === 'r2.dev' || gatewayHost.endsWith('.r2.dev')) {
       throw new Error('FATAL: [SECURITY] Disable native R2 public access, remove R2_PUBLIC_URL, and configure R2_MEDIA_GATEWAY_URL with the allowlisted Worker gateway.');
     }
+
   }
 
   // 2. Run Drizzle ORM PostgreSQL migrations on startup.
