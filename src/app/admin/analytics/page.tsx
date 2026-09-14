@@ -636,14 +636,17 @@ export default function VisitorAnalyticsPage() {
                         <TableRow key={s.id} className="hover:bg-muted/30 transition-colors">
                           {/* IP Address & Copy */}
                           <TableCell className="py-2.5">
-                            <div className="flex items-center gap-1.5 font-mono text-xs">
-                              <span className="font-semibold text-foreground break-all max-w-[170px] sm:max-w-[210px] leading-tight" title={s.ip}>
+                            <div className="flex items-start gap-1.5 font-mono text-xs max-w-[240px]">
+                              <span
+                                className="font-semibold text-foreground break-all block flex-1 min-w-0 leading-snug select-all"
+                                title={s.ip}
+                              >
                                 {s.ip || "Unknown"}
                               </span>
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className="size-5 shrink-0 text-muted-foreground hover:text-foreground"
+                                className="size-5 shrink-0 text-muted-foreground hover:text-foreground -mt-0.5"
                                 onClick={() => handleCopyIp(s.ip)}
                                 title="Copy IP address"
                               >
@@ -654,7 +657,7 @@ export default function VisitorAnalyticsPage() {
                                 )}
                               </Button>
                             </div>
-                            <div className="text-[10px] text-muted-foreground truncate max-w-[160px]" title={s.landingPath}>
+                            <div className="text-[10px] text-muted-foreground truncate max-w-[180px]" title={s.landingPath}>
                               {s.landingPath}
                             </div>
                           </TableCell>

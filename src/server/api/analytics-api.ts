@@ -151,6 +151,67 @@ function extractVisitorMeta(c: Context) {
   return { ip, country, city, region };
 }
 
+// High-precision geolocation lookup to resolve Indonesian cellular carrier nodes (e.g. XL, Telkomsel in Bali/Denpasar)
+async function resolveAccurateGeo(
+  ip: string,
+  fallback: { city: string; country: string; region: string }
+): Promise<{ city: string; country: string; region: string }> {
+  if (
+    !ip ||
+    ip === 'Unknown' ||
+    ip === '127.0.0.1' ||
+    ip.startsWith('192.168.') ||
+    ip.startsWith('10.') ||
+    ip.startsWith('fc00:') ||
+    ip.startsWith('fe80:')
+  ) {
+    return fallback;
+  }
+
+  // Trigger high-precision lookup if edge geo returned ambiguous, generic, or known-skewed data
+  const isAmbiguous =
+    !fallback.city ||
+    fallback.city === 'Unknown' ||
+    fallback.region === 'Unknown' ||
+    (fallback.country === 'ID' && (fallback.city.toLowerCase() === 'singapore' || fallback.city === 'Jakarta'));
+
+  if (!isAmbiguous) {
+    return fallback;
+  }
+
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 1500);
+    const res = await fetch(`https://ipwho.is/${encodeURIComponent(ip)}`, {
+      signal: controller.signal,
+      headers: { 'User-Agent': 'NayPict-Geo/1.0' },
+    });
+    clearTimeout(timeout);
+
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.success) {
+        let city = data.city || fallback.city;
+        let region = data.region || fallback.region;
+        const country = data.country_code || fallback.country;
+
+        // Calibrate Indonesian regional province names (e.g. Denpasar -> Bali)
+        if (city === 'Denpasar' || data.region_code === 'BA' || (region && region.includes('Sunda'))) {
+          region = 'Bali';
+        } else if (data.region_code && ID_PROVINCES[data.region_code]) {
+          region = ID_PROVINCES[data.region_code];
+        }
+
+        return { city, country, region };
+      }
+    }
+  } catch {
+    // Fall back to edge headers gracefully on timeout or network glitch
+  }
+
+  return fallback;
+}
+
 // Register visitor analytics API routes onto Hono instance.
 export function registerAnalyticsApi(app: Hono<HonoEnv>) {
 
@@ -169,7 +230,19 @@ export function registerAnalyticsApi(app: Hono<HonoEnv>) {
 
     const body = await c.req.json<InitVisitorSessionBo>().catch(() => ({} as InitVisitorSessionBo));
     const visitorId = getOrCreateVisitorId(c);
-    const meta = extractVisitorMeta(c);
+    const rawMeta = extractVisitorMeta(c);
+
+    // Accurately resolve city & region (e.g. Denpasar, Bali for XL Axiata)
+    const accurateGeo = await resolveAccurateGeo(rawMeta.ip, {
+      city: rawMeta.city,
+      country: rawMeta.country,
+      region: rawMeta.region,
+    });
+
+    const meta = {
+      ip: rawMeta.ip,
+      ...accurateGeo,
+    };
 
     // Calibrate Samsung Internet detection from User-Agent if reported as generic Chrome
     const ua = c.req.header('user-agent') || '';
