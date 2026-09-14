@@ -160,11 +160,21 @@ export function registerPhotoApi(app: Hono<HonoEnv>) {
       const q = c.req.query();
       return {
         size: Number(q.size) || 30,
+        offset: q.offset ? Number(q.offset) : null,
         cursorPhotoId: q.cursorPhotoId || null,
         cursorTime: q.cursorTime || null,
+        startTakenTime: q.startTakenTime || null,
+        endTakenTime: q.endTakenTime || null,
         status: q.status !== undefined && q.status !== '' ? Number(q.status) : null,
         albumId: q.albumId || null,
+        visibility: q.visibility !== undefined && q.visibility !== '' ? Number(q.visibility) : null,
         shuffle: q.shuffle === 'true',
+        sortBy: (q.sortBy as PhotoListBo['sortBy']) || null,
+        sortOrder: (q.sortOrder as PhotoListBo['sortOrder']) || null,
+        keyword: q.keyword || null,
+        allowAllVisibility: q.allowAllVisibility === 'true',
+        allowDownload: q.allowDownload !== undefined && q.allowDownload !== '' ? (q.allowDownload === 'true' || q.allowDownload === '1') : null,
+        photoIds: q.photoIds ? (Array.isArray(q.photoIds) ? q.photoIds : q.photoIds.split(',')) : null,
       };
     }
     return c.req.json<PhotoListBo>().catch(() => ({ size: 30 }));
@@ -194,14 +204,20 @@ export function registerPhotoApi(app: Hono<HonoEnv>) {
   const handlePhotoRandomIdList = async (c: Context) => {
     const userId = getUserId();
     applyPublicCacheHeaders(c, userId);
-    let albumId: string | null | undefined = null;
+    let params: PhotoRandomIdListBo = {};
     if (c.req.method === 'GET') {
-      albumId = c.req.query('albumId') || null;
+      const q = c.req.query();
+      params = {
+        albumId: q.albumId || null,
+        status: q.status !== undefined && q.status !== '' ? Number(q.status) : null,
+        visibility: q.visibility !== undefined && q.visibility !== '' ? Number(q.visibility) : null,
+        startTakenTime: q.startTakenTime || null,
+        endTakenTime: q.endTakenTime || null,
+      };
     } else {
-      const body = await c.req.json<PhotoRandomIdListBo>().catch(() => ({} as PhotoRandomIdListBo));
-      albumId = body.albumId;
+      params = await c.req.json<PhotoRandomIdListBo>().catch(() => ({} as PhotoRandomIdListBo));
     }
-    const data = await photoService.randomIdList({ albumId }, userId);
+    const data = await photoService.randomIdList(params, userId);
     return c.json(result.ok(data));
   };
 
