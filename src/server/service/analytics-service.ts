@@ -50,8 +50,8 @@ async function ensureAnalyticsTables(): Promise<void> {
         "device" text DEFAULT 'Desktop' NOT NULL,
         "referrer" text DEFAULT 'Direct' NOT NULL,
         "landing_path" text DEFAULT '/' NOT NULL,
-        "started_at" timestamp DEFAULT now() NOT NULL,
-        "last_active_at" timestamp DEFAULT now() NOT NULL,
+        "started_at" timestamptz DEFAULT now() NOT NULL,
+        "last_active_at" timestamptz DEFAULT now() NOT NULL,
         "duration_seconds" integer DEFAULT 0 NOT NULL,
         "media_count" integer DEFAULT 0 NOT NULL,
         "is_admin" integer DEFAULT 0 NOT NULL
@@ -68,7 +68,7 @@ async function ensureAnalyticsTables(): Promise<void> {
         "session_id" text NOT NULL REFERENCES "visitor_session"("id") ON DELETE CASCADE,
         "photo_id" text NOT NULL REFERENCES "photo"("photo_id") ON DELETE CASCADE,
         "action" text DEFAULT 'view' NOT NULL,
-        "created_at" timestamp DEFAULT now() NOT NULL
+        "created_at" timestamptz DEFAULT now() NOT NULL
       );
     `;
     await rawSql`CREATE INDEX IF NOT EXISTS "visitor_activity_session_id_idx" ON "visitor_activity" ("session_id");`;
@@ -86,10 +86,13 @@ const analyticsService = {
     params: InitVisitorSessionBo,
     meta: { ip: string; country: string; city: string; region: string; isAdmin: boolean }
   ): Promise<{ sessionId: string }> {
+    // Strictly exclude administrators from visitor tracking entirely
+    if (meta.isAdmin) {
+      return { sessionId: '' };
+    }
+
     await ensureAnalyticsTables();
     const sessionId = createId();
-
-    const nowIso = new Date().toISOString();
 
     const cleanIp = (meta.ip || 'Unknown').split(',')[0].trim();
     const cleanCountry = (meta.country || '').trim().toUpperCase() || 'Unknown';
@@ -122,12 +125,11 @@ const analyticsService = {
       device: params.device || 'Desktop',
       referrer: cleanReferrer,
       landingPath: params.landingPath || '/',
-      startedAt: nowIso,
-      lastActiveAt: nowIso,
       durationSeconds: 0,
       mediaCount: 0,
-      isAdmin: meta.isAdmin ? 1 : 0,
+      isAdmin: 0,
     });
+
 
     return { sessionId };
   },
@@ -138,13 +140,12 @@ const analyticsService = {
       return false;
     }
 
-    const nowIso = new Date().toISOString();
     const safeDuration = Math.max(0, Math.min(params.durationSeconds || 0, 86400));
 
     await orm
       .update(visitorSessionTab)
       .set({
-        lastActiveAt: nowIso,
+        lastActiveAt: sql`now()`,
         durationSeconds: safeDuration,
       })
       .where(eq(visitorSessionTab.id, params.sessionId));
@@ -161,23 +162,23 @@ const analyticsService = {
     const action = params.action || 'view';
 
     if (params.sessionId) {
-      const nowIso = new Date().toISOString();
       await orm.insert(visitorActivityTab).values({
         id: createId(),
         sessionId: params.sessionId,
         photoId: params.photoId,
         action,
-        createdAt: nowIso,
+        createdAt: sql`now()`,
       });
 
       await orm
         .update(visitorSessionTab)
         .set({
           mediaCount: sql`${visitorSessionTab.mediaCount} + 1`,
-          lastActiveAt: nowIso,
+          lastActiveAt: sql`now()`,
         })
         .where(eq(visitorSessionTab.id, params.sessionId));
     }
+
 
     // Synchronize event with insights service (excluding reactions which have dedicated counter)
     if (action === 'view' || action === 'download' || action === 'share') {

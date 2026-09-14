@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useTransition } from "react"
+import { useEffect, useRef, useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
 import {
@@ -77,6 +77,24 @@ import {
   Check,
 } from "lucide-react"
 
+// Safely parse timestamps from Postgres, ensuring UTC interpretation regardless of local machine offset
+function parseUtcDate(input?: string | Date | null): Date | null {
+  if (!input) return null
+  if (input instanceof Date) return input
+  let str = String(input).trim()
+  if (!str) return null
+  // Replace space with T if SQL format (YYYY-MM-DD HH:mm:ss)
+  if (str.includes(" ") && !str.includes("T")) {
+    str = str.replace(" ", "T")
+  }
+  // If no timezone offset present, append Z to force UTC evaluation
+  if (!str.endsWith("Z") && !/[+-]\d{2}(:\d{2})?$/.test(str)) {
+    str += "Z"
+  }
+  const d = new Date(str)
+  return isNaN(d.getTime()) ? null : d
+}
+
 // Convert 2-letter ISO country code into Unicode flag emoji
 function getCountryFlag(countryCode?: string): string {
   if (!countryCode || countryCode === "Unknown" || countryCode.length !== 2) return "🌐"
@@ -91,6 +109,17 @@ function getCountryFlag(countryCode?: string): string {
   }
 }
 
+// Resolve 2-letter country code into full readable English country name
+function getCountryName(countryCode?: string): string {
+  if (!countryCode || countryCode === "Unknown") return "Unknown"
+  try {
+    const regionNames = new Intl.DisplayNames(["en"], { type: "region" })
+    return regionNames.of(countryCode.toUpperCase()) || countryCode
+  } catch {
+    return countryCode
+  }
+}
+
 // Format seconds into human readable duration string
 function formatDuration(seconds: number): string {
   if (!seconds || seconds <= 0) return "< 5s"
@@ -102,18 +131,30 @@ function formatDuration(seconds: number): string {
   return `${h}h ${m % 60}m`
 }
 
-// Format ISO date into relative time string
+// Format ISO date into relative time string accurately
 function formatTimeAgo(isoString: string): string {
   if (!isoString) return ""
-  const diff = Math.max(0, Date.now() - new Date(isoString).getTime())
+  const parsed = parseUtcDate(isoString)
+  if (!parsed) return ""
+  const diff = Math.max(0, Date.now() - parsed.getTime())
   const sec = Math.floor(diff / 1000)
-  if (sec < 60) return "Just now"
+  if (sec < 45) return "Just now"
   const min = Math.floor(sec / 60)
   if (min < 60) return `${min}m ago`
   const hrs = Math.floor(min / 60)
   if (hrs < 24) return `${hrs}h ago`
   const days = Math.floor(hrs / 24)
   return `${days}d ago`
+}
+
+// Format date into human-readable full date and time string
+function formatFullDateTime(isoString: string): string {
+  const parsed = parseUtcDate(isoString)
+  if (!parsed) return "-"
+  return parsed.toLocaleString(undefined, {
+    dateStyle: "medium",
+    timeStyle: "short",
+  })
 }
 
 // Icon mapper for client device categories
@@ -146,6 +187,10 @@ export default function VisitorAnalyticsPage() {
   const [sessionDetail, setSessionDetail] = useState<VisitorSessionDetailVo | null>(null)
   const [detailLoading, setDetailLoading] = useState(false)
   const [copiedIp, setCopiedIp] = useState<string | null>(null)
+
+  // Real-time live auto-refresh state with background tab throttling
+  const [liveRefresh, setLiveRefresh] = useState(true)
+  const isFetchingRef = useRef(false)
 
   // Verify Admin session on mount
   useEffect(() => {
@@ -212,6 +257,24 @@ export default function VisitorAnalyticsPage() {
     }, 300)
     return () => clearTimeout(timer)
   }, [searchTerm])
+
+  // Real-time live polling (20s interval), strictly paused when browser tab is inactive to protect Vercel usage
+  useEffect(() => {
+    if (!liveRefresh || checkingAuth || !isAdmin) return
+
+    const interval = setInterval(() => {
+      // Strictly skip polling if tab is hidden or fetch already in flight
+      if (document.visibilityState !== "visible") return
+      if (isFetchingRef.current) return
+
+      isFetchingRef.current = true
+      Promise.all([loadOverview(), loadSessions(page)]).finally(() => {
+        isFetchingRef.current = false
+      })
+    }, 20000)
+
+    return () => clearInterval(interval)
+  }, [liveRefresh, checkingAuth, isAdmin, page, searchTerm, deviceFilter, browserFilter])
 
   // Open inspector dialog for a specific session
   const handleInspect = async (sessionId: string) => {
@@ -285,6 +348,27 @@ export default function VisitorAnalyticsPage() {
               </span>
               <span>{overview?.liveVisitors ?? 0} active now</span>
             </div>
+
+            {/* Realtime auto-refresh toggle */}
+            <Button
+              variant={liveRefresh ? "secondary" : "outline"}
+              size="sm"
+              onClick={() => setLiveRefresh((prev) => !prev)}
+              className="gap-1.5 text-xs h-8"
+              title={liveRefresh ? "Auto-refresh active (pauses when tab is hidden)" : "Auto-refresh paused"}
+            >
+              <span className="relative flex size-2">
+                {liveRefresh ? (
+                  <>
+                    <span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
+                    <span className="relative inline-flex size-2 rounded-full bg-emerald-500"></span>
+                  </>
+                ) : (
+                  <span className="relative inline-flex size-2 rounded-full bg-muted-foreground"></span>
+                )}
+              </span>
+              <span>{liveRefresh ? "Live (20s)" : "Paused"}</span>
+            </Button>
 
             <Button
               variant="outline"
@@ -510,9 +594,10 @@ export default function VisitorAnalyticsPage() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All Browsers</SelectItem>
+                      <SelectItem value="Samsung Internet">Samsung Internet</SelectItem>
+                      <SelectItem value="Chrome">Chrome</SelectItem>
                       <SelectItem value="Safari">Safari</SelectItem>
                       <SelectItem value="Brave">Brave</SelectItem>
-                      <SelectItem value="Chrome">Chrome</SelectItem>
                       <SelectItem value="Firefox">Firefox</SelectItem>
                       <SelectItem value="Edge">Edge</SelectItem>
                     </SelectContent>
@@ -552,11 +637,13 @@ export default function VisitorAnalyticsPage() {
                           {/* IP Address & Copy */}
                           <TableCell className="py-2.5">
                             <div className="flex items-center gap-1.5 font-mono text-xs">
-                              <span className="font-semibold text-foreground">{s.ip || "Unknown"}</span>
+                              <span className="font-semibold text-foreground break-all max-w-[170px] sm:max-w-[210px] leading-tight" title={s.ip}>
+                                {s.ip || "Unknown"}
+                              </span>
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className="size-5 text-muted-foreground hover:text-foreground"
+                                className="size-5 shrink-0 text-muted-foreground hover:text-foreground"
                                 onClick={() => handleCopyIp(s.ip)}
                                 title="Copy IP address"
                               >
@@ -567,7 +654,7 @@ export default function VisitorAnalyticsPage() {
                                 )}
                               </Button>
                             </div>
-                            <div className="text-[10px] text-muted-foreground truncate max-w-[160px]">
+                            <div className="text-[10px] text-muted-foreground truncate max-w-[160px]" title={s.landingPath}>
                               {s.landingPath}
                             </div>
                           </TableCell>
@@ -575,13 +662,13 @@ export default function VisitorAnalyticsPage() {
                           {/* Location */}
                           <TableCell className="py-2.5">
                             <div className="flex items-center gap-1.5 text-xs">
-                              <span className="text-base">{getCountryFlag(s.country)}</span>
+                              <span className="text-base leading-none">{getCountryFlag(s.country)}</span>
                               <span className="font-medium text-foreground">
                                 {s.city && s.city !== "Unknown" ? `${s.city}, ` : ""}
-                                {s.country || "Unknown"}
+                                {getCountryName(s.country)}
                               </span>
                             </div>
-                            {s.region && s.region !== "Unknown" && (
+                            {s.region && s.region !== "Unknown" && s.region !== s.city && (
                               <div className="text-[10px] text-muted-foreground">{s.region}</div>
                             )}
                           </TableCell>
@@ -632,7 +719,10 @@ export default function VisitorAnalyticsPage() {
                           </TableCell>
 
                           {/* Started Time */}
-                          <TableCell className="py-2.5 text-xs text-muted-foreground whitespace-nowrap">
+                          <TableCell
+                            className="py-2.5 text-xs text-muted-foreground whitespace-nowrap cursor-default"
+                            title={formatFullDateTime(s.startedAt)}
+                          >
                             {formatTimeAgo(s.startedAt)}
                           </TableCell>
 
@@ -720,54 +810,91 @@ export default function VisitorAnalyticsPage() {
               </div>
             ) : sessionDetail ? (
               <div className="space-y-5 pt-2">
-                {/* Meta details grid */}
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 rounded-lg border bg-muted/20 p-3 text-xs">
-                  <div>
-                    <span className="text-muted-foreground block text-[10px] uppercase font-semibold">IP Address</span>
-                    <div className="font-mono font-medium flex items-center gap-1 mt-0.5">
-                      <span>{sessionDetail.session.ip}</span>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="size-4 text-muted-foreground"
-                        onClick={() => handleCopyIp(sessionDetail.session.ip)}
-                      >
-                        <Copy className="size-2.5" />
-                      </Button>
+                {/* Meta details card */}
+                <div className="rounded-lg border bg-muted/20 p-3.5 space-y-3 text-xs">
+                  {/* Full-width dedicated IP Address row */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2.5 border-b border-border/50">
+                    <div className="space-y-0.5 min-w-0 flex-1">
+                      <span className="text-muted-foreground block text-[10px] uppercase font-semibold tracking-wider">
+                        IP Address
+                      </span>
+                      <div className="flex items-center gap-2 font-mono font-semibold text-foreground text-xs sm:text-sm">
+                        <span className="break-all select-all leading-normal">{sessionDetail.session.ip}</span>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="size-6 shrink-0 text-muted-foreground hover:text-foreground"
+                          onClick={() => handleCopyIp(sessionDetail.session.ip)}
+                          title="Copy IP Address"
+                        >
+                          {copiedIp === sessionDetail.session.ip ? (
+                            <Check className="size-3.5 text-emerald-500" />
+                          ) : (
+                            <Copy className="size-3.5" />
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0 flex-wrap">
+                      <Badge variant="secondary" className="text-[10px] gap-1 px-2 py-0.5">
+                        <DeviceIcon device={sessionDetail.session.device} className="size-3" />
+                        {sessionDetail.session.device}
+                      </Badge>
+                      <Badge variant="outline" className="text-[10px] px-2 py-0.5 font-medium">
+                        {sessionDetail.session.browser}
+                      </Badge>
                     </div>
                   </div>
 
-                  <div>
-                    <span className="text-muted-foreground block text-[10px] uppercase font-semibold">Location</span>
-                    <span className="font-medium mt-0.5 block">
-                      {getCountryFlag(sessionDetail.session.country)} {sessionDetail.session.city || sessionDetail.session.country}
-                    </span>
-                  </div>
+                  {/* Clean 4-Column Metadata Grid */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-0.5">
+                    <div>
+                      <span className="text-muted-foreground block text-[10px] uppercase font-semibold">Location</span>
+                      <div className="font-medium mt-0.5 flex items-center gap-1.5">
+                        <span className="text-base leading-none">{getCountryFlag(sessionDetail.session.country)}</span>
+                        <span className="truncate">
+                          {sessionDetail.session.city && sessionDetail.session.city !== "Unknown" ? `${sessionDetail.session.city}, ` : ""}
+                          {getCountryName(sessionDetail.session.country)}
+                        </span>
+                      </div>
+                      {sessionDetail.session.region &&
+                        sessionDetail.session.region !== "Unknown" &&
+                        sessionDetail.session.region !== sessionDetail.session.city && (
+                          <span className="text-[10px] text-muted-foreground block truncate mt-0.5">
+                            {sessionDetail.session.region}
+                          </span>
+                        )}
+                    </div>
 
-                  <div>
-                    <span className="text-muted-foreground block text-[10px] uppercase font-semibold">Duration</span>
-                    <span className="font-mono font-medium mt-0.5 block text-foreground">
-                      {formatDuration(sessionDetail.session.durationSeconds)}
-                    </span>
-                  </div>
+                    <div>
+                      <span className="text-muted-foreground block text-[10px] uppercase font-semibold">Duration</span>
+                      <span className="font-mono font-medium mt-0.5 block text-foreground">
+                        {formatDuration(sessionDetail.session.durationSeconds)}
+                      </span>
+                      <span className="text-[10px] text-muted-foreground block mt-0.5">
+                        Started {formatTimeAgo(sessionDetail.session.startedAt)}
+                      </span>
+                    </div>
 
-                  <div>
-                    <span className="text-muted-foreground block text-[10px] uppercase font-semibold">Browser & OS</span>
-                    <span className="font-medium mt-0.5 block">
-                      {sessionDetail.session.browser} • {sessionDetail.session.os}
-                    </span>
-                  </div>
+                    <div>
+                      <span className="text-muted-foreground block text-[10px] uppercase font-semibold">OS & Platform</span>
+                      <span className="font-medium mt-0.5 block text-foreground truncate">
+                        {sessionDetail.session.os}
+                      </span>
+                      <span className="text-[10px] text-muted-foreground block mt-0.5">
+                        {sessionDetail.session.browserVersion ? `v${sessionDetail.session.browserVersion}` : "Standard Client"}
+                      </span>
+                    </div>
 
-                  <div>
-                    <span className="text-muted-foreground block text-[10px] uppercase font-semibold">Device</span>
-                    <span className="font-medium mt-0.5 block">{sessionDetail.session.device}</span>
-                  </div>
-
-                  <div>
-                    <span className="text-muted-foreground block text-[10px] uppercase font-semibold">Referrer</span>
-                    <span className="font-medium mt-0.5 block truncate max-w-[140px]" title={sessionDetail.session.referrer}>
-                      {sessionDetail.session.referrer}
-                    </span>
+                    <div>
+                      <span className="text-muted-foreground block text-[10px] uppercase font-semibold">Referrer & Path</span>
+                      <span className="font-medium mt-0.5 block truncate" title={sessionDetail.session.referrer}>
+                        {sessionDetail.session.referrer || "Direct"}
+                      </span>
+                      <span className="text-[10px] text-muted-foreground block truncate mt-0.5" title={sessionDetail.session.landingPath}>
+                        {sessionDetail.session.landingPath}
+                      </span>
+                    </div>
                   </div>
                 </div>
 
@@ -811,7 +938,7 @@ export default function VisitorAnalyticsPage() {
                                 {item.photoTitle}
                               </div>
                               <div className="text-[10px] text-muted-foreground mt-0.5">
-                                {new Date(item.createdAt).toLocaleTimeString()}
+                                {parseUtcDate(item.createdAt)?.toLocaleTimeString() || item.createdAt}
                               </div>
                             </div>
                           </div>

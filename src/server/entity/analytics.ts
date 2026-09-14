@@ -17,8 +17,8 @@ export const visitorSessionTab = pgTable('visitor_session', {
   device: text('device').notNull().default('Desktop'),
   referrer: text('referrer').notNull().default('Direct'),
   landingPath: text('landing_path').notNull().default('/'),
-  startedAt: timestamp('started_at', { mode: 'string' }).notNull().default(sql`now()`),
-  lastActiveAt: timestamp('last_active_at', { mode: 'string' }).notNull().default(sql`now()`),
+  startedAt: timestamp('started_at', { withTimezone: true, mode: 'string' }).notNull().default(sql`now()`),
+  lastActiveAt: timestamp('last_active_at', { withTimezone: true, mode: 'string' }).notNull().default(sql`now()`),
   durationSeconds: integer('duration_seconds').notNull().default(0),
   mediaCount: integer('media_count').notNull().default(0),
   isAdmin: integer('is_admin').notNull().default(0),
@@ -33,8 +33,9 @@ export const visitorActivityTab = pgTable('visitor_activity', {
     .notNull()
     .references(() => photoTab.photoId, { onDelete: 'cascade' }),
   action: text('action').notNull().default('view'),
-  createdAt: timestamp('created_at', { mode: 'string' }).notNull().default(sql`now()`),
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).notNull().default(sql`now()`),
 });
+
 
 export type VisitorSession = typeof visitorSessionTab.$inferSelect;
 export type VisitorSessionInsert = typeof visitorSessionTab.$inferInsert;

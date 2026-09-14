@@ -182,8 +182,8 @@ export async function migrate(): Promise<void> {
           "device" text DEFAULT 'Desktop' NOT NULL,
           "referrer" text DEFAULT 'Direct' NOT NULL,
           "landing_path" text DEFAULT '/' NOT NULL,
-          "started_at" timestamp DEFAULT now() NOT NULL,
-          "last_active_at" timestamp DEFAULT now() NOT NULL,
+          "started_at" timestamptz DEFAULT now() NOT NULL,
+          "last_active_at" timestamptz DEFAULT now() NOT NULL,
           "duration_seconds" integer DEFAULT 0 NOT NULL,
           "media_count" integer DEFAULT 0 NOT NULL,
           "is_admin" integer DEFAULT 0 NOT NULL
@@ -200,9 +200,10 @@ export async function migrate(): Promise<void> {
           "session_id" text NOT NULL REFERENCES "visitor_session"("id") ON DELETE CASCADE,
           "photo_id" text NOT NULL REFERENCES "photo"("photo_id") ON DELETE CASCADE,
           "action" text DEFAULT 'view' NOT NULL,
-          "created_at" timestamp DEFAULT now() NOT NULL
+          "created_at" timestamptz DEFAULT now() NOT NULL
         );
       `;
+
       await sql`CREATE INDEX IF NOT EXISTS "visitor_activity_session_id_idx" ON "visitor_activity" ("session_id");`;
       await sql`CREATE INDEX IF NOT EXISTS "visitor_activity_photo_id_idx" ON "visitor_activity" ("photo_id");`;
     } catch (analyticsErr) {

@@ -64,19 +64,28 @@ async function detectClientTelemetry() {
     isBrave = false
   }
 
+  // Enhanced Samsung Internet detection (covers SamsungBrowser, SBrowser, Samsung model identifiers, and UserAgentData)
+  const isSamsung =
+    /SamsungBrowser|SBrowser|SAMSUNG/i.test(ua) ||
+    Boolean(
+      (navigator as unknown as { userAgentData?: { brands?: Array<{ brand: string }> } })
+        .userAgentData?.brands?.some((b) => /Samsung/i.test(b.brand))
+    ) ||
+    (/SM-[A-Z0-9]+/i.test(ua) && !/Firefox|OPR|Edge/i.test(ua) && /Version\/[0-9.]+/i.test(ua))
+
   if (isBrave) {
     browser = "Brave"
+  } else if (isSamsung) {
+    browser = "Samsung Internet"
   } else if (/Edg\//i.test(ua)) {
     browser = "Edge"
   } else if (/OPR\/|Opera/i.test(ua)) {
     browser = "Opera"
-  } else if (/SamsungBrowser/i.test(ua)) {
-    browser = "Samsung Internet"
   } else if (/Firefox\//i.test(ua)) {
     browser = "Firefox"
   } else if (/Chrome\//i.test(ua)) {
     browser = "Chrome"
-  } else if (/Safari/i.test(ua)) {
+  } else if (/Safari\//i.test(ua)) {
     browser = "Safari"
   }
 
@@ -90,8 +99,30 @@ export function useVisitorTracker() {
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   useEffect(() => {
-    // Strictly exclude authenticated administrators from tracking
-    if (isAdmin || typeof window === "undefined") return
+    if (typeof window === "undefined") return
+
+    // 1. Strictly exclude automated bots, headless browsers, or crawler engines
+    if (
+      navigator.webdriver ||
+      /bot|crawler|spider|headless|lighthouse|preview|vercel/i.test(navigator.userAgent)
+    ) {
+      return
+    }
+
+    // 2. Strictly exclude authenticated administrators immediately (no waiting for userInfo fetch)
+    const hasAdminCookie =
+      document.cookie.includes("token=") ||
+      document.cookie.includes("__Host-token=") ||
+      document.cookie.includes("naypict_token=")
+    const isSystemRoute =
+      window.location.pathname.startsWith("/admin") ||
+      window.location.pathname.startsWith("/settings") ||
+      window.location.pathname.startsWith("/storage") ||
+      window.location.pathname.startsWith("/duplicates")
+
+    if (isAdmin || hasAdminCookie || isSystemRoute) {
+      return
+    }
 
     let activeSessionId = sessionStorage.getItem(SESSION_STORAGE_KEY)
     let startTime = Number(sessionStorage.getItem(SESSION_START_KEY)) || Date.now()
