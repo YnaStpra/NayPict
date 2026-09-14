@@ -7,6 +7,7 @@ import { fileTab } from '@/server/entity/file';
 import { photoTab } from '@/server/entity/photo';
 import { photoReactionTab } from '@/server/entity/reaction';
 import { photoViewTab } from '@/server/entity/insights';
+import { visitorSessionTab, visitorActivityTab } from '@/server/entity/analytics';
 import { settingTab } from '@/server/entity/setting';
 import { storageTab } from '@/server/entity/storage';
 import { userTab } from '@/server/entity/user';
@@ -25,7 +26,10 @@ const schema = {
   photoViewTab,
   settingTab,
   storageTab,
-  userTab
+  userTab,
+  visitorSessionTab,
+  visitorActivityTab,
 };
 
 export { schema };
+

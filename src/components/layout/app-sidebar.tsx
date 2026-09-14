@@ -16,9 +16,10 @@ import {
   SidebarHeader,
   SidebarRail,
 } from "@/components/ui/sidebar"
-import { Archive, Library, MonitorCog, Image as ImageIcon, Images, Trash2, FolderOpen, Database, Settings, CopyCheck, MessageSquare, BarChart3, MapPin } from "lucide-react"
+import { Activity, Archive, Library, MonitorCog, Image as ImageIcon, Images, Trash2, FolderOpen, Database, Settings, CopyCheck, MessageSquare, BarChart3, MapPin } from "lucide-react"
 
 // Determine whether the current browser path hits the menu URL.
+
 function isUrlMatched(pathname: string, url: string) {
   return pathname === url || pathname.startsWith(`${url}/`)
 }
@@ -61,10 +62,12 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     ],
     sysMain: [
       { title: t("navigation.photoManage") || "Media Management", url: "/admin/photos", icon: <Images />, isActive: isUrlMatched(pathname, "/admin/photos") },
+      { title: "Visitor Analytics", url: "/admin/analytics", icon: <Activity />, isActive: isUrlMatched(pathname, "/admin/analytics") },
       { title: t("navigation.storage"), url: "/storage", icon: <Database />, isActive: isUrlMatched(pathname, "/storage") },
       { title: "Duplicate Media", url: "/duplicates", icon: <CopyCheck />, isActive: isUrlMatched(pathname, "/duplicates") },
       { title: t("navigation.settings"), url: "/settings", icon: <Settings />, isActive: isUrlMatched(pathname, "/settings") },
     ],
+
   }
   const isAdmin = userInfo?.type === UserTypeEnum.ADMIN
   const albumTeam = {

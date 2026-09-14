@@ -165,7 +165,51 @@ export async function migrate(): Promise<void> {
     } catch (userTokenErr) {
       console.warn('[MIGRATE] Error updating user token_version column:', userTokenErr);
     }
+
+    // Ensure visitor_session and visitor_activity tables exist for web visitor analytics.
+    try {
+      await sql`
+        CREATE TABLE IF NOT EXISTS "visitor_session" (
+          "id" text PRIMARY KEY NOT NULL,
+          "visitor_id" text NOT NULL,
+          "ip" text DEFAULT '' NOT NULL,
+          "country" text DEFAULT '' NOT NULL,
+          "city" text DEFAULT '' NOT NULL,
+          "region" text DEFAULT '' NOT NULL,
+          "browser" text DEFAULT '' NOT NULL,
+          "browser_version" text DEFAULT '' NOT NULL,
+          "os" text DEFAULT '' NOT NULL,
+          "device" text DEFAULT 'Desktop' NOT NULL,
+          "referrer" text DEFAULT 'Direct' NOT NULL,
+          "landing_path" text DEFAULT '/' NOT NULL,
+          "started_at" timestamp DEFAULT now() NOT NULL,
+          "last_active_at" timestamp DEFAULT now() NOT NULL,
+          "duration_seconds" integer DEFAULT 0 NOT NULL,
+          "media_count" integer DEFAULT 0 NOT NULL,
+          "is_admin" integer DEFAULT 0 NOT NULL
+        );
+      `;
+      await sql`CREATE INDEX IF NOT EXISTS "visitor_session_started_at_idx" ON "visitor_session" ("started_at");`;
+      await sql`CREATE INDEX IF NOT EXISTS "visitor_session_last_active_idx" ON "visitor_session" ("last_active_at");`;
+      await sql`CREATE INDEX IF NOT EXISTS "visitor_session_visitor_id_idx" ON "visitor_session" ("visitor_id");`;
+      await sql`CREATE INDEX IF NOT EXISTS "visitor_session_ip_idx" ON "visitor_session" ("ip");`;
+
+      await sql`
+        CREATE TABLE IF NOT EXISTS "visitor_activity" (
+          "id" text PRIMARY KEY NOT NULL,
+          "session_id" text NOT NULL REFERENCES "visitor_session"("id") ON DELETE CASCADE,
+          "photo_id" text NOT NULL REFERENCES "photo"("photo_id") ON DELETE CASCADE,
+          "action" text DEFAULT 'view' NOT NULL,
+          "created_at" timestamp DEFAULT now() NOT NULL
+        );
+      `;
+      await sql`CREATE INDEX IF NOT EXISTS "visitor_activity_session_id_idx" ON "visitor_activity" ("session_id");`;
+      await sql`CREATE INDEX IF NOT EXISTS "visitor_activity_photo_id_idx" ON "visitor_activity" ("photo_id");`;
+    } catch (analyticsErr) {
+      console.warn('[MIGRATE] Error ensuring visitor analytics tables:', analyticsErr);
+    }
   } catch (err) {
     console.warn('[MIGRATE] Could not run migration automatically:', err);
   }
 }
+

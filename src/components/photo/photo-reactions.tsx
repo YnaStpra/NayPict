@@ -6,8 +6,10 @@ import { Flame, Heart, ThumbsUp } from "lucide-react"
 import { type ReactionTotalsVo, type UserReactionsVo } from "@/server/entity/vo/reaction"
 import { type ReactionType } from "@/server/entity/bo/reaction"
 import { reactionSync } from "@/lib/reaction-sync"
+import { trackVisitorMedia } from "@/hooks/use-visitor-tracker"
 
 interface PhotoReactionsProps {
+
   photoId: string
   className?: string
   compact?: boolean
@@ -153,10 +155,12 @@ export function PhotoReactions({ photoId, className = "", compact = false }: Pho
 
     if (!isCurrentlyActive) {
       triggerParticleBurst(emoji, e)
+      trackVisitorMedia(photoId, "reaction")
     }
 
     // Immediately toggle reaction via synchronized reactive store
     await reactionSync.toggleReaction(photoId, type)
+
   }
 
   return (

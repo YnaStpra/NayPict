@@ -15,8 +15,10 @@ import { usePhotoStore } from "@/store/photo-store"
 import { useStorageStore } from "@/store/storage-store"
 import { TOKEN_COOKIE_MAX_AGE } from "@/server/const/global"
 import { useLiveCatalogSync } from "@/hooks/use-live-catalog-sync"
+import { useVisitorTracker } from "@/hooks/use-visitor-tracker"
 
 const PhotoUploadDialog = dynamic(
+
   () => import("@/components/photo/photo-upload-dialog").then((mod) => mod.PhotoUploadDialog),
   { ssr: false }
 )
@@ -186,6 +188,7 @@ function Provider({ children, defaultTheme, defaultSidebarOpen, initialUserInfo,
     <AppContext.Provider value={value}>
       <TooltipProvider>
         {children}
+        <VisitorTrackerMount />
         <RightClickGuard />
         <PhotoUploadDialog />
         {/* PixelCat mascot disabled */}
@@ -195,5 +198,12 @@ function Provider({ children, defaultTheme, defaultSidebarOpen, initialUserInfo,
   )
 }
 
+// Sub-component to execute visitor telemetry hook within application context.
+function VisitorTrackerMount() {
+  useVisitorTracker()
+  return null
+}
+
 export { Provider, useApp }
+
 export type { Theme }

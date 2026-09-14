@@ -56,6 +56,7 @@ const SYSTEM_PATHS = [
   '/photo/untagged',
   '/admin/insights',
   '/insights',
+  '/analytics',
   '/backup'
 ];
 
@@ -81,8 +82,12 @@ const PUBLIC_API_PATHS = [
   '/photo/share',
   '/location',
   '/csp-report',
-  '/sync'
+  '/sync',
+  '/analytics/session/init',
+  '/analytics/session/ping',
+  '/analytics/media/track'
 ];
+
 
 // Determine whether the current path hits the specified interface or its subpath.
 function isPathMatched(path: string, target: string) {

@@ -36,12 +36,14 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { getThumbHashUrl } from "@/lib/thumb-hash"
 import { removePhotoIdFromUrl, setPhotoIdInUrl, toProxyMediaUrl } from "@/lib/url"
 import { recordPhotoShare, recordPhotoView } from "@/request/insights"
+import { trackVisitorMedia } from "@/hooks/use-visitor-tracker"
 import { type PhotoVo } from "@/server/entity/vo/photo"
 import { usePhotoStore } from "@/store/photo-store"
 import { useApp } from "@/app/provider"
 import { UserTypeEnum } from "@/server/enums/user-enum"
 import { useTranslations } from "next-intl"
 import { useModalBackHandler } from "@/hooks/use-modal-back-handler"
+
 
 // Stable plugin references to prevent Lightbox DOM teardown and video restarts during view mode toggles
 const VIDEO_PLUGINS = [Thumbnails, Fullscreen]
@@ -620,6 +622,8 @@ function ShareButton({ showActions }: { showActions: boolean }) {
 
     // Track public share event
     recordPhotoShare(photoSlide.photoId)
+    trackVisitorMedia(photoSlide.photoId, "share")
+
 
     const url = new URL(window.location.href)
     url.searchParams.set("photoId", photoSlide.photoId)
@@ -1522,7 +1526,9 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
     if (userInfo?.type !== UserTypeEnum.ADMIN && !viewedInSessionRef.current.has(photo.photoId)) {
       viewedInSessionRef.current.add(photo.photoId)
       recordPhotoView(photo.photoId)
+      trackVisitorMedia(photo.photoId, "view")
     }
+
 
     if (originalProgressHideTimerRef.current) {
       clearTimeout(originalProgressHideTimerRef.current)
