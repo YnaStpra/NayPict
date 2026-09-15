@@ -47,6 +47,8 @@ import { UserTypeEnum } from "@/server/enums/user-enum"
 import { useTranslations } from "next-intl"
 import { type PhotoOnThisDayItemVo, type PhotoVo } from "@/server/entity/vo/photo"
 import { emitCatalogSync } from "@/lib/catalog-sync"
+import { useUserLocation } from "@/hooks/use-user-location"
+import { calculateDistance } from "@/lib/geo"
 
 const AlbumSelectDialog = dynamic(
   () => import("@/components/album/album-select-dialog").then((mod) => mod.AlbumSelectDialog),
@@ -68,10 +70,11 @@ const OnThisDayBanner = dynamic(
   { ssr: false }
 )
 
-type SortOptionKey = 'none' | 'takenTime_desc' | 'takenTime_asc' | 'createTime_desc' | 'createTime_asc' | 'type_asc' | 'type_desc' | 'size_desc' | 'size_asc' | 'name_asc' | 'name_desc'
+type SortOptionKey = 'none' | 'takenTime_desc' | 'takenTime_asc' | 'createTime_desc' | 'createTime_asc' | 'type_asc' | 'type_desc' | 'size_desc' | 'size_asc' | 'name_asc' | 'name_desc' | 'nearby'
 
 const SORT_OPTIONS: { key: SortOptionKey; label: string; sortBy?: 'takenTime' | 'createTime' | 'size' | 'name' | 'type' | null; sortOrder?: 'asc' | 'desc' | null; shuffle?: boolean }[] = [
   { key: 'none', label: 'Default / Random', sortBy: null, sortOrder: null, shuffle: true },
+  { key: 'nearby', label: '📍 Nearby (Closest to You)', sortBy: null, sortOrder: null, shuffle: false },
   { key: 'takenTime_desc', label: 'Taken Date (Newest)', sortBy: 'takenTime', sortOrder: 'desc', shuffle: false },
   { key: 'takenTime_asc', label: 'Taken Date (Oldest)', sortBy: 'takenTime', sortOrder: 'asc', shuffle: false },
   { key: 'createTime_desc', label: 'Recently Added', sortBy: 'createTime', sortOrder: 'desc', shuffle: false },
@@ -98,6 +101,7 @@ export default function Page() {
   const [sortKey, setSortKey] = useState<SortOptionKey>("none")
   const [groupByDate, setGroupByDate] = useState<boolean>(false)
   const [isScrolled, setIsScrolled] = useState<boolean>(false)
+  const { coords, requestLocation } = useUserLocation()
 
   // Passive scroll listener for Adaptive Frosted Header
   useEffect(() => {
@@ -148,7 +152,23 @@ export default function Page() {
     }
   }, [silentRefresh])
 
-  const handleSortChange = (key: SortOptionKey) => {
+  const handleSortChange = async (key: SortOptionKey) => {
+    if (key === 'nearby') {
+      let activeCoords = coords
+      if (!activeCoords) {
+        toast.info("Requesting your location to sort photos by proximity...")
+        activeCoords = await requestLocation()
+        if (!activeCoords) {
+          toast.error("Location permission is needed to sort by distance.")
+          return
+        }
+      }
+      setSortKey('nearby')
+      setGroupByDate(false)
+      toast.success("Photos sorted by distance from your current location!")
+      return
+    }
+
     setSortKey(key)
 
     // Default: automatically enable Group by Date when selecting Taken Date (Newest or Oldest)
@@ -196,6 +216,21 @@ export default function Page() {
   const [albumPhotoIds, setAlbumPhotoIds] = useState<string[]>([])
   const openUpload = usePhotoStore((state) => state.openUpload)
   const uploadedPhotos = usePhotoStore((state) => state.uploadedPhotos)
+
+  // Compute display photos (sorted by proximity if 'nearby' sort mode is active)
+  const displayPhotos = useMemo(() => {
+    if (sortKey !== 'nearby' || !coords) return photos
+    return [...photos].sort((a, b) => {
+      const hasCoordA = typeof a.latitude === 'number' && typeof a.longitude === 'number' && a.latitude !== 999
+      const hasCoordB = typeof b.latitude === 'number' && typeof b.longitude === 'number' && b.latitude !== 999
+      if (hasCoordA && !hasCoordB) return -1
+      if (!hasCoordA && hasCoordB) return 1
+      if (!hasCoordA && !hasCoordB) return 0
+      const distA = calculateDistance(coords.latitude, coords.longitude, Number(a.latitude), Number(a.longitude))
+      const distB = calculateDistance(coords.latitude, coords.longitude, Number(b.latitude), Number(b.longitude))
+      return distA - distB
+    })
+  }, [photos, sortKey, coords])
 
   // Protect against accidental exit on root gallery page by requiring double back press within 2s
   useDoubleBackToExit({ enabled: !showPhotoViewer && !albumDialogOpen })
@@ -506,7 +541,7 @@ export default function Page() {
               viewMode === "infinite" ? (
                 <div className="relative w-full h-[calc(100vh-3.5rem)] rounded-xl overflow-hidden border bg-background/50">
                   <InfiniteGallery
-                    photos={photos}
+                    photos={displayPhotos}
                     onPhotoClick={(index) => openPhoto(index)}
                     density={10}
                     imageWidth={180}
@@ -521,7 +556,7 @@ export default function Page() {
                 <>
                   <OnThisDayBanner onPhotoClick={handleOnThisDayPhotoClick} />
                   <PhotoMasonry
-                    photos={photos}
+                    photos={displayPhotos}
                     resetKey={masonryKey}
                     groupByDate={groupByDate}
                     groupByType={sortKey === 'type_asc' || sortKey === 'type_desc'}
@@ -549,7 +584,7 @@ export default function Page() {
       <PhotoViewer
         open={showPhotoViewer}
         index={modelPhotoIndex}
-        photos={viewerCustomPhotos ?? photos}
+        photos={viewerCustomPhotos ?? displayPhotos}
         onBack={closePhoto}
         onBrowserBack={closePhoto}
         onPhotoDelete={(photoId) => recyclePhotos([photoId])}

@@ -2,8 +2,10 @@
 
 import { useEffect, useState, useMemo } from "react"
 import { getReverseGeocode, type LocationReverseVo } from "@/request/location"
-import { ExternalLink, MapPin } from "lucide-react"
+import { ExternalLink, MapPin, Navigation } from "lucide-react"
 import { toProxyMediaUrl } from "@/lib/url"
+import { useUserLocation } from "@/hooks/use-user-location"
+import { calculateDistance, formatDistancePerspective, getDirectionsUrl } from "@/lib/geo"
 
 // This component renders a Google Maps preview card with a photo thumbnail pin and full reverse-geocoded address.
 
@@ -77,6 +79,14 @@ export function PhotoLocationMap({
   const lngNum = longitude != null ? Number(longitude) : NaN
   const hasCoords = !isNaN(latNum) && !isNaN(lngNum) && isFinite(latNum) && isFinite(lngNum)
   const [loading, setLoading] = useState(hasCoords)
+  const { coords: userCoords } = useUserLocation()
+
+  // Calculate live distance perspective from visitor's current location
+  const distancePerspective = useMemo(() => {
+    if (!userCoords || !hasCoords) return null
+    const distKm = calculateDistance(userCoords.latitude, userCoords.longitude, latNum, lngNum)
+    return formatDistancePerspective(distKm)
+  }, [userCoords, hasCoords, latNum, lngNum])
 
   useEffect(() => {
     if (!hasCoords) {
@@ -203,7 +213,13 @@ export function PhotoLocationMap({
       </div>
 
       {/* Bottom Address Bar */}
-      <div className="p-3 bg-black/75 backdrop-blur-md border-t border-white/10 text-left space-y-1.5">
+      <div className="p-3 bg-black/75 backdrop-blur-md border-t border-white/10 text-left space-y-2">
+        {distancePerspective && (
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-sky-500/15 border border-sky-500/30 text-sky-400 text-[11px] font-medium">
+            <Navigation className="size-3 text-sky-400 shrink-0" />
+            <span className="truncate">{distancePerspective}</span>
+          </div>
+        )}
         {loading && !locationData ? (
           <div className="space-y-1 animate-pulse">
             <div className="h-3 w-3/4 rounded bg-white/20" />
@@ -218,10 +234,24 @@ export function PhotoLocationMap({
           <span className="font-mono">
             {latNum.toFixed(4)}°, {lngNum.toFixed(4)}°
           </span>
-          <span className="text-emerald-400 group-hover:underline flex items-center gap-1">
-            <span>Open in Google Maps</span>
-            <ExternalLink className="size-2.5" />
-          </span>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation()
+                window.open(getDirectionsUrl(latNum, lngNum), "_blank", "noopener,noreferrer")
+              }}
+              className="text-sky-400 hover:underline flex items-center gap-1 cursor-pointer"
+              title="Get directions in Google Maps"
+            >
+              <Navigation className="size-2.5 text-sky-400" />
+              <span>Directions</span>
+            </button>
+            <span className="text-emerald-400 group-hover:underline flex items-center gap-1">
+              <span>Open Maps</span>
+              <ExternalLink className="size-2.5" />
+            </span>
+          </div>
         </div>
       </div>
     </div>

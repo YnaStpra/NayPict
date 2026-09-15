@@ -106,3 +106,72 @@ export function parseCoordinateString(input: string): ParsedCoordinate | null {
 
   return null
 }
+
+/**
+ * Calculate geographical distance in kilometers between two coordinates using the Haversine formula.
+ */
+export function calculateDistance(
+  lat1: number,
+  lon1: number,
+  lat2: number,
+  lon2: number
+): number {
+  if (lat1 === lat2 && lon1 === lon2) return 0
+  const R = 6371 // Earth radius in km
+  const dLat = ((lat2 - lat1) * Math.PI) / 180
+  const dLon = ((lon2 - lon1) * Math.PI) / 180
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2)
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+  return R * c
+}
+
+/**
+ * Format distance into concise human-readable badge text.
+ * Examples: "850m", "1.2km", "25km", "1,250km"
+ */
+export function formatDistance(distKm: number): string {
+  if (isNaN(distKm) || distKm < 0) return ""
+  if (distKm < 0.1) return "< 100m"
+  if (distKm < 1) {
+    const meters = Math.round(distKm * 1000)
+    return `${meters}m`
+  }
+  if (distKm < 10) {
+    return `${distKm.toFixed(1)}km`
+  }
+  return `${Math.round(distKm).toLocaleString("en-US")}km`
+}
+
+/**
+ * Format distance into an expressive perspective story string.
+ * Examples:
+ * - "Only 850m from your current location"
+ * - "3.2 km from your current location"
+ * - "Captured 950 km away from where you are"
+ */
+export function formatDistancePerspective(distKm: number): string {
+  if (isNaN(distKm) || distKm < 0) return ""
+  if (distKm < 1) {
+    const meters = Math.round(distKm * 1000)
+    return `Only ${meters}m from your current location`
+  }
+  if (distKm < 20) {
+    return `${distKm.toFixed(1)} km from your current location`
+  }
+  if (distKm < 100) {
+    return `${Math.round(distKm)} km from your current location`
+  }
+  return `Captured ${Math.round(distKm).toLocaleString("en-US")} km away from where you are`
+}
+
+/**
+ * Generate universal Google Maps directions link from current user spot to photo coordinates.
+ */
+export function getDirectionsUrl(lat: number, lng: number): string {
+  return `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`
+}

@@ -12,6 +12,7 @@ import {
   LoaderCircle,
   LocateFixed,
   MapPin,
+  Navigation,
   Sparkles,
 } from "lucide-react"
 import { toast } from "sonner"
@@ -113,6 +114,41 @@ export function PhotoBatchEditDialog({
   }, [open, initialLatitude, initialLongitude, defaultLocationMode, initialName, photoIds.length])
 
   const [loading, setLoading] = useState(false)
+  const [locatingGps, setLocatingGps] = useState(false)
+
+  // Use browser Geolocation API to auto-fill GPS coordinates with device's current location
+  const handleUseCurrentLocation = async () => {
+    if (typeof window === "undefined" || !("geolocation" in navigator)) {
+      toast.error("Geolocation is not supported by your browser.")
+      return
+    }
+
+    setLocatingGps(true)
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const lat = Number(position.coords.latitude.toFixed(6))
+        const lng = Number(position.coords.longitude.toFixed(6))
+        setLocationMode("set")
+        setLatitude(lat.toString())
+        setLongitude(lng.toString())
+        setCoordInput(decimalToDms(lat, lng))
+        setLocatingGps(false)
+        toast.success(`Current GPS coordinates applied: ${decimalToDms(lat, lng)}`)
+      },
+      (err) => {
+        setLocatingGps(false)
+        let msg = "Could not retrieve current location."
+        if (err.code === err.PERMISSION_DENIED) {
+          msg = "Location access was denied. Please enable location in your browser."
+        }
+        toast.error(msg)
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+      }
+    )
+  }
 
   // Calculate modified count
   const isVisModified = visibility !== "unchanged"
@@ -470,15 +506,31 @@ export function PhotoBatchEditDialog({
           {/* 4. GPS Location */}
           <div className="rounded-xl border border-border/80 bg-card p-3.5 space-y-2 shadow-2xs">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-sm font-semibold">
-                <MapPin className="size-4 text-emerald-500" />
+              <div className="flex items-center gap-1.5 font-semibold text-xs text-foreground">
+                <MapPin className="size-3.5 text-emerald-500" />
                 <span>4. GPS Coordinates</span>
               </div>
-              {isLocModified && (
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-500 border border-emerald-500/30">
-                  Will Change
-                </span>
-              )}
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleUseCurrentLocation}
+                  disabled={locatingGps}
+                  className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 hover:text-emerald-500 hover:underline flex items-center gap-1 cursor-pointer"
+                  title="Capture and apply current GPS location"
+                >
+                  {locatingGps ? (
+                    <LoaderCircle className="size-3 animate-spin text-emerald-500" />
+                  ) : (
+                    <Navigation className="size-3 text-emerald-500" />
+                  )}
+                  <span>{locatingGps ? "Acquiring..." : "Use Current GPS"}</span>
+                </button>
+                {isLocModified && (
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-500 border border-emerald-500/30">
+                    Will Change
+                  </span>
+                )}
+              </div>
             </div>
             <Select value={locationMode} onValueChange={setLocationMode}>
               <SelectTrigger className="w-full text-xs h-9 bg-muted/30">
@@ -520,6 +572,20 @@ export function PhotoBatchEditDialog({
                       <Compass className="size-3 text-emerald-500" />
                       <span>Paste Coordinates (DMS or Decimal):</span>
                     </span>
+                    <button
+                      type="button"
+                      onClick={handleUseCurrentLocation}
+                      disabled={locatingGps}
+                      className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 hover:text-emerald-500 hover:underline flex items-center gap-1 cursor-pointer"
+                      title="Capture and apply current GPS location"
+                    >
+                      {locatingGps ? (
+                        <LoaderCircle className="size-3 animate-spin text-emerald-500" />
+                      ) : (
+                        <Navigation className="size-3 text-emerald-500" />
+                      )}
+                      <span>Use My Location</span>
+                    </button>
                   </label>
                   <Input
                     type="text"

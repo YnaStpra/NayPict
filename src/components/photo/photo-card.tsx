@@ -1,7 +1,7 @@
 "use client"
 
 import { memo, useEffect, useMemo, useRef, useState, type MouseEvent } from "react"
-import { FolderIcon, PinIcon, Play } from "lucide-react"
+import { FolderIcon, MapPin, PinIcon, Play } from "lucide-react"
 import { type RenderComponentProps } from "masonic"
 import { useIsMobile } from "@/hooks/use-mobile"
 import { Button } from "@/components/ui/button"
@@ -14,6 +14,8 @@ import { type PhotoVo } from "@/server/entity/vo/photo"
 import { useLocale, useTranslations } from "next-intl"
 import { useApp } from "@/app/provider"
 import { UserTypeEnum } from "@/server/enums/user-enum"
+import { useUserLocation } from "@/hooks/use-user-location"
+import { calculateDistance, formatDistance } from "@/lib/geo"
 
 type TouchHoverCloseRef = {
   current: (() => void) | null
@@ -98,6 +100,17 @@ export const PhotoCard = memo(function PhotoCard({
   const { userInfo } = useApp()
   const isAdmin = userInfo?.type === UserTypeEnum.ADMIN
   const t = useTranslations("photos")
+  const { coords: userCoords } = useUserLocation()
+
+  // Calculate real-time distance badge if user granted location and photo has GPS
+  const distanceBadge = useMemo(() => {
+    if (!userCoords || data.latitude == null || data.longitude == null || data.latitude === 999) return null
+    const lat = Number(data.latitude)
+    const lng = Number(data.longitude)
+    if (isNaN(lat) || isNaN(lng)) return null
+    const distKm = calculateDistance(userCoords.latitude, userCoords.longitude, lat, lng)
+    return formatDistance(distKm)
+  }, [userCoords, data.latitude, data.longitude])
   const locale = useLocale()
   const src = data.thumbnail || data.preview || data.key
   const ratio = data.width && data.height ? data.height / data.width : 1
@@ -346,6 +359,20 @@ export const PhotoCard = memo(function PhotoCard({
         >
           <PinIcon className="size-3 fill-current rotate-45" />
           <span>Pinned</span>
+        </div>
+      )}
+      {/* Real-time Distance Badge from Current User Location */}
+      {distanceBadge && (
+        <div
+          className="absolute z-10 flex items-center gap-1 rounded-full bg-black/75 text-emerald-400 backdrop-blur-md px-2 py-0.5 text-[10px] font-semibold border border-emerald-500/30 shadow-xs pointer-events-none transition-all"
+          style={{
+            top: data.isPinned ? "2.2rem" : "0.5rem",
+            left: "0.5rem",
+          }}
+          title={`Distance: ${distanceBadge} away from you`}
+        >
+          <MapPin className="size-2.5 text-emerald-400 shrink-0" />
+          <span>{distanceBadge}</span>
         </div>
       )}
       {/* Video Duration Badge (Always visible in album grid with Living Aura) */}

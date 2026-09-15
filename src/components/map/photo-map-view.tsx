@@ -28,6 +28,7 @@ import {
   Loader2,
   LocateFixed,
   MapPin,
+  Navigation,
   Play,
   Sparkles,
   X,
@@ -44,6 +45,8 @@ import { toProxyMediaUrl } from "@/lib/url"
 import { useLocale } from "next-intl"
 import { useApp } from "@/app/provider"
 import { UserTypeEnum } from "@/server/enums/user-enum"
+import { useUserLocation } from "@/hooks/use-user-location"
+import { calculateDistance, formatDistance, getDirectionsUrl } from "@/lib/geo"
 import { useModalBackHandler } from "@/hooks/use-modal-back-handler"
 import { UntaggedPhotosDialog } from "@/components/map/untagged-photos-dialog"
 import { AllSpotsDialog } from "@/components/map/all-spots-dialog"
@@ -277,6 +280,9 @@ export default function PhotoMapView() {
   const hasFitBoundsInitialRef = useRef<boolean>(false)
   const layerMenuRef = useRef<HTMLDivElement>(null)
   const thumbnailStripRef = useRef<HTMLDivElement>(null)
+  const userMarkerRef = useRef<LType.Marker | null>(null)
+
+  const { coords: userCoords, requestLocation: requestUserLocation, loading: locatingUser } = useUserLocation()
 
   const [photos, setPhotos] = useState<PhotoVo[]>([])
   const [untaggedPhotos, setUntaggedPhotos] = useState<PhotoVo[]>([])
@@ -318,6 +324,65 @@ export default function PhotoMapView() {
   const [singleGeotagPhotoId, setSingleGeotagPhotoId] = useState<string | null>(null)
   const [editSpotDialogOpen, setEditSpotDialogOpen] = useState<boolean>(false)
   const [spotToEdit, setSpotToEdit] = useState<GeoSpot | null>(null)
+
+  // Center map on user's current GPS location
+  const handleLocateUser = async () => {
+    let loc = userCoords
+    if (!loc) {
+      toast.info("Requesting GPS location...")
+      loc = await requestUserLocation()
+    }
+    if (!loc) {
+      toast.error("Location permission denied or unavailable.")
+      return
+    }
+    if (mapInstanceRef.current) {
+      mapInstanceRef.current.flyTo([loc.latitude, loc.longitude], 15, { duration: 1.2 })
+      toast.success("Centered on your current location!")
+    }
+  }
+
+  // Render or update pulsing blue dot for live user location on Leaflet
+  useEffect(() => {
+    const map = mapInstanceRef.current
+    if (!map || !mapReady) return
+
+    if (!userCoords) {
+      if (userMarkerRef.current) {
+        map.removeLayer(userMarkerRef.current)
+        userMarkerRef.current = null
+      }
+      return
+    }
+
+    import("leaflet").then((LMod) => {
+      const L = LMod.default || LMod
+      const userLatLng: LType.LatLngTuple = [userCoords.latitude, userCoords.longitude]
+
+      const userIcon = L.divIcon({
+        className: "user-location-marker",
+        html: `
+          <div class="relative flex items-center justify-center size-6 pointer-events-none select-none">
+            <div class="absolute size-6 rounded-full bg-sky-500/35 animate-ping"></div>
+            <div class="absolute size-4 rounded-full bg-sky-500/60 animate-pulse"></div>
+            <div class="size-3.5 rounded-full bg-sky-500 border-2 border-white shadow-md"></div>
+          </div>
+        `,
+        iconSize: [24, 24],
+        iconAnchor: [12, 12],
+      })
+
+      if (!userMarkerRef.current) {
+        userMarkerRef.current = L.marker(userLatLng, {
+          icon: userIcon,
+          zIndexOffset: 1000,
+          title: "Your Location",
+        }).addTo(map)
+      } else {
+        userMarkerRef.current.setLatLng(userLatLng)
+      }
+    })
+  }, [userCoords, mapReady])
 
   // Fullscreen PhotoViewer state on map
   const [viewerOpen, setViewerOpen] = useState<boolean>(false)
@@ -1215,6 +1280,26 @@ export default function PhotoMapView() {
           </Button>
         )}
 
+        {/* Locate User Current GPS Button */}
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={handleLocateUser}
+          disabled={locatingUser}
+          className={`h-9 px-3 text-xs rounded-2xl backdrop-blur-xl bg-background/80 dark:bg-neutral-900/80 border-border/70 shadow-xl gap-1.5 cursor-pointer hover:scale-105 transition-all ${
+            userCoords ? "text-sky-500 border-sky-500/40 font-semibold" : ""
+          }`}
+          title="Center map on your current GPS location"
+        >
+          {locatingUser ? (
+            <Loader2 className="size-3.5 text-sky-500 animate-spin" />
+          ) : (
+            <Navigation className={`size-3.5 ${userCoords ? "fill-sky-500 text-sky-500" : "text-sky-500"}`} />
+          )}
+          <span className="hidden sm:inline">My Location</span>
+        </Button>
+
         {/* Admin Untagged Photos Notification Pill */}
         {isAdmin && (
           <>
@@ -1553,6 +1638,24 @@ export default function PhotoMapView() {
               )}
             </div>
 
+            {/* Live Distance Perspective from Current User Location */}
+            {userCoords && (
+              <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-sky-500/10 border border-sky-500/20 text-sky-600 dark:text-sky-400 text-xs font-medium">
+                <Navigation className="size-3 text-sky-500 shrink-0" />
+                <span className="truncate">
+                  {formatDistance(
+                    calculateDistance(
+                      userCoords.latitude,
+                      userCoords.longitude,
+                      selectedCluster.latitude,
+                      selectedCluster.longitude
+                    )
+                  )}{" "}
+                  from your location
+                </span>
+              </div>
+            )}
+
             {/* Action Buttons */}
             <div className="flex items-center gap-2 pt-1">
               <Button
@@ -1581,6 +1684,23 @@ export default function PhotoMapView() {
                   <span>Edit Spot</span>
                 </Button>
               )}
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  window.open(
+                    getDirectionsUrl(selectedCluster.latitude, selectedCluster.longitude),
+                    "_blank",
+                    "noopener,noreferrer"
+                  )
+                }
+                className="h-8.5 px-2.5 text-xs rounded-xl gap-1.5 border-sky-500/40 text-sky-600 dark:text-sky-400 hover:bg-sky-500/10 cursor-pointer shadow-xs"
+                title="Open Google Maps navigation directions to this spot"
+              >
+                <Navigation className="size-3.5 text-sky-500" />
+                <span>Directions</span>
+              </Button>
               <Button
                 type="button"
                 variant="outline"
