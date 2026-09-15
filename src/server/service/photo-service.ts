@@ -160,8 +160,9 @@ const photoService = {
       if (cached) return cached;
     }
 
-    // Clamp pagination size between 1 and 100 to prevent denial-of-service via excessive memory allocation
-    const size = Math.min(Math.max(1, params.size || PHOTO_LIST_PAGE_SIZE), 100);
+    // Allow up to 10,000 for authenticated admin or allowAllVisibility requests; clamp public unauthenticated requests to 100
+    const maxSize = (userId || params.allowAllVisibility) ? 10000 : 100;
+    const size = Math.min(Math.max(1, params.size || PHOTO_LIST_PAGE_SIZE), maxSize);
     const status = params.status ?? PhotoStatusEnum.NORMAL;
 
     // Determine target sort column

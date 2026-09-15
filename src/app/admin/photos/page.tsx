@@ -1164,6 +1164,20 @@ export default function AdminPhotosPage() {
               })}
             </div>
           )}
+
+          {/* Inventory Count Footer */}
+          {!loading && filteredPhotos.length > 0 && (
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-muted-foreground pt-4 pb-12 border-t border-border/60">
+              <span className="font-medium">
+                Showing all {filteredPhotos.length} of {totalCount || photos.length} media items
+              </span>
+              {selectedIds.length > 0 && (
+                <span className="text-primary font-medium">
+                  {selectedIds.length} item(s) selected
+                </span>
+              )}
+            </div>
+          )}
         </div>
       </SidebarInset>
 
