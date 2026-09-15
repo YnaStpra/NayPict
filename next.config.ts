@@ -57,8 +57,8 @@ const nextConfig: NextConfig = {
       { key: 'Cross-Origin-Opener-Policy', value: 'same-origin-allow-popups' },
       // Prevent Adobe Flash / Acrobat cross-domain policy file inspection
       { key: 'X-Permitted-Cross-Domain-Policies', value: 'none' },
-      // Disable browser features not required by this app
-      { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=(), interest-cohort=()' },
+      // Disable browser features not required by this app, while allowing geolocation for self (maps & analytics)
+      { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=(self), interest-cohort=()' },
       // Force HTTPS (only meaningful in production behind HTTPS)
       { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains; preload' },
       // HTTP/3 QUIC protocol advertisement and 0-RTT connection acceleration
