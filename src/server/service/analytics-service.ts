@@ -79,6 +79,18 @@ async function ensureAnalyticsTables(): Promise<void> {
   }
 }
 
+// Safely convert date string or Date object into standard ISO string ending with Z
+function toIsoString(dateInput: string | Date | null | undefined): string {
+  if (!dateInput) return new Date().toISOString();
+  try {
+    const d = new Date(dateInput);
+    if (!isNaN(d.getTime())) {
+      return d.toISOString();
+    }
+  } catch {}
+  return String(dateInput);
+}
+
 const analyticsService = {
 
   // Initialize a new visitor session with geolocation headers and client telemetry.
@@ -350,8 +362,8 @@ const analyticsService = {
       device: r.device,
       referrer: r.referrer,
       landingPath: r.landingPath,
-      startedAt: r.startedAt,
-      lastActiveAt: r.lastActiveAt,
+      startedAt: toIsoString(r.startedAt),
+      lastActiveAt: toIsoString(r.lastActiveAt),
       durationSeconds: r.durationSeconds,
       mediaCount: r.mediaCount,
     }));
@@ -446,7 +458,7 @@ const analyticsService = {
         photoTitle: a.photoTitle || 'Untitled Media',
         thumbnail,
         action: a.action,
-        createdAt: a.createdAt,
+        createdAt: toIsoString(a.createdAt),
       };
     });
 
@@ -463,8 +475,8 @@ const analyticsService = {
       device: session.device,
       referrer: session.referrer,
       landingPath: session.landingPath,
-      startedAt: session.startedAt,
-      lastActiveAt: session.lastActiveAt,
+      startedAt: toIsoString(session.startedAt),
+      lastActiveAt: toIsoString(session.lastActiveAt),
       durationSeconds: session.durationSeconds,
       mediaCount: session.mediaCount,
     };
@@ -473,6 +485,14 @@ const analyticsService = {
       session: sessionVo,
       activities,
     };
+  },
+
+  // Wipe all visitor sessions and activity tracking records (admin-only).
+  async resetAnalytics(): Promise<boolean> {
+    await ensureAnalyticsTables();
+    await orm.delete(visitorActivityTab);
+    await orm.delete(visitorSessionTab);
+    return true;
   },
 };
 

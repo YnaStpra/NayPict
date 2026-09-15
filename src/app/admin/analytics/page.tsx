@@ -49,6 +49,7 @@ import {
   getAnalyticsOverview,
   getVisitorSessions,
   getSessionDetail,
+  resetAnalytics,
 } from "@/request/analytics"
 import {
   type AnalyticsOverviewVo,
@@ -58,7 +59,18 @@ import {
 } from "@/server/entity/vo/analytics"
 import { toast } from "sonner"
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
+import {
   Activity,
+  AlertTriangle,
   ArrowRight,
   Clock,
   Compass,
@@ -75,22 +87,31 @@ import {
   Tablet,
   Download,
   Check,
+  Trash2,
 } from "lucide-react"
 
 // Safely parse timestamps from Postgres, ensuring UTC interpretation regardless of local machine offset
 function parseUtcDate(input?: string | Date | null): Date | null {
   if (!input) return null
-  if (input instanceof Date) return input
+  if (input instanceof Date) return isNaN(input.getTime()) ? null : input
   let str = String(input).trim()
   if (!str) return null
-  // Replace space with T if SQL format (YYYY-MM-DD HH:mm:ss)
+
+  // Fix PostgreSQL timestamp format: replace space with T
   if (str.includes(" ") && !str.includes("T")) {
     str = str.replace(" ", "T")
   }
+
+  // Fix PostgreSQL 2-digit timezone offset (e.g. +00 or -08) to standard +00:00 or -08:00
+  if (/[+-]\d{2}$/.test(str)) {
+    str = str + ":00"
+  }
+
   // If no timezone offset present, append Z to force UTC evaluation
-  if (!str.endsWith("Z") && !/[+-]\d{2}(:\d{2})?$/.test(str)) {
+  if (!str.endsWith("Z") && !/[+-]\d{2}:\d{2}$/.test(str)) {
     str += "Z"
   }
+
   const d = new Date(str)
   return isNaN(d.getTime()) ? null : d
 }
@@ -133,9 +154,9 @@ function formatDuration(seconds: number): string {
 
 // Format ISO date into relative time string accurately
 function formatTimeAgo(isoString: string): string {
-  if (!isoString) return ""
+  if (!isoString) return "-"
   const parsed = parseUtcDate(isoString)
-  if (!parsed) return ""
+  if (!parsed) return "-"
   const diff = Math.max(0, Date.now() - parsed.getTime())
   const sec = Math.floor(diff / 1000)
   if (sec < 45) return "Just now"
@@ -276,6 +297,13 @@ export default function VisitorAnalyticsPage() {
     return () => clearInterval(interval)
   }, [liveRefresh, checkingAuth, isAdmin, page, searchTerm, deviceFilter, browserFilter])
 
+  // Manual refresh loading state
+  const [isRefreshing, setIsRefreshing] = useState(false)
+
+  // Reset dialog state
+  const [resetDialogOpen, setResetDialogOpen] = useState(false)
+  const [isResetting, setIsResetting] = useState(false)
+
   // Open inspector dialog for a specific session
   const handleInspect = async (sessionId: string) => {
     setInspectSessionId(sessionId)
@@ -300,13 +328,35 @@ export default function VisitorAnalyticsPage() {
     setTimeout(() => setCopiedIp(null), 2000)
   }
 
-  // Refresh all analytics data
-  const handleRefresh = () => {
-    startTransition(() => {
-      Promise.all([loadOverview(), loadSessions(page)]).then(() => {
-        toast.success("Visitor telemetry refreshed")
-      })
-    })
+  // Refresh all analytics data with active spinning animation
+  const handleRefresh = async () => {
+    if (isRefreshing) return
+    setIsRefreshing(true)
+    try {
+      await Promise.all([loadOverview(), loadSessions(page)])
+      toast.success("Visitor telemetry refreshed")
+    } catch {
+      toast.error("Failed to refresh visitor telemetry")
+    } finally {
+      setIsRefreshing(false)
+    }
+  }
+
+  // Completely wipe all visitor telemetry history
+  const handleResetAnalytics = async () => {
+    if (isResetting) return
+    setIsResetting(true)
+    try {
+      await resetAnalytics()
+      toast.success("All visitor telemetry history has been wiped")
+      setResetDialogOpen(false)
+      await Promise.all([loadOverview(), loadSessions(1)])
+      setPage(1)
+    } catch {
+      toast.error("Failed to reset visitor analytics")
+    } finally {
+      setIsResetting(false)
+    }
   }
 
   if (checkingAuth || !isAdmin) {
@@ -370,15 +420,30 @@ export default function VisitorAnalyticsPage() {
               <span>{liveRefresh ? "Live (20s)" : "Paused"}</span>
             </Button>
 
+            {/* Refresh Button with spinning animation */}
             <Button
               variant="outline"
               size="sm"
               onClick={handleRefresh}
-              disabled={isPending || loading}
+              disabled={isRefreshing || loading}
               className="gap-1.5 text-xs h-8"
+              title="Refresh visitor analytics"
             >
-              <RefreshCw className={`size-3.5 ${isPending ? "animate-spin" : ""}`} />
-              <span className="hidden sm:inline">Refresh</span>
+              <RefreshCw className={`size-3.5 ${isRefreshing ? "animate-spin text-primary" : ""}`} />
+              <span className="hidden sm:inline">{isRefreshing ? "Refreshing..." : "Refresh"}</span>
+            </Button>
+
+            {/* Reset History Button */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setResetDialogOpen(true)}
+              disabled={isResetting || loading}
+              className="gap-1.5 text-xs h-8 text-destructive hover:bg-destructive/10 hover:text-destructive border-destructive/30"
+              title="Reset all visitor history"
+            >
+              <Trash2 className="size-3.5" />
+              <span className="hidden sm:inline">Reset</span>
             </Button>
           </div>
         </header>
@@ -978,6 +1043,48 @@ export default function VisitorAnalyticsPage() {
             ) : null}
           </DialogContent>
         </Dialog>
+
+        {/* Reset Analytics Confirmation Modal */}
+        <AlertDialog open={resetDialogOpen} onOpenChange={setResetDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle className="flex items-center gap-2 text-destructive">
+                <AlertTriangle className="size-5 text-destructive" />
+                Reset Visitor Analytics History?
+              </AlertDialogTitle>
+              <AlertDialogDescription className="text-xs leading-relaxed text-muted-foreground">
+                This action will permanently delete all visitor session records, IP logs, geo-location
+                history, and media interaction timelines. Aggregate statistics will be reset to zero.
+                This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={isResetting} className="text-xs h-8">
+                Cancel
+              </AlertDialogCancel>
+              <AlertDialogAction
+                onClick={(e) => {
+                  e.preventDefault()
+                  handleResetAnalytics()
+                }}
+                disabled={isResetting}
+                className="bg-destructive hover:bg-destructive/90 text-destructive-foreground text-xs h-8 gap-1.5"
+              >
+                {isResetting ? (
+                  <>
+                    <Loader2 className="size-3.5 animate-spin" />
+                    <span>Wiping Data...</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="size-3.5" />
+                    <span>Yes, Wipe All History</span>
+                  </>
+                )}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </SidebarInset>
     </SidebarProvider>
   )

@@ -151,11 +151,17 @@ function extractVisitorMeta(c: Context) {
   return { ip, country, city, region };
 }
 
-// High-precision geolocation lookup to resolve Indonesian cellular carrier nodes (e.g. XL, Telkomsel in Bali/Denpasar)
+// Helper to identify datacenter, cloud hosting, or serverless IP ranges
+function isDatacenterOrHosting(isp?: string, org?: string): boolean {
+  const target = `${isp || ''} ${org || ''}`.toLowerCase();
+  return /sundance|amazon|aws|google cloud|microsoft|azure|digitalocean|hetzner|ovh|linode|vultr|leaseweb|choopa|m247|cogent|hostinger|contabo|datacenter|hosting|cloud|server|colocation|vps|vpn|tor\b/i.test(target);
+}
+
+// High-precision geolocation lookup to resolve Indonesian cellular carrier nodes and identify hosting bots
 async function resolveAccurateGeo(
   ip: string,
   fallback: { city: string; country: string; region: string }
-): Promise<{ city: string; country: string; region: string }> {
+): Promise<{ city: string; country: string; region: string; isDatacenter?: boolean }> {
   if (
     !ip ||
     ip === 'Unknown' ||
@@ -173,6 +179,7 @@ async function resolveAccurateGeo(
     !fallback.city ||
     fallback.city === 'Unknown' ||
     fallback.region === 'Unknown' ||
+    fallback.country === 'US' ||
     (fallback.country === 'ID' && (fallback.city.toLowerCase() === 'singapore' || fallback.city === 'Jakarta'));
 
   if (!isAmbiguous) {
@@ -191,6 +198,9 @@ async function resolveAccurateGeo(
     if (res.ok) {
       const data = await res.json();
       if (data && data.success) {
+        // Flag datacenter / serverless bot hits
+        const isDc = isDatacenterOrHosting(data.connection?.isp, data.connection?.org);
+
         let city = data.city || fallback.city;
         let region = data.region || fallback.region;
         const country = data.country_code || fallback.country;
@@ -202,7 +212,7 @@ async function resolveAccurateGeo(
           region = ID_PROVINCES[data.region_code];
         }
 
-        return { city, country, region };
+        return { city, country, region, isDatacenter: isDc };
       }
     }
   } catch {
@@ -239,9 +249,16 @@ export function registerAnalyticsApi(app: Hono<HonoEnv>) {
       region: rawMeta.region,
     });
 
+    // Drop datacenter / serverless probe traffic
+    if (accurateGeo.isDatacenter) {
+      return c.json(result.ok({ sessionId: '', ignored: true }));
+    }
+
     const meta = {
       ip: rawMeta.ip,
-      ...accurateGeo,
+      city: accurateGeo.city,
+      country: accurateGeo.country,
+      region: accurateGeo.region,
     };
 
     // Calibrate Samsung Internet detection from User-Agent if reported as generic Chrome
@@ -350,4 +367,16 @@ export function registerAnalyticsApi(app: Hono<HonoEnv>) {
 
     return c.json(result.ok(detail));
   });
+
+  // Admin-only endpoint to completely wipe visitor telemetry history
+  app.post('/analytics/reset', async (c: Context) => {
+    const isAdmin = await checkIsAdmin(c);
+    if (!isAdmin) {
+      throw new BizError('auth.failed', 403);
+    }
+
+    await analyticsService.resetAnalytics();
+    return c.json(result.ok(true));
+  });
 }
+

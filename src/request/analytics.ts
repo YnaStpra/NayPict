@@ -31,3 +31,9 @@ export function getVisitorSessions(params?: VisitorSessionsQueryBo): Promise<Vis
 export function getSessionDetail(sessionId: string): Promise<VisitorSessionDetailVo> {
   return http.get<VisitorSessionDetailVo>(`/analytics/sessions/${encodeURIComponent(sessionId)}`);
 }
+
+// Reset and wipe all visitor sessions and activity tracking records (Admin only).
+export function resetAnalytics(): Promise<boolean> {
+  return http.post<boolean>('/analytics/reset');
+}
+
