@@ -50,7 +50,16 @@ import { calculateDistance, formatDistance, getDirectionsUrl } from "@/lib/geo"
 import { useModalBackHandler } from "@/hooks/use-modal-back-handler"
 import { UntaggedPhotosDialog } from "@/components/map/untagged-photos-dialog"
 import { AllSpotsDialog } from "@/components/map/all-spots-dialog"
+import { LocationPermissionGuideDialog } from "@/components/map/location-permission-guide-dialog"
 import { PhotoBatchEditDialog } from "@/components/photo/photo-batch-edit-dialog"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 
 export interface GeoSpot {
   id: string
@@ -282,7 +291,56 @@ export default function PhotoMapView() {
   const thumbnailStripRef = useRef<HTMLDivElement>(null)
   const userMarkerRef = useRef<LType.Marker | null>(null)
 
-  const { coords: userCoords, requestLocation: requestUserLocation, loading: locatingUser } = useUserLocation()
+  const {
+    coords: userCoords,
+    requestLocation: requestUserLocation,
+    loading: locatingUser,
+    permissionDenied,
+    unblockGuide,
+  } = useUserLocation()
+
+  // First-visit & revisit location prompt notification state
+  const [showLocationPrompt, setShowLocationPrompt] = useState<boolean>(false)
+  const [locationGuideOpen, setLocationGuideOpen] = useState<boolean>(false)
+
+  // Automatically request/prompt for location on entering the map if not yet granted and not dismissed in current session
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    // If user already granted location and coords are present, do not show banner
+    if (userCoords) {
+      setShowLocationPrompt(false)
+      return
+    }
+    // Check if dismissed in this specific browser session
+    const dismissedThisSession = sessionStorage.getItem("naypict_map_loc_prompt_dismissed")
+    if (!dismissedThisSession) {
+      // Delay slightly for map tile initialization
+      const timer = setTimeout(() => {
+        setShowLocationPrompt(true)
+      }, 700)
+      return () => clearTimeout(timer)
+    }
+  }, [userCoords])
+
+  // Dismiss location prompt for the current session (will ask again on next visit/session if not allowed)
+  const handleDismissLocationPrompt = () => {
+    sessionStorage.setItem("naypict_map_loc_prompt_dismissed", "1")
+    setShowLocationPrompt(false)
+  }
+
+  // Handle direct user tap on "Enable Location" from the prompt banner
+  const handleEnableLocationFromPrompt = async () => {
+    const loc = await requestUserLocation(true)
+    if (loc) {
+      setShowLocationPrompt(false)
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.flyTo([loc.latitude, loc.longitude], 15, { duration: 1.2 })
+      }
+      toast.success("Location enabled! Showing media near you.")
+    } else {
+      setLocationGuideOpen(true)
+    }
+  }
 
   const [photos, setPhotos] = useState<PhotoVo[]>([])
   const [untaggedPhotos, setUntaggedPhotos] = useState<PhotoVo[]>([])
@@ -325,20 +383,24 @@ export default function PhotoMapView() {
   const [editSpotDialogOpen, setEditSpotDialogOpen] = useState<boolean>(false)
   const [spotToEdit, setSpotToEdit] = useState<GeoSpot | null>(null)
 
-  // Center map on user's current GPS location
+  // Center map on user's current GPS location with mobile direct gesture optimization
   const handleLocateUser = async () => {
-    let loc = userCoords
-    if (!loc) {
-      toast.info("Requesting GPS location...")
-      loc = await requestUserLocation()
+    // If coords are already available, center map immediately for instant feedback
+    if (userCoords && mapInstanceRef.current) {
+      mapInstanceRef.current.flyTo([userCoords.latitude, userCoords.longitude], 15, { duration: 1.2 })
     }
-    if (!loc) {
-      toast.error("Location permission denied or unavailable.")
-      return
-    }
-    if (mapInstanceRef.current) {
-      mapInstanceRef.current.flyTo([loc.latitude, loc.longitude], 15, { duration: 1.2 })
+
+    // Actively request fresh location (direct user tap guarantees browser permission prompt pop-up)
+    const loc = await requestUserLocation(true)
+    if (loc) {
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.flyTo([loc.latitude, loc.longitude], 15, { duration: 1.2 })
+      }
       toast.success("Centered on your current location!")
+      setShowLocationPrompt(false)
+    } else {
+      // If permission is denied or blocked, display step-by-step device unblock guide
+      setLocationGuideOpen(true)
     }
   }
 
@@ -1287,8 +1349,8 @@ export default function PhotoMapView() {
           size="sm"
           onClick={handleLocateUser}
           disabled={locatingUser}
-          className={`h-9 px-3 text-xs rounded-2xl backdrop-blur-xl bg-background/80 dark:bg-neutral-900/80 border-border/70 shadow-xl gap-1.5 cursor-pointer hover:scale-105 transition-all ${
-            userCoords ? "text-sky-500 border-sky-500/40 font-semibold" : ""
+          className={`h-9 px-3 text-xs rounded-2xl backdrop-blur-xl bg-background/80 dark:bg-neutral-900/80 border-border/70 shadow-xl gap-1.5 cursor-pointer hover:scale-105 active:scale-95 touch-manipulation select-none transition-all ${
+            userCoords ? "text-sky-500 border-sky-500/40 font-semibold ring-1 ring-sky-500/20" : ""
           }`}
           title="Center map on your current GPS location"
         >
@@ -1297,7 +1359,9 @@ export default function PhotoMapView() {
           ) : (
             <Navigation className={`size-3.5 ${userCoords ? "fill-sky-500 text-sky-500" : "text-sky-500"}`} />
           )}
-          <span className="hidden sm:inline">My Location</span>
+          <span className="hidden sm:inline">
+            {locatingUser ? "Locating..." : userCoords ? "My Location" : "Locate Me"}
+          </span>
         </Button>
 
         {/* Admin Untagged Photos Notification Pill */}
@@ -1336,6 +1400,58 @@ export default function PhotoMapView() {
           <span className="hidden sm:inline">{isSidebarOpen ? "Close Panel" : "Open Panel"}</span>
         </Button>
       </div>
+
+      {/* Non-intrusive Location Prompt Banner on Initial Map Visit */}
+      {showLocationPrompt && !userCoords && (
+        <div className="absolute top-18 sm:top-18 left-4 right-4 sm:left-4 sm:right-auto sm:max-w-sm z-20 animate-in fade-in slide-in-from-top-3 duration-200 pointer-events-auto">
+          <div className="p-3.5 rounded-3xl backdrop-blur-2xl bg-background/95 dark:bg-neutral-900/95 border border-sky-500/30 shadow-2xl flex items-start gap-3">
+            <div className="size-8 rounded-2xl bg-sky-500/15 text-sky-500 flex items-center justify-center shrink-0 mt-0.5">
+              <Navigation className="size-4 fill-sky-500" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-bold text-foreground">Explore photos near you?</p>
+              <p className="text-[11px] text-muted-foreground leading-snug mt-0.5">
+                Enable GPS location to discover media taken right around your current area and get walking directions.
+              </p>
+              <div className="flex items-center gap-2 mt-2.5">
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={handleEnableLocationFromPrompt}
+                  disabled={locatingUser}
+                  className="h-7 px-3 text-[11px] font-semibold rounded-xl bg-sky-500 hover:bg-sky-600 text-white cursor-pointer"
+                >
+                  {locatingUser ? (
+                    <>
+                      <Loader2 className="size-3 animate-spin mr-1" />
+                      <span>Locating...</span>
+                    </>
+                  ) : (
+                    "Enable Location"
+                  )}
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleDismissLocationPrompt}
+                  className="h-7 px-2 text-[11px] text-muted-foreground hover:text-foreground cursor-pointer rounded-xl"
+                >
+                  Maybe Later
+                </Button>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={handleDismissLocationPrompt}
+              className="text-muted-foreground hover:text-foreground p-1 rounded-lg cursor-pointer"
+              title="Dismiss"
+            >
+              <X className="size-3.5" />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Floating Photo Preview Card (When a marker/spot is clicked) */}
       {selectedCluster && currentPhoto && (
@@ -2236,6 +2352,18 @@ export default function PhotoMapView() {
           }}
         />
       )}
+      {/* Location Permission Device Troubleshooting Guide */}
+      <LocationPermissionGuideDialog
+        open={locationGuideOpen}
+        onOpenChange={setLocationGuideOpen}
+        onRequestLocation={async () => {
+          const loc = await requestUserLocation(true)
+          if (loc && mapInstanceRef.current) {
+            mapInstanceRef.current.flyTo([loc.latitude, loc.longitude], 15, { duration: 1.2 })
+          }
+        }}
+        guide={unblockGuide}
+      />
     </div>
   )
 }
