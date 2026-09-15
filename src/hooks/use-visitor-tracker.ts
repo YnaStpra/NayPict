@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useRef } from "react"
+import { usePathname } from "next/navigation"
 
 // This module provides client-side visitor telemetry, session lifecycle heartbeats, and media interaction tracking.
 
@@ -131,7 +132,10 @@ async function detectClientTelemetry() {
 
 // Hook that manages session lifetime, periodic heartbeats, and page visibility duration sync
 export function useVisitorTracker() {
+  const pathname = usePathname()
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const locationIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const checkPermissionRef = useRef<() => void>(() => {})
 
   useEffect(() => {
     if (typeof window === "undefined") return
@@ -180,14 +184,23 @@ export function useVisitorTracker() {
 
     // Sync visitor's consented GPS location to active session
     const syncLocation = async (latitude: number, longitude: number) => {
-      const sid = sessionStorage.getItem(SESSION_STORAGE_KEY) || activeSessionId
+      let sid = sessionStorage.getItem(SESSION_STORAGE_KEY) || activeSessionId
+      if (!sid) {
+        // Retry shortly in case session init is still in flight
+        await new Promise((r) => setTimeout(r, 600))
+        sid = sessionStorage.getItem(SESSION_STORAGE_KEY) || activeSessionId
+      }
       if (!sid) return
+
       try {
-        await postTelemetry("/session/location", {
+        const res = await postTelemetry("/session/location", {
           sessionId: sid,
           latitude,
           longitude,
         })
+        if (res && res.ok) {
+          sessionStorage.setItem("naypict_loc_synced_sid", sid)
+        }
       } catch {}
     }
 
@@ -220,7 +233,6 @@ export function useVisitorTracker() {
             typeof parsed.longitude === "number" &&
             sessionStorage.getItem("naypict_loc_synced_sid") !== sid
           ) {
-            sessionStorage.setItem("naypict_loc_synced_sid", sid)
             void syncLocation(parsed.latitude, parsed.longitude)
           }
         } catch {}
@@ -257,7 +269,6 @@ export function useVisitorTracker() {
           sessionStorage.setItem("naypict_user_coords", JSON.stringify(coordData))
           localStorage.setItem("naypict_user_coords", JSON.stringify(coordData))
           localStorage.setItem("naypict_geo_consent", "1")
-          sessionStorage.setItem("naypict_loc_synced_sid", sid)
           window.dispatchEvent(new CustomEvent("naypict:user-location-updated", { detail: coordData }))
           void syncLocation(lat, lng)
         }
@@ -329,6 +340,8 @@ export function useVisitorTracker() {
       }
     }
 
+    checkPermissionRef.current = checkAndSyncPermission
+
     // Initialize session if not yet initialized
     const initSession = async () => {
       if (!activeSessionId) {
@@ -383,10 +396,6 @@ export function useVisitorTracker() {
     const handleLocationUpdated = (e: Event) => {
       const customEvent = e as CustomEvent<{ latitude: number; longitude: number } | null>
       if (customEvent?.detail?.latitude && customEvent?.detail?.longitude) {
-        const sid = sessionStorage.getItem(SESSION_STORAGE_KEY) || activeSessionId
-        if (sid) {
-          sessionStorage.setItem("naypict_loc_synced_sid", sid)
-        }
         void syncLocation(customEvent.detail.latitude, customEvent.detail.longitude)
       } else if (customEvent?.detail === null) {
         sessionStorage.removeItem("naypict_loc_synced_sid")
@@ -394,6 +403,28 @@ export function useVisitorTracker() {
       }
     }
     window.addEventListener("naypict:user-location-updated", handleLocationUpdated)
+
+    // Cross-tab synchronization: when location is granted in another tab (e.g. /map), immediately sync active session
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === "naypict_user_coords" && e.newValue) {
+        try {
+          const parsed = JSON.parse(e.newValue)
+          if (typeof parsed.latitude === "number" && typeof parsed.longitude === "number") {
+            void syncLocation(parsed.latitude, parsed.longitude)
+          }
+        } catch {}
+      }
+    }
+    window.addEventListener("storage", handleStorageChange)
+
+    // Active periodic location detection: runs every 4 seconds while location is not yet synced for the active session
+    locationIntervalRef.current = setInterval(() => {
+      const currentSid = sessionStorage.getItem(SESSION_STORAGE_KEY) || activeSessionId
+      const isSynced = currentSid && sessionStorage.getItem("naypict_loc_synced_sid") === currentSid
+      if (!isSynced && document.visibilityState === "visible") {
+        void checkAndSyncPermission()
+      }
+    }, 4000)
 
     // Periodic heartbeat and permission verification every 30 seconds while tab is active
     intervalRef.current = setInterval(() => {
@@ -430,11 +461,26 @@ export function useVisitorTracker() {
 
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current)
+      if (locationIntervalRef.current) clearInterval(locationIntervalRef.current)
       window.removeEventListener("naypict:user-location-updated", handleLocationUpdated)
+      window.removeEventListener("storage", handleStorageChange)
       document.removeEventListener("visibilitychange", handleVisibilityChange)
       window.removeEventListener("focus", handleWindowFocus)
       window.removeEventListener("pagehide", handleBeforeUnload)
       window.removeEventListener("beforeunload", handleBeforeUnload)
     }
   }, [])
+
+  // Immediately re-check and synchronize location whenever user navigates between pages (e.g. from / to /map)
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    const isSystemRoute =
+      pathname.startsWith("/admin") ||
+      pathname.startsWith("/settings") ||
+      pathname.startsWith("/storage") ||
+      pathname.startsWith("/duplicates")
+    if (isSystemRoute) return
+
+    checkPermissionRef.current()
+  }, [pathname])
 }

@@ -279,7 +279,7 @@ export default function VisitorAnalyticsPage() {
     return () => clearTimeout(timer)
   }, [searchTerm])
 
-  // Real-time live polling (20s interval), strictly paused when browser tab is inactive to protect Vercel usage
+  // Real-time live polling (6s interval), strictly paused when browser tab is inactive to protect Vercel usage
   useEffect(() => {
     if (!liveRefresh || checkingAuth || !isAdmin) return
 
@@ -292,7 +292,7 @@ export default function VisitorAnalyticsPage() {
       Promise.all([loadOverview(), loadSessions(page)]).finally(() => {
         isFetchingRef.current = false
       })
-    }, 20000)
+    }, 6000)
 
     return () => clearInterval(interval)
   }, [liveRefresh, checkingAuth, isAdmin, page, searchTerm, deviceFilter, browserFilter])
