@@ -15,9 +15,10 @@ export type InitVisitorSessionBo = {
 
 export type UpdateVisitorLocationBo = {
   sessionId: string;
-  latitude: number;
-  longitude: number;
+  latitude?: number | null;
+  longitude?: number | null;
   locationName?: string;
+  isRevoked?: boolean;
 };
 
 export type HeartbeatBo = {

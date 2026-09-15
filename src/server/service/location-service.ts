@@ -5,10 +5,13 @@ interface ReverseGeocodeResult {
   latitude: number;
   longitude: number;
   mapsUrl: string;
+  city?: string;
+  region?: string;
+  country?: string;
 }
 
 // In-memory cache for reverse geocoding results to minimize external API requests.
-const addressCache = new Map<string, string>();
+const addressCache = new Map<string, ReverseGeocodeResult>();
 
 const locationService = {
 
@@ -31,23 +34,23 @@ const locationService = {
     // Cache key rounded to ~5 decimal places (approx. 1 meter precision)
     const cacheKey = `${lat.toFixed(5)},${lng.toFixed(5)}`;
     if (addressCache.has(cacheKey)) {
-      return {
-        address: addressCache.get(cacheKey)!,
-        latitude: lat,
-        longitude: lng,
-        mapsUrl,
-      };
+      return addressCache.get(cacheKey)!;
     }
 
     try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 2500);
+
       // Query OpenStreetMap Nominatim reverse geocoder
       const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`;
       const response = await fetch(url, {
+        signal: controller.signal,
         headers: {
           'User-Agent': 'NayPict-PhotoGallery/1.0 (https://naypict.vercel.app)',
           'Accept-Language': 'id,en;q=0.9',
         },
       });
+      clearTimeout(timeout);
 
       if (!response.ok) {
         throw new Error(`Nominatim error: ${response.status}`);
@@ -55,6 +58,9 @@ const locationService = {
 
       const data = await response.json();
       let formattedAddress = '';
+      let detectedCity: string | undefined;
+      let detectedRegion: string | undefined;
+      let detectedCountry: string | undefined;
 
       if (data && data.address) {
         const a = data.address;
@@ -73,11 +79,19 @@ const locationService = {
           parts.push(district);
         }
         if (a.city || a.town || a.municipality || a.county) {
-          parts.push(a.city || a.town || a.municipality || a.county);
+          const rawCity = a.city || a.town || a.municipality || a.county;
+          parts.push(rawCity);
+          detectedCity = rawCity;
         }
-        if (a.state) parts.push(a.state);
+        if (a.state) {
+          parts.push(a.state);
+          detectedRegion = a.state;
+        }
         if (a.postcode) parts.push(a.postcode);
-        if (a.country) parts.push(a.country);
+        if (a.country) {
+          parts.push(a.country);
+          detectedCountry = a.country;
+        }
 
         formattedAddress = parts.filter(Boolean).join(', ');
       }
@@ -93,14 +107,18 @@ const locationService = {
         formattedAddress = `${latText}, ${lngText}`;
       }
 
-      addressCache.set(cacheKey, formattedAddress);
-
-      return {
+      const result: ReverseGeocodeResult = {
         address: formattedAddress,
         latitude: lat,
         longitude: lng,
         mapsUrl,
+        city: detectedCity,
+        region: detectedRegion,
+        country: detectedCountry,
       };
+
+      addressCache.set(cacheKey, result);
+      return result;
     } catch (err) {
       console.warn('[LOCATION] Reverse geocoding failed, using coordinates fallback:', err);
       const latText = `${Math.abs(lat).toFixed(4)}°${lat >= 0 ? 'N' : 'S'}`;

@@ -319,6 +319,34 @@ export default function VisitorAnalyticsPage() {
     }
   }
 
+  // Refresh current session detail in inspector dialog
+  const handleRefreshInspectSession = async () => {
+    if (!inspectSessionId) return
+    setDetailLoading(true)
+    try {
+      const detail = await getSessionDetail(inspectSessionId)
+      setSessionDetail(detail)
+    } catch {
+      toast.error("Failed to refresh session details.")
+    } finally {
+      setDetailLoading(false)
+    }
+  }
+
+  // Periodic polling for open inspector dialog so admin sees real-time updates (e.g. visitor sharing location)
+  useEffect(() => {
+    if (!inspectSessionId) return
+    const interval = setInterval(async () => {
+      try {
+        const detail = await getSessionDetail(inspectSessionId)
+        if (detail) {
+          setSessionDetail(detail)
+        }
+      } catch {}
+    }, 10000)
+    return () => clearInterval(interval)
+  }, [inspectSessionId])
+
   // Copy IP address to clipboard
   const handleCopyIp = (ip: string) => {
     if (!ip) return
@@ -892,10 +920,23 @@ export default function VisitorAnalyticsPage() {
         <Dialog open={Boolean(inspectSessionId)} onOpenChange={(open) => !open && setInspectSessionId(null)}>
           <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle className="text-base font-semibold flex items-center gap-2">
-                <Activity className="size-4 text-primary" />
-                Visitor Session Inspector
-              </DialogTitle>
+              <div className="flex items-center justify-between pr-6">
+                <DialogTitle className="text-base font-semibold flex items-center gap-2">
+                  <Activity className="size-4 text-primary" />
+                  Visitor Session Inspector
+                </DialogTitle>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleRefreshInspectSession}
+                  disabled={detailLoading}
+                  className="h-7 px-2 text-xs gap-1.5 text-muted-foreground hover:text-foreground cursor-pointer"
+                  title="Refresh session details"
+                >
+                  <RefreshCw className={`size-3 ${detailLoading ? "animate-spin" : ""}`} />
+                  <span>Refresh</span>
+                </Button>
+              </div>
               <DialogDescription className="text-xs">
                 Complete timeline and media interaction details for this visitor session.
               </DialogDescription>

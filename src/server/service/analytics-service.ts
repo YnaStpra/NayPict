@@ -168,7 +168,6 @@ const analyticsService = {
       userLocationName,
     });
 
-
     return { sessionId };
   },
 
@@ -197,27 +196,44 @@ const analyticsService = {
       return false;
     }
 
+    // Handle user revoking or disabling location access
+    if (params.isRevoked) {
+      await orm
+        .update(visitorSessionTab)
+        .set({
+          userLat: '',
+          userLng: '',
+          userLocationName: '',
+          lastActiveAt: sql`now()`,
+        })
+        .where(eq(visitorSessionTab.id, params.sessionId));
+      return true;
+    }
+
     let locationName = (params.locationName || '').trim();
-    if (!locationName && typeof params.latitude === 'number' && typeof params.longitude === 'number') {
+
+    if (typeof params.latitude === 'number' && typeof params.longitude === 'number') {
       try {
         const rev = await locationService.reverseGeocode(params.latitude, params.longitude);
         if (rev && rev.address) {
           locationName = rev.address;
         }
       } catch {}
+
+      await orm
+        .update(visitorSessionTab)
+        .set({
+          userLat: String(params.latitude),
+          userLng: String(params.longitude),
+          userLocationName: locationName,
+          lastActiveAt: sql`now()`,
+        })
+        .where(eq(visitorSessionTab.id, params.sessionId));
+
+      return true;
     }
 
-    await orm
-      .update(visitorSessionTab)
-      .set({
-        userLat: String(params.latitude),
-        userLng: String(params.longitude),
-        userLocationName: locationName,
-        lastActiveAt: sql`now()`,
-      })
-      .where(eq(visitorSessionTab.id, params.sessionId));
-
-    return true;
+    return false;
   },
 
   // Track media viewed or interacted with by visitor during session.

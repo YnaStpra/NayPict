@@ -175,6 +175,8 @@ export function useUserLocation() {
         setPermissionState(nextState)
         if (nextState === "denied") {
           setPermissionDenied(true)
+          setCoords(null)
+          persistCoordinates(null)
         } else if (nextState === "granted") {
           setPermissionDenied(false)
           setError(null)
@@ -189,6 +191,21 @@ export function useUserLocation() {
   // Check initial permission status on mount
   useEffect(() => {
     refreshPermissionState()
+  }, [refreshPermissionState])
+
+  // Re-verify permission state on visibility change and window focus (e.g. returning from device/browser settings)
+  useEffect(() => {
+    const handleRecheck = () => {
+      if (typeof document !== "undefined" && document.visibilityState === "visible") {
+        refreshPermissionState()
+      }
+    }
+    document.addEventListener("visibilitychange", handleRecheck)
+    window.addEventListener("focus", handleRecheck)
+    return () => {
+      document.removeEventListener("visibilitychange", handleRecheck)
+      window.removeEventListener("focus", handleRecheck)
+    }
   }, [refreshPermissionState])
 
   // Listen to cross-component coordinate updates

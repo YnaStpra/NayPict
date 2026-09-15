@@ -308,10 +308,12 @@ export function registerAnalyticsApi(app: Hono<HonoEnv>) {
 
     if (
       !body.sessionId ||
-      typeof body.latitude !== 'number' ||
-      typeof body.longitude !== 'number' ||
-      isNaN(body.latitude) ||
-      isNaN(body.longitude)
+      (!body.isRevoked && (
+        typeof body.latitude !== 'number' ||
+        typeof body.longitude !== 'number' ||
+        isNaN(body.latitude) ||
+        isNaN(body.longitude)
+      ))
     ) {
       return c.json(result.ok({ updated: false }));
     }
