@@ -128,24 +128,32 @@ function extractVisitorMeta(c: Context) {
     region = rawRegion;
   }
 
-  // Indonesian cellular IP anomaly calibration (Telkomsel/Indosat routing through Singapore IX)
+  // Indonesian cellular IP anomaly calibration & edge GeoIP sanitization
   if (country === 'ID') {
-    // Map province code if available
+    // Discard foreign region codes mistakenly mapped to Indonesia (e.g. 'IDF' - Île-de-France)
     if (rawRegionCode && ID_PROVINCES[rawRegionCode]) {
       region = ID_PROVINCES[rawRegionCode];
+    } else if (region === 'IDF' || /france|europe|ile-de-france/i.test(region)) {
+      region = 'Unknown';
     }
 
-    if (city.toLowerCase() === 'singapore' || city === 'Unknown' || city === '') {
-      if (region && region !== 'Unknown' && region.toLowerCase() !== 'singapore') {
+    // Filter out foreign cities mistakenly mapped to Indonesia by edge GeoIP (e.g. Paris, Singapore, Frankfurt)
+    if (/paris|singapore|london|frankfurt|amsterdam|ashburn/i.test(city) || city === 'Unknown' || city === '') {
+      city = 'Unknown';
+    }
+
+    if (city === 'Unknown') {
+      if (region && region !== 'Unknown') {
         city = region;
-      } else if (timezone.includes('Jakarta') || timezone.includes('Pontianak')) {
-        city = 'Jakarta';
       } else if (timezone.includes('Makassar') || timezone.includes('Ujung_Pandang')) {
-        city = 'Makassar';
+        city = 'Denpasar';
+        region = 'Bali';
       } else if (timezone.includes('Jayapura')) {
         city = 'Jayapura';
+        region = 'Papua';
       } else {
         city = 'Jakarta';
+        region = 'Jakarta';
       }
     }
   }
@@ -158,6 +166,16 @@ function isDatacenterOrHosting(isp?: string, org?: string): boolean {
   const target = `${isp || ''} ${org || ''}`.toLowerCase();
   return /sundance|amazon|aws|google cloud|microsoft|azure|digitalocean|hetzner|ovh|linode|vultr|leaseweb|choopa|m247|cogent|hostinger|contabo|datacenter|hosting|cloud|server|colocation|vps|vpn|tor\b/i.test(target);
 }
+
+// In-memory cache for resolved IP geolocation (24-hour TTL) to prevent duplicate external lookups
+interface CachedGeo {
+  city: string;
+  country: string;
+  region: string;
+  isDatacenter?: boolean;
+  expires: number;
+}
+const geoCache = new Map<string, CachedGeo>();
 
 // High-precision geolocation lookup to resolve Indonesian cellular carrier nodes and identify hosting bots
 async function resolveAccurateGeo(
@@ -176,18 +194,32 @@ async function resolveAccurateGeo(
     return fallback;
   }
 
-  // Trigger high-precision lookup if edge geo returned ambiguous, generic, or known-skewed data
+  const now = Date.now();
+  const cached = geoCache.get(ip);
+  if (cached && cached.expires > now) {
+    return {
+      city: cached.city,
+      country: cached.country,
+      region: cached.region,
+      isDatacenter: cached.isDatacenter,
+    };
+  }
+
+  // Trigger high-precision lookup if edge geo is ambiguous, generic, foreign-mismatched, or an Indonesian cellular IP
   const isAmbiguous =
     !fallback.city ||
     fallback.city === 'Unknown' ||
     fallback.region === 'Unknown' ||
     fallback.country === 'US' ||
-    (fallback.country === 'ID' && (fallback.city.toLowerCase() === 'singapore' || fallback.city === 'Jakarta'));
+    fallback.country === 'Unknown' ||
+    fallback.country === 'ID' ||
+    /paris|idf|singapore|france|frankfurt|london/i.test(`${fallback.city} ${fallback.region}`);
 
   if (!isAmbiguous) {
     return fallback;
   }
 
+  // Provider 1: ipwho.is (includes rich ISP & datacenter detection)
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 1500);
@@ -200,28 +232,78 @@ async function resolveAccurateGeo(
     if (res.ok) {
       const data = await res.json();
       if (data && data.success) {
-        // Flag datacenter / serverless bot hits
         const isDc = isDatacenterOrHosting(data.connection?.isp, data.connection?.org);
-
         let city = data.city || fallback.city;
         let region = data.region || fallback.region;
         const country = data.country_code || fallback.country;
 
-        // Calibrate Indonesian regional province names (e.g. Denpasar -> Bali)
-        if (city === 'Denpasar' || data.region_code === 'BA' || (region && region.includes('Sunda'))) {
-          region = 'Bali';
-        } else if (data.region_code && ID_PROVINCES[data.region_code]) {
-          region = ID_PROVINCES[data.region_code];
+        // Calibrate Indonesian regional province names (e.g. Denpasar -> Bali, Lesser Sunda -> Bali)
+        if (country === 'ID' || data.country_code === 'ID') {
+          if (city === 'Denpasar' || data.region_code === 'BA' || (region && /sunda|bali/i.test(region))) {
+            region = 'Bali';
+          } else if (data.region_code && ID_PROVINCES[data.region_code]) {
+            region = ID_PROVINCES[data.region_code];
+          }
+
+          if (/paris|idf|singapore|france/i.test(`${city} ${region}`)) {
+            city = 'Denpasar';
+            region = 'Bali';
+          }
         }
 
-        return { city, country, region, isDatacenter: isDc };
+        const result = { city, country, region, isDatacenter: isDc };
+        geoCache.set(ip, { ...result, expires: now + 24 * 60 * 60 * 1000 });
+        return result;
       }
     }
-  } catch {
-    // Fall back to edge headers gracefully on timeout or network glitch
+  } catch {}
+
+  // Provider 2: ip-api.com fallback
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 1500);
+    const res = await fetch(`http://ip-api.com/json/${encodeURIComponent(ip)}`, {
+      signal: controller.signal,
+      headers: { 'User-Agent': 'NayPict-Geo/1.0' },
+    });
+    clearTimeout(timeout);
+
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.status === 'success') {
+        const isDc = isDatacenterOrHosting(data.isp, data.org);
+        let city = data.city || fallback.city;
+        let region = data.regionName || fallback.region;
+        const country = data.countryCode || fallback.country;
+
+        if (country === 'ID') {
+          if (city === 'Denpasar' || data.region === 'BA' || /sunda|bali/i.test(region)) {
+            region = 'Bali';
+          } else if (data.region && ID_PROVINCES[data.region]) {
+            region = ID_PROVINCES[data.region];
+          }
+        }
+
+        const result = { city, country, region, isDatacenter: isDc };
+        geoCache.set(ip, { ...result, expires: now + 24 * 60 * 60 * 1000 });
+        return result;
+      }
+    }
+  } catch {}
+
+  // Sanitized fallback
+  let sanitizedCity = fallback.city;
+  let sanitizedRegion = fallback.region;
+  if (fallback.country === 'ID') {
+    if (/paris|idf|singapore|france/i.test(`${sanitizedCity} ${sanitizedRegion}`) || sanitizedCity === 'Unknown') {
+      sanitizedCity = 'Denpasar';
+      sanitizedRegion = 'Bali';
+    }
   }
 
-  return fallback;
+  const result = { city: sanitizedCity, country: fallback.country, region: sanitizedRegion };
+  geoCache.set(ip, { ...result, expires: now + 60 * 60 * 1000 });
+  return result;
 }
 
 // Register visitor analytics API routes onto Hono instance.

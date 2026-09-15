@@ -210,8 +210,8 @@ export function useVisitorTracker() {
       const sid = sessionStorage.getItem(SESSION_STORAGE_KEY) || activeSessionId
       if (!sid) return
 
-      // Sync existing cached coordinates if available in sessionStorage
-      const cachedCoords = sessionStorage.getItem("naypict_user_coords")
+      // Sync existing cached coordinates if available in sessionStorage or localStorage
+      const cachedCoords = sessionStorage.getItem("naypict_user_coords") || localStorage.getItem("naypict_user_coords")
       if (cachedCoords) {
         try {
           const parsed = JSON.parse(cachedCoords)
@@ -255,10 +255,37 @@ export function useVisitorTracker() {
         if (shouldSync) {
           const coordData = { latitude: lat, longitude: lng, timestamp: Date.now() }
           sessionStorage.setItem("naypict_user_coords", JSON.stringify(coordData))
+          localStorage.setItem("naypict_user_coords", JSON.stringify(coordData))
+          localStorage.setItem("naypict_geo_consent", "1")
           sessionStorage.setItem("naypict_loc_synced_sid", sid)
           window.dispatchEvent(new CustomEvent("naypict:user-location-updated", { detail: coordData }))
           void syncLocation(lat, lng)
         }
+      }
+
+      const hasPriorConsent = typeof window !== "undefined" && localStorage.getItem("naypict_geo_consent") === "1"
+
+      const runPositionResolver = () => {
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            handlePositionSuccess(pos)
+          },
+          () => {
+            navigator.geolocation.getCurrentPosition(
+              (pos) => {
+                handlePositionSuccess(pos)
+              },
+              (err) => {
+                isCheckingGeo = false
+                if (err && err.code === err.PERMISSION_DENIED) {
+                  localStorage.removeItem("naypict_geo_consent")
+                }
+              },
+              { enableHighAccuracy: false, timeout: 10000, maximumAge: 300000 }
+            )
+          },
+          { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 }
+        )
       }
 
       // Query browser Permissions API if supported (Chrome, Samsung Internet, Edge, Brave)
@@ -272,34 +299,18 @@ export function useVisitorTracker() {
             void checkAndSyncPermission()
           }
 
-          if (perm.state === "granted" && "geolocation" in navigator) {
-            // Dual-strategy position resolver:
-            // Phase 1: High Accuracy GPS (ideal for outdoors and high precision, 8s timeout)
-            // Phase 2: If Phase 1 times out or is unavailable, fallback to cellular/Wi-Fi triangulation
-            navigator.geolocation.getCurrentPosition(
-              (pos) => {
-                handlePositionSuccess(pos)
-              },
-              () => {
-                navigator.geolocation.getCurrentPosition(
-                  (pos) => {
-                    handlePositionSuccess(pos)
-                  },
-                  () => {
-                    isCheckingGeo = false
-                  },
-                  { enableHighAccuracy: false, timeout: 10000, maximumAge: 300000 }
-                )
-              },
-              { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 }
-            )
+          if (perm.state === "granted" || (hasPriorConsent && perm.state !== "denied")) {
+            runPositionResolver()
           } else if (perm.state === "denied") {
             isCheckingGeo = false
+            localStorage.removeItem("naypict_geo_consent")
             const hadSynced =
               sessionStorage.getItem("naypict_loc_synced_sid") === sid ||
-              sessionStorage.getItem("naypict_user_coords")
+              sessionStorage.getItem("naypict_user_coords") ||
+              localStorage.getItem("naypict_user_coords")
             if (hadSynced) {
               sessionStorage.removeItem("naypict_user_coords")
+              localStorage.removeItem("naypict_user_coords")
               sessionStorage.removeItem("naypict_loc_synced_sid")
               window.dispatchEvent(new CustomEvent("naypict:user-location-updated", { detail: null }))
               void revokeLocation()
@@ -309,7 +320,12 @@ export function useVisitorTracker() {
           }
         } catch {
           isCheckingGeo = false
+          if (hasPriorConsent) {
+            runPositionResolver()
+          }
         }
+      } else if (hasPriorConsent) {
+        runPositionResolver()
       }
     }
 
@@ -321,7 +337,7 @@ export function useVisitorTracker() {
         let userLat = ""
         let userLng = ""
         try {
-          const cached = sessionStorage.getItem("naypict_user_coords")
+          const cached = sessionStorage.getItem("naypict_user_coords") || localStorage.getItem("naypict_user_coords")
           if (cached) {
             const parsed = JSON.parse(cached)
             if (parsed.latitude && parsed.longitude) {

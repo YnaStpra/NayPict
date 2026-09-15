@@ -10,15 +10,16 @@ export interface UserCoordinates {
 }
 
 const STORAGE_KEY = "naypict_user_coords"
+const CONSENT_KEY = "naypict_geo_consent"
 const LOCATION_EVENT_KEY = "naypict:user-location-updated"
 
 /**
- * Retrieve cached user coordinates from sessionStorage if available and valid (< 30 minutes old).
+ * Retrieve cached user coordinates from sessionStorage or localStorage if available and valid (< 24 hours old).
  */
 function getCachedCoordinates(): UserCoordinates | null {
   if (typeof window === "undefined") return null
   try {
-    const raw = sessionStorage.getItem(STORAGE_KEY)
+    const raw = sessionStorage.getItem(STORAGE_KEY) || localStorage.getItem(STORAGE_KEY)
     if (!raw) return null
     const parsed: UserCoordinates = JSON.parse(raw)
     if (
@@ -27,9 +28,9 @@ function getCachedCoordinates(): UserCoordinates | null {
       !isNaN(parsed.latitude) &&
       !isNaN(parsed.longitude)
     ) {
-      // Validate freshness: 30 minutes
+      // Validate freshness: 24 hours
       const ageMs = Date.now() - (parsed.timestamp || 0)
-      if (ageMs < 30 * 60 * 1000) {
+      if (ageMs < 24 * 60 * 60 * 1000) {
         return parsed
       }
     }
@@ -40,16 +41,21 @@ function getCachedCoordinates(): UserCoordinates | null {
 }
 
 /**
- * Save valid user coordinates to sessionStorage and broadcast change across components.
+ * Save valid user coordinates to sessionStorage and localStorage, and broadcast change across components.
  */
 function persistCoordinates(coords: UserCoordinates | null) {
   if (typeof window === "undefined") return
   try {
     if (coords) {
-      sessionStorage.setItem(STORAGE_KEY, JSON.stringify(coords))
+      const serialized = JSON.stringify(coords)
+      sessionStorage.setItem(STORAGE_KEY, serialized)
+      localStorage.setItem(STORAGE_KEY, serialized)
+      localStorage.setItem(CONSENT_KEY, "1")
       window.dispatchEvent(new CustomEvent(LOCATION_EVENT_KEY, { detail: coords }))
     } else {
       sessionStorage.removeItem(STORAGE_KEY)
+      localStorage.removeItem(STORAGE_KEY)
+      localStorage.removeItem(CONSENT_KEY)
       window.dispatchEvent(new CustomEvent(LOCATION_EVENT_KEY, { detail: null }))
     }
   } catch {
@@ -312,9 +318,11 @@ export function useUserLocation() {
     []
   )
 
-  // When location permission is already granted by user/device, automatically obtain coordinates if not yet present
+  // When location permission is already granted by user/device or remembered from prior consent, automatically obtain coordinates
   useEffect(() => {
-    if (permissionState === "granted" && !coords && !loading) {
+    const hasConsent = typeof window !== "undefined" && localStorage.getItem(CONSENT_KEY) === "1"
+    const isGranted = permissionState === "granted" || (hasConsent && permissionState !== "denied")
+    if (isGranted && !coords && !loading) {
       void requestLocation(false)
     }
   }, [permissionState, coords, loading, requestLocation])

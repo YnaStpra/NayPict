@@ -117,8 +117,8 @@ const analyticsService = {
 
     const cleanIp = (meta.ip || 'Unknown').split(',')[0].trim();
     const cleanCountry = (meta.country || '').trim().toUpperCase() || 'Unknown';
-    const cleanCity = (meta.city || '').trim() || 'Unknown';
-    const cleanRegion = (meta.region || '').trim() || 'Unknown';
+    let cleanCity = (meta.city || '').trim() || 'Unknown';
+    let cleanRegion = (meta.region || '').trim() || 'Unknown';
 
     // Normalize referrer domain or source
     let cleanReferrer = (params.referrer || '').trim();
@@ -137,12 +137,18 @@ const analyticsService = {
     let userLng = (params.userLng || '').trim();
     let userLocationName = (params.userLocationName || '').trim();
 
-    // If client provided device GPS coordinates, reverse-geocode to a human-readable place
+    // If client provided device GPS coordinates, reverse-geocode to a human-readable place and calibrate city/region
     if (userLat && userLng && !userLocationName) {
       try {
         const rev = await locationService.reverseGeocode(Number(userLat), Number(userLng));
         if (rev && rev.address) {
           userLocationName = rev.address;
+        }
+        if (rev && rev.city) {
+          cleanCity = rev.city;
+        }
+        if (rev && rev.region) {
+          cleanRegion = rev.region;
         }
       } catch {}
       if (!userLocationName) {
@@ -199,7 +205,7 @@ const analyticsService = {
     return true;
   },
 
-  // Update session with device GPS location if visitor granted geolocation permission.
+  // Update visitor session with consented device GPS location.
   async updateLocation(params: UpdateVisitorLocationBo, isAdmin: boolean): Promise<boolean> {
     if (!params.sessionId || isAdmin) {
       return false;
@@ -224,10 +230,14 @@ const analyticsService = {
 
     if (!isNaN(lat) && !isNaN(lng)) {
       let locationName = (params.locationName || '').trim();
+      let detectedCity: string | undefined;
+      let detectedRegion: string | undefined;
       try {
         const rev = await locationService.reverseGeocode(lat, lng);
         if (rev && rev.address) {
           locationName = rev.address;
+          detectedCity = rev.city;
+          detectedRegion = rev.region;
         }
       } catch {}
 
@@ -237,14 +247,22 @@ const analyticsService = {
         locationName = `${latText}, ${lngText}`;
       }
 
+      const updateData: Record<string, unknown> = {
+        userLat: String(lat),
+        userLng: String(lng),
+        userLocationName: locationName,
+        lastActiveAt: sql`now()`,
+      };
+      if (detectedCity) {
+        updateData.city = detectedCity;
+      }
+      if (detectedRegion) {
+        updateData.region = detectedRegion;
+      }
+
       await orm
         .update(visitorSessionTab)
-        .set({
-          userLat: String(lat),
-          userLng: String(lng),
-          userLocationName: locationName,
-          lastActiveAt: sql`now()`,
-        })
+        .set(updateData)
         .where(eq(visitorSessionTab.id, params.sessionId));
 
       return true;

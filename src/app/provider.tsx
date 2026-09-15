@@ -16,6 +16,7 @@ import { useStorageStore } from "@/store/storage-store"
 import { TOKEN_COOKIE_MAX_AGE } from "@/server/const/global"
 import { useLiveCatalogSync } from "@/hooks/use-live-catalog-sync"
 import { useVisitorTracker } from "@/hooks/use-visitor-tracker"
+import { useUserLocation } from "@/hooks/use-user-location"
 
 const PhotoUploadDialog = dynamic(
 
@@ -198,9 +199,10 @@ function Provider({ children, defaultTheme, defaultSidebarOpen, initialUserInfo,
   )
 }
 
-// Sub-component to execute visitor telemetry hook within application context.
+// Sub-component to execute visitor telemetry and location synchronization within application context.
 function VisitorTrackerMount() {
   useVisitorTracker()
+  useUserLocation()
   return null
 }
 
