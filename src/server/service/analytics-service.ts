@@ -145,6 +145,15 @@ const analyticsService = {
           userLocationName = rev.address;
         }
       } catch {}
+      if (!userLocationName) {
+        const nLat = Number(userLat);
+        const nLng = Number(userLng);
+        if (!isNaN(nLat) && !isNaN(nLng)) {
+          const latText = `${Math.abs(nLat).toFixed(4)}°${nLat >= 0 ? 'N' : 'S'}`;
+          const lngText = `${Math.abs(nLng).toFixed(4)}°${nLng >= 0 ? 'E' : 'W'}`;
+          userLocationName = `${latText}, ${lngText}`;
+        }
+      }
     }
 
     await orm.insert(visitorSessionTab).values({
@@ -210,21 +219,29 @@ const analyticsService = {
       return true;
     }
 
-    let locationName = (params.locationName || '').trim();
+    const lat = typeof params.latitude === 'number' ? params.latitude : parseFloat(String(params.latitude));
+    const lng = typeof params.longitude === 'number' ? params.longitude : parseFloat(String(params.longitude));
 
-    if (typeof params.latitude === 'number' && typeof params.longitude === 'number') {
+    if (!isNaN(lat) && !isNaN(lng)) {
+      let locationName = (params.locationName || '').trim();
       try {
-        const rev = await locationService.reverseGeocode(params.latitude, params.longitude);
+        const rev = await locationService.reverseGeocode(lat, lng);
         if (rev && rev.address) {
           locationName = rev.address;
         }
       } catch {}
 
+      if (!locationName) {
+        const latText = `${Math.abs(lat).toFixed(4)}°${lat >= 0 ? 'N' : 'S'}`;
+        const lngText = `${Math.abs(lng).toFixed(4)}°${lng >= 0 ? 'E' : 'W'}`;
+        locationName = `${latText}, ${lngText}`;
+      }
+
       await orm
         .update(visitorSessionTab)
         .set({
-          userLat: String(params.latitude),
-          userLng: String(params.longitude),
+          userLat: String(lat),
+          userLng: String(lng),
           userLocationName: locationName,
           lastActiveAt: sql`now()`,
         })

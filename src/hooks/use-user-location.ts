@@ -219,6 +219,7 @@ export function useUserLocation() {
     return () => window.removeEventListener(LOCATION_EVENT_KEY, handleUpdate)
   }, [])
 
+
   /**
    * Request user coordinates from browser Geolocation API with mobile-friendly dual fallback.
    * If forceRefresh is false and valid coordinates already exist, returns cached coordinates.
@@ -310,6 +311,13 @@ export function useUserLocation() {
     },
     []
   )
+
+  // When location permission is already granted by user/device, automatically obtain coordinates if not yet present
+  useEffect(() => {
+    if (permissionState === "granted" && !coords && !loading) {
+      void requestLocation(false)
+    }
+  }, [permissionState, coords, loading, requestLocation])
 
   // Clear cached location
   const clearLocation = useCallback(() => {

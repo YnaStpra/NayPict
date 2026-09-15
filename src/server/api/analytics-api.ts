@@ -7,6 +7,7 @@ import { userService } from '@/server/service/user-service';
 import { UserTypeEnum } from '@/server/enums/user-enum';
 import { createId } from '@/server/lib/id';
 import BizError from '@/server/error/biz-error';
+import { parseUserAgent } from '@/server/lib/user-agent';
 import {
   type HeartbeatBo,
   type InitVisitorSessionBo,
@@ -226,16 +227,10 @@ async function resolveAccurateGeo(
 // Register visitor analytics API routes onto Hono instance.
 export function registerAnalyticsApi(app: Hono<HonoEnv>) {
 
-  // Public endpoint to initialize a new visitor session
-  app.post('/analytics/session/init', async (c: Context) => {
+  // Handler to initialize a new visitor session
+  const handleSessionInit = async (c: Context) => {
     // Strictly drop automated bots, serverless healthchecks, and crawlers
     if (isBotOrCrawler(c)) {
-      return c.json(result.ok({ sessionId: '', ignored: true }));
-    }
-
-    // Strictly drop authenticated administrators from visitor tracking
-    const isAdmin = await checkIsAdmin(c);
-    if (isAdmin) {
       return c.json(result.ok({ sessionId: '', ignored: true }));
     }
 
@@ -262,19 +257,53 @@ export function registerAnalyticsApi(app: Hono<HonoEnv>) {
       region: accurateGeo.region,
     };
 
-    // Calibrate Samsung Internet detection from User-Agent if reported as generic Chrome
+    // Authoritative device, OS, and browser detection
     const ua = c.req.header('user-agent') || '';
-    let browser = body.browser || 'Unknown';
-    if (
-      /SamsungBrowser|SBrowser|SAMSUNG/i.test(ua) ||
-      (/SM-[A-Z0-9]+/i.test(ua) && !/Firefox|OPR|Edge/i.test(ua) && /Version\/[0-9.]+/i.test(ua))
+    const parsedUa = parseUserAgent(ua);
+
+    // 1. Device detection
+    let device: 'Desktop' | 'Mobile' | 'Tablet' =
+      parsedUa.deviceType === 'mobile' ? 'Mobile' : parsedUa.deviceType === 'tablet' ? 'Tablet' : 'Desktop';
+    if (body.device && (body.device === 'Mobile' || body.device === 'Tablet' || body.device === 'Desktop')) {
+      if (parsedUa.os === 'macOS' || parsedUa.os === 'Windows') {
+        device = 'Desktop';
+      } else {
+        device = body.device as 'Desktop' | 'Mobile' | 'Tablet';
+      }
+    }
+
+    // 2. OS detection
+    let os = parsedUa.os;
+    if (body.os && body.os !== 'Unknown' && body.os !== 'Other') {
+      if (parsedUa.os === 'macOS' || parsedUa.os === 'Windows') {
+        os = parsedUa.os;
+      } else {
+        os = body.os;
+      }
+    }
+
+    // 3. Browser detection (Client can detect Brave via navigator.brave, server detects others via User-Agent)
+    let browser = 'Other';
+    if (body.browser === 'Brave' || /brave/i.test(ua)) {
+      browser = 'Brave';
+    } else if (
+      (parsedUa.os === 'Android' || os === 'Android') &&
+      (/samsungbrowser|sbrowser/i.test(ua) ||
+        (/sm-[a-z0-9]+/i.test(ua) && !/firefox|opr|edge/i.test(ua) && /version\/[0-9.]+/i.test(ua)) ||
+        body.browser === 'Samsung Internet')
     ) {
       browser = 'Samsung Internet';
+    } else if (parsedUa.browser && parsedUa.browser !== 'Other') {
+      browser = parsedUa.browser;
+    } else if (body.browser && body.browser !== 'Other') {
+      browser = body.browser;
     }
 
     const data = await analyticsService.initSession(
       {
         ...body,
+        device,
+        os,
         browser,
         visitorId,
       },
@@ -285,55 +314,67 @@ export function registerAnalyticsApi(app: Hono<HonoEnv>) {
     );
 
     return c.json(result.ok(data));
-  });
+  };
 
-
-  // Public endpoint for periodic heartbeat ping and duration update
-  app.post('/analytics/session/ping', async (c: Context) => {
+  // Handler for periodic heartbeat ping and duration update
+  const handleSessionPing = async (c: Context) => {
     const body = await c.req.json<HeartbeatBo>().catch(() => ({} as HeartbeatBo));
-    const isAdmin = await checkIsAdmin(c);
-
     if (!body.sessionId) {
       return c.json(result.ok({ updated: false }));
     }
 
-    const updated = await analyticsService.heartbeat(body, isAdmin);
+    const updated = await analyticsService.heartbeat(body, false);
     return c.json(result.ok({ updated }));
-  });
+  };
 
-  // Public endpoint to update session with visitor's consented device GPS location
-  app.post('/analytics/session/location', async (c: Context) => {
+  // Handler to update session with visitor's consented device GPS location
+  const handleSessionLocation = async (c: Context) => {
     const body = await c.req.json<UpdateVisitorLocationBo>().catch(() => ({} as UpdateVisitorLocationBo));
-    const isAdmin = await checkIsAdmin(c);
+
+    const lat = typeof body.latitude === 'number' ? body.latitude : parseFloat(String(body.latitude));
+    const lng = typeof body.longitude === 'number' ? body.longitude : parseFloat(String(body.longitude));
 
     if (
       !body.sessionId ||
-      (!body.isRevoked && (
-        typeof body.latitude !== 'number' ||
-        typeof body.longitude !== 'number' ||
-        isNaN(body.latitude) ||
-        isNaN(body.longitude)
-      ))
+      (!body.isRevoked && (isNaN(lat) || isNaN(lng)))
     ) {
       return c.json(result.ok({ updated: false }));
     }
 
-    const updated = await analyticsService.updateLocation(body, isAdmin);
+    const updated = await analyticsService.updateLocation(
+      {
+        ...body,
+        latitude: isNaN(lat) ? null : lat,
+        longitude: isNaN(lng) ? null : lng,
+      },
+      false
+    );
     return c.json(result.ok({ updated }));
-  });
+  };
 
-  // Public endpoint to track media view or interaction within a session
-  app.post('/analytics/media/track', async (c: Context) => {
+  // Handler to track media view or interaction within a session
+  const handleMediaTrack = async (c: Context) => {
     const body = await c.req.json<TrackMediaBo>().catch(() => ({} as TrackMediaBo));
-    const isAdmin = await checkIsAdmin(c);
-
     if (!body.photoId) {
       return c.json(result.ok({ tracked: false }));
     }
 
-    const tracked = await analyticsService.trackMedia(body, isAdmin);
+    const tracked = await analyticsService.trackMedia(body, false);
     return c.json(result.ok({ tracked }));
-  });
+  };
+
+  // Dual route registration: both /analytics/session/* and /telemetry/session/* (bypasses adblockers/Brave Shields)
+  app.post('/analytics/session/init', handleSessionInit);
+  app.post('/telemetry/session/init', handleSessionInit);
+
+  app.post('/analytics/session/ping', handleSessionPing);
+  app.post('/telemetry/session/ping', handleSessionPing);
+
+  app.post('/analytics/session/location', handleSessionLocation);
+  app.post('/telemetry/session/location', handleSessionLocation);
+
+  app.post('/analytics/media/track', handleMediaTrack);
+  app.post('/telemetry/media/track', handleMediaTrack);
 
   // Admin-only endpoint for overview stats and metric aggregations
   app.get('/analytics/overview', async (c: Context) => {

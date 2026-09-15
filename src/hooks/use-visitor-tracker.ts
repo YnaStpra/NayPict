@@ -1,13 +1,38 @@
 "use client"
 
 import { useEffect, useRef } from "react"
-import { useApp } from "@/app/provider"
-import { UserTypeEnum } from "@/server/enums/user-enum"
 
 // This module provides client-side visitor telemetry, session lifecycle heartbeats, and media interaction tracking.
 
 const SESSION_STORAGE_KEY = "naypict_session_id"
 const SESSION_START_KEY = "naypict_session_start"
+const ENDPOINT_PREFIX = "/api/telemetry"
+const FALLBACK_PREFIX = "/api/analytics"
+
+// Robust POST request handler with automatic fallback to bypass Brave Shields and adblockers
+async function postTelemetry(path: string, body: Record<string, unknown>): Promise<Response | null> {
+  const payload = JSON.stringify(body)
+  try {
+    const res = await fetch(`${ENDPOINT_PREFIX}${path}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: payload,
+    })
+    if (res.ok) return res
+  } catch {}
+
+  // Fallback to legacy path if telemetry path fails
+  try {
+    const res = await fetch(`${FALLBACK_PREFIX}${path}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: payload,
+    })
+    return res
+  } catch {}
+
+  return null
+}
 
 // Helper function to track media interactions from anywhere in the client UI
 export function trackVisitorMedia(photoId: string, action: "view" | "download" | "share" | "reaction" = "view") {
@@ -19,14 +44,23 @@ export function trackVisitorMedia(photoId: string, action: "view" | "download" |
   // Send asynchronous track request without blocking UI
   if (typeof navigator.sendBeacon === "function") {
     const blob = new Blob([payload], { type: "application/json" })
-    navigator.sendBeacon("/api/analytics/media/track", blob)
+    if (!navigator.sendBeacon(`${ENDPOINT_PREFIX}/media/track`, blob)) {
+      navigator.sendBeacon(`${FALLBACK_PREFIX}/media/track`, blob)
+    }
   } else {
-    fetch("/api/analytics/media/track", {
+    fetch(`${ENDPOINT_PREFIX}/media/track`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: payload,
       keepalive: true,
-    }).catch(() => {})
+    }).catch(() => {
+      fetch(`${FALLBACK_PREFIX}/media/track`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: payload,
+        keepalive: true,
+      }).catch(() => {})
+    })
   }
 }
 
@@ -37,23 +71,25 @@ async function detectClientTelemetry() {
   let device = "Desktop"
   let os = "Other"
 
-  // Device detection
-  const isMobile = /Android|webOS|iPhone|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua)
-  const isTablet = /iPad|Tablet|PlayBook|Silk/i.test(ua) || (navigator.maxTouchPoints > 1 && /Macintosh/.test(ua))
-  if (isTablet) {
-    device = "Tablet"
-  } else if (isMobile) {
-    device = "Mobile"
-  }
-
-  // OS detection
+  // 1. Operating System detection
   if (/iPhone|iPad|iPod/i.test(ua)) os = "iOS"
   else if (/Macintosh|Mac OS X/i.test(ua)) os = "macOS"
   else if (/Android/i.test(ua)) os = "Android"
   else if (/Windows NT/i.test(ua)) os = "Windows"
   else if (/Linux/i.test(ua)) os = "Linux"
 
-  // Browser detection
+  // 2. Device type detection
+  const isMobile = /Android|webOS|iPhone|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua)
+  const isTablet = /iPad|Tablet|PlayBook|Silk/i.test(ua) || (navigator.maxTouchPoints > 1 && os === "macOS")
+  if (isTablet) {
+    device = "Tablet"
+  } else if (isMobile && os !== "macOS" && os !== "Windows") {
+    device = "Mobile"
+  } else {
+    device = "Desktop"
+  }
+
+  // 3. Browser detection
   let isBrave = false
   try {
     const navAny = navigator as unknown as { brave?: { isBrave?: () => Promise<boolean> } }
@@ -64,14 +100,15 @@ async function detectClientTelemetry() {
     isBrave = false
   }
 
-  // Enhanced Samsung Internet detection (covers SamsungBrowser, SBrowser, Samsung model identifiers, and UserAgentData)
+  // Enhanced Samsung Internet detection (only valid on Android devices)
   const isSamsung =
-    /SamsungBrowser|SBrowser|SAMSUNG/i.test(ua) ||
-    Boolean(
-      (navigator as unknown as { userAgentData?: { brands?: Array<{ brand: string }> } })
-        .userAgentData?.brands?.some((b) => /Samsung/i.test(b.brand))
-    ) ||
-    (/SM-[A-Z0-9]+/i.test(ua) && !/Firefox|OPR|Edge/i.test(ua) && /Version\/[0-9.]+/i.test(ua))
+    os === "Android" &&
+    (/SamsungBrowser|SBrowser|SAMSUNG/i.test(ua) ||
+      Boolean(
+        (navigator as unknown as { userAgentData?: { brands?: Array<{ brand: string }> } })
+          .userAgentData?.brands?.some((b) => /Samsung/i.test(b.brand))
+      ) ||
+      (/SM-[A-Z0-9]+/i.test(ua) && !/Firefox|OPR|Edge/i.test(ua) && /Version\/[0-9.]+/i.test(ua)))
 
   if (isBrave) {
     browser = "Brave"
@@ -94,8 +131,6 @@ async function detectClientTelemetry() {
 
 // Hook that manages session lifetime, periodic heartbeats, and page visibility duration sync
 export function useVisitorTracker() {
-  const { userInfo } = useApp()
-  const isAdmin = userInfo?.type === UserTypeEnum.ADMIN
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   useEffect(() => {
@@ -109,28 +144,25 @@ export function useVisitorTracker() {
       return
     }
 
-    // 2. Strictly exclude authenticated administrators immediately (no waiting for userInfo fetch)
-    const hasAdminCookie =
-      document.cookie.includes("token=") ||
-      document.cookie.includes("__Host-token=") ||
-      document.cookie.includes("naypict_token=")
+    // 2. Only exclude internal administrative system routes from visitor tracking
     const isSystemRoute =
       window.location.pathname.startsWith("/admin") ||
       window.location.pathname.startsWith("/settings") ||
       window.location.pathname.startsWith("/storage") ||
       window.location.pathname.startsWith("/duplicates")
 
-    if (isAdmin || hasAdminCookie || isSystemRoute) {
+    if (isSystemRoute) {
       return
     }
 
     let activeSessionId = sessionStorage.getItem(SESSION_STORAGE_KEY)
-    let startTime = Number(sessionStorage.getItem(SESSION_START_KEY)) || Date.now()
+    const startTime = Number(sessionStorage.getItem(SESSION_START_KEY)) || Date.now()
 
     if (!sessionStorage.getItem(SESSION_START_KEY)) {
       sessionStorage.setItem(SESSION_START_KEY, String(startTime))
     }
 
+    // Send heartbeat ping with session duration
     const sendPing = (duration: number) => {
       const currentSid = sessionStorage.getItem(SESSION_STORAGE_KEY)
       if (!currentSid) return
@@ -138,14 +170,11 @@ export function useVisitorTracker() {
       const payload = JSON.stringify({ sessionId: currentSid, durationSeconds: duration })
       if (typeof navigator.sendBeacon === "function") {
         const blob = new Blob([payload], { type: "application/json" })
-        navigator.sendBeacon("/api/analytics/session/ping", blob)
+        if (!navigator.sendBeacon(`${ENDPOINT_PREFIX}/session/ping`, blob)) {
+          navigator.sendBeacon(`${FALLBACK_PREFIX}/session/ping`, blob)
+        }
       } else {
-        fetch("/api/analytics/session/ping", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: payload,
-          keepalive: true,
-        }).catch(() => {})
+        void postTelemetry("/session/ping", { sessionId: currentSid, durationSeconds: duration })
       }
     }
 
@@ -154,14 +183,10 @@ export function useVisitorTracker() {
       const sid = sessionStorage.getItem(SESSION_STORAGE_KEY) || activeSessionId
       if (!sid) return
       try {
-        await fetch("/api/analytics/session/location", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            sessionId: sid,
-            latitude,
-            longitude,
-          }),
+        await postTelemetry("/session/location", {
+          sessionId: sid,
+          latitude,
+          longitude,
         })
       } catch {}
     }
@@ -171,13 +196,9 @@ export function useVisitorTracker() {
       const sid = sessionStorage.getItem(SESSION_STORAGE_KEY) || activeSessionId
       if (!sid) return
       try {
-        await fetch("/api/analytics/session/location", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            sessionId: sid,
-            isRevoked: true,
-          }),
+        await postTelemetry("/session/location", {
+          sessionId: sid,
+          isRevoked: true,
         })
       } catch {}
     }
@@ -189,7 +210,7 @@ export function useVisitorTracker() {
       const sid = sessionStorage.getItem(SESSION_STORAGE_KEY) || activeSessionId
       if (!sid) return
 
-      // Sync existing cached coordinates if not yet recorded for this session
+      // Sync existing cached coordinates if available in sessionStorage
       const cachedCoords = sessionStorage.getItem("naypict_user_coords")
       if (cachedCoords) {
         try {
@@ -200,9 +221,44 @@ export function useVisitorTracker() {
             sessionStorage.getItem("naypict_loc_synced_sid") !== sid
           ) {
             sessionStorage.setItem("naypict_loc_synced_sid", sid)
-            syncLocation(parsed.latitude, parsed.longitude)
+            void syncLocation(parsed.latitude, parsed.longitude)
           }
         } catch {}
+      }
+
+      if (!("geolocation" in navigator)) return
+
+      const handlePositionSuccess = (pos: GeolocationPosition) => {
+        isCheckingGeo = false
+        const lat = Number(pos.coords.latitude.toFixed(6))
+        const lng = Number(pos.coords.longitude.toFixed(6))
+        const lastSyncedSid = sessionStorage.getItem("naypict_loc_synced_sid")
+
+        let shouldSync = lastSyncedSid !== sid
+        if (!shouldSync && cachedCoords) {
+          try {
+            const parsed = JSON.parse(cachedCoords)
+            if (
+              Math.abs(parsed.latitude - lat) > 0.0001 ||
+              Math.abs(parsed.longitude - lng) > 0.0001 ||
+              Date.now() - (parsed.timestamp || 0) > 5 * 60 * 1000
+            ) {
+              shouldSync = true
+            }
+          } catch {
+            shouldSync = true
+          }
+        } else if (!cachedCoords) {
+          shouldSync = true
+        }
+
+        if (shouldSync) {
+          const coordData = { latitude: lat, longitude: lng, timestamp: Date.now() }
+          sessionStorage.setItem("naypict_user_coords", JSON.stringify(coordData))
+          sessionStorage.setItem("naypict_loc_synced_sid", sid)
+          window.dispatchEvent(new CustomEvent("naypict:user-location-updated", { detail: coordData }))
+          void syncLocation(lat, lng)
+        }
       }
 
       // Query browser Permissions API if supported (Chrome, Samsung Internet, Edge, Brave)
@@ -211,53 +267,34 @@ export function useVisitorTracker() {
           isCheckingGeo = true
           const perm = await navigator.permissions.query({ name: "geolocation" as PermissionName })
 
-          // Keep active listener for permission state changes (e.g. toggled in site settings)
+          // Keep active listener for permission state changes
           perm.onchange = () => {
-            checkAndSyncPermission()
+            void checkAndSyncPermission()
           }
 
           if (perm.state === "granted" && "geolocation" in navigator) {
+            // Dual-strategy position resolver:
+            // Phase 1: High Accuracy GPS (ideal for outdoors and high precision, 8s timeout)
+            // Phase 2: If Phase 1 times out or is unavailable, fallback to cellular/Wi-Fi triangulation
             navigator.geolocation.getCurrentPosition(
               (pos) => {
-                isCheckingGeo = false
-                const lat = Number(pos.coords.latitude.toFixed(6))
-                const lng = Number(pos.coords.longitude.toFixed(6))
-                const lastSyncedSid = sessionStorage.getItem("naypict_loc_synced_sid")
-
-                let shouldSync = lastSyncedSid !== sid
-                if (!shouldSync && cachedCoords) {
-                  try {
-                    const parsed = JSON.parse(cachedCoords)
-                    if (
-                      Math.abs(parsed.latitude - lat) > 0.0001 ||
-                      Math.abs(parsed.longitude - lng) > 0.0001 ||
-                      Date.now() - (parsed.timestamp || 0) > 5 * 60 * 1000
-                    ) {
-                      shouldSync = true
-                    }
-                  } catch {
-                    shouldSync = true
-                  }
-                } else if (!cachedCoords) {
-                  shouldSync = true
-                }
-
-                if (shouldSync) {
-                  const coordData = { latitude: lat, longitude: lng, timestamp: Date.now() }
-                  sessionStorage.setItem("naypict_user_coords", JSON.stringify(coordData))
-                  sessionStorage.setItem("naypict_loc_synced_sid", sid)
-                  window.dispatchEvent(new CustomEvent("naypict:user-location-updated", { detail: coordData }))
-                  syncLocation(lat, lng)
-                }
+                handlePositionSuccess(pos)
               },
               () => {
-                isCheckingGeo = false
+                navigator.geolocation.getCurrentPosition(
+                  (pos) => {
+                    handlePositionSuccess(pos)
+                  },
+                  () => {
+                    isCheckingGeo = false
+                  },
+                  { enableHighAccuracy: false, timeout: 10000, maximumAge: 300000 }
+                )
               },
-              { enableHighAccuracy: false, timeout: 8000, maximumAge: 60000 }
+              { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 }
             )
           } else if (perm.state === "denied") {
             isCheckingGeo = false
-            // If location was previously shared during this session, notify backend of revocation
             const hadSynced =
               sessionStorage.getItem("naypict_loc_synced_sid") === sid ||
               sessionStorage.getItem("naypict_user_coords")
@@ -265,7 +302,7 @@ export function useVisitorTracker() {
               sessionStorage.removeItem("naypict_user_coords")
               sessionStorage.removeItem("naypict_loc_synced_sid")
               window.dispatchEvent(new CustomEvent("naypict:user-location-updated", { detail: null }))
-              revokeLocation()
+              void revokeLocation()
             }
           } else {
             isCheckingGeo = false
@@ -295,38 +332,36 @@ export function useVisitorTracker() {
         } catch {}
 
         try {
-          const res = await fetch("/api/analytics/session/init", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              referrer: document.referrer || "Direct",
-              landingPath: window.location.pathname + window.location.search,
-              browser,
-              device,
-              os,
-              userLat,
-              userLng,
-            }),
+          const res = await postTelemetry("/session/init", {
+            referrer: document.referrer || "Direct",
+            landingPath: window.location.pathname + window.location.search,
+            browser,
+            device,
+            os,
+            userLat,
+            userLng,
           })
-          const json = await res.json()
-          const sid = json?.data?.sessionId
-          if (typeof sid === "string" && sid) {
-            activeSessionId = sid
-            sessionStorage.setItem(SESSION_STORAGE_KEY, sid)
-            if (userLat && userLng) {
-              sessionStorage.setItem("naypict_loc_synced_sid", sid)
+          if (res) {
+            const json = await res.json()
+            const sid = json?.data?.sessionId
+            if (typeof sid === "string" && sid) {
+              activeSessionId = sid
+              sessionStorage.setItem(SESSION_STORAGE_KEY, sid)
+              if (userLat && userLng) {
+                sessionStorage.setItem("naypict_loc_synced_sid", sid)
+              }
             }
           }
         } catch (err) {
-          console.warn("[ANALYTICS] Init session error:", err)
+          console.warn("[TELEMETRY] Init session error:", err)
         }
       }
 
       // Check permission state immediately after session init
-      checkAndSyncPermission()
+      void checkAndSyncPermission()
     }
 
-    initSession()
+    void initSession()
 
     // Listen for real-time location updates when visitor grants or revokes permission
     const handleLocationUpdated = (e: Event) => {
@@ -336,10 +371,10 @@ export function useVisitorTracker() {
         if (sid) {
           sessionStorage.setItem("naypict_loc_synced_sid", sid)
         }
-        syncLocation(customEvent.detail.latitude, customEvent.detail.longitude)
+        void syncLocation(customEvent.detail.latitude, customEvent.detail.longitude)
       } else if (customEvent?.detail === null) {
         sessionStorage.removeItem("naypict_loc_synced_sid")
-        revokeLocation()
+        void revokeLocation()
       }
     }
     window.addEventListener("naypict:user-location-updated", handleLocationUpdated)
@@ -349,7 +384,7 @@ export function useVisitorTracker() {
       if (document.visibilityState === "visible") {
         const elapsed = Math.floor((Date.now() - startTime) / 1000)
         sendPing(elapsed)
-        checkAndSyncPermission()
+        void checkAndSyncPermission()
       }
     }, 30000)
 
@@ -359,12 +394,12 @@ export function useVisitorTracker() {
         const elapsed = Math.floor((Date.now() - startTime) / 1000)
         sendPing(elapsed)
       } else if (document.visibilityState === "visible") {
-        checkAndSyncPermission()
+        void checkAndSyncPermission()
       }
     }
 
     const handleWindowFocus = () => {
-      checkAndSyncPermission()
+      void checkAndSyncPermission()
     }
 
     const handleBeforeUnload = () => {
@@ -385,5 +420,5 @@ export function useVisitorTracker() {
       window.removeEventListener("pagehide", handleBeforeUnload)
       window.removeEventListener("beforeunload", handleBeforeUnload)
     }
-  }, [isAdmin])
+  }, [])
 }
