@@ -186,13 +186,20 @@ export async function migrate(): Promise<void> {
           "last_active_at" timestamptz DEFAULT now() NOT NULL,
           "duration_seconds" integer DEFAULT 0 NOT NULL,
           "media_count" integer DEFAULT 0 NOT NULL,
-          "is_admin" integer DEFAULT 0 NOT NULL
+          "is_admin" integer DEFAULT 0 NOT NULL,
+          "user_lat" text DEFAULT '' NOT NULL,
+          "user_lng" text DEFAULT '' NOT NULL,
+          "user_location_name" text DEFAULT '' NOT NULL
         );
       `;
       await sql`CREATE INDEX IF NOT EXISTS "visitor_session_started_at_idx" ON "visitor_session" ("started_at");`;
       await sql`CREATE INDEX IF NOT EXISTS "visitor_session_last_active_idx" ON "visitor_session" ("last_active_at");`;
       await sql`CREATE INDEX IF NOT EXISTS "visitor_session_visitor_id_idx" ON "visitor_session" ("visitor_id");`;
       await sql`CREATE INDEX IF NOT EXISTS "visitor_session_ip_idx" ON "visitor_session" ("ip");`;
+
+      await sql`ALTER TABLE "visitor_session" ADD COLUMN IF NOT EXISTS "user_lat" text DEFAULT '';`;
+      await sql`ALTER TABLE "visitor_session" ADD COLUMN IF NOT EXISTS "user_lng" text DEFAULT '';`;
+      await sql`ALTER TABLE "visitor_session" ADD COLUMN IF NOT EXISTS "user_location_name" text DEFAULT '';`;
 
       await sql`
         CREATE TABLE IF NOT EXISTS "visitor_activity" (

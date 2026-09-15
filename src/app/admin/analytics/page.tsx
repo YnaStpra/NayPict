@@ -634,7 +634,7 @@ export default function VisitorAnalyticsPage() {
                   <div className="relative w-full sm:w-56">
                     <Search className="absolute left-2.5 top-2.5 size-3.5 text-muted-foreground" />
                     <Input
-                      placeholder="Search IP, city, referrer..."
+                      placeholder="Search IP, city, GPS, referrer..."
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
                       className="h-8 pl-8 text-xs bg-muted/30"
@@ -677,7 +677,7 @@ export default function VisitorAnalyticsPage() {
                   <TableHeader>
                     <TableRow className="bg-muted/40 hover:bg-muted/40">
                       <TableHead className="text-xs font-semibold py-3 min-w-[280px]">Visitor / IP</TableHead>
-                      <TableHead className="text-xs font-semibold py-3">Location</TableHead>
+                      <TableHead className="text-xs font-semibold py-3 min-w-[220px]">Location (IP & Device)</TableHead>
                       <TableHead className="text-xs font-semibold py-3">Device & Browser</TableHead>
                       <TableHead className="text-xs font-semibold py-3">Referrer</TableHead>
                       <TableHead className="text-xs font-semibold py-3">Duration</TableHead>
@@ -727,18 +727,48 @@ export default function VisitorAnalyticsPage() {
                             </div>
                           </TableCell>
 
-                          {/* Location */}
+                          {/* Dual Geolocation: IP & User Device GPS */}
                           <TableCell className="py-2.5">
-                            <div className="flex items-center gap-1.5 text-xs">
-                              <span className="text-base leading-none">{getCountryFlag(s.country)}</span>
-                              <span className="font-medium text-foreground">
-                                {s.city && s.city !== "Unknown" ? `${s.city}, ` : ""}
-                                {getCountryName(s.country)}
-                              </span>
+                            <div className="space-y-1.5 min-w-[200px]">
+                              {/* 1. IP Location */}
+                              <div>
+                                <div className="flex items-center gap-1.5 text-xs">
+                                  <span className="text-sm leading-none">{getCountryFlag(s.country)}</span>
+                                  <span className="font-medium text-foreground">
+                                    {s.city && s.city !== "Unknown" ? `${s.city}, ` : ""}
+                                    {getCountryName(s.country)}
+                                  </span>
+                                </div>
+                                <div className="text-[10px] text-muted-foreground flex items-center gap-1">
+                                  <span className="text-[9px] uppercase font-semibold text-muted-foreground/70">IP:</span>
+                                  <span className="truncate max-w-[180px]">
+                                    {s.region && s.region !== "Unknown" && s.region !== s.city ? `${s.region}, ` : ""}
+                                    {s.country}
+                                  </span>
+                                </div>
+                              </div>
+
+                              {/* 2. Device Location (GPS) */}
+                              {s.userLat && s.userLng ? (
+                                <div className="pt-1 border-t border-border/40">
+                                  <div className="flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400 font-medium">
+                                    <Compass className="size-3 shrink-0 text-emerald-500" />
+                                    <span className="truncate max-w-[170px]" title={s.userLocationName || `${s.userLat}, ${s.userLng}`}>
+                                      {s.userLocationName || `${Number(s.userLat).toFixed(4)}°, ${Number(s.userLng).toFixed(4)}°`}
+                                    </span>
+                                    <Badge variant="secondary" className="px-1 py-0 text-[8px] bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-none uppercase font-bold shrink-0">
+                                      GPS
+                                    </Badge>
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="pt-1 border-t border-border/40">
+                                  <div className="text-[10px] text-muted-foreground/60 italic">
+                                    GPS not shared
+                                  </div>
+                                </div>
+                              )}
                             </div>
-                            {s.region && s.region !== "Unknown" && s.region !== s.city && (
-                              <div className="text-[10px] text-muted-foreground">{s.region}</div>
-                            )}
                           </TableCell>
 
                           {/* Device & Browser */}
@@ -914,13 +944,22 @@ export default function VisitorAnalyticsPage() {
                     </div>
                   </div>
 
-                  {/* Clean 4-Column Metadata Grid */}
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-0.5">
-                    <div>
-                      <span className="text-muted-foreground block text-[10px] uppercase font-semibold">Location</span>
-                      <div className="font-medium mt-0.5 flex items-center gap-1.5">
+                  {/* Dedicated Dual Geolocation Card */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 rounded-lg bg-background/60 border border-border/60">
+                    {/* 1. IP Geolocation (Network Edge) */}
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-muted-foreground text-[10px] uppercase font-semibold tracking-wider flex items-center gap-1">
+                          <Globe className="size-3 text-muted-foreground" />
+                          IP Geolocation (Edge)
+                        </span>
+                        <Badge variant="outline" className="text-[9px] px-1.5 py-0">
+                          ISP / Transit
+                        </Badge>
+                      </div>
+                      <div className="font-semibold text-foreground text-xs flex items-center gap-1.5 mt-0.5">
                         <span className="text-base leading-none">{getCountryFlag(sessionDetail.session.country)}</span>
-                        <span className="truncate">
+                        <span>
                           {sessionDetail.session.city && sessionDetail.session.city !== "Unknown" ? `${sessionDetail.session.city}, ` : ""}
                           {getCountryName(sessionDetail.session.country)}
                         </span>
@@ -928,12 +967,63 @@ export default function VisitorAnalyticsPage() {
                       {sessionDetail.session.region &&
                         sessionDetail.session.region !== "Unknown" &&
                         sessionDetail.session.region !== sessionDetail.session.city && (
-                          <span className="text-[10px] text-muted-foreground block truncate mt-0.5">
-                            {sessionDetail.session.region}
-                          </span>
+                          <div className="text-[11px] text-muted-foreground">
+                            Region: {sessionDetail.session.region}
+                          </div>
                         )}
                     </div>
 
+                    {/* 2. Device Geolocation (User Consented GPS) */}
+                    <div className="space-y-1 sm:border-l sm:border-border/60 sm:pl-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-muted-foreground text-[10px] uppercase font-semibold tracking-wider flex items-center gap-1">
+                          <Compass className="size-3 text-emerald-500" />
+                          Device Location (User Consented)
+                        </span>
+                        {sessionDetail.session.userLat && sessionDetail.session.userLng ? (
+                          <Badge variant="secondary" className="text-[9px] px-1.5 py-0 bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 font-bold border-none">
+                            GPS Verified
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="text-[9px] px-1.5 py-0 text-muted-foreground/70">
+                            Not Shared
+                          </Badge>
+                        )}
+                      </div>
+
+                      {sessionDetail.session.userLat && sessionDetail.session.userLng ? (
+                        <div className="space-y-1 mt-0.5">
+                          <div className="font-semibold text-foreground text-xs flex items-center gap-1.5">
+                            <span className="text-emerald-600 dark:text-emerald-400">📍</span>
+                            <span className="break-words">
+                              {sessionDetail.session.userLocationName || `${sessionDetail.session.userLat}, ${sessionDetail.session.userLng}`}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                            <span className="font-mono text-[10px]">
+                              {Number(sessionDetail.session.userLat).toFixed(6)}°, {Number(sessionDetail.session.userLng).toFixed(6)}°
+                            </span>
+                            <a
+                              href={`https://www.google.com/maps?q=${sessionDetail.session.userLat},${sessionDetail.session.userLng}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 text-[10px] text-primary hover:underline font-medium ml-2"
+                            >
+                              Google Maps
+                              <ArrowRight className="size-2.5" />
+                            </a>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="text-[11px] text-muted-foreground/70 italic mt-0.5">
+                          Visitor has not granted device location permission for this session.
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* 3-Column Metadata Grid */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-0.5">
                     <div>
                       <span className="text-muted-foreground block text-[10px] uppercase font-semibold">Duration</span>
                       <span className="font-mono font-medium mt-0.5 block text-foreground">

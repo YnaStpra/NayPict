@@ -149,10 +149,41 @@ export function useVisitorTracker() {
       }
     }
 
+    // Sync visitor's consented GPS location to active session
+    const syncLocation = async (latitude: number, longitude: number) => {
+      const sid = sessionStorage.getItem(SESSION_STORAGE_KEY) || activeSessionId
+      if (!sid) return
+      try {
+        await fetch("/api/analytics/session/location", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            sessionId: sid,
+            latitude,
+            longitude,
+          }),
+        })
+      } catch {}
+    }
+
     // Initialize session if not yet initialized
     const initSession = async () => {
       if (!activeSessionId) {
         const { browser, device, os } = await detectClientTelemetry()
+
+        let userLat = ""
+        let userLng = ""
+        try {
+          const cached = sessionStorage.getItem("naypict_user_coords")
+          if (cached) {
+            const parsed = JSON.parse(cached)
+            if (parsed.latitude && parsed.longitude) {
+              userLat = String(parsed.latitude)
+              userLng = String(parsed.longitude)
+            }
+          }
+        } catch {}
+
         try {
           const res = await fetch("/api/analytics/session/init", {
             method: "POST",
@@ -163,6 +194,8 @@ export function useVisitorTracker() {
               browser,
               device,
               os,
+              userLat,
+              userLng,
             }),
           })
           const json = await res.json()
@@ -172,15 +205,40 @@ export function useVisitorTracker() {
             sessionStorage.setItem(SESSION_STORAGE_KEY, sid)
           }
         } catch (err) {
-
-
-
           console.warn("[ANALYTICS] Init session error:", err)
         }
+      }
+
+      // Check if browser already granted geolocation permission without prompting
+      if (typeof navigator !== "undefined" && "permissions" in navigator && navigator.permissions?.query) {
+        try {
+          const perm = await navigator.permissions.query({ name: "geolocation" as PermissionName })
+          if (perm.state === "granted" && "geolocation" in navigator) {
+            navigator.geolocation.getCurrentPosition(
+              (pos) => {
+                const lat = Number(pos.coords.latitude.toFixed(6))
+                const lng = Number(pos.coords.longitude.toFixed(6))
+                sessionStorage.setItem("naypict_user_coords", JSON.stringify({ latitude: lat, longitude: lng, timestamp: Date.now() }))
+                syncLocation(lat, lng)
+              },
+              () => {},
+              { timeout: 8000 }
+            )
+          }
+        } catch {}
       }
     }
 
     initSession()
+
+    // Listen for real-time location updates when visitor grants permission on gallery or map
+    const handleLocationUpdated = (e: Event) => {
+      const customEvent = e as CustomEvent<{ latitude: number; longitude: number }>
+      if (customEvent?.detail?.latitude && customEvent?.detail?.longitude) {
+        syncLocation(customEvent.detail.latitude, customEvent.detail.longitude)
+      }
+    }
+    window.addEventListener("naypict:user-location-updated", handleLocationUpdated)
 
     // Lightweight heartbeat every 45 seconds while tab is active
     intervalRef.current = setInterval(() => {
@@ -209,6 +267,7 @@ export function useVisitorTracker() {
 
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current)
+      window.removeEventListener("naypict:user-location-updated", handleLocationUpdated)
       document.removeEventListener("visibilitychange", handleVisibilityChange)
       window.removeEventListener("pagehide", handleBeforeUnload)
       window.removeEventListener("beforeunload", handleBeforeUnload)

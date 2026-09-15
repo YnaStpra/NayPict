@@ -11,6 +11,7 @@ import {
   type HeartbeatBo,
   type InitVisitorSessionBo,
   type TrackMediaBo,
+  type UpdateVisitorLocationBo,
   type VisitorSessionsQueryBo,
 } from '@/server/entity/bo/analytics';
 import type { HonoEnv } from '../hono/type';
@@ -297,6 +298,25 @@ export function registerAnalyticsApi(app: Hono<HonoEnv>) {
     }
 
     const updated = await analyticsService.heartbeat(body, isAdmin);
+    return c.json(result.ok({ updated }));
+  });
+
+  // Public endpoint to update session with visitor's consented device GPS location
+  app.post('/analytics/session/location', async (c: Context) => {
+    const body = await c.req.json<UpdateVisitorLocationBo>().catch(() => ({} as UpdateVisitorLocationBo));
+    const isAdmin = await checkIsAdmin(c);
+
+    if (
+      !body.sessionId ||
+      typeof body.latitude !== 'number' ||
+      typeof body.longitude !== 'number' ||
+      isNaN(body.latitude) ||
+      isNaN(body.longitude)
+    ) {
+      return c.json(result.ok({ updated: false }));
+    }
+
+    const updated = await analyticsService.updateLocation(body, isAdmin);
     return c.json(result.ok({ updated }));
   });
 

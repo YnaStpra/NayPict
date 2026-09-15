@@ -22,6 +22,9 @@ export const visitorSessionTab = pgTable('visitor_session', {
   durationSeconds: integer('duration_seconds').notNull().default(0),
   mediaCount: integer('media_count').notNull().default(0),
   isAdmin: integer('is_admin').notNull().default(0),
+  userLat: text('user_lat').notNull().default(''),
+  userLng: text('user_lng').notNull().default(''),
+  userLocationName: text('user_location_name').notNull().default(''),
 });
 
 export const visitorActivityTab = pgTable('visitor_activity', {

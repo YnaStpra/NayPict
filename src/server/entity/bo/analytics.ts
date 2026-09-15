@@ -8,6 +8,16 @@ export type InitVisitorSessionBo = {
   browserVersion?: string;
   os?: string;
   device?: string;
+  userLat?: string;
+  userLng?: string;
+  userLocationName?: string;
+};
+
+export type UpdateVisitorLocationBo = {
+  sessionId: string;
+  latitude: number;
+  longitude: number;
+  locationName?: string;
 };
 
 export type HeartbeatBo = {

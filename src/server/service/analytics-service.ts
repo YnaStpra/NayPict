@@ -9,10 +9,12 @@ import { storageTab } from '@/server/entity/storage';
 import { buildThumbnailKey } from '@/server/lib/photo-path';
 import { toMediaUrl } from '@/lib/url';
 import { insightsService } from '@/server/service/insights-service';
+import { locationService } from '@/server/service/location-service';
 import {
   type HeartbeatBo,
   type InitVisitorSessionBo,
   type TrackMediaBo,
+  type UpdateVisitorLocationBo,
   type VisitorSessionsQueryBo,
 } from '@/server/entity/bo/analytics';
 import {
@@ -54,13 +56,20 @@ async function ensureAnalyticsTables(): Promise<void> {
         "last_active_at" timestamptz DEFAULT now() NOT NULL,
         "duration_seconds" integer DEFAULT 0 NOT NULL,
         "media_count" integer DEFAULT 0 NOT NULL,
-        "is_admin" integer DEFAULT 0 NOT NULL
+        "is_admin" integer DEFAULT 0 NOT NULL,
+        "user_lat" text DEFAULT '' NOT NULL,
+        "user_lng" text DEFAULT '' NOT NULL,
+        "user_location_name" text DEFAULT '' NOT NULL
       );
     `;
     await rawSql`CREATE INDEX IF NOT EXISTS "visitor_session_started_at_idx" ON "visitor_session" ("started_at");`;
     await rawSql`CREATE INDEX IF NOT EXISTS "visitor_session_last_active_idx" ON "visitor_session" ("last_active_at");`;
     await rawSql`CREATE INDEX IF NOT EXISTS "visitor_session_visitor_id_idx" ON "visitor_session" ("visitor_id");`;
     await rawSql`CREATE INDEX IF NOT EXISTS "visitor_session_ip_idx" ON "visitor_session" ("ip");`;
+
+    await rawSql`ALTER TABLE "visitor_session" ADD COLUMN IF NOT EXISTS "user_lat" text DEFAULT '';`;
+    await rawSql`ALTER TABLE "visitor_session" ADD COLUMN IF NOT EXISTS "user_lng" text DEFAULT '';`;
+    await rawSql`ALTER TABLE "visitor_session" ADD COLUMN IF NOT EXISTS "user_location_name" text DEFAULT '';`;
 
     await rawSql`
       CREATE TABLE IF NOT EXISTS "visitor_activity" (
@@ -124,6 +133,20 @@ const analyticsService = {
       }
     }
 
+    let userLat = (params.userLat || '').trim();
+    let userLng = (params.userLng || '').trim();
+    let userLocationName = (params.userLocationName || '').trim();
+
+    // If client provided device GPS coordinates, reverse-geocode to a human-readable place
+    if (userLat && userLng && !userLocationName) {
+      try {
+        const rev = await locationService.reverseGeocode(Number(userLat), Number(userLng));
+        if (rev && rev.address) {
+          userLocationName = rev.address;
+        }
+      } catch {}
+    }
+
     await orm.insert(visitorSessionTab).values({
       id: sessionId,
       visitorId: params.visitorId || createId(),
@@ -140,6 +163,9 @@ const analyticsService = {
       durationSeconds: 0,
       mediaCount: 0,
       isAdmin: 0,
+      userLat,
+      userLng,
+      userLocationName,
     });
 
 
@@ -159,6 +185,35 @@ const analyticsService = {
       .set({
         lastActiveAt: sql`now()`,
         durationSeconds: safeDuration,
+      })
+      .where(eq(visitorSessionTab.id, params.sessionId));
+
+    return true;
+  },
+
+  // Update session with device GPS location if visitor granted geolocation permission.
+  async updateLocation(params: UpdateVisitorLocationBo, isAdmin: boolean): Promise<boolean> {
+    if (!params.sessionId || isAdmin) {
+      return false;
+    }
+
+    let locationName = (params.locationName || '').trim();
+    if (!locationName && typeof params.latitude === 'number' && typeof params.longitude === 'number') {
+      try {
+        const rev = await locationService.reverseGeocode(params.latitude, params.longitude);
+        if (rev && rev.address) {
+          locationName = rev.address;
+        }
+      } catch {}
+    }
+
+    await orm
+      .update(visitorSessionTab)
+      .set({
+        userLat: String(params.latitude),
+        userLng: String(params.longitude),
+        userLocationName: locationName,
+        lastActiveAt: sql`now()`,
       })
       .where(eq(visitorSessionTab.id, params.sessionId));
 
@@ -327,7 +382,8 @@ const analyticsService = {
           ilike(visitorSessionTab.ip, q),
           ilike(visitorSessionTab.city, q),
           ilike(visitorSessionTab.country, q),
-          ilike(visitorSessionTab.referrer, q)
+          ilike(visitorSessionTab.referrer, q),
+          ilike(visitorSessionTab.userLocationName, q)
         )!
       );
     }
@@ -366,6 +422,9 @@ const analyticsService = {
       lastActiveAt: toIsoString(r.lastActiveAt),
       durationSeconds: r.durationSeconds,
       mediaCount: r.mediaCount,
+      userLat: r.userLat || '',
+      userLng: r.userLng || '',
+      userLocationName: r.userLocationName || '',
     }));
 
     return {
@@ -479,6 +538,9 @@ const analyticsService = {
       lastActiveAt: toIsoString(session.lastActiveAt),
       durationSeconds: session.durationSeconds,
       mediaCount: session.mediaCount,
+      userLat: session.userLat || '',
+      userLng: session.userLng || '',
+      userLocationName: session.userLocationName || '',
     };
 
     return {

@@ -17,6 +17,9 @@ export type VisitorSessionVo = {
   lastActiveAt: string;
   durationSeconds: number;
   mediaCount: number;
+  userLat?: string;
+  userLng?: string;
+  userLocationName?: string;
 };
 
 export type VisitorActivityItemVo = {
