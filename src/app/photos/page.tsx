@@ -70,6 +70,11 @@ const OnThisDayBanner = dynamic(
   { ssr: false }
 )
 
+const PhotoLocationBanner = dynamic(
+  () => import("@/components/photo/photo-location-banner").then((mod) => mod.PhotoLocationBanner),
+  { ssr: false }
+)
+
 type SortOptionKey = 'none' | 'takenTime_desc' | 'takenTime_asc' | 'createTime_desc' | 'createTime_asc' | 'type_asc' | 'type_desc' | 'size_desc' | 'size_asc' | 'name_asc' | 'name_desc' | 'nearby'
 
 const SORT_OPTIONS: { key: SortOptionKey; label: string; sortBy?: 'takenTime' | 'createTime' | 'size' | 'name' | 'type' | null; sortOrder?: 'asc' | 'desc' | null; shuffle?: boolean }[] = [
@@ -554,6 +559,7 @@ export default function Page() {
                 </div>
               ) : (
                 <>
+                  <PhotoLocationBanner />
                   <OnThisDayBanner onPhotoClick={handleOnThisDayPhotoClick} />
                   <PhotoMasonry
                     photos={displayPhotos}

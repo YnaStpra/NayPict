@@ -30,6 +30,7 @@ import {
   MapPin,
   Navigation,
   Play,
+  ShieldCheck,
   Sparkles,
   X,
 } from "lucide-react"
@@ -311,19 +312,23 @@ export default function PhotoMapView() {
       setShowLocationPrompt(false)
       return
     }
-    // Check if dismissed in this specific browser session
-    const dismissedThisSession = sessionStorage.getItem("naypict_map_loc_prompt_dismissed")
-    if (!dismissedThisSession) {
+    // Check if dismissed in this specific browser session across gallery or map
+    const dismissedThisSession =
+      sessionStorage.getItem("naypict_loc_prompt_dismissed") === "1" ||
+      sessionStorage.getItem("naypict_map_loc_prompt_dismissed") === "1"
+
+    if (!dismissedThisSession && !permissionDenied) {
       // Delay slightly for map tile initialization
       const timer = setTimeout(() => {
         setShowLocationPrompt(true)
       }, 700)
       return () => clearTimeout(timer)
     }
-  }, [userCoords])
+  }, [userCoords, permissionDenied])
 
   // Dismiss location prompt for the current session (will ask again on next visit/session if not allowed)
   const handleDismissLocationPrompt = () => {
+    sessionStorage.setItem("naypict_loc_prompt_dismissed", "1")
     sessionStorage.setItem("naypict_map_loc_prompt_dismissed", "1")
     setShowLocationPrompt(false)
   }
@@ -1403,15 +1408,25 @@ export default function PhotoMapView() {
 
       {/* Non-intrusive Location Prompt Banner on Initial Map Visit */}
       {showLocationPrompt && !userCoords && (
-        <div className="absolute top-18 sm:top-18 left-4 right-4 sm:left-4 sm:right-auto sm:max-w-sm z-20 animate-in fade-in slide-in-from-top-3 duration-200 pointer-events-auto">
-          <div className="p-3.5 rounded-3xl backdrop-blur-2xl bg-background/95 dark:bg-neutral-900/95 border border-sky-500/30 shadow-2xl flex items-start gap-3">
-            <div className="size-8 rounded-2xl bg-sky-500/15 text-sky-500 flex items-center justify-center shrink-0 mt-0.5">
-              <Navigation className="size-4 fill-sky-500" />
+        <div className="absolute top-18 sm:top-18 left-4 right-4 sm:left-4 sm:right-auto sm:max-w-md z-20 animate-in fade-in slide-in-from-top-3 duration-200 pointer-events-auto">
+          <div className="p-3.5 sm:p-4 rounded-3xl backdrop-blur-2xl bg-background/95 dark:bg-neutral-900/95 border border-sky-500/30 shadow-2xl flex items-start gap-3">
+            <div className="size-9 rounded-2xl bg-sky-500/15 text-sky-500 flex items-center justify-center shrink-0 mt-0.5 shadow-sm border border-sky-500/20">
+              <Navigation className="size-4.5 fill-sky-500" />
             </div>
             <div className="min-w-0 flex-1">
-              <p className="text-xs font-bold text-foreground">Explore photos near you?</p>
-              <p className="text-[11px] text-muted-foreground leading-snug mt-0.5">
-                Enable GPS location to discover media taken right around your current area and get walking directions.
+              <div className="flex items-center gap-2 mb-1 flex-wrap">
+                <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-sky-500/15 text-sky-600 dark:text-sky-400 border border-sky-500/25">
+                  Interactive Map
+                </span>
+                <span className="text-[10px] text-muted-foreground font-medium flex items-center gap-1">
+                  <ShieldCheck className="size-3 text-emerald-500" /> Strictly Private
+                </span>
+              </div>
+              <p className="text-xs font-bold text-foreground leading-snug">
+                Enabling location unlocks an exciting experience while exploring this website
+              </p>
+              <p className="text-[11px] text-muted-foreground leading-relaxed mt-1">
+                Your location is used solely to enhance interactive features like discovering photos taken near you and calculating distances. Your location data is strictly private and will never be shared with or disclosed to anyone.
               </p>
               <div className="flex items-center gap-2 mt-2.5">
                 <Button
@@ -1419,15 +1434,18 @@ export default function PhotoMapView() {
                   size="sm"
                   onClick={handleEnableLocationFromPrompt}
                   disabled={locatingUser}
-                  className="h-7 px-3 text-[11px] font-semibold rounded-xl bg-sky-500 hover:bg-sky-600 text-white cursor-pointer"
+                  className="h-7.5 px-3 text-[11px] font-semibold rounded-xl bg-sky-500 hover:bg-sky-600 text-white shadow-md shadow-sky-500/20 transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
                 >
                   {locatingUser ? (
                     <>
-                      <Loader2 className="size-3 animate-spin mr-1" />
+                      <Loader2 className="size-3 animate-spin mr-1.5" />
                       <span>Locating...</span>
                     </>
                   ) : (
-                    "Enable Location"
+                    <>
+                      <Navigation className="size-3 fill-white mr-1.5" />
+                      <span>Enable Location</span>
+                    </>
                   )}
                 </Button>
                 <Button
@@ -1435,7 +1453,7 @@ export default function PhotoMapView() {
                   variant="ghost"
                   size="sm"
                   onClick={handleDismissLocationPrompt}
-                  className="h-7 px-2 text-[11px] text-muted-foreground hover:text-foreground cursor-pointer rounded-xl"
+                  className="h-7.5 px-2.5 text-[11px] text-muted-foreground hover:text-foreground cursor-pointer rounded-xl"
                 >
                   Maybe Later
                 </Button>
@@ -1444,8 +1462,9 @@ export default function PhotoMapView() {
             <button
               type="button"
               onClick={handleDismissLocationPrompt}
-              className="text-muted-foreground hover:text-foreground p-1 rounded-lg cursor-pointer"
-              title="Dismiss"
+              className="text-muted-foreground hover:text-foreground p-1 rounded-lg cursor-pointer transition-colors hover:bg-foreground/5"
+              title="Dismiss notification"
+              aria-label="Dismiss notification"
             >
               <X className="size-3.5" />
             </button>
