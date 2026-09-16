@@ -199,4 +199,48 @@ test.describe('Security & Authorization Regression Suite', () => {
     const infoRes = await page.request.post('/api/user/info', { data: {} });
     expect(infoRes.status()).toBe(401);
   });
+
+  test('SEC-10: Analytics Authorization — Admin analytics endpoints reject unauthenticated requests', async ({ request }) => {
+    const endpoints = [
+      { url: '/api/analytics/overview', method: 'get' },
+      { url: '/api/analytics/sessions', method: 'get' },
+      { url: '/api/analytics/reset', method: 'post', data: {} },
+    ];
+
+    for (const ep of endpoints) {
+      const res = ep.method === 'post'
+        ? await request.post(ep.url, { data: ep.data })
+        : await request.get(ep.url);
+
+      expect(res.status(), `Endpoint ${ep.url} must require authentication`).toBeGreaterThanOrEqual(401);
+    }
+  });
+
+  test('SEC-11: Reverse Geocode Rate Limiting — Rapid requests trigger 429 Too Many Requests', async ({ request }) => {
+    let triggeredRateLimit = false;
+
+    // Send rapid burst of 35 requests (limit is 30/min)
+    for (let i = 0; i < 35; i++) {
+      const res = await request.get('/api/location/reverse?lat=-8.65&lng=115.21');
+      if (res.status() === 429) {
+        triggeredRateLimit = true;
+        break;
+      }
+    }
+
+    expect(triggeredRateLimit, 'Burst requests to /api/location/reverse should trigger 429 rate limit').toBe(true);
+  });
+
+  test('SEC-12: Anti-CSRF on Analytics Reset — Cross-origin forged request is blocked', async ({ request }) => {
+    const res = await request.post('/api/analytics/reset', {
+      headers: {
+        Origin: 'https://evil-attacker-site.com',
+      },
+      data: {},
+    });
+
+    expect(res.status()).toBe(403);
+    const body = await res.json().catch(() => ({}));
+    expect(body.message).toBeTruthy();
+  });
 });

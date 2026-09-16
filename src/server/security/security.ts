@@ -56,7 +56,9 @@ const SYSTEM_PATHS = [
   '/photo/untagged',
   '/admin/insights',
   '/insights',
-  '/analytics',
+  '/analytics/overview',
+  '/analytics/sessions',
+  '/analytics/reset',
   '/backup'
 ];
 
@@ -85,7 +87,12 @@ const PUBLIC_API_PATHS = [
   '/sync',
   '/analytics/session/init',
   '/analytics/session/ping',
-  '/analytics/media/track'
+  '/analytics/session/location',
+  '/analytics/media/track',
+  '/telemetry/session/init',
+  '/telemetry/session/ping',
+  '/telemetry/session/location',
+  '/telemetry/media/track'
 ];
 
 

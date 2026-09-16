@@ -36,7 +36,7 @@ const locationService = {
         address: '',
         latitude: isNaN(lat) ? 0 : lat,
         longitude: isNaN(lng) ? 0 : lng,
-        mapsUrl,
+        mapsUrl: '',
       };
     }
 

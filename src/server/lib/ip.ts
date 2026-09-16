@@ -30,23 +30,25 @@ export function getClientIp(c: Context): string {
   return 'unknown';
 }
 
-const IPV4_REGEX = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
-const IPV6_REGEX = /^(?:[a-fA-F0-9]{1,4}:){7}[a-fA-F0-9]{1,4}$|^::(?:[a-fA-F0-9]{1,4}:){0,6}[a-fA-F0-9]{1,4}$|^(?:[a-fA-F0-9]{1,4}:){1,7}:$|^(?:[a-fA-F0-9]{1,4}:){1,6}:[a-fA-F0-9]{1,4}$|^(?:[a-fA-F0-9]{1,4}:)(?::[a-fA-F0-9]{1,4}){1,6}$|^::(?:[a-fA-F0-9]{1,4}:){0,5}(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$|^(?:[a-fA-F0-9]{1,4}:){1,5}:(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
+import { isIP } from 'node:net';
 
-// Validate that an IP address string conforms to standard IPv4 or IPv6 syntax.
+// Validate that an IP address string conforms to standard canonical IPv4 or IPv6 syntax.
 export function isValidIp(ip: string): boolean {
   if (!ip || typeof ip !== 'string' || ip.length > 45) return false;
   const clean = ip.trim();
-  return IPV4_REGEX.test(clean) || IPV6_REGEX.test(clean);
+  // node:net isIP returns 4 for IPv4, 6 for IPv6, and 0 for invalid.
+  // It natively rejects leading zero octets (octal attacks) and malformed representations.
+  return isIP(clean) !== 0;
 }
 
 // Determine if an IP address belongs to private, loopback, link-local, or cloud metadata ranges.
 export function isPrivateOrReservedIp(ip: string): boolean {
   if (!isValidIp(ip)) return true;
   const clean = ip.trim().toLowerCase();
+  const version = isIP(clean);
 
   // IPv4 range checks
-  if (IPV4_REGEX.test(clean)) {
+  if (version === 4) {
     const parts = clean.split('.').map(Number);
     const [a, b, c] = parts;
 
@@ -83,20 +85,22 @@ export function isPrivateOrReservedIp(ip: string): boolean {
   }
 
   // IPv6 range checks
-  if (
-    clean === '::1' ||
-    clean === '::' ||
-    clean.startsWith('fe80:') ||
-    clean.startsWith('fc00:') ||
-    clean.startsWith('fd00:') ||
-    clean.startsWith('ff00:') ||
-    clean.startsWith('2001:db8:') ||
-    clean.startsWith('::ffff:127.') ||
-    clean.startsWith('::ffff:10.') ||
-    clean.startsWith('::ffff:192.168.') ||
-    clean.startsWith('::ffff:169.254.')
-  ) {
-    return true;
+  if (version === 6) {
+    if (
+      clean === '::1' ||
+      clean === '::' ||
+      clean.startsWith('fe8') ||
+      clean.startsWith('fe9') ||
+      clean.startsWith('fea') ||
+      clean.startsWith('feb') || // fe80::/10 link-local
+      clean.startsWith('fc') ||  // fc00::/7 unique-local
+      clean.startsWith('fd') ||  // fd00::/8 unique-local
+      clean.startsWith('ff') ||  // ff00::/8 multicast
+      clean.startsWith('2001:db8:') || // documentation
+      clean.startsWith('::ffff:') // IPv4-mapped (internal translation)
+    ) {
+      return true;
+    }
   }
 
   return false;
