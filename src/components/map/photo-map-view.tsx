@@ -1035,19 +1035,37 @@ export default function PhotoMapView() {
     )
   }, [selectedCluster])
 
-  // Auto-scroll the thumbnail strip to keep the active photo centered and visible
+  // Auto-scroll ONLY the thumbnail strip container to keep the active photo centered and visible
   useEffect(() => {
     if (!thumbnailStripRef.current) return
     const container = thumbnailStripRef.current
     const activeBtn = container.children[activePhotoIndex] as HTMLElement | undefined
     if (activeBtn) {
-      activeBtn.scrollIntoView({
+      const targetScrollLeft = activeBtn.offsetLeft - (container.clientWidth - activeBtn.clientWidth) / 2
+      container.scrollTo({
+        left: Math.max(0, targetScrollLeft),
         behavior: "smooth",
-        block: "nearest",
-        inline: "center",
       })
     }
+    // Prevent ancestor scrolling: ensure the floating spot card is never scrolled horizontally
+    if (spotCardRef.current && spotCardRef.current.scrollLeft !== 0) {
+      spotCardRef.current.scrollLeft = 0
+    }
   }, [activePhotoIndex, selectedCluster])
+
+  // Prevent any horizontal scroll displacement on the floating preview card
+  useEffect(() => {
+    const el = spotCardRef.current
+    if (!el) return
+    const resetScroll = () => {
+      if (el.scrollLeft !== 0) {
+        el.scrollLeft = 0
+      }
+    }
+    el.addEventListener("scroll", resetScroll, { passive: true })
+    resetScroll()
+    return () => el.removeEventListener("scroll", resetScroll)
+  }, [selectedCluster, activePhotoIndex])
 
   // Support keyboard navigation (ArrowLeft / ArrowRight / Escape) when spot card is selected
   useEffect(() => {
@@ -1476,7 +1494,7 @@ export default function PhotoMapView() {
       {selectedCluster && currentPhoto && (
         <div
           ref={spotCardRef}
-          className="absolute z-20 overflow-hidden backdrop-blur-2xl bg-background/90 dark:bg-neutral-900/90 border border-border/80 shadow-2xl transition-all floating-polaroid-card
+          className="absolute z-20 overflow-hidden overflow-x-hidden backdrop-blur-2xl bg-background/90 dark:bg-neutral-900/90 border border-border/80 shadow-2xl transition-all floating-polaroid-card
             bottom-4 inset-x-3 mx-auto max-w-sm w-auto rounded-3xl
             sm:bottom-auto sm:top-20 sm:right-4 sm:left-auto sm:mx-0 sm:w-80 sm:max-w-none
             max-h-[calc(100dvh-7.5rem)] flex flex-col"
@@ -1792,12 +1810,12 @@ export default function PhotoMapView() {
             )}
 
             {/* Action Buttons */}
-            <div className="flex items-center gap-2 pt-1">
+            <div className="flex items-center gap-1.5 pt-1 w-full min-w-0 overflow-x-auto scrollbar-none">
               <Button
                 type="button"
                 size="sm"
                 onClick={() => handleOpenPhotoViewer(selectedCluster.photos, activePhotoIndex)}
-                className="flex-1 h-8.5 text-xs rounded-xl gap-1.5 font-semibold bg-emerald-600 hover:bg-emerald-500 text-white cursor-pointer shadow-xs"
+                className="shrink-0 flex-1 h-8.5 text-xs rounded-xl gap-1.5 font-semibold bg-emerald-600 hover:bg-emerald-500 text-white cursor-pointer shadow-xs"
                 title="Open media in full viewer"
               >
                 <Eye className="size-3.5" />
