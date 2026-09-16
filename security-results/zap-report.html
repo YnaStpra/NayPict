@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<title>ZAP Scanning Report - https://www.naypict.my.id</title>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; margin: 30px; background: #f8fafc; color: #1e293b; }
+  .header { border-bottom: 2px solid #e2e8f0; padding-bottom: 15px; margin-bottom: 25px; }
+  h1 { font-size: 24px; margin: 0 0 10px 0; }
+  .summary-table, .alert-table { width: 100%; border-collapse: collapse; margin-bottom: 25px; background: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+  th, td { border: 1px solid #e2e8f0; padding: 10px 14px; text-align: left; font-size: 13px; }
+  th { background-color: #f1f5f9; font-weight: 600; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-weight: 600; font-size: 11px; }
+  .badge-medium { background: #fed7aa; color: #9a3412; }
+  .badge-low { background: #fef08a; color: #854d0e; }
+  .badge-info { background: #e0f2fe; color: #0369a1; }
+  .alert-box { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin-bottom: 16px; }
+  .alert-title { font-size: 15px; font-weight: 600; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between; }
+  .meta-row { font-size: 12px; color: #64748b; margin-bottom: 6px; }
+  code { font-family: monospace; background: #f1f5f9; padding: 2px 5px; border-radius: 4px; }
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>ZAP Scanning Report (Passive Baseline)</h1>
+  <p style="color: #64748b; margin: 0;">Target: <strong>https://www.naypict.my.id</strong> | Generated: Wed, 16 Sep 2026 09:03:09 GMT | Mode: Non-Destructive Passive Baseline</p>
+</div>
+
+<h2>Alert Summary</h2>
+<table class="summary-table">
+  <tr><th>Risk Level</th><th>Number of Alerts</th></tr>
+  <tr><td><span class="badge" style="background:#fecaca; color:#991b1b;">High</span></td><td>0</td></tr>
+  <tr><td><span class="badge badge-medium">Medium</span></td><td>1</td></tr>
+  <tr><td><span class="badge badge-low">Low</span></td><td>2</td></tr>
+  <tr><td><span class="badge badge-info">Informational</span></td><td>1</td></tr>
+</table>
+
+<h2>Alerts Details</h2>
+
+  <div class="alert-box">
+    <div class="alert-title">
+      <span>Server Leaks Information via "X-Powered-By" HTTP Response Header Field(s)</span>
+      <span class="badge badge-low">Low (Medium)</span>
+    </div>
+    <div class="meta-row"><strong>URL:</strong> <code>https://www.naypict.my.id/</code></div>
+    <div class="meta-row"><strong>Evidence:</strong> <code>x-powered-by: Next.js</code></div>
+    <p style="font-size: 13px; margin: 8px 0;">The web/application server discloses technology environment details via the X-Powered-By header: Next.js.</p>
+    <div style="font-size: 12px; background: #f8fafc; padding: 10px; border-left: 3px solid #3b82f6; margin-top: 8px;">
+      <strong>Solution:</strong> Ensure that your web server and application framework disables the X-Powered-By header in production (e.g. set poweredByHeader: false in next.config.ts).<br/>
+      <strong>Reference:</strong> <a href="https://owasp.org/www-project-web-security-testing-guide/latest/4-web-application-security-testing/01-information-gathering/02-fingerprint-web-server" target="_blank">https://owasp.org/www-project-web-security-testing-guide/latest/4-web-application-security-testing/01-information-gathering/02-fingerprint-web-server</a>
+    </div>
+  </div>
+
+  <div class="alert-box">
+    <div class="alert-title">
+      <span>Content Security Policy (CSP) Header Contains "unsafe-inline"</span>
+      <span class="badge badge-low">Low (High)</span>
+    </div>
+    <div class="meta-row"><strong>URL:</strong> <code>https://www.naypict.my.id/</code></div>
+    <div class="meta-row"><strong>Evidence:</strong> <code>unsafe-inline in script-src/style-src</code></div>
+    <p style="font-size: 13px; margin: 8px 0;">The Content Security Policy allows inline scripts through "script-src 'unsafe-inline'", which may reduce effectiveness against Cross-Site Scripting (XSS).</p>
+    <div style="font-size: 12px; background: #f8fafc; padding: 10px; border-left: 3px solid #3b82f6; margin-top: 8px;">
+      <strong>Solution:</strong> Consider moving to cryptographic nonce-based or hash-based script authorization for Next.js scripts if inline execution can be avoided.<br/>
+      <strong>Reference:</strong> <a href="https://cheatsheetseries.owasp.org/cheatsheets/Content_Security_Policy_Cheat_Sheet.html" target="_blank">https://cheatsheetseries.owasp.org/cheatsheets/Content_Security_Policy_Cheat_Sheet.html</a>
+    </div>
+  </div>
+
+  <div class="alert-box">
+    <div class="alert-title">
+      <span>Backend Infrastructure Disclosed via "x-vercel-id" and "x-vercel-cache" Headers</span>
+      <span class="badge badge-info">Informational (High)</span>
+    </div>
+    <div class="meta-row"><strong>URL:</strong> <code>https://www.naypict.my.id/</code></div>
+    <div class="meta-row"><strong>Evidence:</strong> <code>sin1::iad1::h6nr8-1789549326948-3f4079d3a9d7</code></div>
+    <p style="font-size: 13px; margin: 8px 0;">The response headers disclose backend serverless region routing and cache identifiers (sin1::iad1::h6nr8-1789549326948-3f4079d3a9d7).</p>
+    <div style="font-size: 12px; background: #f8fafc; padding: 10px; border-left: 3px solid #3b82f6; margin-top: 8px;">
+      <strong>Solution:</strong> Configure reverse proxy or edge rules to strip internal routing headers if complete infrastructure masking is desired.<br/>
+      <strong>Reference:</strong> <a href="https://cwe.mitre.org/data/definitions/200.html" target="_blank">https://cwe.mitre.org/data/definitions/200.html</a>
+    </div>
+  </div>
+
+  <div class="alert-box">
+    <div class="alert-title">
+      <span>Weak TLS Protocol Versions (TLS 1.0 / TLS 1.1) Offered on Edge</span>
+      <span class="badge badge-medium">Medium (High)</span>
+    </div>
+    <div class="meta-row"><strong>URL:</strong> <code>https://www.naypict.my.id:443</code></div>
+    <div class="meta-row"><strong>Evidence:</strong> <code>TLS 1.0: TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA, TLS 1.1: TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA</code></div>
+    <p style="font-size: 13px; margin: 8px 0;">The server or edge proxy accepts handshake connections using deprecated TLS 1.0 and TLS 1.1 cipher suites (ECDHE-ECDSA-AES128-SHA). These versions are deprecated under RFC 8996 and fail PCI-DSS v3.2.1.</p>
+    <div style="font-size: 12px; background: #f8fafc; padding: 10px; border-left: 3px solid #3b82f6; margin-top: 8px;">
+      <strong>Solution:</strong> In the Cloudflare Dashboard, navigate to SSL/TLS -> Edge Certificates -> Minimum TLS Version and set the minimum allowed version to TLS 1.2.<br/>
+      <strong>Reference:</strong> <a href="https://datatracker.ietf.org/doc/rfc8996/" target="_blank">https://datatracker.ietf.org/doc/rfc8996/</a>
+    </div>
+  </div>
+
+
+<h2>Scanned Endpoints (9)</h2>
+<table class="summary-table">
+  <tr><th>Method</th><th>Endpoint</th><th>Status</th><th>Content-Length</th></tr>
+  <tr><td><code>GET</code></td><td><code>https://www.naypict.my.id/</code></td><td>200</td><td>80291 B</td></tr><tr><td><code>GET</code></td><td><code>https://www.naypict.my.id/login</code></td><td>200</td><td>30038 B</td></tr><tr><td><code>GET</code></td><td><code>https://www.naypict.my.id/photos</code></td><td>200</td><td>190397 B</td></tr><tr><td><code>GET</code></td><td><code>https://www.naypict.my.id/albums</code></td><td>200</td><td>56379 B</td></tr><tr><td><code>GET</code></td><td><code>https://www.naypict.my.id/map</code></td><td>200</td><td>39085 B</td></tr><tr><td><code>GET</code></td><td><code>https://www.naypict.my.id/robots.txt</code></td><td>200</td><td>41 B</td></tr><tr><td><code>GET</code></td><td><code>https://www.naypict.my.id/api/health</code></td><td>200</td><td>96 B</td></tr><tr><td><code>GET</code></td><td><code>https://www.naypict.my.id/api/photos</code></td><td>404</td><td>13 B</td></tr><tr><td><code>POST</code></td><td><code>https://www.naypict.my.id/api/telemetry/session/init</code></td><td>200</td><td>92 B</td></tr>
+</table>
+
+</body>
+</html>

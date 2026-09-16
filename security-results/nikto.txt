@@ -1,0 +1,24 @@
+- Nikto v2.6.1/
++ Target Host: www.naypict.my.id
++ Target Port: 443
++ GET /: Retrieved x-powered-by header: Next.js.
++ GET /: IP address found in the 'x-vercel-id' header. The IP is "ad1::". See: https://portswigger.net/kb/issues/00600300_private-ip-addresses-disclosed: 
++ GET /: Link header(s) found with value(s): </naypict-icon.svg>; rel=preload; as=image,</_next/static/media/caa3a2e1cccd8315-s.p.0wgildi0cnwt9.woff2>; rel=preload; as="font"; crossorigin=""; type="font/woff2", </naypict-icon.svg>; rel=preload; as="image". See: https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Link: 
++ GET /: Uncommon header(s) 'x-matched-path' found, with contents: /.
++ GET /: Uncommon header(s) 'x-vercel-cache' found, with contents: MISS.
++ GET /: Uncommon header(s) 'reporting-endpoints' found, with contents: csp-endpoint="/api/csp-report".
++ GET /: Uncommon header(s) 'x-vercel-id' found, with contents: sin1::iad1::h6nr8-1789549326948-3f4079d3a9d7.
++ GET /: An alt-svc header was found which is advertising HTTP/3. The endpoint is: ':443'. Nikto cannot test HTTP/3 over QUIC. See: https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/alt-svc: 
++ GET /: Cloudflare detected via cf-ray header. Recommend proxying via Burp or mitmproxy to avoid TLS fingerprint blocks. See: https://github.com/sullo/nikto/wiki/Using-a-Proxy: 
++ GET /icons/: Uncommon header(s) 'refresh' found, with contents: 0;url=/icons.
++ SSL Info:           Subject:  /CN=naypict.my.id
+                      CN:       naypict.my.id
+                      SAN:      naypict.my.id, *.naypict.my.id
+                      Ciphers:  AEAD-CHACHA20-POLY1305-SHA256
+                      Issuer:   /C=US/O=Google Trust Services/CN=WE1
++ GET /robots.txt: Retrieved access-control-allow-origin header: \*.
++ GET /robots.txt: Uncommon header(s) 'content-disposition' found, with contents: inline; filename="robots.txt".
++ GET /robots.txt: Entry '/login/' is returned a non-forbidden or redirect HTTP code (308). See: https://portswigger.net/kb/issues/00600600_robots-txt-file: 
++ GET /robots.txt: contains 2 entries which should be manually viewed. See: https://developer.mozilla.org/en-US/docs/Glossary/Robots.txt: 
++ GET /: cloudflare - Cloudflare detected via banner. Recommend proxying via Burp or mitmproxy to avoid TLS fingerprint blocks if not already proxying.
++ GET /: Server is using a wildcard certificate: *.naypict.my.id. See: https://en.wikipedia.org/wiki/Wildcard_certificate: 
