@@ -16,6 +16,11 @@ import {
   type VisitorSessionsQueryBo,
 } from '@/server/entity/bo/analytics';
 import type { HonoEnv } from '../hono/type';
+import {
+  isCityCountryMismatch,
+  normalizeRegionName,
+  sanitizeGeoRecord,
+} from '@/server/lib/geo-normalizer';
 
 // This module handles API endpoints for visitor session initialization, telemetry heartbeats, media tracking, and admin inspection.
 
@@ -64,42 +69,6 @@ function isBotOrCrawler(c: Context): boolean {
   return false;
 }
 
-// Indonesian province code dictionary for edge geo-calibration
-const ID_PROVINCES: Record<string, string> = {
-  JK: 'Jakarta',
-  JB: 'Jawa Barat',
-  JT: 'Jawa Tengah',
-  JI: 'Jawa Timur',
-  BT: 'Banten',
-  YO: 'DI Yogyakarta',
-  BA: 'Bali',
-  AC: 'Aceh',
-  SU: 'Sumatera Utara',
-  SB: 'Sumatera Barat',
-  RI: 'Riau',
-  KR: 'Kepulauan Riau',
-  JA: 'Jambi',
-  SS: 'Sumatera Selatan',
-  BE: 'Bengkulu',
-  LA: 'Lampung',
-  BB: 'Bangka Belitung',
-  KB: 'Kalimantan Barat',
-  KT: 'Kalimantan Tengah',
-  KS: 'Kalimantan Selatan',
-  KI: 'Kalimantan Timur',
-  KU: 'Kalimantan Utara',
-  SA: 'Sulawesi Utara',
-  ST: 'Sulawesi Tengah',
-  SN: 'Sulawesi Selatan',
-  SG: 'Sulawesi Tenggara',
-  GO: 'Gorontalo',
-  SR: 'Sulawesi Barat',
-  MA: 'Maluku',
-  MU: 'Maluku Utara',
-  PA: 'Papua',
-  PB: 'Papua Barat',
-};
-
 // Extract visitor IP and geographical metadata from Cloudflare and Vercel edge headers.
 function extractVisitorMeta(c: Context) {
   const cfIp = c.req.header('cf-connecting-ip');
@@ -128,21 +97,17 @@ function extractVisitorMeta(c: Context) {
     region = rawRegion;
   }
 
-  // Indonesian cellular IP anomaly calibration & edge GeoIP sanitization
+  // Normalize region name using province / state code dictionaries
+  region = normalizeRegionName(country, region, rawRegionCode);
+
+  // Eliminate obvious edge GeoIP mismatches (e.g. Amsterdam in China, Paris in Indonesia)
+  if (isCityCountryMismatch(country, city)) {
+    city = 'Unknown';
+  }
+
+  // Edge GeoIP sanitization for Indonesia
   if (country === 'ID') {
-    // Discard foreign region codes mistakenly mapped to Indonesia (e.g. 'IDF' - Île-de-France)
-    if (rawRegionCode && ID_PROVINCES[rawRegionCode]) {
-      region = ID_PROVINCES[rawRegionCode];
-    } else if (region === 'IDF' || /france|europe|ile-de-france/i.test(region)) {
-      region = 'Unknown';
-    }
-
-    // Filter out foreign cities mistakenly mapped to Indonesia by edge GeoIP (e.g. Paris, Singapore, Frankfurt)
-    if (/paris|singapore|london|frankfurt|amsterdam|ashburn/i.test(city) || city === 'Unknown' || city === '') {
-      city = 'Unknown';
-    }
-
-    if (city === 'Unknown') {
+    if (city === 'Unknown' || /paris|singapore|london|frankfurt|amsterdam|ashburn/i.test(city)) {
       if (region && region !== 'Unknown') {
         city = region;
       } else if (timezone.includes('Makassar') || timezone.includes('Ujung_Pandang')) {
@@ -158,7 +123,8 @@ function extractVisitorMeta(c: Context) {
     }
   }
 
-  return { ip, country, city, region };
+  const sanitized = sanitizeGeoRecord({ country, city, region });
+  return { ip, ...sanitized };
 }
 
 // Helper to identify datacenter, cloud hosting, or serverless IP ranges
@@ -177,7 +143,7 @@ interface CachedGeo {
 }
 const geoCache = new Map<string, CachedGeo>();
 
-// High-precision geolocation lookup to resolve Indonesian cellular carrier nodes and identify hosting bots
+// High-precision geolocation lookup to resolve authoritative city, region, country, and identify hosting bots
 async function resolveAccurateGeo(
   ip: string,
   fallback: { city: string; country: string; region: string }
@@ -191,7 +157,7 @@ async function resolveAccurateGeo(
     ip.startsWith('fc00:') ||
     ip.startsWith('fe80:')
   ) {
-    return fallback;
+    return sanitizeGeoRecord(fallback);
   }
 
   const now = Date.now();
@@ -205,24 +171,10 @@ async function resolveAccurateGeo(
     };
   }
 
-  // Trigger high-precision lookup if edge geo is ambiguous, generic, foreign-mismatched, or an Indonesian cellular IP
-  const isAmbiguous =
-    !fallback.city ||
-    fallback.city === 'Unknown' ||
-    fallback.region === 'Unknown' ||
-    fallback.country === 'US' ||
-    fallback.country === 'Unknown' ||
-    fallback.country === 'ID' ||
-    /paris|idf|singapore|france|frankfurt|london/i.test(`${fallback.city} ${fallback.region}`);
-
-  if (!isAmbiguous) {
-    return fallback;
-  }
-
-  // Provider 1: ipwho.is (includes rich ISP & datacenter detection)
+  // Provider 1: ipwho.is (authoritative GeoIP database with ASN & ISP detection)
   try {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 1500);
+    const timeout = setTimeout(() => controller.abort(), 2000);
     const res = await fetch(`https://ipwho.is/${encodeURIComponent(ip)}`, {
       signal: controller.signal,
       headers: { 'User-Agent': 'NayPict-Geo/1.0' },
@@ -233,25 +185,24 @@ async function resolveAccurateGeo(
       const data = await res.json();
       if (data && data.success) {
         const isDc = isDatacenterOrHosting(data.connection?.isp, data.connection?.org);
-        let city = data.city || fallback.city;
-        let region = data.region || fallback.region;
-        const country = data.country_code || fallback.country;
+        const rawCountry = (data.country_code || fallback.country || 'Unknown').trim().toUpperCase();
+        const rawCity = (data.city || fallback.city || 'Unknown').trim();
+        const rawRegion = normalizeRegionName(rawCountry, data.region || fallback.region, data.region_code);
 
-        // Calibrate Indonesian regional province names (e.g. Denpasar -> Bali, Lesser Sunda -> Bali)
-        if (country === 'ID' || data.country_code === 'ID') {
-          if (city === 'Denpasar' || data.region_code === 'BA' || (region && /sunda|bali/i.test(region))) {
-            region = 'Bali';
-          } else if (data.region_code && ID_PROVINCES[data.region_code]) {
-            region = ID_PROVINCES[data.region_code];
-          }
+        const sanitized = sanitizeGeoRecord({
+          city: rawCity,
+          country: rawCountry,
+          region: rawRegion,
+        });
 
-          if (/paris|idf|singapore|france/i.test(`${city} ${region}`)) {
-            city = 'Denpasar';
-            region = 'Bali';
+        // Specific Indonesian carrier calibration (Denpasar -> Bali)
+        if (sanitized.country === 'ID') {
+          if (sanitized.city === 'Denpasar' || data.region_code === 'BA') {
+            sanitized.region = 'Bali';
           }
         }
 
-        const result = { city, country, region, isDatacenter: isDc };
+        const result = { ...sanitized, isDatacenter: isDc };
         geoCache.set(ip, { ...result, expires: now + 24 * 60 * 60 * 1000 });
         return result;
       }
@@ -261,7 +212,7 @@ async function resolveAccurateGeo(
   // Provider 2: ip-api.com fallback
   try {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 1500);
+    const timeout = setTimeout(() => controller.abort(), 2000);
     const res = await fetch(`http://ip-api.com/json/${encodeURIComponent(ip)}`, {
       signal: controller.signal,
       headers: { 'User-Agent': 'NayPict-Geo/1.0' },
@@ -272,36 +223,37 @@ async function resolveAccurateGeo(
       const data = await res.json();
       if (data && data.status === 'success') {
         const isDc = isDatacenterOrHosting(data.isp, data.org);
-        let city = data.city || fallback.city;
-        let region = data.regionName || fallback.region;
-        const country = data.countryCode || fallback.country;
+        const rawCountry = (data.countryCode || fallback.country || 'Unknown').trim().toUpperCase();
+        const rawCity = (data.city || fallback.city || 'Unknown').trim();
+        const rawRegion = normalizeRegionName(rawCountry, data.regionName || fallback.region, data.region);
 
-        if (country === 'ID') {
-          if (city === 'Denpasar' || data.region === 'BA' || /sunda|bali/i.test(region)) {
-            region = 'Bali';
-          } else if (data.region && ID_PROVINCES[data.region]) {
-            region = ID_PROVINCES[data.region];
+        const sanitized = sanitizeGeoRecord({
+          city: rawCity,
+          country: rawCountry,
+          region: rawRegion,
+        });
+
+        if (sanitized.country === 'ID') {
+          if (sanitized.city === 'Denpasar' || data.region === 'BA') {
+            sanitized.region = 'Bali';
           }
         }
 
-        const result = { city, country, region, isDatacenter: isDc };
+        const result = { ...sanitized, isDatacenter: isDc };
         geoCache.set(ip, { ...result, expires: now + 24 * 60 * 60 * 1000 });
         return result;
       }
     }
   } catch {}
 
-  // Sanitized fallback
-  let sanitizedCity = fallback.city;
-  let sanitizedRegion = fallback.region;
-  if (fallback.country === 'ID') {
-    if (/paris|idf|singapore|france/i.test(`${sanitizedCity} ${sanitizedRegion}`) || sanitizedCity === 'Unknown') {
-      sanitizedCity = 'Denpasar';
-      sanitizedRegion = 'Bali';
-    }
+  // Fully sanitized fallback
+  const sanitized = sanitizeGeoRecord(fallback);
+  if (sanitized.country === 'ID' && (sanitized.city === 'Unknown' || /paris|idf/i.test(sanitized.city))) {
+    sanitized.city = 'Denpasar';
+    sanitized.region = 'Bali';
   }
 
-  const result = { city: sanitizedCity, country: fallback.country, region: sanitizedRegion };
+  const result = { ...sanitized };
   geoCache.set(ip, { ...result, expires: now + 60 * 60 * 1000 });
   return result;
 }

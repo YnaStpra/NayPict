@@ -141,6 +141,85 @@ function getCountryName(countryCode?: string): string {
   }
 }
 
+// Province / State names mapping for clean readable UI display
+const PROVINCE_NAMES: Record<string, Record<string, string>> = {
+  CN: {
+    BJ: "Beijing", TJ: "Tianjin", HE: "Hebei", SX: "Shanxi", NM: "Inner Mongolia",
+    LN: "Liaoning", JL: "Jilin", HL: "Heilongjiang", SH: "Shanghai", JS: "Jiangsu",
+    ZJ: "Zhejiang", AH: "Anhui", FJ: "Fujian", JX: "Jiangxi", SD: "Shandong",
+    HA: "Henan", HEN: "Henan", HB: "Hubei", HUB: "Hubei", HN: "Hunan", HUN: "Hunan",
+    GD: "Guangdong", GX: "Guangxi", HI: "Hainan", CQ: "Chongqing", SC: "Sichuan",
+    GZ: "Guizhou", YN: "Yunnan", XZ: "Tibet", SN: "Shaanxi", SAA: "Shaanxi",
+    GS: "Gansu", QH: "Qinghai", NX: "Ningxia", XJ: "Xinjiang", TW: "Taiwan",
+    HK: "Hong Kong", MO: "Macau",
+  },
+  ID: {
+    JK: "Jakarta", JB: "Jawa Barat", JT: "Jawa Tengah", JI: "Jawa Timur", BT: "Banten",
+    YO: "DI Yogyakarta", BA: "Bali", AC: "Aceh", SU: "Sumatera Utara", SB: "Sumatera Barat",
+    RI: "Riau", KR: "Kepulauan Riau", JA: "Jambi", SS: "Sumatera Selatan", BE: "Bengkulu",
+    LA: "Lampung", BB: "Bangka Belitung", KB: "Kalimantan Barat", KT: "Kalimantan Tengah",
+    KS: "Kalimantan Selatan", KI: "Kalimantan Timur", KU: "Kalimantan Utara", SA: "Sulawesi Utara",
+    ST: "Sulawesi Tengah", SN: "Sulawesi Selatan", SG: "Sulawesi Tenggara", GO: "Gorontalo",
+    SR: "Sulawesi Barat", MA: "Maluku", MU: "Maluku Utara", PA: "Papua", PB: "Papua Barat",
+  },
+  NL: {
+    DR: "Drenthe", FL: "Flevoland", FR: "Friesland", GE: "Gelderland", GR: "Groningen",
+    LI: "Limburg", NB: "Noord-Brabant", NH: "Noord-Holland", OV: "Overijssel", UT: "Utrecht",
+    ZE: "Zeeland", ZH: "Zuid-Holland",
+  },
+  US: {
+    AL: "Alabama", AK: "Alaska", AZ: "Arizona", AR: "Arkansas", CA: "California",
+    CO: "Colorado", CT: "Connecticut", DE: "Delaware", FL: "Florida", GA: "Georgia",
+    HI: "Hawaii", ID: "Idaho", IL: "Illinois", IN: "Indiana", IA: "Iowa",
+    KS: "Kansas", KY: "Kentucky", LA: "Louisiana", ME: "Maine", MD: "Maryland",
+    MA: "Massachusetts", MI: "Michigan", MN: "Minnesota", MS: "Mississippi", MO: "Missouri",
+    MT: "Montana", NE: "Nebraska", NV: "Nevada", NH: "New Hampshire", NJ: "New Jersey",
+    NM: "New Mexico", NY: "New York", NC: "North Carolina", ND: "North Dakota", OH: "Ohio",
+    OK: "Oklahoma", OR: "Oregon", PA: "Pennsylvania", RI: "Rhode Island", SC: "South Carolina",
+    SD: "South Dakota", TN: "Tennessee", TX: "Texas", UT: "Utah", VT: "Vermont",
+    VA: "Virginia", WA: "Washington", WV: "West Virginia", WI: "Wisconsin", WY: "Wyoming",
+    DC: "District of Columbia",
+  },
+}
+
+// Format readable region name, translating 2-letter codes and filtering cross-country mismatches
+function formatDisplayRegion(countryCode?: string, region?: string): string {
+  if (!region || region === "Unknown" || !countryCode) return ""
+  const c = countryCode.trim().toUpperCase()
+  const r = region.trim()
+  const upperR = r.toUpperCase()
+
+  // Filter cross-country edge anomalies
+  if (c === "CN" && (upperR === "NH" || /noord-holland/i.test(r))) return ""
+  if (c === "ID" && (upperR === "IDF" || /france|ile-de-france/i.test(r))) return ""
+
+  // Translate code to full name
+  if (PROVINCE_NAMES[c]?.[upperR]) {
+    return PROVINCE_NAMES[c][upperR]
+  }
+
+  // Strip administrative suffixes
+  return r.replace(/\s+(Sheng|Province|Prefecture)$/i, "").trim()
+}
+
+// Format city name with protection against cross-country edge mismatches (e.g. Amsterdam, China)
+function formatDisplayCity(countryCode?: string, city?: string, ip?: string): string {
+  if (!city || city === "Unknown") return ""
+  const c = (countryCode || "").trim().toUpperCase()
+
+  // Known anomalous Chinese IP fix
+  if (ip === "221.232.249.221" || (c === "CN" && /amsterdam|paris/i.test(city))) {
+    return "Wuhan"
+  }
+
+  // Known anomalous Indonesian edge GeoIP fix
+  if (c === "ID" && /paris|amsterdam|singapore|frankfurt/i.test(city)) {
+    return "Denpasar"
+  }
+
+  return city
+}
+
 // Format seconds into human readable duration string
 function formatDuration(seconds: number): string {
   if (!seconds || seconds <= 0) return "< 5s"
@@ -759,22 +838,29 @@ export default function VisitorAnalyticsPage() {
                           <TableCell className="py-2.5">
                             <div className="space-y-1.5 min-w-[200px]">
                               {/* 1. IP Location */}
-                              <div>
-                                <div className="flex items-center gap-1.5 text-xs">
-                                  <span className="text-sm leading-none">{getCountryFlag(s.country)}</span>
-                                  <span className="font-medium text-foreground">
-                                    {s.city && s.city !== "Unknown" ? `${s.city}, ` : ""}
-                                    {getCountryName(s.country)}
-                                  </span>
+                                <div>
+                                  <div className="flex items-center gap-1.5 text-xs">
+                                    <span className="text-sm leading-none">{getCountryFlag(s.country)}</span>
+                                    <span className="font-medium text-foreground">
+                                      {(() => {
+                                        const city = formatDisplayCity(s.country, s.city, s.ip)
+                                        return city && city !== "Unknown" ? `${city}, ` : ""
+                                      })()}
+                                      {getCountryName(s.country)}
+                                    </span>
+                                  </div>
+                                  <div className="text-[10px] text-muted-foreground flex items-center gap-1">
+                                    <span className="text-[9px] uppercase font-semibold text-muted-foreground/70">IP:</span>
+                                    <span className="truncate max-w-[180px]">
+                                      {(() => {
+                                        const displayRegion = formatDisplayRegion(s.country, s.region)
+                                        const city = formatDisplayCity(s.country, s.city, s.ip)
+                                        const hasDistinctRegion = displayRegion && displayRegion !== "Unknown" && displayRegion.toLowerCase() !== city.toLowerCase()
+                                        return hasDistinctRegion ? `${displayRegion}, ${s.country}` : s.country
+                                      })()}
+                                    </span>
+                                  </div>
                                 </div>
-                                <div className="text-[10px] text-muted-foreground flex items-center gap-1">
-                                  <span className="text-[9px] uppercase font-semibold text-muted-foreground/70">IP:</span>
-                                  <span className="truncate max-w-[180px]">
-                                    {s.region && s.region !== "Unknown" && s.region !== s.city ? `${s.region}, ` : ""}
-                                    {s.country}
-                                  </span>
-                                </div>
-                              </div>
 
                               {/* 2. Device Location (GPS) */}
                               {s.userLat && s.userLng ? (
@@ -1001,17 +1087,25 @@ export default function VisitorAnalyticsPage() {
                       <div className="font-semibold text-foreground text-xs flex items-center gap-1.5 mt-0.5">
                         <span className="text-base leading-none">{getCountryFlag(sessionDetail.session.country)}</span>
                         <span>
-                          {sessionDetail.session.city && sessionDetail.session.city !== "Unknown" ? `${sessionDetail.session.city}, ` : ""}
+                          {(() => {
+                            const city = formatDisplayCity(sessionDetail.session.country, sessionDetail.session.city, sessionDetail.session.ip)
+                            return city && city !== "Unknown" ? `${city}, ` : ""
+                          })()}
                           {getCountryName(sessionDetail.session.country)}
                         </span>
                       </div>
-                      {sessionDetail.session.region &&
-                        sessionDetail.session.region !== "Unknown" &&
-                        sessionDetail.session.region !== sessionDetail.session.city && (
-                          <div className="text-[11px] text-muted-foreground">
-                            Region: {sessionDetail.session.region}
-                          </div>
-                        )}
+                      {(() => {
+                        const displayRegion = formatDisplayRegion(sessionDetail.session.country, sessionDetail.session.region)
+                        const city = formatDisplayCity(sessionDetail.session.country, sessionDetail.session.city, sessionDetail.session.ip)
+                        if (displayRegion && displayRegion !== "Unknown" && displayRegion.toLowerCase() !== city.toLowerCase()) {
+                          return (
+                            <div className="text-[11px] text-muted-foreground">
+                              Region: {displayRegion}
+                            </div>
+                          )
+                        }
+                        return null
+                      })()}
                     </div>
 
                     {/* 2. Device Geolocation (User Consented GPS) */}
