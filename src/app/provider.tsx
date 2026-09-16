@@ -24,10 +24,6 @@ const PhotoUploadDialog = dynamic(
   { ssr: false }
 )
 
-const PixelCat = dynamic(
-  () => import("@/components/mascot/pixel-cat").then((mod) => mod.PixelCat),
-  { ssr: false }
-)
 
 const RightClickGuard = dynamic(
   () => import("@/components/guard/right-click-guard").then((mod) => mod.RightClickGuard),
@@ -192,7 +188,6 @@ function Provider({ children, defaultTheme, defaultSidebarOpen, initialUserInfo,
         <VisitorTrackerMount />
         <RightClickGuard />
         <PhotoUploadDialog />
-        {/* PixelCat mascot disabled */}
         <Toaster position="top-center" />
       </TooltipProvider>
     </AppContext.Provider>

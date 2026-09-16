@@ -135,8 +135,3 @@ export function albumSetTop(params: AlbumSetTopBo) {
   invalidateAlbumCache();
   return http.post<void>('/album/setTop', params);
 }
-
-// Query the virtual photo album in the recycle bin.
-export function albumTrash() {
-  return http.post<AlbumVo>('/album/trash');
-}

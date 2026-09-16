@@ -13,7 +13,6 @@ import {
   type PhotoRandomIdListBo,
   type PhotoRecycleBo,
   type PhotoRestoreBo,
-  type PhotoSetAllowDownloadBo,
   type PhotoSetVisibilityBo,
   type PhotoTakenDateListBo,
 } from "@/server/entity/bo/photo";
@@ -72,10 +71,6 @@ export function photoTakenDateList(params: PhotoTakenDateListBo) {
   return http.post<PhotoTakenDateVo[]>('/photo/takenDateList', params);
 }
 
-// Upload a single photo.
-export function photoAdd(params: FormData) {
-  return http.post<PhotoAddResultVo>('/photo/add', params);
-}
 
 // Request presigned PUT URL for direct storage upload (S3 / Cloudflare R2).
 export function photoGetPresignedUploadUrl(params: { filename: string; fileType: string; storageId?: string }) {
@@ -112,15 +107,6 @@ export function photoExists(params: PhotoExistsBo) {
   return http.post<PhotoExistsVo>('/photo/exists', params);
 }
 
-// Batch update photo download protection permission.
-export function photoSetAllowDownload(params: PhotoSetAllowDownloadBo) {
-  return http.post<void>('/photo/setAllowDownload', params);
-}
-
-// Request photo download URL with server-side protection check.
-export function photoDownload(photoId: string) {
-  return http.post<{ url: string }>('/photo/download', { photoId });
-}
 
 // Move photos to recycle bin.
 export function photoRecycle(params: PhotoRecycleBo) {

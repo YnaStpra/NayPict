@@ -139,6 +139,15 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+  async redirects() {
+    return [
+      {
+        source: '/trash/photos',
+        destination: '/trash',
+        permanent: true,
+      },
+    ];
+  },
   compress: true,
 };
 
