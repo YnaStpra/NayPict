@@ -151,52 +151,58 @@ const analyticsService = {
 
     let userLat = (params.userLat || '').trim();
     let userLng = (params.userLng || '').trim();
-    let userLocationName = (params.userLocationName || '').trim();
+    let userLocationName = (params.userLocationName || '').trim().slice(0, 255);
 
     // If client provided device GPS coordinates, reverse-geocode to a human-readable place and calibrate city/region
     if (userLat && userLng && !userLocationName) {
-      try {
-        const rev = await locationService.reverseGeocode(Number(userLat), Number(userLng));
-        if (rev && rev.address) {
-          userLocationName = rev.address;
-        }
-        if (rev && rev.city) {
-          cleanCity = rev.city;
-        }
-        if (rev && rev.region) {
-          cleanRegion = rev.region;
-        }
-      } catch {}
-      if (!userLocationName) {
-        const nLat = Number(userLat);
-        const nLng = Number(userLng);
-        if (!isNaN(nLat) && !isNaN(nLng)) {
+      const nLat = Number(userLat);
+      const nLng = Number(userLng);
+      if (!isNaN(nLat) && !isNaN(nLng) && isFinite(nLat) && isFinite(nLng) && nLat >= -90 && nLat <= 90 && nLng >= -180 && nLng <= 180) {
+        try {
+          const rev = await locationService.reverseGeocode(nLat, nLng);
+          if (rev && rev.address) {
+            userLocationName = rev.address.slice(0, 255);
+          }
+          if (rev && rev.city) {
+            cleanCity = rev.city.slice(0, 100);
+          }
+          if (rev && rev.region) {
+            cleanRegion = rev.region.slice(0, 100);
+          }
+        } catch {}
+        if (!userLocationName) {
           const latText = `${Math.abs(nLat).toFixed(4)}°${nLat >= 0 ? 'N' : 'S'}`;
           const lngText = `${Math.abs(nLng).toFixed(4)}°${nLng >= 0 ? 'E' : 'W'}`;
           userLocationName = `${latText}, ${lngText}`;
         }
+      } else {
+        userLat = '';
+        userLng = '';
       }
     }
 
+    const safeVisitorId = (params.visitorId || createId()).replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 64) || createId();
+    const safeDevice = params.device === 'Mobile' || params.device === 'Tablet' ? params.device : 'Desktop';
+
     await orm.insert(visitorSessionTab).values({
       id: sessionId,
-      visitorId: params.visitorId || createId(),
-      ip: cleanIp,
-      country: cleanCountry,
-      city: cleanCity,
-      region: cleanRegion,
-      browser: params.browser || 'Unknown',
-      browserVersion: params.browserVersion || '',
-      os: params.os || 'Unknown',
-      device: params.device || 'Desktop',
-      referrer: cleanReferrer,
-      landingPath: params.landingPath || '/',
+      visitorId: safeVisitorId,
+      ip: cleanIp.slice(0, 45),
+      country: cleanCountry.slice(0, 10),
+      city: cleanCity.slice(0, 100),
+      region: cleanRegion.slice(0, 100),
+      browser: (params.browser || 'Unknown').slice(0, 64),
+      browserVersion: (params.browserVersion || '').slice(0, 32),
+      os: (params.os || 'Unknown').slice(0, 64),
+      device: safeDevice,
+      referrer: cleanReferrer.slice(0, 255),
+      landingPath: (params.landingPath || '/').slice(0, 255),
       durationSeconds: 0,
       mediaCount: 0,
       isAdmin: 0,
-      userLat,
-      userLng,
-      userLocationName,
+      userLat: userLat.slice(0, 32),
+      userLng: userLng.slice(0, 32),
+      userLocationName: userLocationName.slice(0, 255),
     });
 
     return { sessionId };
@@ -208,7 +214,7 @@ const analyticsService = {
       return false;
     }
 
-    const safeDuration = Math.max(0, Math.min(params.durationSeconds || 0, 86400));
+    const safeDuration = Math.max(0, Math.min(Number(params.durationSeconds) || 0, 86400));
 
     await orm
       .update(visitorSessionTab)
@@ -216,7 +222,7 @@ const analyticsService = {
         lastActiveAt: sql`now()`,
         durationSeconds: safeDuration,
       })
-      .where(eq(visitorSessionTab.id, params.sessionId));
+      .where(eq(visitorSessionTab.id, params.sessionId.slice(0, 64)));
 
     return true;
   },
@@ -226,6 +232,8 @@ const analyticsService = {
     if (!params.sessionId || isAdmin) {
       return false;
     }
+
+    const safeSessionId = params.sessionId.slice(0, 64);
 
     // Handle user revoking or disabling location access
     if (params.isRevoked) {
@@ -237,23 +245,23 @@ const analyticsService = {
           userLocationName: '',
           lastActiveAt: sql`now()`,
         })
-        .where(eq(visitorSessionTab.id, params.sessionId));
+        .where(eq(visitorSessionTab.id, safeSessionId));
       return true;
     }
 
     const lat = typeof params.latitude === 'number' ? params.latitude : parseFloat(String(params.latitude));
     const lng = typeof params.longitude === 'number' ? params.longitude : parseFloat(String(params.longitude));
 
-    if (!isNaN(lat) && !isNaN(lng)) {
-      let locationName = (params.locationName || '').trim();
+    if (!isNaN(lat) && !isNaN(lng) && isFinite(lat) && isFinite(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+      let locationName = (params.locationName || '').trim().slice(0, 255);
       let detectedCity: string | undefined;
       let detectedRegion: string | undefined;
       try {
         const rev = await locationService.reverseGeocode(lat, lng);
         if (rev && rev.address) {
-          locationName = rev.address;
-          detectedCity = rev.city;
-          detectedRegion = rev.region;
+          locationName = rev.address.slice(0, 255);
+          detectedCity = rev.city?.slice(0, 100);
+          detectedRegion = rev.region?.slice(0, 100);
         }
       } catch {}
 
@@ -279,7 +287,7 @@ const analyticsService = {
       await orm
         .update(visitorSessionTab)
         .set(updateData)
-        .where(eq(visitorSessionTab.id, params.sessionId));
+        .where(eq(visitorSessionTab.id, safeSessionId));
 
       return true;
     }
@@ -293,13 +301,16 @@ const analyticsService = {
       return false;
     }
 
-    const action = params.action || 'view';
+    const safePhotoId = params.photoId.slice(0, 64);
+    const validActions = ['view', 'download', 'share', 'reaction'];
+    const action = validActions.includes(params.action || '') ? params.action : 'view';
 
     if (params.sessionId) {
+      const safeSessionId = params.sessionId.slice(0, 64);
       await orm.insert(visitorActivityTab).values({
         id: createId(),
-        sessionId: params.sessionId,
-        photoId: params.photoId,
+        sessionId: safeSessionId,
+        photoId: safePhotoId,
         action,
         createdAt: sql`now()`,
       });
@@ -310,7 +321,7 @@ const analyticsService = {
           mediaCount: sql`${visitorSessionTab.mediaCount} + 1`,
           lastActiveAt: sql`now()`,
         })
-        .where(eq(visitorSessionTab.id, params.sessionId));
+        .where(eq(visitorSessionTab.id, safeSessionId));
     }
 
 

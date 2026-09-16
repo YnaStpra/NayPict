@@ -22,11 +22,20 @@ const locationService = {
 
     const mapsUrl = `https://www.google.com/maps?q=${lat},${lng}`;
 
-    if (isNaN(lat) || isNaN(lng)) {
+    if (
+      isNaN(lat) ||
+      isNaN(lng) ||
+      !isFinite(lat) ||
+      !isFinite(lng) ||
+      lat < -90 ||
+      lat > 90 ||
+      lng < -180 ||
+      lng > 180
+    ) {
       return {
         address: '',
-        latitude: lat,
-        longitude: lng,
+        latitude: isNaN(lat) ? 0 : lat,
+        longitude: isNaN(lng) ? 0 : lng,
         mapsUrl,
       };
     }

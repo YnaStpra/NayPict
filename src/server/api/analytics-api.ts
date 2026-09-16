@@ -21,6 +21,13 @@ import {
   normalizeRegionName,
   sanitizeGeoRecord,
 } from '@/server/lib/geo-normalizer';
+import { getClientIp, isPublicIp } from '@/server/lib/ip';
+import {
+  telemetryInitRateLimiter,
+  telemetryLocationRateLimiter,
+  telemetryPingRateLimiter,
+  telemetryTrackRateLimiter,
+} from '@/server/lib/rate-limiter';
 
 // This module handles API endpoints for visitor session initialization, telemetry heartbeats, media tracking, and admin inspection.
 
@@ -71,10 +78,7 @@ function isBotOrCrawler(c: Context): boolean {
 
 // Extract visitor IP and geographical metadata from Cloudflare and Vercel edge headers.
 function extractVisitorMeta(c: Context) {
-  const cfIp = c.req.header('cf-connecting-ip');
-  const xForwardedFor = c.req.header('x-forwarded-for');
-  const xRealIp = c.req.header('x-real-ip');
-  const ip = cfIp || (xForwardedFor ? xForwardedFor.split(',')[0].trim() : '') || xRealIp || 'Unknown';
+  const ip = getClientIp(c);
 
   const country = (c.req.header('cf-ipcountry') || c.req.header('x-vercel-ip-country') || 'Unknown').trim().toUpperCase();
   const rawCity = c.req.header('cf-ipcity') || c.req.header('x-vercel-ip-city') || 'Unknown';
@@ -148,15 +152,8 @@ async function resolveAccurateGeo(
   ip: string,
   fallback: { city: string; country: string; region: string }
 ): Promise<{ city: string; country: string; region: string; isDatacenter?: boolean }> {
-  if (
-    !ip ||
-    ip === 'Unknown' ||
-    ip === '127.0.0.1' ||
-    ip.startsWith('192.168.') ||
-    ip.startsWith('10.') ||
-    ip.startsWith('fc00:') ||
-    ip.startsWith('fe80:')
-  ) {
+  // Strictly prevent SSRF, private network probing, and cloud metadata queries
+  if (!isPublicIp(ip)) {
     return sanitizeGeoRecord(fallback);
   }
 
@@ -268,6 +265,12 @@ export function registerAnalyticsApi(app: Hono<HonoEnv>) {
       return c.json(result.ok({ sessionId: '', ignored: true }));
     }
 
+    const clientIp = getClientIp(c);
+    const rateLimit = await telemetryInitRateLimiter.consume(clientIp);
+    if (!rateLimit.allowed) {
+      return c.json(result.fail('Too many requests.', 429), 429);
+    }
+
     const body = await c.req.json<InitVisitorSessionBo>().catch(() => ({} as InitVisitorSessionBo));
     const visitorId = getOrCreateVisitorId(c);
     const rawMeta = extractVisitorMeta(c);
@@ -312,7 +315,7 @@ export function registerAnalyticsApi(app: Hono<HonoEnv>) {
       if (parsedUa.os === 'macOS' || parsedUa.os === 'Windows') {
         os = parsedUa.os;
       } else {
-        os = body.os;
+        os = String(body.os).slice(0, 64);
       }
     }
 
@@ -330,12 +333,39 @@ export function registerAnalyticsApi(app: Hono<HonoEnv>) {
     } else if (parsedUa.browser && parsedUa.browser !== 'Other') {
       browser = parsedUa.browser;
     } else if (body.browser && body.browser !== 'Other') {
-      browser = body.browser;
+      browser = String(body.browser).slice(0, 64);
+    }
+
+    // Sanitize and validate GPS coordinates if supplied
+    let userLat = '';
+    let userLng = '';
+    if (body.userLat && body.userLng) {
+      const nLat = Number(body.userLat);
+      const nLng = Number(body.userLng);
+      if (
+        !isNaN(nLat) &&
+        !isNaN(nLng) &&
+        isFinite(nLat) &&
+        isFinite(nLng) &&
+        nLat >= -90 &&
+        nLat <= 90 &&
+        nLng >= -180 &&
+        nLng <= 180
+      ) {
+        userLat = String(nLat);
+        userLng = String(nLng);
+      }
     }
 
     const data = await analyticsService.initSession(
       {
         ...body,
+        referrer: typeof body.referrer === 'string' ? body.referrer.slice(0, 255) : '',
+        landingPath: typeof body.landingPath === 'string' ? body.landingPath.slice(0, 255) : '/',
+        browserVersion: typeof body.browserVersion === 'string' ? body.browserVersion.slice(0, 32) : '',
+        userLocationName: typeof body.userLocationName === 'string' ? body.userLocationName.slice(0, 255) : '',
+        userLat,
+        userLng,
         device,
         os,
         browser,
@@ -352,25 +382,55 @@ export function registerAnalyticsApi(app: Hono<HonoEnv>) {
 
   // Handler for periodic heartbeat ping and duration update
   const handleSessionPing = async (c: Context) => {
-    const body = await c.req.json<HeartbeatBo>().catch(() => ({} as HeartbeatBo));
-    if (!body.sessionId) {
+    const clientIp = getClientIp(c);
+    const rateLimit = await telemetryPingRateLimiter.consume(clientIp);
+    if (!rateLimit.allowed) {
       return c.json(result.ok({ updated: false }));
     }
 
-    const updated = await analyticsService.heartbeat(body, false);
+    const body = await c.req.json<HeartbeatBo>().catch(() => ({} as HeartbeatBo));
+    if (!body.sessionId || typeof body.sessionId !== 'string' || body.sessionId.length > 64) {
+      return c.json(result.ok({ updated: false }));
+    }
+
+    const updated = await analyticsService.heartbeat(
+      {
+        ...body,
+        sessionId: body.sessionId.slice(0, 64),
+        durationSeconds: Math.max(0, Math.min(Number(body.durationSeconds) || 0, 86400)),
+      },
+      false
+    );
     return c.json(result.ok({ updated }));
   };
 
   // Handler to update session with visitor's consented device GPS location
   const handleSessionLocation = async (c: Context) => {
+    const clientIp = getClientIp(c);
+    const rateLimit = await telemetryLocationRateLimiter.consume(clientIp);
+    if (!rateLimit.allowed) {
+      return c.json(result.ok({ updated: false }));
+    }
+
     const body = await c.req.json<UpdateVisitorLocationBo>().catch(() => ({} as UpdateVisitorLocationBo));
+
+    if (!body.sessionId || typeof body.sessionId !== 'string' || body.sessionId.length > 64) {
+      return c.json(result.ok({ updated: false }));
+    }
 
     const lat = typeof body.latitude === 'number' ? body.latitude : parseFloat(String(body.latitude));
     const lng = typeof body.longitude === 'number' ? body.longitude : parseFloat(String(body.longitude));
 
     if (
-      !body.sessionId ||
-      (!body.isRevoked && (isNaN(lat) || isNaN(lng)))
+      !body.isRevoked &&
+      (isNaN(lat) ||
+        isNaN(lng) ||
+        !isFinite(lat) ||
+        !isFinite(lng) ||
+        lat < -90 ||
+        lat > 90 ||
+        lng < -180 ||
+        lng > 180)
     ) {
       return c.json(result.ok({ updated: false }));
     }
@@ -378,8 +438,10 @@ export function registerAnalyticsApi(app: Hono<HonoEnv>) {
     const updated = await analyticsService.updateLocation(
       {
         ...body,
-        latitude: isNaN(lat) ? null : lat,
-        longitude: isNaN(lng) ? null : lng,
+        sessionId: body.sessionId.slice(0, 64),
+        locationName: typeof body.locationName === 'string' ? body.locationName.slice(0, 255) : '',
+        latitude: isNaN(lat) || !isFinite(lat) ? null : lat,
+        longitude: isNaN(lng) || !isFinite(lng) ? null : lng,
       },
       false
     );
@@ -388,12 +450,29 @@ export function registerAnalyticsApi(app: Hono<HonoEnv>) {
 
   // Handler to track media view or interaction within a session
   const handleMediaTrack = async (c: Context) => {
-    const body = await c.req.json<TrackMediaBo>().catch(() => ({} as TrackMediaBo));
-    if (!body.photoId) {
+    const clientIp = getClientIp(c);
+    const rateLimit = await telemetryTrackRateLimiter.consume(clientIp);
+    if (!rateLimit.allowed) {
       return c.json(result.ok({ tracked: false }));
     }
 
-    const tracked = await analyticsService.trackMedia(body, false);
+    const body = await c.req.json<TrackMediaBo>().catch(() => ({} as TrackMediaBo));
+    if (!body.photoId || typeof body.photoId !== 'string' || body.photoId.length > 64) {
+      return c.json(result.ok({ tracked: false }));
+    }
+
+    const validActions = ['view', 'download', 'share', 'reaction'];
+    const safeAction = body.action && validActions.includes(body.action) ? body.action : 'view';
+
+    const tracked = await analyticsService.trackMedia(
+      {
+        ...body,
+        photoId: body.photoId.slice(0, 64),
+        sessionId: typeof body.sessionId === 'string' ? body.sessionId.slice(0, 64) : undefined,
+        action: safeAction as 'view' | 'download' | 'share' | 'reaction',
+      },
+      false
+    );
     return c.json(result.ok({ tracked }));
   };
 

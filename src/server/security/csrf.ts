@@ -23,6 +23,7 @@ const SENSITIVE_MUTATION_PATHS = [
   '/totp/disable',
   '/totp/setup',
   '/setting/set',
+  '/analytics/reset',
 ];
 
 // Extract hostname without port from a URL string or host header.

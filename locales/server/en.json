@@ -64,6 +64,8 @@
   "user.selfDeletionForbidden": "You cannot delete your own account.",
   "user.selfDisableForbidden": "You cannot disable your own account.",
   "user.selfDemoteForbidden": "You cannot demote your own administrator privileges.",
-  "user.lastAdminForbidden": "Cannot remove, disable, or demote the last active administrator account."
+  "user.lastAdminForbidden": "Cannot remove, disable, or demote the last active administrator account.",
+  "telemetry.rateLimited": "Too many requests. Please wait a moment before trying again.",
+  "location.rateLimited": "Too many location requests. Please wait a moment before trying again."
 }
 

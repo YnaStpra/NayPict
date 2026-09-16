@@ -311,3 +311,39 @@ export const uploadRateLimiter = new DistributedRateLimiter({
   limit: 60,
   windowMs: 60 * 1000, // 1 minute
 })
+
+// 9. Telemetry Session Init Rate Limiter: Max 30 session inits per 1 minute per IP
+export const telemetryInitRateLimiter = new DistributedRateLimiter({
+  name: 'telemetry-init',
+  limit: 30,
+  windowMs: 60 * 1000, // 1 minute
+})
+
+// 10. Telemetry Location Rate Limiter: Max 30 location updates per 1 minute per IP
+export const telemetryLocationRateLimiter = new DistributedRateLimiter({
+  name: 'telemetry-location',
+  limit: 30,
+  windowMs: 60 * 1000, // 1 minute
+})
+
+// 11. Telemetry Heartbeat Ping Rate Limiter: Max 60 heartbeats per 1 minute per IP
+export const telemetryPingRateLimiter = new DistributedRateLimiter({
+  name: 'telemetry-ping',
+  limit: 60,
+  windowMs: 60 * 1000, // 1 minute
+})
+
+// 12. Telemetry Media Track Rate Limiter: Max 60 track events per 1 minute per IP
+export const telemetryTrackRateLimiter = new DistributedRateLimiter({
+  name: 'telemetry-track',
+  limit: 60,
+  windowMs: 60 * 1000, // 1 minute
+})
+
+// 13. Reverse Geocode Lookup Rate Limiter: Max 30 coordinate lookups per 1 minute per IP
+export const locationRateLimiter = new DistributedRateLimiter({
+  name: 'location-reverse',
+  limit: 30,
+  windowMs: 60 * 1000, // 1 minute
+})
+
