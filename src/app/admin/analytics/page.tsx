@@ -88,6 +88,8 @@ import {
   Download,
   Check,
   Trash2,
+  Shield,
+  User,
 } from "lucide-react"
 
 // Safely parse timestamps from Postgres, ensuring UTC interpretation regardless of local machine offset
@@ -281,6 +283,8 @@ export default function VisitorAnalyticsPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [deviceFilter, setDeviceFilter] = useState("all")
   const [browserFilter, setBrowserFilter] = useState("all")
+  // User role filter: 'all' | 'public' | 'admin'
+  const [roleFilter, setRoleFilter] = useState<"all" | "public" | "admin">("all")
 
   // Session inspector dialog state
   const [inspectSessionId, setInspectSessionId] = useState<string | null>(null)
@@ -331,6 +335,7 @@ export default function VisitorAnalyticsPage() {
         search: searchTerm.trim() || undefined,
         device: deviceFilter !== "all" ? deviceFilter : undefined,
         browser: browserFilter !== "all" ? browserFilter : undefined,
+        role: roleFilter !== "all" ? roleFilter : undefined,
       })
       setSessionsData(data)
     } catch (err) {
@@ -346,7 +351,7 @@ export default function VisitorAnalyticsPage() {
     Promise.all([loadOverview(), loadSessions(1)])
       .then(() => setPage(1))
       .finally(() => setLoading(false))
-  }, [checkingAuth, isAdmin, deviceFilter, browserFilter])
+  }, [checkingAuth, isAdmin, deviceFilter, browserFilter, roleFilter])
 
   // Debounced search
   useEffect(() => {
@@ -374,7 +379,7 @@ export default function VisitorAnalyticsPage() {
     }, 6000)
 
     return () => clearInterval(interval)
-  }, [liveRefresh, checkingAuth, isAdmin, page, searchTerm, deviceFilter, browserFilter])
+  }, [liveRefresh, checkingAuth, isAdmin, page, searchTerm, deviceFilter, browserFilter, roleFilter])
 
   // Manual refresh loading state
   const [isRefreshing, setIsRefreshing] = useState(false)
@@ -503,7 +508,12 @@ export default function VisitorAnalyticsPage() {
                 <span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
                 <span className="relative inline-flex size-2 rounded-full bg-emerald-500"></span>
               </span>
-              <span>{overview?.liveVisitors ?? 0} active now</span>
+              <span>{overview?.liveVisitors ?? 0} public active</span>
+              {(overview?.liveAdmins ?? 0) > 0 && (
+                <span className="inline-flex items-center gap-1 text-purple-600 dark:text-purple-400 font-semibold ml-0.5">
+                  • {overview?.liveAdmins} admin
+                </span>
+              )}
             </div>
 
             {/* Realtime auto-refresh toggle */}
@@ -572,9 +582,15 @@ export default function VisitorAnalyticsPage() {
                 <div className="text-2xl font-bold tracking-tight">
                   {overview?.totalVisitors?.toLocaleString() ?? 0}
                 </div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Across {overview?.totalSessions?.toLocaleString() ?? 0} total sessions
-                </p>
+                <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-1 font-medium">
+                  <span className="text-sky-600 dark:text-sky-400">
+                    {overview?.publicVisitors?.toLocaleString() ?? 0} Public
+                  </span>
+                  <span>•</span>
+                  <span className="text-purple-600 dark:text-purple-400">
+                    {overview?.adminSessions?.toLocaleString() ?? 0} Admin
+                  </span>
+                </div>
               </CardContent>
             </Card>
 
@@ -599,6 +615,7 @@ export default function VisitorAnalyticsPage() {
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">
                   Active within last 5 minutes
+                  {(overview?.liveAdmins ?? 0) > 0 ? ` (${overview?.liveAdmins} admin online)` : ""}
                 </p>
               </CardContent>
             </Card>
@@ -748,6 +765,23 @@ export default function VisitorAnalyticsPage() {
                     />
                   </div>
 
+                  <Select
+                    value={roleFilter}
+                    onValueChange={(val: "all" | "public" | "admin") => {
+                      setRoleFilter(val)
+                      setPage(1)
+                    }}
+                  >
+                    <SelectTrigger className="h-8 text-xs w-28 bg-muted/30">
+                      <SelectValue placeholder="Role" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Roles</SelectItem>
+                      <SelectItem value="public">Public Only</SelectItem>
+                      <SelectItem value="admin">Admins Only</SelectItem>
+                    </SelectContent>
+                  </Select>
+
                   <Select value={deviceFilter} onValueChange={setDeviceFilter}>
                     <SelectTrigger className="h-8 text-xs w-28 bg-muted/30">
                       <SelectValue placeholder="Device" />
@@ -806,11 +840,28 @@ export default function VisitorAnalyticsPage() {
                     ) : sessionsData?.items && sessionsData.items.length > 0 ? (
                       sessionsData.items.map((s) => (
                         <TableRow key={s.id} className="hover:bg-muted/30 transition-colors">
-                          {/* IP Address & Copy */}
+                          {/* IP Address & Copy & Role Badge */}
                           <TableCell className="py-2.5">
-                            <div className="inline-flex items-center gap-1.5 font-mono text-xs">
+                            <div className="flex items-center gap-1.5 mb-1">
+                              {s.isAdmin ? (
+                                <Badge
+                                  variant="secondary"
+                                  className="px-1.5 py-0 text-[10px] bg-purple-500/15 text-purple-600 dark:text-purple-400 border border-purple-500/30 gap-1 font-semibold"
+                                >
+                                  <Shield className="size-3 text-purple-500" />
+                                  Admin
+                                </Badge>
+                              ) : (
+                                <Badge
+                                  variant="outline"
+                                  className="px-1.5 py-0 text-[10px] bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/25 gap-1 font-medium"
+                                >
+                                  <Globe className="size-3 text-sky-500" />
+                                  Public
+                                </Badge>
+                              )}
                               <span
-                                className="font-semibold text-foreground whitespace-nowrap"
+                                className="font-mono font-semibold text-foreground text-xs whitespace-nowrap"
                                 title={s.ip}
                               >
                                 {s.ip || "Unknown"}
@@ -1037,12 +1088,31 @@ export default function VisitorAnalyticsPage() {
               <div className="space-y-5 pt-2">
                 {/* Meta details card */}
                 <div className="rounded-lg border bg-muted/20 p-3.5 space-y-3 text-xs">
-                  {/* Full-width dedicated IP Address row */}
+                  {/* Full-width dedicated IP Address and Role row */}
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2.5 border-b border-border/50">
-                    <div className="space-y-0.5 min-w-0 flex-1">
-                      <span className="text-muted-foreground block text-[10px] uppercase font-semibold tracking-wider">
-                        IP Address
-                      </span>
+                    <div className="space-y-1 min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-muted-foreground text-[10px] uppercase font-semibold tracking-wider">
+                          IP Address
+                        </span>
+                        {sessionDetail.session.isAdmin ? (
+                          <Badge
+                            variant="secondary"
+                            className="px-1.5 py-0 text-[10px] bg-purple-500/15 text-purple-600 dark:text-purple-400 border border-purple-500/30 gap-1 font-semibold"
+                          >
+                            <Shield className="size-3 text-purple-500" />
+                            Administrator Session
+                          </Badge>
+                        ) : (
+                          <Badge
+                            variant="outline"
+                            className="px-1.5 py-0 text-[10px] bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/25 gap-1 font-medium"
+                          >
+                            <Globe className="size-3 text-sky-500" />
+                            Public Visitor Session
+                          </Badge>
+                        )}
+                      </div>
                       <div className="flex items-center gap-2 font-mono font-semibold text-foreground text-xs sm:text-sm">
                         <span className="break-all leading-normal">{sessionDetail.session.ip}</span>
                         <Button

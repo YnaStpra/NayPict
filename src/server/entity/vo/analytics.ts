@@ -17,6 +17,7 @@ export type VisitorSessionVo = {
   lastActiveAt: string;
   durationSeconds: number;
   mediaCount: number;
+  isAdmin: boolean;
   userLat?: string;
   userLng?: string;
   userLocationName?: string;
@@ -46,7 +47,10 @@ export type AnalyticsDistributionVo = {
 export type AnalyticsOverviewVo = {
   totalVisitors: number;
   totalSessions: number;
+  publicVisitors: number;
+  adminSessions: number;
   liveVisitors: number;
+  liveAdmins: number;
   avgDurationSeconds: number;
   totalMediaInteractions: number;
   topBrowsers: AnalyticsDistributionVo[];

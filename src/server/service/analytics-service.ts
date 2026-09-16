@@ -123,11 +123,6 @@ const analyticsService = {
     params: InitVisitorSessionBo,
     meta: { ip: string; country: string; city: string; region: string; isAdmin: boolean }
   ): Promise<{ sessionId: string }> {
-    // Strictly exclude administrators from visitor tracking entirely
-    if (meta.isAdmin) {
-      return { sessionId: '' };
-    }
-
     await ensureAnalyticsTables();
     const sessionId = createId();
 
@@ -199,7 +194,7 @@ const analyticsService = {
       landingPath: (params.landingPath || '/').slice(0, 255),
       durationSeconds: 0,
       mediaCount: 0,
-      isAdmin: 0,
+      isAdmin: meta.isAdmin ? 1 : 0,
       userLat: userLat.slice(0, 32),
       userLng: userLng.slice(0, 32),
       userLocationName: userLocationName.slice(0, 255),
@@ -209,8 +204,8 @@ const analyticsService = {
   },
 
   // Update session duration and last active timestamp via lightweight heartbeat ping.
-  async heartbeat(params: HeartbeatBo, isAdmin: boolean): Promise<boolean> {
-    if (!params.sessionId || isAdmin) {
+  async heartbeat(params: HeartbeatBo, isAdmin?: boolean): Promise<boolean> {
+    if (!params.sessionId) {
       return false;
     }
 
@@ -228,8 +223,8 @@ const analyticsService = {
   },
 
   // Update visitor session with consented device GPS location.
-  async updateLocation(params: UpdateVisitorLocationBo, isAdmin: boolean): Promise<boolean> {
-    if (!params.sessionId || isAdmin) {
+  async updateLocation(params: UpdateVisitorLocationBo, isAdmin?: boolean): Promise<boolean> {
+    if (!params.sessionId) {
       return false;
     }
 
@@ -296,8 +291,8 @@ const analyticsService = {
   },
 
   // Track media viewed or interacted with by visitor during session.
-  async trackMedia(params: TrackMediaBo, isAdmin: boolean): Promise<boolean> {
-    if (!params.photoId || isAdmin) {
+  async trackMedia(params: TrackMediaBo, isAdmin?: boolean): Promise<boolean> {
+    if (!params.photoId) {
       return false;
     }
 
@@ -347,19 +342,32 @@ const analyticsService = {
     await ensureAnalyticsTables();
     const liveThresholdIso = new Date(Date.now() - LIVE_THRESHOLD_MINUTES * 60 * 1000).toISOString();
 
-
-    // 1. Total sessions and unique visitors
-    const [counts] = await readOrm
+    // 1. Overall sessions and unique visitors
+    const [overallCounts] = await readOrm
       .select({
         totalSessions: count(),
         totalVisitors: countDistinct(visitorSessionTab.visitorId),
         avgDuration: avg(visitorSessionTab.durationSeconds),
       })
+      .from(visitorSessionTab);
+
+    // 2. Public vs Admin breakdown
+    const [publicCounts] = await readOrm
+      .select({
+        publicVisitors: countDistinct(visitorSessionTab.visitorId),
+      })
       .from(visitorSessionTab)
       .where(eq(visitorSessionTab.isAdmin, 0));
 
-    // 2. Active now visitors
-    const [live] = await readOrm
+    const [adminCounts] = await readOrm
+      .select({
+        adminSessions: count(),
+      })
+      .from(visitorSessionTab)
+      .where(eq(visitorSessionTab.isAdmin, 1));
+
+    // 3. Active now visitors: public vs admin
+    const [livePublic] = await readOrm
       .select({ liveCount: countDistinct(visitorSessionTab.visitorId) })
       .from(visitorSessionTab)
       .where(
@@ -369,12 +377,22 @@ const analyticsService = {
         )
       );
 
-    // 3. Total media interactions
+    const [liveAdmins] = await readOrm
+      .select({ liveCount: countDistinct(visitorSessionTab.visitorId) })
+      .from(visitorSessionTab)
+      .where(
+        and(
+          eq(visitorSessionTab.isAdmin, 1),
+          gte(visitorSessionTab.lastActiveAt, liveThresholdIso)
+        )
+      );
+
+    // 4. Total media interactions
     const [mediaInteractions] = await readOrm
       .select({ total: count() })
       .from(visitorActivityTab);
 
-    const totalSessionsNum = counts?.totalSessions || 0;
+    const totalSessionsNum = overallCounts?.totalSessions || 0;
 
     // Helper for computing distribution percentage
     const calcDist = (rows: Array<{ name: string; cnt: number }>): AnalyticsDistributionVo[] => {
@@ -385,7 +403,7 @@ const analyticsService = {
       }));
     };
 
-    // 4. Top Browsers
+    // 5. Top Browsers (Public visitors)
     const browserRows = await readOrm
       .select({ name: visitorSessionTab.browser, cnt: count() })
       .from(visitorSessionTab)
@@ -394,7 +412,7 @@ const analyticsService = {
       .orderBy(desc(count()))
       .limit(5);
 
-    // 5. Top Devices
+    // 6. Top Devices (Public visitors)
     const deviceRows = await readOrm
       .select({ name: visitorSessionTab.device, cnt: count() })
       .from(visitorSessionTab)
@@ -403,7 +421,7 @@ const analyticsService = {
       .orderBy(desc(count()))
       .limit(5);
 
-    // 6. Top Countries
+    // 7. Top Countries (Public visitors)
     const countryRows = await readOrm
       .select({ name: visitorSessionTab.country, cnt: count() })
       .from(visitorSessionTab)
@@ -412,7 +430,7 @@ const analyticsService = {
       .orderBy(desc(count()))
       .limit(5);
 
-    // 7. Top Referrers
+    // 8. Top Referrers (Public visitors)
     const referrerRows = await readOrm
       .select({ name: visitorSessionTab.referrer, cnt: count() })
       .from(visitorSessionTab)
@@ -422,10 +440,13 @@ const analyticsService = {
       .limit(5);
 
     return {
-      totalVisitors: counts?.totalVisitors || 0,
+      totalVisitors: overallCounts?.totalVisitors || 0,
       totalSessions: totalSessionsNum,
-      liveVisitors: live?.liveCount || 0,
-      avgDurationSeconds: Math.round(Number(counts?.avgDuration) || 0),
+      publicVisitors: publicCounts?.publicVisitors || 0,
+      adminSessions: adminCounts?.adminSessions || 0,
+      liveVisitors: livePublic?.liveCount || 0,
+      liveAdmins: liveAdmins?.liveCount || 0,
+      avgDurationSeconds: Math.round(Number(overallCounts?.avgDuration) || 0),
       totalMediaInteractions: mediaInteractions?.total || 0,
       topBrowsers: calcDist(browserRows),
       topDevices: calcDist(deviceRows),
@@ -442,7 +463,14 @@ const analyticsService = {
     const pageSize = Math.max(1, Math.min(params.pageSize || 20, 100));
     const offset = (page - 1) * pageSize;
 
-    const conditions = [eq(visitorSessionTab.isAdmin, 0)];
+    const conditions = [];
+
+    // Filter by role: public (0), admin (1), or all
+    if (params.role === 'admin') {
+      conditions.push(eq(visitorSessionTab.isAdmin, 1));
+    } else if (params.role === 'public') {
+      conditions.push(eq(visitorSessionTab.isAdmin, 0));
+    }
 
     if (params.device) {
       conditions.push(eq(visitorSessionTab.device, params.device));
@@ -466,7 +494,7 @@ const analyticsService = {
       );
     }
 
-    const whereClause = and(...conditions);
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
     const [totalRow] = await readOrm
       .select({ total: count() })
@@ -514,6 +542,7 @@ const analyticsService = {
         lastActiveAt: toIsoString(r.lastActiveAt),
         durationSeconds: r.durationSeconds,
         mediaCount: r.mediaCount,
+        isAdmin: Boolean(r.isAdmin),
         userLat: r.userLat || '',
         userLng: r.userLng || '',
         userLocationName: r.userLocationName || '',
@@ -642,6 +671,7 @@ const analyticsService = {
       lastActiveAt: toIsoString(session.lastActiveAt),
       durationSeconds: session.durationSeconds,
       mediaCount: session.mediaCount,
+      isAdmin: Boolean(session.isAdmin),
       userLat: session.userLat || '',
       userLng: session.userLng || '',
       userLocationName: session.userLocationName || '',

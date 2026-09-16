@@ -39,4 +39,5 @@ export type VisitorSessionsQueryBo = {
   device?: string;
   browser?: string;
   country?: string;
+  role?: 'all' | 'public' | 'admin';
 };

@@ -148,12 +148,8 @@ export function useVisitorTracker() {
       return
     }
 
-    // 2. Only exclude internal administrative system routes from visitor tracking
-    const isSystemRoute =
-      window.location.pathname.startsWith("/admin") ||
-      window.location.pathname.startsWith("/settings") ||
-      window.location.pathname.startsWith("/storage") ||
-      window.location.pathname.startsWith("/duplicates")
+    // 2. Exclude analytics dashboard itself from tracking to prevent self-referential telemetry loops
+    const isSystemRoute = window.location.pathname.startsWith("/admin/analytics")
 
     if (isSystemRoute) {
       return
@@ -474,11 +470,7 @@ export function useVisitorTracker() {
   // Immediately re-check and synchronize location whenever user navigates between pages (e.g. from / to /map)
   useEffect(() => {
     if (typeof window === "undefined") return
-    const isSystemRoute =
-      pathname.startsWith("/admin") ||
-      pathname.startsWith("/settings") ||
-      pathname.startsWith("/storage") ||
-      pathname.startsWith("/duplicates")
+    const isSystemRoute = pathname.startsWith("/admin/analytics")
     if (isSystemRoute) return
 
     checkPermissionRef.current()

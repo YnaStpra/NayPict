@@ -22,6 +22,7 @@ export function getVisitorSessions(params?: VisitorSessionsQueryBo): Promise<Vis
   if (params?.device) query.set('device', params.device);
   if (params?.browser) query.set('browser', params.browser);
   if (params?.country) query.set('country', params.country);
+  if (params?.role && params.role !== 'all') query.set('role', params.role);
 
   const qs = query.toString();
   return http.get<VisitorSessionsListVo>(`/analytics/sessions${qs ? `?${qs}` : ''}`);

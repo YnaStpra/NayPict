@@ -357,6 +357,8 @@ export function registerAnalyticsApi(app: Hono<HonoEnv>) {
       }
     }
 
+    const isAdmin = await checkIsAdmin(c);
+
     const data = await analyticsService.initSession(
       {
         ...body,
@@ -373,7 +375,7 @@ export function registerAnalyticsApi(app: Hono<HonoEnv>) {
       },
       {
         ...meta,
-        isAdmin: false,
+        isAdmin,
       }
     );
 
@@ -518,6 +520,7 @@ export function registerAnalyticsApi(app: Hono<HonoEnv>) {
       device: query.device,
       browser: query.browser,
       country: query.country,
+      role: query.role,
     });
 
     return c.json(result.ok(data));
