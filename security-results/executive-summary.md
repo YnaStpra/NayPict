@@ -26,16 +26,14 @@
 ## Key Risk Highlights
 
 ### 1. 🟡 Deprecated TLS 1.0 & TLS 1.1 Protocols Enabled (Medium Risk)
-- **Status**: **CONFIRMED**
+- **Status**: ✅ **RESOLVED** (Enforced Minimum TLS 1.2 on Cloudflare Edge on Sep 16, 2026; verified via `testssl.sh`)
 - **Affected Surface**: Cloudflare Edge Nameserver Handshakes (`104.21.53.199:443`, `172.67.218.117:443`)
-- **Summary**: Cloudflare edge proxies permit TLS 1.0 and TLS 1.1 handshakes with obsolete CBC ciphers (`TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA`). TLS 1.0 and 1.1 were formally deprecated in RFC 8996 and violate PCI-DSS v3.2.1 requirements.
-- **Remediation**: Set **Minimum TLS Version** to **TLS 1.2** in Cloudflare SSL/TLS settings.
+- **Summary**: Cloudflare edge proxies permitted TLS 1.0 and TLS 1.1 handshakes with obsolete CBC ciphers. Successfully mitigated by setting Minimum TLS Version to TLS 1.2 on Cloudflare.
 
 ### 2. 🔵 Technology Stack Fingerprint via `X-Powered-By: Next.js` (Low Risk)
-- **Status**: **CONFIRMED**
+- **Status**: ✅ **RESOLVED** (`poweredByHeader: false` configured in `next.config.ts`)
 - **Affected Surface**: All HTTP responses (`/`, `/login`, `/api/*`)
-- **Summary**: The server emits `x-powered-by: Next.js`, advertising the framework stack to automated vulnerability crawlers.
-- **Remediation**: Disable the header in `next.config.ts` by adding `poweredByHeader: false`.
+- **Summary**: The server emitted `x-powered-by: Next.js`. Disabled in Next.js configuration.
 
 ### 3. 🔵 Content Security Policy with `'unsafe-inline'` Directive (Low Risk)
 - **Status**: **CONFIRMED** (Design Trade-off)
@@ -50,10 +48,9 @@
 - **Remediation**: Strip `x-vercel-*` headers via Cloudflare Transform Rules if complete origin masking is desired.
 
 ### 5. ⚪ Uptime & Database Connectivity Disclosed via `/api/health` (Informational)
-- **Status**: **CONFIRMED**
+- **Status**: ✅ **RESOLVED** (Endpoint sanitized in `health-api.ts` to return only `{ "status": "healthy" }`)
 - **Affected Surface**: `/api/health`
-- **Summary**: Unauthenticated callers receive database connectivity confirmation and process uptime in seconds.
-- **Remediation**: Restrict granular health details to authenticated monitoring tokens.
+- **Summary**: Unauthenticated callers received database connectivity confirmation and process uptime in seconds. Sanitized to omit internal telemetry.
 
 ---
 

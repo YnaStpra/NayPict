@@ -17,6 +17,8 @@ function getMediaGatewayHostname(): string | null {
 const mediaGatewayHostname = getMediaGatewayHostname();
 
 const nextConfig: NextConfig = {
+  // Disable X-Powered-By header to mitigate technology fingerprinting (OWASP WSTG-INFO-08)
+  poweredByHeader: false,
   reactStrictMode: false,
   serverExternalPackages: ['exiftool-vendored', 'better-sqlite3'],
   // Always use standalone output for Docker/Render; Vercel ignores this setting.

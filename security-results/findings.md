@@ -7,7 +7,7 @@ This document provides a comprehensive technical breakdown of all vulnerabilitie
 ## Finding 1: Deprecated TLS 1.0 and TLS 1.1 Protocols Enabled on Cloudflare Edge
 
 - **Severity**: 🟡 **MEDIUM**
-- **Status**: **CONFIRMED**
+- **Status**: ✅ **RESOLVED** (Enforced Minimum TLS 1.2 on Cloudflare Edge on Sep 16, 2026; confirmed via `testssl.sh`)
 - **URL / Endpoint**: `https://www.naypict.my.id:443` (IPs: `104.21.53.199`, `172.67.218.117`)
 - **Discovered By**: `testssl.sh` v3.2.4 & `nuclei` v3.11.1
 - **CWE / OWASP Reference**: [CWE-326: Inadequate Encryption Strength](https://cwe.mitre.org/data/definitions/326.html) | [RFC 8996: Deprecating TLS 1.0 and TLS 1.1](https://datatracker.ietf.org/doc/rfc8996/) | [PCI-DSS v3.2.1 Requirement 4.1](https://www.pcisecuritystandards.org/)
@@ -62,7 +62,7 @@ openssl s_client -tls1 -connect www.naypict.my.id:443 < /dev/null
 ## Finding 2: Technology Stack Disclosure via `X-Powered-By: Next.js`
 
 - **Severity**: 🔵 **LOW**
-- **Status**: **CONFIRMED**
+- **Status**: ✅ **RESOLVED** (`poweredByHeader: false` configured in `next.config.ts`)
 - **URL / Endpoint**: `https://www.naypict.my.id/` (Global)
 - **Discovered By**: `nikto` v2.6.1, `curl` 8.5.0, `OWASP ZAP`
 - **CWE / OWASP Reference**: [CWE-200: Exposure of Sensitive Information](https://cwe.mitre.org/data/definitions/200.html) | [OWASP WSTG-INFO-08: Fingerprint Web Server](https://owasp.org/www-project-web-security-testing-guide/latest/4-web-application-security-testing/01-information-gathering/02-fingerprint-web-server)
@@ -167,7 +167,7 @@ If full cloud infrastructure anonymization is desired, configure a **Cloudflare 
 ## Finding 5: Server Uptime & Database Connectivity Disclosed via Public `/api/health`
 
 - **Severity**: ⚪ **INFORMATIONAL**
-- **Status**: **CONFIRMED**
+- **Status**: ✅ **RESOLVED** (Endpoint sanitized to return only status indicator; uptime and database details omitted)
 - **URL / Endpoint**: `https://www.naypict.my.id/api/health`
 - **Discovered By**: `ffuf` v2.3.0, `curl` 8.5.0
 - **CWE / OWASP Reference**: [CWE-200: Exposure of Sensitive Information](https://cwe.mitre.org/data/definitions/200.html)

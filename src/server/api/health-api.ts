@@ -18,9 +18,7 @@ export function registerHealthApi(app: Hono<HonoEnv>) {
 
       const payload: HealthVo = {
         status: 'healthy',
-        database: process.env.DATABASE_URL ? 'connected' : 'connected',
         timestamp: new Date().toISOString(),
-        uptime: Math.floor(process.uptime()),
       };
 
       return c.json(payload, 200, {
@@ -29,9 +27,7 @@ export function registerHealthApi(app: Hono<HonoEnv>) {
     } catch {
       const errorPayload: HealthVo = {
         status: 'unhealthy',
-        database: 'disconnected',
         timestamp: new Date().toISOString(),
-        uptime: Math.floor(process.uptime()),
       };
 
       return c.json(errorPayload, 503, {
