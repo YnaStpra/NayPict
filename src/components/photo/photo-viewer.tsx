@@ -37,6 +37,8 @@ import { getThumbHashUrl } from "@/lib/thumb-hash"
 import { removePhotoIdFromUrl, setPhotoIdInUrl, toProxyMediaUrl } from "@/lib/url"
 import { recordPhotoShare, recordPhotoView } from "@/request/insights"
 import { trackVisitorMedia } from "@/hooks/use-visitor-tracker"
+import { PhotoHeartBurst } from "@/components/photo/photo-heart-burst"
+import { reactionSync } from "@/lib/reaction-sync"
 import { type PhotoVo } from "@/server/entity/vo/photo"
 import { usePhotoStore } from "@/store/photo-store"
 import { useApp } from "@/app/provider"
@@ -1139,6 +1141,9 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
   const [isCinematicMode, setIsCinematicMode] = useState(false)
   // Dynamic Cinema Ambient Glow mode state (default true).
   const [ambientGlow, setAmbientGlow] = useState(true)
+  // Double-tap Instagram-style heart burst state in lightbox viewer.
+  const [showViewerHeartBurst, setShowViewerHeartBurst] = useState(false)
+  const [viewerBurstCoords, setViewerBurstCoords] = useState<{ x: number; y: number } | null>(null)
   // Whether user is currently seeking or scrubbing video/volume (disables swipe carousel)
   const [isVideoScrubbing, setIsVideoScrubbing] = useState(false)
   // Whether the current video player is in fullscreen mode (disables swipe carousel during fullscreen)
@@ -1674,6 +1679,28 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
               singleTapTimerRef.current = null
             }
             lastTapTimeRef.current = 0
+
+            // Trigger Instagram-style Double-Tap Heart Burst and haptic pulse
+            setViewerBurstCoords({
+              x: event.clientX,
+              y: event.clientY,
+            })
+            setShowViewerHeartBurst(true)
+
+            try {
+              if (typeof navigator !== "undefined" && navigator.vibrate) {
+                navigator.vibrate([15, 35, 15])
+              }
+            } catch {}
+
+            const activePhoto = photos[viewIndex]
+            if (activePhoto?.photoId) {
+              const cached = reactionSync.getCached(activePhoto.photoId)
+              if (!cached?.userReactions?.love) {
+                reactionSync.toggleReaction(activePhoto.photoId, "love")
+              }
+              trackVisitorMedia(activePhoto.photoId, "reaction")
+            }
           } else {
             lastTapTimeRef.current = now
             if (singleTapTimerRef.current) {
@@ -1836,6 +1863,13 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
                   thumbHash={photos[viewIndex]?.thumbHash}
                   visible={ambientGlow && !fullscreenOpen}
                   dragOpacity={dragBackdropOpacity}
+                />
+                {/* Mobile Instagram-Style Double-Tap Heart Burst Overlay */}
+                <PhotoHeartBurst
+                  show={showViewerHeartBurst}
+                  coords={viewerBurstCoords}
+                  size={96}
+                  onComplete={() => setShowViewerHeartBurst(false)}
                 />
                 {infoOpen && !fullscreenOpen && !isCinematicMode && (
                   <PhotoViewerBlurBackground thumbHash={photos[viewIndex]?.thumbHash} />

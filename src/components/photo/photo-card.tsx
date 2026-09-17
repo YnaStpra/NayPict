@@ -16,6 +16,10 @@ import { useApp } from "@/app/provider"
 import { UserTypeEnum } from "@/server/enums/user-enum"
 import { useUserLocation } from "@/hooks/use-user-location"
 import { calculateDistance, formatDistance } from "@/lib/geo"
+import { PhotoHeartBurst } from "@/components/photo/photo-heart-burst"
+import { PhotoQuickPeek } from "@/components/photo/photo-quick-peek"
+import { reactionSync } from "@/lib/reaction-sync"
+import { trackVisitorMedia } from "@/hooks/use-visitor-tracker"
 
 type TouchHoverCloseRef = {
   current: (() => void) | null
@@ -194,9 +198,151 @@ export const PhotoCard = memo(function PhotoCard({
     }, 100)
   }
 
-  // Predictive touch-start prefetching for instant mobile lightbox opening
-  function handleTouchStart() {
+  // Mobile-friendly gesture & quick peek states
+  const [showHeartBurst, setShowHeartBurst] = useState(false)
+  const [burstCoords, setBurstCoords] = useState<{ x: number; y: number } | null>(null)
+  const [quickPeekOpen, setQuickPeekOpen] = useState(false)
+  const lastTapTimeRef = useRef(0)
+  const singleTapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const touchStartPosRef = useRef<{ x: number; y: number; time: number } | null>(null)
+  const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const isLongPressActiveRef = useRef(false)
+
+  // Clean up pending gesture timers on unmount
+  useEffect(() => {
+    return () => {
+      if (singleTapTimerRef.current) clearTimeout(singleTapTimerRef.current)
+      if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current)
+    }
+  }, [])
+
+  // Predictive touch-start prefetching and gesture initiation
+  function handleTouchStart(e: React.TouchEvent<HTMLDivElement>) {
     prefetchPhotoHighRes(data.preview || data.key)
+
+    if (selectionActive) return
+
+    const touch = e.touches[0]
+    if (!touch) return
+
+    touchStartPosRef.current = {
+      x: touch.clientX,
+      y: touch.clientY,
+      time: Date.now(),
+    }
+    isLongPressActiveRef.current = false
+
+    // Start long-press timer for Quick Peek (280ms)
+    if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current)
+    longPressTimerRef.current = setTimeout(() => {
+      isLongPressActiveRef.current = true
+      try {
+        if (typeof navigator !== "undefined" && navigator.vibrate) {
+          navigator.vibrate(25)
+        }
+      } catch {}
+      setQuickPeekOpen(true)
+    }, 280)
+  }
+
+  // Cancel long-press immediately if finger moves (user is scrolling)
+  function handleTouchMove(e: React.TouchEvent<HTMLDivElement>) {
+    if (!touchStartPosRef.current) return
+    const touch = e.touches[0]
+    if (!touch) return
+
+    const dx = touch.clientX - touchStartPosRef.current.x
+    const dy = touch.clientY - touchStartPosRef.current.y
+
+    if (Math.hypot(dx, dy) > 10) {
+      if (longPressTimerRef.current) {
+        clearTimeout(longPressTimerRef.current)
+        longPressTimerRef.current = null
+      }
+    }
+  }
+
+  // Process tap or double-tap on touch release
+  function handleTouchEnd(e: React.TouchEvent<HTMLDivElement>) {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current)
+      longPressTimerRef.current = null
+    }
+
+    // If long press opened Quick Peek, skip tap
+    if (isLongPressActiveRef.current) {
+      isLongPressActiveRef.current = false
+      return
+    }
+
+    if (selectionActive) return
+
+    // If moved > 12px, it was a scroll gesture
+    if (touchStartPosRef.current && e.changedTouches && e.changedTouches[0]) {
+      const touch = e.changedTouches[0]
+      const dx = touch.clientX - touchStartPosRef.current.x
+      const dy = touch.clientY - touchStartPosRef.current.y
+      if (Math.hypot(dx, dy) > 12) {
+        return
+      }
+    }
+
+    const now = Date.now()
+    const timeSinceLastTap = now - lastTapTimeRef.current
+
+    if (timeSinceLastTap < 260) {
+      // Double tap detected!
+      lastTapTimeRef.current = 0
+      if (singleTapTimerRef.current) {
+        clearTimeout(singleTapTimerRef.current)
+        singleTapTimerRef.current = null
+      }
+
+      // Calculate relative coords for heart burst on card
+      const rect = cardRef.current?.getBoundingClientRect()
+      if (rect && e.changedTouches && e.changedTouches[0]) {
+        setBurstCoords({
+          x: e.changedTouches[0].clientX - rect.left,
+          y: e.changedTouches[0].clientY - rect.top,
+        })
+      } else {
+        setBurstCoords(null)
+      }
+
+      setShowHeartBurst(true)
+
+      // Safe haptic feedback (Instagram double beat)
+      try {
+        if (typeof navigator !== "undefined" && navigator.vibrate) {
+          navigator.vibrate([15, 35, 15])
+        }
+      } catch {}
+
+      // Trigger reaction if not already loved
+      const cached = reactionSync.getCached(data.photoId)
+      if (!cached?.userReactions?.love) {
+        reactionSync.toggleReaction(data.photoId, "love")
+      }
+      trackVisitorMedia(data.photoId, "reaction")
+      return
+    }
+
+    // First tap: debounce opening so double tap can cancel it
+    lastTapTimeRef.current = now
+    if (singleTapTimerRef.current) clearTimeout(singleTapTimerRef.current)
+    singleTapTimerRef.current = setTimeout(() => {
+      singleTapTimerRef.current = null
+      onOpen?.()
+    }, 220)
+  }
+
+  // Handle touch cancellation (e.g. system alert or interruption)
+  function handleTouchCancel() {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current)
+      longPressTimerRef.current = null
+    }
+    isLongPressActiveRef.current = false
   }
 
   function handleMouseLeave() {
@@ -205,7 +351,6 @@ export const PhotoCard = memo(function PhotoCard({
       hoverTimerRef.current = null
     }
   }
-
 
   // Toggle the selection status of the current photo.
   function changeSelected(checked: boolean) {
@@ -228,16 +373,40 @@ export const PhotoCard = memo(function PhotoCard({
       return
     }
 
-    // Not available on mobile hover enlarge, No need to lock floating information.
-    if (!isMobile) {
-      setHoldHover(true)
-      setTimeout(() => setHoldHover(false), 200)
+    // On touch mobile devices, handleTouchEnd processes taps
+    if (isMobile) {
+      return
     }
 
+    setHoldHover(true)
+    setTimeout(() => setHoldHover(false), 200)
     onOpen?.()
   }
 
-  // Block system menu when long pressing photo, and display the original hover Information that just appeared.
+  // Desktop double-click to like
+  function handleDoubleClick(event: MouseEvent<HTMLDivElement>) {
+    if (selectionActive) return
+    event.stopPropagation()
+
+    const rect = cardRef.current?.getBoundingClientRect()
+    if (rect) {
+      setBurstCoords({
+        x: event.clientX - rect.left,
+        y: event.clientY - rect.top,
+      })
+    } else {
+      setBurstCoords(null)
+    }
+
+    setShowHeartBurst(true)
+    const cached = reactionSync.getCached(data.photoId)
+    if (!cached?.userReactions?.love) {
+      reactionSync.toggleReaction(data.photoId, "love")
+    }
+    trackVisitorMedia(data.photoId, "reaction")
+  }
+
+  // Block system menu when long pressing photo to prevent default iOS / Android context menu.
   function handlePhotoContextMenu(event: MouseEvent<HTMLDivElement>) {
     if (window.innerWidth >= 1024) {
       return
@@ -247,11 +416,9 @@ export const PhotoCard = memo(function PhotoCard({
 
     if (showTouchHover) {
       setShowTouchHover(false)
-
       if (touchHoverCloseRef) {
         touchHoverCloseRef.current = null
       }
-
       return
     }
 
@@ -290,6 +457,10 @@ export const PhotoCard = memo(function PhotoCard({
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
       onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+      onTouchCancel={handleTouchCancel}
+      onDoubleClick={handleDoubleClick}
       style={{
         width,
         height: cardHeight,
@@ -499,6 +670,25 @@ export const PhotoCard = memo(function PhotoCard({
           </div>
         </div>
       )}
+      {/* Mobile Instagram-Style Double-Tap Heart Burst */}
+      <PhotoHeartBurst
+        show={showHeartBurst}
+        coords={burstCoords}
+        size={72}
+        onComplete={() => setShowHeartBurst(false)}
+      />
+
+      {/* iOS / Instagram Style Haptic Long-Press Quick Peek */}
+      <PhotoQuickPeek
+        photo={quickPeekOpen ? data : null}
+        open={quickPeekOpen}
+        onClose={() => setQuickPeekOpen(false)}
+        onOpenFull={() => {
+          setQuickPeekOpen(false)
+          onOpen?.()
+        }}
+        distanceBadge={distanceBadge}
+      />
     </div>
   )
 })
