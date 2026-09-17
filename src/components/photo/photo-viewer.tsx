@@ -1795,9 +1795,9 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
           scrollToZoom: !isAnySubModalOpen,
           wheelZoomDistanceFactor: isAnySubModalOpen ? 0 : 100,
           maxZoomPixelRatio: 3,
-          doubleClickMaxStops: 2,
-          doubleClickDelay: 300,
-          doubleTapDelay: 300,
+          doubleClickMaxStops: 0,
+          doubleClickDelay: 0,
+          doubleTapDelay: 0,
         }}
         toolbar={{
           buttons: [],
