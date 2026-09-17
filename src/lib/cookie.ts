@@ -9,15 +9,6 @@ type LoginCookie = {
   tokenVersion: number
 }
 
-// from browser Cookie Read the value of the specified name in.
-function getCookieValue(name: string) {
-  const item = document.cookie
-    .split("; ")
-    .find((cookie) => cookie.startsWith(`${name}=`))
-
-  return item?.slice(name.length + 1)
-}
-
 // from incoming Cookie Read the value of the specified name from the string.
 function getCookieValueFromString(cookie: string | null | undefined, name: string) {
   if (!cookie) {
@@ -70,5 +61,5 @@ async function getLoginInfo(cookie: string | null = null): Promise<LoginCookie> 
   };
 }
 
-export { getCookieValue, getCookieValueFromString, getLoginInfo }
+export { getCookieValueFromString, getLoginInfo }
 export type { LoginCookie }

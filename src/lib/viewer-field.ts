@@ -13,39 +13,6 @@ function parsePhotoExifJson(exif: string | null | undefined) {
   }
 }
 
-const colorSpaceLabels: Record<number, string> = {
-  1: "sRGB",
-  2: "Adobe RGB",
-}
-
-// Bundle Exif Color space fields formatted into readable text.
-function formatColorSpace(exif: Record<string, unknown> | null | undefined, uncalibrated: string) {
-  if (!exif) {
-    return null
-  }
-
-  const profile = exif.ProfileDescription
-  if (profile !== undefined && profile !== null && profile !== "") {
-    return String(profile)
-  }
-
-  const colorSpace = exif.ColorSpace
-  if (colorSpace === undefined || colorSpace === null || colorSpace === "") {
-    return null
-  }
-
-  if (typeof colorSpace === "number") {
-    return colorSpace === 65535 ? uncalibrated : colorSpaceLabels[colorSpace] ?? String(colorSpace)
-  }
-
-  return String(colorSpace)
-}
-
-// from photos exif JSON String reading color space.
-export function getPhotoColorSpace(exif: string | null | undefined, uncalibrated = "Uncalibrated") {
-  return formatColorSpace(parsePhotoExifJson(exif), uncalibrated)
-}
-
 type ViewerField = {
   key: "camera" | "lens" | "shutter" | "aperture" | "focalLength" | "iso"
   value: string
