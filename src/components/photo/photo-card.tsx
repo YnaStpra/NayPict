@@ -720,10 +720,6 @@ export const PhotoCard = memo(function PhotoCard({
           lastQuickPeekDismissTimeRef.current = Date.now()
           setQuickPeekOpen(false)
         }}
-        onOpenFull={() => {
-          setQuickPeekOpen(false)
-          onOpen?.()
-        }}
         distanceBadge={distanceBadge}
       />
     </div>
