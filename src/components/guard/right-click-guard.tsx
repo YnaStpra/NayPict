@@ -1,7 +1,6 @@
 "use client"
 
 import { useEffect } from "react"
-import { toast } from "sonner"
 import { useApp } from "@/app/provider"
 import { UserTypeEnum } from "@/server/enums/user-enum"
 
@@ -21,15 +20,11 @@ export function RightClickGuard({ enabled = true }: RightClickGuardProps) {
       return
     }
 
-    // Intercept right-click context menu on images
+    // Intercept right-click context menu on images silently without intrusive toast alerts
     const handleContextMenu = (e: MouseEvent) => {
       const target = e.target as HTMLElement | null
       if (target && (target.tagName === "IMG" || target.closest(".yet-another-react-lightbox") || target.closest("[data-photo-item]"))) {
         e.preventDefault()
-        toast.info("Image save is protected by copyright", {
-          id: "right-click-guard-toast",
-          duration: 1500,
-        })
       }
     }
 
