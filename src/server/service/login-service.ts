@@ -185,6 +185,10 @@ const loginService = {
     const [user] = await orm.select().from(userTab).where(eq(userTab.username, username)).limit(1);
 
     if (!user) {
+      // Mitigate SEC-PHASE2-01: perform constant-time dummy Argon2id verification to equalize response latency
+      const DUMMY_SALT = "AAAAAAAAAAAAAAAAAAAAAA==";
+      const DUMMY_HASH = "$argon2id$v=19$m=65536,t=3,p=1$AAAAAAAAAAAAAAAAAAAAAA$8gdcMbloWkACX4/7Flf2YfQsm/ylRDEsmesuThzx8GA";
+      await verifyPasswordDetailed(params.password || "dummy", DUMMY_SALT, DUMMY_HASH).catch(() => {});
       await loginRateLimiter.consume(clientIp);
       await accountLockoutRateLimiter.consume(normalizedUsername);
       throw new BizError("login.invalidCredentials");

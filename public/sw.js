@@ -75,7 +75,14 @@ self.addEventListener('fetch', (event) => {
   }
 
   // 1. Photo Media & Derivative Images: Stale-While-Revalidate with bounded media cache (max 150 items)
+  // Strictly respects Cache-Control: never persists private or no-store media (SEC-PHASE3-01)
   if (url.pathname.startsWith('/media/') || request.destination === 'image') {
+    const isCacheableMedia = (res) => {
+      if (!res || res.status !== 200) return false;
+      const cc = (res.headers.get('cache-control') || '').toLowerCase();
+      return !cc.includes('private') && !cc.includes('no-store');
+    };
+
     event.respondWith(
       caches.open(MEDIA_CACHE_NAME).then(async (cache) => {
         const cachedResponse = await cache.match(request);
@@ -83,21 +90,24 @@ self.addEventListener('fetch', (event) => {
           // Fetch fresh version in background if online
           fetch(request)
             .then((networkResponse) => {
-              if (networkResponse && networkResponse.status === 200) {
+              if (isCacheableMedia(networkResponse)) {
                 const responseToCache = networkResponse.clone();
                 cache.put(request, responseToCache).then(() => {
                   trimMediaCache(MEDIA_CACHE_NAME, MAX_MEDIA_CACHE_ITEMS);
                 });
+              } else if (networkResponse && networkResponse.status === 200) {
+                // If the updated response is private/no-store, evict stale entry from cache
+                cache.delete(request);
               }
             })
             .catch(() => {});
           return cachedResponse;
         }
 
-        // Otherwise fetch from network and cache
+        // Otherwise fetch from network and cache if public
         return fetch(request)
           .then((networkResponse) => {
-            if (networkResponse && networkResponse.status === 200) {
+            if (isCacheableMedia(networkResponse)) {
               const responseToCache = networkResponse.clone();
               cache.put(request, responseToCache).then(() => {
                 trimMediaCache(MEDIA_CACHE_NAME, MAX_MEDIA_CACHE_ITEMS);
