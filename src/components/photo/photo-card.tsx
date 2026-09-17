@@ -207,6 +207,8 @@ export const PhotoCard = memo(function PhotoCard({
   const touchStartPosRef = useRef<{ x: number; y: number; time: number } | null>(null)
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const isLongPressActiveRef = useRef(false)
+  // Track last quick peek dismissal timestamp to completely suppress synthetic clicks
+  const lastQuickPeekDismissTimeRef = useRef(0)
 
   // Clean up pending gesture timers on unmount
   useEffect(() => {
@@ -221,6 +223,9 @@ export const PhotoCard = memo(function PhotoCard({
     prefetchPhotoHighRes(data.preview || data.key)
 
     if (selectionActive) return
+
+    // Suppress new gesture if quick peek was just dismissed within 600ms
+    if (Date.now() - lastQuickPeekDismissTimeRef.current < 600) return
 
     const touch = e.touches[0]
     if (!touch) return
@@ -262,16 +267,31 @@ export const PhotoCard = memo(function PhotoCard({
     }
   }
 
-  // Process tap or double-tap on touch release
+  // Process tap, double-tap, or long-press release
   function handleTouchEnd(e: React.TouchEvent<HTMLDivElement>) {
     if (longPressTimerRef.current) {
       clearTimeout(longPressTimerRef.current)
       longPressTimerRef.current = null
     }
 
-    // If long press opened Quick Peek, skip tap
-    if (isLongPressActiveRef.current) {
+    // Instagram style: When finger is lifted after long-press, immediately close Quick Peek!
+    if (isLongPressActiveRef.current || quickPeekOpen) {
+      e.preventDefault()
+      e.stopPropagation()
       isLongPressActiveRef.current = false
+      lastQuickPeekDismissTimeRef.current = Date.now()
+      setQuickPeekOpen(false)
+      if (singleTapTimerRef.current) {
+        clearTimeout(singleTapTimerRef.current)
+        singleTapTimerRef.current = null
+      }
+      return
+    }
+
+    // If recently dismissed Quick Peek (< 600ms), suppress any ghost tap or click
+    if (Date.now() - lastQuickPeekDismissTimeRef.current < 600) {
+      e.preventDefault()
+      e.stopPropagation()
       return
     }
 
@@ -332,6 +352,9 @@ export const PhotoCard = memo(function PhotoCard({
     if (singleTapTimerRef.current) clearTimeout(singleTapTimerRef.current)
     singleTapTimerRef.current = setTimeout(() => {
       singleTapTimerRef.current = null
+      if (Date.now() - lastQuickPeekDismissTimeRef.current < 600) {
+        return
+      }
       onOpen?.()
     }, 220)
   }
@@ -341,6 +364,10 @@ export const PhotoCard = memo(function PhotoCard({
     if (longPressTimerRef.current) {
       clearTimeout(longPressTimerRef.current)
       longPressTimerRef.current = null
+    }
+    if (isLongPressActiveRef.current || quickPeekOpen) {
+      lastQuickPeekDismissTimeRef.current = Date.now()
+      setQuickPeekOpen(false)
     }
     isLongPressActiveRef.current = false
   }
@@ -359,6 +386,13 @@ export const PhotoCard = memo(function PhotoCard({
 
   // Open or select according to current mode when clicking on photo.
   function handlePhotoClick(event: MouseEvent<HTMLDivElement>) {
+    // If long-press quick peek was recently active, NEVER open photo viewer
+    if (Date.now() - lastQuickPeekDismissTimeRef.current < 600) {
+      event.preventDefault()
+      event.stopPropagation()
+      return
+    }
+
     if (showTouchHover) {
       event.stopPropagation()
       setShowTouchHover(false)
@@ -682,7 +716,10 @@ export const PhotoCard = memo(function PhotoCard({
       <PhotoQuickPeek
         photo={quickPeekOpen ? data : null}
         open={quickPeekOpen}
-        onClose={() => setQuickPeekOpen(false)}
+        onClose={() => {
+          lastQuickPeekDismissTimeRef.current = Date.now()
+          setQuickPeekOpen(false)
+        }}
         onOpenFull={() => {
           setQuickPeekOpen(false)
           onOpen?.()

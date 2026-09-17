@@ -65,6 +65,29 @@ export function PhotoQuickPeek({
     }
   }, [open])
 
+  // Instagram-style auto-dismiss on finger release
+  useEffect(() => {
+    if (!open) return
+
+    const handleWindowRelease = () => {
+      onClose()
+    }
+
+    // Attach release listeners to window with a slight deferral so the triggering touch doesn't immediately close it
+    const timer = setTimeout(() => {
+      window.addEventListener("touchend", handleWindowRelease, { passive: true })
+      window.addEventListener("pointerup", handleWindowRelease, { passive: true })
+      window.addEventListener("touchcancel", handleWindowRelease, { passive: true })
+    }, 60)
+
+    return () => {
+      clearTimeout(timer)
+      window.removeEventListener("touchend", handleWindowRelease)
+      window.removeEventListener("pointerup", handleWindowRelease)
+      window.removeEventListener("touchcancel", handleWindowRelease)
+    }
+  }, [open, onClose])
+
   // Subscribe to real-time reaction state for this photo
   useEffect(() => {
     if (!photo?.photoId || !open) return
