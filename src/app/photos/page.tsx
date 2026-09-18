@@ -49,6 +49,8 @@ import { type PhotoOnThisDayItemVo, type PhotoVo } from "@/server/entity/vo/phot
 import { emitCatalogSync } from "@/lib/catalog-sync"
 import { useUserLocation } from "@/hooks/use-user-location"
 import { calculateDistance } from "@/lib/geo"
+import { PullToRefresh } from "@/components/ui/pull-to-refresh"
+import { HeroPhotoTransition, type HeroTransitionOrigin } from "@/components/photo/hero-photo-transition"
 
 const AlbumSelectDialog = dynamic(
   () => import("@/components/album/album-select-dialog").then((mod) => mod.AlbumSelectDialog),
@@ -216,6 +218,7 @@ export default function Page() {
 
   const [modelPhotoIndex, setModelPhotoIndex] = useState(0)
   const [showPhotoViewer, setShowPhotoViewer] = useState(false)
+  const [heroOrigin, setHeroOrigin] = useState<HeroTransitionOrigin | null>(null)
   const [viewerCustomPhotos, setViewerCustomPhotos] = useState<PhotoVo[] | null>(null)
   const [albumDialogOpen, setAlbumDialogOpen] = useState(false)
   const [albumPhotoIds, setAlbumPhotoIds] = useState<string[]>([])
@@ -310,11 +313,27 @@ export default function Page() {
     }
   }, [photos, setPhotos])
 
-  const openPhoto = useCallback((index: number) => {
+  const openPhoto = useCallback((index: number, origin?: HeroTransitionOrigin) => {
     setViewerCustomPhotos(null)
     setModelPhotoIndex(index)
+    if (origin && !showPhotoViewer) {
+      setHeroOrigin(origin)
+    } else {
+      setShowPhotoViewer(true)
+    }
+  }, [showPhotoViewer])
+
+  const handleHeroExpanded = useCallback(() => {
     setShowPhotoViewer(true)
+    setTimeout(() => {
+      setHeroOrigin(null)
+    }, 60)
   }, [])
+
+  const handlePullRefresh = useCallback(async () => {
+    refreshPhotoList()
+    await new Promise((resolve) => setTimeout(resolve, 750))
+  }, [refreshPhotoList])
 
   const handleOnThisDayPhotoClick = useCallback((_photo: PhotoOnThisDayItemVo, index: number, list: PhotoOnThisDayItemVo[]) => {
     setViewerCustomPhotos(list)
@@ -324,6 +343,7 @@ export default function Page() {
 
   const closePhoto = useCallback(() => {
     setShowPhotoViewer(false)
+    setHeroOrigin(null)
     setViewerCustomPhotos(null)
     removePhotoIdFromUrl()
   }, [])
@@ -558,7 +578,10 @@ export default function Page() {
                   />
                 </div>
               ) : (
-                <>
+                <PullToRefresh
+                  onRefresh={handlePullRefresh}
+                  disabled={showPhotoViewer || albumDialogOpen || Boolean(heroOrigin)}
+                >
                   <PhotoLocationBanner />
                   <OnThisDayBanner onPhotoClick={handleOnThisDayPhotoClick} />
                   <PhotoMasonry
@@ -579,7 +602,7 @@ export default function Page() {
                       </p>
                     </div>
                   )}
-                </>
+                </PullToRefresh>
               )
             ) : (
               <PhotoMasonrySkeleton photos={initialPhotos} />
@@ -587,6 +610,10 @@ export default function Page() {
           </div>
         </SidebarInset>
       </SidebarProvider>
+      <HeroPhotoTransition
+        origin={heroOrigin}
+        onExpanded={handleHeroExpanded}
+      />
       <PhotoViewer
         open={showPhotoViewer}
         index={modelPhotoIndex}

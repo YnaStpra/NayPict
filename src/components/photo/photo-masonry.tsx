@@ -17,6 +17,7 @@ import { PhotoCard } from "@/components/photo/photo-card"
 import { PhotoSelectionDrawer } from "@/components/photo/photo-selection-drawer"
 import { type PhotoVo } from "@/server/entity/vo/photo"
 import { parseTime } from "@/lib/date"
+import { type HeroTransitionOrigin } from "@/components/photo/hero-photo-transition"
 
 const PhotoBatchEditDialog = dynamic(
   () => import("@/components/photo/photo-batch-edit-dialog").then((mod) => mod.PhotoBatchEditDialog),
@@ -29,7 +30,7 @@ interface PhotoMasonryProps {
   groupByDate?: boolean
   groupByType?: boolean
   onReachBottom: () => void
-  onPhotoOpen?: (index: number) => void
+  onPhotoOpen?: (index: number, origin?: HeroTransitionOrigin) => void
   onPhotoDelete?: (photoIds: string[]) => void
   onPhotoRestore?: (photoIds: string[]) => void
   onAlbumOpen?: (photoIds: string[]) => void
@@ -41,7 +42,7 @@ interface PhotoMasonryProps {
 interface PhotoMasonryContextValue {
   selectedPhotoIds: string[]
   selectionActive: boolean
-  onPhotoOpen?: (index: number) => void
+  onPhotoOpen?: (index: number, origin?: HeroTransitionOrigin) => void
   onSelectedChange?: (photoId: string, selected: boolean) => void
   onPhotoPin?: (photoId: string, isPinned: boolean) => void
   touchHoverCloseRef: React.MutableRefObject<(() => void) | null>
@@ -57,8 +58,8 @@ const MasonicPhotoCard = memo(function MasonicPhotoCard({
 }: RenderComponentProps<PhotoVo>) {
   const ctx = useContext(PhotoMasonryContext)
   const isSelected = Boolean(ctx?.selectedPhotoIds.includes(data.photoId))
-  const handleOpen = useCallback(() => {
-    ctx?.onPhotoOpen?.(index)
+  const handleOpen = useCallback((origin?: HeroTransitionOrigin) => {
+    ctx?.onPhotoOpen?.(index, origin)
   }, [ctx, index])
 
   return (
@@ -613,7 +614,7 @@ const PhotoMasonry = memo(function PhotoMasonry({
                             width={columnWidth}
                             selected={visibleSelectedPhotoIds.includes(photo.photoId)}
                             selectionActive={visibleSelectedPhotoIds.length > 0}
-                            onOpen={() => onPhotoOpen?.(globalIndex)}
+                            onOpen={(origin) => onPhotoOpen?.(globalIndex, origin)}
                             onSelectedChange={changePhotoSelected}
                             onPhotoPin={onPhotoPin}
                             touchHoverCloseRef={touchHoverCloseRef}
@@ -680,7 +681,7 @@ const PhotoMasonry = memo(function PhotoMasonry({
                             width={columnWidth}
                             selected={visibleSelectedPhotoIds.includes(photo.photoId)}
                             selectionActive={visibleSelectedPhotoIds.length > 0}
-                            onOpen={() => onPhotoOpen?.(globalIndex)}
+                            onOpen={(origin) => onPhotoOpen?.(globalIndex, origin)}
                             onSelectedChange={changePhotoSelected}
                             onPhotoPin={onPhotoPin}
                             touchHoverCloseRef={touchHoverCloseRef}

@@ -1,6 +1,6 @@
 "use client"
 
-import { memo, useEffect, useMemo, useRef, useState, type MouseEvent } from "react"
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from "react"
 import { FolderIcon, MapPin, PinIcon, Play } from "lucide-react"
 import { type RenderComponentProps } from "masonic"
 import { useIsMobile } from "@/hooks/use-mobile"
@@ -22,6 +22,8 @@ import { reactionSync } from "@/lib/reaction-sync"
 import { trackVisitorMedia } from "@/hooks/use-visitor-tracker"
 import { recordPhotoView } from "@/request/insights"
 
+import { type HeroTransitionOrigin } from "@/components/photo/hero-photo-transition"
+
 type TouchHoverCloseRef = {
   current: (() => void) | null
 }
@@ -29,7 +31,7 @@ type TouchHoverCloseRef = {
 type PhotoCardProps = RenderComponentProps<PhotoVo> & {
   selected?: boolean
   selectionActive?: boolean
-  onOpen?: () => void
+  onOpen?: (origin?: HeroTransitionOrigin) => void
   onSelectedChange?: (photoId: string, selected: boolean) => void
   onPhotoPin?: (photoId: string, isPinned: boolean) => void
   touchHoverCloseRef?: TouchHoverCloseRef
@@ -153,7 +155,50 @@ export const PhotoCard = memo(function PhotoCard({
   const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const imgRef = useRef<HTMLImageElement | null>(null)
   const cardRef = useRef<HTMLDivElement | null>(null)
+  const videoRef = useRef<HTMLVideoElement | null>(null)
+  const [isVideoPlaying, setIsVideoPlaying] = useState(false)
   const isPriority = typeof index === "number" && index < 12
+
+  // Autoplay video preview on viewport intersection (Feature 3)
+  useEffect(() => {
+    if (!isVideo || !cardRef.current || typeof window === "undefined" || !("IntersectionObserver" in window)) {
+      return
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0]
+        if (!entry) return
+
+        // Trigger autoplay when video card is in the central 60% of viewport
+        if (entry.isIntersecting && entry.intersectionRatio >= 0.45) {
+          setIsVideoPlaying(true)
+          if (videoRef.current) {
+            videoRef.current.play().catch(() => {})
+          }
+        } else {
+          setIsVideoPlaying(false)
+          if (videoRef.current) {
+            videoRef.current.pause()
+            try {
+              videoRef.current.currentTime = 0.5
+            } catch {}
+          }
+        }
+      },
+      {
+        root: null,
+        rootMargin: "-15% 0px -15% 0px",
+        threshold: [0, 0.45, 0.8],
+      }
+    )
+
+    observer.observe(cardRef.current)
+
+    return () => {
+      observer.disconnect()
+    }
+  }, [isVideo])
 
   // Reset image source and state when photo actually changes
   const prevPhotoIdRef = useRef(data.photoId)
@@ -190,6 +235,28 @@ export const PhotoCard = memo(function PhotoCard({
       setImageError(true)
     }
   }
+
+  // Trigger open callback with origin rectangle for Hero expansion transition
+  const triggerOpen = useCallback(() => {
+    let origin: HeroTransitionOrigin | undefined = undefined
+    const elem = imgRef.current || cardRef.current
+    if (elem) {
+      const rect = elem.getBoundingClientRect()
+      if (rect.width > 0 && rect.height > 0) {
+        origin = {
+          rect: {
+            top: Math.round(rect.top),
+            left: Math.round(rect.left),
+            width: Math.round(rect.width),
+            height: Math.round(rect.height),
+          },
+          src: imageSrc || data.preview || data.thumbnail || (isVideo ? "" : data.key) || "",
+          aspectRatio: data.width && data.height ? data.width / data.height : rect.width / rect.height,
+        }
+      }
+    }
+    onOpen?.(origin)
+  }, [data.width, data.height, data.preview, data.thumbnail, data.key, imageSrc, isVideo, onOpen])
 
   // Predictive hover prefetching with intent dwell time (100ms)
   function handleMouseEnter() {
@@ -358,7 +425,7 @@ export const PhotoCard = memo(function PhotoCard({
       if (Date.now() - lastQuickPeekDismissTimeRef.current < 600) {
         return
       }
-      onOpen?.()
+      triggerOpen()
     }, 220)
   }
 
@@ -417,7 +484,7 @@ export const PhotoCard = memo(function PhotoCard({
 
     setHoldHover(true)
     setTimeout(() => setHoldHover(false), 200)
-    onOpen?.()
+    triggerOpen()
   }
 
   // Desktop double-click to like
@@ -516,29 +583,48 @@ export const PhotoCard = memo(function PhotoCard({
         ["--intrinsic-height" as string]: `${cardHeight}px`,
       }}
     >
-      {imageError || (isVideo && !imageSrc) ? (
-        isVideo ? (
-          <div className="absolute inset-0 bg-neutral-950 flex items-center justify-center overflow-hidden">
-            <video
-              src={videoPosterUrl}
-              muted
-              playsInline
-              preload="metadata"
-              onLoadedMetadata={(e) => {
-                const v = e.currentTarget
-                if (v.currentTime === 0 && (v.duration > 0.5 || isNaN(v.duration))) {
-                  try { v.currentTime = 0.5 } catch {}
-                }
-              }}
-              className="absolute inset-0 h-full w-full object-cover pointer-events-none bg-neutral-950"
+      {isVideo ? (
+        <div className="absolute inset-0 bg-neutral-950 flex items-center justify-center overflow-hidden">
+          <video
+            ref={videoRef}
+            src={videoPosterUrl}
+            muted
+            playsInline
+            loop
+            preload="metadata"
+            onLoadedMetadata={(e) => {
+              const v = e.currentTarget
+              if (v.currentTime === 0 && (v.duration > 0.5 || isNaN(v.duration))) {
+                try {
+                  v.currentTime = 0.5
+                } catch {}
+              }
+            }}
+            className="absolute inset-0 h-full w-full object-cover pointer-events-none bg-neutral-950"
+          />
+          {/* Static thumbnail overlay before video playback begins */}
+          {!isVideoPlaying && imageSrc && !imageError && (
+            <img
+              ref={imgRef}
+              src={imageSrc}
+              loading={isPriority ? "eager" : "lazy"}
+              decoding="async"
+              alt={data.name}
+              draggable={false}
+              className={[
+                "absolute inset-0 h-full w-full object-cover transition-opacity duration-300",
+                selectionActive ? "" : "group-hover:scale-[1.035]",
+                showHover && !selectionActive ? "scale-[1.035]" : "",
+              ].join(" ")}
+              onError={handleImageError}
             />
-            <div className="absolute inset-0 bg-black/20 pointer-events-none" />
-          </div>
-        ) : (
-          <div className="absolute inset-0 flex items-center justify-center px-3 text-center text-sm text-muted-foreground bg-muted/60">
-            {isVideo ? "Unable to load video" : t("imageLoadFailed")}
-          </div>
-        )
+          )}
+          <div className="absolute inset-0 bg-black/15 pointer-events-none" />
+        </div>
+      ) : imageError ? (
+        <div className="absolute inset-0 flex items-center justify-center px-3 text-center text-sm text-muted-foreground bg-muted/60">
+          {t("imageLoadFailed")}
+        </div>
       ) : (
         <img
           ref={imgRef}
@@ -583,14 +669,18 @@ export const PhotoCard = memo(function PhotoCard({
           <span>{distanceBadge}</span>
         </div>
       )}
-      {/* Video Duration Badge (Always visible in album grid with Living Aura) */}
+      {/* Video Duration / Autoplay Living Badge */}
       {isVideo && (
         <div
-          className="absolute top-2 right-2 z-10 flex items-center gap-1 rounded-full bg-black/75 text-white backdrop-blur-md px-2 py-0.5 text-[11px] font-bold shadow-md border border-white/20 video-living-badge"
+          className={`absolute top-2 right-2 z-10 flex items-center gap-1 rounded-full backdrop-blur-md px-2 py-0.5 text-[11px] font-bold shadow-md border transition-all ${
+            isVideoPlaying
+              ? "bg-emerald-950/85 text-emerald-300 border-emerald-500/50 shadow-[0_0_12px_rgba(16,185,129,0.35)]"
+              : "bg-black/75 text-white border-white/20 video-living-badge"
+          }`}
           title={`Video ${videoDuration ? `(${videoDuration})` : ""}`}
         >
-          <Play className="size-2.5 fill-current text-emerald-400 animate-pulse" />
-          <span>{videoDuration || "Video"}</span>
+          <Play className={`size-2.5 fill-current ${isVideoPlaying ? "text-emerald-400 animate-pulse" : "text-emerald-400"}`} />
+          <span>{isVideoPlaying ? "PREVIEW" : videoDuration || "Video"}</span>
         </div>
       )}
       {/* Center Play Overlay on Hover / Active */}
