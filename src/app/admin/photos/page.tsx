@@ -87,7 +87,7 @@ import { photoBatchEdit, photoList, photoRecycle } from '@/request/photo'
 import { albumAddPhoto } from '@/request/album'
 import { getThumbHashUrl } from '@/lib/thumb-hash'
 import { toProxyMediaUrl } from '@/lib/url'
-import { formatPhotoTakenDate, formatRelativeTime } from '@/lib/date'
+import { formatPhotoTakenDate, formatRelativeTime, parseTime } from '@/lib/date'
 import { decimalToDms } from '@/lib/geo'
 import { useLocale } from 'next-intl'
 
@@ -116,16 +116,21 @@ function formatFileSize(size: number) {
   return `${(size / (1024 * 1024 * 1024)).toFixed(2)} GB`
 }
 
-// Helper: Format date string YYYY-MM-DD
+// Helper: Format date string YYYY-MM-DD cleanly using local date components
 function formatSimpleDate(dateStr?: string | null) {
   if (!dateStr) return '—'
-  try {
-    const d = new Date(dateStr)
-    if (isNaN(d.getTime())) return dateStr
-    return d.toISOString().slice(0, 10)
-  } catch {
-    return dateStr
+  const match = dateStr.trim().match(/^(\d{4})[:\-](\d{2})[:\-](\d{2})/)
+  if (match) {
+    return `${match[1]}-${match[2]}-${match[3]}`
   }
+  const d = parseTime(dateStr)
+  if (d && !isNaN(d.getTime())) {
+    const y = d.getFullYear()
+    const m = String(d.getMonth() + 1).padStart(2, '0')
+    const day = String(d.getDate()).padStart(2, '0')
+    return `${y}-${m}-${day}`
+  }
+  return dateStr
 }
 
 // Reusable media thumbnail for Admin table and grid views with video fallback
@@ -1210,6 +1215,7 @@ export default function AdminPhotosPage() {
           }}
           photoIds={batchEditIds}
           initialName={batchEditIds.length === 1 ? photos.find((p) => p.photoId === batchEditIds[0])?.name : undefined}
+          initialTakenTime={batchEditIds.length === 1 ? photos.find((p) => p.photoId === batchEditIds[0])?.takenTime : undefined}
           onSuccess={handleBatchSuccess}
         />
       )}

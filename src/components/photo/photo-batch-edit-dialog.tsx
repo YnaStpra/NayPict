@@ -41,6 +41,34 @@ import { decimalToDms, parseCoordinateString } from "@/lib/geo"
 import { useModalBackHandler } from "@/hooks/use-modal-back-handler"
 import { emitCatalogSync } from "@/lib/catalog-sync"
 
+// Helper: Convert date string to YYYY-MM-DDTHH:mm format suitable for HTML5 <input type="datetime-local" />
+function formatToDatetimeLocalInput(dateStr?: string | null): string {
+  if (!dateStr) {
+    const now = new Date()
+    const y = now.getFullYear()
+    const m = String(now.getMonth() + 1).padStart(2, "0")
+    const d = String(now.getDate()).padStart(2, "0")
+    const h = String(now.getHours()).padStart(2, "0")
+    const min = String(now.getMinutes()).padStart(2, "0")
+    return `${y}-${m}-${d}T${h}:${min}`
+  }
+  const match = dateStr.trim().match(/^(\d{4})[:\-](\d{2})[:\-](\d{2})[T\s](\d{2}):(\d{2})/)
+  if (match) {
+    const [_, y, m, d, h, min] = match
+    return `${y}-${m}-${d}T${h}:${min}`
+  }
+  const d = new Date(dateStr)
+  if (!isNaN(d.getTime())) {
+    const y = d.getFullYear()
+    const m = String(d.getMonth() + 1).padStart(2, "0")
+    const day = String(d.getDate()).padStart(2, "0")
+    const h = String(d.getHours()).padStart(2, "0")
+    const min = String(d.getMinutes()).padStart(2, "0")
+    return `${y}-${m}-${day}T${h}:${min}`
+  }
+  return ""
+}
+
 interface PhotoBatchEditDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -49,6 +77,7 @@ interface PhotoBatchEditDialogProps {
   initialLongitude?: number | null
   defaultLocationMode?: "set" | "unchanged" | "clear" | "ignore"
   initialName?: string | null
+  initialTakenTime?: string | null
   onSuccess?: (photoIds: string[], updatedFields: Partial<PhotoVo>) => void
 }
 
@@ -60,6 +89,7 @@ export function PhotoBatchEditDialog({
   initialLongitude,
   defaultLocationMode,
   initialName,
+  initialTakenTime,
   onSuccess,
 }: PhotoBatchEditDialogProps) {
   // Mobile Back Gesture Handler
@@ -69,11 +99,9 @@ export function PhotoBatchEditDialog({
   const [visibility, setVisibility] = useState<string>("unchanged")
   const [allowDownload, setAllowDownload] = useState<string>("unchanged")
   const [takenTimeMode, setTakenTimeMode] = useState<string>("unchanged")
-  const [takenTimeValue, setTakenTimeValue] = useState<string>(() => {
-    const now = new Date()
-    now.setMinutes(now.getMinutes() - now.getTimezoneOffset())
-    return now.toISOString().slice(0, 16)
-  })
+  const [takenTimeValue, setTakenTimeValue] = useState<string>(() =>
+    formatToDatetimeLocalInput(initialTakenTime)
+  )
 
   // File name state values
   const [nameMode, setNameMode] = useState<string>("unchanged")
@@ -88,7 +116,7 @@ export function PhotoBatchEditDialog({
   const [longitude, setLongitude] = useState<string>("")
   const [isLocating, setIsLocating] = useState<boolean>(false)
 
-  // Pre-fill coordinates and file name when dialog opens
+  // Pre-fill coordinates, file name, and taken time when dialog opens
   useEffect(() => {
     if (open) {
       if (initialName && photoIds.length === 1) {
@@ -99,6 +127,13 @@ export function PhotoBatchEditDialog({
       setNameMode("unchanged")
       setFindText("")
       setReplaceText("")
+
+      if (initialTakenTime && photoIds.length === 1) {
+        setTakenTimeValue(formatToDatetimeLocalInput(initialTakenTime))
+      } else {
+        setTakenTimeValue(formatToDatetimeLocalInput(null))
+      }
+      setTakenTimeMode("unchanged")
 
       if (typeof initialLatitude === "number" && typeof initialLongitude === "number") {
         queueMicrotask(() => {
@@ -111,7 +146,7 @@ export function PhotoBatchEditDialog({
         setLocationMode(defaultLocationMode)
       }
     }
-  }, [open, initialLatitude, initialLongitude, defaultLocationMode, initialName, photoIds.length])
+  }, [open, initialLatitude, initialLongitude, defaultLocationMode, initialName, initialTakenTime, photoIds.length])
 
   const [loading, setLoading] = useState(false)
   const [locatingGps, setLocatingGps] = useState(false)
@@ -288,9 +323,10 @@ export function PhotoBatchEditDialog({
         payload.takenTime = ""
         clientUpdates.takenTime = null
       } else {
-        const iso = new Date(takenTimeValue).toISOString()
-        payload.takenTime = iso
-        clientUpdates.takenTime = iso
+        // Preserve exact local wall-clock time string without UTC day-shift rollback
+        const formattedTakenTime = takenTimeValue.length === 16 ? `${takenTimeValue}:00` : takenTimeValue
+        payload.takenTime = formattedTakenTime
+        clientUpdates.takenTime = formattedTakenTime
       }
     }
 
