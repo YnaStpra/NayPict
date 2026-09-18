@@ -23,6 +23,7 @@ import { trackVisitorMedia } from "@/hooks/use-visitor-tracker"
 import { recordPhotoView } from "@/request/insights"
 
 import { type HeroTransitionOrigin } from "@/components/photo/hero-photo-transition"
+import { videoCoordinator } from "@/lib/video-autoplay-coordinator"
 
 type TouchHoverCloseRef = {
   current: (() => void) | null
@@ -35,6 +36,14 @@ type PhotoCardProps = RenderComponentProps<PhotoVo> & {
   onSelectedChange?: (photoId: string, selected: boolean) => void
   onPhotoPin?: (photoId: string, isPinned: boolean) => void
   touchHoverCloseRef?: TouchHoverCloseRef
+}
+
+// Format video playback time (e.g. 0:03).
+function formatVideoTime(totalSeconds: number): string {
+  if (isNaN(totalSeconds) || totalSeconds < 0) return "0:00"
+  const m = Math.floor(totalSeconds / 60)
+  const s = Math.floor(totalSeconds % 60)
+  return `${m}:${s < 10 ? "0" : ""}${s}`
 }
 
 // Format photo file size.
@@ -130,12 +139,12 @@ export const PhotoCard = memo(function PhotoCard({
   const isVideo = Boolean(data.type?.startsWith("video/"))
   // Multi-tier fallback src state: thumbnail -> preview -> (photos only: original key)
   const [imageSrc, setImageSrc] = useState<string | null>(() => data.thumbnail || data.preview || (isVideo ? null : data.key) || null)
-  // videoPosterUrl computes Media Fragment URL (#t=0.5) so HTML5 video decodes 0.5s instead of black frame 0
-  const videoPosterUrl = useMemo(() => {
+  // Clean sequential streaming URL for fast, instant autoplay without fragment seeking penalty
+  const videoStreamUrl = useMemo(() => {
     if (!isVideo || !data.key) return undefined
     const base = data.key.startsWith('http') ? data.key : toProxyMediaUrl(data.key)
     if (!base) return undefined
-    return base.includes('#') ? base : `${base}#t=0.5`
+    return base.split('#')[0]
   }, [isVideo, data.key])
   // imageError Record whether all photo URLs failed to load.
   const [imageError, setImageError] = useState(false)
@@ -157,48 +166,49 @@ export const PhotoCard = memo(function PhotoCard({
   const cardRef = useRef<HTMLDivElement | null>(null)
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const [isVideoPlaying, setIsVideoPlaying] = useState(false)
+  const [isVideoFrameReady, setIsVideoFrameReady] = useState(false)
+  const [currentSeconds, setCurrentSeconds] = useState(0)
   const isPriority = typeof index === "number" && index < 12
 
-  // Autoplay video preview on viewport intersection (Feature 3)
+  // Start video autoplay with WebKit muted compliance
+  const startAutoplay = useCallback(() => {
+    setIsVideoPlaying(true)
+    if (videoRef.current) {
+      videoRef.current.muted = true
+      // WebKit defaultMuted property ensures iOS permits autoplay
+      videoRef.current.defaultMuted = true
+      videoRef.current.play().catch(() => {})
+    }
+  }, [])
+
+  // Stop video autoplay and reset playback time
+  const stopAutoplay = useCallback(() => {
+    setIsVideoPlaying(false)
+    setIsVideoFrameReady(false)
+    setCurrentSeconds(0)
+    if (videoRef.current) {
+      videoRef.current.pause()
+      try {
+        videoRef.current.currentTime = 0
+      } catch {}
+    }
+  }, [])
+
+  // Coordinated Autoplay: maximum 4 concurrent playing videos, batch rotation, and instant stop on scroll
   useEffect(() => {
-    if (!isVideo || !cardRef.current || typeof window === "undefined" || !("IntersectionObserver" in window)) {
+    if (!isVideo || !cardRef.current || typeof window === "undefined" || !videoCoordinator) {
       return
     }
 
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const entry = entries[0]
-        if (!entry) return
-
-        // Trigger autoplay when video card is in the central 60% of viewport
-        if (entry.isIntersecting && entry.intersectionRatio >= 0.45) {
-          setIsVideoPlaying(true)
-          if (videoRef.current) {
-            videoRef.current.play().catch(() => {})
-          }
-        } else {
-          setIsVideoPlaying(false)
-          if (videoRef.current) {
-            videoRef.current.pause()
-            try {
-              videoRef.current.currentTime = 0.5
-            } catch {}
-          }
-        }
-      },
-      {
-        root: null,
-        rootMargin: "-15% 0px -15% 0px",
-        threshold: [0, 0.45, 0.8],
-      }
-    )
-
-    observer.observe(cardRef.current)
+    videoCoordinator.register(data.photoId, cardRef.current, {
+      play: startAutoplay,
+      pause: stopAutoplay,
+    })
 
     return () => {
-      observer.disconnect()
+      videoCoordinator.unregister(data.photoId)
     }
-  }, [isVideo])
+  }, [isVideo, data.photoId, startAutoplay, stopAutoplay])
 
   // Reset image source and state when photo actually changes
   const prevPhotoIdRef = useRef(data.photoId)
@@ -587,23 +597,21 @@ export const PhotoCard = memo(function PhotoCard({
         <div className="absolute inset-0 bg-neutral-950 flex items-center justify-center overflow-hidden">
           <video
             ref={videoRef}
-            src={videoPosterUrl}
+            src={videoStreamUrl}
             muted
             playsInline
             loop
             preload="metadata"
-            onLoadedMetadata={(e) => {
-              const v = e.currentTarget
-              if (v.currentTime === 0 && (v.duration > 0.5 || isNaN(v.duration))) {
-                try {
-                  v.currentTime = 0.5
-                } catch {}
-              }
+            onPlaying={() => setIsVideoFrameReady(true)}
+            onWaiting={() => setIsVideoFrameReady(false)}
+            onTimeUpdate={(e) => {
+              const sec = Math.floor(e.currentTarget.currentTime)
+              setCurrentSeconds((prev) => (prev !== sec ? sec : prev))
             }}
             className="absolute inset-0 h-full w-full object-cover pointer-events-none bg-neutral-950"
           />
-          {/* Static thumbnail overlay before video playback begins */}
-          {!isVideoPlaying && imageSrc && !imageError && (
+          {/* Static thumbnail overlay - persists until video frames are actually rendering to prevent black screens */}
+          {imageSrc && !imageError && (
             <img
               ref={imgRef}
               src={imageSrc}
@@ -612,7 +620,8 @@ export const PhotoCard = memo(function PhotoCard({
               alt={data.name}
               draggable={false}
               className={[
-                "absolute inset-0 h-full w-full object-cover transition-opacity duration-300",
+                "absolute inset-0 h-full w-full object-cover transition-opacity duration-300 pointer-events-none",
+                isVideoPlaying && isVideoFrameReady ? "opacity-0" : "opacity-100",
                 selectionActive ? "" : "group-hover:scale-[1.035]",
                 showHover && !selectionActive ? "scale-[1.035]" : "",
               ].join(" ")}
@@ -673,14 +682,18 @@ export const PhotoCard = memo(function PhotoCard({
       {isVideo && (
         <div
           className={`absolute top-2 right-2 z-10 flex items-center gap-1 rounded-full backdrop-blur-md px-2 py-0.5 text-[11px] font-bold shadow-md border transition-all ${
-            isVideoPlaying
+            isVideoPlaying && isVideoFrameReady
               ? "bg-emerald-950/85 text-emerald-300 border-emerald-500/50 shadow-[0_0_12px_rgba(16,185,129,0.35)]"
               : "bg-black/75 text-white border-white/20 video-living-badge"
           }`}
           title={`Video ${videoDuration ? `(${videoDuration})` : ""}`}
         >
-          <Play className={`size-2.5 fill-current ${isVideoPlaying ? "text-emerald-400 animate-pulse" : "text-emerald-400"}`} />
-          <span>{videoDuration || "Video"}</span>
+          <Play className={`size-2.5 fill-current ${isVideoPlaying && isVideoFrameReady ? "text-emerald-400 animate-pulse" : "text-emerald-400"}`} />
+          <span className="tabular-nums">
+            {isVideoPlaying && isVideoFrameReady
+              ? `${formatVideoTime(currentSeconds)} / ${videoDuration || formatVideoTime(videoRef.current?.duration || 0)}`
+              : videoDuration || "Video"}
+          </span>
         </div>
       )}
       {/* Center Play Overlay on Hover / Active */}

@@ -51,6 +51,7 @@ import { useUserLocation } from "@/hooks/use-user-location"
 import { calculateDistance } from "@/lib/geo"
 import { PullToRefresh } from "@/components/ui/pull-to-refresh"
 import { HeroPhotoTransition, type HeroTransitionOrigin } from "@/components/photo/hero-photo-transition"
+import { videoCoordinator } from "@/lib/video-autoplay-coordinator"
 
 const AlbumSelectDialog = dynamic(
   () => import("@/components/album/album-select-dialog").then((mod) => mod.AlbumSelectDialog),
@@ -242,6 +243,11 @@ export default function Page() {
 
   // Protect against accidental exit on root gallery page by requiring double back press within 2s
   useDoubleBackToExit({ enabled: !showPhotoViewer && !albumDialogOpen })
+
+  // Pause all gallery video autoplays when viewer or modal is active to save GPU & bandwidth
+  useEffect(() => {
+    videoCoordinator?.setGloballyPaused(showPhotoViewer || albumDialogOpen)
+  }, [showPhotoViewer, albumDialogOpen])
 
   useEffect(() => {
     const previousScrollRestoration = window.history.scrollRestoration
