@@ -244,12 +244,30 @@ export function registerPhotoApi(app: Hono<HonoEnv>) {
     return c.json(result.ok(data));
   });
 
-  // Count the shooting dates of existing photos by day.
-  app.post('/photo/takenDateList', async (c: Context) => {
-    const body = await c.req.json<PhotoTakenDateListBo>();
-    const data = await photoService.takenDateList(body, getUserId());
+  // Count the shooting dates of existing photos by day (supports GET for edge caching and POST for backwards compatibility).
+  const handlePhotoTakenDateList = async (c: Context) => {
+    const userId = getUserId();
+    applyPublicCacheHeaders(c, userId);
+    let body: PhotoTakenDateListBo;
+    if (c.req.method === 'GET') {
+      const q = c.req.query();
+      body = {
+        albumId: q.albumId || undefined,
+        tzOffset: Number(q.tzOffset) || 0,
+      };
+    } else {
+      const parsed = await c.req.json<Partial<PhotoTakenDateListBo>>().catch(() => ({} as Partial<PhotoTakenDateListBo>));
+      body = {
+        albumId: parsed.albumId,
+        tzOffset: typeof parsed.tzOffset === 'number' ? parsed.tzOffset : 0,
+      };
+    }
+    const data = await photoService.takenDateList(body, userId);
     return c.json(result.ok(data));
-  });
+  };
+
+  app.get('/photo/takenDateList', handlePhotoTakenDateList);
+  app.post('/photo/takenDateList', handlePhotoTakenDateList);
 
   // Download original photo file with server-side protection and sliding window rate limiting.
   app.get('/photo/download/:id', async (c: Context) => {

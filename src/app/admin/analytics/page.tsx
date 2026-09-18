@@ -1055,8 +1055,8 @@ export default function VisitorAnalyticsPage() {
 
         {/* Session Inspector Dialog */}
         <Dialog open={Boolean(inspectSessionId)} onOpenChange={(open) => !open && setInspectSessionId(null)}>
-          <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
-            <DialogHeader>
+          <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
+            <DialogHeader className="shrink-0">
               <div className="flex items-center justify-between pr-6">
                 <DialogTitle className="text-base font-semibold flex items-center gap-2">
                   <Activity className="size-4 text-primary" />
@@ -1085,9 +1085,9 @@ export default function VisitorAnalyticsPage() {
                 <span className="text-xs text-muted-foreground mt-2 block">Loading session details...</span>
               </div>
             ) : sessionDetail ? (
-              <div className="space-y-5 pt-2">
+              <div className="flex flex-col flex-1 min-h-0 space-y-4 pt-1 overflow-hidden">
                 {/* Meta details card */}
-                <div className="rounded-lg border bg-muted/20 p-3.5 space-y-3 text-xs">
+                <div className="rounded-lg border bg-muted/20 p-3.5 space-y-3 text-xs shrink-0">
                   {/* Full-width dedicated IP Address and Role row */}
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2.5 border-b border-border/50">
                     <div className="space-y-1 min-w-0 flex-1">
@@ -1261,15 +1261,15 @@ export default function VisitorAnalyticsPage() {
                   </div>
                 </div>
 
-                {/* Media Viewed Timeline */}
-                <div>
-                  <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3 flex items-center justify-between">
+                {/* Media Viewed Timeline (Dedicated scroll container for media only) */}
+                <div className="flex flex-col flex-1 min-h-0 pt-1">
+                  <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2.5 flex items-center justify-between shrink-0">
                     <span>Media Opened & Actions ({sessionDetail.activities.length})</span>
                     <span className="text-[10px] font-normal normal-case">Chronological order</span>
                   </h4>
 
                   {sessionDetail.activities.length > 0 ? (
-                    <div className="space-y-2.5">
+                    <div className="space-y-2.5 overflow-y-auto flex-1 min-h-0 max-h-[280px] sm:max-h-[360px] pr-1.5 scrollbar-thin">
                       {sessionDetail.activities.map((item, idx) => (
                         <div
                           key={item.id}
