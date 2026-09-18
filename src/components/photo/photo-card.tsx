@@ -348,7 +348,9 @@ export const PhotoCard = memo(function PhotoCard({
         }
       } catch {}
       setQuickPeekOpen(true)
-      recordPhotoView(data.photoId)
+      if (!isAdmin) {
+        recordPhotoView(data.photoId)
+      }
       trackVisitorMedia(data.photoId, "view")
     }, 280)
   }

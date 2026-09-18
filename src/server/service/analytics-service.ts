@@ -300,6 +300,8 @@ const analyticsService = {
     const validActions = ['view', 'download', 'share', 'reaction'];
     const action = validActions.includes(params.action || '') ? params.action : 'view';
 
+    let isSessionAdmin = Boolean(isAdmin);
+
     if (params.sessionId) {
       const safeSessionId = params.sessionId.slice(0, 64);
       await orm.insert(visitorActivityTab).values({
@@ -317,11 +319,22 @@ const analyticsService = {
           lastActiveAt: sql`now()`,
         })
         .where(eq(visitorSessionTab.id, safeSessionId));
+
+      // If isAdmin was not explicitly passed, inspect the session record
+      if (!isSessionAdmin) {
+        const [session] = await orm
+          .select({ isAdmin: visitorSessionTab.isAdmin })
+          .from(visitorSessionTab)
+          .where(eq(visitorSessionTab.id, safeSessionId))
+          .limit(1);
+        if (session?.isAdmin === 1) {
+          isSessionAdmin = true;
+        }
+      }
     }
 
-
-    // Synchronize event with insights service (excluding reactions which have dedicated counter)
-    if (action === 'view' || action === 'download' || action === 'share') {
+    // Synchronize event with insights service strictly for public visitors (Admin interactions are excluded from insights)
+    if (!isSessionAdmin && (action === 'view' || action === 'download' || action === 'share')) {
       try {
         await insightsService.recordEvent(
           { photoId: params.photoId, type: action },
