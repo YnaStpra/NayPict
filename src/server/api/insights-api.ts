@@ -54,6 +54,9 @@ export function registerInsightsApi(app: Hono<HonoEnv>) {
     const body = await c.req.json<PhotoViewRecordBo>().catch(() => ({} as PhotoViewRecordBo));
     const visitorId = getOrCreateVisitorId(c);
     const isAdmin = await checkIsAdmin(c);
+    if (isAdmin) {
+      return c.json(result.ok({ recorded: false, reason: 'admin_excluded' }));
+    }
 
     const res = await insightsService.recordEvent(
       { photoId: body.photoId, type: 'view' },
@@ -69,6 +72,9 @@ export function registerInsightsApi(app: Hono<HonoEnv>) {
     const photoId = c.req.param('photoId') ?? '';
     const visitorId = getOrCreateVisitorId(c);
     const isAdmin = await checkIsAdmin(c);
+    if (isAdmin) {
+      return c.json(result.ok({ recorded: false, reason: 'admin_excluded' }));
+    }
 
     const res = await insightsService.recordEvent(
       { photoId, type: 'view' },
@@ -84,6 +90,9 @@ export function registerInsightsApi(app: Hono<HonoEnv>) {
     const body = await c.req.json<PhotoViewRecordBo>().catch(() => ({} as PhotoViewRecordBo));
     const visitorId = getOrCreateVisitorId(c);
     const isAdmin = await checkIsAdmin(c);
+    if (isAdmin) {
+      return c.json(result.ok({ recorded: false, reason: 'admin_excluded' }));
+    }
 
     const res = await insightsService.recordEvent(
       { photoId: body.photoId, type: 'share' },
@@ -99,6 +108,9 @@ export function registerInsightsApi(app: Hono<HonoEnv>) {
     const photoId = c.req.param('photoId') ?? '';
     const visitorId = getOrCreateVisitorId(c);
     const isAdmin = await checkIsAdmin(c);
+    if (isAdmin) {
+      return c.json(result.ok({ recorded: false, reason: 'admin_excluded' }));
+    }
 
     const res = await insightsService.recordEvent(
       { photoId, type: 'share' },

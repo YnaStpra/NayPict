@@ -616,14 +616,18 @@ function RotateButton({ showActions, onRotate }: { showActions: boolean, onRotat
 // Render share button.
 function ShareButton({ showActions }: { showActions: boolean }) {
   const t = useTranslations("photos.viewer")
+  const { userInfo } = useApp()
+  const isAdmin = userInfo?.type === UserTypeEnum.ADMIN
   const { currentSlide } = useLightboxState()
   const photoSlide = currentSlide && isImageSlide(currentSlide) ? (currentSlide as PhotoSlide) : null
 
   const handleShare = async () => {
     if (!photoSlide?.photoId || typeof window === "undefined") return
 
-    // Track public share event
-    recordPhotoShare(photoSlide.photoId)
+    // Track public share event (exclude Admin from Insights)
+    if (!isAdmin) {
+      recordPhotoShare(photoSlide.photoId)
+    }
     trackVisitorMedia(photoSlide.photoId, "share")
 
 
@@ -1532,7 +1536,10 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
     const lastViewedAt = lastViewedMapRef.current.get(photo.photoId) || 0
     if (now - lastViewedAt > 30_000) {
       lastViewedMapRef.current.set(photo.photoId, now)
-      recordPhotoView(photo.photoId)
+      // Exclude Admin from Insights metrics; only record views for public visitors
+      if (!isAdmin) {
+        recordPhotoView(photo.photoId)
+      }
       trackVisitorMedia(photo.photoId, "view")
     }
 

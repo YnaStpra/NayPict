@@ -465,6 +465,7 @@ export function registerAnalyticsApi(app: Hono<HonoEnv>) {
 
     const validActions = ['view', 'download', 'share', 'reaction'];
     const safeAction = body.action && validActions.includes(body.action) ? body.action : 'view';
+    const isAdmin = await checkIsAdmin(c);
 
     const tracked = await analyticsService.trackMedia(
       {
@@ -473,7 +474,7 @@ export function registerAnalyticsApi(app: Hono<HonoEnv>) {
         sessionId: typeof body.sessionId === 'string' ? body.sessionId.slice(0, 64) : undefined,
         action: safeAction as 'view' | 'download' | 'share' | 'reaction',
       },
-      false
+      isAdmin
     );
     return c.json(result.ok({ tracked }));
   };

@@ -61,6 +61,11 @@ const insightsService = {
     visitorId: string,
     isAdmin: boolean
   ): Promise<{ recorded: boolean; reason?: string }> {
+    // Exclude Admin interactions: Insights is strictly dedicated to public visitor metrics.
+    if (isAdmin) {
+      return { recorded: false, reason: 'admin_excluded' };
+    }
+
     const photoId = params.photoId?.trim();
     if (!photoId || !visitorId) {
       return { recorded: false, reason: 'invalid_params' };
