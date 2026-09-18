@@ -168,7 +168,23 @@ export const PhotoCard = memo(function PhotoCard({
   const [isVideoPlaying, setIsVideoPlaying] = useState(false)
   const [isVideoFrameReady, setIsVideoFrameReady] = useState(false)
   const [currentSeconds, setCurrentSeconds] = useState(0)
-  const isPriority = typeof index === "number" && index < 12
+  // Adaptive above-the-fold LCP prioritization:
+  // Mobile (2-column): first 4 photos load eager & high priority to avoid cellular queue saturation.
+  // Desktop (multi-column): first 8 photos load eager.
+  const priorityLimit = isMobile ? 4 : 8
+  const isPriority = typeof index === "number" && index < priorityLimit
+
+  // Network and Data Saver awareness for video media preloading
+  const isConstrainedNetwork = useMemo(() => {
+    if (typeof navigator === "undefined") return false
+    const conn = (navigator as unknown as { connection?: { saveData?: boolean; effectiveType?: string } }).connection
+    return Boolean(
+      conn?.saveData ||
+      conn?.effectiveType === "slow-2g" ||
+      conn?.effectiveType === "2g" ||
+      conn?.effectiveType === "3g"
+    )
+  }, [])
 
   // Start video autoplay with WebKit muted compliance
   const startAutoplay = useCallback(() => {
@@ -207,6 +223,11 @@ export const PhotoCard = memo(function PhotoCard({
 
     return () => {
       videoCoordinator.unregister(data.photoId)
+      if (videoRef.current) {
+        videoRef.current.pause()
+        videoRef.current.removeAttribute("src")
+        videoRef.current.load()
+      }
     }
   }, [isVideo, data.photoId, startAutoplay, stopAutoplay])
 
@@ -601,7 +622,7 @@ export const PhotoCard = memo(function PhotoCard({
             muted
             playsInline
             loop
-            preload="metadata"
+            preload={isConstrainedNetwork ? "none" : "metadata"}
             onPlaying={() => setIsVideoFrameReady(true)}
             onWaiting={() => setIsVideoFrameReady(false)}
             onTimeUpdate={(e) => {

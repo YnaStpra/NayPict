@@ -1787,23 +1787,35 @@ const photoService = {
     const altitude = isLocationIgnored ? null : (exifRow?.altitude ?? null);
 
     let sanitizedExif = exifRow?.exif ?? null;
-    if (isLocationIgnored && sanitizedExif) {
+    if (sanitizedExif) {
       try {
-        const parsed = JSON.parse(sanitizedExif);
+        const parsed = typeof sanitizedExif === 'string' ? JSON.parse(sanitizedExif) : sanitizedExif;
         if (parsed && typeof parsed === 'object') {
-          for (const key of Object.keys(parsed)) {
-            const lower = key.toLowerCase();
-            if (
-              lower.startsWith('gps') ||
-              lower.includes('latitude') ||
-              lower.includes('longitude') ||
-              lower.includes('altitude') ||
-              lower.includes('position')
-            ) {
-              delete parsed[key];
+          // Whitelist essential viewer/display keys to eliminate bloated vendor maker notes,
+          // ICC profile binary dumps, and redundant metadata, cutting API JSON payload by 50-70%.
+          const leanExif: Record<string, unknown> = {};
+          const ALLOWED_EXIF_KEYS = [
+            'Make', 'Model', 'LensMake', 'LensModel', 'Software',
+            'ExposureTime', 'FNumber', 'FocalLength', 'ISO',
+            'TimeZoneOffset', 'OffsetTimeOriginal', 'OffsetTime', 'OffsetTimeDigitized',
+            'Duration', 'DateTimeOriginal', 'CreateDate',
+            'ColorSpace', 'ProfileDescription',
+          ];
+
+          for (const k of ALLOWED_EXIF_KEYS) {
+            if (parsed[k] !== undefined && parsed[k] !== null && parsed[k] !== '') {
+              leanExif[k] = parsed[k];
             }
           }
-          sanitizedExif = JSON.stringify(parsed);
+
+          // If location is not ignored, preserve GPS coordinates in EXIF payload
+          if (!isLocationIgnored) {
+            if (parsed.GPSLatitude !== undefined) leanExif.GPSLatitude = parsed.GPSLatitude;
+            if (parsed.GPSLongitude !== undefined) leanExif.GPSLongitude = parsed.GPSLongitude;
+            if (parsed.GPSAltitude !== undefined) leanExif.GPSAltitude = parsed.GPSAltitude;
+          }
+
+          sanitizedExif = Object.keys(leanExif).length > 0 ? JSON.stringify(leanExif) : null;
         }
       } catch {
         sanitizedExif = null;

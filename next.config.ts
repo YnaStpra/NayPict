@@ -24,7 +24,7 @@ const nextConfig: NextConfig = {
   // Always use standalone output for Docker/Render; Vercel ignores this setting.
   output: 'standalone',
   experimental: {
-    optimizePackageImports: ['lucide-react', '@tabler/icons-react', 'recharts'],
+    optimizePackageImports: ['lucide-react', '@tabler/icons-react', 'recharts', 'framer-motion', 'radix-ui'],
   },
   images: {
     unoptimized: true,
@@ -130,6 +130,42 @@ const nextConfig: NextConfig = {
       },
       {
         source: '/logo.png',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=31536000, immutable',
+          },
+        ],
+      },
+      {
+        source: '/manifest.webmanifest',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=86400, stale-while-revalidate=604800',
+          },
+        ],
+      },
+      {
+        source: '/naypict-icon-:size(\\d+x\\d+).png',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=31536000, immutable',
+          },
+        ],
+      },
+      {
+        source: '/naypict-icon-dark-bg.svg',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=31536000, immutable',
+          },
+        ],
+      },
+      {
+        source: '/naypict-avatar-dark-512x512.png',
         headers: [
           {
             key: 'Cache-Control',
