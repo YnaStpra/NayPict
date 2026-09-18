@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useMemo } from "react"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
 import dynamic from "next/dynamic"
@@ -40,9 +40,11 @@ import {
 import { userInfo as fetchUserInfo } from "@/request/user"
 import { photoList } from "@/request/photo"
 import { toProxyMediaUrl } from "@/lib/url"
+import { formatRelativeTime } from "@/lib/date"
 import {
   BarChart3,
   Calendar,
+  Clock,
   Download,
   Eye,
   Film,
@@ -218,7 +220,7 @@ export default function AdminInsightsPage() {
     Promise.all([
       getInsightsOverview(),
       getInsightsChart(chartRange),
-      getInsightsTopPhotos(10),
+      getInsightsTopPhotos(1000),
     ])
       .then(([overviewRes, chartRes, topPhotosRes]) => {
         setOverview(overviewRes)
@@ -233,6 +235,26 @@ export default function AdminInsightsPage() {
         setLoading(false)
       })
   }
+
+  // Sort mode for public viewed media: 'views' (highest views) or 'recent' (latest view activity)
+  const [viewedSort, setViewedSort] = useState<"views" | "recent">("views")
+
+  // Filtered and sorted public viewed media (strictly views > 0, sorted by selected mode)
+  const sortedViewedPhotos = useMemo(() => {
+    const list = (topPhotos.mostViewed || []).filter((p) => p.viewCount > 0)
+    return [...list].sort((a, b) => {
+      if (viewedSort === "recent") {
+        const timeA = a.lastViewedAt ? new Date(a.lastViewedAt).getTime() : 0
+        const timeB = b.lastViewedAt ? new Date(b.lastViewedAt).getTime() : 0
+        if (timeB !== timeA) return timeB - timeA
+        return b.viewCount - a.viewCount
+      }
+      if (b.viewCount !== a.viewCount) return b.viewCount - a.viewCount
+      const timeA = a.lastViewedAt ? new Date(a.lastViewedAt).getTime() : 0
+      const timeB = b.lastViewedAt ? new Date(b.lastViewedAt).getTime() : 0
+      return timeB - timeA
+    })
+  }, [topPhotos.mostViewed, viewedSort])
 
   const [resetting, setResetting] = useState(false)
 
@@ -290,7 +312,7 @@ export default function AdminInsightsPage() {
       Promise.all([
         getInsightsOverview(),
         getInsightsChart(chartRange),
-        getInsightsTopPhotos(10),
+        getInsightsTopPhotos(1000),
       ])
         .then(([overviewRes, chartRes, topPhotosRes]) => {
           setOverview(overviewRes)
@@ -821,31 +843,65 @@ export default function AdminInsightsPage() {
 
               {/* Rankings Grid: Most Viewed & Most Discussed */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* 1. Most Viewed Media */}
-                <Card className="border-border/80 bg-card shadow-xs">
+                {/* 1. Public Viewed Media (All viewed media with internal scroll and sort) */}
+                <Card className="border-border/80 bg-card shadow-xs flex flex-col">
                   <CardHeader className="p-5 pb-3">
-                    <CardTitle className="text-base font-bold flex items-center justify-between">
-                      <span>Most Viewed Media</span>
-                      <span className="text-xs font-medium text-muted-foreground">Top 10</span>
-                    </CardTitle>
-                    <CardDescription className="text-xs">
-                      Ranked by public visitor view count
-                    </CardDescription>
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5">
+                      <div>
+                        <CardTitle className="text-base font-bold flex items-center gap-2">
+                          <span>Public Viewed Media</span>
+                          <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
+                            {sortedViewedPhotos.length} Viewed
+                          </span>
+                        </CardTitle>
+                        <CardDescription className="text-xs mt-1">
+                          {viewedSort === "views"
+                            ? "Ranked by total public visitor views"
+                            : "Ranked by most recent visitor activity"}
+                        </CardDescription>
+                      </div>
+
+                      {/* Sort Toggle Controls */}
+                      <div className="flex items-center self-start sm:self-auto bg-muted/60 p-0.5 rounded-lg border border-border/50 text-xs">
+                        <button
+                          type="button"
+                          onClick={() => setViewedSort("views")}
+                          className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all cursor-pointer ${
+                            viewedSort === "views"
+                              ? "bg-background text-foreground shadow-xs"
+                              : "text-muted-foreground hover:text-foreground"
+                          }`}
+                        >
+                          Most Viewed
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setViewedSort("recent")}
+                          className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all cursor-pointer ${
+                            viewedSort === "recent"
+                              ? "bg-background text-foreground shadow-xs"
+                              : "text-muted-foreground hover:text-foreground"
+                          }`}
+                        >
+                          Recently Viewed
+                        </button>
+                      </div>
+                    </div>
                   </CardHeader>
-                  <CardContent className="p-5 pt-0">
-                    {topPhotos.mostViewed.length === 0 ? (
+                  <CardContent className="p-5 pt-0 flex-1">
+                    {sortedViewedPhotos.length === 0 ? (
                       <div className="py-12 text-center text-xs text-muted-foreground">
                         No public media views recorded yet.
                       </div>
                     ) : (
-                      <div className="divide-y divide-border/50">
-                        {topPhotos.mostViewed.map((photo, index) => (
+                      <div className="max-h-[580px] overflow-y-auto divide-y divide-border/50 pr-1.5 scrollbar-thin scrollbar-thumb-muted-foreground/20 hover:scrollbar-thumb-muted-foreground/30">
+                        {sortedViewedPhotos.map((photo, index) => (
                           <div
                             key={photo.photoId}
                             onClick={() => handleOpenPhotoViewer(photo.photoId)}
                             className="flex items-center gap-3 py-3 group hover:bg-muted/40 px-2 rounded-xl transition-colors cursor-pointer"
                           >
-                            <span className="text-xs font-bold text-muted-foreground w-4 text-center">
+                            <span className="text-xs font-bold text-muted-foreground w-6 text-center shrink-0">
                               {index + 1}
                             </span>
                             <InsightThumbnail
@@ -858,11 +914,23 @@ export default function AdminInsightsPage() {
                               <h4 className="text-xs font-semibold truncate group-hover:text-primary transition-colors">
                                 {photo.name}
                               </h4>
-                              <div className="flex items-center gap-2 mt-1 text-[11px] text-muted-foreground">
+                              <div className="flex items-center flex-wrap gap-2 mt-1 text-[11px] text-muted-foreground">
                                 <span className="inline-flex items-center gap-1 font-semibold text-primary">
                                   <Eye className="size-3" />
                                   {photo.viewCount.toLocaleString()} views
                                 </span>
+                                {photo.lastViewedAt && (
+                                  <>
+                                    <span>•</span>
+                                    <span
+                                      className="inline-flex items-center gap-1 text-muted-foreground"
+                                      title={new Date(photo.lastViewedAt).toLocaleString()}
+                                    >
+                                      <Clock className="size-3" />
+                                      {formatRelativeTime(photo.lastViewedAt)}
+                                    </span>
+                                  </>
+                                )}
                                 {photo.commentCount > 0 && (
                                   <>
                                     <span>•</span>
@@ -880,7 +948,7 @@ export default function AdminInsightsPage() {
                               type="button"
                               variant="ghost"
                               size="sm"
-                              className="h-8 px-2.5 text-xs text-muted-foreground hover:text-foreground opacity-80 group-hover:opacity-100 cursor-pointer"
+                              className="h-8 px-2.5 text-xs text-muted-foreground hover:text-foreground opacity-80 group-hover:opacity-100 cursor-pointer shrink-0"
                               onClick={(e) => handleOpenSingleInsights(photo.photoId, e)}
                             >
                               <TrendingUp className="size-3.5 mr-1" />
@@ -894,7 +962,7 @@ export default function AdminInsightsPage() {
                 </Card>
 
                 {/* 2. Most Discussed Media */}
-                <Card className="border-border/80 bg-card shadow-xs">
+                <Card className="border-border/80 bg-card shadow-xs flex flex-col">
                   <CardHeader className="p-5 pb-3">
                     <CardTitle className="text-base font-bold flex items-center justify-between">
                       <span>Most Discussed Media</span>
@@ -904,20 +972,20 @@ export default function AdminInsightsPage() {
                       Media with highest community responses
                     </CardDescription>
                   </CardHeader>
-                  <CardContent className="p-5 pt-0">
+                  <CardContent className="p-5 pt-0 flex-1">
                     {topPhotos.mostCommented.length === 0 ? (
                       <div className="py-12 text-center text-xs text-muted-foreground">
                         No commented media recorded yet.
                       </div>
                     ) : (
-                      <div className="divide-y divide-border/50">
+                      <div className="max-h-[580px] overflow-y-auto divide-y divide-border/50 pr-1.5 scrollbar-thin scrollbar-thumb-muted-foreground/20 hover:scrollbar-thumb-muted-foreground/30">
                         {topPhotos.mostCommented.map((photo, index) => (
                           <div
                             key={photo.photoId}
                             onClick={() => handleOpenPhotoViewer(photo.photoId)}
                             className="flex items-center gap-3 py-3 group hover:bg-muted/40 px-2 rounded-xl transition-colors cursor-pointer"
                           >
-                            <span className="text-xs font-bold text-muted-foreground w-4 text-center">
+                            <span className="text-xs font-bold text-muted-foreground w-6 text-center shrink-0">
                               {index + 1}
                             </span>
                             <InsightThumbnail
@@ -947,7 +1015,7 @@ export default function AdminInsightsPage() {
                               type="button"
                               variant="ghost"
                               size="sm"
-                              className="h-8 px-2.5 text-xs text-muted-foreground hover:text-foreground opacity-80 group-hover:opacity-100 cursor-pointer"
+                              className="h-8 px-2.5 text-xs text-muted-foreground hover:text-foreground opacity-80 group-hover:opacity-100 cursor-pointer shrink-0"
                               onClick={(e) => handleOpenSingleInsights(photo.photoId, e)}
                             >
                               <TrendingUp className="size-3.5 mr-1" />

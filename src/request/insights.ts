@@ -56,7 +56,7 @@ export function getInsightsChart(range: '7d' | '30d' | '90d' = '7d', photoId?: s
 }
 
 // Fetch top viewed, commented, and reacted photos (Admin only).
-export function getInsightsTopPhotos(limit = 10): Promise<{
+export function getInsightsTopPhotos(limit = 1000): Promise<{
   mostViewed: InsightsTopPhotoVo[];
   mostCommented: InsightsTopPhotoVo[];
   mostReacted: InsightsTopReactionPhotoVo[];

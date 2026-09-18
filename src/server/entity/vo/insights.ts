@@ -43,6 +43,7 @@ export interface InsightsTopPhotoVo {
   reactionCount?: number;
   type?: string | null;
   key?: string | null;
+  lastViewedAt?: string | null;
 }
 
 export interface InsightsTopReactionPhotoVo {

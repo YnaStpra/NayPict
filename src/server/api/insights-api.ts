@@ -127,7 +127,7 @@ export function registerInsightsApi(app: Hono<HonoEnv>) {
 
   // Admin-only endpoint: Get top viewed and top commented photos ranking
   app.get('/admin/insights/top-photos', async (c: Context) => {
-    const limit = Number(c.req.query('limit')) || 10;
+    const limit = Number(c.req.query('limit')) || 1000;
     const topPhotos = await insightsService.getTopPhotos(limit);
     return c.json(result.ok(topPhotos));
   });

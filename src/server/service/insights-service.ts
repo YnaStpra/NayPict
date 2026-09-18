@@ -309,7 +309,7 @@ const insightsService = {
   },
 
   // Query top photos ranked by public view count, discussion comments, and visitor reactions.
-  async getTopPhotos(limit = 10): Promise<{
+  async getTopPhotos(limit = 1000): Promise<{
     mostViewed: InsightsTopPhotoVo[];
     mostCommented: InsightsTopPhotoVo[];
     mostReacted: InsightsTopReactionPhotoVo[];
@@ -317,7 +317,8 @@ const insightsService = {
     await ensurePhotoViewTable();
 
     try {
-      // 1. Fetch top photos by public views
+      // 1. Fetch public viewed photos (strictly views > 0 via innerJoin)
+      const viewedLimit = Math.max(limit, 500);
       const mostViewedRaw = await orm
         .select({
           photoId: photoTab.photoId,
@@ -328,9 +329,10 @@ const insightsService = {
           height: photoTab.height,
           storageId: photoTab.storageId,
           viewCount: count(photoViewTab.id),
+          lastViewedAt: sql<string>`MAX(${photoViewTab.viewedAt})`,
         })
         .from(photoTab)
-        .leftJoin(
+        .innerJoin(
           photoViewTab,
           and(eq(photoViewTab.photoId, photoTab.photoId), eq(photoViewTab.type, 'view'))
         )
@@ -345,7 +347,7 @@ const insightsService = {
           photoTab.storageId
         )
         .orderBy(desc(count(photoViewTab.id)))
-        .limit(limit);
+        .limit(viewedLimit);
 
       // 2. Fetch top photos by comments
       const mostCommentedRaw = await orm
@@ -469,6 +471,7 @@ const insightsService = {
         storageId: string | null;
         viewCount?: number;
         commentCount?: number;
+        lastViewedAt?: string | null;
       }): InsightsTopPhotoVo => {
         const domain = item.storageId ? storageMap.get(item.storageId) : null;
         const checksum = item.checksum || '';
@@ -492,6 +495,7 @@ const insightsService = {
           height: item.height,
           viewCount: item.viewCount !== undefined ? Number(item.viewCount) : viewCountMap.get(item.photoId) ?? 0,
           commentCount: item.commentCount !== undefined ? Number(item.commentCount) : commentCountMap.get(item.photoId) ?? 0,
+          lastViewedAt: item.lastViewedAt ? String(item.lastViewedAt) : null,
         };
       };
 
