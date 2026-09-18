@@ -146,12 +146,16 @@ const albumService = {
       photosByAlbum.set(row.albumId, existing);
     }
 
-    const referencedPhotoIds = Array.from(new Set(allAlbumPhotos.map((p) => p.photoId)));
-    const fileMap = referencedPhotoIds.length
-      ? await fileService.listByPhotoIds(referencedPhotoIds)
-      : new Map<string, File[]>();
+    const albumCoverMap = new Map<
+      string,
+      {
+        selectedCoverPhoto: (typeof allAlbumPhotos)[0] | null;
+        suggestedCoverPhoto: (typeof allAlbumPhotos)[0] | null;
+        photoTotal: number;
+      }
+    >();
 
-    const list = albumList.map((album) => {
+    for (const album of albumList) {
       const albumPhotos = photosByAlbum.get(album.albumId) ?? [];
 
       let suggestedCoverPhoto: (typeof albumPhotos)[0] | null = null;
@@ -167,6 +171,35 @@ const albumService = {
         selectedCoverPhoto = suggestedCoverPhoto;
       }
 
+      albumCoverMap.set(album.albumId, {
+        selectedCoverPhoto,
+        suggestedCoverPhoto,
+        photoTotal: albumPhotos.length,
+      });
+    }
+
+    // High-performance optimization: Only fetch files for the ~10-20 resolved cover photos,
+    // rather than executing a massive SQL IN query across thousands of photos in all albums.
+    const coverPhotoIds = Array.from(
+      new Set(
+        Array.from(albumCoverMap.values())
+          .map((item) => item.selectedCoverPhoto?.photoId)
+          .filter((id): id is string => Boolean(id))
+      )
+    );
+
+    const fileMap = coverPhotoIds.length
+      ? await fileService.listByPhotoIds(coverPhotoIds)
+      : new Map<string, File[]>();
+
+    const list = albumList.map((album) => {
+      const { selectedCoverPhoto, suggestedCoverPhoto, photoTotal } =
+        albumCoverMap.get(album.albumId) ?? {
+          selectedCoverPhoto: null,
+          suggestedCoverPhoto: null,
+          photoTotal: 0,
+        };
+
       const fileStorage = fileStorageList.list.find((item: any) => item.storageId === selectedCoverPhoto?.storageId);
       const domain = formatHttpUrl(fileStorage?.domain);
 
@@ -181,7 +214,7 @@ const albumService = {
         isArchived: album.isArchived ?? 0,
         thumbnail: thumbnail ? toMediaUrl(thumbnail, domain) : null,
         thumbHash: selectedCoverPhoto?.thumbHash ?? null,
-        photoTotal: albumPhotos.length,
+        photoTotal,
         coverPhotoId: selectedCoverPhoto?.photoId ?? null,
         suggestedCoverPhotoId: suggestedCoverPhoto?.photoId ?? null,
         isManualCover: album.isManualCover === 1

@@ -66,9 +66,9 @@ export function photoRandomIdList(params: PhotoRandomIdListBo) {
   return http.get<string[]>('/photo/randomIdList', params as unknown as Record<string, unknown>);
 }
 
-// Query the shooting date and number of existing photos by day.
+// Query the shooting date and number of existing photos by day (supports GET for edge CDN caching).
 export function photoTakenDateList(params: PhotoTakenDateListBo) {
-  return http.post<PhotoTakenDateVo[]>('/photo/takenDateList', params);
+  return http.get<PhotoTakenDateVo[]>('/photo/takenDateList', params as unknown as Record<string, unknown>);
 }
 
 

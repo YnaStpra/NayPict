@@ -148,6 +148,8 @@ export const PhotoCard = memo(function PhotoCard({
   }, [isVideo, data.key])
   // imageError Record whether all photo URLs failed to load.
   const [imageError, setImageError] = useState(false)
+  // isImageLoaded: Once the high-res image paints, clear the base64 placeholder from DOM styles to free memory
+  const [isImageLoaded, setIsImageLoaded] = useState(false)
   // isMobile Determine whether the current viewport is the mobile terminal.
   const isMobile = useIsMobile()
   const videoDuration = useMemo(() => {
@@ -605,7 +607,7 @@ export const PhotoCard = memo(function PhotoCard({
         willChange: "auto",
         ["--card-stagger" as string]: shouldAnimateReveal ? `${staggerDelay}ms` : undefined,
         backgroundColor: placeholder ? undefined : "rgba(128,128,128,0.08)",
-        backgroundImage: placeholder ? `url("${placeholder}")` : undefined,
+        backgroundImage: isImageLoaded ? undefined : (placeholder ? `url("${placeholder}")` : undefined),
         backgroundSize: "cover",
         backgroundPosition: "center",
         // Dynamic Layout Stability CSS Custom Properties (CLS = 0.000)
@@ -656,6 +658,7 @@ export const PhotoCard = memo(function PhotoCard({
                 showHover && !selectionActive ? "scale-[1.035]" : "",
               ].join(" ")}
               onError={handleImageError}
+              onLoad={() => setIsImageLoaded(true)}
             />
           )}
           <div className="absolute inset-0 bg-black/15 pointer-events-none" />
@@ -679,6 +682,7 @@ export const PhotoCard = memo(function PhotoCard({
             showHover && !selectionActive ? "scale-[1.035]" : "",
           ].join(" ")}
           onError={handleImageError}
+          onLoad={() => setIsImageLoaded(true)}
         />
       )}
       {selected && (
