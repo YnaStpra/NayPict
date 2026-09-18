@@ -680,7 +680,7 @@ export const PhotoCard = memo(function PhotoCard({
           title={`Video ${videoDuration ? `(${videoDuration})` : ""}`}
         >
           <Play className={`size-2.5 fill-current ${isVideoPlaying ? "text-emerald-400 animate-pulse" : "text-emerald-400"}`} />
-          <span>{isVideoPlaying ? "PREVIEW" : videoDuration || "Video"}</span>
+          <span>{videoDuration || "Video"}</span>
         </div>
       )}
       {/* Center Play Overlay on Hover / Active */}
