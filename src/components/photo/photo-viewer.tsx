@@ -1199,8 +1199,8 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
   const originalProgressHideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   // slidePointerStartRef Record slide superior pointerdown coordinate, Used to distinguish click and drag switching.
   const slidePointerStartRef = useRef<{ x: number; y: number } | null>(null)
-  // viewedInSessionRef Tracks photos viewed in current browser session to prevent duplicate network calls.
-  const viewedInSessionRef = useRef<Set<string>>(new Set())
+  // lastViewedMapRef tracks timestamp of photos viewed to debounce view tracking accurately.
+  const lastViewedMapRef = useRef<Map<string, number>>(new Map())
   // State for single-photo insights modal (Admin only)
   const [insightsDialogOpen, setInsightsDialogOpen] = useState(false)
   const [insightsPhotoId, setInsightsPhotoId] = useState<string | null>(null)
@@ -1527,9 +1527,11 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
     // Sync URL query param ?photoId=... smoothly
     setPhotoIdInUrl(photo.photoId)
 
-    // Track public visitor views (strictly excluded for Admin)
-    if (userInfo?.type !== UserTypeEnum.ADMIN && !viewedInSessionRef.current.has(photo.photoId)) {
-      viewedInSessionRef.current.add(photo.photoId)
+    // Track visitor views (debounced to once every 30s per photo to prevent spam while tracking views accurately)
+    const now = Date.now()
+    const lastViewedAt = lastViewedMapRef.current.get(photo.photoId) || 0
+    if (now - lastViewedAt > 30_000) {
+      lastViewedMapRef.current.set(photo.photoId, now)
       recordPhotoView(photo.photoId)
       trackVisitorMedia(photo.photoId, "view")
     }

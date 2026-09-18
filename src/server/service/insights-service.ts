@@ -25,8 +25,8 @@ import {
 
 // This module provides statistics, analytics aggregation, and public view tracking services for photos.
 
-// Cooldown in minutes for repeat view tracking per visitor per photo.
-const VIEW_COOLDOWN_MINUTES = 30;
+// Cooldown in seconds for repeat view tracking per visitor per photo.
+const VIEW_COOLDOWN_SECONDS = 60;
 
 let tableEnsured = false;
 
@@ -61,11 +61,6 @@ const insightsService = {
     visitorId: string,
     isAdmin: boolean
   ): Promise<{ recorded: boolean; reason?: string }> {
-    // Strictly exclude authenticated admin interactions from analytics
-    if (isAdmin) {
-      return { recorded: false, reason: 'admin_excluded' };
-    }
-
     const photoId = params.photoId?.trim();
     if (!photoId || !visitorId) {
       return { recorded: false, reason: 'invalid_params' };
@@ -87,9 +82,9 @@ const insightsService = {
         return { recorded: false, reason: 'photo_not_found' };
       }
 
-      // Apply 30-minute cooldown for views to prevent spam/refresh inflation
+      // 60-second cooldown for views to prevent spam/refresh inflation
       if (type === 'view') {
-        const cooldownThreshold = new Date(Date.now() - VIEW_COOLDOWN_MINUTES * 60 * 1000).toISOString();
+        const cooldownThreshold = new Date(Date.now() - VIEW_COOLDOWN_SECONDS * 1000).toISOString();
         const [recentView] = await orm
           .select({ id: photoViewTab.id })
           .from(photoViewTab)
@@ -104,7 +99,12 @@ const insightsService = {
           .limit(1);
 
         if (recentView) {
-          return { recorded: false, reason: 'cooldown_active' };
+          // Even during the 60s cooldown window, refresh the viewedAt timestamp so 'Recently Viewed' is always 100% current!
+          await orm
+            .update(photoViewTab)
+            .set({ viewedAt: new Date().toISOString() })
+            .where(eq(photoViewTab.id, recentView.id));
+          return { recorded: true };
         }
       }
 
@@ -484,6 +484,18 @@ const insightsService = {
           ? (domain ? toMediaUrl(originalKey, domain) : toProxyMediaUrl(originalKey))
           : null;
 
+        let formattedLastViewedAt: string | null = null;
+        if (item.lastViewedAt) {
+          const rawStr = String(item.lastViewedAt).trim();
+          if (rawStr) {
+            if (rawStr.endsWith('Z') || /[+-]\d{2}:?\d{2}$/.test(rawStr)) {
+              formattedLastViewedAt = rawStr;
+            } else {
+              formattedLastViewedAt = `${rawStr.replace(' ', 'T')}Z`;
+            }
+          }
+        }
+
         return {
           photoId: item.photoId,
           name: item.name,
@@ -495,7 +507,7 @@ const insightsService = {
           height: item.height,
           viewCount: item.viewCount !== undefined ? Number(item.viewCount) : viewCountMap.get(item.photoId) ?? 0,
           commentCount: item.commentCount !== undefined ? Number(item.commentCount) : commentCountMap.get(item.photoId) ?? 0,
-          lastViewedAt: item.lastViewedAt ? String(item.lastViewedAt) : null,
+          lastViewedAt: formattedLastViewedAt,
         };
       };
 

@@ -24,7 +24,7 @@ function parseTime(value: string | null | undefined): Date | null {
   return date;
 }
 
-// Parse ISO or database date string into timestamp accurately.
+// Parse ISO or database date string into timestamp accurately in UTC.
 function parseUtcTime(value: string | Date | number) {
   if (value instanceof Date) {
     return value.getTime()
@@ -37,14 +37,25 @@ function parseUtcTime(value: string | Date | number) {
   }
 
   const text = String(value).trim()
-  const date = new Date(text)
-  if (!Number.isNaN(date.getTime())) {
-    return date.getTime()
+  if (!text) return null
+
+  // If text already has UTC 'Z' or timezone offset (+08:00, -05:00), parse directly
+  if (text.endsWith("Z") || /[+-]\d{2}(?::?\d{2})?$/.test(text)) {
+    const d = new Date(text)
+    if (!Number.isNaN(d.getTime())) {
+      return d.getTime()
+    }
   }
 
-  // Fallback for space-separated date strings (e.g. "2026-08-16 14:25:00")
-  const formatted = text.replace(" ", "T")
-  const fallbackDate = new Date(formatted)
+  // Database timestamps (e.g. "2026-09-18 04:29:53" or "2026-09-18T04:29:53") are stored in UTC.
+  // Appending 'Z' prevents the browser from incorrectly interpreting them as local time.
+  const isoWithZ = `${text.replace(" ", "T")}Z`
+  const dateUtc = new Date(isoWithZ)
+  if (!Number.isNaN(dateUtc.getTime())) {
+    return dateUtc.getTime()
+  }
+
+  const fallbackDate = new Date(text)
   if (!Number.isNaN(fallbackDate.getTime())) {
     return fallbackDate.getTime()
   }

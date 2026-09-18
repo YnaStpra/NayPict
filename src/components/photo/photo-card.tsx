@@ -20,6 +20,7 @@ import { PhotoHeartBurst } from "@/components/photo/photo-heart-burst"
 import { PhotoQuickPeek } from "@/components/photo/photo-quick-peek"
 import { reactionSync } from "@/lib/reaction-sync"
 import { trackVisitorMedia } from "@/hooks/use-visitor-tracker"
+import { recordPhotoView } from "@/request/insights"
 
 type TouchHoverCloseRef = {
   current: (() => void) | null
@@ -247,6 +248,8 @@ export const PhotoCard = memo(function PhotoCard({
         }
       } catch {}
       setQuickPeekOpen(true)
+      recordPhotoView(data.photoId)
+      trackVisitorMedia(data.photoId, "view")
     }, 280)
   }
 
