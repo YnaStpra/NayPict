@@ -118,6 +118,12 @@ export async function migrate(): Promise<void> {
         CREATE INDEX IF NOT EXISTS "photo_view_viewed_at_idx" ON "photo_view" ("viewed_at");
       `;
       await sql`
+        CREATE INDEX IF NOT EXISTS "photo_view_photo_type_idx" ON "photo_view" ("photo_id", "type");
+      `;
+      await sql`
+        CREATE INDEX IF NOT EXISTS "photo_view_type_time_idx" ON "photo_view" ("type", "viewed_at");
+      `;
+      await sql`
         CREATE INDEX IF NOT EXISTS "photo_view_dedup_idx" ON "photo_view" ("photo_id", "visitor_id", "type", "viewed_at");
       `;
     } catch (viewErr) {
@@ -213,6 +219,8 @@ export async function migrate(): Promise<void> {
 
       await sql`CREATE INDEX IF NOT EXISTS "visitor_activity_session_id_idx" ON "visitor_activity" ("session_id");`;
       await sql`CREATE INDEX IF NOT EXISTS "visitor_activity_photo_id_idx" ON "visitor_activity" ("photo_id");`;
+      await sql`CREATE INDEX IF NOT EXISTS "visitor_activity_photo_action_idx" ON "visitor_activity" ("photo_id", "action");`;
+      await sql`CREATE INDEX IF NOT EXISTS "visitor_activity_created_at_idx" ON "visitor_activity" ("created_at");`;
     } catch (analyticsErr) {
       console.warn('[MIGRATE] Error ensuring visitor analytics tables:', analyticsErr);
     }

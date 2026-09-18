@@ -52,12 +52,22 @@ class VideoAutoplayCoordinator {
   }
 
   /**
-   * Check if browser Data Saver mode (Save-Data) is active.
+   * Check if browser is on a constrained network (Data Saver active or 2G/3G cellular connection).
    */
-  private isSaveDataActive(): boolean {
+  private isNetworkConstrained(): boolean {
     if (typeof navigator === "undefined") return false
-    const conn = (navigator as unknown as { connection?: { saveData?: boolean } }).connection
-    return Boolean(conn?.saveData)
+    const conn = (navigator as unknown as {
+      connection?: {
+        saveData?: boolean
+        effectiveType?: string
+      }
+    }).connection
+    if (!conn) return false
+    if (conn.saveData) return true
+    if (conn.effectiveType === "slow-2g" || conn.effectiveType === "2g" || conn.effectiveType === "3g") {
+      return true
+    }
+    return false
   }
 
   private initObserver() {
@@ -171,7 +181,7 @@ class VideoAutoplayCoordinator {
    * Re-evaluates visible videos, applies max-4 constraint, and coordinates batching
    */
   private recalculate() {
-    if (!this.isDocumentVisible || this.isPausedGlobally || this.isSaveDataActive()) {
+    if (!this.isDocumentVisible || this.isPausedGlobally || this.isNetworkConstrained()) {
       this.stopAll()
       return
     }
