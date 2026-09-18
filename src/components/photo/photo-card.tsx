@@ -605,7 +605,16 @@ export const PhotoCard = memo(function PhotoCard({
             onPlaying={() => setIsVideoFrameReady(true)}
             onWaiting={() => setIsVideoFrameReady(false)}
             onTimeUpdate={(e) => {
-              const sec = Math.floor(e.currentTarget.currentTime)
+              const video = e.currentTarget
+              const cur = video.currentTime
+              // Max preview limit: 10s. Rewind and loop back to 0s to conserve user bandwidth
+              if (cur >= 10) {
+                video.currentTime = 0
+                setCurrentSeconds(0)
+                video.play().catch(() => {})
+                return
+              }
+              const sec = Math.floor(cur)
               setCurrentSeconds((prev) => (prev !== sec ? sec : prev))
             }}
             className="absolute inset-0 h-full w-full object-cover pointer-events-none bg-neutral-950"

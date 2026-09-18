@@ -197,7 +197,7 @@ class VideoAutoplayCoordinator {
 
     this.applyActiveSet(newActiveSet)
 
-    // Schedule rotation to next batch after 5 seconds
+    // Schedule rotation to next batch after 10 seconds (aligned with 10s preview limit)
     if (this.rotationTimer) {
       clearTimeout(this.rotationTimer)
     }
@@ -205,7 +205,7 @@ class VideoAutoplayCoordinator {
     this.rotationTimer = setTimeout(() => {
       this.batchIndex = (this.batchIndex + 1) % totalBatches
       this.recalculate()
-    }, 5000)
+    }, 10000)
   }
 
   private applyActiveSet(newActiveSet: Set<string>) {
