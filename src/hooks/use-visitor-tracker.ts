@@ -453,7 +453,6 @@ export function useVisitorTracker() {
     document.addEventListener("visibilitychange", handleVisibilityChange)
     window.addEventListener("focus", handleWindowFocus)
     window.addEventListener("pagehide", handleBeforeUnload)
-    window.addEventListener("beforeunload", handleBeforeUnload)
 
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current)
@@ -463,7 +462,6 @@ export function useVisitorTracker() {
       document.removeEventListener("visibilitychange", handleVisibilityChange)
       window.removeEventListener("focus", handleWindowFocus)
       window.removeEventListener("pagehide", handleBeforeUnload)
-      window.removeEventListener("beforeunload", handleBeforeUnload)
     }
   }, [])
 

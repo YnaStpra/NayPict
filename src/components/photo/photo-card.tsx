@@ -207,6 +207,11 @@ export const PhotoCard = memo(function PhotoCard({
 
     return () => {
       videoCoordinator.unregister(data.photoId)
+      if (videoRef.current) {
+        videoRef.current.pause()
+        videoRef.current.removeAttribute("src")
+        videoRef.current.load()
+      }
     }
   }, [isVideo, data.photoId, startAutoplay, stopAutoplay])
 

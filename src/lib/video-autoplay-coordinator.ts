@@ -34,7 +34,30 @@ class VideoAutoplayCoordinator {
     if (typeof window !== "undefined") {
       this.initObserver()
       document.addEventListener("visibilitychange", this.handleVisibilityChange)
+      const conn = (navigator as unknown as { connection?: EventTarget }).connection
+      if (conn && "addEventListener" in conn) {
+        conn.addEventListener("change", () => this.recalculate())
+      }
     }
+  }
+
+  /**
+   * Determine maximum concurrent playing videos:
+   * Mobile (< 768px): 2 videos to protect mobile GPU decoders, RAM, and thermals.
+   * Desktop/Tablet (>= 768px): 4 videos.
+   */
+  private getMaxConcurrent(): number {
+    if (typeof window === "undefined") return 2
+    return window.innerWidth < 768 ? 2 : 4
+  }
+
+  /**
+   * Check if browser Data Saver mode (Save-Data) is active.
+   */
+  private isSaveDataActive(): boolean {
+    if (typeof navigator === "undefined") return false
+    const conn = (navigator as unknown as { connection?: { saveData?: boolean } }).connection
+    return Boolean(conn?.saveData)
   }
 
   private initObserver() {
@@ -148,7 +171,7 @@ class VideoAutoplayCoordinator {
    * Re-evaluates visible videos, applies max-4 constraint, and coordinates batching
    */
   private recalculate() {
-    if (!this.isDocumentVisible || this.isPausedGlobally) {
+    if (!this.isDocumentVisible || this.isPausedGlobally || this.isSaveDataActive()) {
       this.stopAll()
       return
     }
@@ -170,7 +193,7 @@ class VideoAutoplayCoordinator {
     // Sort visible items by top position (natural reading flow from top to bottom)
     visibleItems.sort((a, b) => a.top - b.top)
 
-    const MAX_CONCURRENT = 4
+    const MAX_CONCURRENT = this.getMaxConcurrent()
 
     if (visibleItems.length <= MAX_CONCURRENT) {
       // All visible items can play at once!
