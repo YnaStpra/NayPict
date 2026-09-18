@@ -2169,6 +2169,7 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
           onOpenChange={setBatchEditDialogOpen}
           photoIds={photos[viewIndex] ? [photos[viewIndex].photoId] : []}
           initialName={photos[viewIndex]?.name}
+          initialTakenTime={photos[viewIndex]?.takenTime}
           initialLatitude={photos[viewIndex]?.latitude != null ? Number(photos[viewIndex].latitude) : null}
           initialLongitude={photos[viewIndex]?.longitude != null ? Number(photos[viewIndex].longitude) : null}
           onSuccess={(_ids, changes) => {

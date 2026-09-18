@@ -121,26 +121,14 @@ export async function extractClientExif(file: File): Promise<ClientExifResult> {
       const min = String(dateVal.getUTCMinutes()).padStart(2, '0');
       const sec = String(dateVal.getUTCSeconds()).padStart(2, '0');
 
-      if (offsetStr) {
-        const d = new Date(`${year}-${month}-${day}T${hour}:${min}:${sec}${offsetStr}`);
-        if (!isNaN(d.getTime())) takenTime = d.toISOString();
-      } else {
-        // Map wall-clock numbers to local time
-        const local = new Date(Number(year), Number(month) - 1, Number(day), Number(hour), Number(min), Number(sec));
-        if (!isNaN(local.getTime())) takenTime = local.toISOString();
-      }
+      // Preserve camera wall-clock shooting time without UTC day-shift rollback
+      takenTime = `${year}-${month}-${day}T${hour}:${min}:${sec}`;
     } else if (typeof dateVal === 'string') {
       const match = dateVal.trim().match(/^(\d{4})[:\-](\d{2})[:\-](\d{2})[T\s](\d{2}):(\d{2}):?(\d{2})?/);
       if (match) {
         const [_, year, month, day, hour, min, sec] = match;
         const second = sec || '00';
-        if (offsetStr) {
-          const d = new Date(`${year}-${month}-${day}T${hour}:${min}:${second}${offsetStr}`);
-          if (!isNaN(d.getTime())) takenTime = d.toISOString();
-        } else {
-          const local = new Date(Number(year), Number(month) - 1, Number(day), Number(hour), Number(min), Number(second));
-          if (!isNaN(local.getTime())) takenTime = local.toISOString();
-        }
+        takenTime = `${year}-${month}-${day}T${hour}:${min}:${second}`;
       }
     }
 

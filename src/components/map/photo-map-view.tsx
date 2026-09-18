@@ -2235,6 +2235,8 @@ export default function PhotoMapView() {
             if (!next) setSingleGeotagPhotoId(null)
           }}
           photoIds={[singleGeotagPhotoId]}
+          initialName={photos.find((p) => p.photoId === singleGeotagPhotoId)?.name}
+          initialTakenTime={photos.find((p) => p.photoId === singleGeotagPhotoId)?.takenTime}
           onSuccess={(ids, changes) => {
             handleGeotagSuccess(ids, changes)
             setSingleGeotagPhotoId(null)

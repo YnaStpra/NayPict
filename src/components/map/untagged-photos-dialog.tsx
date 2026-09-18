@@ -370,6 +370,8 @@ export function UntaggedPhotosDialog({
             }
           }}
           photoIds={editingPhotoIds}
+          initialName={editingPhotoIds.length === 1 ? untaggedPhotos.find((p) => p.photoId === editingPhotoIds[0])?.name : undefined}
+          initialTakenTime={editingPhotoIds.length === 1 ? untaggedPhotos.find((p) => p.photoId === editingPhotoIds[0])?.takenTime : undefined}
           onSuccess={(ids, changes) => {
             onGeotagSuccess(ids, changes)
             setSelectedIds((prev) => prev.filter((id) => !ids.includes(id)))
