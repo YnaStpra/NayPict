@@ -443,9 +443,9 @@ export const PhotoCard = memo(function PhotoCard({
         }
       } catch {}
 
-      // Trigger reaction if not already loved
+      // Trigger reaction if not already loved (exclude Admin from reaction totals)
       const cached = reactionSync.getCached(data.photoId)
-      if (!cached?.userReactions?.love) {
+      if (!cached?.userReactions?.love && !isAdmin) {
         reactionSync.toggleReaction(data.photoId, "love")
       }
       trackVisitorMedia(data.photoId, "reaction")
@@ -539,7 +539,7 @@ export const PhotoCard = memo(function PhotoCard({
 
     setShowHeartBurst(true)
     const cached = reactionSync.getCached(data.photoId)
-    if (!cached?.userReactions?.love) {
+    if (!cached?.userReactions?.love && !isAdmin) {
       reactionSync.toggleReaction(data.photoId, "love")
     }
     trackVisitorMedia(data.photoId, "reaction")

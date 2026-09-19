@@ -3,10 +3,13 @@
 import { useEffect, useState, useRef, useCallback } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { Flame, Heart, ThumbsUp } from "lucide-react"
+import { toast } from "sonner"
 import { type ReactionTotalsVo, type UserReactionsVo } from "@/server/entity/vo/reaction"
 import { type ReactionType } from "@/server/entity/bo/reaction"
 import { reactionSync } from "@/lib/reaction-sync"
 import { trackVisitorMedia } from "@/hooks/use-visitor-tracker"
+import { useApp } from "@/app/provider"
+import { UserTypeEnum } from "@/server/enums/user-enum"
 
 interface PhotoReactionsProps {
 
@@ -63,6 +66,8 @@ const REACTION_CONFIG: {
 
 // Render interactive quick emoji reactions and likes for a photo.
 export function PhotoReactions({ photoId, className = "", compact = false }: PhotoReactionsProps) {
+  const { userInfo } = useApp()
+  const isAdmin = userInfo?.type === UserTypeEnum.ADMIN
   const [totals, setTotals] = useState<ReactionTotalsVo>(() => {
     const cached = reactionSync.getCached(photoId)
     return cached?.totals || { love: 0, fire: 0, camera: 0, place: 0, clap: 0 }
@@ -108,13 +113,12 @@ export function PhotoReactions({ photoId, className = "", compact = false }: Pho
 
     const newParticles: Particle[] = []
     const count = 6
-    const emojis = [emoji, emoji, "✨", emoji, emoji, "✨"]
 
     for (let i = 0; i < count; i++) {
+      const spreadX = (Math.random() - 0.5) * 80
+      const liftY = -(Math.random() * 90 + 50)
+      const emojis = [emoji, emoji, "✨", "💫", emoji]
       const newId = ++particleIdRef.current
-      const progress = (i / (count - 1)) - 0.5 // -0.5 to +0.5
-      const spreadX = progress * (60 + Math.random() * 20)
-      const liftY = -(70 + Math.random() * 45)
 
       newParticles.push({
         id: newId,
@@ -156,6 +160,12 @@ export function PhotoReactions({ photoId, className = "", compact = false }: Pho
     if (!isCurrentlyActive) {
       triggerParticleBurst(emoji, e)
       trackVisitorMedia(photoId, "reaction")
+    }
+
+    // Exclude Admin reactions from modifying public insight metrics
+    if (isAdmin) {
+      toast.info("Admin reactions are excluded from public stats.")
+      return
     }
 
     // Immediately toggle reaction via synchronized reactive store
