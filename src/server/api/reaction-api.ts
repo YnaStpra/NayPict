@@ -7,6 +7,9 @@ import { type PhotoReactionAddBo, type PhotoReactionsQueryBo } from '@/server/en
 import { createId } from '@/server/lib/id';
 import { getClientIp } from '@/server/lib/ip';
 import { reactionRateLimiter } from '@/server/lib/rate-limiter';
+import { getLoginInfo } from '@/lib/cookie';
+import { userService } from '@/server/service/user-service';
+import { UserTypeEnum } from '@/server/enums/user-enum';
 import type { HonoEnv } from '../hono/type';
 
 // This module registers endpoints for photo micro-reactions and public likes.
@@ -40,6 +43,20 @@ function resolveVisitorId(c: Context, explicitId?: string): string {
   return vid;
 }
 
+// Verify if the current request belongs to an authenticated Admin session.
+async function checkIsAdmin(c: Context): Promise<boolean> {
+  try {
+    const rawCookie = c.req.header('cookie') ?? null;
+    const { userId } = await getLoginInfo(rawCookie);
+    if (!userId) return false;
+
+    const user = await userService.getById(userId);
+    return user?.type === UserTypeEnum.ADMIN;
+  } catch {
+    return false;
+  }
+}
+
 export function registerReactionApi(app: Hono<HonoEnv>) {
   // Query photo reactions and visitor state (Public).
   app.post('/photo/reactions', async (c: Context) => {
@@ -59,6 +76,14 @@ export function registerReactionApi(app: Hono<HonoEnv>) {
 
     const body = await c.req.json<PhotoReactionAddBo>().catch(() => ({ photoId: '', visitorId: '', reactionType: 'love' as const }));
     const visitorId = resolveVisitorId(c, body.visitorId);
+
+    // If request is from authenticated Admin, do NOT record reactions or mutate public insight stats
+    const isAdmin = await checkIsAdmin(c);
+    if (isAdmin) {
+      const data = await reactionService.getPhotoReactions(body.photoId, visitorId);
+      return c.json(result.ok(data));
+    }
+
     const data = await reactionService.addPhotoReaction({ ...body, visitorId });
     return c.json(result.ok(data));
   });

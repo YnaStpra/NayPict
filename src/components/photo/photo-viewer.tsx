@@ -1705,7 +1705,7 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
             const activePhoto = photos[viewIndex]
             if (activePhoto?.photoId) {
               const cached = reactionSync.getCached(activePhoto.photoId)
-              if (!cached?.userReactions?.love) {
+              if (!cached?.userReactions?.love && !isAdmin) {
                 reactionSync.toggleReaction(activePhoto.photoId, "love")
               }
               trackVisitorMedia(activePhoto.photoId, "reaction")
