@@ -17,6 +17,7 @@ import { TOKEN_COOKIE_MAX_AGE } from "@/server/const/global"
 import { useLiveCatalogSync } from "@/hooks/use-live-catalog-sync"
 import { useVisitorTracker } from "@/hooks/use-visitor-tracker"
 import { useUserLocation } from "@/hooks/use-user-location"
+import { NetworkStatusNotifier } from "@/components/common/network-status-notifier"
 
 const PhotoUploadDialog = dynamic(
 
@@ -188,6 +189,7 @@ function Provider({ children, defaultTheme, defaultSidebarOpen, initialUserInfo,
         <VisitorTrackerMount />
         <RightClickGuard />
         <PhotoUploadDialog />
+        <NetworkStatusNotifier />
         <Toaster position="top-center" />
       </TooltipProvider>
     </AppContext.Provider>
