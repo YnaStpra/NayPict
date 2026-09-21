@@ -1098,18 +1098,19 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
     if (!open || typeof window === "undefined") return
 
     const prefetchAdjacent = () => {
-      const nextPhoto = photos[viewIndex + 1]
-      const prevPhoto = photos[viewIndex - 1]
+      const candidates = [
+        photos[viewIndex + 1],
+        photos[viewIndex - 1],
+        photos[viewIndex + 2],
+      ]
 
-      if (nextPhoto?.preview) {
-        const nextImg = new Image()
-        nextImg.decoding = "async"
-        nextImg.src = nextPhoto.preview
-      }
-      if (prevPhoto?.preview) {
-        const prevImg = new Image()
-        prevImg.decoding = "async"
-        prevImg.src = prevPhoto.preview
+      for (const p of candidates) {
+        const url = p?.preview || p?.thumbnail
+        if (url && !p?.type?.startsWith("video/")) {
+          const img = new Image()
+          img.decoding = "async"
+          img.src = url
+        }
       }
     }
 

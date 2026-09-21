@@ -31,6 +31,15 @@ async function getLoginInfo(cookie: string | null = null): Promise<LoginCookie> 
     getCookieValueFromString(cookie, '__Host-naypict_token') ||
     getCookieValueFromString(cookie, 'naypict_token');
 
+  // Fast-path: Return unauthenticated guest state immediately without importing JWT or cryptographic verification
+  if (!token) {
+    return {
+      userId: null,
+      uuid: null,
+      tokenVersion: 1,
+    };
+  }
+
   const { verifyLoginToken } = await import("@/server/lib/jwt");
   const payload = await verifyLoginToken(token);
 

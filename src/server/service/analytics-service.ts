@@ -116,6 +116,9 @@ function toIsoString(dateInput: string | Date | null | undefined): string {
   return String(dateInput);
 }
 
+// In-memory throttling map to prevent excessive Neon DB write IOPS from frequent client heartbeats
+const sessionHeartbeatCache = new Map<string, { lastDuration: number; lastDbUpdate: number }>();
+
 const analyticsService = {
 
   // Initialize a new visitor session with geolocation headers and client telemetry.
@@ -209,7 +212,22 @@ const analyticsService = {
       return false;
     }
 
+    const sid = params.sessionId.slice(0, 64);
     const safeDuration = Math.max(0, Math.min(Number(params.durationSeconds) || 0, 86400));
+    const now = Date.now();
+    const cached = sessionHeartbeatCache.get(sid);
+
+    // Throttle: only commit to Neon DB if at least 60s has elapsed since last DB write or duration increased by >= 60s
+    if (cached && now - cached.lastDbUpdate < 60000 && Math.abs(safeDuration - cached.lastDuration) < 60) {
+      cached.lastDuration = safeDuration;
+      return true;
+    }
+
+    if (sessionHeartbeatCache.size > 2000) {
+      const oldest = sessionHeartbeatCache.keys().next().value;
+      if (oldest) sessionHeartbeatCache.delete(oldest);
+    }
+    sessionHeartbeatCache.set(sid, { lastDuration: safeDuration, lastDbUpdate: now });
 
     await orm
       .update(visitorSessionTab)
@@ -217,7 +235,7 @@ const analyticsService = {
         lastActiveAt: sql`now()`,
         durationSeconds: safeDuration,
       })
-      .where(eq(visitorSessionTab.id, params.sessionId.slice(0, 64)));
+      .where(eq(visitorSessionTab.id, sid));
 
     return true;
   },
