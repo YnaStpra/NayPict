@@ -1,6 +1,7 @@
 "use client"
 
 import { type CSSProperties, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
+import { AnimatePresence } from "framer-motion"
 import Lightbox from "yet-another-react-lightbox"
 import { isImageSlide, type SlideImage, useController, useLightboxState } from "yet-another-react-lightbox"
 import Fullscreen from "yet-another-react-lightbox/plugins/fullscreen"
@@ -1334,10 +1335,18 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
       } else if (event.key === "g" || event.key === "G") {
         event.preventDefault()
         setAmbientGlow((prev) => !prev)
-      } else if (event.key === "Escape" && isCinematicMode) {
-        event.preventDefault()
-        event.stopPropagation()
-        toggleCinematicMode()
+      } else if (event.key === "Escape") {
+        if (infoOpen) {
+          event.preventDefault()
+          event.stopPropagation()
+          setInfoOpen(false)
+          return
+        }
+        if (isCinematicMode) {
+          event.preventDefault()
+          event.stopPropagation()
+          toggleCinematicMode()
+        }
       }
     }
 
@@ -1766,8 +1775,8 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
 
   // Sidebar narrows when expanded lightbox width, Leave space for the information panel on the right.
   const lightboxClassName = infoOpen && !fullscreenOpen && !isCinematicMode
-    ? "w-0 md:w-[calc(100%-(0.25rem*84))]"
-    : "w-full"
+    ? "w-full md:w-[calc(100%-(0.25rem*84))] transition-[width] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]"
+    : "w-full transition-[width] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]"
 
   // rendering yet-another-react-lightbox Minimal preview.
   return (
@@ -1881,25 +1890,31 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
                   size={96}
                   onComplete={() => setShowViewerHeartBurst(false)}
                 />
-                {infoOpen && !fullscreenOpen && !isCinematicMode && (
-                  <PhotoViewerBlurBackground thumbHash={photos[viewIndex]?.thumbHash} />
-                )}
-                {infoOpen && !fullscreenOpen && !isCinematicMode && (
-                  <PhotoInfoSidebar
-                    photo={photos[viewIndex] ?? null}
-                    activeTab={infoTab}
-                    onTabChange={setInfoTab}
-                    onClose={() => setInfoOpen(false)}
-                    onPhotoUpdate={onPhotoUpdate}
-                    onAlbumOpen={onAlbumOpen ? (photoId) => onAlbumOpen([photoId]) : undefined}
-                    onStoryOpen={() => setStoryDialogOpen(true)}
-                    onBatchEditOpen={isAdmin ? () => setBatchEditDialogOpen(true) : undefined}
-                    onInsightsOpen={isAdmin ? (photoId) => {
-                      setInsightsPhotoId(photoId)
-                      setInsightsDialogOpen(true)
-                    } : undefined}
-                  />
-                )}
+                <AnimatePresence>
+                  {infoOpen && !fullscreenOpen && !isCinematicMode && (
+                    <PhotoViewerBlurBackground
+                      key="viewer-blur-backdrop"
+                      thumbHash={photos[viewIndex]?.thumbHash}
+                    />
+                  )}
+                  {infoOpen && !fullscreenOpen && !isCinematicMode && (
+                    <PhotoInfoSidebar
+                      key="photo-info-sidebar"
+                      photo={photos[viewIndex] ?? null}
+                      activeTab={infoTab}
+                      onTabChange={setInfoTab}
+                      onClose={() => setInfoOpen(false)}
+                      onPhotoUpdate={onPhotoUpdate}
+                      onAlbumOpen={onAlbumOpen ? (photoId) => onAlbumOpen([photoId]) : undefined}
+                      onStoryOpen={() => setStoryDialogOpen(true)}
+                      onBatchEditOpen={isAdmin ? () => setBatchEditDialogOpen(true) : undefined}
+                      onInsightsOpen={isAdmin ? (photoId) => {
+                        setInsightsPhotoId(photoId)
+                        setInsightsDialogOpen(true)
+                      } : undefined}
+                    />
+                  )}
+                </AnimatePresence>
                 <CloseButton showActions={actionsVisible} />
                 {/* Right-side toolbar */}
                 <div
