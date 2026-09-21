@@ -76,10 +76,25 @@ function calculateAlbumCoverScore(photo: {
   return score;
 }
 
+// In-memory fast-path cache for public album lists (60s TTL)
+const publicAlbumListCache = new Map<string, { data: AlbumVo[]; expires: number }>();
+
+function invalidateAlbumFastPathCache(): void {
+  publicAlbumListCache.clear();
+}
+
 const albumService = {
 
   // Query the list of photo albums with automatic cover resolution.
   async list(userId?: string, isArchived: number = 0): Promise<AlbumVo[]> {
+    // Fast-path edge cache check for unauthenticated public album queries
+    const cacheKey = !userId ? `album_list_${isArchived}` : null;
+    if (cacheKey) {
+      const entry = publicAlbumListCache.get(cacheKey);
+      if (entry && Date.now() < entry.expires) {
+        return entry.data;
+      }
+    }
 
     const albumConditions = [];
     if (isArchived === 1) {
@@ -98,7 +113,7 @@ const albumService = {
       return [];
     }
 
-    const fileStorageList = await storageService.list();
+    const fileStorageList = await storageService.getStorageList();
 
     const wherePhotoList = [
       eq(photoTab.status, PhotoStatusEnum.NORMAL),
@@ -200,7 +215,7 @@ const albumService = {
           photoTotal: 0,
         };
 
-      const fileStorage = fileStorageList.list.find((item: any) => item.storageId === selectedCoverPhoto?.storageId);
+      const fileStorage = fileStorageList.find((item: any) => item.storageId === selectedCoverPhoto?.storageId);
       const domain = formatHttpUrl(fileStorage?.domain);
 
       let thumbnail: string | null = null;
@@ -220,6 +235,13 @@ const albumService = {
         isManualCover: album.isManualCover === 1
       };
     });
+
+    if (cacheKey) {
+      publicAlbumListCache.set(cacheKey, {
+        data: list,
+        expires: Date.now() + 60 * 1000,
+      });
+    }
 
     return list;
   },
@@ -791,4 +813,6 @@ const albumService = {
   }
 }
 
-export { albumService };
+export { albumService, invalidateAlbumFastPathCache };
+
+

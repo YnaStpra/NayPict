@@ -98,9 +98,17 @@ function shuffleArray<T>(array: T[]): T[] {
 // Short-lived in-memory cache for raw random ID query base (30s TTL) to prevent repeated Postgres table scans
 const randomIdBaseCache = new Map<string, { pinnedIds: string[]; unpinnedIds: string[]; expires: number }>();
 
+// In-memory fast-path cache for 'On This Day' query results (5-minute TTL)
+const onThisDayCache = new Map<string, { data: PhotoOnThisDayVo; expires: number }>();
+
+// In-memory fast-path cache for calendar/timeline date aggregation (60s TTL)
+const takenDateCache = new Map<string, { data: PhotoTakenDateVo[]; expires: number }>();
+
 export function invalidatePhotoFastPathCache(): void {
   publicFastPathCache.clear();
   randomIdBaseCache.clear();
+  onThisDayCache.clear();
+  takenDateCache.clear();
 }
 
 const ALLOWED_UPLOAD_MIMES = new Set([
@@ -552,6 +560,13 @@ const photoService = {
 
   // Statistics by day of photos that have shooting time (publicly for guests or user-specific for logged-in admin).
   async takenDateList(params: PhotoTakenDateListBo, userId?: string): Promise<PhotoTakenDateVo[]> {
+    const cacheKey = !userId ? JSON.stringify(params) : null;
+    if (cacheKey) {
+      const entry = takenDateCache.get(cacheKey);
+      if (entry && Date.now() < entry.expires) {
+        return entry.data;
+      }
+    }
 
     const whereList = [
       eq(photoTab.status, PhotoStatusEnum.NORMAL),
@@ -621,10 +636,23 @@ const photoService = {
         .groupBy(takenDate)
         .orderBy(asc(takenDate));
 
-    return list.map((item: any) => ({
+    const result = list.map((item: any) => ({
       date: item.date,
       count: Number(item.count),
     }));
+
+    if (cacheKey) {
+      if (takenDateCache.size > 50) {
+        const oldest = takenDateCache.keys().next().value;
+        if (oldest) takenDateCache.delete(oldest);
+      }
+      takenDateCache.set(cacheKey, {
+        data: result,
+        expires: Date.now() + 60 * 1000,
+      });
+    }
+
+    return result;
   },
 
   // Query photos taken on this day (month & day) in previous years.
@@ -645,6 +673,15 @@ const photoService = {
     const dayStr = String(currentDay).padStart(2, '0');
     const targetMonthDay = `${monthStr}-${dayStr}`;
     const currentYearStr = String(currentYear);
+
+    // Fast-path in-memory cache check for public visitors (5-minute TTL)
+    const cacheKey = !userId ? `${targetMonthDay}_${currentYear}` : null;
+    if (cacheKey) {
+      const entry = onThisDayCache.get(cacheKey);
+      if (entry && Date.now() < entry.expires) {
+        return entry.data;
+      }
+    }
 
     try {
       // If admin disabled On This Day feature in settings, return clean empty list immediately
@@ -687,11 +724,18 @@ const photoService = {
         .limit(30);
 
       if (!list.length) {
-        return {
+        const emptyOutput = {
           date: targetMonthDay,
           total: 0,
           list: [],
         };
+        if (cacheKey) {
+          onThisDayCache.set(cacheKey, {
+            data: emptyOutput,
+            expires: Date.now() + 5 * 60 * 1000,
+          });
+        }
+        return emptyOutput;
       }
 
       const fileStorageList = await storageService.getStorageList();
@@ -726,11 +770,24 @@ const photoService = {
         };
       });
 
-      return {
+      const output: PhotoOnThisDayVo = {
         date: targetMonthDay,
         total: result.length,
         list: result,
       };
+
+      if (cacheKey) {
+        if (onThisDayCache.size > 20) {
+          const oldest = onThisDayCache.keys().next().value;
+          if (oldest) onThisDayCache.delete(oldest);
+        }
+        onThisDayCache.set(cacheKey, {
+          data: output,
+          expires: Date.now() + 5 * 60 * 1000,
+        });
+      }
+
+      return output;
     } catch (err) {
       console.warn('[photoService.onThisDay] Graceful fallback on database error:', err);
       return {
