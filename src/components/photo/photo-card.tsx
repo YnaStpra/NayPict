@@ -70,6 +70,9 @@ function formatPhotoName(name: string) {
 // Global set of prefetched high-res preview URLs to prevent duplicate background downloads
 const prefetchedPreviewUrls = new Set<string>()
 
+// Session-level memory cache of successfully loaded and painted thumbnail URLs
+export const loadedThumbnails = new Set<string>()
+
 // Session-level set of photos that have already played their entrance reveal animation
 const revealedPhotoIds = new Set<string>()
 
@@ -150,7 +153,8 @@ export const PhotoCard = memo(function PhotoCard({
   // imageError Record whether all photo URLs failed to load.
   const [imageError, setImageError] = useState(false)
   // isImageLoaded: Once the high-res image paints, clear the base64 placeholder from DOM styles to free memory
-  const [isImageLoaded, setIsImageLoaded] = useState(false)
+  const initialLoaded = Boolean(imageSrc && loadedThumbnails.has(imageSrc))
+  const [isImageLoaded, setIsImageLoaded] = useState(initialLoaded)
   // isMobile Determine whether the current viewport is the mobile terminal.
   const isMobile = useIsMobile()
   const videoDuration = useMemo(() => {
@@ -226,15 +230,38 @@ export const PhotoCard = memo(function PhotoCard({
     }
   }, [isVideo, data.photoId, startAutoplay, stopAutoplay])
 
-  // Reset image source and state when photo actually changes
+  // Synchronously reset image source and state during render when photo changes to avoid 1-frame visual glitch
   const prevPhotoIdRef = useRef(data.photoId)
-  useEffect(() => {
-    if (prevPhotoIdRef.current !== data.photoId) {
-      prevPhotoIdRef.current = data.photoId
-      setImageSrc(data.thumbnail || data.preview || (isVideo ? null : data.key) || null)
-      setImageError(false)
+  if (prevPhotoIdRef.current !== data.photoId) {
+    prevPhotoIdRef.current = data.photoId
+    const nextSrc = data.thumbnail || data.preview || (isVideo ? null : data.key) || null
+    setImageSrc(nextSrc)
+    setIsImageLoaded(Boolean(nextSrc && loadedThumbnails.has(nextSrc)))
+    setImageError(false)
+  }
+
+  // Mark image as loaded and memoize in session loadedThumbnails set
+  const handleImageLoad = useCallback(() => {
+    if (imageSrc) {
+      loadedThumbnails.add(imageSrc)
+      if (loadedThumbnails.size > 1500) {
+        const oldest = loadedThumbnails.values().next().value
+        if (oldest) loadedThumbnails.delete(oldest)
+      }
     }
-  }, [data.photoId, data.thumbnail, data.preview, data.key, isVideo])
+    setIsImageLoaded(true)
+  }, [imageSrc])
+
+  // Synchronous image ref check for browser in-memory cache hits
+  const setImgRef = useCallback((el: HTMLImageElement | null) => {
+    imgRef.current = el
+    if (el && el.complete && el.naturalWidth > 0) {
+      if (imageSrc) {
+        loadedThumbnails.add(imageSrc)
+      }
+      setIsImageLoaded(true)
+    }
+  }, [imageSrc])
 
 
   // Handle graceful image fallback across all media tiers
@@ -567,7 +594,7 @@ export const PhotoCard = memo(function PhotoCard({
     <div
       ref={cardRef}
       className={[
-        "group relative overflow-hidden houdini-smooth-card touch-press-feedback [content-visibility:auto] touch-manipulation",
+        "group relative overflow-hidden houdini-smooth-card touch-press-feedback touch-manipulation",
         shouldAnimateReveal ? "cascade-wave-card" : "",
       ].join(" ")}
       onClick={handlePhotoClick}
@@ -626,12 +653,12 @@ export const PhotoCard = memo(function PhotoCard({
           {/* Static thumbnail overlay - persists until video frames are actually rendering to prevent black screens */}
           {imageSrc && !imageError && (
             <img
-              ref={imgRef}
+              ref={setImgRef}
               src={imageSrc}
               crossOrigin="anonymous"
-              loading={isPriority ? "eager" : "lazy"}
-              fetchPriority={isPriority ? "high" : "low"}
-              decoding="async"
+              loading="eager"
+              fetchPriority={isPriority ? "high" : "auto"}
+              decoding={isImageLoaded ? "sync" : "async"}
               alt={data.name}
               draggable={false}
               className={[
@@ -641,7 +668,7 @@ export const PhotoCard = memo(function PhotoCard({
                 showHover && !selectionActive ? "scale-[1.035]" : "",
               ].join(" ")}
               onError={handleImageError}
-              onLoad={() => setIsImageLoaded(true)}
+              onLoad={handleImageLoad}
             />
           )}
           <div className="absolute inset-0 bg-black/15 pointer-events-none" />
@@ -652,12 +679,12 @@ export const PhotoCard = memo(function PhotoCard({
         </div>
       ) : (
         <img
-          ref={imgRef}
+          ref={setImgRef}
           src={imageSrc ?? undefined}
           crossOrigin="anonymous"
-          loading={isPriority ? "eager" : "lazy"}
-          fetchPriority={isPriority ? "high" : "low"}
-          decoding="async"
+          loading="eager"
+          fetchPriority={isPriority ? "high" : "auto"}
+          decoding={isImageLoaded ? "sync" : "async"}
           alt={data.name}
           draggable={false}
           className={[
@@ -666,7 +693,7 @@ export const PhotoCard = memo(function PhotoCard({
             showHover && !selectionActive ? "scale-[1.035]" : "",
           ].join(" ")}
           onError={handleImageError}
-          onLoad={() => setIsImageLoaded(true)}
+          onLoad={handleImageLoad}
         />
       )}
       {selected && (

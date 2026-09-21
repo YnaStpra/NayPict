@@ -13,7 +13,7 @@ import {
 import dynamic from "next/dynamic"
 import { useApp } from "@/app/provider"
 import { useIsMobile } from "@/hooks/use-mobile"
-import { PhotoCard } from "@/components/photo/photo-card"
+import { PhotoCard, loadedThumbnails } from "@/components/photo/photo-card"
 import { PhotoSelectionDrawer } from "@/components/photo/photo-selection-drawer"
 import { type PhotoVo } from "@/server/entity/vo/photo"
 import { parseTime } from "@/lib/date"
@@ -416,41 +416,74 @@ const PhotoMasonry = memo(function PhotoMasonry({
     }
   }, [isMobile, photos.length])
 
-  // Proactive Predictive Image Cache Preloader: Pre-heats upcoming thumbnails ahead of the scroll position
+  // Proactive Lookahead & Directional Scroll Thumbnail Prefetcher
+  // Continuously pre-warms thumbnails ahead of the user's scroll position and on initial page load,
+  // populating loadedThumbnails so that newly mounted cards display instantaneously without blur.
   useEffect(() => {
     if (typeof window === "undefined" || !photos.length) return
 
-    const preloadUpcomingThumbnails = () => {
-      // Respect client Data Saver preference (Network Information API)
-      const nav = navigator as unknown as { connection?: { saveData?: boolean } }
-      if (nav?.connection?.saveData) return
+    // Respect client Data Saver preference (Network Information API)
+    const nav = navigator as unknown as { connection?: { saveData?: boolean } }
+    if (nav?.connection?.saveData) return
 
-      const scrollY = window.scrollY || window.pageYOffset
+    let lastScrollY = window.scrollY || window.pageYOffset
+    let scheduled = false
+
+    const warmUrl = (url?: string | null) => {
+      if (!url || loadedThumbnails.has(url)) return
+      const img = new Image()
+      img.crossOrigin = "anonymous"
+      img.decoding = "async"
+      img.onload = () => {
+        loadedThumbnails.add(url)
+        if (loadedThumbnails.size > 2000) {
+          const oldest = loadedThumbnails.values().next().value
+          if (oldest) loadedThumbnails.delete(oldest)
+        }
+      }
+      img.src = url
+    }
+
+    const prefetchAhead = () => {
+      scheduled = false
+      const currentScrollY = window.scrollY || window.pageYOffset
+      const isScrollingDown = currentScrollY >= lastScrollY
+      lastScrollY = currentScrollY
+
       const avgCardHeight = isMobile ? 180 : 260
       const cols = Math.max(1, Math.floor(width / columnWidth))
-      const estimatedVisibleIndex = Math.max(0, Math.floor((scrollY / avgCardHeight) * cols))
-      const startIdx = Math.max(0, estimatedVisibleIndex)
-      // On mobile devices, prefetch 10 items instead of 36 to save cellular bandwidth and prevent socket contention
-      const prefetchBatch = isMobile ? 10 : 36
-      const endIdx = Math.min(photos.length, startIdx + prefetchBatch)
+      const estimatedVisibleIndex = Math.max(0, Math.floor((currentScrollY / avgCardHeight) * cols))
+
+      // Downward lookahead window: next 48 photos ahead
+      // Upward lookahead window: 24 photos above
+      const forwardBatch = isMobile ? 24 : 48
+      const backwardBatch = isMobile ? 12 : 24
+
+      const startIdx = Math.max(0, estimatedVisibleIndex - (isScrollingDown ? 4 : backwardBatch))
+      const endIdx = Math.min(photos.length, estimatedVisibleIndex + (isScrollingDown ? forwardBatch : 8))
 
       for (let i = startIdx; i < endIdx; i++) {
         const p = photos[i]
-        const src = p?.thumbnail || p?.preview || p?.key
-        if (src) {
-          const img = new Image()
-          img.decoding = "async"
-          img.src = src
-        }
+        warmUrl(p?.thumbnail || p?.preview)
       }
     }
 
-    if ("requestIdleCallback" in window) {
-      const handle = window.requestIdleCallback(preloadUpcomingThumbnails, { timeout: 350 })
-      return () => window.cancelIdleCallback(handle)
-    } else {
-      const timer = setTimeout(preloadUpcomingThumbnails, 100)
-      return () => clearTimeout(timer)
+    const schedulePrefetch = () => {
+      if (scheduled) return
+      scheduled = true
+      if ("requestIdleCallback" in window) {
+        window.requestIdleCallback(prefetchAhead, { timeout: 300 })
+      } else {
+        setTimeout(prefetchAhead, 100)
+      }
+    }
+
+    // Initial pre-warm of above-the-fold and lookahead items
+    schedulePrefetch()
+
+    window.addEventListener("scroll", schedulePrefetch, { passive: true })
+    return () => {
+      window.removeEventListener("scroll", schedulePrefetch)
     }
   }, [photos, width, columnWidth, isMobile])
 
@@ -528,6 +561,7 @@ const PhotoMasonry = memo(function PhotoMasonry({
     onPhotosUpdated?.(photoIds, changes)
   }
 
+
   const masonryContextValue = useMemo<PhotoMasonryContextValue>(
     () => ({
       selectedPhotoIds: visibleSelectedPhotoIds,
@@ -592,10 +626,6 @@ const PhotoMasonry = memo(function PhotoMasonry({
                 <section
                   key={group.dateKey}
                   className="space-y-2.5 pt-2"
-                  style={{
-                    contentVisibility: "auto",
-                    containIntrinsicSize: `auto 100% ${sectionHeight}px`,
-                  }}
                 >
                   {/* Clean Date Header: Pure typography without overlapping sticky headers or geotag labels */}
                   <div className="flex items-center justify-between py-1 px-1">
@@ -664,10 +694,6 @@ const PhotoMasonry = memo(function PhotoMasonry({
                 <section
                   key={group.typeKey}
                   className="space-y-2.5 pt-2"
-                  style={{
-                    contentVisibility: "auto",
-                    containIntrinsicSize: `auto 100% ${sectionHeight}px`,
-                  }}
                 >
                   {/* Clean Media Type Header: Videos or Photos */}
                   <div className="flex items-center justify-between py-1 px-1 border-b border-border/40">
@@ -719,7 +745,7 @@ const PhotoMasonry = memo(function PhotoMasonry({
             offset={wrapPosition.offset}
             height={windowHeight}
             itemKey={(item) => item?.photoId ?? ''}
-            overscanBy={isMobile ? 1.25 : 2}
+            overscanBy={isMobile ? 3 : 5}
             render={MasonicPhotoCard}
           />
         )}
