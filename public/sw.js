@@ -90,6 +90,16 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // Allow video streaming and byte-range requests to stream directly at native line speed.
+  // Service Worker response interception impairs HTTP 206 Partial Content byte ranges and causes buffering stalls.
+  if (
+    request.headers.has('range') ||
+    request.destination === 'video' ||
+    url.pathname.match(/\.(mp4|webm|mov|m4v|mkv)$/i)
+  ) {
+    return;
+  }
+
   // 1. Photo Media & Derivative Images:
   // - True Cache-First for immutable derivatives (thumbnails, previews): 0ms instant display without background fetch
   // - Stale-While-Revalidate for non-derivative images with bounded media cache (max 150 items)

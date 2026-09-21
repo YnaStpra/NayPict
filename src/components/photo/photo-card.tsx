@@ -25,6 +25,7 @@ import { recordPhotoView } from "@/request/insights"
 import { type HeroTransitionOrigin } from "@/components/photo/hero-photo-transition"
 import { videoCoordinator } from "@/lib/video-autoplay-coordinator"
 import { useAdaptivePerformance } from "@/hooks/use-adaptive-performance"
+import { prebufferVideo } from "@/lib/video-prebuffer"
 
 type TouchHoverCloseRef = {
   current: (() => void) | null
@@ -85,21 +86,25 @@ function prefetchPhotoHighRes(previewUrl?: string | null) {
   prefetchedPreviewUrls.add(previewUrl)
 
   // Bound set size to prevent memory leaks during long browsing sessions
-  if (prefetchedPreviewUrls.size > 200) {
+  if (prefetchedPreviewUrls.size > 1000) {
     const oldest = prefetchedPreviewUrls.values().next().value
     if (oldest) prefetchedPreviewUrls.delete(oldest)
   }
 
   const run = () => {
     const img = new Image()
+    img.crossOrigin = "anonymous"
     img.decoding = "async"
+    if ("fetchPriority" in img) {
+      ;(img as any).fetchPriority = "high"
+    }
     img.src = previewUrl
     // Also warm up PhotoViewer chunk
     import("@/components/photo/photo-viewer").catch(() => {})
   }
 
   if ("requestIdleCallback" in window) {
-    window.requestIdleCallback(run, { timeout: 200 })
+    window.requestIdleCallback(run, { timeout: 150 })
   } else {
     setTimeout(run, 0)
   }
@@ -297,12 +302,13 @@ export const PhotoCard = memo(function PhotoCard({
     onOpen?.(origin)
   }, [data.width, data.height, data.preview, data.thumbnail, data.key, imageSrc, isVideo, onOpen])
 
-  // Predictive hover prefetching with intent dwell time (100ms)
+  // Predictive zero-delay hover prefetching for photos and videos
   function handleMouseEnter() {
     if (isMobile) return
-    hoverTimerRef.current = setTimeout(() => {
-      prefetchPhotoHighRes(data.preview || data.key)
-    }, 100)
+    prefetchPhotoHighRes(data.preview || data.key)
+    if (isVideo && videoStreamUrl) {
+      prebufferVideo(videoStreamUrl)
+    }
   }
 
   // Mobile-friendly gesture & quick peek states
@@ -328,6 +334,9 @@ export const PhotoCard = memo(function PhotoCard({
   // Predictive touch-start prefetching and gesture initiation
   function handleTouchStart(e: React.TouchEvent<HTMLDivElement>) {
     prefetchPhotoHighRes(data.preview || data.key)
+    if (isVideo && videoStreamUrl) {
+      prebufferVideo(videoStreamUrl)
+    }
 
     if (selectionActive) return
 
@@ -632,7 +641,8 @@ export const PhotoCard = memo(function PhotoCard({
             muted
             playsInline
             loop
-            preload={isConstrainedNetwork ? "none" : "metadata"}
+            crossOrigin="anonymous"
+            preload={isConstrainedNetwork ? "none" : "auto"}
             onPlaying={() => setIsVideoFrameReady(true)}
             onWaiting={() => setIsVideoFrameReady(false)}
             onTimeUpdate={(e) => {

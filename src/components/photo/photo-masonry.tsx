@@ -18,6 +18,7 @@ import { PhotoSelectionDrawer } from "@/components/photo/photo-selection-drawer"
 import { type PhotoVo } from "@/server/entity/vo/photo"
 import { parseTime } from "@/lib/date"
 import { type HeroTransitionOrigin } from "@/components/photo/hero-photo-transition"
+import { prebufferVideo } from "@/lib/video-prebuffer"
 
 const PhotoBatchEditDialog = dynamic(
   () => import("@/components/photo/photo-batch-edit-dialog").then((mod) => mod.PhotoBatchEditDialog),
@@ -464,7 +465,15 @@ const PhotoMasonry = memo(function PhotoMasonry({
 
       for (let i = startIdx; i < endIdx; i++) {
         const p = photos[i]
-        warmUrl(p?.thumbnail || p?.preview)
+        if (!p) continue
+        warmUrl(p.thumbnail || p.preview)
+        // If upcoming item within 8 items is a video, prebuffer video stream
+        if (p.type?.startsWith("video/") && Math.abs(i - estimatedVisibleIndex) <= 8) {
+          const videoUrl = p.key || p.preview
+          if (videoUrl) {
+            prebufferVideo(videoUrl)
+          }
+        }
       }
     }
 
