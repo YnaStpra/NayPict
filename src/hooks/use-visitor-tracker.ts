@@ -413,14 +413,6 @@ export function useVisitorTracker() {
     }
     window.addEventListener("storage", handleStorageChange)
 
-    // Active periodic location detection: runs every 4 seconds while location is not yet synced for the active session
-    locationIntervalRef.current = setInterval(() => {
-      const currentSid = sessionStorage.getItem(SESSION_STORAGE_KEY) || activeSessionId
-      const isSynced = currentSid && sessionStorage.getItem("naypict_loc_synced_sid") === currentSid
-      if (!isSynced && document.visibilityState === "visible") {
-        void checkAndSyncPermission()
-      }
-    }, 4000)
 
     // Periodic heartbeat and permission verification every 30 seconds while tab is active
     intervalRef.current = setInterval(() => {

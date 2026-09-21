@@ -45,18 +45,30 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+.idea
 .open-next
 .wrangler
-.idea
-album.sqlite
-*.sqlite-shm
-*.sqlite-wal
-!data/pictale.sqlite
-git-tools.js
-gen-demo.js
 .vercelignore
 .vercel
 /standalone
-package-lock.json
 standalone.zip
+package-lock.json
 Icon?
+Icon\r
+
+# SQLite local databases and derivatives
+*.sqlite
+*.sqlite3
+*.sqlite-shm
+*.sqlite-wal
+data/*.sqlite*
+data/photos/
+data/previews/
+data/thumbnails/
+
+# Security audit reports, vulnerability scan results, and pentesting artifacts
+security-results/
+security-results-*/
+*audit*.md
+*AUDIT*.md
+security-*.md

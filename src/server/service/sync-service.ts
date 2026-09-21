@@ -135,6 +135,12 @@ export const syncService = {
       .then((m) => m.invalidatePhotoFastPathCache())
       .catch(() => {});
 
+    if (scope === 'album' || scope === 'all') {
+      import('@/server/service/album-service')
+        .then((m) => m.invalidateAlbumFastPathCache())
+        .catch(() => {});
+    }
+
     return current;
   },
 };

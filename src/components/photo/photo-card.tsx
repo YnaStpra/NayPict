@@ -687,7 +687,7 @@ export const PhotoCard = memo(function PhotoCard({
       {data.isPinned && (
         <div
           className="absolute top-2 left-2 z-10 flex items-center gap-1 rounded-full bg-primary/90 text-primary-foreground backdrop-blur-md px-2 py-0.5 text-[11px] font-semibold shadow-md border border-primary/20 elastic-pop-badge"
-          title="Pinned di album (Urutan teratas)"
+          title="Pinned in album (Top priority)"
         >
           <PinIcon className="size-3 fill-current rotate-45" />
           <span>Pinned</span>

@@ -96,42 +96,59 @@ function appendQueryParams(url: string, params?: Record<string, unknown> | null)
   return url.includes('?') ? `${url}&${queryString}` : `${url}?${queryString}`;
 }
 
-// send GET Request and return interface data.
-async function get<T = unknown>(url: string, params?: Record<string, unknown> | null) {
-  await sleep(MOCK_REQUEST_DELAY);
+// In-flight Promise deduplication map to prevent redundant concurrent network round-trips for identical GET requests
+const inFlightGetRequests = new Map<string, Promise<any>>();
 
-  let res: Response;
-  try {
-    res = await fetch(buildUrl(appendQueryParams(url, params)), {
-      method: 'GET',
-      credentials: 'include'
-    });
-  } catch (error) {
-    const errMessage = error instanceof Error ? error.message : 'Network error';
-    toast.error(errMessage);
-    throw new Error(errMessage);
+// send GET Request and return interface data with automatic concurrent deduplication.
+async function get<T = unknown>(url: string, params?: Record<string, unknown> | null): Promise<T> {
+  const fullUrl = buildUrl(appendQueryParams(url, params));
+
+  const existingPromise = inFlightGetRequests.get(fullUrl);
+  if (existingPromise) {
+    return existingPromise as Promise<T>;
   }
 
-  const text = await res.text();
-  let json: ApiResponse<T> | null = null;
-  try {
-    json = text ? (JSON.parse(text) as ApiResponse<T>) : null;
-  } catch {
-    json = null;
-  }
+  const fetchPromise = (async () => {
+    await sleep(MOCK_REQUEST_DELAY);
 
-  if (!res.ok || !json || json.code !== 200) {
-    const message = json?.message || (res.status === 401 ? 'Unauthorized' : 'Request failed');
-
-    if (res.status === 401 || json?.code === 401) {
-      handleUnauthorized();
+    let res: Response;
+    try {
+      res = await fetch(fullUrl, {
+        method: 'GET',
+        credentials: 'include'
+      });
+    } catch (error) {
+      const errMessage = error instanceof Error ? error.message : 'Network error';
+      toast.error(errMessage);
+      throw new Error(errMessage);
     }
-    toast.error(message);
 
-    throw new Error(message);
-  }
+    const text = await res.text();
+    let json: ApiResponse<T> | null = null;
+    try {
+      json = text ? (JSON.parse(text) as ApiResponse<T>) : null;
+    } catch {
+      json = null;
+    }
 
-  return json.data as T;
+    if (!res.ok || !json || json.code !== 200) {
+      const message = json?.message || (res.status === 401 ? 'Unauthorized' : 'Request failed');
+
+      if (res.status === 401 || json?.code === 401) {
+        handleUnauthorized();
+      }
+      toast.error(message);
+
+      throw new Error(message);
+    }
+
+    return json.data as T;
+  })().finally(() => {
+    inFlightGetRequests.delete(fullUrl);
+  });
+
+  inFlightGetRequests.set(fullUrl, fetchPromise);
+  return fetchPromise;
 }
 
 const http = {

@@ -46,6 +46,16 @@ const locationService = {
       return addressCache.get(cacheKey)!;
     }
 
+    // Check persistent distributed cache (Upstash Redis / DB cache)
+    try {
+      const { cache } = await import('@/server/infra/cache');
+      const persisted = await cache.get<ReverseGeocodeResult>(`geo:${cacheKey}`);
+      if (persisted && persisted.address) {
+        addressCache.set(cacheKey, persisted);
+        return persisted;
+      }
+    } catch {}
+
     try {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 2500);
@@ -126,7 +136,17 @@ const locationService = {
         country: detectedCountry,
       };
 
+      if (addressCache.size > 500) {
+        const oldest = addressCache.keys().next().value;
+        if (oldest) addressCache.delete(oldest);
+      }
       addressCache.set(cacheKey, result);
+
+      // Persist to distributed cache (30-day TTL) to survive serverless instance restarts
+      void import('@/server/infra/cache').then(({ cache }) => {
+        cache.set(`geo:${cacheKey}`, result as unknown as Record<string, unknown>, { ttl: 86400 * 30 });
+      }).catch(() => {});
+
       return result;
     } catch (err) {
       console.warn('[LOCATION] Reverse geocoding failed, using coordinates fallback:', err);
