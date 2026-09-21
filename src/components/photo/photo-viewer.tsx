@@ -15,6 +15,8 @@ import dynamic from "next/dynamic"
 import { PhotoInfoSidebar, PhotoViewerBlurBackground, formatAlbumList } from "@/components/photo/photo-info-sidebar"
 import { PhotoReactions } from "@/components/photo/photo-reactions"
 import { VideoPlayer } from "@/components/video/video-player"
+import { prebufferVideo } from "@/lib/video-prebuffer"
+import { loadedThumbnails } from "@/components/photo/photo-card"
 
 // Dynamic code-splitting: Lazy-load heavy dialog bundles on demand to drastically minimize initial photo viewer bundle
 const PhotoInsightsDialog = dynamic(
@@ -260,7 +262,11 @@ function loadPreviewImage(
   }
 
   const img = new Image()
+  img.crossOrigin = "anonymous"
   img.decoding = "async"
+  if ("fetchPriority" in img) {
+    ;(img as any).fetchPriority = "high"
+  }
   const abortPreview = () => {
     img.onload = null
     img.onerror = null
@@ -276,6 +282,7 @@ function loadPreviewImage(
   }
 
   img.onload = () => {
+    loadedThumbnails.add(src)
     setPhotoCache(photoId, src)
     if (currentPhotoIdRef.current === photoId) {
       onLoaded?.()
@@ -971,7 +978,8 @@ function PhotoSlideImage({
     ? originalPhoto.key
     : slide.src || slide.preview || slide.thumbnail || ""
   const [currentSrc, setCurrentSrc] = useState<string>(initialSrc)
-  const [loaded, setLoaded] = useState(false)
+  const isInitiallyLoaded = Boolean(initialSrc && loadedThumbnails.has(initialSrc))
+  const [loaded, setLoaded] = useState(isInitiallyLoaded)
   const [showHdBadge, setShowHdBadge] = useState(false)
 
   useEffect(() => {
@@ -979,11 +987,15 @@ function PhotoSlideImage({
       ? originalPhoto.key
       : slide.src || slide.preview || slide.thumbnail || ""
     setCurrentSrc(targetSrc)
-    setLoaded(false)
+    const isTargetLoaded = Boolean(targetSrc && loadedThumbnails.has(targetSrc))
+    setLoaded(isTargetLoaded)
     setShowHdBadge(false)
   }, [slide.src, slide.preview, slide.thumbnail, originalPhoto?.key])
 
   const handleImageLoaded = () => {
+    if (currentSrc) {
+      loadedThumbnails.add(currentSrc)
+    }
     setLoaded(true)
     setShowHdBadge(true)
     setTimeout(() => {
@@ -1028,8 +1040,25 @@ function PhotoSlideImage({
         </div>
       )}
 
-      {/* Instant placeholder while HD image streams in */}
-      {slide.thumbHashUrl && !loaded && (
+      {/* Instant crisp thumbnail backdrop while full-resolution HD streams in */}
+      {slide.thumbnail && !loaded && (
+        <img
+          src={slide.thumbnail}
+          alt=""
+          aria-hidden
+          crossOrigin="anonymous"
+          decoding="sync"
+          className="absolute select-none max-w-none object-contain pointer-events-none transition-opacity duration-300"
+          style={{
+            width: sideways ? `calc(100cqh - ${rotateWidthOffset}px)` : "100%",
+            height: sideways ? "100vw" : "100%",
+            transform: `rotate(${rotate}deg) translateZ(0)`,
+          }}
+        />
+      )}
+
+      {/* Fallback instant ThumbHash blur if no thumbnail exists */}
+      {!slide.thumbnail && slide.thumbHashUrl && !loaded && (
         <img
           src={slide.thumbHashUrl}
           alt=""
@@ -1046,12 +1075,14 @@ function PhotoSlideImage({
         src={currentSrc}
         alt={slide.alt}
         draggable={false}
-        decoding="async"
+        crossOrigin="anonymous"
+        fetchPriority="high"
+        decoding={loaded ? "sync" : "async"}
         className="lightbox-zoom-matrix select-none max-w-none object-contain transition-opacity duration-200"
         onLoad={handleImageLoaded}
         ref={(el) => {
           if (el && el.complete && el.naturalWidth > 0 && !loaded) {
-            setLoaded(true)
+            handleImageLoaded()
           }
         }}
         onError={() => {
@@ -1094,32 +1125,54 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
     prevIndexRef.current = index
   }, [open, index])
 
-  // Speculative Adjacent Photo HD Prefetcher via requestIdleCallback
+  // Speculative Multi-Directional Photo HD & Video Stream Prefetcher
   useEffect(() => {
     if (!open || typeof window === "undefined") return
 
     const prefetchAdjacent = () => {
+      // Lookahead window: +1, -1, +2, -2, +3, -3, +4, +5
       const candidates = [
         photos[viewIndex + 1],
         photos[viewIndex - 1],
         photos[viewIndex + 2],
+        photos[viewIndex - 2],
+        photos[viewIndex + 3],
+        photos[viewIndex - 3],
+        photos[viewIndex + 4],
+        photos[viewIndex + 5],
       ]
 
       for (const p of candidates) {
-        const url = p?.preview || p?.thumbnail
-        if (url && !p?.type?.startsWith("video/")) {
-          const img = new Image()
-          img.decoding = "async"
-          img.src = url
+        if (!p) continue
+        const isVid = Boolean(p.type?.startsWith("video/"))
+        if (isVid) {
+          const videoUrl = p.key || p.preview
+          if (videoUrl) {
+            prebufferVideo(videoUrl)
+          }
+        } else {
+          const url = p.preview || p.thumbnail
+          if (url && !loadedThumbnails.has(url)) {
+            const img = new Image()
+            img.crossOrigin = "anonymous"
+            img.decoding = "async"
+            if ("fetchPriority" in img) {
+              ;(img as any).fetchPriority = "high"
+            }
+            img.onload = () => {
+              loadedThumbnails.add(url)
+            }
+            img.src = url
+          }
         }
       }
     }
 
     if ("requestIdleCallback" in window) {
-      const handle = window.requestIdleCallback(prefetchAdjacent, { timeout: 300 })
+      const handle = window.requestIdleCallback(prefetchAdjacent, { timeout: 150 })
       return () => window.cancelIdleCallback(handle)
     } else {
-      const timer = setTimeout(prefetchAdjacent, 100)
+      const timer = setTimeout(prefetchAdjacent, 50)
       return () => clearTimeout(timer)
     }
   }, [open, viewIndex, photos])
@@ -1494,15 +1547,27 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
     }
     window.addEventListener("popstate", handlePopState)
 
-    // Pre-warm adjacent slides immediately on open for instant 0ms slide transitions
+    // Pre-warm surrounding slides immediately on open for instant 0ms slide transitions
     const currIdx = indexRef.current
-    const prevPhoto = photosRef.current[currIdx > 0 ? currIdx - 1 : photosRef.current.length - 1]
-    const nextPhoto = photosRef.current[currIdx < photosRef.current.length - 1 ? currIdx + 1 : 0]
-    if (prevPhoto?.preview) {
-      loadPreviewImage(prevPhoto.preview, prevPhoto.photoId, currentPhotoIdRef, setOriginalPhoto, previewRequestsRef, getPhotoCache, setPhotoCache)
-    }
-    if (nextPhoto?.preview) {
-      loadPreviewImage(nextPhoto.preview, nextPhoto.photoId, currentPhotoIdRef, setOriginalPhoto, previewRequestsRef, getPhotoCache, setPhotoCache)
+    const initialWarm = [
+      currIdx + 1,
+      currIdx - 1,
+      currIdx + 2,
+      currIdx - 2,
+      currIdx + 3,
+    ]
+    for (const idx of initialWarm) {
+      if (idx < 0 || idx >= photosRef.current.length) continue
+      const target = photosRef.current[idx]
+      if (!target) continue
+      if (target.type?.startsWith("video/")) {
+        const videoUrl = target.key || target.preview
+        if (videoUrl) {
+          prebufferVideo(videoUrl)
+        }
+      } else if (target.preview) {
+        loadPreviewImage(target.preview, target.photoId, currentPhotoIdRef, setOriginalPhoto, previewRequestsRef, getPhotoCache, setPhotoCache)
+      }
     }
 
     return () => {
@@ -1568,27 +1633,30 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
       return
     }
 
-    // After the current photo is loaded, Then silently warm up the two pictures before and after.
-    loadPreviewImage(preview, photo.photoId, currentPhotoIdRef, setOriginalPhoto, previewRequestsRef, getPhotoCache, setPhotoCache, () => {
-      if (photos.length < 2) {
-        return
-      }
+    // Immediately warm current preview
+    loadPreviewImage(preview, photo.photoId, currentPhotoIdRef, setOriginalPhoto, previewRequestsRef, getPhotoCache, setPhotoCache)
 
-      const prevIndex = nextIndex > 0 ? nextIndex - 1 : photos.length - 1
-      const nextPhotoIndex = nextIndex < photos.length - 1 ? nextIndex + 1 : 0
-      const targets = new Map<string, PhotoVo>()
-
-      if (photos[prevIndex]?.preview) {
-        targets.set(photos[prevIndex].photoId, photos[prevIndex])
+    // Concurrently warm surrounding slides in parallel without waiting!
+    const warmIndices = [
+      nextIndex + 1,
+      nextIndex + 2,
+      nextIndex + 3,
+      nextIndex - 1,
+      nextIndex - 2,
+    ]
+    for (const idx of warmIndices) {
+      if (idx < 0 || idx >= photos.length) continue
+      const target = photos[idx]
+      if (!target) continue
+      if (target.type?.startsWith("video/")) {
+        const videoUrl = target.key || target.preview
+        if (videoUrl) {
+          prebufferVideo(videoUrl)
+        }
+      } else if (target.preview) {
+        loadPreviewImage(target.preview, target.photoId, currentPhotoIdRef, setOriginalPhoto, previewRequestsRef, getPhotoCache, setPhotoCache)
       }
-      if (photos[nextPhotoIndex]?.preview) {
-        targets.set(photos[nextPhotoIndex].photoId, photos[nextPhotoIndex])
-      }
-
-      targets.forEach((target) => {
-        loadPreviewImage(target.preview!, target.photoId, currentPhotoIdRef, setOriginalPhoto, previewRequestsRef, getPhotoCache, setPhotoCache)
-      })
-    })
+    }
   }
 
   // Manually load the current photo original image.

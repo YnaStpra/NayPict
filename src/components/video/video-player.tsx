@@ -129,12 +129,15 @@ export const VideoPlayer = memo(function VideoPlayer({
     onFullscreenChange?.(isFullscreen)
   }, [isFullscreen, onFullscreenChange])
 
-  // Reset video loading & buffering state when media source changes
+  // Reset video loading & buffering state when media source changes, and trigger immediate aggressive pre-buffering
   useEffect(() => {
     setIsLoading(true)
     setIsBuffering(false)
     setHasFirstFrame(false)
     setIsPlaying(false)
+    if (videoRef.current) {
+      videoRef.current.load()
+    }
   }, [src])
 
   // Reset idle timer to hide controls after 2.8s of inactivity while playing (synchronized with PhotoViewer overlay)
@@ -884,7 +887,8 @@ export const VideoPlayer = memo(function VideoPlayer({
         poster={poster}
         playsInline
         webkit-playsinline="true"
-        preload="metadata"
+        preload="auto"
+        crossOrigin="anonymous"
         className="max-h-full max-w-full object-contain cursor-pointer"
         onTimeUpdate={handleTimeUpdate}
         onLoadedMetadata={handleLoadedMetadata}
@@ -1143,7 +1147,8 @@ export const VideoPlayer = memo(function VideoPlayer({
                   muted
                   playsInline
                   webkit-playsinline="true"
-                  preload="metadata"
+                  preload="auto"
+                  crossOrigin="anonymous"
                   onLoadedMetadata={handlePreviewLoadedMetadata}
                   className="size-full object-cover"
                 />
