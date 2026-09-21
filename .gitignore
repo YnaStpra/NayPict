@@ -72,3 +72,12 @@ security-results-*/
 *audit*.md
 *AUDIT*.md
 security-*.md
+
+# AI agent instructions and scaffolding (keep local only)
+AGENTS.md
+CLAUDE.md
+.agents/
+.cursor/
+.cursorrules
+.windsurf/
+.windsurfrules
