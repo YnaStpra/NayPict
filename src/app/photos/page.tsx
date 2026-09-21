@@ -27,7 +27,7 @@ import { removePhotoIdFromUrl } from "@/lib/url"
 import { albumAddPhoto, albumRemovePhoto } from "@/request/album"
 import { usePhotoStore } from "@/store/photo-store"
 import { useAlbumStore } from "@/store/album-store"
-import { ArrowUpDown, CalendarDays, ChevronDown, ImageIcon, LayoutGrid, Plus, Sparkles } from "lucide-react"
+import { ArrowUpDown, CalendarDays, ChevronDown, ImageIcon, LayoutGrid, Plus, Sparkles, WifiOff } from "lucide-react"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -132,6 +132,7 @@ export default function Page() {
     photos,
     totalCount,
     hasMore,
+    isOffline,
     setPhotos,
     masonryKey,
     loadMorePhotos,
@@ -568,6 +569,12 @@ export default function Page() {
             </div>
           </header>
           <div className="px-1 md:pl-1 md:pr-0 min-w-0 max-w-full">
+            {isOffline && (
+              <div className="my-2 mx-auto max-w-md flex items-center justify-center gap-2 py-1 px-3 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 text-xs font-medium animate-in fade-in slide-in-from-top-1 duration-200 select-none">
+                <WifiOff className="size-3.5 shrink-0 text-amber-500" />
+                <span>Offline Mode • Showing cached gallery</span>
+              </div>
+            )}
             {isBrowser ? (
               viewMode === "infinite" ? (
                 <div className="relative w-full h-[calc(100vh-3.5rem)] rounded-xl overflow-hidden border bg-background/50">
