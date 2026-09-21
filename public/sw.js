@@ -74,7 +74,9 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 1. Photo Media & Derivative Images: Stale-While-Revalidate with bounded media cache (max 150 items)
+  // 1. Photo Media & Derivative Images:
+  // - True Cache-First for immutable derivatives (thumbnails, previews): 0ms instant display without background fetch
+  // - Stale-While-Revalidate for non-derivative images with bounded media cache (max 150 items)
   // Strictly respects Cache-Control: never persists private or no-store media (SEC-PHASE3-01)
   if (url.pathname.startsWith('/media/') || request.destination === 'image') {
     const isCacheableMedia = (res) => {
@@ -83,11 +85,21 @@ self.addEventListener('fetch', (event) => {
       return !cc.includes('private') && !cc.includes('no-store');
     };
 
+    const isDerivative = url.pathname.includes('/thumbnails/') ||
+                         url.pathname.includes('/previews/') ||
+                         url.pathname.includes('thumbnails%2F') ||
+                         url.pathname.includes('previews%2F');
+
     event.respondWith(
       caches.open(MEDIA_CACHE_NAME).then(async (cache) => {
         const cachedResponse = await cache.match(request);
         if (cachedResponse) {
-          // Fetch fresh version in background if online
+          // True Cache-First for immutable derivatives: return instantly, 0ms, zero background requests
+          if (isDerivative) {
+            return cachedResponse;
+          }
+
+          // Fetch fresh version in background for mutable/dynamic images if online
           fetch(request)
             .then((networkResponse) => {
               if (isCacheableMedia(networkResponse)) {

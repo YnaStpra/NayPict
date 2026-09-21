@@ -72,13 +72,15 @@ export default async function RootLayout({ children }: RootLayoutProps) {
   const [locale, messages] = await Promise.all([getLocale(), getMessages()])
 
   // Extract the approved media gateway origin for DNS prefetch and preconnect acceleration.
-  const cdnOrigin = process.env.R2_MEDIA_GATEWAY_URL ? (() => {
+  const rawGatewayUrl = process.env.R2_MEDIA_GATEWAY_URL || "https://naypict-media-gateway.naypict.workers.dev"
+  const cdnOrigin = (() => {
     try {
-      return new URL(process.env.R2_MEDIA_GATEWAY_URL).origin
+      const formatted = rawGatewayUrl.startsWith("http") ? rawGatewayUrl : `https://${rawGatewayUrl}`
+      return new URL(formatted).origin
     } catch {
       return null
     }
-  })() : null
+  })()
 
   return (
     <html lang={locale} className={`${geist.variable} ${defaultTheme}`} suppressHydrationWarning>

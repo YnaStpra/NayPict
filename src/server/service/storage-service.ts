@@ -19,6 +19,9 @@ function formatMediaDomain(domain?: string | null): string | null {
   return formatHttpUrl(domain) || null;
 }
 
+// In-process L1 memory cache for zero-latency storage resolution (60s TTL)
+let l1StorageCache: { list: Storage[]; expiresAt: number } | null = null;
+
 const storageService = {
 
   // Query all normal storage configurations, Return to the drop-down and select the required fields.
@@ -207,6 +210,10 @@ const storageService = {
 
   // Query all storage configurations, read-first cache with auto-expiry and force-refresh.
   async getStorageList(forceRefresh = false): Promise<Storage[]> {
+    if (!forceRefresh && l1StorageCache && Date.now() < l1StorageCache.expiresAt) {
+      return l1StorageCache.list;
+    }
+
     let storageList = forceRefresh ? null : await cache.get<Storage[]>(STORAGE_LIST_CACHE_KEY);
 
     // Re-query database when cache is missing, empty array, or forceRefresh requested
@@ -248,10 +255,17 @@ const storageService = {
       }
     }
 
-    return (storageList ?? []).map((item) => ({
+    const formatted = (storageList ?? []).map((item) => ({
       ...item,
       domain: formatMediaDomain(item.domain),
     })) as Storage[];
+
+    l1StorageCache = {
+      list: formatted,
+      expiresAt: Date.now() + 60 * 1000,
+    };
+
+    return formatted;
   },
 
   // Query storage by ID with direct database fallback.
@@ -272,6 +286,7 @@ const storageService = {
 
   // Flush storage configuration cache across distributed instances.
   async refreshStorageCache(): Promise<void> {
+    l1StorageCache = null;
     await cache.delete(STORAGE_LIST_CACHE_KEY);
   }
 }

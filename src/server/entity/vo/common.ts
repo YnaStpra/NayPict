@@ -2,7 +2,8 @@
 
 interface PageVo<T> {
   list: T[];
-  total: number;
+  total?: number;
 }
 
 export type { PageVo };
+
