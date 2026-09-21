@@ -26,6 +26,7 @@ import { type HeroTransitionOrigin } from "@/components/photo/hero-photo-transit
 import { videoCoordinator } from "@/lib/video-autoplay-coordinator"
 import { useAdaptivePerformance } from "@/hooks/use-adaptive-performance"
 import { prebufferVideo } from "@/lib/video-prebuffer"
+import { getIsOffline, notifyConnectionRestored } from "@/lib/network-status"
 
 type TouchHoverCloseRef = {
   current: (() => void) | null
@@ -255,6 +256,9 @@ export const PhotoCard = memo(function PhotoCard({
       }
     }
     setIsImageLoaded(true)
+    if (getIsOffline()) {
+      notifyConnectionRestored()
+    }
   }, [imageSrc])
 
   // Synchronous image ref check for browser in-memory cache hits

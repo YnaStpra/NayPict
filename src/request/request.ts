@@ -1,5 +1,5 @@
 import { toast } from "sonner";
-import { isNetworkError, notifyConnectionLost } from "@/lib/network-status";
+import { isNetworkError, notifyConnectionLost, notifyConnectionRestored, getIsOffline } from "@/lib/network-status";
 
 // This module encapsulates the front end HTTP ask.
 
@@ -88,6 +88,10 @@ async function post<T = unknown>(url: string, params: RequestParams = null) {
     throw new Error(message);
   }
 
+  if (getIsOffline()) {
+    notifyConnectionRestored();
+  }
+
   return json.data as T;
 }
 
@@ -157,6 +161,10 @@ async function get<T = unknown>(url: string, params?: Record<string, unknown> | 
       toast.error(message);
 
       throw new Error(message);
+    }
+
+    if (getIsOffline()) {
+      notifyConnectionRestored();
     }
 
     return json.data as T;

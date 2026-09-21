@@ -17,6 +17,7 @@ import { PhotoReactions } from "@/components/photo/photo-reactions"
 import { VideoPlayer } from "@/components/video/video-player"
 import { prebufferVideo } from "@/lib/video-prebuffer"
 import { loadedThumbnails } from "@/components/photo/photo-card"
+import { getIsOffline, notifyConnectionRestored } from "@/lib/network-status"
 
 // Dynamic code-splitting: Lazy-load heavy dialog bundles on demand to drastically minimize initial photo viewer bundle
 const PhotoInsightsDialog = dynamic(
@@ -1052,6 +1053,9 @@ function PhotoSlideImage({
     setTimeout(() => {
       setShowHdBadge(false)
     }, 1400)
+    if (getIsOffline()) {
+      notifyConnectionRestored()
+    }
   }
 
   const normalizedRotate = rotate % 360
