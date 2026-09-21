@@ -172,9 +172,9 @@ export const PhotoCard = memo(function PhotoCard({
   const [isVideoFrameReady, setIsVideoFrameReady] = useState(false)
   const [currentSeconds, setCurrentSeconds] = useState(0)
   // Adaptive above-the-fold LCP prioritization:
-  // Mobile (2-column): first 4 photos load eager & high priority to avoid cellular queue saturation.
-  // Desktop (multi-column): first 8 photos load eager.
-  const priorityLimit = isMobile ? 4 : 8
+  // Mobile (2-column): first 6 photos load eager & high priority.
+  // Desktop (multi-column): first 12 photos load eager.
+  const priorityLimit = isMobile ? 6 : 12
   const isPriority = typeof index === "number" && index < priorityLimit
 
   // Unified adaptive performance: respects Data Saver, weak cellular (2G/3G), and low battery
@@ -236,20 +236,6 @@ export const PhotoCard = memo(function PhotoCard({
     }
   }, [data.photoId, data.thumbnail, data.preview, data.key, isVideo])
 
-  // Proactive Fallback Watchdog: If thumbnail stalls > 3s without error, seamlessly switch to preview/original
-  useEffect(() => {
-    if (imageError) return
-    if (imageSrc === data.thumbnail && data.preview && data.preview !== data.thumbnail) {
-      const timer = setTimeout(() => {
-        // If image already loaded completely, do NOT swap or refresh
-        if (imgRef.current?.complete && imgRef.current?.naturalWidth > 0) {
-          return
-        }
-        setImageSrc(data.preview)
-      }, 3000)
-      return () => clearTimeout(timer)
-    }
-  }, [imageSrc, imageError, data.thumbnail, data.preview])
 
   // Handle graceful image fallback across all media tiers
   function handleImageError() {
@@ -642,7 +628,9 @@ export const PhotoCard = memo(function PhotoCard({
             <img
               ref={imgRef}
               src={imageSrc}
+              crossOrigin="anonymous"
               loading={isPriority ? "eager" : "lazy"}
+              fetchPriority={isPriority ? "high" : "low"}
               decoding="async"
               alt={data.name}
               draggable={false}
@@ -666,8 +654,9 @@ export const PhotoCard = memo(function PhotoCard({
         <img
           ref={imgRef}
           src={imageSrc ?? undefined}
+          crossOrigin="anonymous"
           loading={isPriority ? "eager" : "lazy"}
-          fetchPriority={isPriority ? "high" : "auto"}
+          fetchPriority={isPriority ? "high" : "low"}
           decoding="async"
           alt={data.name}
           draggable={false}

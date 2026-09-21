@@ -25,6 +25,14 @@ self.addEventListener('install', (event) => {
 
 const MAX_MEDIA_CACHE_ITEMS = 150;
 
+let trimTimer = null;
+function scheduleTrimMediaCache(cacheName, maxItems) {
+  if (trimTimer) clearTimeout(trimTimer);
+  trimTimer = setTimeout(() => {
+    trimMediaCache(cacheName, maxItems);
+  }, 4000);
+}
+
 /**
  * Prune media cache to a maximum number of items using FIFO/LRU eviction.
  * Prevents mobile device storage from being exhausted over time.
@@ -80,7 +88,9 @@ self.addEventListener('fetch', (event) => {
   // Strictly respects Cache-Control: never persists private or no-store media (SEC-PHASE3-01)
   if (url.pathname.startsWith('/media/') || request.destination === 'image') {
     const isCacheableMedia = (res) => {
-      if (!res || res.status !== 200) return false;
+      if (!res) return false;
+      if (res.status !== 200 && res.type !== 'opaque') return false;
+      if (res.type === 'opaque') return true;
       const cc = (res.headers.get('cache-control') || '').toLowerCase();
       return !cc.includes('private') && !cc.includes('no-store');
     };
@@ -105,7 +115,7 @@ self.addEventListener('fetch', (event) => {
               if (isCacheableMedia(networkResponse)) {
                 const responseToCache = networkResponse.clone();
                 cache.put(request, responseToCache).then(() => {
-                  trimMediaCache(MEDIA_CACHE_NAME, MAX_MEDIA_CACHE_ITEMS);
+                  scheduleTrimMediaCache(MEDIA_CACHE_NAME, MAX_MEDIA_CACHE_ITEMS);
                 });
               } else if (networkResponse && networkResponse.status === 200) {
                 // If the updated response is private/no-store, evict stale entry from cache
@@ -122,7 +132,7 @@ self.addEventListener('fetch', (event) => {
             if (isCacheableMedia(networkResponse)) {
               const responseToCache = networkResponse.clone();
               cache.put(request, responseToCache).then(() => {
-                trimMediaCache(MEDIA_CACHE_NAME, MAX_MEDIA_CACHE_ITEMS);
+                scheduleTrimMediaCache(MEDIA_CACHE_NAME, MAX_MEDIA_CACHE_ITEMS);
               });
             }
             return networkResponse;

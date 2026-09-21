@@ -7,6 +7,7 @@ import { getLocale, getMessages } from "next-intl/server"
 import { Provider, type Theme } from "@/app/provider"
 import { getLoginInfo } from "@/lib/cookie"
 import { userService } from "@/server/service/user-service"
+import { storageService } from "@/server/service/storage-service"
 import { PwaRegister } from "@/components/pwa/pwa-register"
 import "./globals.css"
 
@@ -71,26 +72,32 @@ export default async function RootLayout({ children }: RootLayoutProps) {
   const title = process.env.TITLE || "NayPict"
   const [locale, messages] = await Promise.all([getLocale(), getMessages()])
 
-  // Extract the approved media gateway origin for DNS prefetch and preconnect acceleration.
+  // Extract all media storage domains and gateway origins for DNS prefetch and preconnect acceleration.
   const rawGatewayUrl = process.env.R2_MEDIA_GATEWAY_URL || "https://naypict-media-gateway.naypict.workers.dev"
-  const cdnOrigin = (() => {
-    try {
-      const formatted = rawGatewayUrl.startsWith("http") ? rawGatewayUrl : `https://${rawGatewayUrl}`
-      return new URL(formatted).origin
-    } catch {
-      return null
+  const preconnectOrigins = new Set<string>()
+
+  try {
+    const formatted = rawGatewayUrl.startsWith("http") ? rawGatewayUrl : `https://${rawGatewayUrl}`
+    preconnectOrigins.add(new URL(formatted).origin)
+  } catch {}
+
+  try {
+    const storages = await storageService.getStorageList()
+    for (const s of storages) {
+      if (s.domain) {
+        const d = s.domain.startsWith("http") ? s.domain : `https://${s.domain}`
+        preconnectOrigins.add(new URL(d).origin)
+      }
     }
-  })()
+  } catch {}
 
   return (
     <html lang={locale} className={`${geist.variable} ${defaultTheme}`} suppressHydrationWarning>
       <head>
-        {cdnOrigin && (
-          <>
-            <link rel="dns-prefetch" href={cdnOrigin} />
-            <link rel="preconnect" href={cdnOrigin} crossOrigin="anonymous" />
-          </>
-        )}
+        {Array.from(preconnectOrigins).flatMap((origin) => [
+          <link key={`dns-${origin}`} rel="dns-prefetch" href={origin} />,
+          <link key={`pre-${origin}`} rel="preconnect" href={origin} crossOrigin="anonymous" />,
+        ])}
         <script
           dangerouslySetInnerHTML={{
             __html: `if(typeof CSS!=='undefined'&&'paintWorklet' in CSS){try{CSS.paintWorklet.addModule('/worklets/smooth-corners.js');CSS.paintWorklet.addModule('/worklets/skeleton-shimmer.js')}catch(e){}}`,
