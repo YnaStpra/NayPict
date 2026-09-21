@@ -19,6 +19,7 @@ import { cn } from "@/lib/utils"
 import { formatVideoDuration } from "@/lib/video-compress"
 import { toProxyMediaUrl } from "@/lib/url"
 import { PhotoReactions } from "@/components/photo/photo-reactions"
+import { getIsOffline, notifyConnectionRestored } from "@/lib/network-status"
 
 // Module-level map to store the exact playback timestamp per media item across view toggles and re-renders
 const globalVideoPositions = new Map<string, number>()
@@ -113,6 +114,9 @@ export const VideoPlayer = memo(function VideoPlayer({
 
     const handleOnline = () => {
       setIsOnline(true)
+      if (getIsOffline()) {
+        notifyConnectionRestored()
+      }
       const video = videoRef.current
       if (video && (video.paused || video.readyState < 2)) {
         video.load()
@@ -953,6 +957,10 @@ export const VideoPlayer = memo(function VideoPlayer({
         onLoadedData={() => {
           setIsLoading(false)
           setHasFirstFrame(true)
+          if (!isOnline) setIsOnline(true)
+          if (getIsOffline()) {
+            notifyConnectionRestored()
+          }
         }}
         onWaiting={() => setIsBuffering(true)}
         onPlaying={() => {
@@ -960,6 +968,10 @@ export const VideoPlayer = memo(function VideoPlayer({
           setIsBuffering(false)
           setIsLoading(false)
           setHasFirstFrame(true)
+          if (!isOnline) setIsOnline(true)
+          if (getIsOffline()) {
+            notifyConnectionRestored()
+          }
         }}
         onCanPlay={() => {
           setIsBuffering(false)
