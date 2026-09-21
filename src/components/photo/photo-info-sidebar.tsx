@@ -3,6 +3,7 @@
 import { Archive, ChevronRightIcon, Eye, FolderHeart, FolderPlusIcon, Globe, Image as ImageIcon, InfoIcon, MapPin, MessageSquareIcon, Pencil, TrendingUp, XIcon } from "lucide-react"
 import { InstagramIcon } from "@/components/icons/instagram"
 import { useEffect, useMemo, useRef, useState } from "react"
+import { motion, AnimatePresence } from "framer-motion"
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
@@ -147,7 +148,13 @@ export function PhotoViewerBlurBackground({ thumbHash }: PhotoViewerBlurBackgrou
   }
 
   return (
-    <div className="fixed inset-0 z-[-10] h-full w-full overflow-hidden pointer-events-none select-none">
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.28, ease: "easeOut" }}
+      className="fixed inset-0 z-[-10] h-full w-full overflow-hidden pointer-events-none select-none"
+    >
       <img
         src={thumbHashUrl}
         alt=""
@@ -155,7 +162,7 @@ export function PhotoViewerBlurBackground({ thumbHash }: PhotoViewerBlurBackgrou
         aria-hidden
       />
       <div className="absolute inset-0 bg-black/50 pointer-events-none" />
-    </div>
+    </motion.div>
   )
 }
 
@@ -412,9 +419,13 @@ export function PhotoInfoSidebar({
   }
 
   return (
-    <aside
+    <motion.aside
       ref={asideRef}
-      className="fixed top-0 right-0 z-[60] flex h-full w-full flex-col overflow-hidden bg-neutral-950/90 backdrop-blur-2xl text-white shadow-photo-sidebar md:w-84 md:shrink-0 md:border-l md:border-white/10 pointer-events-auto touch-pan-y exif-drawer-spring will-change-transform"
+      initial={{ x: "100%", opacity: 0.8 }}
+      animate={{ x: 0, opacity: 1 }}
+      exit={{ x: "100%", opacity: 0 }}
+      transition={{ duration: 0.28, ease: [0.32, 0.72, 0, 1] }}
+      className="fixed top-0 right-0 z-[60] flex h-full w-full flex-col overflow-hidden bg-neutral-950/90 backdrop-blur-2xl text-white shadow-photo-sidebar md:w-84 md:shrink-0 md:border-l md:border-white/10 pointer-events-auto touch-pan-y will-change-transform"
       style={{ touchAction: "pan-y" }}
     >
       <PhotoViewerBlurBackground thumbHash={photo?.thumbHash} />
@@ -511,13 +522,19 @@ export function PhotoInfoSidebar({
             </div>
           </div>
 
-          {/* TAB 1: Information */}
-          {currentTab === "info" && (
-            <div
-              ref={infoScrollRef}
-              className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-4 py-3 pb-32 space-y-4 overscroll-contain pointer-events-auto touch-pan-y"
-              style={{ touchAction: "pan-y" }}
-            >
+          {/* Tab Content with Smooth Crossfade Animation */}
+          <AnimatePresence mode="wait" initial={false}>
+            {currentTab === "info" ? (
+              <motion.div
+                key="tab-info"
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -6 }}
+                transition={{ duration: 0.18, ease: "easeOut" }}
+                ref={infoScrollRef}
+                className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-4 py-3 pb-32 space-y-4 overscroll-contain pointer-events-auto touch-pan-y"
+                style={{ touchAction: "pan-y" }}
+              >
               {/* Admin Actions: Add to Album, Photo Insights, Edit Meta/Location & Display Scope */}
               {isAdmin && (
                 <div className="flex flex-col gap-2.5">
@@ -803,17 +820,22 @@ export function PhotoInfoSidebar({
                   </div>
                 )
               )}
-            </div>
-          )}
-
-          {/* TAB 2: Dedicated Spacious Comments View */}
-          {currentTab === "comments" && (
-            <div className="flex-1 flex flex-col min-h-0">
-              <PhotoComments photoId={photo.photoId} />
-            </div>
-          )}
+              </motion.div>
+            ) : (
+              <motion.div
+                key="tab-comments"
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -6 }}
+                transition={{ duration: 0.18, ease: "easeOut" }}
+                className="flex-1 flex flex-col min-h-0"
+              >
+                <PhotoComments photoId={photo.photoId} />
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       )}
-    </aside>
+    </motion.aside>
   )
 }
