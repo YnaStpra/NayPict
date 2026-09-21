@@ -23,7 +23,7 @@ self.addEventListener('install', (event) => {
   self.skipWaiting();
 });
 
-const MAX_MEDIA_CACHE_ITEMS = 150;
+const MAX_MEDIA_CACHE_ITEMS = 500;
 
 let trimTimer = null;
 function scheduleTrimMediaCache(cacheName, maxItems) {
@@ -31,6 +31,14 @@ function scheduleTrimMediaCache(cacheName, maxItems) {
   trimTimer = setTimeout(() => {
     trimMediaCache(cacheName, maxItems);
   }, 4000);
+}
+
+let mediaCachePromise = null;
+function getMediaCache() {
+  if (!mediaCachePromise) {
+    mediaCachePromise = caches.open(MEDIA_CACHE_NAME);
+  }
+  return mediaCachePromise;
 }
 
 /**
@@ -101,7 +109,7 @@ self.addEventListener('fetch', (event) => {
                          url.pathname.includes('previews%2F');
 
     event.respondWith(
-      caches.open(MEDIA_CACHE_NAME).then(async (cache) => {
+      getMediaCache().then(async (cache) => {
         const cachedResponse = await cache.match(request);
         if (cachedResponse) {
           // True Cache-First for immutable derivatives: return instantly, 0ms, zero background requests
