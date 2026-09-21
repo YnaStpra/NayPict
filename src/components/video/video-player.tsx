@@ -12,6 +12,8 @@ import {
   MessageSquare,
   CircleAlertIcon,
   Loader2,
+  Wifi,
+  WifiOff,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { formatVideoDuration } from "@/lib/video-compress"
@@ -101,6 +103,61 @@ export const VideoPlayer = memo(function VideoPlayer({
   const [hasFirstFrame, setHasFirstFrame] = useState(false)
   const [isVideoLandscape, setIsVideoLandscape] = useState(false)
   const [isScreenPortrait, setIsScreenPortrait] = useState(false)
+  const [isOnline, setIsOnline] = useState(() => (typeof navigator !== "undefined" ? navigator.onLine : true))
+  const [isSlowBuffering, setIsSlowBuffering] = useState(false)
+  const slowBufferTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Track online/offline status and automatically resume video when connection returns
+  useEffect(() => {
+    if (typeof window === "undefined") return
+
+    const handleOnline = () => {
+      setIsOnline(true)
+      const video = videoRef.current
+      if (video && (video.paused || video.readyState < 2)) {
+        video.load()
+        if (autoPlay) {
+          video.play().catch(() => {})
+        }
+      }
+    }
+
+    const handleOffline = () => {
+      setIsOnline(false)
+      setIsBuffering(false)
+    }
+
+    window.addEventListener("online", handleOnline)
+    window.addEventListener("offline", handleOffline)
+
+    return () => {
+      window.removeEventListener("online", handleOnline)
+      window.removeEventListener("offline", handleOffline)
+    }
+  }, [autoPlay])
+
+  // Track slow buffering / network congestion during video loading
+  useEffect(() => {
+    if (slowBufferTimerRef.current) {
+      clearTimeout(slowBufferTimerRef.current)
+      slowBufferTimerRef.current = null
+    }
+
+    if (isBuffering || isLoading) {
+      slowBufferTimerRef.current = setTimeout(() => {
+        setIsSlowBuffering(true)
+      }, 3500)
+    } else {
+      setIsSlowBuffering(false)
+    }
+
+    return () => {
+      if (slowBufferTimerRef.current) {
+        clearTimeout(slowBufferTimerRef.current)
+        slowBufferTimerRef.current = null
+      }
+    }
+  }, [isBuffering, isLoading])
 
   // Track mobile device viewport orientation dynamically
   useEffect(() => {
@@ -944,6 +1001,9 @@ export const VideoPlayer = memo(function VideoPlayer({
         onError={() => {
           setIsLoading(false)
           setIsBuffering(false)
+          if (typeof navigator !== "undefined" && !navigator.onLine) {
+            setIsOnline(false)
+          }
         }}
         aria-label={alt}
       />
@@ -954,11 +1014,11 @@ export const VideoPlayer = memo(function VideoPlayer({
         onClick={handleScreenClick}
       />
 
-      {/* Center Play/Pause & Buffering Indicator */}
+      {/* Center Play/Pause, Connection Status & Buffering Indicator */}
       <div
         className={cn(
           "pointer-events-none absolute inset-0 z-20 flex flex-col items-center justify-center gap-3 transition-all duration-300",
-          isLoading || isBuffering
+          isLoading || isBuffering || !isOnline || isSlowBuffering
             ? "opacity-100 scale-100"
             : showCenterIcon
             ? "opacity-100 scale-100"
@@ -967,7 +1027,27 @@ export const VideoPlayer = memo(function VideoPlayer({
             : "opacity-0 scale-75 pointer-events-none"
         )}
       >
-        {isLoading || isBuffering ? (
+        {!isOnline ? (
+          <div className="flex flex-col items-center justify-center gap-2.5 pointer-events-auto animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex size-16 sm:size-20 items-center justify-center rounded-full bg-rose-950/75 text-white backdrop-blur-xl border border-rose-500/30 shadow-2xl shadow-black/80">
+              <WifiOff className="size-8 sm:size-10 text-rose-400" />
+            </div>
+            <div className="flex items-center gap-2 px-4 py-1.5 rounded-full bg-rose-950/90 backdrop-blur-md border border-rose-500/30 text-rose-200 text-xs font-semibold tracking-wide shadow-xl">
+              <span className="size-2 rounded-full bg-rose-400 animate-ping" />
+              <span>Connection Lost — Waiting for network...</span>
+            </div>
+          </div>
+        ) : isSlowBuffering ? (
+          <div className="flex flex-col items-center justify-center gap-2.5 pointer-events-auto animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex size-16 sm:size-20 items-center justify-center rounded-full bg-amber-950/75 text-white backdrop-blur-xl border border-amber-500/30 shadow-2xl shadow-black/80">
+              <Loader2 className="size-8 sm:size-10 animate-spin text-amber-400" />
+            </div>
+            <div className="flex items-center gap-2 px-4 py-1.5 rounded-full bg-amber-950/90 backdrop-blur-md border border-amber-500/30 text-amber-200 text-xs font-medium tracking-wide shadow-xl">
+              <Wifi className="size-3.5 text-amber-400 animate-pulse" />
+              <span>Slow connection detected. Buffering video...</span>
+            </div>
+          </div>
+        ) : isLoading || isBuffering ? (
           <div className="flex flex-col items-center justify-center gap-2.5 pointer-events-auto">
             <div className="flex size-16 sm:size-20 items-center justify-center rounded-full bg-black/65 text-white backdrop-blur-xl border border-white/25 shadow-2xl shadow-black/80">
               <Loader2 className="size-8 sm:size-10 animate-spin text-emerald-400" />

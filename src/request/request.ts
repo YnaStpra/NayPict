@@ -1,4 +1,5 @@
 import { toast } from "sonner";
+import { isNetworkError, notifyConnectionLost } from "@/lib/network-status";
 
 // This module encapsulates the front end HTTP ask.
 
@@ -55,6 +56,10 @@ async function post<T = unknown>(url: string, params: RequestParams = null) {
       credentials: 'include'
     });
   } catch (error) {
+    if (isNetworkError(error)) {
+      notifyConnectionLost();
+      throw new Error('Connection lost');
+    }
     const errMessage = error instanceof Error ? error.message : 'Network error';
     toast.error(errMessage);
     throw new Error(errMessage);
@@ -69,6 +74,10 @@ async function post<T = unknown>(url: string, params: RequestParams = null) {
   }
 
   if (!res.ok || !json || json.code !== 200) {
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      notifyConnectionLost();
+      throw new Error('Connection lost');
+    }
     const message = json?.message || (res.status === 401 ? 'Unauthorized' : 'Request failed');
 
     if (res.status === 401 || json?.code === 401) {
@@ -118,6 +127,10 @@ async function get<T = unknown>(url: string, params?: Record<string, unknown> | 
         credentials: 'include'
       });
     } catch (error) {
+      if (isNetworkError(error)) {
+        notifyConnectionLost();
+        throw new Error('Connection lost');
+      }
       const errMessage = error instanceof Error ? error.message : 'Network error';
       toast.error(errMessage);
       throw new Error(errMessage);
@@ -132,6 +145,10 @@ async function get<T = unknown>(url: string, params?: Record<string, unknown> | 
     }
 
     if (!res.ok || !json || json.code !== 200) {
+      if (typeof navigator !== 'undefined' && !navigator.onLine) {
+        notifyConnectionLost();
+        throw new Error('Connection lost');
+      }
       const message = json?.message || (res.status === 401 ? 'Unauthorized' : 'Request failed');
 
       if (res.status === 401 || json?.code === 401) {

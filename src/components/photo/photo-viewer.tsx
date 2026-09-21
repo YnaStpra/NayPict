@@ -7,7 +7,7 @@ import { isImageSlide, type SlideImage, useController, useLightboxState } from "
 import Fullscreen from "yet-another-react-lightbox/plugins/fullscreen"
 import Thumbnails from "yet-another-react-lightbox/plugins/thumbnails"
 import Zoom from "yet-another-react-lightbox/plugins/zoom"
-import { ArrowLeftIcon, ChevronLeftIcon, ChevronRightIcon, ChevronsUpDownIcon, CircleAlertIcon, CircleIcon, FolderIcon, FolderPlusIcon, LockIcon, Menu, LoaderCircleIcon, MaximizeIcon, MessageSquare, MinimizeIcon, PanelRightClose, PanelRightOpen, Play, RotateCcwSquare, Share2Icon, Sparkles, Trash2Icon } from "lucide-react"
+import { ArrowLeftIcon, ChevronLeftIcon, ChevronRightIcon, ChevronsUpDownIcon, CircleAlertIcon, CircleIcon, FolderIcon, FolderPlusIcon, LockIcon, Menu, LoaderCircleIcon, MaximizeIcon, MessageSquare, MinimizeIcon, PanelRightClose, PanelRightOpen, Play, RotateCcwSquare, Share2Icon, Sparkles, Trash2Icon, Wifi, WifiOff } from "lucide-react"
 import { toast } from "sonner"
 
 import dynamic from "next/dynamic"
@@ -981,6 +981,57 @@ function PhotoSlideImage({
   const isInitiallyLoaded = Boolean(initialSrc && loadedThumbnails.has(initialSrc))
   const [loaded, setLoaded] = useState(isInitiallyLoaded)
   const [showHdBadge, setShowHdBadge] = useState(false)
+  const [isOnline, setIsOnline] = useState(() => (typeof navigator !== "undefined" ? navigator.onLine : true))
+  const [isSlowLoading, setIsSlowLoading] = useState(false)
+  const slowTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    if (typeof window === "undefined") return
+
+    const handleOnline = () => {
+      setIsOnline(true)
+      if (!loaded && currentSrc) {
+        // Re-trigger load when coming back online
+        const img = new Image()
+        img.crossOrigin = "anonymous"
+        img.src = currentSrc
+      }
+    }
+
+    const handleOffline = () => {
+      setIsOnline(false)
+    }
+
+    window.addEventListener("online", handleOnline)
+    window.addEventListener("offline", handleOffline)
+
+    return () => {
+      window.removeEventListener("online", handleOnline)
+      window.removeEventListener("offline", handleOffline)
+    }
+  }, [loaded, currentSrc])
+
+  useEffect(() => {
+    if (slowTimerRef.current) {
+      clearTimeout(slowTimerRef.current)
+      slowTimerRef.current = null
+    }
+
+    if (!loaded) {
+      slowTimerRef.current = setTimeout(() => {
+        setIsSlowLoading(true)
+      }, 3500)
+    } else {
+      setIsSlowLoading(false)
+    }
+
+    return () => {
+      if (slowTimerRef.current) {
+        clearTimeout(slowTimerRef.current)
+        slowTimerRef.current = null
+      }
+    }
+  }, [loaded])
 
   useEffect(() => {
     const targetSrc = originalPhoto?.key === slide.preview || originalPhoto?.key === slide.key
@@ -1018,7 +1069,21 @@ function PhotoSlideImage({
       )}
 
       {/* Floating Glassmorphic Progress Badge (Active while HD streaming) */}
-      {!loaded && (
+      {!loaded && !isOnline && (
+        <div className="pointer-events-none absolute bottom-14 sm:bottom-20 z-30 flex items-center gap-2 rounded-2xl bg-rose-950/85 px-4 py-2 text-xs font-medium text-rose-200 shadow-2xl backdrop-blur-xl border border-rose-500/30 animate-in fade-in zoom-in-95 duration-200">
+          <WifiOff className="size-4 text-rose-400 shrink-0" />
+          <span className="font-semibold text-[11px] sm:text-xs">Connection Lost — Waiting for network...</span>
+        </div>
+      )}
+
+      {!loaded && isOnline && isSlowLoading && (
+        <div className="pointer-events-none absolute bottom-14 sm:bottom-20 z-30 flex items-center gap-2 rounded-2xl bg-amber-950/85 px-4 py-2 text-xs font-medium text-amber-200 shadow-2xl backdrop-blur-xl border border-amber-500/30 animate-in fade-in zoom-in-95 duration-200">
+          <Wifi className="size-4 text-amber-400 shrink-0 animate-pulse" />
+          <span className="font-semibold text-[11px] sm:text-xs">Slow connection detected — Loading HD photo...</span>
+        </div>
+      )}
+
+      {!loaded && isOnline && !isSlowLoading && (
         <div className="pointer-events-none absolute bottom-14 sm:bottom-20 z-30 flex flex-col items-center gap-1.5 rounded-2xl bg-black/80 px-4 py-2 text-xs font-medium text-white shadow-2xl backdrop-blur-xl border border-white/20 animate-in fade-in zoom-in-95 duration-200">
           <div className="flex items-center gap-2">
             <LoaderCircleIcon className="size-3.5 animate-spin text-emerald-400 shrink-0" />
