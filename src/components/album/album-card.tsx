@@ -58,10 +58,16 @@ export const AlbumCard = memo(function AlbumCard({
     return () => clearTimeout(timeout)
   }, [isOpening])
 
-  // Speculative prefetch route chunk on cursor hover or finger touch
+  // Speculative prefetch route chunk and album cover media on cursor hover or finger touch
   function handlePrefetch() {
     try {
       router.prefetch(targetHref)
+      const coverUrl = data.thumbnail ? toProxyMediaUrl(data.thumbnail) : null
+      if (coverUrl && typeof window !== "undefined") {
+        const img = new Image()
+        img.decoding = "async"
+        img.src = coverUrl
+      }
     } catch {}
   }
 

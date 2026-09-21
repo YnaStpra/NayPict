@@ -7,6 +7,7 @@ import { PHOTO_LIST_PAGE_SIZE } from "@/server/const/global"
 import { type PhotoListBo } from "@/server/entity/bo/photo"
 import { PhotoStatusEnum, PhotoVisibilityEnum } from "@/server/enums/photo-enum"
 import { type PhotoVo } from "@/server/entity/vo/photo"
+import { saveOfflineCatalog, getOfflineCatalog } from "@/lib/offline-catalog"
 
 type PhotoSortField = "takenTime" | "recycleTime"
 
@@ -58,6 +59,20 @@ function usePhotoList(
   const [masonryKey, setMasonryKey] = useState(0) // Control waterfall flow to recalculate layout after list structure changes.
 
   const [totalCount, setTotalCount] = useState<number>(() => initialTotal ?? (initialPhotos ? initialPhotos.length : 0))
+  const [isOffline, setIsOffline] = useState(false)
+
+  // Listen to browser connectivity transitions
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    const handleOnline = () => setIsOffline(false)
+    const handleOffline = () => setIsOffline(true)
+    window.addEventListener("online", handleOnline)
+    window.addEventListener("offline", handleOffline)
+    return () => {
+      window.removeEventListener("online", handleOnline)
+      window.removeEventListener("offline", handleOffline)
+    }
+  }, [])
 
   useEffect(() => {
     // Skip the browser's first page request when there is data on the first page from the server.
@@ -71,9 +86,23 @@ function usePhotoList(
       setHasMore(moreAvailable)
       // Offset starts at how many SSR photos we already have
       pageOffsetRef.current = initialPhotoList.length
+
+      // Save initial page to offline IndexedDB catalog
+      if (initialPhotoList.length > 0 && !initialParams.albumId && !initialParams.status) {
+        saveOfflineCatalog(initialPhotoList, initialTotal ?? initialPhotoList.length)
+      } else if (initialPhotoList.length === 0 && typeof navigator !== "undefined" && !navigator.onLine) {
+        getOfflineCatalog().then((cached) => {
+          if (cached && cached.photos.length > 0) {
+            photosRef.current = cached.photos
+            setPhotos(cached.photos)
+            setTotalCount(cached.totalCount)
+            setIsOffline(true)
+          }
+        })
+      }
       return
     }
-  }, [initialPhotos, pageSize, initialPhotoList, initialTotal])
+  }, [initialPhotos, pageSize, initialPhotoList, initialTotal, initialParams.albumId, initialParams.status])
 
   // Refresh waterfall layout calculations.
   const refreshMasonry = useCallback(() => {
@@ -181,6 +210,10 @@ function usePhotoList(
             if (data.total !== undefined) {
               setTotalCount(data.total)
             }
+            if (!append && !queryParams.albumId && !queryParams.status) {
+              saveOfflineCatalog(uniquePhotos, data.total ?? uniquePhotos.length)
+            }
+            setIsOffline(false)
             return uniquePhotos
           })
           const more = data.list.length === pageSize
@@ -197,6 +230,16 @@ function usePhotoList(
           console.error("Failed to load photo list:", err)
           hasMoreRef.current = false
           setHasMore(false)
+          if (photosRef.current.length === 0) {
+            getOfflineCatalog().then((cached) => {
+              if (cached && cached.photos.length > 0) {
+                photosRef.current = cached.photos
+                setPhotos(cached.photos)
+                setTotalCount(cached.totalCount)
+                setIsOffline(true)
+              }
+            })
+          }
         })
         .finally(() => {
           loadingRef.current = false
@@ -470,6 +513,7 @@ function usePhotoList(
     totalCount,
     setTotalCount,
     hasMore,
+    isOffline,
     setPhotos,
     masonryKey,
     loadMorePhotos,

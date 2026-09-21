@@ -24,6 +24,7 @@ import { recordPhotoView } from "@/request/insights"
 
 import { type HeroTransitionOrigin } from "@/components/photo/hero-photo-transition"
 import { videoCoordinator } from "@/lib/video-autoplay-coordinator"
+import { useAdaptivePerformance } from "@/hooks/use-adaptive-performance"
 
 type TouchHoverCloseRef = {
   current: (() => void) | null
@@ -176,17 +177,9 @@ export const PhotoCard = memo(function PhotoCard({
   const priorityLimit = isMobile ? 4 : 8
   const isPriority = typeof index === "number" && index < priorityLimit
 
-  // Network and Data Saver awareness for video media preloading
-  const isConstrainedNetwork = useMemo(() => {
-    if (typeof navigator === "undefined") return false
-    const conn = (navigator as unknown as { connection?: { saveData?: boolean; effectiveType?: string } }).connection
-    return Boolean(
-      conn?.saveData ||
-      conn?.effectiveType === "slow-2g" ||
-      conn?.effectiveType === "2g" ||
-      conn?.effectiveType === "3g"
-    )
-  }, [])
+  // Unified adaptive performance: respects Data Saver, weak cellular (2G/3G), and low battery
+  const { isEcoMode, canAutoplayVideo } = useAdaptivePerformance()
+  const isConstrainedNetwork = isEcoMode
 
   // Start video autoplay with WebKit muted compliance
   const startAutoplay = useCallback(() => {
@@ -214,7 +207,7 @@ export const PhotoCard = memo(function PhotoCard({
 
   // Coordinated Autoplay: maximum 4 concurrent playing videos, batch rotation, and instant stop on scroll
   useEffect(() => {
-    if (!isVideo || !cardRef.current || typeof window === "undefined" || !videoCoordinator) {
+    if (!isVideo || !cardRef.current || typeof window === "undefined" || !videoCoordinator || !canAutoplayVideo) {
       return
     }
 
@@ -622,7 +615,7 @@ export const PhotoCard = memo(function PhotoCard({
         <div className="absolute inset-0 bg-neutral-950 flex items-center justify-center overflow-hidden">
           <video
             ref={videoRef}
-            src={videoStreamUrl}
+            src={isEcoMode && !isVideoPlaying ? undefined : videoStreamUrl}
             muted
             playsInline
             loop

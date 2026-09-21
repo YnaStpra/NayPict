@@ -587,8 +587,16 @@ const PhotoMasonry = memo(function PhotoMasonry({
                 colHeights[minCol] += h + 4
               })
 
+              const sectionHeight = Math.max(...colHeights, 160)
               return (
-                <section key={group.dateKey} className="space-y-2.5 pt-2">
+                <section
+                  key={group.dateKey}
+                  className="space-y-2.5 pt-2"
+                  style={{
+                    contentVisibility: "auto",
+                    containIntrinsicSize: `auto 100% ${sectionHeight}px`,
+                  }}
+                >
                   {/* Clean Date Header: Pure typography without overlapping sticky headers or geotag labels */}
                   <div className="flex items-center justify-between py-1 px-1">
                     <span className="text-sm sm:text-base font-bold text-foreground tracking-tight">
@@ -651,8 +659,16 @@ const PhotoMasonry = memo(function PhotoMasonry({
                 colHeights[minCol] += h + 4
               })
 
+              const sectionHeight = Math.max(...colHeights, 160)
               return (
-                <section key={group.typeKey} className="space-y-2.5 pt-2">
+                <section
+                  key={group.typeKey}
+                  className="space-y-2.5 pt-2"
+                  style={{
+                    contentVisibility: "auto",
+                    containIntrinsicSize: `auto 100% ${sectionHeight}px`,
+                  }}
+                >
                   {/* Clean Media Type Header: Videos or Photos */}
                   <div className="flex items-center justify-between py-1 px-1 border-b border-border/40">
                     <div className="flex items-center gap-2">
