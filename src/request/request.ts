@@ -1,5 +1,6 @@
 import { toast } from "sonner";
 import { isNetworkError, notifyConnectionLost, notifyConnectionRestored, getIsOffline } from "@/lib/network-status";
+import { humanizeError } from "@/lib/error-formatter";
 
 // This module encapsulates the front end HTTP ask.
 
@@ -58,11 +59,15 @@ async function post<T = unknown>(url: string, params: RequestParams = null) {
   } catch (error) {
     if (isNetworkError(error)) {
       notifyConnectionLost();
-      throw new Error('Connection lost');
+      const err = new Error('Connection lost') as any;
+      err.__toastShown = true;
+      throw err;
     }
-    const errMessage = error instanceof Error ? error.message : 'Network error';
+    const errMessage = humanizeError(error instanceof Error ? error.message : 'Network error');
     toast.error(errMessage);
-    throw new Error(errMessage);
+    const err = new Error(errMessage) as any;
+    err.__toastShown = true;
+    throw err;
   }
 
   const text = await res.text();
@@ -76,16 +81,21 @@ async function post<T = unknown>(url: string, params: RequestParams = null) {
   if (!res.ok || !json || json.code !== 200) {
     if (typeof navigator !== 'undefined' && !navigator.onLine) {
       notifyConnectionLost();
-      throw new Error('Connection lost');
+      const err = new Error('Connection lost') as any;
+      err.__toastShown = true;
+      throw err;
     }
-    const message = json?.message || (res.status === 401 ? 'Unauthorized' : 'Request failed');
+    const rawMessage = json?.message || (res.status === 401 ? 'auth.unauthorized' : 'Request failed');
+    const message = humanizeError(rawMessage);
 
     if (res.status === 401 || json?.code === 401) {
       handleUnauthorized();
     }
     toast.error(message);
 
-    throw new Error(message);
+    const err = new Error(message) as any;
+    err.__toastShown = true;
+    throw err;
   }
 
   if (getIsOffline()) {
@@ -133,11 +143,15 @@ async function get<T = unknown>(url: string, params?: Record<string, unknown> | 
     } catch (error) {
       if (isNetworkError(error)) {
         notifyConnectionLost();
-        throw new Error('Connection lost');
+        const err = new Error('Connection lost') as any;
+        err.__toastShown = true;
+        throw err;
       }
-      const errMessage = error instanceof Error ? error.message : 'Network error';
+      const errMessage = humanizeError(error instanceof Error ? error.message : 'Network error');
       toast.error(errMessage);
-      throw new Error(errMessage);
+      const err = new Error(errMessage) as any;
+      err.__toastShown = true;
+      throw err;
     }
 
     const text = await res.text();
@@ -151,16 +165,21 @@ async function get<T = unknown>(url: string, params?: Record<string, unknown> | 
     if (!res.ok || !json || json.code !== 200) {
       if (typeof navigator !== 'undefined' && !navigator.onLine) {
         notifyConnectionLost();
-        throw new Error('Connection lost');
+        const err = new Error('Connection lost') as any;
+        err.__toastShown = true;
+        throw err;
       }
-      const message = json?.message || (res.status === 401 ? 'Unauthorized' : 'Request failed');
+      const rawMessage = json?.message || (res.status === 401 ? 'auth.unauthorized' : 'Request failed');
+      const message = humanizeError(rawMessage);
 
       if (res.status === 401 || json?.code === 401) {
         handleUnauthorized();
       }
       toast.error(message);
 
-      throw new Error(message);
+      const err = new Error(message) as any;
+      err.__toastShown = true;
+      throw err;
     }
 
     if (getIsOffline()) {

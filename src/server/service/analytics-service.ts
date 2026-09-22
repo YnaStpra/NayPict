@@ -8,7 +8,6 @@ import { fileTab } from '@/server/entity/file';
 import { storageTab } from '@/server/entity/storage';
 import { buildThumbnailKey } from '@/server/lib/photo-path';
 import { toMediaUrl } from '@/lib/url';
-import { insightsService } from '@/server/service/insights-service';
 import { locationService } from '@/server/service/location-service';
 import {
   type HeartbeatBo,
@@ -350,20 +349,6 @@ const analyticsService = {
         }
       }
     }
-
-    // Synchronize event with insights service strictly for public visitors (Admin interactions are excluded from insights)
-    if (!isSessionAdmin && (action === 'view' || action === 'download' || action === 'share')) {
-      try {
-        await insightsService.recordEvent(
-          { photoId: params.photoId, type: action },
-          params.sessionId || 'guest',
-          false
-        );
-      } catch (err) {
-        console.warn('[ANALYTICS] insights sync error:', err);
-      }
-    }
-
 
     return true;
   },

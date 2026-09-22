@@ -2,6 +2,8 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { locationService } from '../../src/server/service/location-service.ts';
 import { getCoordinate, getAltitude } from '../../src/lib/photo-client-exif.ts';
+import { parseSingleCoordinate, parseCoordinateString } from '../../src/lib/geo.ts';
+import { humanizeError } from '../../src/lib/error-formatter.ts';
 
 describe('GPS Coordinates & Reverse Geocoding Bounds Test Suite', () => {
   it('gracefully rejects NaN coordinates without calling external API', async () => {
@@ -106,5 +108,81 @@ describe('GPS Coordinates & Reverse Geocoding Bounds Test Suite', () => {
       assert.equal(getAltitude('20', 'BELOW SEA LEVEL'), -20);
     });
   });
+
+  describe('Geo Universal Coordinate Parsing (DMS, Adobe XMP, Decimal, Single)', () => {
+    it('parses single latitude and longitude strings with degrees or direction', () => {
+      const latDms = parseSingleCoordinate(`8° 20' 43.0" S`, true);
+      assert.ok(latDms !== null && Math.abs(latDms - -8.345278) < 0.0001);
+
+      const lngDms = parseSingleCoordinate(`116° 31' 58.9" E`, false);
+      assert.ok(lngDms !== null && Math.abs(lngDms - 116.533028) < 0.0001);
+
+      const latAdobe = parseSingleCoordinate('8,36.9482S', true);
+      assert.ok(latAdobe !== null && Math.abs(latAdobe - -8.615803) < 0.0001);
+
+      const lngAdobe = parseSingleCoordinate('116,5.8428E', false);
+      assert.ok(lngAdobe !== null && Math.abs(lngAdobe - 116.09738) < 0.0001);
+
+      const decimalComma = parseSingleCoordinate('-8,345278', true);
+      assert.ok(decimalComma !== null && Math.abs(decimalComma - -8.345278) < 0.0001);
+    });
+
+    it('parses combined coordinate strings in multiple formats', () => {
+      // 1. DMS
+      const dmsRes = parseCoordinateString(`8°20'43.0"S 116°31'58.9"E`);
+      assert.ok(dmsRes !== null);
+      assert.ok(Math.abs(dmsRes.latitude - -8.345278) < 0.0001);
+      assert.ok(Math.abs(dmsRes.longitude - 116.533028) < 0.0001);
+
+      // 2. Adobe Lightroom format pair
+      const adobeRes = parseCoordinateString('8,36.9482S 116,5.8428E');
+      assert.ok(adobeRes !== null);
+      assert.ok(Math.abs(adobeRes.latitude - -8.615803) < 0.0001);
+      assert.ok(Math.abs(adobeRes.longitude - 116.09738) < 0.0001);
+
+      // 3. Decimal Degrees with comma separator
+      const ddRes = parseCoordinateString('-8.345278, 116.533028');
+      assert.ok(ddRes !== null);
+      assert.equal(ddRes.latitude, -8.345278);
+      assert.equal(ddRes.longitude, 116.533028);
+
+      // 4. Google Maps query URL
+      const gmapsRes = parseCoordinateString('https://www.google.com/maps/@-8.345278,116.533028,15z');
+      assert.ok(gmapsRes !== null);
+      assert.equal(gmapsRes.latitude, -8.345278);
+      assert.equal(gmapsRes.longitude, 116.533028);
+    });
+  });
+
+  describe('Human-Friendly Error Sanitizer Suite', () => {
+    it('translates known business error codes into polished human sentences', () => {
+      assert.equal(humanizeError('auth.failed'), 'Authentication failed. Please check your credentials.');
+      assert.equal(humanizeError('photo.notFound'), 'The requested media could not be found.');
+      assert.equal(
+        humanizeError('photo.invalidCoordinates'),
+        'Please enter valid GPS coordinates (e.g. -8.345, 116.533 or 8°20\'43"S 116°31\'59"E).'
+      );
+    });
+
+    it('strips developer prefixes and prevents VS Code / raw stack trace dumps', () => {
+      const err = new Error('Error: [500] Database error: duplicate key value violates unique constraint');
+      const formatted = humanizeError(err);
+      assert.equal(formatted, 'Database operation failed. Please try again later.');
+
+      const stackErr = new Error('TypeError: Cannot read properties of undefined\n    at eval (/Users/app/test.ts:42:15)');
+      const formattedStack = humanizeError(stackErr);
+      assert.ok(!formattedStack.includes('at eval'));
+      assert.ok(!formattedStack.includes('.ts:'));
+    });
+
+    it('converts technical coordinate validation errors into user guidance', () => {
+      const coordErr = 'Invalid coordinates format! Enter DMS format (e.g. 8°20\'43.0"S 116°31\'58.9"E) or decimal format.';
+      assert.equal(
+        humanizeError(coordErr),
+        'Invalid location format. Please provide valid coordinates (e.g. -8.345, 116.533 or 8°20\'43"S 116°31\'59"E).'
+      );
+    });
+  });
 });
+
 

@@ -37,7 +37,8 @@ import {
 import { PhotoVisibilityEnum } from "@/server/enums/photo-enum"
 import { photoBatchEdit } from "@/request/photo"
 import { type PhotoVo } from "@/server/entity/vo/photo"
-import { decimalToDms, parseCoordinateString } from "@/lib/geo"
+import { decimalToDms, parseCoordinateString, parseSingleCoordinate } from "@/lib/geo"
+import { humanizeError } from "@/lib/error-formatter"
 import { useModalBackHandler } from "@/hooks/use-modal-back-handler"
 import { emitCatalogSync } from "@/lib/catalog-sync"
 
@@ -222,20 +223,20 @@ export function PhotoBatchEditDialog({
   // Handle individual Latitude change
   const handleLatitudeChange = (val: string) => {
     setLatitude(val)
-    const latNum = parseFloat(val)
-    const lngNum = parseFloat(longitude)
-    if (!isNaN(latNum) && !isNaN(lngNum)) {
-      setCoordInput(decimalToDms(latNum, lngNum))
+    const latParsed = parseSingleCoordinate(val, true)
+    const lngParsed = parseSingleCoordinate(longitude, false)
+    if (latParsed !== null && lngParsed !== null) {
+      setCoordInput(decimalToDms(latParsed, lngParsed))
     }
   }
 
   // Handle individual Longitude change
   const handleLongitudeChange = (val: string) => {
     setLongitude(val)
-    const latNum = parseFloat(latitude)
-    const lngNum = parseFloat(val)
-    if (!isNaN(latNum) && !isNaN(lngNum)) {
-      setCoordInput(decimalToDms(latNum, lngNum))
+    const latParsed = parseSingleCoordinate(latitude, true)
+    const lngParsed = parseSingleCoordinate(val, false)
+    if (latParsed !== null && lngParsed !== null) {
+      setCoordInput(decimalToDms(latParsed, lngParsed))
     }
   }
 
@@ -362,9 +363,9 @@ export function PhotoBatchEditDialog({
           finalLat = parsedCoord.latitude
           finalLng = parsedCoord.longitude
         } else {
-          const latNum = parseFloat(latitude.trim())
-          const lngNum = parseFloat(longitude.trim())
-          if (!isNaN(latNum) && !isNaN(lngNum)) {
+          const latNum = parseSingleCoordinate(latitude.trim(), true)
+          const lngNum = parseSingleCoordinate(longitude.trim(), false)
+          if (latNum !== null && lngNum !== null) {
             finalLat = latNum
             finalLng = lngNum
           }
@@ -380,7 +381,7 @@ export function PhotoBatchEditDialog({
           finalLng < -180 ||
           finalLng > 180
         ) {
-          toast.error("Invalid coordinates format! Enter DMS format (e.g. 8°20'43.0\"S 116°31'58.9\"E) or decimal format.")
+          toast.error("Please enter valid coordinates (e.g. -8.345, 116.533 or 8°20'43\"S 116°31'59\"E).")
           return
         }
 
@@ -400,7 +401,9 @@ export function PhotoBatchEditDialog({
       emitCatalogSync("all")
       handleOpenChange(false)
     } catch (err: any) {
-      toast.error(err.message || "Failed to update metadata.")
+      if (!err?.__toastShown) {
+        toast.error(humanizeError(err?.message || "Failed to update metadata."))
+      }
     } finally {
       setLoading(false)
     }
@@ -651,12 +654,11 @@ export function PhotoBatchEditDialog({
                 <div className="grid grid-cols-2 gap-2 pt-0.5">
                   <div className="space-y-1">
                     <label className="text-[11px] font-medium text-muted-foreground flex items-center gap-1">
-                      <span>Latitude (Decimal)</span>
+                      <span>Latitude (Decimal or DMS)</span>
                     </label>
                     <Input
-                      type="number"
-                      step="any"
-                      placeholder="-8.345278"
+                      type="text"
+                      placeholder="-8.345278 or 8°20'43.0&quot;S"
                       value={latitude}
                       onChange={(e) => handleLatitudeChange(e.target.value)}
                       className="text-xs h-8.5 bg-background font-mono"
@@ -664,12 +666,11 @@ export function PhotoBatchEditDialog({
                   </div>
                   <div className="space-y-1">
                     <label className="text-[11px] font-medium text-muted-foreground flex items-center gap-1">
-                      <span>Longitude (Decimal)</span>
+                      <span>Longitude (Decimal or DMS)</span>
                     </label>
                     <Input
-                      type="number"
-                      step="any"
-                      placeholder="116.533028"
+                      type="text"
+                      placeholder="116.533028 or 116°31'58.9&quot;E"
                       value={longitude}
                       onChange={(e) => handleLongitudeChange(e.target.value)}
                       className="text-xs h-8.5 bg-background font-mono"

@@ -190,7 +190,19 @@ function Provider({ children, defaultTheme, defaultSidebarOpen, initialUserInfo,
         <RightClickGuard />
         <PhotoUploadDialog />
         <NetworkStatusNotifier />
-        <Toaster position="top-center" />
+        <Toaster
+          position="top-center"
+          richColors
+          closeButton
+          expand={false}
+          theme={theme === "dark" ? "dark" : theme === "light" ? "light" : "system"}
+          toastOptions={{
+            className: "!rounded-2xl !border !border-border/60 !backdrop-blur-xl !shadow-2xl !font-sans !text-xs !py-3 !px-4",
+            style: {
+              borderRadius: "1rem",
+            },
+          }}
+        />
       </TooltipProvider>
     </AppContext.Provider>
   )

@@ -17,6 +17,7 @@ import {
 import { disableTotp, enableTotp, getTotpStatus, setupTotp } from "@/request/totp"
 import { type TotpSetupVo, type TotpStatusVo } from "@/server/entity/vo/totp"
 import { useModalBackHandler } from "@/hooks/use-modal-back-handler"
+import { humanizeError } from "@/lib/error-formatter"
 
 export function TotpSettingsCard() {
   const [status, setStatus] = useState<TotpStatusVo>({ enabled: false, configured: false })
@@ -61,7 +62,9 @@ export function TotpSettingsCard() {
         }
       })
       .catch((err) => {
-        toast.error("Failed to setup Google Authenticator: " + (err?.message || "Server error"))
+        if (!err?.__toastShown) {
+          toast.error(humanizeError(err?.message || "Failed to set up Google Authenticator."))
+        }
       })
       .finally(() => {
         setSubmitting(false)
@@ -83,7 +86,9 @@ export function TotpSettingsCard() {
         fetchStatus()
       })
       .catch((err) => {
-        toast.error(err?.message || "Invalid 2FA code. Please verify your Google Authenticator app.")
+        if (!err?.__toastShown) {
+          toast.error(humanizeError(err?.message || "Invalid 2FA code. Please check your authenticator app."))
+        }
       })
       .finally(() => {
         setSubmitting(false)
@@ -97,11 +102,13 @@ export function TotpSettingsCard() {
 
     disableTotp()
       .then(() => {
-        toast.success("Google Authenticator 2FA successfully disabled")
+        toast.success("Google Authenticator (2FA) successfully disabled.")
         fetchStatus()
       })
       .catch((err) => {
-        toast.error("Failed to disable 2FA: " + (err?.message || "Server error"))
+        if (!err?.__toastShown) {
+          toast.error(humanizeError(err?.message || "Failed to disable two-factor authentication."))
+        }
       })
       .finally(() => {
         setSubmitting(false)
