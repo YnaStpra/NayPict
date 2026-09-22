@@ -1135,13 +1135,23 @@ const photoService = {
     const clientTakenTime = form.get('takenTime');
     const clientExifJson = form.get('exifJson');
 
-    const clientLat = clientLatRaw ? Number(clientLatRaw) : null;
-    const clientLng = clientLngRaw ? Number(clientLngRaw) : null;
-    const clientAlt = clientAltRaw ? Number(clientAltRaw) : null;
+    const parseCoord = (raw: unknown, min: number, max: number): number | null => {
+      if (raw === null || raw === undefined || raw === '') return null;
+      const n = typeof raw === 'number' ? raw : Number(raw);
+      return Number.isFinite(n) && n >= min && n <= max ? n : null;
+    };
 
-    const finalLatitude = meta.latitude ?? (clientLat !== null && !isNaN(clientLat) ? clientLat : null);
-    const finalLongitude = meta.longitude ?? (clientLng !== null && !isNaN(clientLng) ? clientLng : null);
-    const finalAltitude = meta.altitude ?? (clientAlt !== null && !isNaN(clientAlt) ? clientAlt : null);
+    const clientLat = parseCoord(clientLatRaw, -90, 90);
+    const clientLng = parseCoord(clientLngRaw, -180, 180);
+    const clientAlt = parseCoord(clientAltRaw, -10000, 100000);
+
+    const serverLat = parseCoord(meta.latitude, -90, 90);
+    const serverLng = parseCoord(meta.longitude, -180, 180);
+    const serverAlt = parseCoord(meta.altitude, -10000, 100000);
+
+    const finalLatitude = serverLat ?? clientLat;
+    const finalLongitude = serverLng ?? clientLng;
+    const finalAltitude = serverAlt ?? clientAlt;
     const finalTakenTime = meta.takenTime ?? (typeof clientTakenTime === 'string' && clientTakenTime ? clientTakenTime : null) ?? new Date(lastModified > 0 ? lastModified : Date.now()).toISOString();
 
     let finalExif = meta.exif;
@@ -1385,11 +1395,20 @@ const photoService = {
       finalExif = JSON.stringify(videoMeta);
     }
 
+    const parseCoord = (raw: unknown, min: number, max: number): number | null => {
+      if (raw === null || raw === undefined || raw === '') return null;
+      const n = typeof raw === 'number' ? raw : Number(raw);
+      return Number.isFinite(n) && n >= min && n <= max ? n : null;
+    };
+    const finalVideoLat = parseCoord(latitude, -90, 90);
+    const finalVideoLng = parseCoord(longitude, -180, 180);
+    const finalVideoAlt = parseCoord(altitude, -10000, 100000);
+
     await exifService.save(photoId, {
       exif: finalExif,
-      latitude: latitude != null && !isNaN(latitude) ? latitude : null,
-      longitude: longitude != null && !isNaN(longitude) ? longitude : null,
-      altitude: altitude != null && !isNaN(altitude) ? altitude : null,
+      latitude: finalVideoLat,
+      longitude: finalVideoLng,
+      altitude: finalVideoAlt,
     });
 
     if (albumId) {
@@ -1407,9 +1426,9 @@ const photoService = {
       photo: this.toPhotoVo(photo, files, videoStorage, domain, {
         photoId,
         exif: finalExif,
-        latitude: latitude ?? null,
-        longitude: longitude ?? null,
-        altitude: altitude ?? null,
+        latitude: finalVideoLat,
+        longitude: finalVideoLng,
+        altitude: finalVideoAlt,
       }),
       duplicate: false,
     };

@@ -8,36 +8,48 @@ export interface CompressImageOptions {
 }
 
 /**
- * Extracts the APP1 EXIF segment from a JPEG ArrayBuffer if present.
+ * Extracts all JPEG metadata segments (APP1 Exif, APP1 XMP, APP2 ICC Profile, APP13 Photoshop)
+ * from an original image ArrayBuffer.
  */
-function extractExifApp1Segment(buffer: ArrayBuffer): Uint8Array | null {
+function extractMetadataSegments(buffer: ArrayBuffer): Uint8Array[] {
   const view = new Uint8Array(buffer);
-  if (view[0] !== 0xff || view[1] !== 0xd8) return null;
+  if (view[0] !== 0xff || view[1] !== 0xd8) return [];
 
+  const segments: Uint8Array[] = [];
   let offset = 2;
   while (offset < view.length - 4) {
     if (view[offset] !== 0xff) break;
     const marker = view[offset + 1];
-    // Stop at SOS (0xDA) or EOI (0xD9)
-    if (marker === 0xda || marker === 0xd9) break;
+    // Stop at Start of Scan (0xDA) or Start of Frame (0xC0, 0xC2)
+    if (marker === 0xda || marker === 0xd9 || marker === 0xc0 || marker === 0xc2) break;
 
     const length = (view[offset + 2] << 8) | view[offset + 3];
-    if (marker === 0xe1 && offset + 4 + 6 <= view.length) {
-      // Verify "Exif\0\0" magic header
-      if (
-        view[offset + 4] === 0x45 && // E
-        view[offset + 5] === 0x78 && // x
-        view[offset + 6] === 0x69 && // i
-        view[offset + 7] === 0x66 && // f
-        view[offset + 8] === 0x00 &&
-        view[offset + 9] === 0x00
-      ) {
-        return new Uint8Array(view.subarray(offset, offset + 2 + length));
-      }
+    if (offset + 2 + length > view.length) break;
+
+    // Preserve APP1 (Exif, XMP), APP2 (ICC Profile), APP13 (Photoshop/IPTC)
+    if (marker === 0xe1 || marker === 0xe2 || marker === 0xed) {
+      segments.push(new Uint8Array(view.subarray(offset, offset + 2 + length)));
     }
     offset += 2 + length;
   }
-  return null;
+  return segments;
+}
+
+/**
+ * Checks if a given APP1 segment contains standard Exif metadata.
+ */
+function isExifApp1Segment(seg: Uint8Array): boolean {
+  return (
+    seg.length >= 10 &&
+    seg[0] === 0xff &&
+    seg[1] === 0xe1 &&
+    seg[4] === 0x45 && // E
+    seg[5] === 0x78 && // x
+    seg[6] === 0x69 && // i
+    seg[7] === 0x66 && // f
+    seg[8] === 0x00 &&
+    seg[9] === 0x00
+  );
 }
 
 /**
@@ -87,18 +99,23 @@ function fixExifOrientationInApp1(app1: Uint8Array): void {
 }
 
 /**
- * Preserves the original EXIF metadata by copying the APP1 segment from originalFile into compressedBlob.
+ * Preserves the original EXIF and XMP metadata by copying all APP segments from originalFile into compressedBlob.
  */
 async function preserveExifMetadata(originalFile: File, compressedBlob: Blob): Promise<Blob> {
   try {
     const origBuffer = await originalFile.arrayBuffer();
-    const exifSegment = extractExifApp1Segment(origBuffer);
+    const segments = extractMetadataSegments(origBuffer);
 
-    if (!exifSegment || exifSegment.length === 0) {
+    if (!segments || segments.length === 0) {
       return compressedBlob;
     }
 
-    fixExifOrientationInApp1(exifSegment);
+    // Fix orientation tag on any standard Exif segment
+    for (const seg of segments) {
+      if (isExifApp1Segment(seg)) {
+        fixExifOrientationInApp1(seg);
+      }
+    }
 
     const compBuffer = await compressedBlob.arrayBuffer();
     const compView = new Uint8Array(compBuffer);
@@ -107,14 +124,20 @@ async function preserveExifMetadata(originalFile: File, compressedBlob: Blob): P
       return compressedBlob;
     }
 
-    const merged = new Uint8Array(2 + exifSegment.length + (compView.length - 2));
+    const totalSegLength = segments.reduce((acc, s) => acc + s.length, 0);
+    const merged = new Uint8Array(2 + totalSegLength + (compView.length - 2));
     merged.set(compView.subarray(0, 2), 0);
-    merged.set(exifSegment, 2);
-    merged.set(compView.subarray(2), 2 + exifSegment.length);
+
+    let currentDest = 2;
+    for (const seg of segments) {
+      merged.set(seg, currentDest);
+      currentDest += seg.length;
+    }
+    merged.set(compView.subarray(2), currentDest);
 
     return new Blob([merged], { type: 'image/jpeg' });
   } catch (error) {
-    console.warn('Could not preserve EXIF metadata:', error);
+    console.warn('Could not preserve EXIF/XMP metadata:', error);
     return compressedBlob;
   }
 }
