@@ -20,7 +20,7 @@
     <img src="https://img.shields.io/badge/License-AGPL--3.0-4F46E5.svg?style=flat-square" alt="License" />
   </p>
   <p align="center">
-    <img src="docs/images/preview-gallery.png" alt="NayPict Gallery Preview" width="100%" style="border-radius: 16px; box-shadow: 0 12px 36px rgba(0,0,0,0.25);" />
+    <img src="docs/images/preview-hero.png" alt="NayPict Hero Preview" width="100%" style="border-radius: 16px; box-shadow: 0 12px 36px rgba(0,0,0,0.25);" />
   </p>
 </p>
 
@@ -43,6 +43,10 @@ Experience **zero-blur 120 FPS gallery scrolling**, **instant video streaming wi
 - **In-Memory Session Warm Cache**: Instant 0ms recall for previously viewed images (`loadedThumbnails`) — say goodbye to blur placeholders when scrolling up or down.
 - **Instant ThumbHash Decoding**: High-fidelity, ultra-compact visual placeholders decoded in milliseconds with zero layout shift (CLS 0.00).
 - **Above-The-Fold Priority Loading**: Automatic LCP boost prioritizing viewport media first before loading background elements.
+
+<p align="center">
+  <img src="docs/images/preview-gallery.png" alt="NayPict Gallery Feed Preview" width="100%" style="border-radius: 14px;" />
+</p>
 
 ---
 
@@ -117,16 +121,6 @@ Experience **zero-blur 120 FPS gallery scrolling**, **instant video streaming wi
 - **100% Private Cloudflare R2**: Public bucket access is completely disabled. Media keys and storage paths are never leaked to public clients.
 - **Secure Media Gateway**: Media derivatives (thumbnails & previews) are transformed and served through a lightweight, cache-accelerated Cloudflare Worker.
 - **Role-Based Admin Protection**: Robust JWT session management, bcrypt password hashing, and strict rate limiting.
-
----
-
-### 📲 Progressive Web App (PWA)
-- Install NayPict directly onto **iOS, Android, macOS, and Windows** as a standalone app.
-- Full offline shell caching via Service Worker with a complete pixel-sharp branded icon suite.
-
-<p align="center">
-  <img src="docs/images/preview-mobile.png" alt="NayPict Mobile & PWA Preview" width="100%" style="border-radius: 14px;" />
-</p>
 
 ---
 
@@ -227,17 +221,15 @@ Copy the generated Worker URL into your `R2_MEDIA_GATEWAY_URL` environment varia
 
 ---
 
-## 📸 Customizing Showcase Screenshots
+## 📸 Showcase Screenshots Reference
 
-To replace the preview images in this README with your own gallery screenshots, simply capture your screen at **1600×900** (or **1920×1080**) and save them to `docs/images/`:
-
-| File Path | What to Capture | Feature Location |
+| File Path | Feature Preview | Feature Location |
 |---|---|---|
-| `docs/images/preview-gallery.png` | Main Masonry Feed with photo cards & On-This-Day banner | `/photos` |
-| `docs/images/preview-player.png` | Video player or photo lightbox with EXIF sidebar open | `/photo/[id]` |
-| `docs/images/preview-map.png` | Interactive Map with photo pins & cluster spots | `/map` |
-| `docs/images/preview-story.png` | Instagram Story 1080×1920 generator card dialog | Inside photo modal |
-| `docs/images/preview-mobile.png` | Mobile responsive 2-column view or PWA home screen | Mobile viewport |
+| `docs/images/preview-hero.png` | Landing Portal with floating photo cards | `/` (Home) |
+| `docs/images/preview-gallery.png` | Main Masonry Feed with photo cards & video duration tags | `/photos` (Gallery) |
+| `docs/images/preview-player.png` | Fullscreen photo viewer with EXIF metadata sidebar & map card | `/photo/[id]` |
+| `docs/images/preview-map.png` | Interactive Geographic Map with photo cluster pins | `/map` |
+| `docs/images/preview-story.png` | Instagram Story 1080×1920 generator card modal | Inside photo modal |
 
 ---
 

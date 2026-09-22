@@ -16,6 +16,7 @@ import {
   X,
 } from "lucide-react"
 import { toast } from "sonner"
+import { humanizeError } from "@/lib/error-formatter"
 
 import {
   Dialog,
@@ -111,7 +112,9 @@ export function UntaggedPhotosDialog({
       onGeotagSuccess(ids, { latitude: null, longitude: null, isLocationIgnored: true })
       setSelectedIds((prev) => prev.filter((id) => !ids.includes(id)))
     } catch (err: any) {
-      toast.error(err.message || "Failed to ignore location.")
+      if (!err?.__toastShown) {
+        toast.error(humanizeError(err.message || "Failed to ignore location."))
+      }
     } finally {
       setIgnoring(false)
     }

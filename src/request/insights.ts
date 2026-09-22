@@ -7,11 +7,19 @@ import {
   type PhotoInsightsDetailVo,
 } from "@/server/entity/vo/insights";
 
-// This module encapsulates photo insights and public view tracking API requests.
+// In-memory debounce cache to prevent duplicate view registrations from React re-renders or quick navigation
+const recentlyViewedMap = new Map<string, number>();
 
 // Record a public photo view event silently without disrupting UI.
 export async function recordPhotoView(photoId: string): Promise<boolean> {
   if (!photoId || typeof window === 'undefined') return false;
+  const now = Date.now();
+  const lastRecorded = recentlyViewedMap.get(photoId) || 0;
+  if (now - lastRecorded < 15_000) {
+    return true;
+  }
+  recentlyViewedMap.set(photoId, now);
+
   try {
     const res = await fetch(`/api/photos/${encodeURIComponent(photoId)}/view`, {
       method: 'POST',

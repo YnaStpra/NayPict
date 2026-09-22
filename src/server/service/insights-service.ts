@@ -98,7 +98,7 @@ const insightsService = {
               eq(photoViewTab.photoId, photoId),
               eq(photoViewTab.visitorId, visitorId),
               eq(photoViewTab.type, 'view'),
-              gte(photoViewTab.viewedAt, cooldownThreshold)
+              gte(photoViewTab.viewedAt, sql`${cooldownThreshold}::timestamp`)
             )
           )
           .limit(1);
