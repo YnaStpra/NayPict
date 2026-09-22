@@ -19,6 +19,9 @@
     <img src="https://img.shields.io/badge/TypeScript-5.0-3178C6?style=flat-square&logo=typescript" alt="TypeScript" />
     <img src="https://img.shields.io/badge/License-AGPL--3.0-4F46E5.svg?style=flat-square" alt="License" />
   </p>
+  <p align="center">
+    <img src="docs/images/preview-gallery.png" alt="NayPict Gallery Preview" width="100%" style="border-radius: 16px; box-shadow: 0 12px 36px rgba(0,0,0,0.25);" />
+  </p>
 </p>
 
 ---
@@ -49,6 +52,10 @@ Experience **zero-blur 120 FPS gallery scrolling**, **instant video streaming wi
 - **Custom Player Controls**: Precision scrub bar, full-screen cinema mode, volume memory, and gesture controls designed to avoid touch-swipe conflicts.
 - **Client-Side Video Transcoding**: WebAssembly-powered compression (`@ffmpeg/ffmpeg`) capable of shrinking 4K drone/camera footage by up to 90% right inside your browser before upload.
 
+<p align="center">
+  <img src="docs/images/preview-player.png" alt="NayPict Video Player & EXIF Preview" width="100%" style="border-radius: 14px;" />
+</p>
+
 ---
 
 ### 🗺️ Interactive Geographic Media Map (`/map`)
@@ -56,6 +63,10 @@ Experience **zero-blur 120 FPS gallery scrolling**, **instant video streaming wi
 - **Live Proximity Distance**: Automatic calculation of distance from your current location (*"12 km from where you are"*).
 - **Smart Burst Clustering**: Automatically groups photos taken at the same spot to keep map exploration fluid and organized.
 - **Reverse Geocoding & Untagged Media Hub**: 1-click GPS assignment for photos without coordinates and spot cover customization.
+
+<p align="center">
+  <img src="docs/images/preview-map.png" alt="NayPict Interactive Media Map Preview" width="100%" style="border-radius: 14px;" />
+</p>
 
 ---
 
@@ -77,6 +88,10 @@ Experience **zero-blur 120 FPS gallery scrolling**, **instant video streaming wi
 - Turn any photo or video frame into a stunning **1080×1920 Instagram Story** card in seconds.
 - Automatically embeds camera EXIF tags (Camera Model, Lens, Focal Length, Aperture, Shutter Speed, ISO) with customizable artistic backdrop blurs.
 - Direct image download or 1-tap clipboard copy ready for immediate social sharing.
+
+<p align="center">
+  <img src="docs/images/preview-story.png" alt="NayPict Instagram Story Generator Preview" width="100%" style="border-radius: 14px;" />
+</p>
 
 ---
 
@@ -108,6 +123,10 @@ Experience **zero-blur 120 FPS gallery scrolling**, **instant video streaming wi
 ### 📲 Progressive Web App (PWA)
 - Install NayPict directly onto **iOS, Android, macOS, and Windows** as a standalone app.
 - Full offline shell caching via Service Worker with a complete pixel-sharp branded icon suite.
+
+<p align="center">
+  <img src="docs/images/preview-mobile.png" alt="NayPict Mobile & PWA Preview" width="100%" style="border-radius: 14px;" />
+</p>
 
 ---
 
@@ -205,6 +224,20 @@ Copy the generated Worker URL into your `R2_MEDIA_GATEWAY_URL` environment varia
 | `R2_MEDIA_GATEWAY_URL` | Optional | — | Edge Worker endpoint for derivative media caching |
 | `UPSTASH_REDIS_REST_URL` | Optional | — | Redis REST URL for distributed rate limiting |
 | `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | Optional | — | Turnstile Site Key for anti-bot protection |
+
+---
+
+## 📸 Customizing Showcase Screenshots
+
+To replace the preview images in this README with your own gallery screenshots, simply capture your screen at **1600×900** (or **1920×1080**) and save them to `docs/images/`:
+
+| File Path | What to Capture | Feature Location |
+|---|---|---|
+| `docs/images/preview-gallery.png` | Main Masonry Feed with photo cards & On-This-Day banner | `/photos` |
+| `docs/images/preview-player.png` | Video player or photo lightbox with EXIF sidebar open | `/photo/[id]` |
+| `docs/images/preview-map.png` | Interactive Map with photo pins & cluster spots | `/map` |
+| `docs/images/preview-story.png` | Instagram Story 1080×1920 generator card dialog | Inside photo modal |
+| `docs/images/preview-mobile.png` | Mobile responsive 2-column view or PWA home screen | Mobile viewport |
 
 ---
 
