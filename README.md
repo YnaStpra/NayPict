@@ -1,87 +1,136 @@
 <p align="center">
   <a href="https://www.naypict.my.id">
-    <img src="docs/images/logo.png" width="100px" alt="NayPict Logo" style="border-radius: 20px;" />
+    <img src="docs/images/logo.png" width="110px" alt="NayPict Logo" style="border-radius: 24px; box-shadow: 0 10px 25px rgba(0,0,0,0.15);" />
   </a>
   <h1 align="center">NayPict</h1>
   <p align="center">
-    <strong>Modern, high-performance photo & video gallery built with Next.js 16, Cloudflare R2, Neon PostgreSQL, and interactive media intelligence.</strong>
+    <strong>Your Memories, Reimagined.</strong><br>
+    A blazing-fast, self-hosted modern photo & video gallery engineered with Next.js 16, Cloudflare R2, Neon PostgreSQL, and interactive media intelligence.
   </p>
   <p align="center">
-    <a href="https://www.naypict.my.id"><img src="https://img.shields.io/badge/Production-naypict.my.id-emerald?style=flat-square&logo=cloudflare" alt="Production Site" /></a>
+    <a href="https://www.naypict.my.id"><img src="https://img.shields.io/badge/Live_Demo-naypict.my.id-00C781?style=for-the-badge&logo=cloudflare&logoColor=white" alt="Live Demo" /></a>
+    <a href="#-quick-start"><img src="https://img.shields.io/badge/Get_Started-Deploy_Now-6366F1?style=for-the-badge&logo=vercel&logoColor=white" alt="Get Started" /></a>
+  </p>
+  <p align="center">
     <img src="https://img.shields.io/badge/Next.js-16%20(Turbopack)-black?style=flat-square&logo=next.js" alt="Next.js 16" />
-    <img src="https://img.shields.io/badge/React-19-blue?style=flat-square&logo=react" alt="React 19" />
-    <img src="https://img.shields.io/badge/Storage-Cloudflare%20R2-orange?style=flat-square&logo=cloudflare" alt="Cloudflare R2" />
-    <img src="https://img.shields.io/badge/Database-Neon%20Postgres%20%7C%20SQLite-teal?style=flat-square&logo=postgresql" alt="Database" />
-    <img src="https://img.shields.io/badge/License-AGPL--3.0-blue.svg?style=flat-square" alt="License" />
+    <img src="https://img.shields.io/badge/React-19-0284C7?style=flat-square&logo=react" alt="React 19" />
+    <img src="https://img.shields.io/badge/Storage-Cloudflare%20R2-F38020?style=flat-square&logo=cloudflare" alt="Cloudflare R2" />
+    <img src="https://img.shields.io/badge/Database-Neon%20Serverless%20%7C%20SQLite-00E599?style=flat-square&logo=postgresql" alt="Database" />
+    <img src="https://img.shields.io/badge/TypeScript-5.0-3178C6?style=flat-square&logo=typescript" alt="TypeScript" />
+    <img src="https://img.shields.io/badge/License-AGPL--3.0-4F46E5.svg?style=flat-square" alt="License" />
   </p>
 </p>
 
 ---
 
-## 🌟 Highlights & Features
+## 🧭 Overview
 
-### 📸 & 🎬 Full Photo & Video Multi-Media Gallery
-- **Public & Admin Exhibition:** Distraction-free public gallery (`/photos`, `/albums`) with fluid infinite masonry scrolling and full-screen lightbox.
-- **Dedicated Video Engine:** Seamless HTML5 & HLS video streaming with custom scrubber controls, volume sliders, and loop/mute controls without touch-swipe conflicts.
-- **Client-Side Video Compression:** In-browser WebAssembly-powered compression (`@ffmpeg/ffmpeg`) capable of downsizing massive 4K video uploads to 720p/1080p with up to 90% file size reduction while preserving original perceptual quality.
-- **Zero-Shift Blur Loading:** Instant visual feedback using compact [ThumbHash](https://github.com/evanw/thumbhash) placeholders before high-resolution previews load.
+**NayPict** is an elegant, privacy-first alternative to cloud photo lockers. Designed specifically for photographers, creators, and visual collectors, NayPict combines modern web performance engineering with cinematic aesthetics. 
 
-### 🗺️ Interactive Media Map (`/map`)
-- **Geotagged Discovery:** Explore media plotted across 5 distinct Leaflet map tile styles (Google Streets, Satellite Hybrid, Terrain & Relief, CartoDB Dark, CartoDB Light).
-- **Smart Clustering & Spot Covers:** Proximity grouping of burst captures, custom spot cover pins, and coordinates search in DMS or decimal formats.
-- **Untagged Media Management:** Quickly assign GPS coordinates or device location to unmapped media, or mark them as intentionally ignored.
+Experience **zero-blur 120 FPS gallery scrolling**, **instant video streaming with background pre-buffering**, **interactive geographic map discovery**, **smart duplicate detection**, and **Apple-grade fluid animations** — all running on your own infrastructure with zero egress fees.
 
-### 🔍 Duplicate Media Detector (`/duplicates`)
-- **Multi-Factor Fingerprinting:** Automatically scans gallery items using visual pixel fingerprints (*ThumbHash*), file SHA-256 checksums, pixel dimensions, and byte sizes.
-- **1-Click Batch Cleanup:** Group-based duplicate inspection allowing single-click deletion of redundant files while preserving the main primary media and album links.
-
-### 📅 Nostalgic "On This Day" Memory Showcase
-- **Time-Machine Showcase:** Automatically surfaces memorable moments captured on the current calendar day in prior years.
-- **Dynamic Relative Dating:** Computes elapsed years and displays an expandable/collapsible carousel directly above the main gallery grid.
-
-### 📱 Instagram Story Card Generator
-- **High-Res Export:** Create stunning 1080×1920 Instagram Story cards from any media item with customizable blurred backgrounds and camera metadata tags (device, lens, shutter, ISO, aperture).
-- **1-Click Share & Download:** One-tap direct image download or clipboard copy for effortless social media posting.
-
-### 💬 Community Reactions & Comments
-- **Live Emojis:** Interactive instant feedback with optimistic UI counters (🔥, ❤️, ✨, 👏, 🎉).
-- **Public Discussions:** Nested commenting system with administrative moderation, pinned highlights, and **Cloudflare Turnstile CAPTCHA** bot defense.
-
-### 📊 Performance & Analytics Insights (`/admin/insights`)
-- **Engagement Leaderboards:** Track top-performing media by total views, shares, and reactions.
-- **Interactive SVG Analytics:** Real-time visual traffic graphs, device/browser distributions, and animated odometer counters.
-
-### ☁️ Cloudflare R2 & Private Media Gateway
-- **100% Private Storage:** R2 bucket public access remains disabled. No raw asset URLs are ever exposed.
-- **Edge Derivative Gateway:** Dedicated Cloudflare Worker (`workers/media-gateway/`) serves optimized `thumbnails/` and `previews/`.
-- **Authenticated Proxy:** Original file downloads are strictly authenticated and rate-limited through the application's `/media/{key}` endpoint.
-
-### 📱 Progressive Web App (PWA)
-- **Installable Desktop & Mobile App:** Native-like standalone installation with offline static shell caching via Service Worker.
-- **Comprehensive Brand Icon Pack:** Pixel-sharp icons across all standard dimensions (16px to 512px, SVG, Apple Touch Icon, Android).
+[Explore Live Demo →](https://www.naypict.my.id)
 
 ---
 
-## 🛠️ Tech Stack
+## ✨ Features & Capabilities
 
-| Layer | Technology |
+### ⚡ Ultra-Fast 120 FPS Media Scrolling Engine
+- **Directional Lookahead Prefetching**: Intelligently predicts scrolling direction and pre-caches incoming media up to 5 screens ahead.
+- **In-Memory Session Warm Cache**: Instant 0ms recall for previously viewed images (`loadedThumbnails`) — say goodbye to blur placeholders when scrolling up or down.
+- **Instant ThumbHash Decoding**: High-fidelity, ultra-compact visual placeholders decoded in milliseconds with zero layout shift (CLS 0.00).
+- **Above-The-Fold Priority Loading**: Automatic LCP boost prioritizing viewport media first before loading background elements.
+
+---
+
+### 🎬 Cinematic Video Player & Instant Pre-Buffering
+- **Zero-Lag Video Playback**: Background pre-buffering (`video-prebuffer`) warms video chunks into cache so videos start playing instantaneously on click.
+- **Hover & Touch Autoplay**: Smooth video preview on mouse hover or touch hold with sound indicator badges and seamless looping.
+- **Custom Player Controls**: Precision scrub bar, full-screen cinema mode, volume memory, and gesture controls designed to avoid touch-swipe conflicts.
+- **Client-Side Video Transcoding**: WebAssembly-powered compression (`@ffmpeg/ffmpeg`) capable of shrinking 4K drone/camera footage by up to 90% right inside your browser before upload.
+
+---
+
+### 🗺️ Interactive Geographic Media Map (`/map`)
+- **Spatial Discovery**: View your photos and videos pinned across 5 high-resolution map styles (Satellite Hybrid, Google Streets, CartoDB Dark, CartoDB Light, and Topographic Terrain).
+- **Live Proximity Distance**: Automatic calculation of distance from your current location (*"12 km from where you are"*).
+- **Smart Burst Clustering**: Automatically groups photos taken at the same spot to keep map exploration fluid and organized.
+- **Reverse Geocoding & Untagged Media Hub**: 1-click GPS assignment for photos without coordinates and spot cover customization.
+
+---
+
+### 🌐 Self-Healing Network & Offline Defense
+- **Smart Connection Alerts**: Polished, non-intrusive *"Connection Lost"* and *"Connection Restored"* status updates — no ugly raw technical fetch errors.
+- **Active Heartbeat Probing**: Proactive background probes detect restored connectivity even if your mobile device or browser misses native online events.
+- **Media-Driven Self Healing**: As soon as media tiles paint or API requests succeed during scrolling, connection warnings dismiss automatically.
+- **In-Player Buffering Badges**: Clear network congestion warnings (*"Slow connection detected. Buffering..."*) keep users informed during poor signal conditions.
+
+---
+
+### 📅 Nostalgic "On This Day" Time-Machine
+- Automatically highlights unforgettable moments captured on the current date in previous years.
+- Dynamic relative age tags (*"Captured 2 years ago today"*) featured in an expandable header carousel on your main gallery page.
+
+---
+
+### 📱 1-Click Instagram Story Card Generator
+- Turn any photo or video frame into a stunning **1080×1920 Instagram Story** card in seconds.
+- Automatically embeds camera EXIF tags (Camera Model, Lens, Focal Length, Aperture, Shutter Speed, ISO) with customizable artistic backdrop blurs.
+- Direct image download or 1-tap clipboard copy ready for immediate social sharing.
+
+---
+
+### 🔍 Multi-Factor Duplicate Media Detector (`/duplicates`)
+- **Visual & Hash Fingerprinting**: Scans your entire gallery using pixel ThumbHash fingerprints, byte dimensions, and SHA-256 checksums.
+- **1-Click Batch Cleanup**: Safely delete duplicate files and free up storage while automatically preserving original album associations and metadata.
+
+---
+
+### 💬 Community Reactions & Threaded Comments
+- **Live Reactions**: Instant optimistic emoji reactions (🔥, ❤️, ✨, 👏, 🎉) with delightful floating heart burst micro-animations.
+- **Threaded Discussions**: Nested comment threads with administrative moderation, pinned highlights, and built-in **Cloudflare Turnstile CAPTCHA** bot protection.
+
+---
+
+### 🌿 Adaptive Eco Performance Engine
+- Automatically detects **Data Saver mode**, **low battery levels**, or **weak cellular networks (2G/3G)**.
+- Intelligently throttles auto-play videos, heavy animations, and lookahead prefetching to preserve battery life and mobile data.
+
+---
+
+### 🔒 Enterprise Privacy & Zero Public Egress
+- **100% Private Cloudflare R2**: Public bucket access is completely disabled. Media keys and storage paths are never leaked to public clients.
+- **Secure Media Gateway**: Media derivatives (thumbnails & previews) are transformed and served through a lightweight, cache-accelerated Cloudflare Worker.
+- **Role-Based Admin Protection**: Robust JWT session management, bcrypt password hashing, and strict rate limiting.
+
+---
+
+### 📲 Progressive Web App (PWA)
+- Install NayPict directly onto **iOS, Android, macOS, and Windows** as a standalone app.
+- Full offline shell caching via Service Worker with a complete pixel-sharp branded icon suite.
+
+---
+
+## 🛠️ Built With Modern Tech
+
+| Area | Technologies |
 |---|---|
-| **Framework** | [Next.js 16](https://nextjs.org/) (App Router, Server Actions & Turbopack) |
-| **Frontend** | [React 19](https://react.dev/), [TypeScript](https://www.typescriptlang.org/), [Tailwind CSS v4](https://tailwindcss.com/) |
-| **API & Backend** | [Hono](https://hono.dev/) mounted on Next.js Route Handlers |
-| **Database & ORM** | [Neon Serverless PostgreSQL](https://neon.tech/) (Production) / [SQLite](https://www.sqlite.org/) (Local Dev) via [Drizzle ORM](https://orm.drizzle.team/) |
-| **Object Storage** | [Cloudflare R2](https://www.cloudflare.com/products/r2/) via AWS S3 SDK v3 |
+| **Core Framework** | [Next.js 16](https://nextjs.org/) (App Router, Server Actions, Turbopack) |
+| **UI & Styling** | [React 19](https://react.dev/), [Tailwind CSS v4](https://tailwindcss.com/), [Framer Motion](https://www.framer.com/motion/) |
+| **Backend & Routing**| [Hono](https://hono.dev/) on Next.js Edge / Node Route Handlers |
+| **Database & ORM** | [Neon Serverless PostgreSQL](https://neon.tech/) (Production) / [SQLite](https://www.sqlite.org/) (Local) via [Drizzle ORM](https://orm.drizzle.team/) |
+| **Object Storage** | [Cloudflare R2](https://www.cloudflare.com/products/r2/) via AWS S3 Client SDK v3 |
 | **Media Processing** | [Sharp](https://sharp.pixelplumbing.com/), [@ffmpeg/ffmpeg](https://ffmpegwasm.netlify.app/) (Wasm), [ThumbHash](https://github.com/evanw/thumbhash) |
-| **Maps** | [Leaflet](https://leafletjs.com/) with custom Google & CartoDB tiles |
-| **Edge Security** | Cloudflare Turnstile, Upstash Redis Rate Limiting, Strict CSP & Early Hints |
+| **Interactive Maps** | [Leaflet](https://leafletjs.com/) with Google, CartoDB, and OpenStreetMap layers |
+| **Security & Defense**| Cloudflare Turnstile, Upstash Redis Rate Limiting, Strict Security Headers |
 
 ---
 
-## 🚀 Getting Started
+## 🚀 Quick Start
 
 ### Prerequisites
-- Node.js 20+ and `pnpm` (or `npm`)
-- A Cloudflare account (for R2 storage) or local storage for testing
+- Node.js 20+ and `pnpm` (recommended) or `npm`
+- *(Optional)* Cloudflare account for R2 Object Storage (or use local storage for quick testing)
 
 ### 1. Clone & Install
 ```bash
@@ -90,73 +139,80 @@ cd NayPict
 pnpm install
 ```
 
-### 2. Configure Environment Variables
+### 2. Configure Environment
 Create a `.env` file in the root directory:
 ```env
-# General
+# Application
 TITLE=NayPict
 APP_URL=http://localhost:3000
-JWT_SECRET=super_secret_jwt_random_key_here
+JWT_SECRET=generate_a_secure_random_string_here
 
-# Administrator Credentials
+# Administrator Account
 ADMIN=admin
-PASSWORD=your_secure_password
+PASSWORD=your_secure_password_here
 
-# Database (Neon PostgreSQL in production; leave blank for local SQLite)
+# Database (Leave blank for instant zero-config local SQLite, or provide Neon PostgreSQL URL)
 DATABASE_URL=
 
-# Media Gateway (Optional Cloudflare Worker derivative gateway)
+# Media Gateway (Optional Cloudflare Worker URL for edge thumbnail acceleration)
 R2_MEDIA_GATEWAY_URL=
 
-# Cache & Rate Limiting (Optional Upstash Redis)
+# Distributed Rate Limiting (Optional Upstash Redis)
 UPSTASH_REDIS_REST_URL=
 UPSTASH_REDIS_REST_TOKEN=
 
-# Bot Defense (Optional Cloudflare Turnstile)
+# Bot Protection (Optional Cloudflare Turnstile)
 NEXT_PUBLIC_TURNSTILE_SITE_KEY=
 TURNSTILE_SECRET_KEY=
 ```
 
-### 3. Run Development Server
+### 3. Launch Development Server
 ```bash
 pnpm dev
 ```
-Open [http://localhost:3000](http://localhost:3000) to view your gallery.
+Open [http://localhost:3000](http://localhost:3000) in your browser and experience NayPict.
 
 ---
 
-## 🌐 Deploying to Production (Vercel)
+## 🌐 Deployment Guide
 
-1. **Push to GitHub** (`main` or `develop`).
-2. **Import into Vercel** and attach your production domain (e.g. `www.naypict.my.id`).
-3. Set your **Environment Variables** in Vercel Project Settings:
-   - `TITLE`, `ADMIN`, `PASSWORD`, `JWT_SECRET`, `APP_URL`
-   - `DATABASE_URL` (from Neon PostgreSQL)
-   - `R2_MEDIA_GATEWAY_URL` (from your Cloudflare Worker)
-4. **Deploy Cloudflare Media Gateway**:
-   ```bash
-   cd workers/media-gateway
-   npx wrangler deploy
-   ```
-5. Log into `/login`, navigate to **Storage Settings** (`/storage`), and connect your Cloudflare R2 bucket credentials.
+### Deploying to Vercel (Recommended)
+1. Fork or push your NayPict repository to GitHub.
+2. Import the project into [Vercel](https://vercel.com/).
+3. Add your environment variables in Vercel Project Settings (`TITLE`, `ADMIN`, `PASSWORD`, `JWT_SECRET`, `DATABASE_URL`).
+4. Click **Deploy**. Vercel will automatically build and host your app with global edge caching.
+
+### Deploying the Cloudflare Media Gateway
+For maximum performance with zero egress fees:
+```bash
+cd workers/media-gateway
+npx wrangler deploy
+```
+Copy the generated Worker URL into your `R2_MEDIA_GATEWAY_URL` environment variable.
 
 ---
 
-## ⚙️ Environment Variables Reference
+## ⚙️ Configuration Reference
 
-| Variable | Required | Default | Description |
+| Variable | Type | Default | Description |
 |---|---|---|---|
 | `TITLE` | Optional | `NayPict` | Gallery branding and browser tab title |
-| `ADMIN` | **Required** | — | Administrator portal username |
-| `PASSWORD` | **Required** | — | Administrator portal password |
-| `JWT_SECRET` | **Required** | — | Secret string for signing session JWTs |
-| `APP_URL` | **Required** | `http://localhost:3000` | Canonical origin for CORS & metadata generation |
-| `DATABASE_URL` | Optional | `data/naypict.sqlite` | PostgreSQL connection string (Neon Serverless) |
-| `R2_MEDIA_GATEWAY_URL` | Optional | — | Worker gateway URL for derivative thumbnail/preview delivery |
+| `APP_URL` | **Required** | `http://localhost:3000` | Canonical origin URL for CORS & metadata |
+| `ADMIN` | **Required** | — | Administrator username |
+| `PASSWORD` | **Required** | — | Administrator password |
+| `JWT_SECRET` | **Required** | — | Secret key used for signing authentication cookies |
+| `DATABASE_URL` | Optional | `data/naypict.sqlite` | Neon PostgreSQL connection string (or SQLite path) |
+| `R2_MEDIA_GATEWAY_URL` | Optional | — | Edge Worker endpoint for derivative media caching |
 | `UPSTASH_REDIS_REST_URL` | Optional | — | Redis REST URL for distributed rate limiting |
-| `UPSTASH_REDIS_REST_TOKEN` | Optional | — | Redis authorization token |
-| `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | Optional | — | Cloudflare Turnstile Site Key for CAPTCHA verification |
-| `TURNSTILE_SECRET_KEY` | Optional | — | Cloudflare Turnstile Secret Key for server verification |
+| `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | Optional | — | Turnstile Site Key for anti-bot protection |
+
+---
+
+## 🤝 Contributing & Community
+
+Contributions, issues, and feature suggestions are always welcome! Feel free to check the [issues page](https://github.com/YnaStpra/NayPict/issues) or submit a pull request.
+
+If you enjoy using NayPict, please consider giving it a ⭐ on GitHub — it helps the project grow!
 
 ---
 
