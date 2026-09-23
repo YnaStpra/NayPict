@@ -13,6 +13,8 @@ import { toast } from "sonner"
 import dynamic from "next/dynamic"
 
 import { PhotoInfoSidebar, PhotoViewerBlurBackground, formatAlbumList } from "@/components/photo/photo-info-sidebar"
+import { PhotoViewerAmbientGlow } from "@/components/photo/photo-ambient-glow"
+import { AnalogFilmStripCompact } from "@/components/photo/analog-film-strip"
 import { PhotoReactions } from "@/components/photo/photo-reactions"
 import { VideoPlayer } from "@/components/video/video-player"
 import { prebufferVideo } from "@/lib/video-prebuffer"
@@ -537,7 +539,7 @@ function InfoButton({
   )
 }
 
-// Render dynamic dominant-color ambient glow mode toggle button in toolbar (unused).
+// Render dynamic dominant-color ambient glow mode toggle button in toolbar.
 function AmbientGlowButton({
   showActions,
   active,
@@ -549,46 +551,33 @@ function AmbientGlowButton({
 }) {
   const tap = useTapAction(onToggle)
 
-  return null
-}
-
-// Render full-screen dynamic dominant-color ambient backlight glow.
-function PhotoViewerAmbientGlow({
-  thumbHash,
-  visible = true,
-  dragOpacity = 1,
-}: {
-  thumbHash?: string | null
-  visible?: boolean
-  dragOpacity?: number
-}) {
-  const thumbHashUrl = useMemo(() => getThumbHashUrl(thumbHash), [thumbHash])
-
-  if (!thumbHashUrl || !visible) return null
-
   return (
-    <div
-      className="fixed inset-0 z-[-5] pointer-events-none select-none flex items-center justify-center overflow-hidden transition-opacity duration-300"
-      style={{
-        opacity: dragOpacity,
-        willChange: "opacity, transform",
-        transform: "translateZ(0)",
-      }}
-    >
-      <img
-        src={thumbHashUrl}
-        alt=""
-        decoding="async"
-        className="w-[85vw] h-[85vh] max-w-[1400px] max-h-[1000px] rounded-full blur-[36px] md:blur-[140px] opacity-65 dark:opacity-75 scale-125 object-cover pointer-events-none transition-all duration-700 ease-out"
-        aria-hidden
-      />
-      <div
-        className="absolute inset-0 pointer-events-none"
-        style={{
-          background: "radial-gradient(circle at 50% 50%, transparent 25%, rgba(0,0,0,0.85) 85%)",
-        }}
-      />
-    </div>
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            type="button"
+            size="icon"
+            variant="secondary"
+            className={[
+              "rounded-full transition-all duration-300 cursor-pointer pointer-events-auto",
+              active
+                ? "bg-amber-500/25 text-amber-300 border border-amber-400/40 shadow-[0_0_14px_rgba(245,158,11,0.4)] hover:bg-amber-500/35 hover:text-amber-200"
+                : "bg-black/40 text-white/70 hover:text-white hover:bg-black/60",
+            ].join(" ")}
+            aria-label="Toggle Ambient Glow (G)"
+            {...tap}
+          >
+            <Sparkles className={cn("size-4 transition-transform duration-300", active && "scale-110 text-amber-300")} />
+            <span className="sr-only">Toggle Ambient Glow</span>
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom" className="flex items-center gap-1.5 font-sans">
+          <span>Ambient Lighting</span>
+          <kbd className="px-1 py-0.5 text-[10px] rounded bg-white/20 font-mono">G</kbd>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   )
 }
 
@@ -1267,8 +1256,27 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
   const [fullscreenOpen, setFullscreenOpen] = useState(false)
   // Whether cinematic presentation mode is currently active.
   const [isCinematicMode, setIsCinematicMode] = useState(false)
-  // Dynamic Cinema Ambient Glow mode state (default true).
+  // Dynamic Cinema Ambient Glow mode state (default true, synced with localStorage).
   const [ambientGlow, setAmbientGlow] = useState(true)
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("naypict_ambient_glow")
+      if (saved !== null) {
+        setAmbientGlow(saved === "true")
+      }
+    } catch {}
+  }, [])
+
+  const toggleAmbientGlow = useCallback(() => {
+    setAmbientGlow((prev) => {
+      const next = !prev
+      try {
+        localStorage.setItem("naypict_ambient_glow", String(next))
+      } catch {}
+      return next
+    })
+  }, [])
   // Double-tap Instagram-style heart burst state in lightbox viewer.
   const [showViewerHeartBurst, setShowViewerHeartBurst] = useState(false)
   const [viewerBurstCoords, setViewerBurstCoords] = useState<{ x: number; y: number } | null>(null)
@@ -1456,7 +1464,7 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
         toggleCinematicMode()
       } else if (event.key === "g" || event.key === "G") {
         event.preventDefault()
-        setAmbientGlow((prev) => !prev)
+        toggleAmbientGlow()
       } else if (event.key === "Escape") {
         if (infoOpen) {
           event.preventDefault()
@@ -1476,7 +1484,7 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
     return () => {
       window.removeEventListener("keydown", handleKeyDown, true)
     }
-  }, [open, isCinematicMode, toggleCinematicMode])
+  }, [open, isCinematicMode, toggleCinematicMode, toggleAmbientGlow])
 
   // Auto-hide UI controls after 2.5s idle when in Cinematic Mode.
   useEffect(() => {
@@ -2089,6 +2097,11 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
                       />
                     </>
                   )}
+                  <AmbientGlowButton
+                    showActions={actionsVisible}
+                    active={ambientGlow}
+                    onToggle={toggleAmbientGlow}
+                  />
                   <CinematicButton
                     showActions={actionsVisible}
                     isCinematicMode={isCinematicMode}
@@ -2099,6 +2112,23 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
                   <OriginalProgressButton progress={originalProgress} error={originalError} />
                 )}
                 <AlbumOverlayBadge isCinematicMode={isCinematicMode} />
+                {/* 35mm Analog Film Strip HUD Badge (Floating Bottom-Left) */}
+                {!isCurrentVideo && !infoOpen && (
+                  <div
+                    className={[
+                      "fixed left-3 bottom-24 sm:bottom-28 md:bottom-32 z-40 flex items-center transition-all duration-300 pointer-events-auto select-none",
+                      getActionVisibleClass(actionsVisible),
+                    ].join(" ")}
+                  >
+                    <AnalogFilmStripCompact
+                      exif={photos[viewIndex]?.exif}
+                      onClick={() => {
+                        setInfoTab("info")
+                        setInfoOpen(true)
+                      }}
+                    />
+                  </div>
+                )}
                 {!isCurrentVideo && (
                   <LightboxInteractionBar
                     photoId={photos[viewIndex]?.photoId}

@@ -237,6 +237,22 @@ body:has([data-slot="alert-dialog-content"]) .yarl__container,
   animation: neon-flicker 4s infinite linear;
 }
 
+@keyframes ambient-breathe {
+  0%, 100% {
+    transform: scale(1.48);
+    opacity: 0.70;
+  }
+  50% {
+    transform: scale(1.55);
+    opacity: 0.85;
+  }
+}
+
+.animate-ambient-breathe {
+  animation: ambient-breathe 7s ease-in-out infinite;
+  will-change: transform, opacity;
+}
+
 /* Photo Map Pin Marker Styles - strictly zoom and fill frame without letterbox or pillarbox */
 .photo-marker-icon {
   background: transparent !important;

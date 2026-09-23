@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils"
 import { formatPhotoTakenDateTime } from "@/lib/date"
 import { getThumbHashUrl } from "@/lib/thumb-hash"
 import { getPhotoDeviceParams, getPhotoShootingParams, getPhotoSoftware, getPhotoTimezone } from "@/lib/viewer-field"
+import { AnalogFilmStripCard } from "@/components/photo/analog-film-strip"
 import { type PhotoVo } from "@/server/entity/vo/photo"
 import { useLocale, useTranslations } from "next-intl"
 import { useApp } from "@/app/provider"
@@ -745,29 +746,20 @@ export function PhotoInfoSidebar({
                 </div>
               </div>
 
-              {!isVideo && shootingParams.length > 0 && (
-                <div>
-                  <div className="pb-2 text-xs font-semibold text-white/50 tracking-wider uppercase">
-                    {t("cameraSettings")}
+              {!isVideo && (shootingParams.length > 0 || deviceParams.length > 0) && (
+                <div className="space-y-2">
+                  <div className="pb-1 text-xs font-semibold text-white/50 tracking-wider uppercase flex items-center justify-between">
+                    <span>{t("cameraSettings")}</span>
+                    <span className="text-[10px] text-amber-400/80 font-mono font-normal">35mm Film Roll</span>
                   </div>
-                  <div className="space-y-2">
-                    {shootingParams.map((item) => (
-                      <PhotoInfoRow key={item.key} label={t(item.key)} value={item.value} />
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {deviceParams.length > 0 && (
-                <div>
-                  <div className="pb-2 text-xs font-semibold text-white/50 tracking-wider uppercase">
-                    {t("device")}
-                  </div>
-                  <div className="space-y-2">
-                    {deviceParams.map((item) => (
-                      <PhotoInfoRow key={item.key} label={t(item.key)} value={item.value} wrap={item.wrap} />
-                    ))}
-                  </div>
+                  <AnalogFilmStripCard exif={photo.exif} />
+                  {shootingParams.length === 0 && deviceParams.length > 0 && (
+                    <div className="space-y-2 mt-2">
+                      {deviceParams.map((item) => (
+                        <PhotoInfoRow key={item.key} label={t(item.key)} value={item.value} wrap={item.wrap} />
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
 

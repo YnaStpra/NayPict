@@ -802,6 +802,26 @@ export const PhotoCard = memo(function PhotoCard({
           ].join(" ")}
         />
       )}
+      {/* Dynamic Ambient Color Bloom on Hover */}
+      {placeholder && !selectionActive && (
+        <div
+          className={[
+            "pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-500 group-hover:opacity-100 z-[1] mix-blend-screen overflow-hidden",
+            showHover ? "opacity-100" : "",
+          ].join(" ")}
+          aria-hidden
+        >
+          <div
+            className="absolute inset-[-15%] blur-xl opacity-50 scale-110 pointer-events-none transition-transform duration-700 ease-out group-hover:scale-120"
+            style={{
+              backgroundImage: `url("${placeholder}")`,
+              backgroundSize: "cover",
+              backgroundPosition: "center",
+              filter: "saturate(2) contrast(1.15)",
+            }}
+          />
+        </div>
+      )}
       {/* Admin Pin/Unpin Action Button (In Album View) */}
       {isAdmin && onPhotoPin && !selectionActive && !selected && (
         <Button
