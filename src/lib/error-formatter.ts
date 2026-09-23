@@ -13,6 +13,7 @@ const ERROR_MESSAGE_MAP: Record<string, string> = {
   'storage.notFound': 'Storage provider is currently unavailable.',
   'storage.readOnly': 'The application is running in read-only mode.',
   'album.notFound': 'The requested album was not found.',
+  'album.photoNotInAlbum': 'Only photos belonging to this album can be selected as the cover.',
   'comment.empty': 'Please enter a comment before submitting.',
   'comment.nameRequired': 'Please enter your name to post a comment.',
   'network.connectionLost': 'Connection lost. Please check your internet connection.',

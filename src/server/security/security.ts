@@ -45,7 +45,7 @@ const SYSTEM_PATHS = [
   '/album/removePhoto',
   '/album/togglePinPhoto',
   '/album/setName',
-  '/album/setTop',
+  '/album/reorder',
   '/album/delete',
   '/album/trash',
   '/photo/comment/admin',

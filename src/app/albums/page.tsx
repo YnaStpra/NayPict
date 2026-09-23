@@ -18,9 +18,11 @@ import {
 } from "@/components/ui/sidebar"
 import dynamic from "next/dynamic"
 import { useEffect, useState } from "react"
+import { ArrowUpDown } from "lucide-react"
 import { useAlbumContext } from "@/app/albums/provider"
 import { useApp } from "@/app/provider"
-import { albumAdd, albumArchive, albumDelete, albumList, albumSetName, albumSetTop } from "@/request/album"
+import { Button } from "@/components/ui/button"
+import { albumAdd, albumArchive, albumDelete, albumList, albumReorder, albumSetName } from "@/request/album"
 import { type AlbumVo } from "@/server/entity/vo/album"
 import { useTranslations } from "next-intl"
 import { toast } from "sonner"
@@ -38,6 +40,11 @@ const AlbumCoverDialog = dynamic(
   { ssr: false },
 )
 
+const AlbumReorderGrid = dynamic(
+  () => import("@/components/album/album-reorder-grid").then((mod) => mod.AlbumReorderGrid),
+  { ssr: false },
+)
+
 export default function Page() {
   const t = useTranslations("albums")
   const { initialAlbums } = useAlbumContext()
@@ -51,6 +58,7 @@ export default function Page() {
   const [deletingAlbum, setDeletingAlbum] = useState<AlbumVo | null>(null)
   const [coverDialogOpen, setCoverDialogOpen] = useState(false)
   const [coverAlbum, setCoverAlbum] = useState<AlbumVo | null>(null)
+  const [isReordering, setIsReordering] = useState(false)
 
   useEffect(() => {
     const previousScrollRestoration = window.history.scrollRestoration
@@ -108,13 +116,21 @@ export default function Page() {
     setRenameOpen(true)
   }
 
-  function topAlbum(album: AlbumVo) {
-    albumSetTop({
-      albumId: album.albumId,
-    }).then(() => {
+  async function handleSaveReorder(orderedAlbums: AlbumVo[]) {
+    try {
+      await albumReorder({
+        albumIds: orderedAlbums.map((a) => a.albumId),
+      })
+      setAlbums(orderedAlbums)
+      setAlbumListKey((prev) => prev + 1)
+      setIsReordering(false)
+      toast.success(t("orderSaved") || "Album order saved successfully!")
       emitCatalogSync("album")
-      void refreshAlbumData()
-    })
+      void refreshAlbums()
+    } catch (err: unknown) {
+      console.error("Failed to save album order:", err)
+      toast.error((err as Error)?.message || t("orderSaveFailed") || "Failed to save album order.")
+    }
   }
 
   function openDeleteAlbum(album: AlbumVo) {
@@ -239,22 +255,41 @@ export default function Page() {
                 </BreadcrumbList>
               </Breadcrumb>
             </div>
-            {isAdmin && (
+            {isAdmin && !isReordering && (
               <div className="flex items-center gap-2 px-4 z-30">
+                {albums.length > 1 && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsReordering(true)}
+                    className="gap-1.5 cursor-pointer text-xs h-9"
+                  >
+                    <ArrowUpDown className="size-3.5" />
+                    <span>{t("reorder") || "Reorder"}</span>
+                  </Button>
+                )}
                 <AlbumAddDialog title={t("addTitle")} onNameConfirm={addAlbum} />
               </div>
             )}
           </header>
           <div className="px-2 md:pl-3 md:pr-2">
-            <AlbumMasonry
-              albums={albums}
-              resetKey={albumListKey}
-              onAlbumRename={isAdmin ? renameAlbum : undefined}
-              onAlbumTop={isAdmin ? topAlbum : undefined}
-              onAlbumDelete={isAdmin ? openDeleteAlbum : undefined}
-              onAlbumChangeCover={isAdmin ? openChangeCover : undefined}
-              onAlbumArchive={isAdmin ? archiveAlbum : undefined}
-            />
+            {isReordering ? (
+              <AlbumReorderGrid
+                albums={albums}
+                onSave={handleSaveReorder}
+                onCancel={() => setIsReordering(false)}
+              />
+            ) : (
+              <AlbumMasonry
+                albums={albums}
+                resetKey={albumListKey}
+                onAlbumRename={isAdmin ? renameAlbum : undefined}
+                onAlbumDelete={isAdmin ? openDeleteAlbum : undefined}
+                onAlbumChangeCover={isAdmin ? openChangeCover : undefined}
+                onAlbumArchive={isAdmin ? archiveAlbum : undefined}
+              />
+            )}
           </div>
         </SidebarInset>
       </SidebarProvider>

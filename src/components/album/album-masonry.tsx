@@ -22,7 +22,6 @@ interface AlbumMasonryProps {
   emptyTitle?: string
   emptyDescription?: string
   onAlbumRename?: (album: AlbumVo) => void
-  onAlbumTop?: (album: AlbumVo) => void
   onAlbumDelete?: (album: AlbumVo) => void
   onAlbumChangeCover?: (album: AlbumVo) => void
   onAlbumArchive?: (album: AlbumVo) => void
@@ -32,7 +31,6 @@ interface AlbumMasonryProps {
 interface AlbumMasonryContextValue {
   isArchived?: boolean
   onAlbumRename?: (album: AlbumVo) => void
-  onAlbumTop?: (album: AlbumVo) => void
   onAlbumDelete?: (album: AlbumVo) => void
   onAlbumChangeCover?: (album: AlbumVo) => void
   onAlbumArchive?: (album: AlbumVo) => void
@@ -55,7 +53,6 @@ const MasonicAlbumCard = memo(function MasonicAlbumCard({
       width={width}
       isArchived={ctx?.isArchived}
       onRename={ctx?.onAlbumRename}
-      onTop={ctx?.onAlbumTop}
       onDelete={ctx?.onAlbumDelete}
       onChangeCover={ctx?.onAlbumChangeCover}
       onArchive={ctx?.onAlbumArchive}
@@ -120,7 +117,6 @@ export function AlbumMasonry({
   emptyTitle,
   emptyDescription,
   onAlbumRename,
-  onAlbumTop,
   onAlbumDelete,
   onAlbumChangeCover,
   onAlbumArchive,
@@ -243,13 +239,12 @@ export function AlbumMasonry({
     () => ({
       isArchived,
       onAlbumRename,
-      onAlbumTop,
       onAlbumDelete,
-      onChangeCover: onAlbumChangeCover,
+      onAlbumChangeCover,
       onAlbumArchive,
       onAlbumUnarchive,
     }),
-    [isArchived, onAlbumRename, onAlbumTop, onAlbumDelete, onAlbumChangeCover, onAlbumArchive, onAlbumUnarchive]
+    [isArchived, onAlbumRename, onAlbumDelete, onAlbumChangeCover, onAlbumArchive, onAlbumUnarchive]
   )
 
   return (
