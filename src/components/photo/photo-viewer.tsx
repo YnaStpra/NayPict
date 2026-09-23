@@ -1034,21 +1034,21 @@ function PhotoSlideImage({
 
       {/* Floating Glassmorphic Progress Badge (Active while HD streaming) */}
       {!loaded && !isOnline && (
-        <div className="pointer-events-none absolute bottom-14 sm:bottom-20 z-30 flex items-center gap-2 rounded-2xl bg-rose-950/85 px-4 py-2 text-xs font-medium text-rose-200 shadow-2xl backdrop-blur-xl border border-rose-500/30 animate-in fade-in zoom-in-95 duration-200">
+        <div className="pointer-events-none absolute bottom-36 sm:bottom-40 md:bottom-44 z-30 flex items-center gap-2 rounded-2xl bg-rose-950/85 px-4 py-2 text-xs font-medium text-rose-200 shadow-2xl backdrop-blur-xl border border-rose-500/30 animate-in fade-in zoom-in-95 duration-200">
           <WifiOff className="size-4 text-rose-400 shrink-0" />
           <span className="font-semibold text-[11px] sm:text-xs">Connection Lost — Waiting for network...</span>
         </div>
       )}
 
       {!loaded && isOnline && isSlowLoading && (
-        <div className="pointer-events-none absolute bottom-14 sm:bottom-20 z-30 flex items-center gap-2 rounded-2xl bg-amber-950/85 px-4 py-2 text-xs font-medium text-amber-200 shadow-2xl backdrop-blur-xl border border-amber-500/30 animate-in fade-in zoom-in-95 duration-200">
+        <div className="pointer-events-none absolute bottom-36 sm:bottom-40 md:bottom-44 z-30 flex items-center gap-2 rounded-2xl bg-amber-950/85 px-4 py-2 text-xs font-medium text-amber-200 shadow-2xl backdrop-blur-xl border border-amber-500/30 animate-in fade-in zoom-in-95 duration-200">
           <Wifi className="size-4 text-amber-400 shrink-0 animate-pulse" />
           <span className="font-semibold text-[11px] sm:text-xs">Slow connection detected — Loading HD photo...</span>
         </div>
       )}
 
       {!loaded && isOnline && !isSlowLoading && (
-        <div className="pointer-events-none absolute bottom-14 sm:bottom-20 z-30 flex flex-col items-center gap-1.5 rounded-2xl bg-black/80 px-4 py-2 text-xs font-medium text-white shadow-2xl backdrop-blur-xl border border-white/20 animate-in fade-in zoom-in-95 duration-200">
+        <div className="pointer-events-none absolute bottom-36 sm:bottom-40 md:bottom-44 z-30 flex flex-col items-center gap-1.5 rounded-2xl bg-black/80 px-4 py-2 text-xs font-medium text-white shadow-2xl backdrop-blur-xl border border-white/20 animate-in fade-in zoom-in-95 duration-200">
           <div className="flex items-center gap-2">
             <LoaderCircleIcon className="size-3.5 animate-spin text-emerald-400 shrink-0" />
             <span className="font-semibold tracking-wide text-[11px] sm:text-xs text-white/90">
@@ -1063,7 +1063,7 @@ function PhotoSlideImage({
 
       {/* Floating HD Ready Success Badge */}
       {loaded && showHdBadge && (
-        <div className="pointer-events-none absolute bottom-14 sm:bottom-20 z-30 flex items-center gap-1.5 rounded-full bg-emerald-950/85 px-3.5 py-1 text-xs font-medium text-emerald-300 shadow-xl backdrop-blur-xl border border-emerald-500/30 animate-in fade-in zoom-in-95 duration-200">
+        <div className="pointer-events-none absolute bottom-36 sm:bottom-40 md:bottom-44 z-30 flex items-center gap-1.5 rounded-full bg-emerald-950/85 px-3.5 py-1 text-xs font-medium text-emerald-300 shadow-xl backdrop-blur-xl border border-emerald-500/30 animate-in fade-in zoom-in-95 duration-200">
           <Sparkles className="size-3 text-emerald-400 shrink-0" />
           <span className="font-semibold text-[11px] sm:text-xs">HD Quality Ready</span>
         </div>
@@ -2075,7 +2075,7 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
                 {showGestureHint && !infoOpen && !isCinematicMode && (
                   <div
                     className={cn(
-                      "fixed bottom-16 sm:bottom-20 inset-x-0 z-50 flex justify-center px-4 pointer-events-none select-none md:hidden transition-all duration-500 ease-out",
+                      "fixed bottom-36 sm:bottom-40 inset-x-0 z-50 flex justify-center px-4 pointer-events-none select-none md:hidden transition-all duration-500 ease-out",
                       hintFading
                         ? "opacity-0 translate-y-2 scale-95"
                         : "opacity-100 translate-y-0 scale-100 animate-in fade-in zoom-in-95 duration-300"
