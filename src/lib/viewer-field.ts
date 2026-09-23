@@ -98,7 +98,7 @@ function formatFocalLength(value: unknown) {
  */
 export function formatCameraDeviceName(make?: unknown, model?: unknown): string {
   let cleanMake = make != null ? String(make).trim() : ""
-  let cleanModel = model != null ? String(model).trim() : ""
+  const cleanModel = model != null ? String(model).trim() : ""
 
   // Clean vendor corporate suffixes like "NIKON CORPORATION" -> "Nikon"
   cleanMake = cleanMake
@@ -260,4 +260,76 @@ export function formatPhotoLocation(
   }
 
   return text
+}
+
+export interface PhotoAnalogExif {
+  hasExif: boolean
+  hasShootingParams: boolean
+  hasDeviceParams: boolean
+  camera: string | null
+  cameraMake: string | null
+  cameraModel: string | null
+  lens: string | null
+  shutter: string | null
+  aperture: string | null
+  focalLength: string | null
+  iso: string | null
+  exposureBias: string | null
+}
+
+// Extract comprehensive EXIF parameters tailored for analog film strip display
+export function getPhotoAnalogExif(exif: string | null | undefined): PhotoAnalogExif {
+  const data = parsePhotoExifJson(exif)
+  if (!data) {
+    return {
+      hasExif: false,
+      hasShootingParams: false,
+      hasDeviceParams: false,
+      camera: null,
+      cameraMake: null,
+      cameraModel: null,
+      lens: null,
+      shutter: null,
+      aperture: null,
+      focalLength: null,
+      iso: null,
+      exposureBias: null,
+    }
+  }
+
+  const camera = formatCameraDeviceName(data.Make, data.Model) || null
+  const cameraMake = data.Make ? String(data.Make).trim() : null
+  const cameraModel = data.Model ? String(data.Model).trim() : null
+  const lens = formatLensDeviceName(data.LensMake, data.LensModel) || null
+  const shutter = formatExposureTime(data.ExposureTime)
+  const aperture = formatFNumber(data.FNumber)
+  const focalLength = formatFocalLength(data.FocalLength)
+  const iso = exifText(data.ISO)
+
+  let exposureBias: string | null = null
+  const rawBias = data.ExposureBiasValue ?? data.ExposureCompensation
+  if (rawBias !== undefined && rawBias !== null && rawBias !== "") {
+    const numBias = Number(rawBias)
+    if (!Number.isNaN(numBias)) {
+      exposureBias = numBias === 0 ? "0 EV" : `${numBias > 0 ? "+" : ""}${numBias.toFixed(1)} EV`
+    }
+  }
+
+  const hasShootingParams = Boolean(shutter || aperture || focalLength || iso)
+  const hasDeviceParams = Boolean(camera || lens)
+
+  return {
+    hasExif: hasShootingParams || hasDeviceParams,
+    hasShootingParams,
+    hasDeviceParams,
+    camera,
+    cameraMake,
+    cameraModel,
+    lens,
+    shutter,
+    aperture,
+    focalLength,
+    iso,
+    exposureBias,
+  }
 }

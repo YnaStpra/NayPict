@@ -868,6 +868,7 @@ export function PhotoUploadDialog() {
           longitude: clientExif.longitude,
           altitude: clientExif.altitude,
           takenTime: clientExif.takenTime,
+          exifJson: clientExif.exif || undefined,
           posterBase64: meta.posterBase64,
         })
 

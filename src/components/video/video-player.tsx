@@ -19,6 +19,7 @@ import { cn } from "@/lib/utils"
 import { formatVideoDuration } from "@/lib/video-compress"
 import { toProxyMediaUrl } from "@/lib/url"
 import { PhotoReactions } from "@/components/photo/photo-reactions"
+import { AnalogFilmStripCompact } from "@/components/photo/analog-film-strip"
 import { getIsOffline, notifyConnectionRestored } from "@/lib/network-status"
 
 // Module-level map to store the exact playback timestamp per media item across view toggles and re-renders
@@ -32,6 +33,7 @@ export interface VideoPlayerProps {
   isActive?: boolean
   className?: string
   photoId?: string
+  exif?: string | null
   isCinematicMode?: boolean
   onScrubbingChange?: (isScrubbing: boolean) => void
   onOpenComments?: () => void
@@ -50,6 +52,7 @@ export const VideoPlayer = memo(function VideoPlayer({
   isActive = true,
   className,
   photoId,
+  exif,
   isCinematicMode = false,
   onScrubbingChange,
   onOpenComments,
@@ -1141,7 +1144,7 @@ export const VideoPlayer = memo(function VideoPlayer({
         {photoId && !isCinematicMode && !isFullscreen && (
           <div
             className={cn(
-              "flex items-center mb-2.5 sm:mb-3 pointer-events-auto max-w-full overflow-x-auto no-scrollbar touch-none transition-opacity duration-200",
+              "flex items-center justify-between mb-2.5 sm:mb-3 pointer-events-auto w-full transition-opacity duration-200",
               isScrubbing ? "opacity-0 pointer-events-none" : "opacity-100"
             )}
             onClick={(e) => {
@@ -1158,7 +1161,7 @@ export const VideoPlayer = memo(function VideoPlayer({
                 <PhotoReactions photoId={photoId} compact />
               </div>
 
-              {(onOpenComments || onOpenInfo) && (
+              {(onOpenComments || (onOpenInfo && !exif)) && (
                 <div className="h-4 w-px bg-white/20 my-auto shrink-0" />
               )}
 
@@ -1180,7 +1183,7 @@ export const VideoPlayer = memo(function VideoPlayer({
               )}
 
               {/* Info Trigger Button */}
-              {onOpenInfo && (
+              {onOpenInfo && !exif && (
                 <button
                   type="button"
                   onClick={(e) => {
@@ -1196,6 +1199,16 @@ export const VideoPlayer = memo(function VideoPlayer({
                 </button>
               )}
             </div>
+
+            {/* Right: Camera Film Strip HUD Badge (matching height of reaction panel on left) */}
+            {exif && onOpenInfo && (
+              <div className="flex items-center shrink-0 ml-auto pl-2">
+                <AnalogFilmStripCompact
+                  exif={exif}
+                  onClick={onOpenInfo}
+                />
+              </div>
+            )}
           </div>
         )}
 

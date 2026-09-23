@@ -13,6 +13,8 @@ import { toast } from "sonner"
 import dynamic from "next/dynamic"
 
 import { PhotoInfoSidebar, PhotoViewerBlurBackground, formatAlbumList } from "@/components/photo/photo-info-sidebar"
+import { PhotoViewerAmbientGlow } from "@/components/photo/photo-ambient-glow"
+import { AnalogFilmStripCompact } from "@/components/photo/analog-film-strip"
 import { PhotoReactions } from "@/components/photo/photo-reactions"
 import { VideoPlayer } from "@/components/video/video-player"
 import { prebufferVideo } from "@/lib/video-prebuffer"
@@ -91,6 +93,8 @@ type PhotoSlide = SlideImage & {
   albums?: { albumId: string; name: string }[]
   // MIME type (image/jpeg, video/mp4, etc.)
   mediaType?: string
+  // EXIF metadata JSON string.
+  exif?: string | null
 }
 
 type FullscreenButtonProps = {
@@ -537,60 +541,6 @@ function InfoButton({
   )
 }
 
-// Render dynamic dominant-color ambient glow mode toggle button in toolbar (unused).
-function AmbientGlowButton({
-  showActions,
-  active,
-  onToggle,
-}: {
-  showActions: boolean
-  active: boolean
-  onToggle: () => void
-}) {
-  const tap = useTapAction(onToggle)
-
-  return null
-}
-
-// Render full-screen dynamic dominant-color ambient backlight glow.
-function PhotoViewerAmbientGlow({
-  thumbHash,
-  visible = true,
-  dragOpacity = 1,
-}: {
-  thumbHash?: string | null
-  visible?: boolean
-  dragOpacity?: number
-}) {
-  const thumbHashUrl = useMemo(() => getThumbHashUrl(thumbHash), [thumbHash])
-
-  if (!thumbHashUrl || !visible) return null
-
-  return (
-    <div
-      className="fixed inset-0 z-[-5] pointer-events-none select-none flex items-center justify-center overflow-hidden transition-opacity duration-300"
-      style={{
-        opacity: dragOpacity,
-        willChange: "opacity, transform",
-        transform: "translateZ(0)",
-      }}
-    >
-      <img
-        src={thumbHashUrl}
-        alt=""
-        decoding="async"
-        className="w-[85vw] h-[85vh] max-w-[1400px] max-h-[1000px] rounded-full blur-[36px] md:blur-[140px] opacity-65 dark:opacity-75 scale-125 object-cover pointer-events-none transition-all duration-700 ease-out"
-        aria-hidden
-      />
-      <div
-        className="absolute inset-0 pointer-events-none"
-        style={{
-          background: "radial-gradient(circle at 50% 50%, transparent 25%, rgba(0,0,0,0.85) 85%)",
-        }}
-      />
-    </div>
-  )
-}
 
 // Render spin button.
 function RotateButton({ showActions, onRotate }: { showActions: boolean, onRotate: (photoId: string) => void }) {
@@ -1267,8 +1217,6 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
   const [fullscreenOpen, setFullscreenOpen] = useState(false)
   // Whether cinematic presentation mode is currently active.
   const [isCinematicMode, setIsCinematicMode] = useState(false)
-  // Dynamic Cinema Ambient Glow mode state (default true).
-  const [ambientGlow, setAmbientGlow] = useState(true)
   // Double-tap Instagram-style heart burst state in lightbox viewer.
   const [showViewerHeartBurst, setShowViewerHeartBurst] = useState(false)
   const [viewerBurstCoords, setViewerBurstCoords] = useState<{ x: number; y: number } | null>(null)
@@ -1454,9 +1402,6 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
       if (event.key === "f" || event.key === "F") {
         event.preventDefault()
         toggleCinematicMode()
-      } else if (event.key === "g" || event.key === "G") {
-        event.preventDefault()
-        setAmbientGlow((prev) => !prev)
       } else if (event.key === "Escape") {
         if (infoOpen) {
           event.preventDefault()
@@ -1535,6 +1480,7 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
         height: photo.height ?? undefined,
         alt: photo.name,
         mediaType: photo.type,
+        exif: photo.exif,
       }
     })
   ), [photos])
@@ -2017,7 +1963,7 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
                 {/* Dynamic Cinema Ambient Glow (Apple Music / YouTube Ambient Mode) */}
                 <PhotoViewerAmbientGlow
                   thumbHash={photos[viewIndex]?.thumbHash}
-                  visible={ambientGlow && !fullscreenOpen}
+                  visible={!fullscreenOpen}
                   dragOpacity={dragBackdropOpacity}
                 />
                 {/* Mobile Instagram-Style Double-Tap Heart Burst Overlay */}
@@ -2099,6 +2045,23 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
                   <OriginalProgressButton progress={originalProgress} error={originalError} />
                 )}
                 <AlbumOverlayBadge isCinematicMode={isCinematicMode} />
+                {/* 35mm Analog Film Strip HUD Badge (Floating Bottom-Right for static photos) */}
+                {!isCurrentVideo && !infoOpen && (
+                  <div
+                    className={[
+                      "fixed right-3 bottom-14 sm:bottom-16 md:bottom-28 z-40 flex items-center transition-all duration-300 pointer-events-auto select-none",
+                      getActionVisibleClass(actionsVisible),
+                    ].join(" ")}
+                  >
+                    <AnalogFilmStripCompact
+                      exif={photos[viewIndex]?.exif}
+                      onClick={() => {
+                        setInfoTab("info")
+                        setInfoOpen(true)
+                      }}
+                    />
+                  </div>
+                )}
                 {!isCurrentVideo && (
                   <LightboxInteractionBar
                     photoId={photos[viewIndex]?.photoId}
@@ -2194,6 +2157,7 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
                     isActive={isCurrentSlide}
                     autoPlay={isCurrentSlide}
                     photoId={photoSlide.photoId}
+                    exif={photoSlide.exif}
                     isCinematicMode={isCinematicMode}
                     controlsVisible={isCurrentSlide ? actionsVisible : false}
                     onControlsVisibleChange={isCurrentSlide ? setShowActions : undefined}
