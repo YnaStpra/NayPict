@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars */
-import { and, count, desc, eq, inArray, isNull, max, or, sql } from 'drizzle-orm';
+import { and, asc, count, desc, eq, inArray, isNull, max, or, sql } from 'drizzle-orm';
 import { createId } from '@/server/lib/id';
 import { type Album, albumTab } from '@/server/entity/album';
 import { albumPhotoTab } from '@/server/entity/album-photo';
@@ -11,10 +11,10 @@ import {
   type AlbumAddPhotoBo,
   type AlbumArchiveBo,
   type AlbumDeleteBo,
+  type AlbumReorderBo,
   type AlbumRemovePhotoBo,
   type AlbumSetCoverBo,
   type AlbumSetNameBo,
-  type AlbumSetTopBo,
   type AlbumTogglePinPhotoBo,
 } from '@/server/entity/bo/album';
 import { PhotoStatusEnum, PhotoVisibilityEnum } from '@/server/enums/photo-enum';
@@ -107,7 +107,7 @@ const albumService = {
       .select()
       .from(albumTab)
       .where(and(...albumConditions))
-      .orderBy(desc(albumTab.sort));
+      .orderBy(asc(albumTab.sort), desc(albumTab.createTime));
 
     if (!albumList.length) {
       return [];
@@ -336,10 +336,13 @@ const albumService = {
 
     if (params.photoId !== undefined) {
       if (params.photoId) {
+        // Strictly verify that the selected photo belongs to THIS specific album
         const [validPhoto] = await orm
           .select({ photoId: photoTab.photoId })
-          .from(photoTab)
+          .from(albumPhotoTab)
+          .innerJoin(photoTab, eq(albumPhotoTab.photoId, photoTab.photoId))
           .where(and(
+            eq(albumPhotoTab.albumId, params.albumId),
             eq(photoTab.photoId, params.photoId),
             eq(photoTab.userId, userId),
             eq(photoTab.status, PhotoStatusEnum.NORMAL)
@@ -347,7 +350,7 @@ const albumService = {
           .limit(1);
 
         if (!validPhoto) {
-          throw new BizError('photo.notFound');
+          throw new BizError('album.photoNotInAlbum');
         }
       }
 
@@ -363,6 +366,7 @@ const albumService = {
           eq(albumTab.userId, userId)
         ));
 
+      invalidateAlbumFastPathCache();
       void syncService.bump('album');
     }
   },
@@ -580,18 +584,28 @@ const albumService = {
     void syncService.bump('album');
   },
 
-  // Pin album to top.
-  async setTop(params: AlbumSetTopBo, userId: string): Promise<void> {
-    await orm.update(albumTab)
-      .set({
-        sort: Date.now(),
-        updateTime: new Date().toISOString()
-      })
-      .where(and(
-        eq(albumTab.albumId, params.albumId),
-        eq(albumTab.userId, userId)
-      ));
+  // Reorder albums according to admin's custom grid arrangement.
+  async reorder(params: AlbumReorderBo, userId: string): Promise<void> {
+    if (!Array.isArray(params.albumIds) || params.albumIds.length === 0) {
+      throw new BizError('album.selectRequired');
+    }
 
+    const now = new Date().toISOString();
+    await Promise.all(
+      params.albumIds.map((albumId, index) =>
+        orm.update(albumTab)
+          .set({
+            sort: index,
+            updateTime: now,
+          })
+          .where(and(
+            eq(albumTab.albumId, albumId),
+            eq(albumTab.userId, userId)
+          ))
+      )
+    );
+
+    invalidateAlbumFastPathCache();
     void syncService.bump('album');
   },
 

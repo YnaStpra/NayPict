@@ -6,9 +6,9 @@ import {
   type AlbumArchiveBo,
   type AlbumDeleteBo,
   type AlbumRemovePhotoBo,
+  type AlbumReorderBo,
   type AlbumSetCoverBo,
   type AlbumSetNameBo,
-  type AlbumSetTopBo,
   type AlbumTogglePinPhotoBo,
 } from "@/server/entity/bo/album";
 import { type AlbumVo } from "@/server/entity/vo/album";
@@ -130,8 +130,8 @@ export function albumSetName(params: AlbumSetNameBo) {
   return http.post<void>('/album/setName', params);
 }
 
-// Pin photo album.
-export function albumSetTop(params: AlbumSetTopBo) {
+// Reorder photo albums.
+export function albumReorder(params: AlbumReorderBo) {
   invalidateAlbumCache();
-  return http.post<void>('/album/setTop', params);
+  return http.post<void>('/album/reorder', params);
 }

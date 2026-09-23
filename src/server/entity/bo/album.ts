@@ -29,8 +29,8 @@ interface AlbumSetCoverBo {
   autoSelect?: boolean;
 }
 
-interface AlbumSetTopBo {
-  albumId: string;
+interface AlbumReorderBo {
+  albumIds: string[];
 }
 
 interface AlbumTogglePinPhotoBo {
@@ -47,10 +47,10 @@ export type {
   AlbumAddPhotoBo,
   AlbumArchiveBo,
   AlbumDeleteBo,
+  AlbumReorderBo,
   AlbumRemovePhotoBo,
   AlbumSetCoverBo,
   AlbumSetNameBo,
-  AlbumSetTopBo,
   AlbumTogglePinPhotoBo,
 };
 

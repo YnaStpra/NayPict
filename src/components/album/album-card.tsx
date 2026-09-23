@@ -17,7 +17,6 @@ type AlbumCardProps = Partial<RenderComponentProps<AlbumVo>> & {
   href?: string
   isArchived?: boolean
   onRename?: (album: AlbumVo) => void
-  onTop?: (album: AlbumVo) => void
   onDelete?: (album: AlbumVo) => void
   onChangeCover?: (album: AlbumVo) => void
   onArchive?: (album: AlbumVo) => void
@@ -31,7 +30,6 @@ export const AlbumCard = memo(function AlbumCard({
   href,
   isArchived,
   onRename,
-  onTop,
   onDelete,
   onChangeCover,
   onArchive,
@@ -85,11 +83,6 @@ export const AlbumCard = memo(function AlbumCard({
   // Hand over the renaming operation and current album to the upper page.
   function renameAlbum() {
     onRename?.(data)
-  }
-
-  // Hand over the pin operation and current album to the upper page.
-  function topAlbum() {
-    onTop?.(data)
   }
 
   // Hand over the deletion operation and current album to the upper page.
@@ -193,13 +186,12 @@ export const AlbumCard = memo(function AlbumCard({
           </div>
         </div>
       </Link>
-      {(onRename || onTop || onDelete || onArchive || onUnarchive) && (
+      {(onRename || onChangeCover || onDelete || onArchive || onUnarchive) && (
         <div className="absolute top-[4px] right-[4px] z-10">
           <AlbumActionMenu
             shadow={Boolean(thumbnailSrc)}
             isArchived={isArchived ?? data.isArchived === 1}
             onRename={onRename ? renameAlbum : undefined}
-            onTop={onTop ? topAlbum : undefined}
             onDelete={onDelete ? deleteAlbum : undefined}
             onChangeCover={onChangeCover ? changeCoverAlbum : undefined}
             onArchive={onArchive ? archiveAlbum : undefined}

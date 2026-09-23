@@ -1,7 +1,14 @@
 "use client"
 
 import { useState } from "react"
-import { MoreHorizontalIcon } from "lucide-react"
+import {
+  ArchiveIcon,
+  ArchiveRestoreIcon,
+  Edit3Icon,
+  ImageIcon,
+  MoreHorizontalIcon,
+  Trash2Icon,
+} from "lucide-react"
 import { useTranslations } from "next-intl"
 
 import { Button } from "@/components/ui/button"
@@ -17,7 +24,6 @@ interface AlbumActionMenuProps {
   shadow?: boolean
   isArchived?: boolean
   onRename?: () => void
-  onTop?: () => void
   onDelete?: () => void
   onChangeCover?: () => void
   onArchive?: () => void
@@ -29,7 +35,6 @@ export function AlbumActionMenu({
   shadow = true,
   isArchived = false,
   onRename,
-  onTop,
   onDelete,
   onChangeCover,
   onArchive,
@@ -57,38 +62,38 @@ export function AlbumActionMenu({
           />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-36 min-w-36">
+      <DropdownMenuContent align="end" className="w-40 min-w-40">
         {onChangeCover && !isArchived && (
-          <DropdownMenuItem onSelect={onChangeCover}>
-            Change Cover
+          <DropdownMenuItem onSelect={onChangeCover} className="gap-2 cursor-pointer">
+            <ImageIcon className="size-4 text-muted-foreground" />
+            <span>{t("actions.changeCover") || "Change Cover"}</span>
           </DropdownMenuItem>
         )}
         {onRename && (
-          <DropdownMenuItem onSelect={onRename}>
-            {t("actions.rename")}
-          </DropdownMenuItem>
-        )}
-        {onTop && !isArchived && (
-          <DropdownMenuItem onSelect={onTop}>
-            {t("actions.pin")}
+          <DropdownMenuItem onSelect={onRename} className="gap-2 cursor-pointer">
+            <Edit3Icon className="size-4 text-muted-foreground" />
+            <span>{t("actions.rename")}</span>
           </DropdownMenuItem>
         )}
         {isArchived ? (
           onUnarchive && (
-            <DropdownMenuItem onSelect={onUnarchive}>
-              Unarchive
+            <DropdownMenuItem onSelect={onUnarchive} className="gap-2 cursor-pointer">
+              <ArchiveRestoreIcon className="size-4 text-muted-foreground" />
+              <span>{t("actions.unarchive") || "Unarchive"}</span>
             </DropdownMenuItem>
           )
         ) : (
           onArchive && (
-            <DropdownMenuItem onSelect={onArchive}>
-              Archive
+            <DropdownMenuItem onSelect={onArchive} className="gap-2 cursor-pointer">
+              <ArchiveIcon className="size-4 text-muted-foreground" />
+              <span>{t("actions.archive") || "Archive"}</span>
             </DropdownMenuItem>
           )
         )}
         {onDelete && (
-          <DropdownMenuItem onSelect={onDelete} className="text-destructive focus:text-destructive">
-            {t("actions.delete")}
+          <DropdownMenuItem onSelect={onDelete} className="gap-2 text-destructive focus:text-destructive cursor-pointer">
+            <Trash2Icon className="size-4" />
+            <span>{t("actions.delete")}</span>
           </DropdownMenuItem>
         )}
       </DropdownMenuContent>

@@ -8,9 +8,9 @@ import {
   type AlbumArchiveBo,
   type AlbumDeleteBo,
   type AlbumRemovePhotoBo,
+  type AlbumReorderBo,
   type AlbumSetCoverBo,
   type AlbumSetNameBo,
-  type AlbumSetTopBo,
   type AlbumTogglePinPhotoBo,
 } from '@/server/entity/bo/album';
 import type { HonoEnv } from '../hono/type';
@@ -103,10 +103,10 @@ export function registerAlbumApi(app: Hono<HonoEnv>) {
     return c.json(result.ok());
   });
 
-  // Pin album to top.
-  app.post('/album/setTop', async (c: Context) => {
-    const body = await c.req.json<AlbumSetTopBo>();
-    await albumService.setTop(body, getUserId());
+  // Reorder albums according to admin's custom grid arrangement.
+  app.post('/album/reorder', async (c: Context) => {
+    const body = await c.req.json<AlbumReorderBo>();
+    await albumService.reorder(body, getUserId());
     return c.json(result.ok());
   });
 
