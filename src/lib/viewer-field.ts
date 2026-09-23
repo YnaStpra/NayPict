@@ -98,7 +98,7 @@ function formatFocalLength(value: unknown) {
  */
 export function formatCameraDeviceName(make?: unknown, model?: unknown): string {
   let cleanMake = make != null ? String(make).trim() : ""
-  let cleanModel = model != null ? String(model).trim() : ""
+  const cleanModel = model != null ? String(model).trim() : ""
 
   // Clean vendor corporate suffixes like "NIKON CORPORATION" -> "Nikon"
   cleanMake = cleanMake

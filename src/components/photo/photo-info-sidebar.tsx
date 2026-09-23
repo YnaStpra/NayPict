@@ -746,11 +746,10 @@ export function PhotoInfoSidebar({
                 </div>
               </div>
 
-              {!isVideo && (shootingParams.length > 0 || deviceParams.length > 0) && (
+              {(shootingParams.length > 0 || deviceParams.length > 0) && (
                 <div className="space-y-2">
-                  <div className="pb-1 text-xs font-semibold text-white/50 tracking-wider uppercase flex items-center justify-between">
-                    <span>{t("cameraSettings")}</span>
-                    <span className="text-[10px] text-amber-400/80 font-mono font-normal">35mm Film Roll</span>
+                  <div className="pb-1 text-xs font-semibold text-white/50 tracking-wider uppercase">
+                    {t("cameraSettings")}
                   </div>
                   <AnalogFilmStripCard exif={photo.exif} />
                   {shootingParams.length === 0 && deviceParams.length > 0 && (

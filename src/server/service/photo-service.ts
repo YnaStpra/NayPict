@@ -1382,16 +1382,23 @@ const photoService = {
 
     const files = await fileService.save(fileRecords);
 
-    // Build rich video EXIF metadata JSON
-    let finalExif = exifJson;
-    if (!finalExif) {
-      const videoMeta: Record<string, unknown> = {
-        FileType: typeDesc,
-        Duration: duration > 0 ? `${Math.floor(duration / 60)}:${String(Math.round(duration % 60)).padStart(2, '0')}` : undefined,
-        ImageWidth: width,
-        ImageHeight: height,
-        VideoCodec: 'H.264 / AVC1',
-      };
+    // Build rich video EXIF metadata JSON (combining video specs with camera details if present)
+    const videoMeta: Record<string, unknown> = {
+      FileType: typeDesc,
+      Duration: duration > 0 ? `${Math.floor(duration / 60)}:${String(Math.round(duration % 60)).padStart(2, '0')}` : undefined,
+      ImageWidth: width,
+      ImageHeight: height,
+      VideoCodec: 'H.264 / AVC1',
+    };
+    let finalExif: string;
+    if (exifJson) {
+      try {
+        const parsed = JSON.parse(exifJson);
+        finalExif = JSON.stringify({ ...videoMeta, ...parsed });
+      } catch {
+        finalExif = JSON.stringify(videoMeta);
+      }
+    } else {
       finalExif = JSON.stringify(videoMeta);
     }
 

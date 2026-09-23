@@ -134,30 +134,18 @@ export function AnalogFilmStripCard({
       {/* Top 35mm Film Sprocket Strip */}
       <FilmSprocketRail isTop={true} />
 
-      {/* Film Header: Brand stamp & Frame Number */}
-      <div className="px-3.5 pt-2 pb-1.5 flex items-center justify-between text-[11px] font-mono tracking-wider">
-        <div className="flex items-center gap-1.5">
-          <span className={cn("size-2 rounded-full", aesthetics.accentDot)} />
-          <span className="font-bold tracking-widest uppercase text-white/90">
-            {aesthetics.brandTag}
-          </span>
-          <span className="text-white/30">•</span>
-          <span className="text-amber-400/80 font-medium text-[10px]">
-            {aesthetics.filmStock}
-          </span>
-        </div>
-        <div className="flex items-center gap-1 text-white/40 text-[10px]">
-          <span className="text-amber-400/70 font-semibold">▶ 24A</span>
-          <span>DX</span>
-        </div>
-      </div>
-
-      {/* Camera & Lens Title Banner */}
-      <div className="px-3.5 py-1">
+      {/* Camera & Lens Title Banner - Direct Hero Display */}
+      <div className="px-3.5 pt-2.5 pb-1">
         {data.camera && (
-          <div className="text-sm font-semibold text-white tracking-tight flex items-center gap-1.5 truncate">
-            <Camera className="size-3.5 text-white/60 shrink-0" />
-            <span className="truncate">{data.camera}</span>
+          <div className="text-sm font-semibold text-white tracking-tight flex items-center justify-between gap-1.5 truncate">
+            <div className="flex items-center gap-1.5 min-w-0 truncate">
+              <Camera className="size-3.5 text-white/60 shrink-0" />
+              <span className="truncate font-semibold">{data.camera}</span>
+            </div>
+            <div className="flex items-center gap-1 text-white/40 text-[10px] font-mono shrink-0">
+              <span className="text-amber-400/70 font-semibold">▶ 24A</span>
+              <span>DX</span>
+            </div>
           </div>
         )}
         {data.lens && (

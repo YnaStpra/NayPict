@@ -802,7 +802,7 @@ export const PhotoCard = memo(function PhotoCard({
           ].join(" ")}
         />
       )}
-      {/* Dynamic Ambient Color Bloom on Hover */}
+      {/* Dynamic Ambient Color Bloom on Hover (Subtle 20% opacity) */}
       {placeholder && !selectionActive && (
         <div
           className={[
@@ -812,12 +812,12 @@ export const PhotoCard = memo(function PhotoCard({
           aria-hidden
         >
           <div
-            className="absolute inset-[-15%] blur-xl opacity-50 scale-110 pointer-events-none transition-transform duration-700 ease-out group-hover:scale-120"
+            className="absolute inset-[-15%] blur-xl opacity-[0.10] scale-110 pointer-events-none transition-transform duration-700 ease-out group-hover:scale-120"
             style={{
               backgroundImage: `url("${placeholder}")`,
               backgroundSize: "cover",
               backgroundPosition: "center",
-              filter: "saturate(2) contrast(1.15)",
+              filter: "saturate(1.8) contrast(1.1)",
             }}
           />
         </div>

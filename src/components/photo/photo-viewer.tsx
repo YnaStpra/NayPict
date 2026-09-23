@@ -539,47 +539,6 @@ function InfoButton({
   )
 }
 
-// Render dynamic dominant-color ambient glow mode toggle button in toolbar.
-function AmbientGlowButton({
-  showActions,
-  active,
-  onToggle,
-}: {
-  showActions: boolean
-  active: boolean
-  onToggle: () => void
-}) {
-  const tap = useTapAction(onToggle)
-
-  return (
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            type="button"
-            size="icon"
-            variant="secondary"
-            className={[
-              "rounded-full transition-all duration-300 cursor-pointer pointer-events-auto",
-              active
-                ? "bg-amber-500/25 text-amber-300 border border-amber-400/40 shadow-[0_0_14px_rgba(245,158,11,0.4)] hover:bg-amber-500/35 hover:text-amber-200"
-                : "bg-black/40 text-white/70 hover:text-white hover:bg-black/60",
-            ].join(" ")}
-            aria-label="Toggle Ambient Glow (G)"
-            {...tap}
-          >
-            <Sparkles className={cn("size-4 transition-transform duration-300", active && "scale-110 text-amber-300")} />
-            <span className="sr-only">Toggle Ambient Glow</span>
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent side="bottom" className="flex items-center gap-1.5 font-sans">
-          <span>Ambient Lighting</span>
-          <kbd className="px-1 py-0.5 text-[10px] rounded bg-white/20 font-mono">G</kbd>
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
-  )
-}
 
 // Render spin button.
 function RotateButton({ showActions, onRotate }: { showActions: boolean, onRotate: (photoId: string) => void }) {
@@ -1256,27 +1215,6 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
   const [fullscreenOpen, setFullscreenOpen] = useState(false)
   // Whether cinematic presentation mode is currently active.
   const [isCinematicMode, setIsCinematicMode] = useState(false)
-  // Dynamic Cinema Ambient Glow mode state (default true, synced with localStorage).
-  const [ambientGlow, setAmbientGlow] = useState(true)
-
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem("naypict_ambient_glow")
-      if (saved !== null) {
-        setAmbientGlow(saved === "true")
-      }
-    } catch {}
-  }, [])
-
-  const toggleAmbientGlow = useCallback(() => {
-    setAmbientGlow((prev) => {
-      const next = !prev
-      try {
-        localStorage.setItem("naypict_ambient_glow", String(next))
-      } catch {}
-      return next
-    })
-  }, [])
   // Double-tap Instagram-style heart burst state in lightbox viewer.
   const [showViewerHeartBurst, setShowViewerHeartBurst] = useState(false)
   const [viewerBurstCoords, setViewerBurstCoords] = useState<{ x: number; y: number } | null>(null)
@@ -1462,9 +1400,6 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
       if (event.key === "f" || event.key === "F") {
         event.preventDefault()
         toggleCinematicMode()
-      } else if (event.key === "g" || event.key === "G") {
-        event.preventDefault()
-        toggleAmbientGlow()
       } else if (event.key === "Escape") {
         if (infoOpen) {
           event.preventDefault()
@@ -1484,7 +1419,7 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
     return () => {
       window.removeEventListener("keydown", handleKeyDown, true)
     }
-  }, [open, isCinematicMode, toggleCinematicMode, toggleAmbientGlow])
+  }, [open, isCinematicMode, toggleCinematicMode])
 
   // Auto-hide UI controls after 2.5s idle when in Cinematic Mode.
   useEffect(() => {
@@ -2025,7 +1960,7 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
                 {/* Dynamic Cinema Ambient Glow (Apple Music / YouTube Ambient Mode) */}
                 <PhotoViewerAmbientGlow
                   thumbHash={photos[viewIndex]?.thumbHash}
-                  visible={ambientGlow && !fullscreenOpen}
+                  visible={!fullscreenOpen}
                   dragOpacity={dragBackdropOpacity}
                 />
                 {/* Mobile Instagram-Style Double-Tap Heart Burst Overlay */}
@@ -2097,11 +2032,6 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
                       />
                     </>
                   )}
-                  <AmbientGlowButton
-                    showActions={actionsVisible}
-                    active={ambientGlow}
-                    onToggle={toggleAmbientGlow}
-                  />
                   <CinematicButton
                     showActions={actionsVisible}
                     isCinematicMode={isCinematicMode}
@@ -2112,11 +2042,11 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
                   <OriginalProgressButton progress={originalProgress} error={originalError} />
                 )}
                 <AlbumOverlayBadge isCinematicMode={isCinematicMode} />
-                {/* 35mm Analog Film Strip HUD Badge (Floating Bottom-Left) */}
-                {!isCurrentVideo && !infoOpen && (
+                {/* 35mm Analog Film Strip HUD Badge (Floating Bottom-Right) */}
+                {!infoOpen && (
                   <div
                     className={[
-                      "fixed left-3 bottom-24 sm:bottom-28 md:bottom-32 z-40 flex items-center transition-all duration-300 pointer-events-auto select-none",
+                      "fixed right-3 bottom-14 sm:bottom-16 md:bottom-28 z-40 flex items-center transition-all duration-300 pointer-events-auto select-none",
                       getActionVisibleClass(actionsVisible),
                     ].join(" ")}
                   >
