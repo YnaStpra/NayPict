@@ -832,12 +832,14 @@ function AlbumOverlayBadge({ isCinematicMode }: { isCinematicMode: boolean }) {
 // Floating Liquid Glass Quick Reaction & Comment Pill (Mobile & Desktop)
 function LightboxInteractionBar({
   photoId,
+  exif,
   showActions,
   isCinematicMode,
   onOpenComments,
   onOpenInfo,
 }: {
   photoId?: string
+  exif?: string | null
   showActions: boolean
   isCinematicMode: boolean
   onOpenComments: () => void
@@ -848,24 +850,32 @@ function LightboxInteractionBar({
   return (
     <div
       className={[
-        "fixed left-3 bottom-14 sm:bottom-16 md:bottom-28 z-40 flex items-center transition-all duration-300 pointer-events-auto select-none",
+        "fixed left-3 bottom-14 sm:bottom-16 md:bottom-28 z-40 flex flex-col items-start gap-2 transition-all duration-300 pointer-events-auto select-none max-w-[calc(100vw-1.5rem)]",
         getActionVisibleClass(showActions),
       ].join(" ")}
     >
-      <div className="flex items-center gap-1.5 p-1 rounded-full bg-neutral-950/85 backdrop-blur-xl border border-white/15 shadow-2xl shadow-black/60">
+      {/* 35mm Analog Film Strip HUD Badge (Positioned directly above the Reaction Bar) */}
+      {exif && onOpenInfo && (
+        <AnalogFilmStripCompact
+          exif={exif}
+          onClick={onOpenInfo}
+        />
+      )}
+
+      <div className="flex items-center gap-1.5 p-1 rounded-full bg-neutral-950/85 backdrop-blur-xl border border-white/15 shadow-2xl shadow-black/60 max-w-full overflow-x-auto no-scrollbar">
         {photoId && (
           <div className="flex items-center pl-1">
             <PhotoReactions photoId={photoId} compact />
           </div>
         )}
 
-        <div className="h-4 w-px bg-white/20 my-auto" />
+        <div className="h-4 w-px bg-white/20 my-auto shrink-0" />
 
         {/* Comment Trigger Button */}
         <button
           type="button"
           onClick={onOpenComments}
-          className="group flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold text-white bg-white/10 hover:bg-white/20 active:scale-95 transition-all duration-200 border border-white/10 cursor-pointer"
+          className="group flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold text-white bg-white/10 hover:bg-white/20 active:scale-95 transition-all duration-200 border border-white/10 cursor-pointer shrink-0"
           aria-label="Open Comments"
         >
           <MessageSquare className="size-3.5 text-emerald-400 transition-transform group-hover:scale-110" />
@@ -876,7 +886,7 @@ function LightboxInteractionBar({
         <button
           type="button"
           onClick={onOpenInfo}
-          className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium text-white/75 hover:text-white hover:bg-white/15 active:scale-95 transition-all duration-200 cursor-pointer"
+          className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium text-white/75 hover:text-white hover:bg-white/15 active:scale-95 transition-all duration-200 cursor-pointer shrink-0"
           aria-label="Media Details"
         >
           <CircleAlertIcon className="size-3.5 text-white/80" />
@@ -2045,26 +2055,10 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
                   <OriginalProgressButton progress={originalProgress} error={originalError} />
                 )}
                 <AlbumOverlayBadge isCinematicMode={isCinematicMode} />
-                {/* 35mm Analog Film Strip HUD Badge (Floating Bottom-Right for static photos) */}
                 {!isCurrentVideo && !infoOpen && (
-                  <div
-                    className={[
-                      "fixed right-3 bottom-14 sm:bottom-16 md:bottom-28 z-40 flex items-center transition-all duration-300 pointer-events-auto select-none",
-                      getActionVisibleClass(actionsVisible),
-                    ].join(" ")}
-                  >
-                    <AnalogFilmStripCompact
-                      exif={photos[viewIndex]?.exif}
-                      onClick={() => {
-                        setInfoTab("info")
-                        setInfoOpen(true)
-                      }}
-                    />
-                  </div>
-                )}
-                {!isCurrentVideo && (
                   <LightboxInteractionBar
                     photoId={photos[viewIndex]?.photoId}
+                    exif={photos[viewIndex]?.exif}
                     showActions={actionsVisible}
                     isCinematicMode={isCinematicMode}
                     onOpenComments={() => {

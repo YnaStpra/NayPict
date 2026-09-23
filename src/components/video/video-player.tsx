@@ -1144,7 +1144,7 @@ export const VideoPlayer = memo(function VideoPlayer({
         {photoId && !isCinematicMode && !isFullscreen && (
           <div
             className={cn(
-              "flex items-center justify-between mb-2.5 sm:mb-3 pointer-events-auto w-full transition-opacity duration-200",
+              "flex flex-col items-start gap-1.5 mb-2.5 sm:mb-3 pointer-events-auto max-w-full transition-opacity duration-200",
               isScrubbing ? "opacity-0 pointer-events-none" : "opacity-100"
             )}
             onClick={(e) => {
@@ -1156,7 +1156,15 @@ export const VideoPlayer = memo(function VideoPlayer({
               pingActivity()
             }}
           >
-            <div className="flex items-center gap-1 sm:gap-1.5 p-1 rounded-full bg-neutral-950/85 backdrop-blur-xl border border-white/15 shadow-2xl shadow-black/60 shrink-0">
+            {/* 35mm Analog Film Strip HUD Badge (Positioned directly above Reaction Bar) */}
+            {exif && onOpenInfo && (
+              <AnalogFilmStripCompact
+                exif={exif}
+                onClick={onOpenInfo}
+              />
+            )}
+
+            <div className="flex items-center gap-1 sm:gap-1.5 p-1 rounded-full bg-neutral-950/85 backdrop-blur-xl border border-white/15 shadow-2xl shadow-black/60 shrink-0 max-w-full overflow-x-auto no-scrollbar">
               <div className="flex items-center pl-0.5 sm:pl-1">
                 <PhotoReactions photoId={photoId} compact />
               </div>
@@ -1199,16 +1207,6 @@ export const VideoPlayer = memo(function VideoPlayer({
                 </button>
               )}
             </div>
-
-            {/* Right: Camera Film Strip HUD Badge (matching height of reaction panel on left) */}
-            {exif && onOpenInfo && (
-              <div className="flex items-center shrink-0 ml-auto pl-2">
-                <AnalogFilmStripCompact
-                  exif={exif}
-                  onClick={onOpenInfo}
-                />
-              </div>
-            )}
           </div>
         )}
 
