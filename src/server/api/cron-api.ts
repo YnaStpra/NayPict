@@ -2,6 +2,7 @@ import { type Hono } from 'hono';
 import { photoService } from '@/server/service/photo-service';
 import { cache } from '@/server/infra/cache';
 import result from '@/server/model/result';
+import { timingSafeEqual } from '@/server/lib/crypto';
 import type { HonoEnv } from '@/server/hono/type';
 
 // This module exposes scheduled maintenance endpoints for Vercel Cron and external automation triggers.
@@ -14,7 +15,8 @@ export function registerCronApi(app: Hono<HonoEnv>) {
     const cronSecret = process.env.CRON_SECRET;
 
     if (cronSecret) {
-      if (authHeader !== `Bearer ${cronSecret}`) {
+      const expectedAuth = `Bearer ${cronSecret}`;
+      if (!authHeader || !timingSafeEqual(authHeader, expectedAuth)) {
         return c.json(result.fail('Unauthorized', 401), 401);
       }
     } else if (process.env.NODE_ENV === 'production') {

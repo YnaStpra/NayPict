@@ -59,7 +59,8 @@ const SYSTEM_PATHS = [
   '/analytics/overview',
   '/analytics/sessions',
   '/analytics/reset',
-  '/backup'
+  '/backup',
+  '/totp'
 ];
 
 const PUBLIC_API_PATHS = [
@@ -165,7 +166,7 @@ async function security(c: Context, next: Next) {
     throw new BizError('auth.failed', 401);
   }
 
-  if (isSystemPath(path) && authInfo.type === UserTypeEnum.NORMAL) {
+  if (isSystemPath(path) && !isPublicApiPath(path) && authInfo.type === UserTypeEnum.NORMAL) {
     throw new BizError('auth.forbidden', 403);
   }
 
