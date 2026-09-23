@@ -752,13 +752,6 @@ export function PhotoInfoSidebar({
                     {t("cameraSettings")}
                   </div>
                   <AnalogFilmStripCard exif={photo.exif} />
-                  {shootingParams.length === 0 && deviceParams.length > 0 && (
-                    <div className="space-y-2 mt-2">
-                      {deviceParams.map((item) => (
-                        <PhotoInfoRow key={item.key} label={t(item.key)} value={item.value} wrap={item.wrap} />
-                      ))}
-                    </div>
-                  )}
                 </div>
               )}
 

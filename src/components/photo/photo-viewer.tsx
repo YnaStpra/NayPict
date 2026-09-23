@@ -93,6 +93,8 @@ type PhotoSlide = SlideImage & {
   albums?: { albumId: string; name: string }[]
   // MIME type (image/jpeg, video/mp4, etc.)
   mediaType?: string
+  // EXIF metadata JSON string.
+  exif?: string | null
 }
 
 type FullscreenButtonProps = {
@@ -1478,6 +1480,7 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
         height: photo.height ?? undefined,
         alt: photo.name,
         mediaType: photo.type,
+        exif: photo.exif,
       }
     })
   ), [photos])
@@ -2042,8 +2045,8 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
                   <OriginalProgressButton progress={originalProgress} error={originalError} />
                 )}
                 <AlbumOverlayBadge isCinematicMode={isCinematicMode} />
-                {/* 35mm Analog Film Strip HUD Badge (Floating Bottom-Right) */}
-                {!infoOpen && (
+                {/* 35mm Analog Film Strip HUD Badge (Floating Bottom-Right for static photos) */}
+                {!isCurrentVideo && !infoOpen && (
                   <div
                     className={[
                       "fixed right-3 bottom-14 sm:bottom-16 md:bottom-28 z-40 flex items-center transition-all duration-300 pointer-events-auto select-none",
@@ -2154,6 +2157,7 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
                     isActive={isCurrentSlide}
                     autoPlay={isCurrentSlide}
                     photoId={photoSlide.photoId}
+                    exif={photoSlide.exif}
                     isCinematicMode={isCinematicMode}
                     controlsVisible={isCurrentSlide ? actionsVisible : false}
                     onControlsVisibleChange={isCurrentSlide ? setShowActions : undefined}

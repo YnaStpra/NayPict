@@ -137,15 +137,9 @@ export function AnalogFilmStripCard({
       {/* Camera & Lens Title Banner - Direct Hero Display */}
       <div className="px-3.5 pt-2.5 pb-1">
         {data.camera && (
-          <div className="text-sm font-semibold text-white tracking-tight flex items-center justify-between gap-1.5 truncate">
-            <div className="flex items-center gap-1.5 min-w-0 truncate">
-              <Camera className="size-3.5 text-white/60 shrink-0" />
-              <span className="truncate font-semibold">{data.camera}</span>
-            </div>
-            <div className="flex items-center gap-1 text-white/40 text-[10px] font-mono shrink-0">
-              <span className="text-amber-400/70 font-semibold">▶ 24A</span>
-              <span>DX</span>
-            </div>
+          <div className="text-sm font-semibold text-white tracking-tight flex items-center gap-1.5 truncate">
+            <Camera className="size-3.5 text-white/60 shrink-0" />
+            <span className="truncate font-semibold">{data.camera}</span>
           </div>
         )}
         {data.lens && (
