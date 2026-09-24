@@ -23,7 +23,7 @@ export function RightClickGuard({ enabled = true }: RightClickGuardProps) {
     // Intercept right-click context menu on images silently without intrusive toast alerts
     const handleContextMenu = (e: MouseEvent) => {
       const target = e.target as HTMLElement | null
-      if (target && (target.tagName === "IMG" || target.closest(".yet-another-react-lightbox") || target.closest("[data-photo-item]"))) {
+      if (target && (target.tagName === "IMG" || target.closest(".pswp") || target.closest(".yet-another-react-lightbox") || target.closest("[data-photo-item]"))) {
         e.preventDefault()
       }
     }
