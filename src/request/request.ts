@@ -10,6 +10,10 @@ interface ApiResponse<T = unknown> {
   data?: T | null;
 }
 
+interface RequestOptions {
+  silent?: boolean;
+}
+
 type RequestParams = object | FormData | null;
 
 const MOCK_REQUEST_DELAY = 0;
@@ -72,7 +76,7 @@ export function clearHttpCache(pattern?: string | RegExp) {
 }
 
 // send POST Request and return interface data.
-async function post<T = unknown>(url: string, params: RequestParams = null) {
+async function post<T = unknown>(url: string, params: RequestParams = null, options?: RequestOptions) {
   const headers = new Headers();
   headers.set('X-Requested-With', 'XMLHttpRequest');
   let body: BodyInit | null = null;
@@ -102,7 +106,9 @@ async function post<T = unknown>(url: string, params: RequestParams = null) {
       throw err;
     }
     const errMessage = humanizeError(error instanceof Error ? error.message : 'Network error');
-    toast.error(errMessage);
+    if (!options?.silent) {
+      toast.error(errMessage);
+    }
     const err = new Error(errMessage) as any;
     err.__toastShown = true;
     throw err;
@@ -126,12 +132,16 @@ async function post<T = unknown>(url: string, params: RequestParams = null) {
     const rawMessage = json?.message || (res.status === 401 ? 'auth.unauthorized' : 'Request failed');
     const message = humanizeError(rawMessage);
 
-    if (res.status === 401 || json?.code === 401) {
-      handleUnauthorized();
+    if (!options?.silent) {
+      if (res.status === 401 || json?.code === 401) {
+        handleUnauthorized();
+      }
+      toast.error(message);
     }
-    toast.error(message);
 
     const err = new Error(message) as any;
+    err.status = res.status;
+    err.code = json?.code;
     err.__toastShown = true;
     throw err;
   }
@@ -264,11 +274,11 @@ const http = {
     return get<T>(url, params, options);
   },
   // send POST request.
-  post<T = unknown>(url: string, params: RequestParams = null) {
-    return post<T>(url, params);
+  post<T = unknown>(url: string, params: RequestParams = null, options?: RequestOptions) {
+    return post<T>(url, params, options);
   },
   clearCache: clearHttpCache,
 };
 
 export { http };
-export type { ApiResponse, RequestParams };
+export type { ApiResponse, RequestParams, RequestOptions };

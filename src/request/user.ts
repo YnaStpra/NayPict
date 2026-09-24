@@ -5,8 +5,8 @@ import { type UserInfoVo } from "@/server/entity/vo/user";
 // This module encapsulates user-related interface requests.
 
 // Query the currently logged in user information.
-export function userInfo() {
-  return http.post<UserInfoVo | null>('/user/info');
+export function userInfo(silent = true) {
+  return http.post<UserInfoVo | null>('/user/info', null, { silent });
 }
 
 // Modify the current login user password.

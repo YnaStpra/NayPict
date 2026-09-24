@@ -74,8 +74,63 @@ function useApp() {
 // Host application level Provider.
 function Provider({ children, defaultTheme, defaultSidebarOpen, initialUserInfo, title }: ProviderProps) {
   const [theme, setThemeState] = React.useState<Theme>(defaultTheme)
-  // userInfo Save current logged in user information, You can immediately update the layout display after logging in.
-  const [userInfo, setUserInfo] = React.useState<UserInfoVo | null>(initialUserInfo)
+  // userInfo: Synchronously restored from initialUserInfo (SSR) or localStorage (Client) to eliminate public-view flash on refresh
+  const [userInfo, setUserInfoState] = React.useState<UserInfoVo | null>(() => {
+    if (initialUserInfo) return initialUserInfo
+    if (typeof window !== "undefined") {
+      try {
+        const cached = localStorage.getItem("naypict_user")
+        if (cached) {
+          const parsed = JSON.parse(cached)
+          if (parsed && typeof parsed === "object" && parsed.userId && parsed.type) {
+            return parsed
+          }
+        }
+      } catch {}
+    }
+    return null
+  })
+
+  // Synchronize user updates to localStorage so session persists across refresh on this device
+  const setUserInfo = React.useCallback((infoOrFn: React.SetStateAction<UserInfoVo | null>) => {
+    setUserInfoState((prev) => {
+      const next = typeof infoOrFn === "function" ? infoOrFn(prev) : infoOrFn
+      if (typeof window !== "undefined") {
+        try {
+          if (next) {
+            localStorage.setItem("naypict_user", JSON.stringify(next))
+          } else {
+            localStorage.removeItem("naypict_user")
+          }
+        } catch {}
+      }
+      return next
+    })
+  }, [])
+
+  // Listen for cross-tab login / logout events via localStorage
+  useEffect(() => {
+    if (typeof window === "undefined") return
+
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === "naypict_user") {
+        if (e.newValue) {
+          try {
+            const parsed = JSON.parse(e.newValue)
+            if (parsed?.userId) {
+              setUserInfoState(parsed)
+            }
+          } catch {}
+        } else {
+          setUserInfoState(null)
+        }
+      }
+    }
+
+    window.addEventListener("storage", handleStorageChange)
+    return () => window.removeEventListener("storage", handleStorageChange)
+  }, [])
+
   // sidebarOpen Save the current expanded state of the sidebar, For continued reuse after page switching.
   const [sidebarOpen, setSidebarOpen] = React.useState(defaultSidebarOpen)
   const setAlbums = useAlbumStore((state) => state.setAlbums)
@@ -97,18 +152,32 @@ function Provider({ children, defaultTheme, defaultSidebarOpen, initialUserInfo,
     }
   }, [])
 
-  // Asynchronously resolve authenticated user info if token cookie is present
+  // Revalidate session with server in background on mount / refresh
   useEffect(() => {
     if (initialUserInfo) {
       setUserInfo(initialUserInfo)
-    } else if (typeof document !== "undefined" && document.cookie.includes("token")) {
-      fetchUserInfo()
-        .then((info) => {
-          if (info) setUserInfo(info)
-        })
-        .catch(() => {})
+      return
     }
-  }, [initialUserInfo])
+
+    fetchUserInfo(true)
+      .then((info) => {
+        if (info) {
+          setUserInfo(info)
+        } else {
+          setUserInfo(null)
+        }
+      })
+      .catch((err) => {
+        // If offline, keep local state intact
+        if (typeof navigator !== "undefined" && !navigator.onLine) {
+          return
+        }
+        // If server confirms unauthenticated (e.g. cookies cleared or expired session), reset
+        if (err?.code === 401 || err?.status === 401) {
+          setUserInfo(null)
+        }
+      })
+  }, [initialUserInfo, setUserInfo])
 
   // Query storage configuration only when an admin is logged in and store is empty
   useEffect(() => {
@@ -204,7 +273,7 @@ function Provider({ children, defaultTheme, defaultSidebarOpen, initialUserInfo,
       setTheme,
       toggleTheme,
     }),
-    [title, theme, userInfo, sidebarOpen, refreshAlbums, refreshStorages, setTheme, toggleTheme]
+    [title, theme, userInfo, setUserInfo, sidebarOpen, refreshAlbums, refreshStorages, setTheme, toggleTheme]
   )
 
   return (
