@@ -28,30 +28,30 @@ export function PhotoViewerAmbientGlow({
   return (
     <div
       className={cn(
-        "fixed inset-0 z-[-5] pointer-events-none select-none flex items-center justify-center overflow-hidden transition-opacity duration-500",
+        "fixed inset-0 z-[-5] pointer-events-none select-none flex items-center justify-center overflow-hidden transition-opacity duration-300",
         className
       )}
       style={{
         opacity: dragOpacity,
-        willChange: "opacity, transform",
         transform: "translateZ(0)",
+        contain: "paint",
       }}
       aria-hidden
     >
-      {/* Outer Ambient Atmosphere: Ultra-wide color wash with enhanced saturation */}
+      {/* Outer Ambient Atmosphere: Ultra-wide color wash with enhanced saturation (Desktop only to conserve mobile GPU fill-rate) */}
       <img
         src={thumbHashUrl}
         alt=""
         decoding="async"
-        className="absolute w-[95vw] h-[95vh] max-w-[1600px] max-h-[1200px] rounded-full blur-[100px] md:blur-[180px] opacity-70 dark:opacity-80 scale-150 saturate-[2.2] contrast-[1.25] object-cover pointer-events-none transition-all duration-700 ease-out animate-ambient-breathe"
+        className="absolute w-[95vw] h-[95vh] max-w-[1600px] max-h-[1200px] rounded-full blur-[120px] opacity-70 dark:opacity-80 scale-150 saturate-[2.2] contrast-[1.25] object-cover pointer-events-none transition-all duration-700 ease-out hidden md:block md:animate-ambient-breathe"
       />
 
-      {/* Inner Core Bloom: Tighter, radiant halo around photo frame */}
+      {/* Inner Core Bloom: Radiant atmospheric halo around photo frame (Lightweight 28px blur on mobile, 65px on desktop) */}
       <img
         src={thumbHashUrl}
         alt=""
         decoding="async"
-        className="absolute w-[75vw] h-[75vh] max-w-[1100px] max-h-[850px] rounded-full blur-[45px] md:blur-[85px] opacity-60 dark:opacity-75 scale-110 saturate-[1.8] contrast-[1.15] object-cover pointer-events-none transition-all duration-700 ease-out"
+        className="absolute w-[85vw] h-[85vh] md:w-[75vw] md:h-[75vh] max-w-[1100px] max-h-[850px] rounded-full blur-[28px] md:blur-[65px] opacity-60 dark:opacity-75 scale-105 md:scale-110 saturate-[1.6] md:saturate-[1.8] contrast-[1.1] md:contrast-[1.15] object-cover pointer-events-none transition-all duration-700 ease-out"
       />
 
       {/* Cinema Contrast Vignette: Preserves deep black viewport edges and contrast */}

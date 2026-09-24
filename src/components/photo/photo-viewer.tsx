@@ -925,6 +925,7 @@ function PhotoSlideImage({
   originalPhoto,
   rotate,
   fullscreenOpen,
+  isActive = true,
 }: {
   // Current photo slide.
   slide: PhotoSlide
@@ -934,6 +935,8 @@ function PhotoSlideImage({
   rotate: number
   // Whether it is currently in full screen state.
   fullscreenOpen: boolean
+  // Whether this slide is the currently focused active slide in the viewport.
+  isActive?: boolean
 }) {
   const initialSrc = originalPhoto?.key === slide.preview || originalPhoto?.key === slide.key
     ? originalPhoto.key
@@ -1025,29 +1028,29 @@ function PhotoSlideImage({
 
   return (
     <div className="relative flex h-full w-full items-center justify-center overflow-hidden">
-      {/* Top Streaming Indeterminate Progress Line */}
-      {!loaded && (
+      {/* Top Streaming Indeterminate Progress Line (Active visible slide only) */}
+      {!loaded && isActive && (
         <div className="pointer-events-none absolute top-0 left-0 right-0 h-1 z-30 overflow-hidden bg-white/10">
           <div className="h-full w-1/3 bg-gradient-to-r from-emerald-500 via-teal-300 to-emerald-500 rounded-full hd-progress-indeterminate shadow-[0_0_8px_rgba(16,185,129,0.8)]" />
         </div>
       )}
 
-      {/* Floating Glassmorphic Progress Badge (Active while HD streaming) */}
-      {!loaded && !isOnline && (
+      {/* Floating Glassmorphic Progress Badge (Active while HD streaming on visible slide) */}
+      {!loaded && !isOnline && isActive && (
         <div className="pointer-events-none absolute bottom-36 sm:bottom-40 md:bottom-44 z-30 flex items-center gap-2 rounded-2xl bg-rose-950/85 px-4 py-2 text-xs font-medium text-rose-200 shadow-2xl backdrop-blur-xl border border-rose-500/30 animate-in fade-in zoom-in-95 duration-200">
           <WifiOff className="size-4 text-rose-400 shrink-0" />
           <span className="font-semibold text-[11px] sm:text-xs">Connection Lost — Waiting for network...</span>
         </div>
       )}
 
-      {!loaded && isOnline && isSlowLoading && (
+      {!loaded && isOnline && isSlowLoading && isActive && (
         <div className="pointer-events-none absolute bottom-36 sm:bottom-40 md:bottom-44 z-30 flex items-center gap-2 rounded-2xl bg-amber-950/85 px-4 py-2 text-xs font-medium text-amber-200 shadow-2xl backdrop-blur-xl border border-amber-500/30 animate-in fade-in zoom-in-95 duration-200">
           <Wifi className="size-4 text-amber-400 shrink-0 animate-pulse" />
           <span className="font-semibold text-[11px] sm:text-xs">Slow connection detected — Loading HD photo...</span>
         </div>
       )}
 
-      {!loaded && isOnline && !isSlowLoading && (
+      {!loaded && isOnline && !isSlowLoading && isActive && (
         <div className="pointer-events-none absolute bottom-36 sm:bottom-40 md:bottom-44 z-30 flex flex-col items-center gap-1.5 rounded-2xl bg-black/80 px-4 py-2 text-xs font-medium text-white shadow-2xl backdrop-blur-xl border border-white/20 animate-in fade-in zoom-in-95 duration-200">
           <div className="flex items-center gap-2">
             <LoaderCircleIcon className="size-3.5 animate-spin text-emerald-400 shrink-0" />
@@ -1062,7 +1065,7 @@ function PhotoSlideImage({
       )}
 
       {/* Floating HD Ready Success Badge */}
-      {loaded && showHdBadge && (
+      {loaded && showHdBadge && isActive && (
         <div className="pointer-events-none absolute bottom-36 sm:bottom-40 md:bottom-44 z-30 flex items-center gap-1.5 rounded-full bg-emerald-950/85 px-3.5 py-1 text-xs font-medium text-emerald-300 shadow-xl backdrop-blur-xl border border-emerald-500/30 animate-in fade-in zoom-in-95 duration-200">
           <Sparkles className="size-3 text-emerald-400 shrink-0" />
           <span className="font-semibold text-[11px] sm:text-xs">HD Quality Ready</span>
@@ -1076,12 +1079,13 @@ function PhotoSlideImage({
           alt=""
           aria-hidden
           crossOrigin="anonymous"
-          decoding="sync"
+          decoding="async"
           className="absolute select-none max-w-none object-contain pointer-events-none transition-opacity duration-300"
           style={{
             width: sideways ? `calc(100cqh - ${rotateWidthOffset}px)` : "100%",
             height: sideways ? "100vw" : "100%",
             transform: `rotate(${rotate}deg) translateZ(0)`,
+            backfaceVisibility: "hidden",
           }}
         />
       )}
@@ -1092,11 +1096,13 @@ function PhotoSlideImage({
           src={slide.thumbHashUrl}
           alt=""
           aria-hidden
+          decoding="async"
           className="absolute select-none max-w-none object-contain pointer-events-none transition-opacity duration-300"
           style={{
             width: sideways ? `calc(100cqh - ${rotateWidthOffset}px)` : "100%",
             height: sideways ? "100vw" : "100%",
             transform: `rotate(${rotate}deg) translateZ(0)`,
+            backfaceVisibility: "hidden",
           }}
         />
       )}
@@ -1105,8 +1111,8 @@ function PhotoSlideImage({
         alt={slide.alt}
         draggable={false}
         crossOrigin="anonymous"
-        fetchPriority="high"
-        decoding={loaded ? "sync" : "async"}
+        fetchPriority={isActive ? "high" : "low"}
+        decoding="async"
         className="lightbox-zoom-matrix select-none max-w-none object-contain transition-opacity duration-200"
         onLoad={handleImageLoaded}
         ref={(el) => {
@@ -1252,12 +1258,17 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
     setInfoOpen(true)
   }, [setInfoOpen])
 
-  // Drag-to-dismiss gesture state (supports bidirectional vertical dismiss: swipe up or swipe down)
-  const [dragOffset, setDragOffset] = useState<{ x: number; y: number } | null>(null)
-  const [isDismissing, setIsDismissing] = useState(false)
-  const [dismissDirection, setDismissDirection] = useState<"up" | "down">("down")
-  const dragPointerStartRef = useRef<{ x: number; y: number; time: number } | null>(null)
-  const isDraggingRef = useRef(false)
+  // Responsive mobile breakpoint for memory-efficient carousel preloading and touch ergonomics
+  const [isMobile, setIsMobile] = useState(() => (typeof window !== "undefined" ? window.innerWidth < 768 : false))
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    const checkMobile = () => setIsMobile(window.innerWidth < 768)
+    window.addEventListener("resize", checkMobile, { passive: true })
+    return () => window.removeEventListener("resize", checkMobile)
+  }, [])
+
+  // Tap-detection refs (delegates smooth swipe & pull gestures natively to YARL compositor)
+  const tapPointerStartRef = useRef<{ x: number; y: number; time: number } | null>(null)
   // Controls UI idle visibility in cinematic mode.
   const [isIdleHidden, setIsIdleHidden] = useState(false)
   const controlsVisible = !isCinematicMode || !isIdleHidden
@@ -1719,122 +1730,77 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
   const lastTapTimeRef = useRef<number>(0)
   const singleTapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  // Record slide coordinates and begin tracking fluid bidirectional drag-to-dismiss gesture.
+  // Record pointer coordinates on touch/click start to disambiguate stationary tap vs swipe.
   function handleSlidePointerDown(event: React.PointerEvent<HTMLDivElement>) {
     if (zoomLevel > 1 || infoOpen) return
-    dragPointerStartRef.current = { x: event.clientX, y: event.clientY, time: Date.now() }
-    isDraggingRef.current = false
+    tapPointerStartRef.current = { x: event.clientX, y: event.clientY, time: Date.now() }
   }
 
-  // Track pointer movement and calculate fluid scaled drag-to-dismiss displacement (both UP and DOWN).
-  function handleSlidePointerMove(event: React.PointerEvent<HTMLDivElement>) {
-    if (!dragPointerStartRef.current || zoomLevel > 1 || isDismissing || infoOpen) return
-
-    const dx = event.clientX - dragPointerStartRef.current.x
-    const dy = event.clientY - dragPointerStartRef.current.y
-    const absDx = Math.abs(dx)
-    const absDy = Math.abs(dy)
-
-    // Trigger vertical drag-to-dismiss on deliberate vertical gesture (both upward and downward)
-    if (!isDraggingRef.current) {
-      if (absDy > 6 && absDy > absDx * 1.05) {
-        isDraggingRef.current = true
-      } else {
-        return
-      }
-    }
-
-    if (isDraggingRef.current) {
-      setDragOffset({ x: dx * 0.35, y: dy })
-    }
-  }
-
-  // Handle pointer release: Dismiss with fluid spring momentum (up or down) or snap back to center.
+  // Handle pointer release: Distinguish stationary tap (toggle UI or Instagram heart burst) from swipe gestures.
   function handleSlidePointerUp(event: React.PointerEvent<HTMLDivElement>) {
-    const start = dragPointerStartRef.current
-    dragPointerStartRef.current = null
+    const start = tapPointerStartRef.current
+    tapPointerStartRef.current = null
 
     if (!start) return
 
-    const dx = event.clientX - start.x
-    const dy = event.clientY - start.y
-    const dt = Math.max(1, Date.now() - start.time)
-    const absDy = Math.abs(dy)
-    const velocity = absDy / dt
-    const isUp = dy < 0
+    const dx = Math.abs(event.clientX - start.x)
+    const dy = Math.abs(event.clientY - start.y)
 
-    if (isDraggingRef.current && (absDy > 95 || (absDy > 40 && velocity > 0.42))) {
-      // Dismiss photo with fluid spring exit animation in the swipe direction (up or down)
-      setDismissDirection(isUp ? "up" : "down")
-      setIsDismissing(true)
-      setTimeout(() => {
-        setIsDismissing(false)
-        setDragOffset(null)
-        isDraggingRef.current = false
-        closeViewer()
-      }, 220)
-    } else {
-      // Snap back to center with spring curve
-      setDragOffset(null)
-      isDraggingRef.current = false
+    // Distinguish Single Tap (toggle UI) vs Double Tap (Smart Zoom & Like burst)
+    // Only execute when pointer moved less than 8px (stationary tap, NOT a horizontal swipe or vertical pull):
+    if (dx < 8 && dy < 8) {
+      if (!isCurrentVideo) {
+        const now = Date.now()
+        const timeSinceLastTap = now - lastTapTimeRef.current
 
-      // Distinguish Single Tap (toggle UI) vs Double Tap (Smart Zoom) for static photos (Video slides delegate to VideoPlayer):
-      if (Math.abs(dx) < 10 && Math.abs(dy) < 10) {
-        if (!isCurrentVideo) {
-          const now = Date.now()
-          const timeSinceLastTap = now - lastTapTimeRef.current
-
-          if (timeSinceLastTap < 300) {
-            // Double Tap: Cancel single-tap timer so Lightbox Zoom plugin can handle zoom cleanly
-            if (singleTapTimerRef.current) {
-              clearTimeout(singleTapTimerRef.current)
-              singleTapTimerRef.current = null
-            }
-            lastTapTimeRef.current = 0
-
-            // Trigger Instagram-style Double-Tap Heart Burst and haptic pulse
-            setViewerBurstCoords({
-              x: event.clientX,
-              y: event.clientY,
-            })
-            setShowViewerHeartBurst(true)
-
-            try {
-              if (typeof navigator !== "undefined" && navigator.vibrate) {
-                navigator.vibrate([15, 35, 15])
-              }
-            } catch {}
-
-            const activePhoto = photos[viewIndex]
-            if (activePhoto?.photoId) {
-              const cached = reactionSync.getCached(activePhoto.photoId)
-              if (!cached?.userReactions?.love && !isAdmin) {
-                reactionSync.toggleReaction(activePhoto.photoId, "love")
-              }
-              trackVisitorMedia(activePhoto.photoId, "reaction")
-            }
-          } else {
-            lastTapTimeRef.current = now
-            if (singleTapTimerRef.current) {
-              clearTimeout(singleTapTimerRef.current)
-            }
-            singleTapTimerRef.current = setTimeout(() => {
-              if (zoomLevel <= 1) {
-                setShowActions((prev) => !prev)
-              }
-              singleTapTimerRef.current = null
-            }, 280)
+        if (timeSinceLastTap < 300) {
+          // Double Tap: Cancel single-tap timer so Lightbox Zoom plugin can handle zoom cleanly
+          if (singleTapTimerRef.current) {
+            clearTimeout(singleTapTimerRef.current)
+            singleTapTimerRef.current = null
           }
+          lastTapTimeRef.current = 0
+
+          // Trigger Instagram-style Double-Tap Heart Burst and haptic pulse
+          setViewerBurstCoords({
+            x: event.clientX,
+            y: event.clientY,
+          })
+          setShowViewerHeartBurst(true)
+
+          try {
+            if (typeof navigator !== "undefined" && navigator.vibrate) {
+              navigator.vibrate([15, 35, 15])
+            }
+          } catch {}
+
+          const activePhoto = photos[viewIndex]
+          if (activePhoto?.photoId) {
+            const cached = reactionSync.getCached(activePhoto.photoId)
+            if (!cached?.userReactions?.love && !isAdmin) {
+              reactionSync.toggleReaction(activePhoto.photoId, "love")
+            }
+            trackVisitorMedia(activePhoto.photoId, "reaction")
+          }
+        } else {
+          lastTapTimeRef.current = now
+          if (singleTapTimerRef.current) {
+            clearTimeout(singleTapTimerRef.current)
+          }
+          singleTapTimerRef.current = setTimeout(() => {
+            if (zoomLevel <= 1) {
+              setShowActions((prev) => !prev)
+            }
+            singleTapTimerRef.current = null
+          }, 280)
         }
       }
     }
   }
 
-  // Cancel pointer: smoothly restore center position.
+  // Cancel pointer on gesture interruption.
   function handleSlidePointerCancel() {
-    dragPointerStartRef.current = null
-    isDraggingRef.current = false
-    setDragOffset(null)
+    tapPointerStartRef.current = null
   }
 
   // based on photos id Rotate the corresponding photo clockwise 90 Spend.
@@ -1895,6 +1861,8 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
         controller={{
           closeOnBackdropClick: !isAnySubModalOpen,
           closeOnEscape: !isAnySubModalOpen,
+          closeOnPullDown: !isAnySubModalOpen && zoomLevel <= 1 && !isVideoFullscreen && !isVideoScrubbing,
+          closeOnPullUp: !isAnySubModalOpen && zoomLevel <= 1 && !isVideoFullscreen && !isVideoScrubbing,
           disableSwipeNavigation: isVideoFullscreen || isVideoScrubbing || fullscreenOpen || isCinematicMode,
         }}
         portal={{
@@ -1916,21 +1884,21 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
         }}
         carousel={{
           spacing: 0,
-          preload: isAnySubModalOpen ? 0 : 2,
+          preload: isAnySubModalOpen ? 0 : (isMobile ? 1 : 2),
         }}
         animation={{
-          fade: 200,
-          swipe: 220,
-          navigation: 250,
+          fade: 180,
+          swipe: isMobile ? 260 : 220,
+          navigation: 260,
           easing: {
-            fade: "ease-out",
-            swipe: "cubic-bezier(0.25, 1, 0.5, 1)",
-            navigation: "cubic-bezier(0.22, 1, 0.36, 1)",
+            fade: "cubic-bezier(0.16, 1, 0.3, 1)",
+            swipe: "cubic-bezier(0.16, 1, 0.3, 1)",
+            navigation: "cubic-bezier(0.16, 1, 0.3, 1)",
           },
         }}
         thumbnails={{
-          width: innerWidth < 768 ? 46 : 75,
-          height: innerWidth < 768 ? 46 : 75,
+          width: isMobile ? 46 : 75,
+          height: isMobile ? 46 : 75,
           gap: 0,
           padding: 0,
           border: 0,
@@ -1961,20 +1929,12 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
           buttonPrev: () => <PrevButton key="prev" showActions={actionsVisible} />,
           buttonNext: () => <NextButton key="next" showActions={actionsVisible} />,
           controls: () => {
-            const currentDragAbsY = Math.abs(dragOffset?.y ?? 0)
-            const dragBackdropOpacity = dragOffset
-              ? Math.max(0.2, 1 - currentDragAbsY / 450)
-              : isDismissing
-              ? 0
-              : 1
-
             return (
               <>
                 {/* Dynamic Cinema Ambient Glow (Apple Music / YouTube Ambient Mode) */}
                 <PhotoViewerAmbientGlow
                   thumbHash={photos[viewIndex]?.thumbHash}
                   visible={!fullscreenOpen}
-                  dragOpacity={dragBackdropOpacity}
                 />
                 {/* Mobile Instagram-Style Double-Tap Heart Burst Overlay */}
                 <PhotoHeartBurst
@@ -2107,41 +2067,19 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
 
             const photoSlide = slide as PhotoSlide
             const isVideo = Boolean(photoSlide.mediaType?.startsWith("video/"))
-            const currentDragY = dragOffset?.y ?? 0
-            const currentDragX = dragOffset?.x ?? 0
-            const currentDragAbsY = Math.abs(currentDragY)
-            const dragScale = dragOffset ? Math.max(0.72, 1 - currentDragAbsY / 1000) : 1
-            const dragRotate = dragOffset ? currentDragX * 0.02 : 0
-
-            const slideTransformStyle: CSSProperties = isDismissing
-              ? {
-                  transform: dismissDirection === "up"
-                    ? "translate3d(0, -110vh, 0) scale(0.75)"
-                    : "translate3d(0, 110vh, 0) scale(0.75)",
-                  opacity: 0,
-                  transition: "transform 0.24s cubic-bezier(0.32, 0, 0.67, 0), opacity 0.24s ease-in",
-                }
-              : dragOffset
-              ? {
-                  transform: `translate3d(${currentDragX * 0.35}px, ${currentDragY}px, 0) scale(${dragScale}) rotate(${dragRotate}deg)`,
-                  transition: "none",
-                }
-              : {}
+            const isCurrentSlide = offset === 0
 
             if (isVideo) {
-              const isCurrentSlide = offset === 0
               return (
                 <div
-                  className="relative flex h-full w-full items-center justify-center overflow-hidden p-0 touch-none select-none"
+                  className="relative flex h-full w-full items-center justify-center overflow-hidden p-0 select-none"
                   onPointerDown={!isVideoFullscreen ? handleSlidePointerDown : undefined}
-                  onPointerMove={!isVideoFullscreen ? handleSlidePointerMove : undefined}
                   onPointerUp={!isVideoFullscreen ? handleSlidePointerUp : undefined}
                   onPointerCancel={!isVideoFullscreen ? handleSlidePointerCancel : undefined}
                   style={{
-                    ...slideTransformStyle,
                     contain: "layout paint",
-                    transform: slideTransformStyle.transform || "translateZ(0)",
-                    willChange: dragOffset ? "transform" : "auto",
+                    transform: "translateZ(0)",
+                    backfaceVisibility: "hidden",
                   }}
                 >
                   <VideoPlayer
@@ -2167,32 +2105,22 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
 
             return (
               <div
-                className="relative flex h-full w-full items-center justify-center overflow-hidden p-2 md:p-4 pt-[env(safe-area-inset-top,8px)] pb-[env(safe-area-inset-bottom,8px)] touch-none select-none"
+                className="relative flex h-full w-full items-center justify-center overflow-hidden p-2 md:p-4 pt-[env(safe-area-inset-top,8px)] pb-[env(safe-area-inset-bottom,8px)] select-none"
                 onPointerDown={handleSlidePointerDown}
-                onPointerMove={handleSlidePointerMove}
                 onPointerUp={handleSlidePointerUp}
                 onPointerCancel={handleSlidePointerCancel}
                 style={{
-                  ...slideTransformStyle,
                   contain: "layout paint",
-                  transform: slideTransformStyle.transform || "translateZ(0)",
-                  willChange: dragOffset ? "transform" : "auto",
+                  transform: "translateZ(0)",
+                  backfaceVisibility: "hidden",
                 }}
               >
-                {photoSlide.thumbHashUrl && (
-                  <img
-                    src={photoSlide.thumbHashUrl}
-                    alt=""
-                    decoding="async"
-                    className="absolute inset-0 h-full w-full scale-110 blur-sm"
-                    aria-hidden
-                  />
-                )}
                 <PhotoSlideImage
                   slide={photoSlide}
                   originalPhoto={originalPhoto}
                   rotate={photoRotates[photoSlide.photoId] ?? 0}
                   fullscreenOpen={fullscreenOpen || isCinematicMode}
+                  isActive={isCurrentSlide}
                 />
               </div>
             )
@@ -2210,9 +2138,10 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
                 style={{
                   width: rect.width,
                   height: rect.height,
+                  transform: "translateZ(0)",
                 }}
               >
-                {photoSlide.thumbHashUrl && (
+                {photoSlide.thumbHashUrl && !photoSlide.thumbnail && (
                   <img
                     src={photoSlide.thumbHashUrl}
                     alt=""

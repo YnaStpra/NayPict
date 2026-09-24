@@ -172,12 +172,33 @@
     scrollbar-color: var(--scrollbar-color) transparent;
 }
 
+/* GPU-accelerated 120 FPS carousel tracks and slides */
+.yarl__carousel {
+    will-change: transform, opacity;
+    transform: translate3d(var(--yarl__swipe_offset, 0px), var(--yarl__pull_offset, 0px), 0) !important;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+    perspective: 1000px;
+}
+
 .yarl__slide {
     padding: 0 !important;
+    contain: layout paint style;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+    transform: translateZ(0);
 }
+
+.yarl__slide_image {
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+    transform: translateZ(0);
+}
+
 .yarl__thumbnails_bottom .yarl__thumbnails_container {
     padding-top: 0;
     padding-bottom: 0;
+    contain: layout paint;
 }
 
 /* Seamlessly hide thumbnails container during Cinematic mode or Fullscreen without unmounting the Lightbox DOM */
