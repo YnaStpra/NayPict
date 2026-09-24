@@ -31,6 +31,15 @@ export function registerLoginApi(app: Hono<HonoEnv>) {
         httpOnly: true,
       });
 
+      // Set client-readable session marker so client-side state knows an active session exists
+      setCookie(c, 'naypict_session', 'active', {
+        path: '/',
+        maxAge: TOKEN_COOKIE_MAX_AGE,
+        sameSite: 'Lax',
+        secure: process.env.NODE_ENV === 'production',
+        httpOnly: false,
+      });
+
       // If in production with __Host- prefix, clear any legacy un-prefixed token
       if (TOKEN_COOKIE_NAME !== 'token') {
         deleteCookie(c, 'token', { path: '/' });
@@ -49,6 +58,7 @@ export function registerLoginApi(app: Hono<HonoEnv>) {
       path: '/',
       secure: process.env.NODE_ENV === 'production',
     });
+    deleteCookie(c, 'naypict_session', { path: '/' });
 
     if (TOKEN_COOKIE_NAME !== 'token') {
       deleteCookie(c, 'token', { path: '/' });

@@ -118,6 +118,7 @@ function clearLoginCookies(c: Context) {
     path: '/',
     secure: process.env.NODE_ENV === 'production',
   });
+  deleteCookie(c, 'naypict_session', { path: '/' });
   if (TOKEN_COOKIE_NAME !== 'token') {
     deleteCookie(c, 'token', { path: '/' });
   }
