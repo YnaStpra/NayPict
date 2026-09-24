@@ -1,11 +1,14 @@
 // NayPict Progressive Web App (PWA) Service Worker with intelligent offline caching.
+// Provides Google Photos / iCloud-style 0ms media caching, background revalidation, and offline resilience.
 
-const CACHE_NAME = 'naypict-static-v1';
-const MEDIA_CACHE_NAME = 'naypict-media-v1';
+const CACHE_NAME = 'naypict-static-v2';
+const MEDIA_CACHE_NAME = 'naypict-media-v2';
+const API_CACHE_NAME = 'naypict-api-v1';
 
 const PRECACHE_ASSETS = [
   '/',
   '/photos',
+  '/albums',
   '/naypict-icon.svg',
   '/favicon.ico',
   '/manifest.webmanifest',
@@ -23,7 +26,7 @@ self.addEventListener('install', (event) => {
   self.skipWaiting();
 });
 
-const MAX_MEDIA_CACHE_ITEMS = 500;
+const MAX_MEDIA_CACHE_ITEMS = 1000;
 
 let trimTimer = null;
 function scheduleTrimMediaCache(cacheName, maxItems) {
@@ -64,7 +67,7 @@ self.addEventListener('activate', (event) => {
     caches.keys().then(async (keys) => {
       await Promise.all(
         keys.map((key) => {
-          if (key !== CACHE_NAME && key !== MEDIA_CACHE_NAME) {
+          if (key !== CACHE_NAME && key !== MEDIA_CACHE_NAME && key !== API_CACHE_NAME) {
             return caches.delete(key);
           }
         })
@@ -75,18 +78,41 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-// Fetch Event: Cache-First for media, Stale-While-Revalidate for static assets, Network-First for HTML
+// Helper to determine if an image response is safely cacheable
+function isCacheableMedia(res) {
+  if (!res) return false;
+  if (res.status !== 200 && res.type !== 'opaque') return false;
+  if (res.type === 'opaque') return true;
+  const cc = (res.headers.get('cache-control') || '').toLowerCase();
+  return !cc.includes('private') && !cc.includes('no-store');
+}
+
+// Fetch Event: Cache-First for media & derivatives, Stale-While-Revalidate for read-only catalog APIs
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
-  // Only handle GET requests with http/https protocols
-  if (request.method !== 'GET' || !url.protocol.startsWith('http')) {
+  // Invalidate read-only API cache on mutations (POST, PUT, DELETE, PATCH)
+  if (request.method !== 'GET') {
+    if (url.pathname.startsWith('/api/')) {
+      caches.delete(API_CACHE_NAME).catch(() => {});
+    }
     return;
   }
 
-  // Never cache API calls, SSE streaming, or non-same-origin API endpoints
-  if (url.pathname.startsWith('/api') || url.pathname.includes('/sse')) {
+  // Only handle HTTP/HTTPS protocols
+  if (!url.protocol.startsWith('http')) {
+    return;
+  }
+
+  // Never cache sensitive admin APIs, SSE streams, or auth endpoints
+  if (
+    url.pathname.startsWith('/api/admin') ||
+    url.pathname.startsWith('/api/auth') ||
+    url.pathname.startsWith('/api/session') ||
+    url.pathname.startsWith('/api/insights/visitor') ||
+    url.pathname.includes('/sse')
+  ) {
     return;
   }
 
@@ -100,29 +126,29 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 1. Photo Media & Derivative Images:
-  // - True Cache-First for immutable derivatives (thumbnails, previews): 0ms instant display without background fetch
-  // - Stale-While-Revalidate for non-derivative images with bounded media cache (max 150 items)
-  // Strictly respects Cache-Control: never persists private or no-store media (SEC-PHASE3-01)
-  if (url.pathname.startsWith('/media/') || request.destination === 'image') {
-    const isCacheableMedia = (res) => {
-      if (!res) return false;
-      if (res.status !== 200 && res.type !== 'opaque') return false;
-      if (res.type === 'opaque') return true;
-      const cc = (res.headers.get('cache-control') || '').toLowerCase();
-      return !cc.includes('private') && !cc.includes('no-store');
-    };
+  // 1. Photo Media, Thumbnails & Derivative Images (CDN edge & local proxy):
+  // True Cache-First for immutable thumbnails & previews: 0ms instant display without network lag
+  const isMediaRequest =
+    url.pathname.startsWith('/media/') ||
+    request.destination === 'image' ||
+    url.hostname.includes('workers.dev') ||
+    url.hostname.includes('r2.dev') ||
+    url.pathname.includes('/thumbnails/') ||
+    url.pathname.includes('/previews/');
 
-    const isDerivative = url.pathname.includes('/thumbnails/') ||
-                         url.pathname.includes('/previews/') ||
-                         url.pathname.includes('thumbnails%2F') ||
-                         url.pathname.includes('previews%2F');
+  if (isMediaRequest) {
+    const isDerivative =
+      url.pathname.includes('/thumbnails/') ||
+      url.pathname.includes('/previews/') ||
+      url.pathname.includes('thumbnails%2F') ||
+      url.pathname.includes('previews%2F') ||
+      url.hostname.includes('workers.dev');
 
     event.respondWith(
       getMediaCache().then(async (cache) => {
         const cachedResponse = await cache.match(request);
         if (cachedResponse) {
-          // True Cache-First for immutable derivatives: return instantly, 0ms, zero background requests
+          // True Cache-First for immutable derivatives: return instantly in 0ms
           if (isDerivative) {
             return cachedResponse;
           }
@@ -136,7 +162,6 @@ self.addEventListener('fetch', (event) => {
                   scheduleTrimMediaCache(MEDIA_CACHE_NAME, MAX_MEDIA_CACHE_ITEMS);
                 });
               } else if (networkResponse && networkResponse.status === 200) {
-                // If the updated response is private/no-store, evict stale entry from cache
                 cache.delete(request);
               }
             })
@@ -144,7 +169,7 @@ self.addEventListener('fetch', (event) => {
           return cachedResponse;
         }
 
-        // Otherwise fetch from network and cache if public
+        // Cache miss: fetch from network and store in CacheStorage
         return fetch(request)
           .then((networkResponse) => {
             if (isCacheableMedia(networkResponse)) {
@@ -163,7 +188,30 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 2. Navigation / Page Requests: Network-First with offline fallback
+  // 2. Read-Only Catalog & Album Lists (/api/photo/list, /api/album/list):
+  // Stale-While-Revalidate delivers instant 0ms cached list, then updates in background
+  if (url.pathname === '/api/photo/list' || url.pathname === '/api/album/list') {
+    event.respondWith(
+      caches.open(API_CACHE_NAME).then(async (cache) => {
+        const cachedResponse = await cache.match(request);
+
+        const fetchPromise = fetch(request)
+          .then((networkResponse) => {
+            if (networkResponse && networkResponse.status === 200) {
+              const responseToCache = networkResponse.clone();
+              cache.put(request, responseToCache);
+            }
+            return networkResponse;
+          })
+          .catch(() => cachedResponse);
+
+        return cachedResponse || fetchPromise;
+      })
+    );
+    return;
+  }
+
+  // 3. Navigation / Page Requests: Network-First with offline fallback
   if (request.mode === 'navigate') {
     event.respondWith(
       fetch(request).catch(async () => {
@@ -175,7 +223,7 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 3. Static Assets (CSS, JS, Fonts): Stale-While-Revalidate
+  // 4. Static Assets (CSS, JS, Fonts): Stale-While-Revalidate
   event.respondWith(
     caches.match(request).then((cachedResponse) => {
       const fetchPromise = fetch(request)
@@ -193,4 +241,38 @@ self.addEventListener('fetch', (event) => {
       return cachedResponse || fetchPromise;
     })
   );
+});
+
+// Client Communication Channel (Prefetching & Invalidation)
+self.addEventListener('message', (event) => {
+  if (!event.data) return;
+
+  if (event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
+
+  // Speculative prefetching of next photos triggered by UI during idle time
+  if (event.data.type === 'PREFETCH_MEDIA' && Array.isArray(event.data.urls)) {
+    const urls = event.data.urls;
+    getMediaCache().then((cache) => {
+      urls.forEach(async (mediaUrl) => {
+        try {
+          const match = await cache.match(mediaUrl);
+          if (!match) {
+            const res = await fetch(mediaUrl, { priority: 'low' });
+            if (isCacheableMedia(res)) {
+              await cache.put(mediaUrl, res);
+            }
+          }
+        } catch {
+          // Ignore prefetch failures in background
+        }
+      });
+    });
+  }
+
+  // Invalidate API cache when client performs mutation or sync
+  if (event.data.type === 'INVALIDATE_API_CACHE') {
+    caches.delete(API_CACHE_NAME).catch(() => {});
+  }
 });

@@ -43,3 +43,33 @@ export function PwaRegister() {
 
   return null
 }
+
+/**
+ * Speculatively prefetch media derivative URLs into Service Worker CacheStorage.
+ * Runs in background off the main thread with low priority.
+ */
+export function prefetchMediaInSw(urls: string[]) {
+  if (typeof window === "undefined" || !("serviceWorker" in navigator) || !navigator.serviceWorker.controller) return
+  if (!urls || urls.length === 0) return
+
+  try {
+    navigator.serviceWorker.controller.postMessage({
+      type: "PREFETCH_MEDIA",
+      urls,
+    })
+  } catch {}
+}
+
+/**
+ * Invalidate cached catalog and album list responses in Service Worker after mutations.
+ */
+export function invalidateSwApiCache() {
+  if (typeof window === "undefined" || !("serviceWorker" in navigator) || !navigator.serviceWorker.controller) return
+
+  try {
+    navigator.serviceWorker.controller.postMessage({
+      type: "INVALIDATE_API_CACHE",
+    })
+  } catch {}
+}
+
