@@ -1,6 +1,7 @@
 // This module manages zero-latency cross-tab and cross-component catalog event broadcasting.
 
 import { clearHttpCache } from "@/request/request";
+import { invalidateSwApiCache } from "@/components/pwa/pwa-register";
 
 export type SyncEventType = 'album' | 'photo' | 'all';
 
@@ -38,6 +39,7 @@ function dispatchLocalEvents(type: SyncEventType, payload?: any) {
   } else {
     clearHttpCache();
   }
+  invalidateSwApiCache();
 
   if (type === 'album' || type === 'all') {
     window.dispatchEvent(new CustomEvent('naypict:album-changed', { detail: payload }));

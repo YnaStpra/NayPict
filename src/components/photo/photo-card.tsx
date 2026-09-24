@@ -27,6 +27,7 @@ import { videoCoordinator } from "@/lib/video-autoplay-coordinator"
 import { useAdaptivePerformance } from "@/hooks/use-adaptive-performance"
 import { prebufferVideo } from "@/lib/video-prebuffer"
 import { getIsOffline, notifyConnectionRestored } from "@/lib/network-status"
+import { prefetchMediaInSw } from "@/components/pwa/pwa-register"
 
 type TouchHoverCloseRef = {
   current: (() => void) | null
@@ -102,6 +103,8 @@ function prefetchPhotoHighRes(previewUrl?: string | null) {
     img.src = previewUrl
     // Also warm up PhotoViewer chunk
     import("@/components/photo/photo-viewer").catch(() => {})
+    // Also warm up Service Worker CacheStorage
+    prefetchMediaInSw([previewUrl])
   }
 
   if ("requestIdleCallback" in window) {
