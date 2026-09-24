@@ -40,13 +40,6 @@ export function LandingClient({ initialPhotos }: LandingClientProps) {
     }
   }, [])
 
-  // Eager route prefetching
-  useEffect(() => {
-    router.prefetch('/photos')
-    router.prefetch('/albums')
-    router.prefetch('/map')
-  }, [router])
-
   // Fetch client-side if initialPhotos was empty
   useEffect(() => {
     if (initialPhotos && initialPhotos.length > 0) return

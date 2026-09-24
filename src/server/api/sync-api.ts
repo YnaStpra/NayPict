@@ -12,9 +12,10 @@ export function registerSyncApi(app: Hono<HonoEnv>) {
   app.get('/sync/version', async (c) => {
     const version = await syncService.getVersion();
 
-    // Cache-Control headers instructs Cloudflare Edge to cache response for 3s
-    // 99.8% of requests under viral traffic (1k - 10k users) are answered directly by Cloudflare CDN without hitting Vercel.
-    c.header('Cache-Control', 'public, max-age=3, s-maxage=3, stale-while-revalidate=5');
+    // Cache-Control headers instructs edge caches to serve cached version for 30s
+    // Eliminates redundant serverless function invocations while maintaining responsive synchronization.
+    c.header('Cache-Control', 'public, max-age=15, s-maxage=30, stale-while-revalidate=60');
+    c.header('CDN-Cache-Control', 'public, s-maxage=30, stale-while-revalidate=60');
 
     return c.json(result.ok(version));
   });

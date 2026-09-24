@@ -99,7 +99,7 @@ class ReactionSyncManager {
       } else {
         this.stopPolling(photoId);
       }
-    }, 3500);
+    }, 25000);
 
     this.pollTimers.set(photoId, timer);
   }

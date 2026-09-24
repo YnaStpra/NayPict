@@ -3,6 +3,8 @@ import { photoService } from "@/server/service/photo-service"
 import { getPhotoDeviceParams, getPhotoShootingParams } from "@/lib/viewer-field"
 
 export const runtime = "nodejs"
+// Cache generated OpenGraph preview banner at Edge CDN for 24 hours to prevent repeated serverless GPU/CPU render burn
+export const revalidate = 86400
 export const alt = "Media preview"
 export const size = {
   width: 1200,
@@ -372,6 +374,12 @@ export default async function Image({ params }: Props) {
         </div>
       </div>
     ),
-    { ...size }
+    {
+      ...size,
+      headers: {
+        "Cache-Control": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
+        "CDN-Cache-Control": "public, s-maxage=604800, stale-while-revalidate=86400",
+      },
+    }
   )
 }

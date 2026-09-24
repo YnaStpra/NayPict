@@ -163,7 +163,7 @@ export function PhotoComments({ photoId }: PhotoCommentsProps) {
       }),
     ];
 
-    // Adaptive low-frequency polling while comments drawer is actively open (8s interval, only when tab is visible)
+    // Adaptive low-frequency polling while comments drawer is actively open (20s interval, only when tab is visible)
     const pollInterval = setInterval(() => {
       if (typeof document !== "undefined" && document.visibilityState === "visible") {
         commentList(photoId)
@@ -174,7 +174,7 @@ export function PhotoComments({ photoId }: PhotoCommentsProps) {
           })
           .catch(() => {});
       }
-    }, 8000);
+    }, 20000);
 
     return () => {
       isMounted = false;

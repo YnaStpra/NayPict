@@ -162,7 +162,7 @@ media.get('*', async (c: Context, next: Next) => {
 
   const headers: Record<string, string> = {
     'Content-Type': photoFile.fileType || (isVideo ? 'video/mp4' : 'image/webp'),
-    'Cache-Control': isCacheable ? 'public, max-age=31536000, immutable' : 'no-cache, private',
+    'Cache-Control': isCacheable ? 'public, max-age=31536000, immutable' : 'private, max-age=86400, immutable',
     'ETag': etag,
     'Vary': 'Accept, Accept-Encoding',
     'Accept-Ranges': 'bytes',
