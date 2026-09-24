@@ -39,6 +39,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { PhotoDateDrawer } from "@/components/photo/photo-date-drawer"
 import { PhotoMasonrySkeleton } from "@/components/photo/photo-masonry-skeleton"
+import { GalleryBottomStatus } from "@/components/photo/gallery-bottom-status"
 import { BackToTopButton } from "@/components/ui/back-to-top-button"
 import { OdometerCounter } from "@/components/ui/odometer-counter"
 import { usePhotoContext } from "@/app/photos/provider"
@@ -133,6 +134,9 @@ export default function Page() {
     totalCount,
     hasMore,
     isOffline,
+    loadingMore,
+    loadMoreError,
+    retryLoadMore,
     setPhotos,
     masonryKey,
     loadMorePhotos,
@@ -608,13 +612,17 @@ export default function Page() {
                     onAlbumOpen={openAlbumDialog}
                     onPhotosUpdated={isAdmin ? updatePhotos : undefined}
                   />
-                  {!hasMore && photos.length > 0 && (
-                    <div className="py-12 pb-16 text-center select-none">
-                      <p className="text-sm font-medium text-muted-foreground/80 tracking-wide">
-                        That&apos;s all for now, stay tuned for the next capture!
-                      </p>
-                    </div>
-                  )}
+                  <GalleryBottomStatus
+                    type="gallery"
+                    totalCount={totalCount}
+                    loadedCount={displayPhotos.length}
+                    hasMore={hasMore}
+                    loadingMore={loadingMore}
+                    loadMoreError={loadMoreError}
+                    isOffline={isOffline}
+                    onReachBottom={loadMorePhotos}
+                    onRetry={retryLoadMore}
+                  />
                 </PullToRefresh>
               )
             ) : (

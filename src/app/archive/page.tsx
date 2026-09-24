@@ -29,6 +29,7 @@ import { useArchiveContext } from "@/app/archive/provider"
 import { useApp } from "@/app/provider"
 import { UserTypeEnum } from "@/server/enums/user-enum"
 import { PhotoMasonrySkeleton } from "@/components/photo/photo-masonry-skeleton"
+import { GalleryBottomStatus } from "@/components/photo/gallery-bottom-status"
 import { AlbumCard } from "@/components/album/album-card"
 import { type AlbumVo } from "@/server/entity/vo/album"
 import { Archive, FolderArchive, ImageIcon, ShieldAlert } from "lucide-react"
@@ -62,6 +63,10 @@ export default function ArchivePage() {
     silentRefresh,
     removePhotos,
     updatePhoto,
+    hasMore,
+    loadingMore,
+    loadMoreError,
+    retryLoadMore,
     updatePhotos,
     setPhotos,
   } = usePhotoList({ visibility: PhotoVisibilityEnum.ARCHIVED }, PHOTO_LIST_PAGE_SIZE, initialPhotos)
@@ -339,6 +344,16 @@ export default function ArchivePage() {
                         onPhotoDelete={recyclePhotos}
                         onAlbumOpen={openAlbumDialog}
                         onPhotosUpdated={isAdmin ? updatePhotos : undefined}
+                      />
+                      <GalleryBottomStatus
+                        type="archive"
+                        totalCount={totalCount}
+                        loadedCount={photos.length}
+                        hasMore={hasMore}
+                        loadingMore={loadingMore}
+                        loadMoreError={loadMoreError}
+                        onReachBottom={loadMorePhotos}
+                        onRetry={retryLoadMore}
                       />
                     </section>
                   )}
