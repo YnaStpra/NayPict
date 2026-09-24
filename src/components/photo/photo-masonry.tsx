@@ -11,6 +11,8 @@ import {
 
 
 import dynamic from "next/dynamic"
+import { usePinch } from "@use-gesture/react"
+import { LayoutGrid } from "lucide-react"
 import { useApp } from "@/app/provider"
 import { useIsMobile } from "@/hooks/use-mobile"
 import { PhotoCard, loadedThumbnails } from "@/components/photo/photo-card"
@@ -196,7 +198,98 @@ const PhotoMasonry = memo(function PhotoMasonry({
   const [batchEditDialogOpen, setBatchEditDialogOpen] = useState(false)
   const touchHoverCloseRef = useRef<(() => void) | null>(null)
 
-  const columnCount = useMemo(() => getResponsiveColumnCount(screenWidth, isMobile), [screenWidth, isMobile])
+  const defaultColumnCount = useMemo(() => getResponsiveColumnCount(screenWidth, isMobile), [screenWidth, isMobile])
+  const [userColumns, setUserColumns] = useState<number | null>(null)
+  const [indicatorInfo, setIndicatorInfo] = useState<{ columns: number; visible: boolean } | null>(null)
+  const indicatorTimerRef = useRef<NodeJS.Timeout | null>(null)
+
+  // Restore stored grid column preference
+  useEffect(() => {
+    try {
+      const key = isMobile ? "naypict_gallery_cols_mobile" : "naypict_gallery_cols_desktop"
+      const saved = localStorage.getItem(key)
+      if (saved) {
+        const parsed = parseInt(saved, 10)
+        const min = isMobile ? 1 : 2
+        const max = isMobile ? 4 : 8
+        if (!isNaN(parsed) && parsed >= min && parsed <= max) {
+          setUserColumns(parsed)
+        }
+      }
+    } catch {}
+  }, [isMobile])
+
+  const columnCount = userColumns ?? defaultColumnCount
+
+  const showColumnPill = useCallback((cols: number) => {
+    setIndicatorInfo({ columns: cols, visible: true })
+    if (indicatorTimerRef.current) clearTimeout(indicatorTimerRef.current)
+    indicatorTimerRef.current = setTimeout(() => {
+      setIndicatorInfo((prev) => (prev ? { ...prev, visible: false } : null))
+    }, 1200)
+  }, [])
+
+  // Apple Photos-style Pinch-to-Zoom dynamic column grid gesture
+  usePinch(
+    ({ first, last, offset: [scale], memo = { lastScale: 1, cols: columnCount }, event }) => {
+      if (selectedPhotoIds.length > 0 || batchEditDialogOpen) return memo
+
+      if (event && event.cancelable) {
+        event.preventDefault()
+      }
+
+      if (first) {
+        memo = { lastScale: scale, cols: columnCount }
+      }
+
+      const minCols = isMobile ? 1 : 2
+      const maxCols = isMobile ? 4 : Math.min(8, Math.max(3, Math.floor(screenWidth / 220)))
+      const scaleDiff = scale - memo.lastScale
+
+      // Zoom In (Spread fingers -> fewer columns, larger photos)
+      if (scaleDiff > 0.22 && memo.cols > minCols) {
+        const nextCols = memo.cols - 1
+        setUserColumns(nextCols)
+        showColumnPill(nextCols)
+        if (typeof navigator !== "undefined" && navigator.vibrate) {
+          navigator.vibrate(15)
+        }
+        try {
+          const key = isMobile ? "naypict_gallery_cols_mobile" : "naypict_gallery_cols_desktop"
+          localStorage.setItem(key, String(nextCols))
+        } catch {}
+        memo = { lastScale: scale, cols: nextCols }
+      }
+      // Zoom Out (Pinch fingers together -> more columns, overview)
+      else if (scaleDiff < -0.20 && memo.cols < maxCols) {
+        const nextCols = memo.cols + 1
+        setUserColumns(nextCols)
+        showColumnPill(nextCols)
+        if (typeof navigator !== "undefined" && navigator.vibrate) {
+          navigator.vibrate(15)
+        }
+        try {
+          const key = isMobile ? "naypict_gallery_cols_mobile" : "naypict_gallery_cols_desktop"
+          localStorage.setItem(key, String(nextCols))
+        } catch {}
+        memo = { lastScale: scale, cols: nextCols }
+      }
+
+      if (last) {
+        try {
+          const key = isMobile ? "naypict_gallery_cols_mobile" : "naypict_gallery_cols_desktop"
+          localStorage.setItem(key, String(memo.cols))
+        } catch {}
+      }
+
+      return memo
+    },
+    {
+      target: wrapRef,
+      eventOptions: { passive: false },
+      pinchOnWheel: true,
+    }
+  )
   const width = wrapPosition.width
   const positioner = usePositioner(
     {
@@ -618,7 +711,26 @@ const PhotoMasonry = memo(function PhotoMasonry({
           onSuccess={handleBatchEditSuccess}
         />
       )}
-      <div ref={wrapRef} className="w-full overflow-x-hidden masonry-grid-smooth subpixel-snap-grid transition-[width] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]">
+      {/* Apple Photos-style floating capsule indicator during/after pinch gesture */}
+      {indicatorInfo?.visible && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed top-16 left-1/2 -translate-x-1/2 z-50 pointer-events-none transition-all duration-300 ease-out animate-in fade-in zoom-in-95 slide-in-from-top-2"
+        >
+          <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-background/90 dark:bg-zinc-900/90 backdrop-blur-md border border-border/60 shadow-xl text-xs font-semibold text-foreground tracking-wide">
+            <LayoutGrid className="w-3.5 h-3.5 text-primary" />
+            <span>
+              {indicatorInfo.columns} {indicatorInfo.columns === 1 ? "Column" : "Columns"}
+            </span>
+          </div>
+        </div>
+      )}
+      <div
+        ref={wrapRef}
+        className="w-full overflow-x-hidden masonry-grid-smooth subpixel-snap-grid transition-[width] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] touch-pan-y"
+        style={{ touchAction: "pan-y pinch-zoom" }}
+      >
         {groupByDate && dateGroups ? (
           <div className="space-y-6 pb-6">
             {dateGroups.map((group) => {

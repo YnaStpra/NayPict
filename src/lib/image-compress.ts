@@ -1,10 +1,17 @@
 // This module provides browser-based high-quality image size compression while preserving full original EXIF metadata.
+import imageCompression from "browser-image-compression"
 
 export interface CompressImageOptions {
   /** Maximum width or height bound in pixels (default: 3840 for 4K quality) */
   maxDimension?: number;
-  /** Compression quality ratio between 0.1 and 1.0 (default: 0.85) */
+  /** Compression quality ratio between 0.1 and 1.0 (default: 0.88) */
   quality?: number;
+  /** Maximum target file size in Megabytes (default: 3.8 to ensure safe serverless upload) */
+  maxSizeMB?: number;
+  /** Real-time progress callback with percentage (0 to 100) */
+  onProgress?: (progress: number) => void;
+  /** Execute compression inside dedicated background Web Worker thread (default: true) */
+  useWebWorker?: boolean;
 }
 
 /**
@@ -222,7 +229,13 @@ export async function compressImageFile(
   file: File,
   options: CompressImageOptions = {}
 ): Promise<File> {
-  const { maxDimension = 3840, quality = 0.88 } = options;
+  const {
+    maxDimension = 3840,
+    quality = 0.88,
+    maxSizeMB = 3.8,
+    onProgress,
+    useWebWorker = true,
+  } = options;
 
   // 1. Skip non-image or vector files (SVG, GIF animations)
   if (!file.type.startsWith('image/') || file.type === 'image/svg+xml' || file.type === 'image/gif') {
@@ -234,7 +247,36 @@ export async function compressImageFile(
     return file;
   }
 
-  // 3. Attempt high-performance background thread OffscreenCanvas compression first
+  // 3. Fast client-side image pre-compression in a Web Worker (browser-image-compression)
+  // Keeps main UI thread 100% fluid at 60-120 FPS while offloading heavy JPEG downsampling and DCT encoding
+  try {
+    const compressedWorkerBlob = await imageCompression(file, {
+      maxSizeMB,
+      maxWidthOrHeight: maxDimension,
+      useWebWorker,
+      initialQuality: quality,
+      fileType: "image/jpeg",
+      onProgress,
+      alwaysKeepResolution: false,
+    });
+
+    if (compressedWorkerBlob && compressedWorkerBlob.size < file.size) {
+      // Re-inject original EXIF, XMP, and ICC color profile metadata segments
+      const exifPreservedBlob = await preserveExifMetadata(file, compressedWorkerBlob);
+      const finalOutputName = file.name.replace(/\.[^/.]+$/, "") + ".jpg";
+
+      const compressedFile = new File([exifPreservedBlob], finalOutputName, {
+        type: "image/jpeg",
+        lastModified: file.lastModified,
+      });
+
+      return compressedFile.size < file.size ? compressedFile : file;
+    }
+  } catch (workerErr) {
+    console.warn("browser-image-compression Web Worker fallback to OffscreenCanvas:", workerErr);
+  }
+
+  // 4. Attempt high-performance background thread OffscreenCanvas compression as secondary fallback
   const offscreenResult = await compressWithOffscreenCanvas(file, maxDimension, quality);
   if (offscreenResult) {
     return offscreenResult;
