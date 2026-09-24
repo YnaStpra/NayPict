@@ -153,45 +153,57 @@ export function AnalogFilmStripCard({
       {data.hasShootingParams && (
         <div className="px-3 py-2.5 grid grid-cols-4 gap-1.5">
           {/* Shutter Speed */}
-          <div className="flex flex-col items-center justify-center p-1.5 rounded-lg bg-white/[0.04] border border-white/[0.08] hover:bg-white/[0.08] transition-colors">
-            <span className="text-[9px] font-mono uppercase text-white/40 flex items-center gap-1 mb-0.5">
-              <Timer className="size-2.5 text-amber-400/80" />
-              <span>TIME</span>
+          <div
+            className="flex flex-col items-center justify-center p-1 sm:p-1.5 rounded-lg bg-white/[0.04] border border-white/[0.08] hover:bg-white/[0.08] transition-colors"
+            title={`Shutter Speed: ${data.shutter || "—"}`}
+          >
+            <span className="text-[8px] sm:text-[9px] font-mono uppercase text-white/40 flex items-center gap-1 mb-0.5 tracking-wider max-w-full">
+              <Timer className="size-2.5 text-amber-400/80 shrink-0" />
+              <span className="truncate">SHUTTER</span>
             </span>
-            <span className="text-[12px] font-bold font-mono text-amber-300 tracking-tight">
+            <span className="text-[11px] sm:text-[12px] font-bold font-mono text-amber-300 tracking-tight truncate max-w-full">
               {data.shutter || "—"}
             </span>
           </div>
 
           {/* Aperture */}
-          <div className="flex flex-col items-center justify-center p-1.5 rounded-lg bg-white/[0.04] border border-white/[0.08] hover:bg-white/[0.08] transition-colors">
-            <span className="text-[9px] font-mono uppercase text-white/40 flex items-center gap-1 mb-0.5">
-              <Aperture className="size-2.5 text-emerald-400/80" />
-              <span>IRIS</span>
+          <div
+            className="flex flex-col items-center justify-center p-1 sm:p-1.5 rounded-lg bg-white/[0.04] border border-white/[0.08] hover:bg-white/[0.08] transition-colors"
+            title={`Aperture: ${data.aperture ? (data.aperture.startsWith("f/") ? data.aperture.replace("f/", "ƒ/") : `ƒ/${data.aperture}`) : "—"}`}
+          >
+            <span className="text-[8px] sm:text-[9px] font-mono uppercase text-white/40 flex items-center gap-1 mb-0.5 tracking-wider max-w-full">
+              <Aperture className="size-2.5 text-emerald-400/80 shrink-0" />
+              <span className="truncate">APERTURE</span>
             </span>
-            <span className="text-[12px] font-bold font-mono text-emerald-300 tracking-tight italic">
+            <span className="text-[11px] sm:text-[12px] font-bold font-mono text-emerald-300 tracking-tight italic truncate max-w-full">
               {data.aperture ? (data.aperture.startsWith("f/") ? data.aperture.replace("f/", "ƒ/") : `ƒ/${data.aperture}`) : "—"}
             </span>
           </div>
 
           {/* Focal Length */}
-          <div className="flex flex-col items-center justify-center p-1.5 rounded-lg bg-white/[0.04] border border-white/[0.08] hover:bg-white/[0.08] transition-colors">
-            <span className="text-[9px] font-mono uppercase text-white/40 flex items-center gap-1 mb-0.5">
-              <Camera className="size-2.5 text-sky-400/80" />
-              <span>LENS</span>
+          <div
+            className="flex flex-col items-center justify-center p-1 sm:p-1.5 rounded-lg bg-white/[0.04] border border-white/[0.08] hover:bg-white/[0.08] transition-colors"
+            title={`Focal Length: ${data.focalLength || "—"}`}
+          >
+            <span className="text-[8px] sm:text-[9px] font-mono uppercase text-white/40 flex items-center gap-1 mb-0.5 tracking-wider max-w-full">
+              <Camera className="size-2.5 text-sky-400/80 shrink-0" />
+              <span className="truncate">FOCAL</span>
             </span>
-            <span className="text-[12px] font-bold font-mono text-sky-300 tracking-tight">
+            <span className="text-[11px] sm:text-[12px] font-bold font-mono text-sky-300 tracking-tight truncate max-w-full">
               {data.focalLength || "—"}
             </span>
           </div>
 
           {/* ISO */}
-          <div className="flex flex-col items-center justify-center p-1.5 rounded-lg bg-white/[0.04] border border-white/[0.08] hover:bg-white/[0.08] transition-colors">
-            <span className="text-[9px] font-mono uppercase text-white/40 flex items-center gap-1 mb-0.5">
-              <SlidersHorizontal className="size-2.5 text-rose-400/80" />
-              <span>ISO</span>
+          <div
+            className="flex flex-col items-center justify-center p-1 sm:p-1.5 rounded-lg bg-white/[0.04] border border-white/[0.08] hover:bg-white/[0.08] transition-colors"
+            title={`ISO: ${data.iso || "—"}`}
+          >
+            <span className="text-[8px] sm:text-[9px] font-mono uppercase text-white/40 flex items-center gap-1 mb-0.5 tracking-wider max-w-full">
+              <SlidersHorizontal className="size-2.5 text-rose-400/80 shrink-0" />
+              <span className="truncate">ISO</span>
             </span>
-            <span className="text-[12px] font-bold font-mono text-rose-300 tracking-tight">
+            <span className="text-[11px] sm:text-[12px] font-bold font-mono text-rose-300 tracking-tight truncate max-w-full">
               {data.iso || "—"}
             </span>
           </div>
