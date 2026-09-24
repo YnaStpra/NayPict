@@ -57,11 +57,12 @@ export function SmoothScrollProvider({ children }: SmoothScrollProviderProps) {
     <ReactLenis
       root
       options={{
-        lerp: 0.1, // Organic Apple-style momentum glide
+        lerp: 0.1, // Organic Apple-style momentum glide on desktop
         duration: 1.1,
         smoothWheel: true,
         wheelMultiplier: 1.0,
-        touchMultiplier: 1.2,
+        syncTouch: false, // Critical for 120 FPS: mobile touch scroll is 100% handled by native hardware GPU compositor
+        touchMultiplier: 1.0,
         autoResize: true,
         prevent: (node) => {
           // Allow normal inner scrolling inside dialogs, dropdowns, and sidebars
