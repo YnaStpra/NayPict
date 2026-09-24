@@ -49,6 +49,7 @@ import { useAlbumPhotoContext } from "@/app/albums/[albumId]/provider"
 import { useApp } from "@/app/provider"
 import { PhotoDateDrawer } from "@/components/photo/photo-date-drawer"
 import { PhotoMasonrySkeleton } from "@/components/photo/photo-masonry-skeleton"
+import { GalleryBottomStatus } from "@/components/photo/gallery-bottom-status"
 import { BackToTopButton } from "@/components/ui/back-to-top-button"
 import { UserTypeEnum } from "@/server/enums/user-enum"
 
@@ -115,6 +116,11 @@ export default function Page() {
   const {
     photos,
     totalCount,
+    hasMore,
+    loadingMore,
+    loadMoreError,
+    retryLoadMore,
+    isOffline,
     masonryKey,
     loadMorePhotos,
     refreshPhotoList,
@@ -556,18 +562,31 @@ export default function Page() {
                   />
                 </div>
               ) : (
-                <PhotoMasonry
-                  photos={photos}
-                  resetKey={masonryKey}
-                  groupByType={sortKey === 'type_asc' || sortKey === 'type_desc'}
-                  onReachBottom={loadMorePhotos}
-                  onPhotoOpen={openPhoto}
-                  onPhotoDelete={isAdmin ? recyclePhotos : undefined}
-                  onAlbumOpen={isAdmin ? openAlbumDialog : undefined}
-                  onAlbumRemove={isAdmin ? removeAlbumPhotos : undefined}
-                  onPhotoPin={isAdmin ? handleTogglePin : undefined}
-                  onPhotosUpdated={isAdmin ? updatePhotos : undefined}
-                />
+                <>
+                  <PhotoMasonry
+                    photos={photos}
+                    resetKey={masonryKey}
+                    groupByType={sortKey === 'type_asc' || sortKey === 'type_desc'}
+                    onReachBottom={loadMorePhotos}
+                    onPhotoOpen={openPhoto}
+                    onPhotoDelete={isAdmin ? recyclePhotos : undefined}
+                    onAlbumOpen={isAdmin ? openAlbumDialog : undefined}
+                    onAlbumRemove={isAdmin ? removeAlbumPhotos : undefined}
+                    onPhotoPin={isAdmin ? handleTogglePin : undefined}
+                    onPhotosUpdated={isAdmin ? updatePhotos : undefined}
+                  />
+                  <GalleryBottomStatus
+                    type="album"
+                    totalCount={totalCount}
+                    loadedCount={photos.length}
+                    hasMore={hasMore}
+                    loadingMore={loadingMore}
+                    loadMoreError={loadMoreError}
+                    isOffline={isOffline}
+                    onReachBottom={loadMorePhotos}
+                    onRetry={retryLoadMore}
+                  />
+                </>
               )
             ) : (
               <PhotoMasonrySkeleton photos={initialPhotos} />

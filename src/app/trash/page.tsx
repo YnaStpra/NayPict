@@ -25,6 +25,7 @@ import {
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { PhotoMasonry } from "@/components/photo/photo-masonry"
 import { PhotoMasonrySkeleton } from "@/components/photo/photo-masonry-skeleton"
+import { GalleryBottomStatus } from "@/components/photo/gallery-bottom-status"
 import { usePhotoList } from "@/hooks/use-photo-list"
 import { photoClear, photoDelete, photoList, photoRestore } from "@/request/photo"
 import { PHOTO_LIST_PAGE_SIZE } from "@/server/const/global"
@@ -67,6 +68,11 @@ export default function TrashPage() {
     photos,
     setPhotos,
     masonryKey,
+    hasMore,
+    loadingMore,
+    loadMoreError,
+    retryLoadMore,
+    totalCount,
     loadMorePhotos,
     silentRefresh,
     removePhotos,
@@ -283,14 +289,26 @@ export default function TrashPage() {
           <div className="px-1 md:pl-1 md:pr-0">
             {isBrowser ? (
               photos.length > 0 ? (
-                <PhotoMasonry
-                  photos={photos}
-                  resetKey={masonryKey}
-                  onReachBottom={loadMorePhotos}
-                  onPhotoOpen={openPhoto}
-                  onPhotoDelete={openDeletePhotos}
-                  onPhotoRestore={restorePhotos}
-                />
+                <>
+                  <PhotoMasonry
+                    photos={photos}
+                    resetKey={masonryKey}
+                    onReachBottom={loadMorePhotos}
+                    onPhotoOpen={openPhoto}
+                    onPhotoDelete={openDeletePhotos}
+                    onPhotoRestore={restorePhotos}
+                  />
+                  <GalleryBottomStatus
+                    type="trash"
+                    totalCount={totalCount}
+                    loadedCount={photos.length}
+                    hasMore={hasMore}
+                    loadingMore={loadingMore}
+                    loadMoreError={loadMoreError}
+                    onReachBottom={loadMorePhotos}
+                    onRetry={retryLoadMore}
+                  />
+                </>
               ) : (
                 <div className="flex h-[60vh] flex-col items-center justify-center gap-3 text-center px-4">
                   <div className="flex size-14 items-center justify-center rounded-full bg-muted">

@@ -59,6 +59,8 @@ function usePhotoList(
   const [masonryKey, setMasonryKey] = useState(0) // Control waterfall flow to recalculate layout after list structure changes.
 
   const [totalCount, setTotalCount] = useState<number>(() => initialTotal ?? (initialPhotos ? initialPhotos.length : 0))
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [loadMoreError, setLoadMoreError] = useState(false)
   const [isOffline, setIsOffline] = useState(false)
 
   // Listen to browser connectivity transitions
@@ -148,9 +150,13 @@ function usePhotoList(
         console.error("Failed to load photos by IDs:", err)
         hasMoreRef.current = false
         setHasMore(false)
+        if (append) {
+          setLoadMoreError(true)
+        }
       })
       .finally(() => {
         loadingRef.current = false
+        setLoadingMore(false)
       })
   }, [refreshMasonry])
 
@@ -161,6 +167,10 @@ function usePhotoList(
 
     const queryParams = paramsRef.current
     loadingRef.current = true
+    if (append) {
+      setLoadingMore(true)
+      setLoadMoreError(false)
+    }
 
     const isSortedMode = Boolean(queryParams.sortBy) || queryParams.status === PhotoStatusEnum.DELETE || queryParams.shuffle === false
 
@@ -230,6 +240,9 @@ function usePhotoList(
           console.error("Failed to load photo list:", err)
           hasMoreRef.current = false
           setHasMore(false)
+          if (append) {
+            setLoadMoreError(true)
+          }
           if (photosRef.current.length === 0) {
             getOfflineCatalog().then((cached) => {
               if (cached && cached.photos.length > 0) {
@@ -243,6 +256,7 @@ function usePhotoList(
         })
         .finally(() => {
           loadingRef.current = false
+          setLoadingMore(false)
         })
       return
     }
@@ -258,6 +272,7 @@ function usePhotoList(
         hasMoreRef.current = false
         setHasMore(false)
         loadingRef.current = false
+        setLoadingMore(false)
         return
       }
 
@@ -291,6 +306,7 @@ function usePhotoList(
             hasMoreRef.current = false
             setHasMore(false)
             loadingRef.current = false
+            setLoadingMore(false)
             return
           }
           const lastId = nextIds[nextIds.length - 1]
@@ -311,6 +327,7 @@ function usePhotoList(
             loadPhotosByIds(firstPageIds, false)
           } else {
             loadingRef.current = false
+            setLoadingMore(false)
           }
         }
       })
@@ -319,6 +336,10 @@ function usePhotoList(
         hasMoreRef.current = false
         setHasMore(false)
         loadingRef.current = false
+        setLoadingMore(false)
+        if (append) {
+          setLoadMoreError(true)
+        }
       })
   }, [pageSize, loadPhotosByIds, refreshMasonry])
 
@@ -334,11 +355,21 @@ function usePhotoList(
     photosRef.current = []
     hasMoreRef.current = true
     setHasMore(true)
+    setLoadingMore(false)
+    setLoadMoreError(false)
     loadPhotoList(false)
   }, [loadPhotoList])
 
   // Handle next page request after photo list bottoms out.
   const loadMorePhotos = useCallback(() => {
+    loadPhotoList(true)
+  }, [loadPhotoList])
+
+  // Retry loading more photos after a failure
+  const retryLoadMore = useCallback(() => {
+    hasMoreRef.current = true
+    setHasMore(true)
+    setLoadMoreError(false)
     loadPhotoList(true)
   }, [loadPhotoList])
 
@@ -513,6 +544,9 @@ function usePhotoList(
     totalCount,
     setTotalCount,
     hasMore,
+    loadingMore,
+    loadMoreError,
+    retryLoadMore,
     isOffline,
     setPhotos,
     masonryKey,
