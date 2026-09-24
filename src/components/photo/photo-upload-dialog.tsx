@@ -886,6 +886,13 @@ export function PhotoUploadDialog() {
         fileToUpload = await compressImageFile(item.file, {
           maxDimension: 3840,
           quality: 0.88,
+          onProgress: (p) => {
+            setPreviews((prev) =>
+              prev.map((preview) =>
+                preview.id === item.id ? { ...preview, progress: Math.min(25, Math.round(p * 0.25)) } : preview
+              )
+            )
+          },
         })
       }
 

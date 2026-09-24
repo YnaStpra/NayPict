@@ -6,6 +6,7 @@ import { getLocale, getMessages } from "next-intl/server"
 import { Provider } from "@/app/provider"
 import { PwaRegister } from "@/components/pwa/pwa-register"
 import { SmoothScrollProvider } from "@/components/providers/smooth-scroll-provider"
+import { InstantPageProvider } from "@/components/providers/instant-page-provider"
 import "./globals.css"
 
 const geist = Geist({
@@ -98,7 +99,9 @@ export default async function RootLayout({ children }: RootLayoutProps) {
             title={title}
           >
             <SmoothScrollProvider>
-              {children}
+              <InstantPageProvider>
+                {children}
+              </InstantPageProvider>
             </SmoothScrollProvider>
           </Provider>
         </NextIntlClientProvider>
