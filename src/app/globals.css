@@ -5,6 +5,7 @@
 @import "yet-another-react-lightbox/styles.css";
 @import "yet-another-react-lightbox/plugins/counter.css";
 @import "yet-another-react-lightbox/plugins/thumbnails.css";
+@import "photoswipe/dist/photoswipe.css";
 @import "lenis/dist/lenis.css";
 
 @custom-variant dark (&:is(.dark *));
@@ -215,10 +216,39 @@
 body[data-scroll-locked] .yarl__container,
 body:has([data-slot="dialog-content"]) .yarl__container,
 body:has([data-slot="alert-dialog-content"]) .yarl__container,
-.yarl-modal-active .yarl__container {
+.yarl-modal-active .yarl__container,
+body[data-scroll-locked] .pswp,
+body:has([data-slot="dialog-content"]) .pswp,
+body:has([data-slot="alert-dialog-content"]) .pswp,
+.pswp-modal-active {
     pointer-events: none !important;
     user-select: none !important;
     touch-action: none !important;
+}
+
+/* PhotoSwipe v5 Naypict Styling & GPU Compositor Overhaul */
+.pswp {
+    --pswp-bg: rgba(0, 0, 0, 0.96);
+    z-index: 50 !important;
+}
+
+.pswp--naypict {
+    contain: layout style;
+}
+
+.pswp__img {
+    transform: translateZ(0);
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+}
+
+.pswp__video-slide-container {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    touch-action: pan-y pinch-zoom;
 }
 
 @keyframes neon-glow-pulse {
