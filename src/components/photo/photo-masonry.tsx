@@ -101,6 +101,17 @@ function getInitialWrapWidth(sidebarOpen: boolean) {
   return width - remToPx(sidebarOpen ? 14.25 : 3.25)
 }
 
+// Calculate deterministic column count from window/screen width so that opening/closing sidebar
+// NEVER scrambles or re-orders cards across columns, but smoothly scales card sizes in place.
+function getResponsiveColumnCount(screenWidth: number, isMobile: boolean): number {
+  if (isMobile || screenWidth < 640) return 2
+  if (screenWidth < 960) return 3
+  if (screenWidth < 1360) return 4
+  if (screenWidth < 1780) return 5
+  if (screenWidth < 2200) return 6
+  return 7
+}
+
 // Calculate the true height of the photo at the current column width.
 function getPhotoHeight(photo: PhotoVo, columnWidth: number) {
   const ratio = photo.width && photo.height ? photo.height / photo.width : 1
@@ -179,20 +190,22 @@ const PhotoMasonry = memo(function PhotoMasonry({
   const wrapRef = useRef<HTMLDivElement | null>(null)
   const onReachBottomRef = useRef(onReachBottom)
   const [windowHeight, setWindowHeight] = useState(() => (typeof window !== "undefined" ? window.innerHeight : 800))
+  const [screenWidth, setScreenWidth] = useState(() => (typeof window !== "undefined" ? window.innerWidth : 1200))
   const [wrapPosition, setWrapPosition] = useState({ offset: 0, width: getInitialWrapWidth(sidebarOpen) })
   const [selectedPhotoIds, setSelectedPhotoIds] = useState<string[]>([])
   const [batchEditDialogOpen, setBatchEditDialogOpen] = useState(false)
   const touchHoverCloseRef = useRef<(() => void) | null>(null)
+
+  const columnCount = useMemo(() => getResponsiveColumnCount(screenWidth, isMobile), [screenWidth, isMobile])
   const width = wrapPosition.width
-  const columnWidth = isMobile ? (width - 4) / 2 : 240
   const positioner = usePositioner(
     {
       width,
-      columnWidth,
+      columnCount,
       columnGutter: 4,
       rowGutter: 4,
     },
-    [resetKey]
+    [resetKey, columnCount]
   )
 
   syncPhotoPositioner(photos, positioner.columnWidth, positioner)
@@ -274,9 +287,10 @@ const PhotoMasonry = memo(function PhotoMasonry({
   }, [onReachBottom])
 
   useEffect(() => {
-    // Update window height, for masonic Calculate visible area.
+    // Update window dimensions for masonic visible area and responsive column count.
     function handleResize() {
       setWindowHeight(window.innerHeight)
+      setScreenWidth(window.innerWidth)
     }
 
     window.addEventListener("resize", handleResize)
@@ -452,13 +466,13 @@ const PhotoMasonry = memo(function PhotoMasonry({
       lastScrollY = currentScrollY
 
       const avgCardHeight = isMobile ? 180 : 260
-      const cols = Math.max(1, Math.floor(width / columnWidth))
+      const cols = columnCount
       const estimatedVisibleIndex = Math.max(0, Math.floor((currentScrollY / avgCardHeight) * cols))
 
       // Downward lookahead window: next 48 photos ahead
       // Upward lookahead window: 24 photos above
-      const forwardBatch = isMobile ? 24 : 48
-      const backwardBatch = isMobile ? 12 : 24
+      const forwardBatch = isMobile ? 36 : 48
+      const backwardBatch = isMobile ? 18 : 24
 
       const startIdx = Math.max(0, estimatedVisibleIndex - (isScrollingDown ? 4 : backwardBatch))
       const endIdx = Math.min(photos.length, estimatedVisibleIndex + (isScrollingDown ? forwardBatch : 8))
@@ -480,11 +494,9 @@ const PhotoMasonry = memo(function PhotoMasonry({
     const schedulePrefetch = () => {
       if (scheduled) return
       scheduled = true
-      if ("requestIdleCallback" in window) {
-        window.requestIdleCallback(prefetchAhead, { timeout: 300 })
-      } else {
-        setTimeout(prefetchAhead, 100)
-      }
+      requestAnimationFrame(() => {
+        prefetchAhead()
+      })
     }
 
     // Initial pre-warm of above-the-fold and lookahead items
@@ -494,7 +506,7 @@ const PhotoMasonry = memo(function PhotoMasonry({
     return () => {
       window.removeEventListener("scroll", schedulePrefetch)
     }
-  }, [photos, width, columnWidth, isMobile])
+  }, [photos, width, columnCount, isMobile])
 
   // Toggle photo selection in array photoId.
   function changePhotoSelected(photoId: string, selected: boolean) {
@@ -606,11 +618,12 @@ const PhotoMasonry = memo(function PhotoMasonry({
           onSuccess={handleBatchEditSuccess}
         />
       )}
-      <div ref={wrapRef} className="w-full overflow-x-hidden masonry-grid-smooth subpixel-snap-grid">
+      <div ref={wrapRef} className="w-full overflow-x-hidden masonry-grid-smooth subpixel-snap-grid transition-[width] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]">
         {groupByDate && dateGroups ? (
           <div className="space-y-6 pb-6">
             {dateGroups.map((group) => {
-              const numCols = Math.max(1, Math.floor((width + 4) / (columnWidth + 4)))
+              const numCols = columnCount
+              const currentColumnWidth = Math.max(1, Math.floor((width - 4 * (numCols - 1)) / numCols))
               const cols: { photo: PhotoVo; globalIndex: number; height: number }[][] = Array.from(
                 { length: numCols },
                 () => []
@@ -619,7 +632,7 @@ const PhotoMasonry = memo(function PhotoMasonry({
 
               group.items.forEach(({ photo, globalIndex }) => {
                 const ratio = photo.width && photo.height ? photo.height / photo.width : 1
-                const h = Math.max(1, Math.round(columnWidth * ratio))
+                const h = Math.max(1, Math.round(currentColumnWidth * ratio))
                 let minCol = 0
                 for (let c = 1; c < numCols; c++) {
                   if (colHeights[c] < colHeights[minCol]) {
@@ -652,14 +665,14 @@ const PhotoMasonry = memo(function PhotoMasonry({
                       <div
                         key={colIdx}
                         className="flex flex-col gap-1 flex-1"
-                        style={{ maxWidth: `${columnWidth}px` }}
+                        style={{ maxWidth: `${currentColumnWidth}px` }}
                       >
                         {colItems.map(({ photo, globalIndex }) => (
                           <PhotoCard
                             key={photo.photoId}
                             data={photo}
                             index={globalIndex}
-                            width={columnWidth}
+                            width={currentColumnWidth}
                             selected={visibleSelectedPhotoIds.includes(photo.photoId)}
                             selectionActive={visibleSelectedPhotoIds.length > 0}
                             onOpen={(origin) => onPhotoOpen?.(globalIndex, origin)}
@@ -678,7 +691,8 @@ const PhotoMasonry = memo(function PhotoMasonry({
         ) : groupByType && typeGroups ? (
           <div className="space-y-6 pb-6">
             {typeGroups.map((group) => {
-              const numCols = Math.max(1, Math.floor((width + 4) / (columnWidth + 4)))
+              const numCols = columnCount
+              const currentColumnWidth = Math.max(1, Math.floor((width - 4 * (numCols - 1)) / numCols))
               const cols: { photo: PhotoVo; globalIndex: number; height: number }[][] = Array.from(
                 { length: numCols },
                 () => []
@@ -687,7 +701,7 @@ const PhotoMasonry = memo(function PhotoMasonry({
 
               group.items.forEach(({ photo, globalIndex }) => {
                 const ratio = photo.width && photo.height ? photo.height / photo.width : 1
-                const h = Math.max(1, Math.round(columnWidth * ratio))
+                const h = Math.max(1, Math.round(currentColumnWidth * ratio))
                 let minCol = 0
                 for (let c = 1; c < numCols; c++) {
                   if (colHeights[c] < colHeights[minCol]) {
@@ -723,14 +737,14 @@ const PhotoMasonry = memo(function PhotoMasonry({
                       <div
                         key={colIdx}
                         className="flex flex-col gap-1 flex-1"
-                        style={{ maxWidth: `${columnWidth}px` }}
+                        style={{ maxWidth: `${currentColumnWidth}px` }}
                       >
                         {colItems.map(({ photo, globalIndex }) => (
                           <PhotoCard
                             key={photo.photoId}
                             data={photo}
                             index={globalIndex}
-                            width={columnWidth}
+                            width={currentColumnWidth}
                             selected={visibleSelectedPhotoIds.includes(photo.photoId)}
                             selectionActive={visibleSelectedPhotoIds.length > 0}
                             onOpen={(origin) => onPhotoOpen?.(globalIndex, origin)}
@@ -754,7 +768,7 @@ const PhotoMasonry = memo(function PhotoMasonry({
             offset={wrapPosition.offset}
             height={windowHeight}
             itemKey={(item) => item?.photoId ?? ''}
-            overscanBy={isMobile ? 5 : 8}
+            overscanBy={isMobile ? 8 : 8}
             render={MasonicPhotoCard}
           />
         )}

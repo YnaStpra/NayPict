@@ -84,6 +84,16 @@ function getInitialWrapWidth(sidebarOpen: boolean) {
   return width - remToPx(sidebarOpen ? 15.25 : 4.25)
 }
 
+// Calculate deterministic column count from window/screen width so that opening/closing sidebar
+// NEVER scrambles or re-orders albums across columns, but smoothly scales card sizes in place.
+function getResponsiveAlbumColumnCount(screenWidth: number, isSmall: boolean): number {
+  if (isSmall || screenWidth < 640) return 2
+  if (screenWidth < 960) return 3
+  if (screenWidth < 1360) return 4
+  if (screenWidth < 1780) return 5
+  return 6
+}
+
 // Calculate the fixed height of the album card under the current column width.
 function getAlbumHeight(columnWidth: number) {
   return Math.max(1, Math.round(columnWidth))
@@ -125,27 +135,30 @@ export function AlbumMasonry({
   const { sidebarOpen } = useApp()
   const wrapRef = useRef<HTMLDivElement | null>(null)
   const [windowHeight, setWindowHeight] = useState(() => (typeof window !== "undefined" ? window.innerHeight : 800))
+  const [screenWidth, setScreenWidth] = useState(() => (typeof window !== "undefined" ? window.innerWidth : 1200))
   const [wrapPosition, setWrapPosition] = useState({ offset: 0, width: getInitialWrapWidth(sidebarOpen) })
 
+  const isSmallScreen = screenWidth < 768
+  const columnCount = useMemo(() => getResponsiveAlbumColumnCount(screenWidth, isSmallScreen), [screenWidth, isSmallScreen])
   const width = wrapPosition.width
-  const isSmallScreen = width < 768
-  const columnWidth = isSmallScreen ? (width - 12) / 2 : 240
+
   const positioner = usePositioner(
     {
       width,
-      columnWidth,
+      columnCount,
       columnGutter: isSmallScreen ? 8 : 12,
       rowGutter: isSmallScreen ? 8 : 12,
     },
-    [resetKey]
+    [resetKey, columnCount]
   )
 
   syncAlbumPositioner(albums, positioner.columnWidth, positioner)
 
   useEffect(() => {
-    // Update window height, for masonic Calculate visible area.
+    // Update window dimensions for masonic visible area and responsive column count.
     function handleResize() {
       setWindowHeight(window.innerHeight)
+      setScreenWidth(window.innerWidth)
     }
 
     window.addEventListener("resize", handleResize)
@@ -249,14 +262,14 @@ export function AlbumMasonry({
 
   return (
     <AlbumMasonryContext.Provider value={albumContextValue}>
-      <div ref={wrapRef} className="w-full overflow-x-hidden">
+      <div ref={wrapRef} className="w-full overflow-x-hidden transition-[width] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]">
         <MasonryScroller
           items={albums}
           positioner={positioner}
           offset={wrapPosition.offset}
           height={windowHeight}
           itemKey={(item) => item?.albumId ?? ''}
-          overscanBy={2.5}
+          overscanBy={6}
           render={MasonicAlbumCard}
         />
       </div>
