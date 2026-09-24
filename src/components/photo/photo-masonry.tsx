@@ -33,6 +33,7 @@ interface PhotoMasonryProps {
   resetKey?: number
   groupByDate?: boolean
   groupByType?: boolean
+  enableTimelineScrubber?: boolean
   onReachBottom: () => void
   onPhotoOpen?: (index: number, origin?: HeroTransitionOrigin) => void
   onPhotoDelete?: (photoIds: string[]) => void
@@ -178,6 +179,7 @@ const PhotoMasonry = memo(function PhotoMasonry({
   resetKey = 0,
   groupByDate = false,
   groupByType = false,
+  enableTimelineScrubber = false,
   onReachBottom,
   onPhotoOpen,
   onPhotoDelete,
@@ -734,7 +736,7 @@ const PhotoMasonry = memo(function PhotoMasonry({
         </div>
       )}
       {/* Google Photos & Apple Photos style fast date timeline scrubber */}
-      <PhotoTimelineScrubber photos={photos} />
+      <PhotoTimelineScrubber photos={photos} enabled={enableTimelineScrubber} />
       <div
         ref={wrapRef}
         className="w-full overflow-x-hidden masonry-grid-smooth subpixel-snap-grid transition-[width] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] touch-pan-y"

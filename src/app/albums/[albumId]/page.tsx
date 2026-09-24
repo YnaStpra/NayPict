@@ -467,7 +467,7 @@ export default function Page() {
               </div>
 
               {/* Sort Dropdown */}
-              <DropdownMenu>
+              <DropdownMenu modal={false}>
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
@@ -556,6 +556,12 @@ export default function Page() {
                     photos={photos}
                     resetKey={masonryKey}
                     groupByType={sortKey === 'type_asc' || sortKey === 'type_desc'}
+                    enableTimelineScrubber={
+                      sortKey === 'takenTime_desc' ||
+                      sortKey === 'takenTime_asc' ||
+                      sortKey === 'createTime_desc' ||
+                      sortKey === 'createTime_asc'
+                    }
                     onReachBottom={loadMorePhotos}
                     onPhotoOpen={openPhoto}
                     onPhotoDelete={isAdmin ? recyclePhotos : undefined}
