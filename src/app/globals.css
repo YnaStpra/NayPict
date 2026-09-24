@@ -186,6 +186,14 @@
     overscroll-behavior: contain;
 }
 
+/* Responsive layout for Lightbox when information sidebar is open on desktop (prevents exposing underlying page) */
+@media (min-width: 768px) {
+    .yarl-sidebar-open .yarl__container {
+        padding-right: 336px;
+        transition: padding 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+}
+
 .yarl__carousel {
     will-change: transform, opacity;
     backface-visibility: hidden;
