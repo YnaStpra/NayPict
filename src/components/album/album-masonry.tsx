@@ -256,7 +256,7 @@ export function AlbumMasonry({
           offset={wrapPosition.offset}
           height={windowHeight}
           itemKey={(item) => item?.albumId ?? ''}
-          overscanBy={1.5}
+          overscanBy={2.5}
           render={MasonicAlbumCard}
         />
       </div>

@@ -111,6 +111,51 @@ function prefetchPhotoHighRes(previewUrl?: string | null) {
   }
 }
 
+// Shared singleton IntersectionObserver expanding viewport margin by 55% above and below
+// to ensure thumbnails are downloaded and decoded in GPU memory BEFORE scrolling into view (zero black gaps)
+type PreloadCallback = () => void
+const preloadCallbacks = new Map<Element, PreloadCallback>()
+let sharedPreloadObserver: IntersectionObserver | null = null
+
+function getSharedPreloadObserver(): IntersectionObserver | null {
+  if (typeof window === "undefined" || !("IntersectionObserver" in window)) return null
+  if (!sharedPreloadObserver) {
+    sharedPreloadObserver = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) {
+            const cb = preloadCallbacks.get(entry.target)
+            if (cb) {
+              cb()
+              sharedPreloadObserver?.unobserve(entry.target)
+              preloadCallbacks.delete(entry.target)
+            }
+          }
+        }
+      },
+      {
+        rootMargin: "55% 0px 55% 0px", // 55% buffer expansion above and below viewport
+        threshold: 0,
+      }
+    )
+  }
+  return sharedPreloadObserver
+}
+
+function observePreload(element: Element, callback: PreloadCallback): () => void {
+  const observer = getSharedPreloadObserver()
+  if (!observer) {
+    callback()
+    return () => {}
+  }
+  preloadCallbacks.set(element, callback)
+  observer.observe(element)
+  return () => {
+    observer.unobserve(element)
+    preloadCallbacks.delete(element)
+  }
+}
+
 // Rendering a single photo card in a waterfall flow.
 export const PhotoCard = memo(function PhotoCard({
   data,
@@ -186,6 +231,17 @@ export const PhotoCard = memo(function PhotoCard({
   // Desktop (multi-column): first 12 photos load eager.
   const priorityLimit = isMobile ? 6 : 12
   const isPriority = typeof index === "number" && index < priorityLimit
+
+  // 55% Viewport Margin Expansion:
+  // Preload thumbnails 55% ahead above and below the screen so users NEVER see black gaps during scrolling
+  const [isInPreloadWindow, setIsInPreloadWindow] = useState(() => isPriority || initialLoaded)
+
+  useEffect(() => {
+    if (isInPreloadWindow || isPriority || !cardRef.current) return
+    return observePreload(cardRef.current, () => {
+      setIsInPreloadWindow(true)
+    })
+  }, [isInPreloadWindow, isPriority])
 
   // Unified adaptive performance: respects Data Saver, weak cellular (2G/3G), and low battery
   const { isEcoMode, canAutoplayVideo } = useAdaptivePerformance()
@@ -638,7 +694,13 @@ export const PhotoCard = memo(function PhotoCard({
       }}
     >
       {isVideo ? (
-        <div className="absolute inset-0 bg-neutral-950 flex items-center justify-center overflow-hidden">
+        <div
+          className="absolute inset-0 flex items-center justify-center overflow-hidden bg-cover bg-center"
+          style={{
+            backgroundColor: placeholder ? undefined : "rgba(128,128,128,0.08)",
+            backgroundImage: isImageLoaded ? undefined : (placeholder ? `url("${placeholder}")` : undefined),
+          }}
+        >
           <video
             ref={videoRef}
             src={isEcoMode && !isVideoPlaying ? undefined : videoStreamUrl}
@@ -662,7 +724,7 @@ export const PhotoCard = memo(function PhotoCard({
               const sec = Math.floor(cur)
               setCurrentSeconds((prev) => (prev !== sec ? sec : prev))
             }}
-            className="absolute inset-0 h-full w-full object-cover pointer-events-none bg-neutral-950"
+            className="absolute inset-0 h-full w-full object-cover pointer-events-none"
           />
           {/* Static thumbnail overlay - persists until video frames are actually rendering to prevent black screens */}
           {imageSrc && !imageError && (
@@ -670,7 +732,7 @@ export const PhotoCard = memo(function PhotoCard({
               ref={setImgRef}
               src={imageSrc}
               crossOrigin="anonymous"
-              loading={isPriority ? "eager" : "lazy"}
+              loading={isPriority || isInPreloadWindow ? "eager" : "lazy"}
               fetchPriority={isPriority ? "high" : "auto"}
               decoding={isImageLoaded ? "sync" : "async"}
               alt={data.name}
@@ -696,7 +758,7 @@ export const PhotoCard = memo(function PhotoCard({
           ref={setImgRef}
           src={imageSrc ?? undefined}
           crossOrigin="anonymous"
-          loading={isPriority ? "eager" : "lazy"}
+          loading={isPriority || isInPreloadWindow ? "eager" : "lazy"}
           fetchPriority={isPriority ? "high" : "auto"}
           decoding={isImageLoaded ? "sync" : "async"}
           alt={data.name}
