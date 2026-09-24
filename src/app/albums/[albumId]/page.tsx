@@ -47,7 +47,6 @@ import {
 import { OdometerCounter } from "@/components/ui/odometer-counter"
 import { useAlbumPhotoContext } from "@/app/albums/[albumId]/provider"
 import { useApp } from "@/app/provider"
-import { PhotoDateDrawer } from "@/components/photo/photo-date-drawer"
 import { PhotoMasonrySkeleton } from "@/components/photo/photo-masonry-skeleton"
 import { GalleryBottomStatus } from "@/components/photo/gallery-bottom-status"
 import { BackToTopButton } from "@/components/ui/back-to-top-button"
@@ -381,15 +380,6 @@ export default function Page() {
     }
   }, [albumId, setPhotos])
 
-  // Save the currently selected album photo time range, And filter the trigger list by shooting time.
-  function changePhotoTime(range: { startDate: Date, endDate: Date }) {
-    refreshPhotoList({
-      albumId,
-      startTakenTime: range.startDate.toISOString(),
-      endTakenTime: range.endDate.toISOString(),
-    })
-  }
-
   return (
     <>
       <SidebarProvider open={sidebarOpen} onOpenChange={setSidebarOpen}>
@@ -514,7 +504,6 @@ export default function Page() {
                 </DropdownMenuContent>
               </DropdownMenu>
 
-              <PhotoDateDrawer albumId={albumId} onRangeChange={changePhotoTime} />
               {isAdmin && (
                 <Button
                   type="button"

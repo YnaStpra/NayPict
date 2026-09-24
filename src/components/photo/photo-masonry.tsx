@@ -17,6 +17,7 @@ import { useApp } from "@/app/provider"
 import { useIsMobile } from "@/hooks/use-mobile"
 import { PhotoCard, loadedThumbnails } from "@/components/photo/photo-card"
 import { PhotoSelectionDrawer } from "@/components/photo/photo-selection-drawer"
+import { PhotoTimelineScrubber } from "@/components/photo/photo-timeline-scrubber"
 import { type PhotoVo } from "@/server/entity/vo/photo"
 import { parseTime } from "@/lib/date"
 import { type HeroTransitionOrigin } from "@/components/photo/hero-photo-transition"
@@ -458,60 +459,56 @@ const PhotoMasonry = memo(function PhotoMasonry({
   }, [sidebarOpen])
 
   useEffect(() => {
-    let isChecking = false
+    let rAFId: number | null = null
     let lastScrollTime = Date.now()
     let lastScrollY = typeof window !== "undefined" ? window.scrollY || window.pageYOffset : 0
 
     function checkAutoLoad() {
-      if (isChecking) return
-      isChecking = true
+      if (rAFId !== null) return
+      rAFId = requestAnimationFrame(() => {
+        rAFId = null
 
-      if (touchHoverCloseRef.current) {
-        touchHoverCloseRef.current()
-        touchHoverCloseRef.current = null
-      }
+        if (touchHoverCloseRef.current) {
+          touchHoverCloseRef.current()
+          touchHoverCloseRef.current = null
+        }
 
-      const scrollHeight = document.documentElement.scrollHeight || document.body.scrollHeight
-      const scrollY = window.scrollY || window.pageYOffset
-      const innerHeight = window.innerHeight
-      const bottomDistance = scrollHeight - scrollY - innerHeight
-      const maxScroll = scrollHeight - innerHeight
+        const scrollHeight = document.documentElement.scrollHeight || document.body.scrollHeight
+        const scrollY = window.scrollY || window.pageYOffset
+        const innerHeight = window.innerHeight
+        const bottomDistance = scrollHeight - scrollY - innerHeight
+        const maxScroll = scrollHeight - innerHeight
 
-      // Calculate scroll progress percentage (0.0 to 1.0)
-      const scrollProgress = maxScroll > 0 ? scrollY / maxScroll : 0
+        // Calculate scroll progress percentage (0.0 to 1.0)
+        const scrollProgress = maxScroll > 0 ? scrollY / maxScroll : 0
 
-      // Velocity calculation for predictive prefetching on fast scrolling
-      const now = Date.now()
-      const dt = Math.max(1, now - lastScrollTime)
-      const dy = scrollY - lastScrollY
-      const velocity = dy / dt // px/ms
-      lastScrollTime = now
-      lastScrollY = scrollY
+        // Velocity calculation for predictive prefetching on fast scrolling
+        const now = Date.now()
+        const dt = Math.max(1, now - lastScrollTime)
+        const dy = scrollY - lastScrollY
+        const velocity = dy / dt // px/ms
+        lastScrollTime = now
+        lastScrollY = scrollY
 
-      // Proactive 75%-80% Threshold: Trigger next page when scroll progress touches 75%
-      // (drops to 70% during rapid downward scrolling to guarantee zero hitches)
-      const targetProgress = velocity > 0.8 ? 0.70 : 0.75
+        // Proactive 75%-80% Threshold: Trigger next page when scroll progress touches 75%
+        const targetProgress = velocity > 0.8 ? 0.70 : 0.75
 
-      // Pixel-based threshold as secondary fallback
-      let distanceThreshold = isMobile ? 1400 : 2000
-      if (photos.length >= 200) {
-        distanceThreshold *= 1.4
-      }
-      if (velocity > 0.8) {
-        distanceThreshold *= 1.8
-      }
+        // Pixel-based threshold as secondary fallback
+        let distanceThreshold = isMobile ? 1400 : 2000
+        if (photos.length >= 200) {
+          distanceThreshold *= 1.4
+        }
+        if (velocity > 0.8) {
+          distanceThreshold *= 1.8
+        }
 
-      // Condition 1: User has actively scrolled down past 75% of the total page height
-      const isPastProgressThreshold = maxScroll > 0 && scrollY > 80 && scrollProgress >= targetProgress
+        const isPastProgressThreshold = maxScroll > 0 && scrollY > 80 && scrollProgress >= targetProgress
+        const isWithinDistanceThreshold = (scrollY > 80 || maxScroll <= 200) && bottomDistance <= distanceThreshold
 
-      // Condition 2: Remaining distance to bottom is within distance threshold
-      // (Only if user has scrolled, or if initial content doesn't even fill the viewport)
-      const isWithinDistanceThreshold = (scrollY > 80 || maxScroll <= 200) && bottomDistance <= distanceThreshold
-
-      if (isPastProgressThreshold || isWithinDistanceThreshold) {
-        onReachBottomRef.current()
-      }
-      isChecking = false
+        if (isPastProgressThreshold || isWithinDistanceThreshold) {
+          onReachBottomRef.current()
+        }
+      })
     }
 
     window.addEventListener("scroll", checkAutoLoad, { passive: true })
@@ -521,6 +518,7 @@ const PhotoMasonry = memo(function PhotoMasonry({
     return () => {
       window.removeEventListener("scroll", checkAutoLoad)
       window.removeEventListener("resize", checkAutoLoad)
+      if (rAFId !== null) cancelAnimationFrame(rAFId)
     }
   }, [isMobile, photos.length])
 
@@ -584,20 +582,29 @@ const PhotoMasonry = memo(function PhotoMasonry({
       }
     }
 
+    let idleTimer: NodeJS.Timeout | null = null
+
     const schedulePrefetch = () => {
-      if (scheduled) return
-      scheduled = true
-      requestAnimationFrame(() => {
-        prefetchAhead()
-      })
+      if (idleTimer) clearTimeout(idleTimer)
+      // Throttle prefetching during active scrolling (180ms delay) so 100% of CPU is dedicated to 120 FPS frame render
+      idleTimer = setTimeout(() => {
+        if (typeof window !== "undefined" && "requestIdleCallback" in window) {
+          ;(window as unknown as { requestIdleCallback: (cb: () => void) => void }).requestIdleCallback(() => {
+            prefetchAhead()
+          })
+        } else {
+          prefetchAhead()
+        }
+      }, 180)
     }
 
-    // Initial pre-warm of above-the-fold and lookahead items
-    schedulePrefetch()
+    // Initial pre-warm of above-the-fold items
+    prefetchAhead()
 
     window.addEventListener("scroll", schedulePrefetch, { passive: true })
     return () => {
       window.removeEventListener("scroll", schedulePrefetch)
+      if (idleTimer) clearTimeout(idleTimer)
     }
   }, [photos, width, columnCount, isMobile])
 
@@ -726,6 +733,8 @@ const PhotoMasonry = memo(function PhotoMasonry({
           </div>
         </div>
       )}
+      {/* Google Photos & Apple Photos style fast date timeline scrubber */}
+      <PhotoTimelineScrubber photos={photos} />
       <div
         ref={wrapRef}
         className="w-full overflow-x-hidden masonry-grid-smooth subpixel-snap-grid transition-[width] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] touch-pan-y"

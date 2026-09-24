@@ -37,7 +37,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { PhotoDateDrawer } from "@/components/photo/photo-date-drawer"
 import { PhotoMasonrySkeleton } from "@/components/photo/photo-masonry-skeleton"
 import { GalleryBottomStatus } from "@/components/photo/gallery-bottom-status"
 import { BackToTopButton } from "@/components/ui/back-to-top-button"
@@ -426,13 +425,6 @@ export default function Page() {
     }
   }
 
-  function changePhotoTime(range: { startDate: Date, endDate: Date }) {
-    refreshPhotoList({
-      startTakenTime: range.startDate.toISOString(),
-      endTakenTime: range.endDate.toISOString(),
-    })
-  }
-
   return (
     <>
       <SidebarProvider open={sidebarOpen} onOpenChange={setSidebarOpen}>
@@ -559,7 +551,6 @@ export default function Page() {
                 </DropdownMenuContent>
               </DropdownMenu>
 
-              <PhotoDateDrawer onRangeChange={changePhotoTime} />
               {userInfo && (
                 <Button
                   type="button"
