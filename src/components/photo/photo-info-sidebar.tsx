@@ -426,7 +426,7 @@ export function PhotoInfoSidebar({
       animate={{ x: 0, opacity: 1 }}
       exit={{ x: "100%", opacity: 0 }}
       transition={{ duration: 0.28, ease: [0.32, 0.72, 0, 1] }}
-      className="fixed top-0 right-0 z-[100] flex h-full w-full flex-col overflow-hidden bg-neutral-950/90 backdrop-blur-2xl text-white shadow-photo-sidebar md:w-84 md:shrink-0 md:border-l md:border-white/10 pointer-events-auto touch-pan-y will-change-transform"
+      className="fixed top-0 right-0 z-[60] flex h-full w-full flex-col overflow-hidden bg-neutral-950/90 backdrop-blur-2xl text-white shadow-photo-sidebar md:w-84 md:shrink-0 md:border-l md:border-white/10 pointer-events-auto touch-pan-y will-change-transform"
       style={{ touchAction: "pan-y" }}
     >
       <PhotoViewerBlurBackground thumbHash={photo?.thumbHash} />

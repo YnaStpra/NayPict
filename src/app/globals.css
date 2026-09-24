@@ -5,7 +5,6 @@
 @import "yet-another-react-lightbox/styles.css";
 @import "yet-another-react-lightbox/plugins/counter.css";
 @import "yet-another-react-lightbox/plugins/thumbnails.css";
-@import "photoswipe/dist/photoswipe.css";
 @import "lenis/dist/lenis.css";
 
 @custom-variant dark (&:is(.dark *));
@@ -178,12 +177,19 @@
 }
 
 /* GPU-accelerated 120 FPS carousel tracks and slides */
+.yarl__portal {
+    contain: layout style;
+}
+
+.yarl__container {
+    contain: layout paint;
+    overscroll-behavior: contain;
+}
+
 .yarl__carousel {
     will-change: transform, opacity;
-    transform: translate3d(var(--yarl__swipe_offset, 0px), var(--yarl__pull_offset, 0px), 0) !important;
     backface-visibility: hidden;
     -webkit-backface-visibility: hidden;
-    perspective: 1000px;
 }
 
 .yarl__slide {
@@ -198,6 +204,7 @@
     backface-visibility: hidden;
     -webkit-backface-visibility: hidden;
     transform: translateZ(0);
+    image-rendering: -webkit-optimize-contrast;
 }
 
 .yarl__thumbnails_bottom .yarl__thumbnails_container {
@@ -216,60 +223,10 @@
 body[data-scroll-locked] .yarl__container,
 body:has([data-slot="dialog-content"]) .yarl__container,
 body:has([data-slot="alert-dialog-content"]) .yarl__container,
-.yarl-modal-active .yarl__container,
-body[data-scroll-locked] .pswp,
-body:has([data-slot="dialog-content"]) .pswp,
-body:has([data-slot="alert-dialog-content"]) .pswp,
-.pswp-modal-active {
+.yarl-modal-active .yarl__container {
     pointer-events: none !important;
     user-select: none !important;
     touch-action: none !important;
-}
-
-/* PhotoSwipe v5 Naypict Styling & GPU Compositor Overhaul */
-.pswp {
-    --pswp-bg: #000000 !important;
-    background: #000000 !important;
-    z-index: 50 !important;
-}
-
-.pswp__bg {
-    background: #000000 !important;
-}
-
-/* Hide PhotoSwipe v5 default buttons completely to eliminate duplicate UI */
-.pswp__top-bar,
-.pswp__counter,
-.pswp__button,
-.pswp__button--close,
-.pswp__button--zoom,
-.pswp__button--arrow,
-.pswp__button--arrow--prev,
-.pswp__button--arrow--next,
-.pswp__preloader {
-    display: none !important;
-    opacity: 0 !important;
-    visibility: hidden !important;
-    pointer-events: none !important;
-}
-
-.pswp--naypict {
-    contain: layout style;
-}
-
-.pswp__img {
-    transform: translateZ(0);
-    backface-visibility: hidden;
-    -webkit-backface-visibility: hidden;
-}
-
-.pswp__video-slide-container {
-    width: 100%;
-    height: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    touch-action: pan-y pinch-zoom;
 }
 
 @keyframes neon-glow-pulse {

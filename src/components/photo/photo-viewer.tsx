@@ -1,30 +1,15 @@
 "use client"
 
-import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
-import { createPortal } from "react-dom"
+import { type CSSProperties, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { AnimatePresence } from "framer-motion"
-import PhotoSwipe from "photoswipe"
-import {
-  ArrowLeftIcon,
-  ChevronLeftIcon,
-  ChevronRightIcon,
-  ChevronsUpDownIcon,
-  CircleAlertIcon,
-  FolderIcon,
-  FolderPlusIcon,
-  Menu,
-  LoaderCircleIcon,
-  MaximizeIcon,
-  MessageSquare,
-  MinimizeIcon,
-  PanelRightClose,
-  PanelRightOpen,
-  Play,
-  RotateCcwSquare,
-  Share2Icon,
-  Trash2Icon,
-} from "lucide-react"
+import Lightbox from "yet-another-react-lightbox"
+import { isImageSlide, type SlideImage, useController, useLightboxState } from "yet-another-react-lightbox"
+import Fullscreen from "yet-another-react-lightbox/plugins/fullscreen"
+import Thumbnails from "yet-another-react-lightbox/plugins/thumbnails"
+import Zoom from "yet-another-react-lightbox/plugins/zoom"
+import { ArrowLeftIcon, ChevronLeftIcon, ChevronRightIcon, ChevronsUpDownIcon, CircleAlertIcon, CircleIcon, FolderIcon, FolderPlusIcon, LockIcon, Menu, LoaderCircleIcon, MaximizeIcon, MessageSquare, MinimizeIcon, PanelRightClose, PanelRightOpen, Play, RotateCcwSquare, Share2Icon, Sparkles, Trash2Icon, Wifi, WifiOff } from "lucide-react"
 import { toast } from "sonner"
+
 import dynamic from "next/dynamic"
 
 import { PhotoInfoSidebar, PhotoViewerBlurBackground, formatAlbumList } from "@/components/photo/photo-info-sidebar"
@@ -34,6 +19,21 @@ import { PhotoReactions } from "@/components/photo/photo-reactions"
 import { VideoPlayer } from "@/components/video/video-player"
 import { prebufferVideo } from "@/lib/video-prebuffer"
 import { loadedThumbnails } from "@/components/photo/photo-card"
+import { getIsOffline, notifyConnectionRestored } from "@/lib/network-status"
+
+// Dynamic code-splitting: Lazy-load heavy dialog bundles on demand to drastically minimize initial photo viewer bundle
+const PhotoInsightsDialog = dynamic(
+  () => import("@/components/photo/photo-insights-dialog").then((mod) => mod.PhotoInsightsDialog),
+  { ssr: false }
+)
+const PhotoStoryDialog = dynamic(
+  () => import("@/components/photo/photo-story-dialog").then((mod) => mod.PhotoStoryDialog),
+  { ssr: false }
+)
+const PhotoBatchEditDialog = dynamic(
+  () => import("@/components/photo/photo-batch-edit-dialog").then((mod) => mod.PhotoBatchEditDialog),
+  { ssr: false }
+)
 import { cn } from "@/lib/utils"
 import { InstagramIcon } from "@/components/icons/instagram"
 import { useTapAction } from "@/hooks/use-tap-action"
@@ -52,86 +52,205 @@ import { UserTypeEnum } from "@/server/enums/user-enum"
 import { useTranslations } from "next-intl"
 import { useModalBackHandler } from "@/hooks/use-modal-back-handler"
 
-// Dynamic code-splitting: Lazy-load heavy dialog bundles on demand
-const PhotoInsightsDialog = dynamic(
-  () => import("@/components/photo/photo-insights-dialog").then((mod) => mod.PhotoInsightsDialog),
-  { ssr: false }
-)
-const PhotoStoryDialog = dynamic(
-  () => import("@/components/photo/photo-story-dialog").then((mod) => mod.PhotoStoryDialog),
-  { ssr: false }
-)
-const PhotoBatchEditDialog = dynamic(
-  () => import("@/components/photo/photo-batch-edit-dialog").then((mod) => mod.PhotoBatchEditDialog),
-  { ssr: false }
-)
+
+// Stable plugin references to prevent Lightbox DOM teardown and video restarts during view mode toggles
+const VIDEO_PLUGINS = [Thumbnails, Fullscreen]
+const PHOTO_PLUGINS = [Thumbnails, Fullscreen, Zoom]
 
 interface PhotoViewerProps {
+  // Controls viewer visibility.
   open: boolean
+  // Currently opened photo index.
   index: number
+  // Photo list passed from parent.
   photos: PhotoVo[]
+  // Executed on viewer close.
   onBack?: () => void
+  // Executed on browser back button.
   onBrowserBack?: () => void
+  // Executed on photo delete.
   onPhotoDelete?: (photoId: string) => void
+  // Executed on photo update (e.g. visibility change).
   onPhotoUpdate?: (photo: PhotoVo) => void
+  // Executed on album select open.
   onAlbumOpen?: (photoIds: string[]) => void
 }
 
-type PhotoSlide = {
+type PhotoSlide = SlideImage & {
+  // Current photo ID.
   photoId: string
+  // Current photo original key.
   key: string | null
+  // Current photo original size.
   originalSize: number
+  // Current photo preview URL.
   preview: string
+  // Thumbnail URL.
   thumbnail: string
+  // ThumbHash blurred background URL.
   thumbHashUrl?: string
+  // Album list photo belongs to.
   albums?: { albumId: string; name: string }[]
+  // MIME type (image/jpeg, video/mp4, etc.)
   mediaType?: string
+  // EXIF metadata JSON string.
   exif?: string | null
-  src: string
-  width?: number
-  height?: number
-  alt?: string
+}
+
+type FullscreenButtonProps = {
+  // Whether currently in fullscreen mode.
+  fullscreen: boolean
+  // Enter fullscreen.
+  enter: () => void
+}
+
+type OriginalPhoto = {
+  // The original image that has been loaded currently key.
+  key: string
 }
 
 type OriginalProgress = {
+  // Number of bytes currently loaded.
   loaded: number
+  // The total number of bytes of the current original image.
   total: number
 }
 
 type PreviewRequestMap = Map<string, () => void>
 
-interface PhotoViewerContextType {
-  prev: () => void
-  next: () => void
-  close: () => void
-  currentSlide: PhotoSlide | null
+type LoadOriginalImageParams = {
+  // Current photo id.
+  photoId: string
+  // Original image request address.
+  src: string
+  // Original image file size, for no return total Show progress at the bottom of the pocket.
+  totalSize: number
+  // Save the original image that has been loaded.
+  setOriginalPhoto: (photo: OriginalPhoto | null) => void
+  // Save original image loading progress.
+  setOriginalProgress: (progress: OriginalProgress | null) => void
+  // Control whether the original image loading progress is displayed.
+  setShowOriginalProgress: (show: boolean) => void
+  // Save the current original image to check whether the loading is abnormal..
+  setOriginalError: (error: boolean) => void
+  // Cancel method of saving current original image request.
+  abortOriginalRef: { current: (() => void) | null }
+  // Original image loading progress delay hidden timer.
+  hideTimerRef: { current: ReturnType<typeof setTimeout> | null }
+  // Save the loaded photo cache.
+  setPhotoCache: (photoId: string, src: string) => void
 }
 
-const PhotoViewerContext = React.createContext<PhotoViewerContextType | null>(null)
-
-function useViewerController() {
-  const ctx = React.useContext(PhotoViewerContext)
-  return ctx || { prev: () => {}, next: () => {}, close: () => {}, currentSlide: null }
+const photoViewerPortalStyle: CSSProperties & { "--yarl__portal_zindex": number } = {
+  "--yarl__portal_zindex": 1000,
+  zIndex: 1000,
 }
 
+// Generate fade-in and fade-out styles based on the display state of the action button.
 function getActionVisibleClass(showActions: boolean) {
-  return showActions ? "opacity-100 translate-y-0" : "pointer-events-none opacity-0 -translate-y-2"
+  return showActions ? "opacity-100" : "pointer-events-none opacity-0"
 }
 
+// Format the number of bytes into MB.
 function formatMB(size: number) {
   return `${(size / 1024 / 1024).toFixed(1)}MB`
 }
 
+// Close all preview image requests, and clear the current request Map.
 function closePreviewRequests(requests: PreviewRequestMap) {
   const aborts = Array.from(requests.values())
+
   requests.clear()
-  aborts.forEach((abort) => abort())
+  aborts.forEach((abort) => {
+    abort()
+  })
 }
 
+// Load the original image and directly update the status related to the original image in the viewer.
+function loadOriginalImage({
+  photoId,
+  src,
+  totalSize,
+  setOriginalPhoto,
+  setOriginalProgress,
+  setShowOriginalProgress,
+  setOriginalError,
+  abortOriginalRef,
+  hideTimerRef,
+  setPhotoCache,
+}: LoadOriginalImageParams) {
+
+  const xhr = new XMLHttpRequest()
+  const abortOriginal = () => {
+    xhr.abort()
+  }
+
+  // Clean up the current request reference after the request ends, Avoid subsequent switching from accidentally canceling completed requests.
+  function clearCurrentRequest() {
+    if (abortOriginalRef.current === abortOriginal) {
+      abortOriginalRef.current = null
+    }
+  }
+
+  if (hideTimerRef.current) {
+    clearTimeout(hideTimerRef.current)
+    hideTimerRef.current = null
+  }
+  setShowOriginalProgress(true)
+  setOriginalError(false)
+  setOriginalProgress({
+    loaded: 0,
+    total: totalSize,
+  })
+
+  xhr.open("GET", src)
+  xhr.responseType = "arraybuffer"
+  xhr.onprogress = (event) => {
+    setOriginalProgress({
+      loaded: event.loaded,
+      total: event.lengthComputable ? event.total : totalSize,
+    })
+  }
+  xhr.onload = () => {
+    if (xhr.status >= 200 && xhr.status < 300) {
+      setOriginalProgress({
+        loaded: xhr.response.byteLength,
+        total: xhr.response.byteLength,
+      })
+      setPhotoCache(photoId, src)
+      setOriginalPhoto({
+        key: src,
+      })
+
+      hideTimerRef.current = setTimeout(() => {
+        hideTimerRef.current = null
+        setShowOriginalProgress(false)
+      }, 800)
+    } else {
+      setOriginalError(true)
+      setShowOriginalProgress(true)
+    }
+    clearCurrentRequest()
+  }
+  xhr.onerror = () => {
+    setOriginalError(true)
+    setShowOriginalProgress(true)
+    clearCurrentRequest()
+  }
+  xhr.onabort = () => {
+    clearCurrentRequest()
+  }
+  xhr.send()
+
+  return abortOriginal
+}
+
+// Silently load preview, Replace the current display image after the request is completed.
 function loadPreviewImage(
   src: string,
   photoId: string,
   currentPhotoIdRef: { current: string | null },
+  setOriginalPhoto: (photo: OriginalPhoto | null) => void,
   previewRequestsRef: { current: PreviewRequestMap },
   getPhotoCache: (photoId: string) => string | undefined,
   setPhotoCache: (photoId: string, src: string) => void,
@@ -151,7 +270,7 @@ function loadPreviewImage(
   img.crossOrigin = "anonymous"
   img.decoding = "async"
   if ("fetchPriority" in img) {
-    ;(img as unknown as { fetchPriority: string }).fetchPriority = "high"
+    ;(img as any).fetchPriority = "high"
   }
   const abortPreview = () => {
     img.onload = null
@@ -183,6 +302,7 @@ function loadPreviewImage(
   img.src = src
 }
 
+// Render original progress button.
 function OriginalProgressButton({
   progress,
   error,
@@ -201,7 +321,9 @@ function OriginalProgressButton({
     <Button
       type="button"
       variant="secondary"
-      className="fixed right-3 md:right-4 bottom-3 md:bottom-4 z-55 h-auto gap-3 rounded-xl bg-black/80 px-3 py-2 text-white transition-opacity duration-200 hover:bg-black/80 pointer-events-auto"
+      className={[
+        "absolute right-3 md:right-4 bottom-3 md:bottom-4 z-[450] h-auto gap-3 rounded-xl bg-black/80 px-3 py-2 text-white transition-opacity duration-200 hover:bg-black/80",
+      ].join(" ")}
     >
       {error ? (
         <CircleAlertIcon className="size-4 text-red-500" />
@@ -209,8 +331,8 @@ function OriginalProgressButton({
         <LoaderCircleIcon className="size-4 animate-spin text-white" />
       )}
       <span className="flex flex-col items-start leading-none">
-        <span className={cn("text-xs font-medium", error ? "text-red-500" : "text-white")}>
-          <span className="text-xs mr-[1px]">{error ? t("loadFailed") : t("loading")}</span>
+        <span className={["text-xs font-medium", error ? "text-red-500" : "text-white"].join(" ")}>
+          <span className="text-xs mr-[1px]"> {error ? t("loadFailed") : t("loading")} </span>
           {!error && <span className="text-white/70"> {percent}%</span>}
         </span>
         <span className="text-xs text-white/70">
@@ -221,48 +343,87 @@ function OriginalProgressButton({
   )
 }
 
+// Render the previous button.
 function PrevButton({ showActions }: { showActions: boolean }) {
-  const { prev } = useViewerController()
-  const tap = useTapAction(prev)
+  const { prev } = useController()
 
   return (
     <Button
       type="button"
       size="icon"
       variant="secondary"
-      className={cn(
-        "hidden md:flex fixed top-1/2 left-3 md:left-5 z-55 -translate-y-1/2 rounded-full bg-black/50 hover:bg-black/75 text-white backdrop-blur-md border border-white/10 shadow-2xl transition-all duration-200 pointer-events-auto cursor-pointer",
-        getActionVisibleClass(showActions)
-      )}
-      {...tap}
+      className={[
+        "absolute top-1/2 left-3 z-40 hidden rounded-full bg-black/40 text-white transition-opacity duration-200 hover:bg-black/50 md:inline-flex",
+        getActionVisibleClass(showActions),
+      ].join(" ")}
+      style={{ transform: "translateY(-50%)" }}
+      onClick={() => prev()}
     >
-      <ChevronLeftIcon className="size-6 text-white" />
-      <span className="sr-only">Previous</span>
+      <ChevronLeftIcon />
+      <span className="sr-only">Previous photo</span>
     </Button>
   )
 }
 
+// Render next button.
 function NextButton({ showActions }: { showActions: boolean }) {
-  const { next } = useViewerController()
-  const tap = useTapAction(next)
+  const { next } = useController()
 
   return (
     <Button
       type="button"
       size="icon"
       variant="secondary"
-      className={cn(
-        "hidden md:flex fixed top-1/2 right-3 md:right-5 z-55 -translate-y-1/2 rounded-full bg-black/50 hover:bg-black/75 text-white backdrop-blur-md border border-white/10 shadow-2xl transition-all duration-200 pointer-events-auto cursor-pointer",
-        getActionVisibleClass(showActions)
-      )}
-      {...tap}
+      className={[
+        "absolute top-1/2 right-3 md:right-4 z-40 hidden rounded-full bg-black/40 text-white transition-opacity duration-200 hover:bg-black/50 md:inline-flex",
+        getActionVisibleClass(showActions),
+      ].join(" ")}
+      style={{ transform: "translateY(-50%)" }}
+      onClick={() => next()}
     >
-      <ChevronRightIcon className="size-6 text-white" />
-      <span className="sr-only">Next</span>
+      <ChevronRightIcon />
+      <span className="sr-only">Next photo</span>
     </Button>
   )
 }
 
+// Render full screen button.
+function FullscreenButton({
+  fullscreen,
+  enter,
+  showActions,
+  onHideActions,
+}: FullscreenButtonProps & {
+  showActions: boolean
+  onHideActions: () => void
+}) {
+  // Hide viewer action buttons after entering full screen state.
+  function openFullscreen() {
+    enter()
+    onHideActions()
+  }
+
+  const tap = useTapAction(openFullscreen)
+
+  if (fullscreen) {
+    return null
+  }
+
+  return (
+    <Button
+      type="button"
+      size="icon"
+      variant="secondary"
+      className="rounded-full bg-black/40 text-white transition-opacity duration-200 hover:bg-black/50"
+      {...tap}
+    >
+      <MaximizeIcon />
+      <span className="sr-only">Enter fullscreen</span>
+    </Button>
+  )
+}
+
+// Render Cinematic Mode toggle button.
 function CinematicButton({
   showActions,
   isCinematicMode,
@@ -282,15 +443,14 @@ function CinematicButton({
             type="button"
             size="icon"
             variant="secondary"
-            className={cn(
-              "rounded-full text-white transition-opacity duration-200 pointer-events-auto cursor-pointer",
-              isCinematicMode ? "bg-black/70 hover:bg-black/80 border border-white/30" : "bg-black/40 hover:bg-black/60",
-              getActionVisibleClass(showActions)
-            )}
+            className={[
+              "rounded-full text-white transition-opacity duration-200",
+              isCinematicMode ? "bg-black/60 hover:bg-black/70" : "bg-black/40 hover:bg-black/50",
+            ].join(" ")}
             aria-label={isCinematicMode ? "Exit cinematic mode" : "Enter cinematic mode"}
             {...tap}
           >
-            {isCinematicMode ? <MinimizeIcon className="size-4" /> : <MaximizeIcon className="size-4" />}
+            {isCinematicMode ? <MinimizeIcon /> : <MaximizeIcon />}
             <span className="sr-only">{isCinematicMode ? "Exit cinematic mode" : "Enter cinematic mode"}</span>
           </Button>
         </TooltipTrigger>
@@ -302,10 +462,11 @@ function CinematicButton({
   )
 }
 
-function InfoButton({
+// Render photo comments button in toolbar.
+function CommentsButton({
+  showActions,
   open,
   onToggle,
-  showActions,
 }: {
   showActions: boolean
   open: boolean
@@ -321,19 +482,54 @@ function InfoButton({
             type="button"
             size="icon"
             variant="secondary"
-            className={cn(
-              "relative rounded-full text-white transition-opacity duration-200 pointer-events-auto cursor-pointer",
-              open ? "bg-black/70 hover:bg-black/80 border border-white/30" : "bg-black/40 hover:bg-black/60",
-              getActionVisibleClass(showActions)
-            )}
+            className={[
+              "rounded-full text-white transition-opacity duration-200",
+              open ? "bg-black/70 hover:bg-black/70 border border-white/30 text-emerald-400" : "bg-black/40 hover:bg-black/50",
+              getActionVisibleClass(showActions),
+            ].join(" ")}
             {...tap}
           >
-            <Menu className="size-4 md:hidden" />
-            {open ? (
-              <PanelRightClose className="hidden size-4 md:block" />
-            ) : (
-              <PanelRightOpen className="hidden size-4 md:block" />
-            )}
+            <MessageSquare className="size-4" />
+            <span className="sr-only">Media comments</span>
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom">
+          <p>Comments</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  )
+}
+
+// Render photo information & comments button, Click to switch the information sidebar on the right.
+function InfoButton({
+  open,
+  onToggle,
+}: {
+  showActions: boolean
+  open: boolean
+  onToggle: () => void
+}) {
+  const tap = useTapAction(onToggle)
+
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            type="button"
+            size="icon"
+            variant="secondary"
+            className={[
+              "relative rounded-full text-white transition-opacity duration-200",
+              open ? "bg-black/70 hover:bg-black/70 border border-white/30" : "bg-black/40 hover:bg-black/50",
+            ].join(" ")}
+            {...tap}
+          >
+            <Menu className="md:hidden" />
+            {open
+              ? <PanelRightClose className="hidden md:block" />
+              : <PanelRightOpen className="hidden md:block" />}
             <span className="sr-only">Media information & comments</span>
           </Button>
         </TooltipTrigger>
@@ -345,13 +541,19 @@ function InfoButton({
   )
 }
 
-function RotateButton({ showActions, onRotate }: { showActions: boolean; onRotate: (photoId: string) => void }) {
-  const { currentSlide } = useViewerController()
 
+// Render spin button.
+function RotateButton({ showActions, onRotate }: { showActions: boolean, onRotate: (photoId: string) => void }) {
+  const { currentSlide } = useLightboxState()
+  const photoSlide = currentSlide && isImageSlide(currentSlide) ? currentSlide as PhotoSlide : null
+
+  // put current photo id Leave it to the parent component to update the rotation angle.
   function rotatePhoto() {
-    if (currentSlide?.photoId) {
-      onRotate(currentSlide.photoId)
+    if (!photoSlide) {
+      return
     }
+
+    onRotate(photoSlide.photoId)
   }
 
   const tap = useTapAction(rotatePhoto)
@@ -361,41 +563,45 @@ function RotateButton({ showActions, onRotate }: { showActions: boolean; onRotat
       type="button"
       size="icon"
       variant="secondary"
-      className={cn("rounded-full bg-black/40 text-white transition-opacity duration-200 hover:bg-black/60 pointer-events-auto cursor-pointer", getActionVisibleClass(showActions))}
+      className="rounded-full bg-black/40 text-white transition-opacity duration-200 hover:bg-black/50"
       {...tap}
     >
-      <RotateCcwSquare className="size-4" />
+      <RotateCcwSquare />
       <span className="sr-only">Rotate photo</span>
     </Button>
   )
 }
 
+// Render share button.
 function ShareButton({ showActions }: { showActions: boolean }) {
   const t = useTranslations("photos.viewer")
   const { userInfo } = useApp()
   const isAdmin = userInfo?.type === UserTypeEnum.ADMIN
-  const { currentSlide } = useViewerController()
+  const { currentSlide } = useLightboxState()
+  const photoSlide = currentSlide && isImageSlide(currentSlide) ? (currentSlide as PhotoSlide) : null
 
   const handleShare = async () => {
-    if (!currentSlide?.photoId || typeof window === "undefined") return
+    if (!photoSlide?.photoId || typeof window === "undefined") return
 
+    // Track public share event (exclude Admin from Insights)
     if (!isAdmin) {
-      recordPhotoShare(currentSlide.photoId)
+      recordPhotoShare(photoSlide.photoId)
     }
-    trackVisitorMedia(currentSlide.photoId, "share")
+    trackVisitorMedia(photoSlide.photoId, "share")
+
 
     const url = new URL(window.location.href)
-    url.searchParams.set("photoId", currentSlide.photoId)
+    url.searchParams.set("photoId", photoSlide.photoId)
     const shareUrl = url.toString()
 
-    const isVideo = Boolean(currentSlide.mediaType?.startsWith("video/"))
+    const isVideo = Boolean(photoSlide.type?.startsWith("video/"))
     const defaultTitle = isVideo ? "Video" : "Photo"
 
     if (navigator.share) {
       try {
         await navigator.share({
-          title: currentSlide.alt || defaultTitle,
-          text: `Check out "${currentSlide.alt || defaultTitle}" on NayPict`,
+          title: photoSlide.alt || defaultTitle,
+          text: `Check out "${photoSlide.alt || defaultTitle}" on NayPict`,
           url: shareUrl,
         })
         return
@@ -421,7 +627,7 @@ function ShareButton({ showActions }: { showActions: boolean }) {
       type="button"
       size="icon"
       variant="secondary"
-      className={cn("rounded-full bg-black/40 text-white transition-opacity duration-200 hover:bg-black/60 pointer-events-auto cursor-pointer", getActionVisibleClass(showActions))}
+      className="rounded-full bg-black/40 text-white transition-opacity duration-200 hover:bg-black/50"
       title={t("share")}
       {...tap}
     >
@@ -431,6 +637,7 @@ function ShareButton({ showActions }: { showActions: boolean }) {
   )
 }
 
+// Render Instagram Story Card generator button.
 function StoryCardButton({
   showActions,
   onOpenStory,
@@ -446,10 +653,7 @@ function StoryCardButton({
       type="button"
       size="icon"
       variant="secondary"
-      className={cn(
-        "rounded-full bg-gradient-to-tr from-pink-600 via-rose-500 to-amber-500 text-white transition-all duration-200 hover:scale-110 hover:opacity-100 shadow-md shadow-pink-500/30 border border-white/20 cursor-pointer pointer-events-auto",
-        getActionVisibleClass(showActions)
-      )}
+      className="rounded-full bg-gradient-to-tr from-pink-600 via-rose-500 to-amber-500 text-white transition-all duration-200 hover:scale-110 hover:opacity-100 shadow-md shadow-pink-500/30 border border-white/20 cursor-pointer"
       title={t("createStory")}
       {...tap}
     >
@@ -459,6 +663,63 @@ function StoryCardButton({
   )
 }
 
+// Render original image load button.
+function LoadOriginalButton({
+  showActions,
+  originalPhoto,
+  getPhotoCache,
+  onLoadOriginal,
+}: {
+  showActions: boolean
+  originalPhoto: OriginalPhoto | null
+  getPhotoCache: (photoId: string) => string | undefined
+  onLoadOriginal: (slide: PhotoSlide) => void
+}) {
+  const { currentSlide } = useLightboxState()
+  const photoSlide = currentSlide && isImageSlide(currentSlide) ? currentSlide as PhotoSlide : null
+  const cacheSrc = photoSlide ? getPhotoCache(photoSlide.photoId) : undefined
+  const originalLoaded = Boolean(photoSlide && (originalPhoto?.key === photoSlide.key || cacheSrc?.includes("photo/")))
+
+  // put the current slide Leave it to the parent component to load the original image.
+  function loadOriginal() {
+
+    //Picture does not exist, Or terminate after loading is complete
+    if (!photoSlide || originalLoaded) {
+      return
+    }
+
+    onLoadOriginal(photoSlide)
+  }
+
+  const tap = useTapAction(loadOriginal)
+
+  if (photoSlide && !photoSlide.key) {
+    return (
+      <div
+        className="flex cursor-pointer items-center gap-1.5 rounded-full bg-black/60 px-3 py-1 text-xs text-white/90 transition-opacity duration-200 hover:bg-black/80"
+        onClick={() => toast.info("Download is disabled for this media.")}
+      >
+        <LockIcon className="size-3.5 text-white/80" />
+        <span className="font-medium text-xs">Protected</span>
+      </div>
+    )
+  }
+
+  return (
+    <Button
+      type="button"
+      size="icon"
+      variant="secondary"
+      className="rounded-full bg-black/40 text-white transition-opacity duration-200 hover:bg-black/50"
+      {...tap}
+    >
+      {originalLoaded ? <CircleIcon /> : <LoaderCircleIcon />}
+      <span className="sr-only">Load original media</span>
+    </Button>
+  )
+}
+
+// Render add to album button in Lightbox toolbar (Admin only).
 function AddToAlbumButton({
   showActions,
   onAlbumOpen,
@@ -466,13 +727,14 @@ function AddToAlbumButton({
   showActions: boolean
   onAlbumOpen?: (photoIds: string[]) => void
 }) {
-  const { currentSlide } = useViewerController()
+  const { currentSlide } = useLightboxState()
+  const photoSlide = currentSlide && isImageSlide(currentSlide) ? (currentSlide as PhotoSlide) : null
 
   function handleAddToAlbum(e: React.MouseEvent) {
     e.stopPropagation()
     e.preventDefault()
-    if (!currentSlide) return
-    onAlbumOpen?.([currentSlide.photoId])
+    if (!photoSlide) return
+    onAlbumOpen?.([photoSlide.photoId])
   }
 
   if (!onAlbumOpen) return null
@@ -485,7 +747,7 @@ function AddToAlbumButton({
             type="button"
             size="icon"
             variant="secondary"
-            className={cn("rounded-full bg-black/40 text-white transition-opacity duration-200 hover:bg-black/60 cursor-pointer pointer-events-auto", getActionVisibleClass(showActions))}
+            className="rounded-full bg-black/40 text-white transition-opacity duration-200 hover:bg-black/60 cursor-pointer pointer-events-auto"
             onClick={handleAddToAlbum}
           >
             <FolderPlusIcon className="size-4" />
@@ -500,6 +762,7 @@ function AddToAlbumButton({
   )
 }
 
+// Render delete photo button in Lightbox toolbar.
 function DeleteButton({
   showActions,
   onDelete,
@@ -507,11 +770,13 @@ function DeleteButton({
   showActions: boolean
   onDelete?: (photoId: string) => void
 }) {
-  const { currentSlide, close } = useViewerController()
+  const { currentSlide } = useLightboxState()
+  const { close } = useController()
+  const photoSlide = currentSlide && isImageSlide(currentSlide) ? (currentSlide as PhotoSlide) : null
 
   function handleDelete() {
-    if (!currentSlide) return
-    onDelete?.(currentSlide.photoId)
+    if (!photoSlide) return
+    onDelete?.(photoSlide.photoId)
     close()
   }
 
@@ -527,7 +792,7 @@ function DeleteButton({
             type="button"
             size="icon"
             variant="secondary"
-            className={cn("rounded-full bg-black/40 text-white transition-opacity duration-200 hover:bg-red-600/80 pointer-events-auto cursor-pointer", getActionVisibleClass(showActions))}
+            className="rounded-full bg-black/40 text-white transition-opacity duration-200 hover:bg-red-600/80"
             {...tap}
           >
             <Trash2Icon className="size-4" />
@@ -542,17 +807,19 @@ function DeleteButton({
   )
 }
 
+// Render bottom-left album badge overlay when previewing photos that belong to one or more albums.
 function AlbumOverlayBadge({ isCinematicMode }: { isCinematicMode: boolean }) {
-  const { currentSlide } = useViewerController()
+  const { currentSlide } = useLightboxState()
+  const photoSlide = currentSlide && isImageSlide(currentSlide) ? (currentSlide as PhotoSlide) : null
 
-  if (!currentSlide?.albums || currentSlide.albums.length === 0 || isCinematicMode) {
+  if (!photoSlide?.albums || photoSlide.albums.length === 0 || isCinematicMode) {
     return null
   }
 
-  const albumText = formatAlbumList(currentSlide.albums)
+  const albumText = formatAlbumList(photoSlide.albums)
 
   return (
-    <div className="fixed top-14 left-3 md:top-16 md:left-4 z-55 flex items-center gap-1.5 rounded-full bg-black/75 px-3 py-1 text-xs text-white backdrop-blur-md border border-white/15 shadow-lg select-none max-w-[85vw] md:max-w-md truncate pointer-events-auto">
+    <div className="absolute top-14 left-2 md:top-16 md:left-3 z-40 flex items-center gap-1.5 rounded-full bg-black/75 px-3 py-1 text-xs text-white backdrop-blur-md border border-white/15 shadow-lg select-none max-w-[85vw] md:max-w-md truncate">
       <FolderIcon className="size-3.5 text-primary shrink-0" />
       <span className="font-medium text-white/70 shrink-0">In Albums:</span>
       <span className="font-semibold text-white truncate" title={albumText}>
@@ -562,6 +829,7 @@ function AlbumOverlayBadge({ isCinematicMode }: { isCinematicMode: boolean }) {
   )
 }
 
+// Floating Liquid Glass Quick Reaction & Comment Pill (Mobile & Desktop)
 function LightboxInteractionBar({
   photoId,
   exif,
@@ -581,11 +849,12 @@ function LightboxInteractionBar({
 
   return (
     <div
-      className={cn(
-        "fixed left-3 bottom-16 sm:bottom-18 md:bottom-20 z-55 flex flex-col items-start gap-2 transition-all duration-300 pointer-events-auto select-none max-w-[calc(100vw-1.5rem)]",
-        getActionVisibleClass(showActions)
-      )}
+      className={[
+        "fixed left-3 bottom-14 sm:bottom-16 md:bottom-28 z-40 flex flex-col items-start gap-2 transition-all duration-300 pointer-events-auto select-none max-w-[calc(100vw-1.5rem)]",
+        getActionVisibleClass(showActions),
+      ].join(" ")}
     >
+      {/* 35mm Analog Film Strip HUD Badge (Positioned directly above the Reaction Bar) */}
       {exif && onOpenInfo && (
         <AnalogFilmStripCompact
           exif={exif}
@@ -602,6 +871,7 @@ function LightboxInteractionBar({
 
         <div className="h-4 w-px bg-white/20 my-auto shrink-0" />
 
+        {/* Comment Trigger Button */}
         <button
           type="button"
           onClick={onOpenComments}
@@ -612,133 +882,274 @@ function LightboxInteractionBar({
           <span className="tracking-wide text-[11px] sm:text-xs">Comment</span>
         </button>
 
+        {/* Info Trigger Button */}
         <button
           type="button"
           onClick={onOpenInfo}
           className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium text-white/75 hover:text-white hover:bg-white/15 active:scale-95 transition-all duration-200 cursor-pointer shrink-0"
           aria-label="Media Details"
         >
-          <span>EXIF</span>
+          <CircleAlertIcon className="size-3.5 text-white/80" />
+          <span className="text-[10px] sm:text-[11px] font-medium">Info</span>
         </button>
       </div>
     </div>
   )
 }
 
+// Render close button.
 function CloseButton({ showActions }: { showActions: boolean }) {
-  const { close } = useViewerController()
-  const tap = useTapAction(close)
+  const { close } = useController()
+  const tap = useTapAction(() => close())
 
   return (
     <Button
       type="button"
       size="icon"
       variant="secondary"
-      className={cn(
-        "fixed top-2 left-2 md:top-3 md:left-4 z-55 rounded-full bg-black/40 text-white transition-opacity duration-200 hover:bg-black/60 pointer-events-auto cursor-pointer",
-        getActionVisibleClass(showActions)
-      )}
+      className={[
+        "absolute top-2 left-2 md:top-3 md:left-3 z-40 rounded-full bg-black/40 text-white transition-opacity duration-200 hover:bg-black/50",
+        getActionVisibleClass(showActions),
+      ].join(" ")}
       {...tap}
     >
-      <ArrowLeftIcon className="size-5" />
+      <ArrowLeftIcon />
       <span className="sr-only">Back</span>
     </Button>
   )
 }
 
-function PhotoViewerThumbnails({
-  photos,
-  currentIndex,
-  onSelect,
-  visible,
+// Render a single photo with progressive high-res loading, progress feedback, and fallback
+function PhotoSlideImage({
+  slide,
+  originalPhoto,
+  rotate,
+  fullscreenOpen,
+  isActive = true,
 }: {
-  photos: PhotoVo[]
-  currentIndex: number
-  onSelect: (index: number) => void
-  visible: boolean
+  // Current photo slide.
+  slide: PhotoSlide
+  // The currently loaded original image.
+  originalPhoto: OriginalPhoto | null
+  // Current photo CSS rotation angle.
+  rotate: number
+  // Whether it is currently in full screen state.
+  fullscreenOpen: boolean
+  // Whether this slide is the currently focused active slide in the viewport.
+  isActive?: boolean
 }) {
-  const containerRef = useRef<HTMLDivElement | null>(null)
-  const activeItemRef = useRef<HTMLButtonElement | null>(null)
+  const initialSrc = originalPhoto?.key === slide.preview || originalPhoto?.key === slide.key
+    ? originalPhoto.key
+    : slide.src || slide.preview || slide.thumbnail || ""
+  const [currentSrc, setCurrentSrc] = useState<string>(initialSrc)
+  const isInitiallyLoaded = Boolean(initialSrc && loadedThumbnails.has(initialSrc))
+  const [loaded, setLoaded] = useState(isInitiallyLoaded)
+  const [showHdBadge, setShowHdBadge] = useState(false)
+  const [isOnline, setIsOnline] = useState(() => (typeof navigator !== "undefined" ? navigator.onLine : true))
+  const [isSlowLoading, setIsSlowLoading] = useState(false)
+  const slowTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
-    if (activeItemRef.current) {
-      activeItemRef.current.scrollIntoView({
-        behavior: "smooth",
-        inline: "center",
-        block: "nearest",
-      })
-    }
-  }, [currentIndex])
+    if (typeof window === "undefined") return
 
-  if (!visible || photos.length <= 1) return null
+    const handleOnline = () => {
+      setIsOnline(true)
+      if (!loaded && currentSrc) {
+        // Re-trigger load when coming back online
+        const img = new Image()
+        img.crossOrigin = "anonymous"
+        img.src = currentSrc
+      }
+    }
+
+    const handleOffline = () => {
+      setIsOnline(false)
+    }
+
+    window.addEventListener("online", handleOnline)
+    window.addEventListener("offline", handleOffline)
+
+    return () => {
+      window.removeEventListener("online", handleOnline)
+      window.removeEventListener("offline", handleOffline)
+    }
+  }, [loaded, currentSrc])
+
+  useEffect(() => {
+    if (slowTimerRef.current) {
+      clearTimeout(slowTimerRef.current)
+      slowTimerRef.current = null
+    }
+
+    if (!loaded) {
+      slowTimerRef.current = setTimeout(() => {
+        setIsSlowLoading(true)
+      }, 3500)
+    } else {
+      setIsSlowLoading(false)
+    }
+
+    return () => {
+      if (slowTimerRef.current) {
+        clearTimeout(slowTimerRef.current)
+        slowTimerRef.current = null
+      }
+    }
+  }, [loaded])
+
+  useEffect(() => {
+    const targetSrc = originalPhoto?.key === slide.preview || originalPhoto?.key === slide.key
+      ? originalPhoto.key
+      : slide.src || slide.preview || slide.thumbnail || ""
+    setCurrentSrc(targetSrc)
+    const isTargetLoaded = Boolean(targetSrc && loadedThumbnails.has(targetSrc))
+    setLoaded(isTargetLoaded)
+    setShowHdBadge(false)
+  }, [slide.src, slide.preview, slide.thumbnail, originalPhoto?.key])
+
+  const handleImageLoaded = () => {
+    if (currentSrc) {
+      loadedThumbnails.add(currentSrc)
+    }
+    setLoaded(true)
+    setShowHdBadge(true)
+    setTimeout(() => {
+      setShowHdBadge(false)
+    }, 1400)
+    if (getIsOffline()) {
+      notifyConnectionRestored()
+    }
+  }
+
+  const normalizedRotate = rotate % 360
+  const sideways = normalizedRotate === 90 || normalizedRotate === 270
+  const thumbnailHeight = typeof window !== "undefined" && window.innerWidth < 768 ? 46 : 75
+  const rotateWidthOffset = fullscreenOpen ? 0 : thumbnailHeight
 
   return (
-    <div
-      ref={containerRef}
-      className="fixed bottom-2 sm:bottom-3 inset-x-0 z-45 flex items-center justify-start md:justify-center gap-1.5 px-4 py-1.5 overflow-x-auto no-scrollbar pointer-events-auto select-none transition-all duration-300"
-      style={{
-        maskImage: "linear-gradient(to right, transparent, black 10%, black 90%, transparent)",
-        WebkitMaskImage: "linear-gradient(to right, transparent, black 10%, black 90%, transparent)",
-      }}
-    >
-      <div className="flex items-center gap-1.5 mx-auto">
-        {photos.map((photo, i) => {
-          const isActive = i === currentIndex
-          return (
-            <button
-              key={photo.photoId || i}
-              ref={isActive ? activeItemRef : null}
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation()
-                onSelect(i)
-              }}
-              className={cn(
-                "relative shrink-0 rounded-md overflow-hidden transition-all duration-200 cursor-pointer border",
-                isActive
-                  ? "border-emerald-400 ring-2 ring-emerald-500/50 scale-105 opacity-100 shadow-lg shadow-black/80"
-                  : "border-white/10 opacity-40 hover:opacity-80 hover:scale-100"
-              )}
-              style={{
-                width: 44,
-                height: 44,
-              }}
-              aria-label={photo.name || `Photo ${i + 1}`}
-            >
-              <img
-                src={toProxyMediaUrl(photo.thumbnail || photo.preview || "")}
-                alt=""
-                className="w-full h-full object-cover pointer-events-none"
-                loading="lazy"
-                decoding="async"
-              />
-              {photo.type?.startsWith("video/") && (
-                <div className="absolute inset-0 flex items-center justify-center bg-black/40">
-                  <Play className="size-2.5 text-white fill-white" />
-                </div>
-              )}
-            </button>
-          )
-        })}
-      </div>
+    <div className="relative flex h-full w-full items-center justify-center overflow-hidden">
+      {/* Top Streaming Indeterminate Progress Line (Active visible slide only) */}
+      {!loaded && isActive && (
+        <div className="pointer-events-none absolute top-0 left-0 right-0 h-1 z-30 overflow-hidden bg-white/10">
+          <div className="h-full w-1/3 bg-gradient-to-r from-emerald-500 via-teal-300 to-emerald-500 rounded-full hd-progress-indeterminate shadow-[0_0_8px_rgba(16,185,129,0.8)]" />
+        </div>
+      )}
+
+      {/* Floating Glassmorphic Progress Badge (Active while HD streaming on visible slide) */}
+      {!loaded && !isOnline && isActive && (
+        <div className="pointer-events-none absolute bottom-36 sm:bottom-40 md:bottom-44 z-30 flex items-center gap-2 rounded-2xl bg-rose-950/85 px-4 py-2 text-xs font-medium text-rose-200 shadow-2xl backdrop-blur-xl border border-rose-500/30 animate-in fade-in zoom-in-95 duration-200">
+          <WifiOff className="size-4 text-rose-400 shrink-0" />
+          <span className="font-semibold text-[11px] sm:text-xs">Connection Lost — Waiting for network...</span>
+        </div>
+      )}
+
+      {!loaded && isOnline && isSlowLoading && isActive && (
+        <div className="pointer-events-none absolute bottom-36 sm:bottom-40 md:bottom-44 z-30 flex items-center gap-2 rounded-2xl bg-amber-950/85 px-4 py-2 text-xs font-medium text-amber-200 shadow-2xl backdrop-blur-xl border border-amber-500/30 animate-in fade-in zoom-in-95 duration-200">
+          <Wifi className="size-4 text-amber-400 shrink-0 animate-pulse" />
+          <span className="font-semibold text-[11px] sm:text-xs">Slow connection detected — Loading HD photo...</span>
+        </div>
+      )}
+
+      {!loaded && isOnline && !isSlowLoading && isActive && (
+        <div className="pointer-events-none absolute bottom-36 sm:bottom-40 md:bottom-44 z-30 flex flex-col items-center gap-1.5 rounded-2xl bg-black/80 px-4 py-2 text-xs font-medium text-white shadow-2xl backdrop-blur-xl border border-white/20 animate-in fade-in zoom-in-95 duration-200">
+          <div className="flex items-center gap-2">
+            <LoaderCircleIcon className="size-3.5 animate-spin text-emerald-400 shrink-0" />
+            <span className="font-semibold tracking-wide text-[11px] sm:text-xs text-white/90">
+              Loading high quality HD...
+            </span>
+          </div>
+          <div className="h-1 w-28 sm:w-36 overflow-hidden rounded-full bg-white/15">
+            <div className="h-full w-full bg-gradient-to-r from-emerald-500 via-teal-300 to-emerald-500 hd-progress-shimmer rounded-full" />
+          </div>
+        </div>
+      )}
+
+      {/* Floating HD Ready Success Badge */}
+      {loaded && showHdBadge && isActive && (
+        <div className="pointer-events-none absolute bottom-36 sm:bottom-40 md:bottom-44 z-30 flex items-center gap-1.5 rounded-full bg-emerald-950/85 px-3.5 py-1 text-xs font-medium text-emerald-300 shadow-xl backdrop-blur-xl border border-emerald-500/30 animate-in fade-in zoom-in-95 duration-200">
+          <Sparkles className="size-3 text-emerald-400 shrink-0" />
+          <span className="font-semibold text-[11px] sm:text-xs">HD Quality Ready</span>
+        </div>
+      )}
+
+      {/* Instant crisp thumbnail backdrop while full-resolution HD streams in */}
+      {slide.thumbnail && !loaded && (
+        <img
+          src={slide.thumbnail}
+          alt=""
+          aria-hidden
+          crossOrigin="anonymous"
+          decoding="async"
+          className="absolute select-none max-w-none object-contain pointer-events-none transition-opacity duration-300"
+          style={{
+            width: sideways ? `calc(100cqh - ${rotateWidthOffset}px)` : "100%",
+            height: sideways ? "100vw" : "100%",
+            transform: `rotate(${rotate}deg) translateZ(0)`,
+            backfaceVisibility: "hidden",
+          }}
+        />
+      )}
+
+      {/* Fallback instant ThumbHash blur if no thumbnail exists */}
+      {!slide.thumbnail && slide.thumbHashUrl && !loaded && (
+        <img
+          src={slide.thumbHashUrl}
+          alt=""
+          aria-hidden
+          decoding="async"
+          className="absolute select-none max-w-none object-contain pointer-events-none transition-opacity duration-300"
+          style={{
+            width: sideways ? `calc(100cqh - ${rotateWidthOffset}px)` : "100%",
+            height: sideways ? "100vw" : "100%",
+            transform: `rotate(${rotate}deg) translateZ(0)`,
+            backfaceVisibility: "hidden",
+          }}
+        />
+      )}
+      <img
+        src={currentSrc}
+        alt={slide.alt}
+        draggable={false}
+        crossOrigin="anonymous"
+        fetchPriority={isActive ? "high" : "low"}
+        decoding="async"
+        className="lightbox-zoom-matrix select-none max-w-none object-contain transition-opacity duration-200"
+        onLoad={handleImageLoaded}
+        ref={(el) => {
+          if (el && el.complete && el.naturalWidth > 0 && !loaded) {
+            handleImageLoaded()
+          }
+        }}
+        onError={() => {
+          if (currentSrc && !currentSrc.startsWith('/media/')) {
+            setCurrentSrc(toProxyMediaUrl(currentSrc))
+          } else if (slide.thumbnail && currentSrc !== slide.thumbnail) {
+            setCurrentSrc(slide.thumbnail)
+          }
+        }}
+        style={{
+          width: sideways ? `calc(100cqh - ${rotateWidthOffset}px)` : "100%",
+          height: sideways ? "100vw" : "100%",
+          transform: `rotate(${rotate}deg) translateZ(0)`,
+          transformStyle: "preserve-3d",
+          backfaceVisibility: "hidden",
+          imageRendering: "-webkit-optimize-contrast",
+          willChange: "transform",
+          opacity: loaded ? 1 : 0,
+        }}
+      />
     </div>
   )
 }
 
-export function PhotoViewer({
-  open,
-  index,
-  photos,
-  onBack,
-  onBrowserBack,
-  onPhotoDelete,
-  onPhotoUpdate,
-  onAlbumOpen,
-}: PhotoViewerProps) {
+// Render photo detail viewer, The parent component is responsible for passing in the current photo and list data.
+export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhotoDelete, onPhotoUpdate, onAlbumOpen }: PhotoViewerProps) {
   const { userInfo } = useApp()
   const isAdmin = userInfo?.type === UserTypeEnum.ADMIN
+  // current lightbox Viewed photo index.
   const [viewIndex, setViewIndex] = useState(index)
 
+  // Sync viewIndex whenever the viewer is opened with a new index from the gallery
   const prevOpenRef = useRef(open)
   const prevIndexRef = useRef(index)
   useEffect(() => {
@@ -749,24 +1160,94 @@ export function PhotoViewer({
     prevIndexRef.current = index
   }, [open, index])
 
+  // Speculative Multi-Directional Photo HD & Video Stream Prefetcher
+  useEffect(() => {
+    if (!open || typeof window === "undefined") return
+
+    const prefetchAdjacent = () => {
+      // Lookahead window: +1, -1, +2, -2, +3, -3, +4, +5
+      const candidates = [
+        photos[viewIndex + 1],
+        photos[viewIndex - 1],
+        photos[viewIndex + 2],
+        photos[viewIndex - 2],
+        photos[viewIndex + 3],
+        photos[viewIndex - 3],
+        photos[viewIndex + 4],
+        photos[viewIndex + 5],
+      ]
+
+      for (const p of candidates) {
+        if (!p) continue
+        const isVid = Boolean(p.type?.startsWith("video/"))
+        if (isVid) {
+          const videoUrl = p.key || p.preview
+          if (videoUrl) {
+            prebufferVideo(videoUrl)
+          }
+        } else {
+          const url = p.preview || p.thumbnail
+          if (url && !loadedThumbnails.has(url)) {
+            const img = new Image()
+            img.crossOrigin = "anonymous"
+            img.decoding = "async"
+            if ("fetchPriority" in img) {
+              ;(img as any).fetchPriority = "high"
+            }
+            img.onload = () => {
+              loadedThumbnails.add(url)
+            }
+            img.src = url
+          }
+        }
+      }
+    }
+
+    if ("requestIdleCallback" in window) {
+      const handle = window.requestIdleCallback(prefetchAdjacent, { timeout: 150 })
+      return () => window.cancelIdleCallback(handle)
+    } else {
+      const timer = setTimeout(prefetchAdjacent, 50)
+      return () => clearTimeout(timer)
+    }
+  }, [open, viewIndex, photos])
+  // infoOpen Control whether the photo information sidebar on the right is expanded.
   const infoOpen = usePhotoStore((state) => state.infoOpen)
+  // setInfoOpen Update information sidebar expansion status.
   const setInfoOpen = usePhotoStore((state) => state.setInfoOpen)
+  // Current sidebar tab ("info" | "comments")
   const [infoTab, setInfoTab] = useState<"info" | "comments">("info")
+  // The original image that has been loaded currently.
+  const [originalPhoto, setOriginalPhoto] = useState<OriginalPhoto | null>(null)
+  // Current original image loading progress.
   const [originalProgress, setOriginalProgress] = useState<OriginalProgress | null>(null)
+  // showOriginalProgress Control whether the original image loading progress is displayed.
   const [showOriginalProgress, setShowOriginalProgress] = useState(false)
+  // originalError Record whether the current original image loading is abnormal.
   const [originalError, setOriginalError] = useState(false)
+  // Whether the viewer action buttons are currently displayed, Click the picture area to switch, Still forced to hide when zooming in.
   const [showActions, setShowActions] = useState(true)
+  // Current photo zoom factor.
   const [zoomLevel, setZoomLevel] = useState(1)
+  // Whether it is currently in full screen state.
   const [fullscreenOpen, setFullscreenOpen] = useState(false)
+  // Whether cinematic presentation mode is currently active.
   const [isCinematicMode, setIsCinematicMode] = useState(false)
+  // Double-tap Instagram-style heart burst state in lightbox viewer.
   const [showViewerHeartBurst, setShowViewerHeartBurst] = useState(false)
   const [viewerBurstCoords, setViewerBurstCoords] = useState<{ x: number; y: number } | null>(null)
-  const [, setIsVideoScrubbing] = useState(false)
+  // Whether user is currently seeking or scrubbing video/volume (disables swipe carousel)
+  const [isVideoScrubbing, setIsVideoScrubbing] = useState(false)
+  // Whether the current video player is in fullscreen mode (disables swipe carousel during fullscreen)
+  const [isVideoFullscreen, setIsVideoFullscreen] = useState(false)
 
-  const [videoMounts, setVideoMounts] = useState<Map<number, HTMLDivElement>>(new Map())
-  const pswpRef = useRef<PhotoSwipe | null>(null)
-  const isClosingRef = useRef(false)
+  // Reset video fullscreen and scrubbing flags on slide transition or viewer close
+  useEffect(() => {
+    setIsVideoFullscreen(false)
+    setIsVideoScrubbing(false)
+  }, [viewIndex, open])
 
+  // Stable callbacks for video player interaction bar buttons to prevent unnecessary re-renders
   const handleOpenComments = useCallback(() => {
     setInfoTab("comments")
     setInfoOpen(true)
@@ -777,62 +1258,94 @@ export function PhotoViewer({
     setInfoOpen(true)
   }, [setInfoOpen])
 
+  // Responsive mobile breakpoint for memory-efficient carousel preloading and touch ergonomics
+  const [isMobile, setIsMobile] = useState(() => (typeof window !== "undefined" ? window.innerWidth < 768 : false))
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    const checkMobile = () => setIsMobile(window.innerWidth < 768)
+    window.addEventListener("resize", checkMobile, { passive: true })
+    return () => window.removeEventListener("resize", checkMobile)
+  }, [])
+
+  // Tap-detection refs (delegates smooth swipe & pull gestures natively to YARL compositor)
+  const tapPointerStartRef = useRef<{ x: number; y: number; time: number } | null>(null)
+  // Controls UI idle visibility in cinematic mode.
   const [isIdleHidden, setIsIdleHidden] = useState(false)
   const controlsVisible = !isCinematicMode || !isIdleHidden
+  // Idle timer reference for auto-hiding controls after inactivity.
   const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // The current rotation angle of each photo.
   const [photoRotates, setPhotoRotates] = useState<Record<string, number>>({})
+  // getPhotoCache Read loaded photos from global photo cache.
   const getPhotoCache = usePhotoStore((state) => state.getPhotoCache)
+  // setPhotoCache Write the loaded photos into the global photo cache.
   const setPhotoCache = usePhotoStore((state) => state.setPhotoCache)
+  // Cancellation method of current original image request.
   const abortOriginalRef = useRef<(() => void) | null>(null)
+  // previewRequestsRef Save the requested preview id and cancellation method.
   const previewRequestsRef = useRef<PreviewRequestMap>(new Map())
+  // currentPhotoIdRef Save currently viewed photo id, Used for silent preview request to prevent disorder.
   const currentPhotoIdRef = useRef<string | null>(photos[index]?.photoId ?? null)
+  // openScrollYRef Save the page scroll position before opening the viewer, Restore photo list after closing.
   const openScrollYRef = useRef(typeof window === "undefined" ? 0 : window.scrollY)
+  // historyPushedRef Records whether the viewer has been written to the browser history.
   const historyPushedRef = useRef(false)
+  // onBrowserBackRef Save the latest browser return callback.
   const onBrowserBackRef = useRef(onBrowserBack)
+  // originalProgressHideTimerRef Save the timer that delays and hides the original image loading progress.
   const originalProgressHideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // slidePointerStartRef Record slide superior pointerdown coordinate, Used to distinguish click and drag switching.
+  const slidePointerStartRef = useRef<{ x: number; y: number } | null>(null)
+  // lastViewedMapRef tracks timestamp of photos viewed to debounce view tracking accurately.
   const lastViewedMapRef = useRef<Map<string, number>>(new Map())
-
+  // State for single-photo insights modal (Admin only)
   const [insightsDialogOpen, setInsightsDialogOpen] = useState(false)
   const [insightsPhotoId, setInsightsPhotoId] = useState<string | null>(null)
+  // State for Instagram Story Card generator dialog
   const [storyDialogOpen, setStoryDialogOpen] = useState(false)
+  // State for batch edit metadata dialog (Admin only)
   const [batchEditDialogOpen, setBatchEditDialogOpen] = useState(false)
 
+  // Track if any overlay modal dialog is open on top of the lightbox
   const isAnySubModalOpen = storyDialogOpen || insightsDialogOpen || batchEditDialogOpen
 
+  // References to track open state of sub-modals for mobile back gestures
   const storyDialogOpenRef = useRef(storyDialogOpen)
+  storyDialogOpenRef.current = storyDialogOpen
   const insightsDialogOpenRef = useRef(insightsDialogOpen)
+  insightsDialogOpenRef.current = insightsDialogOpen
   const batchEditDialogOpenRef = useRef(batchEditDialogOpen)
+  batchEditDialogOpenRef.current = batchEditDialogOpen
   const infoOpenRef = useRef(infoOpen)
+  infoOpenRef.current = infoOpen
   const isCinematicModeRef = useRef(isCinematicMode)
+  isCinematicModeRef.current = isCinematicMode
 
-  useEffect(() => {
-    storyDialogOpenRef.current = storyDialogOpen
-    insightsDialogOpenRef.current = insightsDialogOpen
-    batchEditDialogOpenRef.current = batchEditDialogOpen
-    infoOpenRef.current = infoOpen
-    isCinematicModeRef.current = isCinematicMode
-  })
-
+  // Hook mobile back gesture for photo info sidebar / comments drawer on mobile (<768px)
   useModalBackHandler(open && infoOpen && typeof window !== "undefined" && window.innerWidth < 768, (val) => setInfoOpen(val))
 
+  // Controls visibility of initial mobile swipe gesture micro-hint badge.
   const [showGestureHint, setShowGestureHint] = useState(false)
+  // Controls smooth fade-out animation before gesture hint badge unmounts.
   const [hintFading, setHintFading] = useState(false)
 
+  // Shows a brief non-intrusive gesture hint on mobile when viewer opens
   useEffect(() => {
     if (!open || typeof window === "undefined" || window.innerWidth >= 768) {
+      setShowGestureHint(false)
+      setHintFading(false)
       return
     }
 
+    // Frequency capping: show at most 3 times so regular users are not annoyed
     const STORAGE_KEY = "naypict_gesture_hint_count"
     try {
       const shownCount = parseInt(localStorage.getItem(STORAGE_KEY) || "0", 10)
       if (shownCount >= 3) return
 
       localStorage.setItem(STORAGE_KEY, String(shownCount + 1))
-      const showTimer = setTimeout(() => {
-        setShowGestureHint(true)
-        setHintFading(false)
-      }, 0)
+      setShowGestureHint(true)
+      setHintFading(false)
 
       const fadeTimer = setTimeout(() => {
         setHintFading(true)
@@ -843,13 +1356,15 @@ export function PhotoViewer({
       }, 2300)
 
       return () => {
-        clearTimeout(showTimer)
         clearTimeout(fadeTimer)
         clearTimeout(hideTimer)
       }
-    } catch {}
+    } catch {
+      // Ignore localStorage access errors in private mode
+    }
   }, [open])
 
+  // Toggle cinematic mode with Browser Fullscreen API and graceful fallback.
   const toggleCinematicMode = useCallback(() => {
     setIsCinematicMode((prev) => {
       const next = !prev
@@ -858,7 +1373,9 @@ export function PhotoViewer({
           if (typeof document !== "undefined" && document.fullscreenEnabled && document.documentElement.requestFullscreen) {
             document.documentElement.requestFullscreen().catch(() => {})
           }
-        } catch {}
+        } catch {
+          // Browser Fullscreen API denied or unsupported; fallback overlay handles view via isCinematicMode
+        }
       } else {
         try {
           if (typeof document !== "undefined" && document.fullscreenElement && document.exitFullscreen) {
@@ -870,15 +1387,13 @@ export function PhotoViewer({
     })
   }, [])
 
+  // Sync state if user exits browser fullscreen via native controls.
   useEffect(() => {
     if (typeof document === "undefined") return
 
     function handleFullscreenChange() {
       if (!document.fullscreenElement) {
         setIsCinematicMode(false)
-        setFullscreenOpen(false)
-      } else {
-        setFullscreenOpen(true)
       }
     }
 
@@ -888,6 +1403,7 @@ export function PhotoViewer({
     }
   }, [])
 
+  // Bind keyboard shortcut F (cinematic), G (ambient glow), and Esc (exit cinematic mode).
   useEffect(() => {
     if (!open || isAnySubModalOpen) return
 
@@ -926,8 +1442,9 @@ export function PhotoViewer({
     return () => {
       window.removeEventListener("keydown", handleKeyDown, true)
     }
-  }, [open, isCinematicMode, toggleCinematicMode, infoOpen, isAnySubModalOpen, setInfoOpen])
+  }, [open, isCinematicMode, toggleCinematicMode])
 
+  // Auto-hide UI controls after 2.5s idle when in Cinematic Mode.
   useEffect(() => {
     if (!open || !isCinematicMode) {
       if (idleTimerRef.current) {
@@ -964,6 +1481,7 @@ export function PhotoViewer({
     }
   }, [open, isCinematicMode])
 
+  // lightbox Required picture list - uses HD preview as primary source
   const slides = useMemo<PhotoSlide[]>(() => (
     photos.map((photo) => {
       const isVideo = Boolean(photo.type?.startsWith("video/"))
@@ -987,53 +1505,21 @@ export function PhotoViewer({
       }
     })
   ), [photos])
-
   const isCurrentVideo = Boolean(photos[viewIndex]?.type?.startsWith("video/"))
   const actionsVisible = showActions && zoomLevel <= 1 && controlsVisible
 
   const onBackRef = useRef(onBack)
-  const photosRef = useRef(photos)
-  const indexRef = useRef(index)
+  onBackRef.current = onBack
 
   useEffect(() => {
-    onBackRef.current = onBack
-    photosRef.current = photos
-    indexRef.current = index
+    // Keep the browser's return callback as the latest method passed in by the parent component.
     onBrowserBackRef.current = onBrowserBack
-  }, [onBack, photos, index, onBrowserBack])
+  }, [onBrowserBack])
 
-  function restoreListScroll() {
-    window.scrollTo(0, openScrollYRef.current)
-  }
-
-  function closeViewer() {
-    if (isClosingRef.current) return
-    isClosingRef.current = true
-
-    if (typeof window !== "undefined") {
-      (window as unknown as { __last_subview_dismiss_time?: number }).__last_subview_dismiss_time = Date.now()
-    }
-    if (historyPushedRef.current) {
-      historyPushedRef.current = false
-      try {
-        window.history.back()
-      } catch {}
-    }
-    removePhotoIdFromUrl()
-    onBackRef.current?.()
-    setZoomLevel(1)
-
-    if (pswpRef.current) {
-      try {
-        pswpRef.current.destroy()
-      } catch {}
-      pswpRef.current = null
-    }
-
-    setTimeout(() => {
-      isClosingRef.current = false
-    }, 300)
-  }
+  const photosRef = useRef(photos)
+  photosRef.current = photos
+  const indexRef = useRef(index)
+  indexRef.current = index
 
   useLayoutEffect(() => {
     if (!open) {
@@ -1043,7 +1529,11 @@ export function PhotoViewer({
 
     openScrollYRef.current = window.scrollY
 
+    // Push a history when opening the viewer, close sub-modals/viewer when browser returns.
     function handlePopState(event?: PopStateEvent) {
+      // 1. If we popped back INTO PhotoViewer from a sub-modal/sheet/drawer
+      // (the restored history state still has photoViewerOpen = true),
+      // DO NOT close PhotoViewer!
       if (
         event?.state?.photoViewerOpen ||
         (typeof window !== "undefined" && window.history.state?.photoViewerOpen)
@@ -1051,6 +1541,8 @@ export function PhotoViewer({
         return
       }
 
+      // 2. If a sub-modal/sheet (Story Card, Insights, or Mobile Info Sidebar) was open,
+      // its own dedicated back handler hook manages closing it. PhotoViewer ignores that pop.
       if (
         storyDialogOpenRef.current ||
         insightsDialogOpenRef.current ||
@@ -1061,7 +1553,14 @@ export function PhotoViewer({
         return
       }
 
-      closeViewer()
+      // 3. Otherwise close PhotoViewer back to previous page / masonry grid
+      if (typeof window !== "undefined") {
+        (window as unknown as { __last_subview_dismiss_time?: number }).__last_subview_dismiss_time = Date.now()
+      }
+      historyPushedRef.current = false
+      removePhotoIdFromUrl()
+      const callback = onBrowserBackRef.current ?? onBackRef.current
+      callback?.()
     }
 
     const initialPhoto = photosRef.current[indexRef.current]
@@ -1084,15 +1583,41 @@ export function PhotoViewer({
     }
     window.addEventListener("popstate", handlePopState)
 
+    // Pre-warm surrounding slides immediately on open for instant 0ms slide transitions
+    const currIdx = indexRef.current
+    const initialWarm = [
+      currIdx + 1,
+      currIdx - 1,
+      currIdx + 2,
+      currIdx - 2,
+      currIdx + 3,
+    ]
+    for (const idx of initialWarm) {
+      if (idx < 0 || idx >= photosRef.current.length) continue
+      const target = photosRef.current[idx]
+      if (!target) continue
+      if (target.type?.startsWith("video/")) {
+        const videoUrl = target.key || target.preview
+        if (videoUrl) {
+          prebufferVideo(videoUrl)
+        }
+      } else if (target.preview) {
+        loadPreviewImage(target.preview, target.photoId, currentPhotoIdRef, setOriginalPhoto, previewRequestsRef, getPhotoCache, setPhotoCache)
+      }
+    }
+
     return () => {
       window.removeEventListener("popstate", handlePopState)
       removePhotoIdFromUrl()
     }
-  }, [open])
+  }, [open, setInfoOpen])
 
   useEffect(() => {
-    if (!open) return
+    if (!open) {
+      return
+    }
 
+    // Interrupt outstanding original image requests when closing the viewer, And restore the list scroll position to before opening.
     return () => {
       if (originalProgressHideTimerRef.current) {
         clearTimeout(originalProgressHideTimerRef.current)
@@ -1103,26 +1628,32 @@ export function PhotoViewer({
     }
   }, [open])
 
+  // Process the original image loading after photo switching.
   function handleView(nextIndex: number) {
     setIsVideoScrubbing(false)
     setViewIndex(nextIndex)
     setShowActions(true)
 
-    const photo = photosRef.current[nextIndex]
+    const photo = photos[nextIndex]
     if (!photo) return
+    const preview = photo.preview
     currentPhotoIdRef.current = photo.photoId
 
+    // Sync URL query param ?photoId=... smoothly
     setPhotoIdInUrl(photo.photoId)
 
+    // Track visitor views (debounced to once every 30s per photo to prevent spam while tracking views accurately)
     const now = Date.now()
     const lastViewedAt = lastViewedMapRef.current.get(photo.photoId) || 0
     if (now - lastViewedAt > 30_000) {
       lastViewedMapRef.current.set(photo.photoId, now)
+      // Exclude Admin from Insights metrics; only record views for public visitors
       if (!isAdmin) {
         recordPhotoView(photo.photoId)
       }
       trackVisitorMedia(photo.photoId, "view")
     }
+
 
     if (originalProgressHideTimerRef.current) {
       clearTimeout(originalProgressHideTimerRef.current)
@@ -1134,457 +1665,540 @@ export function PhotoViewer({
     setOriginalError(false)
     setShowOriginalProgress(false)
 
-    // Speculative lookahead pre-warm debounced to idle frame
-    const warmSurrounding = () => {
-      const warmIndices = [
-        nextIndex + 1,
-        nextIndex - 1,
-        nextIndex + 2,
-        nextIndex - 2,
-      ]
-      for (const idx of warmIndices) {
-        if (idx < 0 || idx >= photosRef.current.length) continue
-        const target = photosRef.current[idx]
-        if (!target) continue
-        if (target.type?.startsWith("video/")) {
-          const videoUrl = target.key || target.preview
-          if (videoUrl) {
-            prebufferVideo(videoUrl)
-          }
-        } else if (target.preview) {
-          loadPreviewImage(target.preview, target.photoId, currentPhotoIdRef, previewRequestsRef, getPhotoCache, setPhotoCache)
-        }
-      }
-    }
-
-    if (typeof window !== "undefined" && "requestIdleCallback" in window) {
-      window.requestIdleCallback(warmSurrounding, { timeout: 200 })
-    } else {
-      setTimeout(warmSurrounding, 80)
-    }
-  }
-
-  function rotatePhoto(photoId: string) {
-    setPhotoRotates((prev) => {
-      const nextDeg = (prev[photoId] ?? 0) + 90
-      if (pswpRef.current?.currSlide?.content?.element) {
-        const elem = pswpRef.current.currSlide.content.element
-        const img = elem.querySelector("img") || elem
-        if (img instanceof HTMLElement) {
-          img.style.transition = "transform 0.3s cubic-bezier(0.16, 1, 0.3, 1)"
-          img.style.transform = `rotate(${nextDeg}deg)`
-        }
-      }
-      return {
-        ...prev,
-        [photoId]: nextDeg,
-      }
-    })
-  }
-
-  // Initialize PhotoSwipe v5 with 120 FPS hardware touch gestures & native pull-to-dismiss
-  useEffect(() => {
-    if (!open || typeof window === "undefined" || photos.length === 0) {
-      if (pswpRef.current) {
-        try {
-          pswpRef.current.close()
-        } catch {}
-        pswpRef.current = null
-      }
+    if (!preview) {
       return
     }
 
-    const dataSource = photos.map((photo) => {
-      const isVideo = Boolean(photo.type?.startsWith("video/"))
-      const isDummyThumbHash =
-        !photo.thumbHash ||
-        photo.thumbHash.startsWith("00080204") ||
-        photo.thumbHash.startsWith("00080205")
-      const thumbHashUrl = isDummyThumbHash ? undefined : getThumbHashUrl(photo.thumbHash)
+    // Immediately warm current preview
+    loadPreviewImage(preview, photo.photoId, currentPhotoIdRef, setOriginalPhoto, previewRequestsRef, getPhotoCache, setPhotoCache)
 
-      if (isVideo) {
-        return {
-          type: "video",
-          photo,
-          width: photo.width || window.innerWidth,
-          height: photo.height || window.innerHeight,
+    // Concurrently warm surrounding slides in parallel without waiting!
+    const warmIndices = [
+      nextIndex + 1,
+      nextIndex + 2,
+      nextIndex + 3,
+      nextIndex - 1,
+      nextIndex - 2,
+    ]
+    for (const idx of warmIndices) {
+      if (idx < 0 || idx >= photos.length) continue
+      const target = photos[idx]
+      if (!target) continue
+      if (target.type?.startsWith("video/")) {
+        const videoUrl = target.key || target.preview
+        if (videoUrl) {
+          prebufferVideo(videoUrl)
         }
+      } else if (target.preview) {
+        loadPreviewImage(target.preview, target.photoId, currentPhotoIdRef, setOriginalPhoto, previewRequestsRef, getPhotoCache, setPhotoCache)
       }
+    }
+  }
 
-      return {
-        src: photo.preview || photo.thumbnail || "",
-        msrc: thumbHashUrl || photo.thumbnail || photo.preview || "",
-        width: photo.width || window.innerWidth,
-        height: photo.height || window.innerHeight,
-        alt: photo.name || "",
-        photo,
-      }
+  // Manually load the current photo original image.
+  function loadOriginalPhoto(slide: PhotoSlide) {
+    if (!slide.key) {
+      return
+    }
+
+    abortOriginalRef.current?.()
+    abortOriginalRef.current = loadOriginalImage({
+      photoId: slide.photoId,
+      src: slide.key,
+      totalSize: slide.originalSize,
+      setOriginalPhoto,
+      setOriginalProgress,
+      setShowOriginalProgress,
+      setOriginalError,
+      abortOriginalRef,
+      hideTimerRef: originalProgressHideTimerRef,
+      setPhotoCache,
     })
+  }
 
-    const isDesktop = window.innerWidth >= 768
-    const rightPad = infoOpen && !fullscreenOpen && !isCinematicMode && isDesktop ? 336 : 0
+  // Hide viewer action buttons.
+  function hideActions() {
+    setShowActions(false)
+  }
 
-    const pswp = new PhotoSwipe({
-      dataSource,
-      index: index,
-      closeOnVerticalDrag: true, // SWIPE UP OR DOWN TO CLOSE! (Pull-to-dismiss preserved)
-      pinchToClose: true,        // Pinch inward gesture to close
-      spacing: 0.08,            // 8% viewport slide spacing (natural modern gutter)
-      bgOpacity: 1,             // Solid pitch black backdrop so underlying page NEVER bleeds through
-      wheelToZoom: true,        // Trackpad / mouse wheel zoom
-      allowPanToNext: true,     // Pan seamlessly into next slide when zoomed
-      arrowKeys: true,          // Desktop keyboard navigation
-      escKey: true,             // ESC to close
-      mainClass: "pswp--naypict",
-      showHideAnimationType: "zoom",
-      returnFocus: false,
-      // HEADLESS MODE: Suppress ALL PhotoSwipe built-in UI elements
-      arrowPrev: false,
-      arrowNext: false,
-      zoom: false,
-      close: false,
-      counter: false,
-      padding: {
-        right: rightPad,
-        left: 0,
-        top: 0,
-        bottom: 0,
-      },
-      tapAction: () => {
-        setShowActions((prev) => !prev)
-      },
-      doubleTapAction: (point) => {
-        setViewerBurstCoords({ x: point.x, y: point.y })
-        setShowViewerHeartBurst(true)
-        try {
-          if (typeof navigator !== "undefined" && navigator.vibrate) {
-            navigator.vibrate([15, 35, 15])
+  // Show viewer action buttons.
+  function showActionButtons() {
+    setShowActions(true)
+  }
+
+  // Double-tap & single-tap resolution refs
+  const lastTapTimeRef = useRef<number>(0)
+  const singleTapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Record pointer coordinates on touch/click start to disambiguate stationary tap vs swipe.
+  function handleSlidePointerDown(event: React.PointerEvent<HTMLDivElement>) {
+    if (zoomLevel > 1 || infoOpen) return
+    tapPointerStartRef.current = { x: event.clientX, y: event.clientY, time: Date.now() }
+  }
+
+  // Handle pointer release: Distinguish stationary tap (toggle UI or Instagram heart burst) from swipe gestures.
+  function handleSlidePointerUp(event: React.PointerEvent<HTMLDivElement>) {
+    const start = tapPointerStartRef.current
+    tapPointerStartRef.current = null
+
+    if (!start) return
+
+    const dx = Math.abs(event.clientX - start.x)
+    const dy = Math.abs(event.clientY - start.y)
+
+    // Distinguish Single Tap (toggle UI) vs Double Tap (Smart Zoom & Like burst)
+    // Only execute when pointer moved less than 8px (stationary tap, NOT a horizontal swipe or vertical pull):
+    if (dx < 8 && dy < 8) {
+      if (!isCurrentVideo) {
+        const now = Date.now()
+        const timeSinceLastTap = now - lastTapTimeRef.current
+
+        if (timeSinceLastTap < 300) {
+          // Double Tap: Cancel single-tap timer so Lightbox Zoom plugin can handle zoom cleanly
+          if (singleTapTimerRef.current) {
+            clearTimeout(singleTapTimerRef.current)
+            singleTapTimerRef.current = null
           }
-        } catch {}
+          lastTapTimeRef.current = 0
 
-        const activeIdx = pswpRef.current?.currIndex ?? viewIndex
-        const activePhoto = photosRef.current[activeIdx]
-        if (activePhoto?.photoId) {
-          const cached = reactionSync.getCached(activePhoto.photoId)
-          if (!cached?.userReactions?.love && !isAdmin) {
-            reactionSync.toggleReaction(activePhoto.photoId, "love")
+          // Trigger Instagram-style Double-Tap Heart Burst and haptic pulse
+          setViewerBurstCoords({
+            x: event.clientX,
+            y: event.clientY,
+          })
+          setShowViewerHeartBurst(true)
+
+          try {
+            if (typeof navigator !== "undefined" && navigator.vibrate) {
+              navigator.vibrate([15, 35, 15])
+            }
+          } catch {}
+
+          const activePhoto = photos[viewIndex]
+          if (activePhoto?.photoId) {
+            const cached = reactionSync.getCached(activePhoto.photoId)
+            if (!cached?.userReactions?.love && !isAdmin) {
+              reactionSync.toggleReaction(activePhoto.photoId, "love")
+            }
+            trackVisitorMedia(activePhoto.photoId, "reaction")
           }
-          trackVisitorMedia(activePhoto.photoId, "reaction")
-        }
-
-        if (pswpRef.current?.currSlide) {
-          pswpRef.current.currSlide.toggleZoom({ x: point.x, y: point.y })
-        }
-      },
-      bgClickAction: () => {
-        if (pswpRef.current) {
-          pswpRef.current.close()
         } else {
-          closeViewer()
-        }
-      },
-    })
-
-    // Video custom content handling
-    pswp.on("contentAppend", (e) => {
-      const { content } = e
-      if (content.data.type === "video") {
-        const container = document.createElement("div")
-        container.className = "pswp__video-slide-container"
-        content.element = container
-        setVideoMounts((prev) => {
-          const next = new Map(prev)
-          next.set(content.index, container)
-          return next
-        })
-      }
-    })
-
-    pswp.on("contentDestroy", (e) => {
-      const { content } = e
-      if (content.data.type === "video") {
-        setVideoMounts((prev) => {
-          const next = new Map(prev)
-          next.delete(content.index)
-          return next
-        })
-      }
-    })
-
-    pswp.on("change", () => {
-      const nextIdx = pswp.currIndex
-      setViewIndex(nextIdx)
-      handleView(nextIdx)
-    })
-
-    pswp.on("close", () => {
-      closeViewer()
-    })
-
-    pswp.on("destroy", () => {
-      pswpRef.current = null
-      setVideoMounts(new Map())
-    })
-
-    pswp.on("contentActivate", (e) => {
-      const { content } = e
-      const p = content.data.photo as PhotoVo | undefined
-      if (p?.photoId && photoRotates[p.photoId] && content.element) {
-        const img = content.element.querySelector("img") || content.element
-        if (img instanceof HTMLElement) {
-          img.style.transform = `rotate(${photoRotates[p.photoId]}deg)`
+          lastTapTimeRef.current = now
+          if (singleTapTimerRef.current) {
+            clearTimeout(singleTapTimerRef.current)
+          }
+          singleTapTimerRef.current = setTimeout(() => {
+            if (zoomLevel <= 1) {
+              setShowActions((prev) => !prev)
+            }
+            singleTapTimerRef.current = null
+          }, 280)
         }
       }
-    })
-
-    pswpRef.current = pswp
-    pswp.init()
-
-    return () => {
-      if (pswpRef.current) {
-        try {
-          pswpRef.current.destroy()
-        } catch {}
-        pswpRef.current = null
-      }
     }
-  }, [open])
+  }
 
-  // Sync index navigation when parent index changes
-  useEffect(() => {
-    if (open && pswpRef.current && pswpRef.current.currIndex !== index) {
-      pswpRef.current.goTo(index)
+  // Cancel pointer on gesture interruption.
+  function handleSlidePointerCancel() {
+    tapPointerStartRef.current = null
+  }
+
+  // based on photos id Rotate the corresponding photo clockwise 90 Spend.
+  function rotatePhoto(photoId: string) {
+    setPhotoRotates((prev) => ({
+      ...prev,
+      [photoId]: (prev[photoId] ?? 0) + 90,
+    }))
+  }
+
+  // Restore the page scroll position to before opening the viewer, offset lightbox Focus scrolling when closed.
+  function restoreListScroll() {
+    window.scrollTo(0, openScrollYRef.current)
+  }
+
+  // Close the viewer and sync clear the browser history written by the viewer.
+  function closeViewer() {
+    if (typeof window !== "undefined") {
+      (window as unknown as { __last_subview_dismiss_time?: number }).__last_subview_dismiss_time = Date.now()
     }
-  }, [index, open])
-
-  // Dynamic layout adjustment when sidebar or cinematic mode toggles
-  useEffect(() => {
-    if (!pswpRef.current || typeof window === "undefined") return
-    const isDesktop = window.innerWidth >= 768
-    const rightPad = infoOpen && !fullscreenOpen && !isCinematicMode && isDesktop ? 336 : 0
-    pswpRef.current.options.padding = {
-      right: rightPad,
-      left: 0,
-      top: 0,
-      bottom: 0,
+    if (historyPushedRef.current) {
+      historyPushedRef.current = false
+      try {
+        window.history.back()
+      } catch {}
     }
-    pswpRef.current.updateSize(true)
-  }, [infoOpen, fullscreenOpen, isCinematicMode])
 
-  // Disable pointer interactions on PhotoSwipe during open dialog modals
-  useEffect(() => {
-    if (!pswpRef.current?.element) return
-    pswpRef.current.element.classList.toggle("pswp-modal-active", isAnySubModalOpen)
-  }, [isAnySubModalOpen])
+    removePhotoIdFromUrl()
+    onBackRef.current?.()
+  }
 
-  const contextValue = useMemo<PhotoViewerContextType>(() => ({
-    prev: () => pswpRef.current?.prev(),
-    next: () => pswpRef.current?.next(),
-    close: () => {
-      if (pswpRef.current) {
-        pswpRef.current.close()
-      } else {
-        closeViewer()
-      }
-    },
-    currentSlide: slides[viewIndex] ?? null,
-  }), [slides, viewIndex])
+  // Sidebar narrows when expanded lightbox width, Leave space for the information panel on the right.
+  const lightboxClassName = infoOpen && !fullscreenOpen && !isCinematicMode
+    ? "w-full md:w-[calc(100%-(0.25rem*84))] transition-[width] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]"
+    : "w-full transition-[width] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]"
 
-  if (!open) return null
-
+  // rendering yet-another-react-lightbox Minimal preview.
   return (
-    <PhotoViewerContext.Provider value={contextValue}>
-      {/* Video Player Portals mounted directly into PhotoSwipe slide containers */}
-      {Array.from(videoMounts.entries()).map(([slideIdx, container]) => {
-        const photo = photos[slideIdx]
-        if (!photo || !container) return null
-        return createPortal(
-          <VideoPlayer
-            key={photo.photoId || slideIdx}
-            src={toProxyMediaUrl(photo.key || photo.preview)}
-            poster={photo.thumbnail}
-            alt={photo.name || "Video"}
-            isActive={slideIdx === viewIndex}
-            autoPlay={slideIdx === viewIndex}
-            photoId={photo.photoId}
-            exif={photo.exif}
-            isCinematicMode={isCinematicMode}
-            onScrubbingChange={(isScrubbing) => {
-              setIsVideoScrubbing(isScrubbing)
-              if (pswpRef.current) {
-                pswpRef.current.options.allowPanToNext = !isScrubbing
-              }
-            }}
-            onFullscreenChange={setFullscreenOpen}
-            onOpenComments={handleOpenComments}
-            onOpenInfo={handleOpenInfo}
-            controlsVisible={actionsVisible}
-            onControlsVisibleChange={setShowActions}
-            className="w-full h-full"
-          />,
-          container
-        )
-      })}
+    <>
+      <Lightbox
+        className={cn(
+          lightboxClassName,
+          isCinematicMode && "yarl-cinematic-mode",
+          fullscreenOpen && "yarl-fullscreen-active",
+          isAnySubModalOpen && "pointer-events-none select-none touch-none yarl-modal-active"
+        )}
+        open={open}
+        close={() => {
+          if (isCinematicMode) {
+            toggleCinematicMode()
+          }
+          closeViewer()
+          // Reset zoom on close
+          setZoomLevel(1)
+        }}
+        index={viewIndex}
+        slides={slides}
+        controller={{
+          closeOnBackdropClick: !isAnySubModalOpen,
+          closeOnEscape: !isAnySubModalOpen,
+          closeOnPullDown: !isAnySubModalOpen && zoomLevel <= 1 && !isVideoFullscreen && !isVideoScrubbing,
+          closeOnPullUp: !isAnySubModalOpen && zoomLevel <= 1 && !isVideoFullscreen && !isVideoScrubbing,
+          disableSwipeNavigation: isVideoFullscreen || isVideoScrubbing || fullscreenOpen || isCinematicMode,
+        }}
+        portal={{
+          container: {
+            style: photoViewerPortalStyle,
+          },
+        }}
+        plugins={isCurrentVideo ? VIDEO_PLUGINS : PHOTO_PLUGINS}
+        zoom={{
+          scrollToZoom: !isAnySubModalOpen,
+          wheelZoomDistanceFactor: isAnySubModalOpen ? 0 : 100,
+          maxZoomPixelRatio: 3,
+          doubleClickMaxStops: 2,
+          doubleClickDelay: 280,
+          doubleTapDelay: 280,
+          pinchZoomDistanceFactor: 100,
+        }}
+        toolbar={{
+          buttons: [],
+        }}
+        carousel={{
+          spacing: isMobile ? 16 : 24,
+          preload: isAnySubModalOpen ? 0 : 2,
+        }}
+        animation={{
+          fade: 160,
+          swipe: isMobile ? 220 : 190,
+          navigation: 220,
+          easing: {
+            fade: "cubic-bezier(0.16, 1, 0.3, 1)",
+            swipe: "cubic-bezier(0.16, 1, 0.3, 1)",
+            navigation: "cubic-bezier(0.16, 1, 0.3, 1)",
+          },
+        }}
+        thumbnails={{
+          width: isMobile ? 46 : 75,
+          height: isMobile ? 46 : 75,
+          gap: 0,
+          padding: 0,
+          border: 0,
+          borderRadius: 0,
+          imageFit: "cover",
+          vignette: false,
+        }}
+        on={{
+          exiting: () => {
+            restoreListScroll()
+          },
+          view: ({ index }) => {
+            handleView(index)
+          },
+          zoom: ({ zoom }) => {
+            setZoomLevel(zoom)
+          },
+          enterFullscreen: () => {
+            setFullscreenOpen(true)
+            hideActions()
+          },
+          exitFullscreen: () => {
+            setFullscreenOpen(false)
+            showActionButtons()
+          },
+        }}
+        render={{
+          buttonPrev: () => <PrevButton key="prev" showActions={actionsVisible} />,
+          buttonNext: () => <NextButton key="next" showActions={actionsVisible} />,
+          controls: () => {
+            return (
+              <>
+                {/* Dynamic Cinema Ambient Glow (Apple Music / YouTube Ambient Mode) */}
+                <PhotoViewerAmbientGlow
+                  thumbHash={photos[viewIndex]?.thumbHash}
+                  visible={!fullscreenOpen}
+                />
+                {/* Mobile Instagram-Style Double-Tap Heart Burst Overlay */}
+                <PhotoHeartBurst
+                  show={showViewerHeartBurst}
+                  coords={viewerBurstCoords}
+                  size={96}
+                  onComplete={() => setShowViewerHeartBurst(false)}
+                />
+                <AnimatePresence>
+                  {infoOpen && !fullscreenOpen && !isCinematicMode && (
+                    <PhotoViewerBlurBackground
+                      key="viewer-blur-backdrop"
+                      thumbHash={photos[viewIndex]?.thumbHash}
+                    />
+                  )}
+                  {infoOpen && !fullscreenOpen && !isCinematicMode && (
+                    <PhotoInfoSidebar
+                      key="photo-info-sidebar"
+                      photo={photos[viewIndex] ?? null}
+                      activeTab={infoTab}
+                      onTabChange={setInfoTab}
+                      onClose={() => setInfoOpen(false)}
+                      onPhotoUpdate={onPhotoUpdate}
+                      onAlbumOpen={onAlbumOpen ? (photoId) => onAlbumOpen([photoId]) : undefined}
+                      onStoryOpen={() => setStoryDialogOpen(true)}
+                      onBatchEditOpen={isAdmin ? () => setBatchEditDialogOpen(true) : undefined}
+                      onInsightsOpen={isAdmin ? (photoId) => {
+                        setInsightsPhotoId(photoId)
+                        setInsightsDialogOpen(true)
+                      } : undefined}
+                    />
+                  )}
+                </AnimatePresence>
+                <CloseButton showActions={actionsVisible} />
+                {/* Right-side toolbar */}
+                <div
+                  className={[
+                    "absolute top-2 right-2 md:top-3 md:right-4 z-40 flex items-center gap-1.5 max-w-[calc(100vw-3.75rem)] overflow-x-auto no-scrollbar",
+                    getActionVisibleClass(actionsVisible),
+                  ].join(" ")}
+                >
+                  {!isCinematicMode && (
+                    <>
+                      {isAdmin && onPhotoDelete && (
+                        <DeleteButton showActions={actionsVisible} onDelete={onPhotoDelete} />
+                      )}
+                      {isAdmin && onAlbumOpen && (
+                        <AddToAlbumButton showActions={actionsVisible} onAlbumOpen={onAlbumOpen} />
+                      )}
+                      {!isCurrentVideo && (
+                        <>
+                          <RotateButton showActions={actionsVisible} onRotate={rotatePhoto} />
+                          <StoryCardButton showActions={actionsVisible} onOpenStory={() => setStoryDialogOpen(true)} />
+                        </>
+                      )}
+                      <ShareButton showActions={actionsVisible} />
+                      <InfoButton
+                        showActions={actionsVisible}
+                        open={infoOpen && infoTab === "info"}
+                        onToggle={() => {
+                          if (infoOpen && infoTab === "info") {
+                            setInfoOpen(false)
+                          } else {
+                            setInfoTab("info")
+                            setInfoOpen(true)
+                          }
+                        }}
+                      />
+                    </>
+                  )}
+                  <CinematicButton
+                    showActions={actionsVisible}
+                    isCinematicMode={isCinematicMode}
+                    onToggle={toggleCinematicMode}
+                  />
+                </div>
+                {showOriginalProgress && !isCinematicMode && (
+                  <OriginalProgressButton progress={originalProgress} error={originalError} />
+                )}
+                <AlbumOverlayBadge isCinematicMode={isCinematicMode} />
+                {!isCurrentVideo && !infoOpen && (
+                  <LightboxInteractionBar
+                    photoId={photos[viewIndex]?.photoId}
+                    exif={photos[viewIndex]?.exif}
+                    showActions={actionsVisible}
+                    isCinematicMode={isCinematicMode}
+                    onOpenComments={() => {
+                      setInfoTab("comments")
+                      setInfoOpen(true)
+                    }}
+                    onOpenInfo={() => {
+                      setInfoTab("info")
+                      setInfoOpen(true)
+                    }}
+                  />
+                )}
+                {/* Mobile Gesture Hint Floating Badge (Auto-dismisses in ~2s) */}
+                {showGestureHint && !infoOpen && !isCinematicMode && (
+                  <div
+                    className={cn(
+                      "fixed bottom-36 sm:bottom-40 inset-x-0 z-50 flex justify-center px-4 pointer-events-none select-none md:hidden transition-all duration-500 ease-out",
+                      hintFading
+                        ? "opacity-0 translate-y-2 scale-95"
+                        : "opacity-100 translate-y-0 scale-100 animate-in fade-in zoom-in-95 duration-300"
+                    )}
+                  >
+                    <div className="flex items-center gap-2.5 px-3.5 py-1.5 rounded-full bg-black/80 dark:bg-neutral-900/85 backdrop-blur-xl border border-white/20 text-white shadow-2xl ring-1 ring-black/40">
+                      <div className="flex items-center text-emerald-400">
+                        <ChevronsUpDownIcon className="size-3.5 animate-pulse" />
+                      </div>
+                      <span className="text-[11px] sm:text-xs font-medium tracking-wide">
+                        Swipe ↑↓ to dismiss
+                      </span>
+                      <span className="text-white/30 text-[10px]">•</span>
+                      <span className="text-[11px] sm:text-xs text-white/80 font-medium tracking-wide">
+                        Swipe ‹ › to browse
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </>
+            )
+          },
+          buttonFullscreen: () => null,
+          buttonZoom: () => null,
+          slide: ({ slide, offset }) => {
+            if (!isImageSlide(slide)) {
+              return null
+            }
 
-      {/* React UI Overlay Layer on top of PhotoSwipe canvas */}
-      {typeof document !== "undefined" &&
-        createPortal(
-          <div className="fixed inset-0 z-[70] pointer-events-none select-none overflow-hidden font-sans">
-        {/* Dynamic Cinema Ambient Glow */}
-        <PhotoViewerAmbientGlow
-          thumbHash={photos[viewIndex]?.thumbHash}
-          visible={!fullscreenOpen && !isCinematicMode}
-          className="z-[-1]"
-        />
+            const photoSlide = slide as PhotoSlide
+            const isVideo = Boolean(photoSlide.mediaType?.startsWith("video/"))
+            const isCurrentSlide = offset === 0
 
-        {/* Mobile Instagram-Style Double-Tap Heart Burst */}
-        <PhotoHeartBurst
-          show={showViewerHeartBurst}
-          coords={viewerBurstCoords}
-          size={96}
-          onComplete={() => setShowViewerHeartBurst(false)}
-        />
+            if (isVideo) {
+              return (
+                <div
+                  className="relative flex h-full w-full items-center justify-center overflow-hidden p-0 select-none"
+                  onPointerDown={!isVideoFullscreen ? handleSlidePointerDown : undefined}
+                  onPointerUp={!isVideoFullscreen ? handleSlidePointerUp : undefined}
+                  onPointerCancel={!isVideoFullscreen ? handleSlidePointerCancel : undefined}
+                  style={{
+                    contain: "layout paint",
+                    transform: "translateZ(0)",
+                    backfaceVisibility: "hidden",
+                  }}
+                >
+                  <VideoPlayer
+                    src={photoSlide.src || toProxyMediaUrl(photoSlide.key)}
+                    poster={photoSlide.preview || photoSlide.thumbnail}
+                    alt={photoSlide.alt || "Video"}
+                    isActive={isCurrentSlide}
+                    autoPlay={isCurrentSlide}
+                    photoId={photoSlide.photoId}
+                    exif={photoSlide.exif}
+                    isCinematicMode={isCinematicMode}
+                    controlsVisible={isCurrentSlide ? actionsVisible : false}
+                    onControlsVisibleChange={isCurrentSlide ? setShowActions : undefined}
+                    onScrubbingChange={setIsVideoScrubbing}
+                    onFullscreenChange={setIsVideoFullscreen}
+                    onOpenComments={handleOpenComments}
+                    onOpenInfo={handleOpenInfo}
+                    className="w-full h-full"
+                  />
+                </div>
+              )
+            }
 
-        {/* Desktop Prev/Next Buttons */}
-        <PrevButton showActions={actionsVisible} />
-        <NextButton showActions={actionsVisible} />
-
-        {/* Top-Left Close Button */}
-        <CloseButton showActions={actionsVisible} />
-
-        {/* Top-Right Action Toolbar */}
-        <div
-          className={cn(
-            "fixed top-2 right-2 md:top-3 md:right-4 z-55 flex items-center gap-1.5 max-w-[calc(100vw-3.75rem)] overflow-x-auto no-scrollbar pointer-events-auto",
-            getActionVisibleClass(actionsVisible)
-          )}
-        >
-          {!isCinematicMode && (
-            <>
-              {isAdmin && onPhotoDelete && (
-                <DeleteButton showActions={actionsVisible} onDelete={onPhotoDelete} />
-              )}
-              {isAdmin && onAlbumOpen && (
-                <AddToAlbumButton showActions={actionsVisible} onAlbumOpen={onAlbumOpen} />
-              )}
-              {!isCurrentVideo && (
-                <>
-                  <RotateButton showActions={actionsVisible} onRotate={rotatePhoto} />
-                  <StoryCardButton showActions={actionsVisible} onOpenStory={() => setStoryDialogOpen(true)} />
-                </>
-              )}
-              <ShareButton showActions={actionsVisible} />
-              <InfoButton
-                showActions={actionsVisible}
-                open={infoOpen && infoTab === "info"}
-                onToggle={() => {
-                  if (infoOpen && infoTab === "info") {
-                    setInfoOpen(false)
-                  } else {
-                    setInfoTab("info")
-                    setInfoOpen(true)
-                  }
+            return (
+              <div
+                className="relative flex h-full w-full items-center justify-center overflow-hidden p-2 md:p-4 pt-[env(safe-area-inset-top,8px)] pb-[env(safe-area-inset-bottom,8px)] select-none"
+                onPointerDown={handleSlidePointerDown}
+                onPointerUp={handleSlidePointerUp}
+                onPointerCancel={handleSlidePointerCancel}
+                style={{
+                  contain: "layout paint",
+                  transform: "translateZ(0)",
+                  backfaceVisibility: "hidden",
                 }}
-              />
-            </>
-          )}
-          <CinematicButton
-            showActions={actionsVisible}
-            isCinematicMode={isCinematicMode}
-            onToggle={toggleCinematicMode}
-          />
-        </div>
-
-        {/* Original HD Download Progress Pill */}
-        {showOriginalProgress && !isCinematicMode && (
-          <OriginalProgressButton progress={originalProgress} error={originalError} />
-        )}
-
-        {/* Album Indicator Badge */}
-        <AlbumOverlayBadge isCinematicMode={isCinematicMode} />
-
-        {/* Bottom Interaction Bar (Reactions & Filmstrip) */}
-        {!isCurrentVideo && !infoOpen && (
-          <LightboxInteractionBar
-            photoId={photos[viewIndex]?.photoId}
-            exif={photos[viewIndex]?.exif}
-            showActions={actionsVisible}
-            isCinematicMode={isCinematicMode}
-            onOpenComments={() => {
-              setInfoTab("comments")
-              setInfoOpen(true)
-            }}
-            onOpenInfo={() => {
-              setInfoTab("info")
-              setInfoOpen(true)
-            }}
-          />
-        )}
-
-        {/* Bottom Thumbnail Strip Carousel */}
-        <PhotoViewerThumbnails
-          photos={photos}
-          currentIndex={viewIndex}
-          onSelect={(i) => pswpRef.current?.goTo(i)}
-          visible={actionsVisible && !infoOpen && !isCinematicMode && !fullscreenOpen}
-        />
-
-        {/* Mobile Swipe Hint Badge */}
-        {showGestureHint && !infoOpen && !isCinematicMode && (
-          <div
-            className={cn(
-              "fixed bottom-36 sm:bottom-40 inset-x-0 z-55 flex justify-center px-4 pointer-events-none select-none md:hidden transition-all duration-500 ease-out",
-              hintFading
-                ? "opacity-0 translate-y-2 scale-95"
-                : "opacity-100 translate-y-0 scale-100 animate-in fade-in zoom-in-95 duration-300"
-            )}
-          >
-            <div className="flex items-center gap-2.5 px-3.5 py-1.5 rounded-full bg-black/80 dark:bg-neutral-900/85 backdrop-blur-xl border border-white/20 text-white shadow-2xl ring-1 ring-black/40">
-              <div className="flex items-center text-emerald-400">
-                <ChevronsUpDownIcon className="size-3.5 animate-pulse" />
+              >
+                <PhotoSlideImage
+                  slide={photoSlide}
+                  originalPhoto={originalPhoto}
+                  rotate={photoRotates[photoSlide.photoId] ?? 0}
+                  fullscreenOpen={fullscreenOpen || isCinematicMode}
+                  isActive={isCurrentSlide}
+                />
               </div>
-              <span className="text-[11px] sm:text-xs font-medium tracking-wide">
-                Swipe ↑↓ to dismiss
-              </span>
-              <span className="text-white/30 text-[10px]">•</span>
-              <span className="text-[11px] sm:text-xs text-white/80 font-medium tracking-wide">
-                Swipe ‹ › to browse
-              </span>
-            </div>
-          </div>
-        )}
+            )
+          },
+          thumbnail: ({ slide, rect }) => {
+            if (!isImageSlide(slide)) {
+              return null
+            }
 
-        {/* Photo Info & Comments Sidebar */}
-        <AnimatePresence>
-          {infoOpen && !fullscreenOpen && !isCinematicMode && (
-            <PhotoViewerBlurBackground
-              key="viewer-blur-backdrop"
-              thumbHash={photos[viewIndex]?.thumbHash}
-            />
-          )}
-          {infoOpen && !fullscreenOpen && !isCinematicMode && (
-            <PhotoInfoSidebar
-              key="photo-info-sidebar"
-              photo={photos[viewIndex] ?? null}
-              activeTab={infoTab}
-              onTabChange={setInfoTab}
-              onClose={() => setInfoOpen(false)}
-              onPhotoUpdate={onPhotoUpdate}
-              onAlbumOpen={onAlbumOpen ? (photoId) => onAlbumOpen([photoId]) : undefined}
-              onStoryOpen={() => setStoryDialogOpen(true)}
-              onBatchEditOpen={isAdmin ? () => setBatchEditDialogOpen(true) : undefined}
-              onInsightsOpen={isAdmin ? (photoId) => {
-                setInsightsPhotoId(photoId)
-                setInsightsDialogOpen(true)
-              } : undefined}
-            />
-          )}
-        </AnimatePresence>
-      </div>,
-      document.body
-    )}
+            const photoSlide = slide as PhotoSlide
 
-      {/* Lazy-Loaded Dialogs */}
+            return (
+              <div
+                className="relative overflow-hidden thumbnail-bg"
+                style={{
+                  width: rect.width,
+                  height: rect.height,
+                  transform: "translateZ(0)",
+                }}
+              >
+                {photoSlide.thumbHashUrl && !photoSlide.thumbnail && (
+                  <img
+                    src={photoSlide.thumbHashUrl}
+                    alt=""
+                    decoding="async"
+                    className="absolute inset-0 h-full w-full object-cover"
+                    aria-hidden
+                  />
+                )}
+                {photoSlide.mediaType?.startsWith("video/") && (!photoSlide.thumbnail || photoSlide.thumbnail.endsWith(".mp4") || photoSlide.thumbnail.endsWith(".mov")) ? (
+                  <video
+                    src={
+                      (photoSlide.key?.startsWith("http://") || photoSlide.key?.startsWith("https://"))
+                        ? `${photoSlide.key}#t=0.5`
+                        : `${toProxyMediaUrl(photoSlide.key || photoSlide.src)}#t=0.5`
+                    }
+                    muted
+                    playsInline
+                    preload="metadata"
+                    onLoadedMetadata={(e) => {
+                      const v = e.currentTarget
+                      if (v.currentTime === 0 && (v.duration > 0.5 || isNaN(v.duration))) {
+                        try { v.currentTime = 0.5 } catch {}
+                      }
+                    }}
+                    className="h-full w-full select-none object-cover pointer-events-none bg-neutral-950"
+                  />
+                ) : (
+                  <img
+                    src={photoSlide.thumbnail}
+                    alt={photoSlide.alt}
+                    width={photoSlide.width}
+                    height={photoSlide.height}
+                    draggable={false}
+                    className="h-full w-full select-none object-cover"
+                    onError={(event) => {
+                      const el = event.currentTarget
+                      if (el.src && !el.src.includes('/media/')) {
+                        el.src = toProxyMediaUrl(photoSlide.thumbnail)
+                      } else {
+                        el.style.display = "none"
+                      }
+                    }}
+                  />
+                )}
+                {photoSlide.mediaType?.startsWith("video/") && (
+                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                    <div className="size-4 rounded-full bg-black/65 backdrop-blur-xs flex items-center justify-center border border-white/20">
+                      <Play className="size-2 text-white fill-current ml-0.5" />
+                    </div>
+                  </div>
+                )}
+              </div>
+            )
+          }
+        }}
+      />
       {isAdmin && (
         <PhotoInsightsDialog
           open={insightsDialogOpen}
@@ -1616,6 +2230,6 @@ export function PhotoViewer({
           }}
         />
       )}
-    </PhotoViewerContext.Provider>
+    </>
   )
 }
