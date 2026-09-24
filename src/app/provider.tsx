@@ -8,6 +8,8 @@ import { TooltipProvider } from "@/components/ui/tooltip"
 import { Toaster } from "@/components/ui/sonner"
 import { albumList } from "@/request/album"
 import { storageSelect } from "@/request/storage"
+import { userInfo as fetchUserInfo } from "@/request/user"
+import { UserTypeEnum } from "@/server/enums/user-enum"
 import { type UserInfoVo } from "@/server/entity/vo/user"
 import { useIsMobile } from "@/hooks/use-mobile"
 import { useAlbumStore } from "@/store/album-store"
@@ -85,26 +87,49 @@ function Provider({ children, defaultTheme, defaultSidebarOpen, initialUserInfo,
   const pathname = usePathname()
   const isLogin = pathname === "/login"
 
+  // Restore client theme preference on mount
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const savedTheme = (localStorage.getItem("theme") || (document.cookie.match(/theme=([^;]+)/) || [])[1]) as Theme | undefined
+      if (savedTheme === "light" || savedTheme === "dark") {
+        setThemeState(savedTheme)
+      }
+    }
+  }, [])
+
+  // Asynchronously resolve authenticated user info if token cookie is present
   useEffect(() => {
     if (initialUserInfo) {
       setUserInfo(initialUserInfo)
+    } else if (typeof document !== "undefined" && document.cookie.includes("token")) {
+      fetchUserInfo()
+        .then((info) => {
+          if (info) setUserInfo(info)
+        })
+        .catch(() => {})
     }
   }, [initialUserInfo])
 
-  // Query normal storage configuration and write global storage options.
+  // Query storage configuration only when an admin is logged in and store is empty
   useEffect(() => {
-    if (isLogin) {
+    if (isLogin || userInfo?.type !== UserTypeEnum.ADMIN) {
+      return
+    }
+    if (useStorageStore.getState().storages.length > 0) {
       return
     }
 
     void storageSelect().then((storages) => {
       setStorages(storages)
     })
-  }, [isLogin, setStorages])
+  }, [isLogin, userInfo?.type, setStorages])
 
-  // Query the album list and write global album options.
+  // Query the album list only if store is currently empty
   useEffect(() => {
     if (isLogin) {
+      return
+    }
+    if (useAlbumStore.getState().albums.length > 0) {
       return
     }
 

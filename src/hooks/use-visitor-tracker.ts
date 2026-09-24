@@ -414,14 +414,15 @@ export function useVisitorTracker() {
     window.addEventListener("storage", handleStorageChange)
 
 
-    // Periodic heartbeat and permission verification every 30 seconds while tab is active
+    // Periodic heartbeat and permission verification every 2 minutes while tab is active
+    // Visibilitychange and pagehide listeners already capture exact exit duration
     intervalRef.current = setInterval(() => {
       if (document.visibilityState === "visible") {
         const elapsed = Math.floor((Date.now() - startTime) / 1000)
         sendPing(elapsed)
         void checkAndSyncPermission()
       }
-    }, 30000)
+    }, 120000)
 
     // Detect when visitor switches back from browser settings / notifications
     const handleVisibilityChange = () => {

@@ -1,6 +1,4 @@
-import { cookies } from "next/headers"
 import { AlbumProvider } from "@/app/albums/provider"
-import { getLoginInfo } from "@/lib/cookie"
 import { albumService } from "@/server/service/album-service"
 
 // Incremental Static Regeneration (ISR): Cache public album layout on Edge CDN with 5-minute background revalidation

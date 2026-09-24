@@ -5,9 +5,9 @@ import { getSyncVersion } from "@/request/sync"
 import { emitCatalogSync } from "@/lib/catalog-sync"
 import { type CatalogSyncVersionVo } from "@/server/entity/vo/sync"
 
-// Polling interval in milliseconds when tab is active (5 seconds).
-// Due to Cloudflare Edge CDN 3s caching, 10,000 visitors produce only ~20 req/min to Vercel.
-const SYNC_POLL_INTERVAL = 5000
+// Polling interval in milliseconds when tab is active (45 seconds).
+// Low background frequency combined with immediate checks on focus/visibility minimizes Vercel invocations.
+const SYNC_POLL_INTERVAL = 45000
 
 /**
  * Global background catalog synchronization hook.

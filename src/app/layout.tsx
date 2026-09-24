@@ -1,13 +1,9 @@
-import { cookies } from "next/headers"
 import { Geist } from "next/font/google"
 import { type Metadata, type Viewport } from "next"
 import { NextIntlClientProvider } from "next-intl"
 import { getLocale, getMessages } from "next-intl/server"
 
-import { Provider, type Theme } from "@/app/provider"
-import { getLoginInfo } from "@/lib/cookie"
-import { userService } from "@/server/service/user-service"
-import { storageService } from "@/server/service/storage-service"
+import { Provider } from "@/app/provider"
 import { PwaRegister } from "@/components/pwa/pwa-register"
 import "./globals.css"
 
@@ -18,9 +14,6 @@ const geist = Geist({
   preload: true,
   adjustFontFallback: true,
 })
-
-const SIDEBAR_COOKIE_NAME = "sidebar_state"
-const THEME_COOKIE_NAME = "theme"
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -61,18 +54,12 @@ interface RootLayoutProps {
   children: React.ReactNode
 }
 
-// Render application root layout, and restore the saved theme before the page is painted.
+// Render application root layout with zero serverless DB queries to maximize Vercel Edge caching.
 export default async function RootLayout({ children }: RootLayoutProps) {
-
-  const cookieStore = await cookies()
-  const defaultTheme: Theme = cookieStore.get(THEME_COOKIE_NAME)?.value === "light" ? "light" : "dark"
-  const defaultSidebarOpen = cookieStore.get(SIDEBAR_COOKIE_NAME)?.value === "true"
-  const { userId } = await getLoginInfo(cookieStore.toString())
-  const userInfo = userId ? await userService.getById(userId) : null
   const title = process.env.TITLE || "NayPict"
   const [locale, messages] = await Promise.all([getLocale(), getMessages()])
 
-  // Extract all media storage domains and gateway origins for DNS prefetch and preconnect acceleration.
+  // Extract media gateway origin for DNS prefetch and preconnect acceleration without DB overhead.
   const rawGatewayUrl = process.env.R2_MEDIA_GATEWAY_URL || "https://naypict-media-gateway.naypict.workers.dev"
   const preconnectOrigins = new Set<string>()
 
@@ -81,19 +68,15 @@ export default async function RootLayout({ children }: RootLayoutProps) {
     preconnectOrigins.add(new URL(formatted).origin)
   } catch {}
 
-  try {
-    const storages = await storageService.getStorageList()
-    for (const s of storages) {
-      if (s.domain) {
-        const d = s.domain.startsWith("http") ? s.domain : `https://${s.domain}`
-        preconnectOrigins.add(new URL(d).origin)
-      }
-    }
-  } catch {}
-
   return (
-    <html lang={locale} className={`${geist.variable} ${defaultTheme}`} suppressHydrationWarning>
+    <html lang={locale} className={`${geist.variable} dark`} suppressHydrationWarning>
       <head>
+        {/* Instant zero-FOUC theme resolution before browser paint */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var t=localStorage.getItem('theme')||(document.cookie.match(/theme=([^;]+)/)||[])[1]||'dark';if(t==='light'){document.documentElement.classList.remove('dark');document.documentElement.classList.add('light');}else{document.documentElement.classList.remove('light');document.documentElement.classList.add('dark');}}catch(e){}})()`,
+          }}
+        />
         {Array.from(preconnectOrigins).flatMap((origin) => [
           <link key={`dns-${origin}`} rel="dns-prefetch" href={origin} />,
           <link key={`pre-${origin}`} rel="preconnect" href={origin} crossOrigin="anonymous" />,
@@ -108,9 +91,9 @@ export default async function RootLayout({ children }: RootLayoutProps) {
         <PwaRegister />
         <NextIntlClientProvider messages={messages}>
           <Provider
-            defaultTheme={defaultTheme}
-            defaultSidebarOpen={defaultSidebarOpen}
-            initialUserInfo={userInfo}
+            defaultTheme="dark"
+            defaultSidebarOpen={true}
+            initialUserInfo={null}
             title={title}
           >
             {children}
