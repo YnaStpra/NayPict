@@ -65,7 +65,18 @@ export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   const cookie = req.headers.get('cookie');
-  const { userId, uuid, tokenVersion } = await getLoginInfo(cookie);
+  let userId: string | null = null;
+  let uuid: string | null = null;
+  let tokenVersion = 1;
+
+  try {
+    const loginInfo = await getLoginInfo(cookie);
+    userId = loginInfo.userId;
+    uuid = loginInfo.uuid;
+    tokenVersion = loginInfo.tokenVersion;
+  } catch (err) {
+    console.error('Proxy getLoginInfo error:', err);
+  }
 
   if (!userId || !uuid) {
     if (isPublicPath(pathname)) {
@@ -116,12 +127,6 @@ export async function proxy(req: NextRequest) {
     const loginUrl = req.nextUrl.clone();
     loginUrl.pathname = '/login';
     return clearLoginCookies(NextResponse.redirect(loginUrl));
-  }
-
-  if (pathname.startsWith('/login')) {
-    const photoUrl = req.nextUrl.clone();
-    photoUrl.pathname = '/photos';
-    return NextResponse.redirect(photoUrl);
   }
 
   if (isSystemPath(pathname) && authInfo.type !== UserTypeEnum.ADMIN) {
