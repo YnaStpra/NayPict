@@ -1,5 +1,7 @@
 // This module manages zero-latency cross-tab and cross-component catalog event broadcasting.
 
+import { clearHttpCache } from "@/request/request";
+
 export type SyncEventType = 'album' | 'photo' | 'all';
 
 interface SyncBroadcastPayload {
@@ -28,6 +30,14 @@ if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
 // Dispatch native CustomEvents on the window object for React component listeners.
 function dispatchLocalEvents(type: SyncEventType, payload?: any) {
   if (typeof window === 'undefined') return;
+
+  if (type === 'album') {
+    clearHttpCache('/album');
+  } else if (type === 'photo') {
+    clearHttpCache('/photo');
+  } else {
+    clearHttpCache();
+  }
 
   if (type === 'album' || type === 'all') {
     window.dispatchEvent(new CustomEvent('naypict:album-changed', { detail: payload }));

@@ -646,7 +646,7 @@ export const PhotoCard = memo(function PhotoCard({
             playsInline
             loop
             crossOrigin="anonymous"
-            preload={isConstrainedNetwork ? "none" : "auto"}
+            preload={isConstrainedNetwork ? "none" : (isVideoPlaying ? "auto" : "metadata")}
             onPlaying={() => setIsVideoFrameReady(true)}
             onWaiting={() => setIsVideoFrameReady(false)}
             onTimeUpdate={(e) => {
@@ -670,7 +670,7 @@ export const PhotoCard = memo(function PhotoCard({
               ref={setImgRef}
               src={imageSrc}
               crossOrigin="anonymous"
-              loading="eager"
+              loading={isPriority ? "eager" : "lazy"}
               fetchPriority={isPriority ? "high" : "auto"}
               decoding={isImageLoaded ? "sync" : "async"}
               alt={data.name}
@@ -696,7 +696,7 @@ export const PhotoCard = memo(function PhotoCard({
           ref={setImgRef}
           src={imageSrc ?? undefined}
           crossOrigin="anonymous"
-          loading="eager"
+          loading={isPriority ? "eager" : "lazy"}
           fetchPriority={isPriority ? "high" : "auto"}
           decoding={isImageLoaded ? "sync" : "async"}
           alt={data.name}

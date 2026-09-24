@@ -13,7 +13,7 @@ function formatHttpUrl(input?: string | null) {
   return httpUrl.replace(/\/+$/, '');
 }
 
-const MEDIA_GATEWAY_DEFAULT = 'naypict-media-gateway.naypict.workers.dev';
+const MEDIA_GATEWAY_DEFAULT = process.env.NEXT_PUBLIC_MEDIA_GATEWAY_URL || process.env.R2_MEDIA_GATEWAY_URL || 'https://naypict-media-gateway.naypict.workers.dev';
 
 // Safely decode percent-encoded string repeatedly until normalized to prevent double/triple-encoding bugs.
 function safeDecodeKey(key: string): string {
@@ -38,7 +38,7 @@ function toMediaUrl(key: string, domain?: string | null) {
 
   const cleanKey = safeDecodeKey(key.trim());
   const encodedKey = cleanKey.split('/').map((segment) => encodeURIComponent(segment)).join('/');
-  const base = formatHttpUrl(domain || process.env.R2_MEDIA_GATEWAY_URL || MEDIA_GATEWAY_DEFAULT);
+  const base = formatHttpUrl(domain || process.env.NEXT_PUBLIC_MEDIA_GATEWAY_URL || process.env.R2_MEDIA_GATEWAY_URL || MEDIA_GATEWAY_DEFAULT);
 
   // If public CDN domain is configured (e.g. *.r2.dev or custom media domain), deliver directly via global CDN edge
   // Only route via /media server proxy if domain is empty or points to private S3 API endpoint (r2.cloudflarestorage.com)
@@ -102,7 +102,7 @@ function toProxyMediaUrl(urlOrKey?: string | null): string {
   const isDerivative = cleanKey.startsWith('previews/') || cleanKey.startsWith('thumbnails/');
   const isVideo = Boolean(cleanKey.match(/\.(mp4|webm|mov|m4v|mkv)$/i));
   if (isDerivative || isVideo) {
-    const gatewayBase = formatHttpUrl(process.env.R2_MEDIA_GATEWAY_URL || MEDIA_GATEWAY_DEFAULT);
+    const gatewayBase = formatHttpUrl(process.env.NEXT_PUBLIC_MEDIA_GATEWAY_URL || process.env.R2_MEDIA_GATEWAY_URL || MEDIA_GATEWAY_DEFAULT);
     return `${gatewayBase}/${encodedKey}`;
   }
 
