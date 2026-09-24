@@ -40,34 +40,48 @@ async function getLoginInfo(cookie: string | null = null): Promise<LoginCookie> 
     };
   }
 
-  const { verifyLoginToken } = await import("@/server/lib/jwt");
-  const payload = await verifyLoginToken(token);
+  try {
+    const { verifyLoginToken } = await import("@/server/lib/jwt");
+    const payload = await verifyLoginToken(token);
 
-  if (!payload) {
+    if (!payload) {
+      return {
+        userId: null,
+        uuid: null,
+        tokenVersion: 1,
+      };
+    }
+
+    // Legacy tokens without the claim remain valid only while the persisted version is still one.
+    const tokenVersion = payload.tokenVersion ?? 1;
+    let persistedVersion: number | null = null;
+    try {
+      persistedVersion = await sessionService.getTokenVersion(payload.userId);
+    } catch (err) {
+      console.warn("Proxy DB query for tokenVersion failed or timed out:", err);
+    }
+
+    if (persistedVersion !== null && persistedVersion !== tokenVersion) {
+      return {
+        userId: null,
+        uuid: null,
+        tokenVersion,
+      };
+    }
+
+    return {
+      userId: payload.userId,
+      uuid: payload.uuid,
+      tokenVersion,
+    };
+  } catch (err) {
+    console.error("Safely caught getLoginInfo error:", err);
     return {
       userId: null,
       uuid: null,
       tokenVersion: 1,
     };
   }
-
-  // Legacy tokens without the claim remain valid only while the persisted version is still one.
-  const tokenVersion = payload.tokenVersion ?? 1;
-  const persistedVersion = await sessionService.getTokenVersion(payload.userId);
-
-  if (persistedVersion !== tokenVersion) {
-    return {
-      userId: null,
-      uuid: null,
-      tokenVersion,
-    };
-  }
-
-  return {
-    userId: payload.userId,
-    uuid: payload.uuid,
-    tokenVersion,
-  };
 }
 
 export { getCookieValueFromString, getLoginInfo }
