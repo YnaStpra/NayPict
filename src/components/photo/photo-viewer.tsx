@@ -1229,8 +1229,8 @@ export function PhotoViewer({
       index: index,
       closeOnVerticalDrag: true, // SWIPE UP OR DOWN TO CLOSE! (Pull-to-dismiss preserved)
       pinchToClose: true,        // Pinch inward gesture to close
-      spacing: 0.1,             // 10% viewport slide spacing (natural modern gutter)
-      bgOpacity: 0.94,          // Cinema ambient backdrop
+      spacing: 0.08,            // 8% viewport slide spacing (natural modern gutter)
+      bgOpacity: 1,             // Solid pitch black backdrop so underlying page NEVER bleeds through
       wheelToZoom: true,        // Trackpad / mouse wheel zoom
       allowPanToNext: true,     // Pan seamlessly into next slide when zoomed
       arrowKeys: true,          // Desktop keyboard navigation
@@ -1238,6 +1238,12 @@ export function PhotoViewer({
       mainClass: "pswp--naypict",
       showHideAnimationType: "zoom",
       returnFocus: false,
+      // HEADLESS MODE: Suppress ALL PhotoSwipe built-in UI elements
+      arrowPrev: false,
+      arrowNext: false,
+      zoom: false,
+      close: false,
+      counter: false,
       padding: {
         right: rightPad,
         left: 0,
@@ -1271,7 +1277,11 @@ export function PhotoViewer({
         }
       },
       bgClickAction: () => {
-        closeViewer()
+        if (pswpRef.current) {
+          pswpRef.current.close()
+        } else {
+          closeViewer()
+        }
       },
     })
 
@@ -1417,7 +1427,9 @@ export function PhotoViewer({
       })}
 
       {/* React UI Overlay Layer on top of PhotoSwipe canvas */}
-      <div className="fixed inset-0 z-50 pointer-events-none select-none">
+      {typeof document !== "undefined" &&
+        createPortal(
+          <div className="fixed inset-0 z-[70] pointer-events-none select-none overflow-hidden font-sans">
         {/* Dynamic Cinema Ambient Glow */}
         <PhotoViewerAmbientGlow
           thumbHash={photos[viewIndex]?.thumbHash}
@@ -1568,7 +1580,9 @@ export function PhotoViewer({
             />
           )}
         </AnimatePresence>
-      </div>
+      </div>,
+      document.body
+    )}
 
       {/* Lazy-Loaded Dialogs */}
       {isAdmin && (

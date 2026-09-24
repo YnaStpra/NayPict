@@ -228,8 +228,29 @@ body:has([data-slot="alert-dialog-content"]) .pswp,
 
 /* PhotoSwipe v5 Naypict Styling & GPU Compositor Overhaul */
 .pswp {
-    --pswp-bg: rgba(0, 0, 0, 0.96);
+    --pswp-bg: #000000 !important;
+    background: #000000 !important;
     z-index: 50 !important;
+}
+
+.pswp__bg {
+    background: #000000 !important;
+}
+
+/* Hide PhotoSwipe v5 default buttons completely to eliminate duplicate UI */
+.pswp__top-bar,
+.pswp__counter,
+.pswp__button,
+.pswp__button--close,
+.pswp__button--zoom,
+.pswp__button--arrow,
+.pswp__button--arrow--prev,
+.pswp__button--arrow--next,
+.pswp__preloader {
+    display: none !important;
+    opacity: 0 !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
 }
 
 .pswp--naypict {
