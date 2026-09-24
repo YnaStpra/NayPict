@@ -1,8 +1,6 @@
-import { cookies } from "next/headers"
 import { notFound } from "next/navigation"
-import { eq } from "drizzle-orm"
+import { eq, or, isNull } from "drizzle-orm"
 import { AlbumPhotoProvider } from "@/app/albums/[albumId]/provider"
-import { getLoginInfo } from "@/lib/cookie"
 import { PHOTO_LIST_PAGE_SIZE } from "@/server/const/global"
 import { photoService } from "@/server/service/photo-service"
 import { orm } from "@/server/infra/db"
@@ -10,6 +8,21 @@ import { albumTab } from "@/server/entity/album"
 
 // Incremental Static Regeneration (ISR): Cache album photo layout on Edge CDN with 5-minute background revalidation
 export const revalidate = 300;
+export const dynamicParams = true;
+
+// Pre-render public albums for instant Edge CDN responses and zero serverless invocation cost
+export async function generateStaticParams() {
+  try {
+    const albums = await orm
+      .select({ albumId: albumTab.albumId })
+      .from(albumTab)
+      .where(or(eq(albumTab.isArchived, 0), isNull(albumTab.isArchived)))
+      .limit(50);
+    return albums.map((a) => ({ albumId: a.albumId }));
+  } catch {
+    return [];
+  }
+}
 
 interface AlbumPhotoLayoutProps {
   children: React.ReactNode
@@ -18,11 +31,9 @@ interface AlbumPhotoLayoutProps {
   }>
 }
 
-// The server queries photos in the current album (publicly for guests or user-specific for logged-in admin).
+// The server queries photos in the current album publicly, caching the initial page on Edge CDN with 0ms serverless hits
 export default async function AlbumPhotoLayout({ children, params }: AlbumPhotoLayoutProps) {
   const { albumId } = await params
-  const cookieStore = await cookies()
-  const { userId } = await getLoginInfo(cookieStore.toString())
 
   const [album] = await orm
     .select({
@@ -38,20 +49,20 @@ export default async function AlbumPhotoLayout({ children, params }: AlbumPhotoL
     notFound();
   }
 
-  // If album is archived, restrict access to authenticated users only
-  if (album.isArchived === 1 && !userId) {
-    notFound();
-  }
+  const isArchived = album.isArchived === 1;
 
-  // Use shuffle so each page load returns a different random order from the album
-  const data = await photoService.list({
-    size: PHOTO_LIST_PAGE_SIZE,
-    cursorPhotoId: null,
-    cursorTime: null,
-    status: null,
-    albumId,
-    shuffle: true,
-  }, userId || undefined)
+  // For public non-archived albums, prefetch photos for instant Edge CDN delivery (0ms serverless invocation on cache hit).
+  // For archived albums, withhold photos from the public Edge CDN cache; photos are fetched client-side with admin session.
+  const data = isArchived
+    ? { list: [], total: 0 }
+    : await photoService.list({
+        size: PHOTO_LIST_PAGE_SIZE,
+        cursorPhotoId: null,
+        cursorTime: null,
+        status: null,
+        albumId,
+        shuffle: true,
+      });
 
   return (
     <AlbumPhotoProvider
@@ -60,7 +71,7 @@ export default async function AlbumPhotoLayout({ children, params }: AlbumPhotoL
       album={{
         albumId: album.albumId,
         name: album.name,
-        isArchived: album.isArchived ?? 0,
+        isArchived: isArchived ? 1 : 0,
       }}
     >
       {children}

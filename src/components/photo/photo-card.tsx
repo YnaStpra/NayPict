@@ -646,7 +646,7 @@ export const PhotoCard = memo(function PhotoCard({
             playsInline
             loop
             crossOrigin="anonymous"
-            preload={isConstrainedNetwork ? "none" : "auto"}
+            preload={isConstrainedNetwork ? "none" : (isVideoPlaying ? "auto" : "metadata")}
             onPlaying={() => setIsVideoFrameReady(true)}
             onWaiting={() => setIsVideoFrameReady(false)}
             onTimeUpdate={(e) => {

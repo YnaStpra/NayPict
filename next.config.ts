@@ -5,7 +5,7 @@ const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
 
 // Extract the approved media gateway hostname for Next.js Image remote patterns.
 function getMediaGatewayHostname(): string | null {
-  const url = process.env.R2_MEDIA_GATEWAY_URL;
+  const url = process.env.NEXT_PUBLIC_MEDIA_GATEWAY_URL || process.env.R2_MEDIA_GATEWAY_URL;
   if (!url) return null;
   try {
     return new URL(url).hostname;
@@ -17,6 +17,9 @@ function getMediaGatewayHostname(): string | null {
 const mediaGatewayHostname = getMediaGatewayHostname();
 
 const nextConfig: NextConfig = {
+  env: {
+    NEXT_PUBLIC_MEDIA_GATEWAY_URL: process.env.NEXT_PUBLIC_MEDIA_GATEWAY_URL || process.env.R2_MEDIA_GATEWAY_URL || 'https://naypict-media-gateway.naypict.workers.dev',
+  },
   // Disable X-Powered-By header to mitigate technology fingerprinting (OWASP WSTG-INFO-08)
   poweredByHeader: false,
   reactStrictMode: false,

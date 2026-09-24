@@ -33,6 +33,44 @@ function handleUnauthorized() {
   }
 }
 
+// Lightweight in-memory cache for fast idempotent GET requests (instant navigation, zero Vercel invocations)
+interface CacheEntry<T> {
+  data: T;
+  expiresAt: number;
+}
+
+const memoryGetCache = new Map<string, CacheEntry<any>>();
+
+const CACHEABLE_ROUTES: [RegExp, number][] = [
+  [/\/photo\/list/, 60_000],            // 60s cache for photo list
+  [/\/photo\/randomIdList/, 60_000],    // 60s cache for photo random IDs
+  [/\/album\/list/, 60_000],            // 60s cache for album list
+  [/\/photos\/map/, 120_000],           // 2m cache for map photos
+  [/\/photos\/untagged/, 60_000],       // 60s cache for untagged photos
+  [/\/photo\/onThisDay/, 300_000],      // 5m cache for on this day
+  [/\/photo\/takenDateList/, 300_000],  // 5m cache for taken date lists
+];
+
+function getCacheTtl(url: string): number {
+  for (const [pattern, ttl] of CACHEABLE_ROUTES) {
+    if (pattern.test(url)) return ttl;
+  }
+  return 0;
+}
+
+// Invalidate in-memory cache for specified URL pattern or all entries if omitted
+export function clearHttpCache(pattern?: string | RegExp) {
+  if (!pattern) {
+    memoryGetCache.clear();
+    return;
+  }
+  for (const key of Array.from(memoryGetCache.keys())) {
+    if (typeof pattern === 'string' ? key.includes(pattern) : pattern.test(key)) {
+      memoryGetCache.delete(key);
+    }
+  }
+}
+
 // send POST Request and return interface data.
 async function post<T = unknown>(url: string, params: RequestParams = null) {
   const headers = new Headers();
@@ -102,6 +140,16 @@ async function post<T = unknown>(url: string, params: RequestParams = null) {
     notifyConnectionRestored();
   }
 
+  // Automatically invalidate relevant in-memory GET caches on successful mutations
+  if (url.includes('/photo') || url.includes('/photos')) {
+    clearHttpCache('/photo');
+  } else if (url.includes('/album')) {
+    clearHttpCache('/album');
+    clearHttpCache('/photo');
+  } else {
+    clearHttpCache();
+  }
+
   return json.data as T;
 }
 
@@ -122,9 +170,16 @@ function appendQueryParams(url: string, params?: Record<string, unknown> | null)
 // In-flight Promise deduplication map to prevent redundant concurrent network round-trips for identical GET requests
 const inFlightGetRequests = new Map<string, Promise<any>>();
 
-// send GET Request and return interface data with automatic concurrent deduplication.
-async function get<T = unknown>(url: string, params?: Record<string, unknown> | null): Promise<T> {
+// send GET Request and return interface data with automatic concurrent deduplication and in-memory TTL caching.
+async function get<T = unknown>(url: string, params?: Record<string, unknown> | null, options?: { bypassCache?: boolean }): Promise<T> {
   const fullUrl = buildUrl(appendQueryParams(url, params));
+
+  if (!options?.bypassCache) {
+    const cached = memoryGetCache.get(fullUrl);
+    if (cached && cached.expiresAt > Date.now()) {
+      return cached.data as T;
+    }
+  }
 
   const existingPromise = inFlightGetRequests.get(fullUrl);
   if (existingPromise) {
@@ -186,6 +241,14 @@ async function get<T = unknown>(url: string, params?: Record<string, unknown> | 
       notifyConnectionRestored();
     }
 
+    const ttl = getCacheTtl(fullUrl);
+    if (ttl > 0 && json.code === 200 && json.data !== null && json.data !== undefined) {
+      memoryGetCache.set(fullUrl, {
+        data: json.data,
+        expiresAt: Date.now() + ttl,
+      });
+    }
+
     return json.data as T;
   })().finally(() => {
     inFlightGetRequests.delete(fullUrl);
@@ -197,13 +260,14 @@ async function get<T = unknown>(url: string, params?: Record<string, unknown> | 
 
 const http = {
   // send GET request.
-  get<T = unknown>(url: string, params?: Record<string, unknown> | null) {
-    return get<T>(url, params);
+  get<T = unknown>(url: string, params?: Record<string, unknown> | null, options?: { bypassCache?: boolean }) {
+    return get<T>(url, params, options);
   },
   // send POST request.
   post<T = unknown>(url: string, params: RequestParams = null) {
     return post<T>(url, params);
-  }
+  },
+  clearCache: clearHttpCache,
 };
 
 export { http };

@@ -126,6 +126,17 @@ export default function Page() {
     setPhotos,
   } = usePhotoList({ albumId }, PHOTO_LIST_PAGE_SIZE, initialPhotos, initialTotal)
 
+  // For archived albums: if admin visits, fetch photos client-side; if non-admin visitor visits, redirect to /albums
+  useEffect(() => {
+    if (isArchived) {
+      if (isAdmin) {
+        refreshPhotoList({ albumId })
+      } else if (userInfo !== undefined && !isAdmin) {
+        router.replace("/albums")
+      }
+    }
+  }, [isArchived, isAdmin, userInfo, albumId, refreshPhotoList, router])
+
   // Listen for catalog events to re-sync album photos and metadata
   useEffect(() => {
     const handleSync = () => {
