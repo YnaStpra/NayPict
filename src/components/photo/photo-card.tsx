@@ -232,16 +232,9 @@ export const PhotoCard = memo(function PhotoCard({
   const priorityLimit = isMobile ? 6 : 12
   const isPriority = typeof index === "number" && index < priorityLimit
 
-  // 55% Viewport Margin Expansion:
-  // Preload thumbnails 55% ahead above and below the screen so users NEVER see black gaps during scrolling
-  const [isInPreloadWindow, setIsInPreloadWindow] = useState(() => isPriority || initialLoaded)
-
-  useEffect(() => {
-    if (isInPreloadWindow || isPriority || !cardRef.current) return
-    return observePreload(cardRef.current, () => {
-      setIsInPreloadWindow(true)
-    })
-  }, [isInPreloadWindow, isPriority])
+  // All cards mounted by Masonic are already within the bounded virtual viewport window.
+  // Set eager loading with async GPU decoding to completely eliminate mobile scroll black gaps and blur
+  const isInPreloadWindow = true
 
   // Unified adaptive performance: respects Data Saver, weak cellular (2G/3G), and low battery
   const { isEcoMode, canAutoplayVideo } = useAdaptivePerformance()
@@ -655,7 +648,9 @@ export const PhotoCard = memo(function PhotoCard({
     }
   }
 
-  const shouldAnimateReveal = !isAlreadyRevealed
+  // Only play cascade wave reveal on initial mount of the first-screen items on desktop.
+  // Never play opacity: 0 reveal animation during scroll or on mobile, which created black voids!
+  const shouldAnimateReveal = !isAlreadyRevealed && isPriority && !isMobile
   const cardHeight = Math.max(1, Math.round(width * ratio))
   const staggerDelay = shouldAnimateReveal ? Math.min(240, ((index ?? 0) % 12) * 20) : 0
 
