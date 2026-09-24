@@ -850,7 +850,7 @@ function LightboxInteractionBar({
   return (
     <div
       className={[
-        "fixed left-3 bottom-14 sm:bottom-16 md:bottom-28 z-40 flex flex-col items-start gap-2 transition-all duration-300 pointer-events-auto select-none max-w-[calc(100vw-1.5rem)]",
+        "fixed left-3 bottom-14 sm:bottom-16 md:bottom-22 z-40 flex flex-col items-start gap-2 transition-all duration-300 pointer-events-auto select-none max-w-[calc(100vw-1.5rem)]",
         getActionVisibleClass(showActions),
       ].join(" ")}
     >
@@ -1832,17 +1832,16 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
     onBackRef.current?.()
   }
 
-  // Sidebar narrows when expanded lightbox width, Leave space for the information panel on the right.
-  const lightboxClassName = infoOpen && !fullscreenOpen && !isCinematicMode
-    ? "w-full md:w-[calc(100%-(0.25rem*84))] transition-[width] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]"
-    : "w-full transition-[width] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]"
+  // Sidebar layout: keep Lightbox full-screen so backdrop never exposes underlying page, while padding carousel on desktop
+  const isSidebarOpen = infoOpen && !fullscreenOpen && !isCinematicMode
 
   // rendering yet-another-react-lightbox Minimal preview.
   return (
     <>
       <Lightbox
         className={cn(
-          lightboxClassName,
+          "w-full h-full",
+          isSidebarOpen && "yarl-sidebar-open",
           isCinematicMode && "yarl-cinematic-mode",
           fullscreenOpen && "yarl-fullscreen-active",
           isAnySubModalOpen && "pointer-events-none select-none touch-none yarl-modal-active"
@@ -1972,10 +1971,11 @@ export function PhotoViewer({ open, index, photos, onBack, onBrowserBack, onPhot
                 <CloseButton showActions={actionsVisible} />
                 {/* Right-side toolbar */}
                 <div
-                  className={[
-                    "absolute top-2 right-2 md:top-3 md:right-4 z-40 flex items-center gap-1.5 max-w-[calc(100vw-3.75rem)] overflow-x-auto no-scrollbar",
-                    getActionVisibleClass(actionsVisible),
-                  ].join(" ")}
+                  className={cn(
+                    "absolute top-2 md:top-3 z-40 flex items-center gap-1.5 max-w-[calc(100vw-3.75rem)] overflow-x-auto no-scrollbar transition-[right] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]",
+                    isSidebarOpen ? "right-2 md:right-[352px]" : "right-2 md:right-4",
+                    getActionVisibleClass(actionsVisible)
+                  )}
                 >
                   {!isCinematicMode && (
                     <>
