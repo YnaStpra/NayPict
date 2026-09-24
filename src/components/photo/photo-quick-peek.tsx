@@ -36,10 +36,19 @@ export function PhotoQuickPeek({
   distanceBadge,
 }: PhotoQuickPeekProps) {
   const locale = useLocale()
-  // Ensure portal only mounts on the client
   const [mounted, setMounted] = useState(false)
+  const [isVideoReady, setIsVideoReady] = useState(false)
+  const [highResLoaded, setHighResLoaded] = useState(false)
 
-  // Wait until mounted on client for createPortal
+  // Reset media playback states when closed or when active photo changes
+  useEffect(() => {
+    if (!open) {
+      setIsVideoReady(false)
+      setHighResLoaded(false)
+    }
+  }, [open, photo?.photoId])
+
+  // Ensure portal only mounts on the client
   useEffect(() => {
     setMounted(true)
   }, [])
@@ -79,19 +88,31 @@ export function PhotoQuickPeek({
 
   // Detect video content
   const isVideo = Boolean(photo?.type?.startsWith("video/"))
+
+  // Clean sequential streaming URL for instant video playback without seeking penalty
   const videoSrc = useMemo(() => {
     if (!isVideo || !photo?.key) return undefined
     const base = photo.key.startsWith("http") ? photo.key : toProxyMediaUrl(photo.key)
-    return base ? `${base}#t=0.5` : undefined
+    return base ? base.split('#')[0] : undefined
   }, [isVideo, photo?.key])
 
   // Compute ThumbHash placeholder URL
   const placeholder = useMemo(() => {
-    if (!photo?.thumbHash || photo.thumbHash.startsWith("00080204")) return undefined
+    if (!photo?.thumbHash || photo.thumbHash.startsWith("00080204") || photo.thumbHash.startsWith("00080205")) return undefined
     return getThumbHashUrl(photo.thumbHash)
   }, [photo?.thumbHash])
 
-  const displayImageSrc = photo?.preview || photo?.thumbnail || (isVideo ? null : photo?.key)
+  // 1. Instant cached thumbnail: ALREADY in browser memory from gallery card (0ms load, zero black screen)
+  const instantThumbnailSrc = photo?.thumbnail || (isVideo ? null : photo?.key)
+  // 2. High-res preview upgrade
+  const highResSrc = photo?.preview || instantThumbnailSrc
+
+  // Dynamic aspect ratio clamped between 0.68 (tall portrait) and 1.45 (landscape)
+  const clampedAspectRatio = useMemo(() => {
+    if (!photo?.width || !photo?.height) return 4 / 5
+    const ratio = photo.width / photo.height
+    return Math.max(0.68, Math.min(1.45, ratio))
+  }, [photo?.width, photo?.height])
 
   if (!mounted) return null
 
@@ -116,7 +137,7 @@ export function PhotoQuickPeek({
             animate={{ scale: 1, opacity: 1, y: 0 }}
             exit={{ scale: 0.88, opacity: 0, y: 8 }}
             transition={{ type: "spring", stiffness: 440, damping: 28 }}
-            className="relative z-10 w-full max-w-[340px] sm:max-w-[400px] rounded-3xl overflow-hidden bg-neutral-900/90 border border-white/15 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.9)] flex flex-col"
+            className="relative z-10 w-full max-w-[340px] sm:max-w-[400px] rounded-3xl overflow-hidden bg-neutral-900/95 border border-white/15 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.9)] flex flex-col"
           >
             {/* Header with Title, Date, and Location Badge */}
             <div className="px-4 py-3 border-b border-white/10 bg-black/40 backdrop-blur-md">
@@ -134,8 +155,17 @@ export function PhotoQuickPeek({
               </div>
             </div>
 
-            {/* Media Content Preview */}
-            <div className="relative w-full aspect-[4/5] bg-black overflow-hidden flex items-center justify-center">
+            {/* Media Content Preview: Zero Black Hole Container */}
+            <div
+              className="relative w-full overflow-hidden flex items-center justify-center bg-neutral-900"
+              style={{
+                aspectRatio: clampedAspectRatio,
+                backgroundColor: placeholder ? undefined : "rgba(38,38,38,1)",
+                backgroundImage: placeholder ? `url("${placeholder}")` : undefined,
+                backgroundSize: "cover",
+                backgroundPosition: "center",
+              }}
+            >
               {isVideo ? (
                 <div className="relative size-full">
                   <video
@@ -144,26 +174,60 @@ export function PhotoQuickPeek({
                     loop
                     muted
                     playsInline
+                    preload="auto"
+                    onPlaying={() => setIsVideoReady(true)}
+                    onWaiting={() => setIsVideoReady(false)}
                     className="size-full object-cover pointer-events-none"
                   />
-                  <div className="absolute top-3 right-3 flex items-center gap-1 rounded-full bg-black/60 backdrop-blur-md px-2 py-0.5 text-[10px] font-bold text-emerald-400 border border-emerald-500/30">
-                    <Play className="size-2.5 fill-current animate-pulse" />
-                    <span>PREVIEW</span>
+                  {/* Instant thumbnail overlay - persists until video frames are actively rendering */}
+                  {(instantThumbnailSrc || photo?.preview) && (
+                    <img
+                      src={instantThumbnailSrc || photo?.preview || undefined}
+                      alt={photo.name}
+                      draggable={false}
+                      className={[
+                        "absolute inset-0 size-full object-cover pointer-events-none transition-opacity duration-300",
+                        isVideoReady ? "opacity-0" : "opacity-100",
+                      ].join(" ")}
+                    />
+                  )}
+                  {/* Video State Badge */}
+                  <div className="absolute top-3 right-3 flex items-center gap-1.5 rounded-full bg-black/60 backdrop-blur-md px-2.5 py-0.5 text-[10px] font-bold border border-white/10 shadow-lg">
+                    {isVideoReady ? (
+                      <>
+                        <Play className="size-2.5 fill-emerald-400 text-emerald-400 animate-pulse" />
+                        <span className="text-emerald-400">PLAYING</span>
+                      </>
+                    ) : (
+                      <>
+                        <div className="size-1.5 rounded-full bg-amber-400 animate-ping" />
+                        <span className="text-amber-300">BUFFERING</span>
+                      </>
+                    )}
                   </div>
                 </div>
               ) : (
-                <div
-                  className="size-full bg-cover bg-center"
-                  style={{
-                    backgroundImage: placeholder ? `url("${placeholder}")` : undefined,
-                  }}
-                >
-                  {displayImageSrc && (
+                <div className="relative size-full">
+                  {/* Base Layer: Instant 0ms cached thumbnail from gallery card */}
+                  {instantThumbnailSrc && (
                     <img
-                      src={displayImageSrc}
+                      src={instantThumbnailSrc}
                       alt={photo.name}
-                      className="size-full object-cover pointer-events-none select-none"
                       draggable={false}
+                      className="size-full object-cover pointer-events-none select-none"
+                    />
+                  )}
+                  {/* Progressive High-Res Overlay: Smoothly sharpens when downloaded */}
+                  {highResSrc && highResSrc !== instantThumbnailSrc && (
+                    <img
+                      src={highResSrc}
+                      alt={photo.name}
+                      onLoad={() => setHighResLoaded(true)}
+                      draggable={false}
+                      className={[
+                        "absolute inset-0 size-full object-cover pointer-events-none select-none transition-opacity duration-300",
+                        highResLoaded ? "opacity-100" : "opacity-0",
+                      ].join(" ")}
                     />
                   )}
                 </div>

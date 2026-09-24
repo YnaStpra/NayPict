@@ -754,7 +754,7 @@ const PhotoMasonry = memo(function PhotoMasonry({
             offset={wrapPosition.offset}
             height={windowHeight}
             itemKey={(item) => item?.photoId ?? ''}
-            overscanBy={isMobile ? 3 : 5}
+            overscanBy={isMobile ? 5 : 8}
             render={MasonicPhotoCard}
           />
         )}
