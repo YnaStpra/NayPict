@@ -124,12 +124,15 @@ class VideoAutoplayCoordinator {
     }
   }
 
+  private hoveredPhotoId: string | null = null
+
   /**
    * Pause all videos globally (e.g. when Lightbox or modal opens)
    */
   public setGloballyPaused(paused: boolean) {
     this.isPausedGlobally = paused
     if (paused) {
+      this.hoveredPhotoId = null
       this.stopAll()
       if (this.rotationTimer) {
         clearTimeout(this.rotationTimer)
@@ -138,6 +141,21 @@ class VideoAutoplayCoordinator {
     } else {
       this.recalculate()
     }
+  }
+
+  /**
+   * Set or clear mouse-hovered video priority.
+   * When a video is hovered, it immediately takes priority spot #1,
+   * while exactly 1 background video pauses so total playing count remains <= MAX_CONCURRENT.
+   */
+  public setHovered(photoId: string | null) {
+    if (this.hoveredPhotoId === photoId) return
+    this.hoveredPhotoId = photoId
+    this.recalculate()
+  }
+
+  public getHovered(): string | null {
+    return this.hoveredPhotoId
   }
 
   /**
@@ -163,6 +181,9 @@ class VideoAutoplayCoordinator {
    * Unregister when card unmounts
    */
   public unregister(photoId: string) {
+    if (this.hoveredPhotoId === photoId) {
+      this.hoveredPhotoId = null
+    }
     const item = this.registry.get(photoId)
     if (item) {
       if (this.activeIds.has(photoId)) {
@@ -188,6 +209,11 @@ class VideoAutoplayCoordinator {
 
     // Get all currently visible video items
     const visibleItems = Array.from(this.registry.values()).filter((item) => item.isVisible)
+
+    const hoveredItem = this.hoveredPhotoId ? this.registry.get(this.hoveredPhotoId) : null
+    if (hoveredItem && !visibleItems.includes(hoveredItem)) {
+      visibleItems.push(hoveredItem)
+    }
 
     // If no videos visible, stop all and clear timer
     if (visibleItems.length === 0) {
@@ -218,7 +244,7 @@ class VideoAutoplayCoordinator {
       return
     }
 
-    // More than 4 videos visible: chunk into batches of 4
+    // More than MAX_CONCURRENT videos visible: chunk into batches of MAX_CONCURRENT
     const totalBatches = Math.ceil(visibleItems.length / MAX_CONCURRENT)
     if (this.batchIndex >= totalBatches) {
       this.batchIndex = 0
@@ -226,19 +252,38 @@ class VideoAutoplayCoordinator {
 
     const startIdx = this.batchIndex * MAX_CONCURRENT
     const batchItems = visibleItems.slice(startIdx, startIdx + MAX_CONCURRENT)
-    const newActiveSet = new Set(batchItems.map((i) => i.photoId))
 
-    this.applyActiveSet(newActiveSet)
+    let finalActiveItems: RegisteredVideo[]
 
-    // Schedule rotation to next batch after 10 seconds (aligned with 10s preview limit)
-    if (this.rotationTimer) {
-      clearTimeout(this.rotationTimer)
+    if (hoveredItem) {
+      // If hovered item is already in current batch, keep all batch items playing
+      if (batchItems.some((i) => i.photoId === hoveredItem.photoId)) {
+        finalActiveItems = batchItems
+      } else {
+        // Hovered item takes spot #1, exactly 1 video from the batch (the last one) is paused,
+        // so total playing count remains EXACTLY MAX_CONCURRENT (e.g. 4 on desktop)!
+        const otherBatchItems = batchItems.slice(0, MAX_CONCURRENT - 1)
+        finalActiveItems = [hoveredItem, ...otherBatchItems]
+      }
+    } else {
+      finalActiveItems = batchItems
     }
 
-    this.rotationTimer = setTimeout(() => {
-      this.batchIndex = (this.batchIndex + 1) % totalBatches
-      this.recalculate()
-    }, 10000)
+    const newActiveSet = new Set(finalActiveItems.map((i) => i.photoId))
+    this.applyActiveSet(newActiveSet)
+
+    // Schedule rotation to next batch after 10 seconds (paused while hovering to prevent interrupting user)
+    if (this.rotationTimer) {
+      clearTimeout(this.rotationTimer)
+      this.rotationTimer = null
+    }
+
+    if (!this.hoveredPhotoId) {
+      this.rotationTimer = setTimeout(() => {
+        this.batchIndex = (this.batchIndex + 1) % totalBatches
+        this.recalculate()
+      }, 10000)
+    }
   }
 
   private applyActiveSet(newActiveSet: Set<string>) {
