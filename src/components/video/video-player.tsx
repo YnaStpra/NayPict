@@ -898,6 +898,7 @@ export const VideoPlayer = memo(function VideoPlayer({
   return (
     <div
       ref={containerRef}
+      data-photo-item="true"
       className={cn(
         "group relative flex items-center justify-center w-full h-full select-none overflow-hidden bg-black transition-all duration-300",
         className
