@@ -670,8 +670,6 @@ export const PhotoCard = memo(function PhotoCard({
   return (
     <div
       ref={cardRef}
-      data-photo-item="true"
-      data-slot="photo-card"
       className={[
         "group relative overflow-hidden houdini-smooth-card touch-press-feedback touch-manipulation",
         shouldAnimateReveal ? "cascade-wave-card" : "",

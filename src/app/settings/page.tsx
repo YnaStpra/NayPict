@@ -206,8 +206,8 @@ export default function Page() {
               </div>
             </SettingItem>
             <SettingItem
-              title="Media Anti-Theft & Anti-Snipping Protection"
-              description="Protect your gallery from unauthorized copies: disables right-click saving, media drag, iOS touch-save, print capture, and activates anti-snipping focus blur for guest visitors."
+              title="Right-Click & Drag Protection"
+              description="Disable right-click saving and media dragging for guest visitors to protect your gallery from unauthorized copies."
             >
               <Switch
                 checked={setting.rightClickGuard === SettingRightClickGuardEnum.ENABLE}
