@@ -42,6 +42,7 @@ export interface VideoPlayerProps {
   onControlsVisibleChange?: (visible: boolean) => void
   onEnded?: () => void
   onFullscreenChange?: (isFullscreen: boolean) => void
+  hasThumbnails?: boolean
 }
 
 export const VideoPlayer = memo(function VideoPlayer({
@@ -61,6 +62,7 @@ export const VideoPlayer = memo(function VideoPlayer({
   onControlsVisibleChange,
   onEnded,
   onFullscreenChange,
+  hasThumbnails = false,
 }: VideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -937,7 +939,8 @@ export const VideoPlayer = memo(function VideoPlayer({
           src={poster}
           alt={alt}
           className={cn(
-            "absolute inset-0 size-full object-contain pointer-events-none transition-opacity duration-500 z-5",
+            "absolute inset-0 size-full object-contain pointer-events-none transition-all duration-300 z-5",
+            hasThumbnails && !isFullscreen && !isCinematicMode ? "pb-12 md:pb-16" : "",
             hasFirstFrame ? "opacity-0 pointer-events-none" : "opacity-100"
           )}
           aria-hidden="true"
@@ -953,7 +956,10 @@ export const VideoPlayer = memo(function VideoPlayer({
         webkit-playsinline="true"
         preload="auto"
         crossOrigin="anonymous"
-        className="max-h-full max-w-full object-contain cursor-pointer"
+        className={cn(
+          "max-h-full max-w-full object-contain cursor-pointer transition-[padding] duration-300",
+          hasThumbnails && !isFullscreen && !isCinematicMode ? "pb-12 md:pb-16" : ""
+        )}
         onTimeUpdate={handleTimeUpdate}
         onLoadedMetadata={handleLoadedMetadata}
         onLoadStart={() => setIsLoading(true)}
@@ -1129,7 +1135,8 @@ export const VideoPlayer = memo(function VideoPlayer({
       {/* Bottom Floating Control Bar */}
       <div
         className={cn(
-          "absolute inset-x-0 bottom-0 z-30 flex flex-col justify-end p-3 sm:p-5 bg-gradient-to-t from-black/85 via-black/40 to-transparent transition-all duration-300",
+          "absolute inset-x-0 z-30 flex flex-col justify-end p-3 sm:p-5 bg-gradient-to-t from-black/85 via-black/40 to-transparent transition-all duration-300",
+          hasThumbnails && !isFullscreen && !isCinematicMode ? "bottom-12 md:bottom-16" : "bottom-0",
           showControls ? "opacity-100 translate-y-0" : "opacity-0 translate-y-3 pointer-events-none"
         )}
         onClick={(e) => e.stopPropagation()}
