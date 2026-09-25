@@ -2012,6 +2012,7 @@ export function PhotoViewer({
                         onOpenComments={handleOpenComments}
                         onOpenInfo={handleOpenInfo}
                         className="w-full h-full"
+                        hasThumbnails={actionsVisible && !isCinematicMode && !isVideoFullscreen}
                       />
                     </div>
                   ) : (
