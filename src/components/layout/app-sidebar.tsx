@@ -16,7 +16,7 @@ import {
   SidebarHeader,
   SidebarRail,
 } from "@/components/ui/sidebar"
-import { Activity, Archive, Library, MonitorCog, Image as ImageIcon, Images, Trash2, FolderOpen, Database, Settings, CopyCheck, MessageSquare, BarChart3, MapPin } from "lucide-react"
+import { Activity, Archive, Library, MonitorCog, Image as ImageIcon, Images, Trash2, FolderOpen, Database, Settings, CopyCheck, MessageSquare, BarChart3, MapPin, Sparkles } from "lucide-react"
 
 // Determine whether the current browser path hits the menu URL.
 
@@ -65,6 +65,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       { title: "Visitor Analytics", url: "/admin/analytics", icon: <Activity className="text-emerald-500 dark:text-emerald-400" />, isActive: isUrlMatched(pathname, "/admin/analytics") },
       { title: t("navigation.storage"), url: "/storage", icon: <Database className="text-cyan-500 dark:text-cyan-400" />, isActive: isUrlMatched(pathname, "/storage") },
       { title: "Duplicate Media", url: "/duplicates", icon: <CopyCheck className="text-orange-500 dark:text-orange-400" />, isActive: isUrlMatched(pathname, "/duplicates") },
+      { title: "Storage Cleaner", url: "/admin/cleaner", icon: <Sparkles className="text-pink-500 dark:text-pink-400" />, isActive: isUrlMatched(pathname, "/admin/cleaner") },
       { title: t("navigation.settings"), url: "/settings", icon: <Settings className="text-purple-500 dark:text-purple-400" />, isActive: isUrlMatched(pathname, "/settings") },
     ],
 

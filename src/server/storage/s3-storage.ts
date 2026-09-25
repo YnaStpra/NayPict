@@ -4,12 +4,23 @@ import {
   CreateMultipartUploadCommand,
   DeleteObjectsCommand,
   GetObjectCommand,
+  HeadObjectCommand,
+  ListMultipartUploadsCommand,
+  ListObjectsV2Command,
   PutObjectCommand,
   type PutObjectCommandInput,
   S3Client,
   UploadPartCommand,
 } from '@aws-sdk/client-s3';
-import { type ReadBody, type StorageObject, type StorageStrategy, type StorageUploadObject } from '@/server/storage/storage-types';
+import {
+  type ReadBody,
+  type StorageListItem,
+  type StorageListResult,
+  type StorageMultipartItem,
+  type StorageObject,
+  type StorageStrategy,
+  type StorageUploadObject,
+} from '@/server/storage/storage-types';
 import { registerStorageStrategy } from '@/server/storage/storage-registry';
 import { type Storage } from '@/server/entity/storage';
 import { StorageTypeEnum } from '@/server/enums/storage-enum';
@@ -306,6 +317,100 @@ class S3StorageStrategy implements StorageStrategy {
         UploadId: uploadId,
       })
     );
+  }
+
+  // List objects in S3 / Cloudflare R2 bucket with pagination.
+  async listObjects(storage: Storage, prefix = '', continuationToken?: string, maxKeys = 1000): Promise<StorageListResult> {
+    const client = this.createClient(storage);
+    const bucket = storage.bucket?.trim();
+
+    if (!bucket) {
+      throw new BizError('s3.bucketRequired');
+    }
+
+    const res = await client.send(
+      new ListObjectsV2Command({
+        Bucket: bucket,
+        Prefix: prefix || undefined,
+        ContinuationToken: continuationToken || undefined,
+        MaxKeys: maxKeys,
+      })
+    );
+
+    const items: StorageListItem[] = (res.Contents || [])
+      .map((item) => ({
+        key: item.Key || '',
+        size: item.Size || 0,
+        lastModified: item.LastModified,
+        etag: item.ETag,
+      }))
+      .filter((i) => !!i.key);
+
+    return {
+      items,
+      nextContinuationToken: res.NextContinuationToken,
+      isTruncated: !!res.IsTruncated,
+    };
+  }
+
+  // List incomplete / pending multipart uploads in S3 / Cloudflare R2 bucket.
+  async listMultipartUploads(storage: Storage): Promise<StorageMultipartItem[]> {
+    const client = this.createClient(storage);
+    const bucket = storage.bucket?.trim();
+
+    if (!bucket) {
+      throw new BizError('s3.bucketRequired');
+    }
+
+    try {
+      const res = await client.send(
+        new ListMultipartUploadsCommand({
+          Bucket: bucket,
+        })
+      );
+
+      return (res.Uploads || [])
+        .map((u) => ({
+          key: u.Key || '',
+          uploadId: u.UploadId || '',
+          initiated: u.Initiated,
+        }))
+        .filter((u) => !!u.key && !!u.uploadId);
+    } catch (err) {
+      console.warn('[S3] ListMultipartUploads failed or not supported by provider:', err);
+      return [];
+    }
+  }
+
+  // Check if an object exists in S3 / Cloudflare R2 and retrieve size/type.
+  async head(key: string, storage: Storage): Promise<{ exists: boolean; size?: number; contentType?: string }> {
+    const client = this.createClient(storage);
+    const bucket = storage.bucket?.trim();
+
+    if (!bucket) {
+      throw new BizError('s3.bucketRequired');
+    }
+
+    try {
+      const res = await client.send(
+        new HeadObjectCommand({
+          Bucket: bucket,
+          Key: key,
+        })
+      );
+
+      return {
+        exists: true,
+        size: res.ContentLength,
+        contentType: res.ContentType,
+      };
+    } catch (err: unknown) {
+      const errorObj = err as { name?: string; $metadata?: { httpStatusCode?: number } };
+      if (errorObj?.name === 'NotFound' || errorObj?.$metadata?.httpStatusCode === 404) {
+        return { exists: false };
+      }
+      throw err;
+    }
   }
 }
 

@@ -3,6 +3,25 @@ import { type Storage } from '@/server/entity/storage';
 
 // This module defines storage policy related types.
 
+interface StorageListItem {
+  key: string;
+  size: number;
+  lastModified?: Date;
+  etag?: string;
+}
+
+interface StorageMultipartItem {
+  key: string;
+  uploadId: string;
+  initiated?: Date;
+}
+
+interface StorageListResult {
+  items: StorageListItem[];
+  nextContinuationToken?: string;
+  isTruncated: boolean;
+}
+
 interface StorageStrategy {
   put(files: StorageUploadObject[], storage: Storage): Promise<void>;
   get(key: string, storage: Storage, range?: string): Promise<StorageObject>;
@@ -12,6 +31,9 @@ interface StorageStrategy {
   getPresignedPartUrl?(key: string, uploadId: string, partNumber: number, storage: Storage, expiresIn?: number): Promise<string>;
   completeMultipartUpload?(key: string, uploadId: string, parts: { PartNumber: number; ETag: string }[], storage: Storage): Promise<void>;
   abortMultipartUpload?(key: string, uploadId: string, storage: Storage): Promise<void>;
+  listObjects?(storage: Storage, prefix?: string, continuationToken?: string, maxKeys?: number): Promise<StorageListResult>;
+  listMultipartUploads?(storage: Storage): Promise<StorageMultipartItem[]>;
+  head?(key: string, storage: Storage): Promise<{ exists: boolean; size?: number; contentType?: string }>;
 }
 
 type ReadBody = Readable | ReadableStream;
@@ -31,4 +53,5 @@ interface StorageUploadObject {
   metadata?: string[][];
 }
 
-export type { ReadBody, StorageObject, StorageStrategy, StorageUploadObject };
+export type { ReadBody, StorageObject, StorageStrategy, StorageUploadObject, StorageListItem, StorageMultipartItem, StorageListResult };
+
