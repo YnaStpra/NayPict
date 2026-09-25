@@ -19,7 +19,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { useApp } from "@/app/provider"
 import { UserTypeEnum } from "@/server/enums/user-enum"
-import { Image, FolderOpen, Database, Trash2, Settings, Upload, ShieldCheck, ArrowRight, LoaderCircle, BarChart3 } from "lucide-react"
+import { Image, FolderOpen, Database, Trash2, Settings, Upload, ShieldCheck, ArrowRight, LoaderCircle, BarChart3, Sparkles } from "lucide-react"
 import { usePhotoStore } from "@/store/photo-store"
 import { userInfo as fetchUserInfo } from "@/request/user"
 
@@ -85,6 +85,13 @@ export default function AdminPage() {
       icon: <Database className="size-6 text-emerald-500" />,
       actionLabel: "Configure Storage",
       onClick: () => router.push("/storage"),
+    },
+    {
+      title: "Storage Cleaner & Health",
+      description: "Scan Cloudflare R2 buckets for orphan files, incomplete uploads, and broken records to free up bucket space.",
+      icon: <Sparkles className="size-6 text-pink-500" />,
+      actionLabel: "Open Cleaner",
+      onClick: () => router.push("/admin/cleaner"),
     },
     {
       title: "Media Insights & Analytics",

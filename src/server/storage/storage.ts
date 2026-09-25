@@ -4,7 +4,14 @@ import BizError from '@/server/error/biz-error';
 import { storageService } from '@/server/service/storage-service';
 import '@/server/storage/s3-storage';
 import { resolveStorageStrategy } from '@/server/storage/storage-registry';
-import { type StorageObject, type StorageStrategy, type StorageUploadObject } from '@/server/storage/storage-types';
+import {
+  type StorageListItem,
+  type StorageListResult,
+  type StorageMultipartItem,
+  type StorageObject,
+  type StorageStrategy,
+  type StorageUploadObject,
+} from '@/server/storage/storage-types';
 
 // This module selects storage implementations based on policy (Cloudflare R2 via S3-compatible API).
 
@@ -156,9 +163,57 @@ const storage = {
     }
 
     throw new BizError('storage.presignNotSupported');
+  },
+
+  // List objects from storage provider with pagination.
+  async listObjects(storageId: string, prefix = '', continuationToken?: string, maxKeys = 1000): Promise<StorageListResult> {
+    const fileStorage = await getStorage(storageId);
+    assertStorageEnabled(fileStorage);
+    const strategy = createStorageStrategy(fileStorage)!;
+
+    if (strategy.listObjects) {
+      return strategy.listObjects(fileStorage, prefix, continuationToken, maxKeys);
+    }
+
+    return { items: [], isTruncated: false };
+  },
+
+  // List incomplete multipart uploads from storage provider.
+  async listMultipartUploads(storageId: string): Promise<StorageMultipartItem[]> {
+    const fileStorage = await getStorage(storageId);
+    assertStorageEnabled(fileStorage);
+    const strategy = createStorageStrategy(fileStorage)!;
+
+    if (strategy.listMultipartUploads) {
+      return strategy.listMultipartUploads(fileStorage);
+    }
+
+    return [];
+  },
+
+  // Check if an object exists in storage and return metadata.
+  async head(key: string, storageId: string): Promise<{ exists: boolean; size?: number; contentType?: string }> {
+    const fileStorage = await getStorage(storageId);
+    assertStorageEnabled(fileStorage);
+    const strategy = createStorageStrategy(fileStorage)!;
+
+    if (strategy.head) {
+      return strategy.head(key, fileStorage);
+    }
+
+    return { exists: false };
   }
 };
 
 export { storage };
 export { registerStorageStrategy } from '@/server/storage/storage-registry';
-export type { ReadBody, StorageObject, StorageStrategy, StorageUploadObject } from '@/server/storage/storage-types';
+export type {
+  ReadBody,
+  StorageListItem,
+  StorageListResult,
+  StorageMultipartItem,
+  StorageObject,
+  StorageStrategy,
+  StorageUploadObject,
+} from '@/server/storage/storage-types';
+
