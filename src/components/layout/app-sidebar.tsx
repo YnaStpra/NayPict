@@ -44,28 +44,28 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     teams: [
       {
         name: "",
-        logo: <Library />,
+        logo: <Library className="text-primary" />,
       },
       {
         name: t("systemSettings"),
-        logo: <MonitorCog />,
+        logo: <MonitorCog className="text-cyan-500 dark:text-cyan-400" />,
       },
     ],
     navMain: [
-      { title: t("navigation.photos") || "Gallery", url: "/photos", icon: <Images />, isActive: isUrlMatched(pathname, "/photos") },
-      { title: t("navigation.albums"), url: "/albums", icon: <FolderOpen />, isActive: isUrlMatched(pathname, "/albums") },
-      { title: t("navigation.map"), url: "/map", icon: <MapPin />, isActive: isUrlMatched(pathname, "/map") },
-      { title: t("navigation.archive") || "Archive", url: "/archive", icon: <Archive />, isActive: isUrlMatched(pathname, "/archive") },
-      { title: t("navigation.comments"), url: "/comments", icon: <MessageSquare />, isActive: isUrlMatched(pathname, "/comments") },
-      { title: "Insights", url: "/admin/insights", icon: <BarChart3 />, isActive: isUrlMatched(pathname, "/admin/insights") },
-      { title: t("navigation.trash"), url: "/trash", icon: <Trash2 />, isActive: isUrlMatched(pathname, "/trash") },
+      { title: t("navigation.photos") || "Gallery", url: "/photos", icon: <Images className="text-sky-500 dark:text-sky-400" />, isActive: isUrlMatched(pathname, "/photos") },
+      { title: t("navigation.albums"), url: "/albums", icon: <FolderOpen className="text-amber-500 dark:text-amber-400" />, isActive: isUrlMatched(pathname, "/albums") },
+      { title: t("navigation.map"), url: "/map", icon: <MapPin className="text-rose-500 dark:text-rose-400" />, isActive: isUrlMatched(pathname, "/map") },
+      { title: t("navigation.archive") || "Archive", url: "/archive", icon: <Archive className="text-indigo-500 dark:text-indigo-400" />, isActive: isUrlMatched(pathname, "/archive") },
+      { title: t("navigation.comments"), url: "/comments", icon: <MessageSquare className="text-emerald-500 dark:text-emerald-400" />, isActive: isUrlMatched(pathname, "/comments") },
+      { title: "Insights", url: "/admin/insights", icon: <BarChart3 className="text-violet-500 dark:text-violet-400" />, isActive: isUrlMatched(pathname, "/admin/insights") },
+      { title: t("navigation.trash"), url: "/trash", icon: <Trash2 className="text-red-500 dark:text-red-400" />, isActive: isUrlMatched(pathname, "/trash") },
     ],
     sysMain: [
-      { title: t("navigation.photoManage") || "Media Management", url: "/admin/photos", icon: <Images />, isActive: isUrlMatched(pathname, "/admin/photos") },
-      { title: "Visitor Analytics", url: "/admin/analytics", icon: <Activity />, isActive: isUrlMatched(pathname, "/admin/analytics") },
-      { title: t("navigation.storage"), url: "/storage", icon: <Database />, isActive: isUrlMatched(pathname, "/storage") },
-      { title: "Duplicate Media", url: "/duplicates", icon: <CopyCheck />, isActive: isUrlMatched(pathname, "/duplicates") },
-      { title: t("navigation.settings"), url: "/settings", icon: <Settings />, isActive: isUrlMatched(pathname, "/settings") },
+      { title: t("navigation.photoManage") || "Media Management", url: "/admin/photos", icon: <Images className="text-sky-500 dark:text-sky-400" />, isActive: isUrlMatched(pathname, "/admin/photos") },
+      { title: "Visitor Analytics", url: "/admin/analytics", icon: <Activity className="text-emerald-500 dark:text-emerald-400" />, isActive: isUrlMatched(pathname, "/admin/analytics") },
+      { title: t("navigation.storage"), url: "/storage", icon: <Database className="text-cyan-500 dark:text-cyan-400" />, isActive: isUrlMatched(pathname, "/storage") },
+      { title: "Duplicate Media", url: "/duplicates", icon: <CopyCheck className="text-orange-500 dark:text-orange-400" />, isActive: isUrlMatched(pathname, "/duplicates") },
+      { title: t("navigation.settings"), url: "/settings", icon: <Settings className="text-purple-500 dark:text-purple-400" />, isActive: isUrlMatched(pathname, "/settings") },
     ],
 
   }
@@ -82,9 +82,9 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     : isAdmin
     ? data.navMain
     : [
-        { title: t("navigation.photos") || "Gallery", url: "/photos", icon: <Images />, isActive: isUrlMatched(pathname, "/photos") },
-        { title: t("navigation.albums"), url: "/albums", icon: <FolderOpen />, isActive: isUrlMatched(pathname, "/albums") },
-        { title: t("navigation.map"), url: "/map", icon: <MapPin />, isActive: isUrlMatched(pathname, "/map") },
+        { title: t("navigation.photos") || "Gallery", url: "/photos", icon: <Images className="text-sky-500 dark:text-sky-400" />, isActive: isUrlMatched(pathname, "/photos") },
+        { title: t("navigation.albums"), url: "/albums", icon: <FolderOpen className="text-amber-500 dark:text-amber-400" />, isActive: isUrlMatched(pathname, "/albums") },
+        { title: t("navigation.map"), url: "/map", icon: <MapPin className="text-rose-500 dark:text-rose-400" />, isActive: isUrlMatched(pathname, "/map") },
       ]
   const navUser = {
     ...data.user,
