@@ -358,12 +358,15 @@ export const PhotoCard = memo(function PhotoCard({
     onOpen?.(origin)
   }, [data.width, data.height, data.preview, data.thumbnail, data.key, imageSrc, isVideo, onOpen])
 
-  // Predictive zero-delay hover prefetching for photos and videos
+  // Predictive zero-delay hover prefetching and instant video hover autoplay
   function handleMouseEnter() {
     if (isMobile) return
     prefetchPhotoHighRes(data.preview || data.key)
-    if (isVideo && videoStreamUrl) {
-      prebufferVideo(videoStreamUrl)
+    if (isVideo) {
+      if (videoStreamUrl) {
+        prebufferVideo(videoStreamUrl)
+      }
+      videoCoordinator?.setHovered(data.photoId)
     }
   }
 
@@ -553,6 +556,9 @@ export const PhotoCard = memo(function PhotoCard({
       clearTimeout(hoverTimerRef.current)
       hoverTimerRef.current = null
     }
+    if (isVideo && !isMobile) {
+      videoCoordinator?.setHovered(null)
+    }
   }
 
   // Toggle the selection status of the current photo.
@@ -586,6 +592,10 @@ export const PhotoCard = memo(function PhotoCard({
     // On touch mobile devices, handleTouchEnd processes taps
     if (isMobile) {
       return
+    }
+
+    if (isVideo) {
+      videoCoordinator?.setHovered(null)
     }
 
     setHoldHover(true)
