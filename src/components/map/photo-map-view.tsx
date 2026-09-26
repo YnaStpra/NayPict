@@ -2088,7 +2088,7 @@ export default function PhotoMapView() {
                         {thumb && (
                           <img
                             src={thumb}
-                            alt={photo.name}
+                            alt=""
                             loading="lazy"
                             decoding="async"
                             onError={(e) => {
@@ -2097,7 +2097,7 @@ export default function PhotoMapView() {
                                 el.src = toProxyMediaUrl(el.src)
                               }
                             }}
-                            className="absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-110"
+                            className="absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-110 select-none"
                           />
                         )}
                         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-80 group-hover:opacity-100 transition-opacity" />
@@ -2146,7 +2146,7 @@ export default function PhotoMapView() {
                     {thumb && (
                       <img
                         src={thumb}
-                        alt={photo.name}
+                        alt=""
                         loading="lazy"
                         decoding="async"
                         onError={(e) => {
@@ -2155,7 +2155,7 @@ export default function PhotoMapView() {
                             el.src = toProxyMediaUrl(el.src)
                           }
                         }}
-                        className="absolute inset-0 h-full w-full object-cover opacity-75 group-hover:opacity-100 transition-opacity"
+                        className="absolute inset-0 h-full w-full object-cover opacity-75 group-hover:opacity-100 transition-opacity select-none"
                       />
                     )}
                     <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent" />

@@ -183,10 +183,10 @@ export function PhotoQuickPeek({
                   {(instantThumbnailSrc || photo?.preview) && (
                     <img
                       src={instantThumbnailSrc || photo?.preview || undefined}
-                      alt={photo.name}
+                      alt=""
                       draggable={false}
                       className={[
-                        "absolute inset-0 size-full object-cover pointer-events-none transition-opacity duration-300",
+                        "absolute inset-0 size-full object-cover pointer-events-none select-none transition-opacity duration-300",
                         isVideoReady ? "opacity-0" : "opacity-100",
                       ].join(" ")}
                     />
@@ -212,7 +212,7 @@ export function PhotoQuickPeek({
                   {instantThumbnailSrc && (
                     <img
                       src={instantThumbnailSrc}
-                      alt={photo.name}
+                      alt=""
                       draggable={false}
                       className="size-full object-cover pointer-events-none select-none"
                     />
@@ -221,7 +221,7 @@ export function PhotoQuickPeek({
                   {highResSrc && highResSrc !== instantThumbnailSrc && (
                     <img
                       src={highResSrc}
-                      alt={photo.name}
+                      alt=""
                       onLoad={() => setHighResLoaded(true)}
                       draggable={false}
                       className={[

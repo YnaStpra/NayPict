@@ -401,7 +401,7 @@ export function AllSpotsDialog({
                               {thumb && (
                                 <img
                                   src={thumb}
-                                  alt={photo.name}
+                                  alt=""
                                   loading="lazy"
                                   decoding="async"
                                   onError={(e) => {

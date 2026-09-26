@@ -905,8 +905,8 @@ function PhotoViewerThumbnails({
                 {photo.thumbnail || photo.preview ? (
                   <img
                     src={photo.thumbnail || photo.preview}
-                    alt={photo.name}
-                    className="w-full h-full object-cover pointer-events-none"
+                    alt=""
+                    className="w-full h-full object-cover pointer-events-none select-none"
                     loading="lazy"
                   />
                 ) : photo.thumbHash ? (

@@ -201,14 +201,14 @@ export function AlbumCoverDialog({ open, album, onOpenChange, onSuccess }: Album
                       >
                         <img
                           src={photo.thumbnail ?? photo.preview ?? ""}
-                          alt={photo.name}
+                          alt=""
                           onError={(e) => {
                             const el = e.currentTarget
                             if (el.src && !el.src.includes('/media/')) {
                               el.src = toProxyMediaUrl(el.src)
                             }
                           }}
-                          className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                          className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105 select-none"
                         />
                         {isCurrent ? (
                           <div className="absolute top-2 right-2 flex items-center gap-1 rounded-full bg-primary px-2 py-0.5 text-[10px] font-semibold text-primary-foreground shadow-md">
