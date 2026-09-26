@@ -1379,6 +1379,9 @@ const photoService = {
     if (thumbnailKey) {
       fileRecords.push({ fileId: createId(), photoId, key: thumbnailKey, type: FileTypeEnum.THUMBNAIL, fileType: 'image/webp', size: 25000 });
     }
+    if (params.videoThumbnailKey) {
+      fileRecords.push({ fileId: createId(), photoId, key: params.videoThumbnailKey, type: FileTypeEnum.THUMBNAIL_VIDEO, fileType: 'video/mp4', size: params.videoThumbnailSize || 350000 });
+    }
 
     const files = await fileService.save(fileRecords);
 
@@ -1910,10 +1913,14 @@ const photoService = {
     const rawKey = this.getFileKey(files, FileTypeEnum.ORIGINAL) ?? '';
     const preview = this.getFileKey(files, FileTypeEnum.PREVIEW) ?? '';
     const thumbnail = this.getFileKey(files, FileTypeEnum.THUMBNAIL) ?? '';
+    const isVideo = Boolean(photo.type?.startsWith('video/'));
+    const videoPreviewKey = isVideo ? this.getFileKey(files, FileTypeEnum.THUMBNAIL_VIDEO) : null;
+    const videoPreview = videoPreviewKey
+      ? (domain ? toMediaUrl(videoPreviewKey, domain) : toProxyMediaUrl(videoPreviewKey))
+      : null;
 
     // If allowDownload === 0 (Protected) and requester is not authenticated Admin (currentUserId is empty/falsy),
     // mask photo key as null so original raw photo is not leaked. For videos, key is required for streaming playback.
-    const isVideo = Boolean(photo.type?.startsWith('video/'));
     const isAllowed = isVideo || photo.allowDownload === 1 || Boolean(currentUserId);
     // Protected photo originals always traverse the same-origin authorization proxy; the CDN only serves derivatives.
     // For videos and derivatives, deliver directly via Cloudflare Worker Media Gateway to eliminate Vercel serverless execution & transfer.
@@ -1970,6 +1977,7 @@ const photoService = {
       key,
       preview: toMediaUrl(preview, domain) ?? '',
       thumbnail: toMediaUrl(thumbnail, domain) ?? '',
+      videoPreview: videoPreview || undefined,
       storageName: fileStorage?.name ?? null,
       storageTypeDesc: fileStorage
         ? StorageTypeOptions.find((item: any) => item.value === fileStorage.type)?.label ?? null

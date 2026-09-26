@@ -198,12 +198,15 @@ export const PhotoCard = memo(function PhotoCard({
   // Multi-tier fallback src state: thumbnail -> preview -> (photos only: original key)
   const [imageSrc, setImageSrc] = useState<string | null>(() => data.thumbnail || data.preview || (isVideo ? null : data.key) || null)
   // Clean sequential streaming URL for fast, instant autoplay without fragment seeking penalty
+  // Priority: dedicated 360p video preview -> fallback to full original key
   const videoStreamUrl = useMemo(() => {
-    if (!isVideo || !data.key) return undefined
-    const base = data.key.startsWith('http') ? data.key : toProxyMediaUrl(data.key)
+    if (!isVideo) return undefined
+    const streamTarget = data.videoPreview || data.key
+    if (!streamTarget) return undefined
+    const base = streamTarget.startsWith('http') ? streamTarget : toProxyMediaUrl(streamTarget)
     if (!base) return undefined
     return base.split('#')[0]
-  }, [isVideo, data.key])
+  }, [isVideo, data.videoPreview, data.key])
   // imageError Record whether all photo URLs failed to load.
   const [imageError, setImageError] = useState(false)
   // isImageLoaded: Once the high-res image paints, clear the base64 placeholder from DOM styles to free memory
@@ -716,7 +719,7 @@ export const PhotoCard = memo(function PhotoCard({
             playsInline
             loop
             crossOrigin="anonymous"
-            preload={isConstrainedNetwork ? "none" : (isVideoPlaying ? "auto" : "metadata")}
+            preload={isVideoPlaying ? "auto" : "none"}
             onPlaying={() => setIsVideoFrameReady(true)}
             onWaiting={() => setIsVideoFrameReady(false)}
             onTimeUpdate={(e) => {
