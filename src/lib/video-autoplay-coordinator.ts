@@ -65,12 +65,12 @@ class VideoAutoplayCoordinator {
 
   /**
    * Determine maximum concurrent playing videos:
-   * Mobile (< 768px): 1 video to protect mobile GPU decoders, RAM, and thermals.
-   * Desktop/Tablet (>= 768px): 2 videos maximum for optimal performance.
+   * Mobile (< 768px): 3 videos maximum.
+   * Desktop/Tablet (>= 768px): 5 videos maximum.
    */
   private getMaxConcurrent(): number {
-    if (typeof window === "undefined") return 1
-    return window.innerWidth < 768 ? 1 : 2
+    if (typeof window === "undefined") return 3
+    return window.innerWidth < 768 ? 3 : 5
   }
 
   /**
