@@ -1283,6 +1283,7 @@ function PhotoSlideImage({
         crossOrigin="anonymous"
         fetchPriority={isActive ? "high" : "low"}
         decoding="async"
+        onContextMenu={(e) => e.preventDefault()}
         className="select-none max-w-none object-contain transition-opacity duration-200"
         onLoad={handleImageLoaded}
         ref={(el) => {
@@ -1384,6 +1385,25 @@ export function PhotoViewer({
   const [insightsPhotoId, setInsightsPhotoId] = useState<string | null>(null)
   const [storyDialogOpen, setStoryDialogOpen] = useState(false)
   const [batchEditDialogOpen, setBatchEditDialogOpen] = useState(false)
+
+  // Media privacy shield: Blackout viewer when browser tab or space is hidden/switched
+  const [isViewerObscured, setIsViewerObscured] = useState(false)
+
+  useEffect(() => {
+    if (!open || isAdmin || typeof window === "undefined") {
+      setIsViewerObscured(false)
+      return
+    }
+
+    const handleVisibility = () => {
+      setIsViewerObscured(document.hidden)
+    }
+
+    document.addEventListener("visibilitychange", handleVisibility)
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibility)
+    }
+  }, [open, isAdmin])
 
   const isAnySubModalOpen = storyDialogOpen || insightsDialogOpen || batchEditDialogOpen
 
@@ -1988,6 +2008,16 @@ export function PhotoViewer({
                   key={slide.photoId || idx}
                   className="flex-[0_0_100%] min-w-0 h-full relative flex items-center justify-center"
                 >
+                  {isViewerObscured && (
+                    <div
+                      className="absolute inset-0 z-30 bg-black flex items-center justify-center pointer-events-none select-none transition-opacity duration-150"
+                      aria-hidden="true"
+                    >
+                      <span className="text-xs text-neutral-500 font-medium tracking-widest uppercase">
+                        NayPict Protected Preview
+                      </span>
+                    </div>
+                  )}
                   {isVideo ? (
                     <div className="relative flex h-full w-full items-center justify-center overflow-hidden p-0 select-none">
                       <VideoPlayer

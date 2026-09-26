@@ -722,6 +722,9 @@ export const PhotoCard = memo(function PhotoCard({
             loop
             crossOrigin="anonymous"
             preload={isVideoPlaying ? "auto" : "none"}
+            controlsList="nodownload nofullscreen noremoteplayback"
+            disablePictureInPicture
+            onContextMenu={(e) => e.preventDefault()}
             onPlaying={() => setIsVideoFrameReady(true)}
             onWaiting={() => setIsVideoFrameReady(false)}
             onTimeUpdate={(e) => {
