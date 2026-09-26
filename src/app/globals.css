@@ -373,6 +373,20 @@ body {
   transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease-out;
 }
 
+/* Suppress browser native broken image icons and alt text artifacts during media loading */
+.houdini-smooth-card img {
+  color: transparent !important;
+  font-size: 0 !important;
+  text-indent: -9999px !important;
+  -webkit-touch-callout: none;
+}
+
+.houdini-smooth-card img::before,
+.houdini-smooth-card img::after {
+  content: "" !important;
+  display: none !important;
+}
+
 /* Hardware-Accelerated CSS Sub-Pixel Snap Grids for Ultra-High Density Displays (Retina 3x) */
 .subpixel-snap-grid {
   transform: translate3d(0, 0, 0);

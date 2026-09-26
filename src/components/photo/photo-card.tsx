@@ -673,6 +673,8 @@ export const PhotoCard = memo(function PhotoCard({
   return (
     <div
       ref={cardRef}
+      role="img"
+      aria-label={data.name || (isVideo ? "Video" : "Photo")}
       className={[
         "group relative overflow-hidden houdini-smooth-card touch-press-feedback touch-manipulation",
         shouldAnimateReveal ? "cascade-wave-card" : "",
@@ -742,15 +744,14 @@ export const PhotoCard = memo(function PhotoCard({
             <img
               ref={setImgRef}
               src={imageSrc}
-              crossOrigin="anonymous"
               loading={isPriority || isInPreloadWindow ? "eager" : "lazy"}
               fetchPriority={isPriority ? "high" : "auto"}
               decoding={isImageLoaded ? "sync" : "async"}
-              alt={data.name}
+              alt=""
               draggable={false}
               className={[
-                "absolute inset-0 h-full w-full object-cover transition-opacity duration-300 pointer-events-none",
-                isVideoPlaying && isVideoFrameReady ? "opacity-0" : "opacity-100",
+                "absolute inset-0 h-full w-full object-cover transition-opacity duration-300 pointer-events-none select-none",
+                isImageLoaded && (!isVideoPlaying || !isVideoFrameReady) ? "opacity-100" : "opacity-0",
                 selectionActive ? "" : "group-hover:scale-[1.035]",
                 showHover && !selectionActive ? "scale-[1.035]" : "",
               ].join(" ")}
@@ -768,14 +769,14 @@ export const PhotoCard = memo(function PhotoCard({
         <img
           ref={setImgRef}
           src={imageSrc ?? undefined}
-          crossOrigin="anonymous"
           loading={isPriority || isInPreloadWindow ? "eager" : "lazy"}
           fetchPriority={isPriority ? "high" : "auto"}
           decoding={isImageLoaded ? "sync" : "async"}
-          alt={data.name}
+          alt=""
           draggable={false}
           className={[
-            "absolute inset-0 h-full w-full object-cover spring-zoom-img",
+            "absolute inset-0 h-full w-full object-cover spring-zoom-img select-none transition-opacity duration-300",
+            isImageLoaded ? "opacity-100" : "opacity-0",
             selectionActive ? "" : "group-hover:scale-[1.035]",
             showHover && !selectionActive ? "scale-[1.035]" : "",
           ].join(" ")}

@@ -281,7 +281,7 @@ export function UntaggedPhotosDialog({
                                   {imgUrl ? (
                                     <img
                                       src={imgUrl}
-                                      alt={photo.name}
+                                      alt=""
                                       loading="lazy"
                                       decoding="async"
                                       onError={(e) => {
@@ -290,7 +290,7 @@ export function UntaggedPhotosDialog({
                                           el.src = toProxyMediaUrl(el.src)
                                         }
                                       }}
-                                      className="absolute inset-0 h-full w-full object-cover transition-transform group-hover:scale-105"
+                                      className="absolute inset-0 h-full w-full object-cover transition-transform group-hover:scale-105 select-none"
                                     />
                                   ) : (
                                     <div className="w-full h-full flex items-center justify-center text-muted-foreground">
