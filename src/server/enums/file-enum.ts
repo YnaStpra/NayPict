@@ -4,7 +4,8 @@
 const FileTypeEnum = {
   ORIGINAL: 1,
   PREVIEW: 2,
-  THUMBNAIL: 3
+  THUMBNAIL: 3,
+  THUMBNAIL_VIDEO: 4,
 } as const;
 
 type FileType = (typeof FileTypeEnum)[keyof typeof FileTypeEnum];

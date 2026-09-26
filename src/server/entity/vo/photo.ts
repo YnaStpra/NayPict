@@ -6,6 +6,7 @@ type PhotoVo = Omit<Photo, 'favorite'> & {
   key: string | null;
   preview: string;
   thumbnail: string;
+  videoPreview?: string | null;
   exif: string | null;
   latitude: number | null;
   longitude: number | null;

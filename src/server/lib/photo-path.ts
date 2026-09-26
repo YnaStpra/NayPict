@@ -25,4 +25,9 @@ function buildThumbnailKey(checksum: string, photoId: string): string {
   return buildChecksumImageKey('thumbnails', checksum, photoId, '.webp');
 }
 
-export { buildPhotoKey, buildPreviewKey, buildThumbnailKey, formatPhotoDate };
+// Generate thumbnail video (360p) storage path under public previews prefix.
+function buildThumbnailVideoKey(checksum: string, photoId: string): string {
+  return `previews/video/${checksum.slice(0, 2)}/${checksum.slice(2, 4)}/${photoId}.mp4`;
+}
+
+export { buildPhotoKey, buildPreviewKey, buildThumbnailKey, buildThumbnailVideoKey, formatPhotoDate };

@@ -106,6 +106,8 @@ interface PhotoAddVideoBo {
   takenTime?: string;
   exifJson?: string;
   posterBase64?: string;
+  videoThumbnailKey?: string;
+  videoThumbnailSize?: number;
 }
 
 interface PhotoMultipartInitiateBo {
