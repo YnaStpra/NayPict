@@ -956,8 +956,11 @@ export const VideoPlayer = memo(function VideoPlayer({
         webkit-playsinline="true"
         preload="auto"
         crossOrigin="anonymous"
+        controlsList="nodownload nofullscreen noremoteplayback"
+        disablePictureInPicture
+        onContextMenu={(e) => e.preventDefault()}
         className={cn(
-          "max-h-full max-w-full object-contain cursor-pointer transition-[padding] duration-300",
+          "max-h-full max-w-full object-contain cursor-pointer transition-[padding] duration-300 select-none",
           hasThumbnails && !isFullscreen && !isCinematicMode ? "pb-12 md:pb-16" : ""
         )}
         onTimeUpdate={handleTimeUpdate}
@@ -1259,8 +1262,10 @@ export const VideoPlayer = memo(function VideoPlayer({
                   webkit-playsinline="true"
                   preload="auto"
                   crossOrigin="anonymous"
+                  disablePictureInPicture
+                  onContextMenu={(e) => e.preventDefault()}
                   onLoadedMetadata={handlePreviewLoadedMetadata}
-                  className="size-full object-cover"
+                  className="size-full object-cover pointer-events-none select-none"
                 />
 
                 {/* Glass Time Badge */}
