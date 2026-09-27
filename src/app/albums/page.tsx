@@ -254,7 +254,8 @@ export default function Page() {
                   </BreadcrumbItem>
                 </BreadcrumbList>
               </Breadcrumb>
-
+            </div>
+            <div className="flex items-center gap-2 px-4 z-30">
               {albums && albums.length > 0 && (
                 <div
                   className="flex items-center gap-1.5 bg-muted/70 text-foreground text-xs font-semibold px-2.5 py-1 rounded-lg border border-border/50 select-none shadow-2xs tabular-nums"
@@ -264,24 +265,24 @@ export default function Page() {
                   <span>{albums.length}</span>
                 </div>
               )}
+              {isAdmin && !isReordering && (
+                <>
+                  {albums.length > 1 && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setIsReordering(true)}
+                      className="gap-1.5 cursor-pointer text-xs h-8 rounded-lg border-border/60 hover:bg-violet-500/10 hover:border-violet-500/30 transition-all shadow-2xs"
+                    >
+                      <ArrowUpDown className="size-3.5 text-violet-500 dark:text-violet-400" />
+                      <span>{t("reorder") || "Reorder"}</span>
+                    </Button>
+                  )}
+                  <AlbumAddDialog title={t("addTitle")} onNameConfirm={addAlbum} />
+                </>
+              )}
             </div>
-            {isAdmin && !isReordering && (
-              <div className="flex items-center gap-2 px-4 z-30">
-                {albums.length > 1 && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setIsReordering(true)}
-                    className="gap-1.5 cursor-pointer text-xs h-8 rounded-lg border-border/60 hover:bg-violet-500/10 hover:border-violet-500/30 transition-all shadow-2xs"
-                  >
-                    <ArrowUpDown className="size-3.5 text-violet-500 dark:text-violet-400" />
-                    <span>{t("reorder") || "Reorder"}</span>
-                  </Button>
-                )}
-                <AlbumAddDialog title={t("addTitle")} onNameConfirm={addAlbum} />
-              </div>
-            )}
           </header>
           <div className="px-2 md:pl-3 md:pr-2">
             {isReordering ? (
