@@ -452,8 +452,9 @@ export default function Page() {
                   </BreadcrumbItem>
                 </BreadcrumbList>
               </Breadcrumb>
-
-              {/* Photo Count Badge beside Gallery title */}
+            </div>
+            <div className="flex items-center gap-1.5 px-4 z-30">
+              {/* Photo Count Badge beside Infinite Gallery */}
               <div
                 className="flex items-center gap-1.5 bg-muted/70 text-foreground text-xs font-semibold px-2.5 py-1 rounded-lg border border-border/50 select-none shadow-2xs tabular-nums"
                 title={`${totalCount} Items in Gallery`}
@@ -461,8 +462,7 @@ export default function Page() {
                 <ImageIcon className="size-3.5 text-emerald-500 dark:text-emerald-400 shrink-0" />
                 <OdometerCounter target={totalCount} duration={900} />
               </div>
-            </div>
-            <div className="flex items-center gap-1.5 px-4 z-30">
+
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>

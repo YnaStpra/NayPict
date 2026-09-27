@@ -14,6 +14,7 @@ import { getPhotoDeviceParams, getPhotoShootingParams, getPhotoSoftware, getPhot
 import { AnalogFilmStripCard } from "@/components/photo/analog-film-strip"
 import { type PhotoVo } from "@/server/entity/vo/photo"
 import { useLocale, useTranslations } from "next-intl"
+import { useRouter } from "next/navigation"
 import { useApp } from "@/app/provider"
 import { UserTypeEnum } from "@/server/enums/user-enum"
 import { PhotoVisibilityEnum } from "@/server/enums/photo-enum"
@@ -40,6 +41,8 @@ type PhotoInfoSidebarProps = {
   onBatchEditOpen?: () => void
   // Callback when photo is updated (e.g. visibility change)
   onPhotoUpdate?: (photo: PhotoVo) => void
+  // Callback to direct navigate to an album
+  onDirectToAlbum?: (albumId: string) => void
   // Initial active tab ("info" | "comments")
   defaultTab?: "info" | "comments"
 }
@@ -119,7 +122,7 @@ function PhotoInfoRow({
   twoLines = false,
 }: {
   label: string
-  value: string | null | undefined
+  value: React.ReactNode
   wrap?: boolean
   twoLines?: boolean
 }) {
@@ -132,7 +135,7 @@ function PhotoInfoRow({
       <span className="shrink-0 text-white/60">{label}</span>
       <span
         className={`min-w-0 flex-1 text-right text-white ${twoLines ? "line-clamp-2 break-all" : wrap ? "break-words whitespace-normal" : "truncate"}`}
-        title={wrap ? undefined : value}
+        title={wrap || typeof value !== "string" ? undefined : value}
       >
         {value}
       </span>
@@ -176,6 +179,7 @@ export function PhotoInfoSidebar({
   onStoryOpen,
   onBatchEditOpen,
   onPhotoUpdate,
+  onDirectToAlbum,
   defaultTab = "info",
   activeTab: controlledTab,
   onTabChange,
@@ -183,6 +187,7 @@ export function PhotoInfoSidebar({
   activeTab?: "info" | "comments"
   onTabChange?: (tab: "info" | "comments") => void
 }) {
+  const router = useRouter()
   const t = useTranslations("photos.info")
   const storageT = useTranslations("storage")
   const locale = useLocale()
@@ -732,13 +737,43 @@ export function PhotoInfoSidebar({
                   <PhotoInfoRow label={t("dateTime")} value={formatPhotoTakenDateTime(photo.takenTime, locale)} />
                   <PhotoInfoRow label={t("timeZone")} value={getPhotoTimezone(photo.exif)} />
                   <PhotoInfoRow label={t("software")} value={getPhotoSoftware(photo.exif)} wrap />
-                  {photo.albums && photo.albums.length > 0 && (
-                    <PhotoInfoRow
-                      label="Album"
-                      value={formatAlbumList(photo.albums)}
-                      wrap
-                    />
-                  )}
+                  {photo.albums && photo.albums.length > 0 && (() => {
+                    const albums = photo.albums
+                    return (
+                      <PhotoInfoRow
+                        label="Album"
+                        value={
+                          <span className="inline-flex flex-wrap gap-x-1 justify-end">
+                            {albums.map((album, idx) => (
+                              <span key={album.albumId} className="inline-flex items-center">
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.preventDefault()
+                                    e.stopPropagation()
+                                    if (onDirectToAlbum) {
+                                      onDirectToAlbum(album.albumId)
+                                    } else {
+                                      onClose?.()
+                                      router.push(`/albums/${album.albumId}`)
+                                    }
+                                  }}
+                                  className="font-medium text-white hover:text-amber-400 hover:underline transition-colors cursor-pointer text-right"
+                                  title={`Direct to album ${album.name}`}
+                                >
+                                  {album.name}
+                                </button>
+                                {idx < albums.length - 1 && (
+                                  <span className="text-white/40 pointer-events-none ml-0.5 mr-1">,</span>
+                                )}
+                              </span>
+                            ))}
+                          </span>
+                        }
+                        wrap
+                      />
+                    )
+                  })()}
                   {isAdmin && (
                     <PhotoInfoRow label={t("storage")} value={formatStorageLocation(photo, storageT)} />
                   )}

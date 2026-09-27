@@ -38,6 +38,7 @@ import {
 } from "lucide-react"
 import { toast } from "sonner"
 import dynamic from "next/dynamic"
+import { useRouter } from "next/navigation"
 
 import { PhotoInfoSidebar, PhotoViewerBlurBackground, formatAlbumList } from "@/components/photo/photo-info-sidebar"
 import { PhotoViewerAmbientGlow } from "@/components/photo/photo-ambient-glow"
@@ -722,26 +723,47 @@ function DeleteButton({
   )
 }
 
-// Render bottom-left album badge overlay when previewing photos that belong to one or more albums.
+// Render top-left album badge overlay when previewing photos that belong to one or more albums.
 function AlbumOverlayBadge({
   albums,
   isCinematicMode,
+  onDirectToAlbum,
 }: {
   albums?: { albumId: string; name: string }[]
   isCinematicMode: boolean
+  onDirectToAlbum?: (albumId: string) => void
 }) {
   if (!albums || albums.length === 0 || isCinematicMode) {
     return null
   }
 
-  const albumText = formatAlbumList(albums)
-
   return (
-    <div className="absolute top-14 left-2 md:top-16 md:left-3 z-40 flex items-center gap-1.5 rounded-full bg-black/75 px-3 py-1 text-xs text-white backdrop-blur-md border border-white/15 shadow-lg select-none max-w-[85vw] md:max-w-md truncate">
-      <FolderIcon className="size-3.5 text-primary shrink-0" />
-      <span className="font-medium text-white/70 shrink-0">In Albums:</span>
-      <span className="font-semibold text-white truncate" title={albumText}>
-        {albumText}
+    <div
+      className="absolute top-14 left-2 md:top-16 md:left-3 z-40 flex items-center gap-1.5 rounded-full bg-black/75 px-3 py-1 text-xs text-white backdrop-blur-md border border-white/15 shadow-lg select-none max-w-[85vw] md:max-w-md pointer-events-auto"
+      onClick={(e) => e.stopPropagation()}
+    >
+      <FolderIcon className="size-3.5 text-primary shrink-0 pointer-events-none" />
+      <span className="font-medium text-white/70 shrink-0 pointer-events-none">In Albums:</span>
+      <span className="font-semibold text-white truncate flex items-center flex-wrap gap-x-1">
+        {albums.map((album, idx) => (
+          <span key={album.albumId} className="inline-flex items-center">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+                onDirectToAlbum?.(album.albumId)
+              }}
+              className="font-semibold text-white hover:text-amber-400 hover:underline cursor-pointer transition-colors duration-150 truncate max-w-[160px] inline-block align-bottom"
+              title={`Direct to album ${album.name}`}
+            >
+              {album.name}
+            </button>
+            {idx < albums.length - 1 && (
+              <span className="text-white/40 pointer-events-none ml-0.5 mr-1">,</span>
+            )}
+          </span>
+        ))}
       </span>
     </div>
   )
@@ -1324,6 +1346,7 @@ export function PhotoViewer({
   onPhotoUpdate,
   onAlbumOpen,
 }: PhotoViewerProps) {
+  const router = useRouter()
   const { userInfo } = useApp()
   const isAdmin = userInfo?.type === UserTypeEnum.ADMIN
   const [viewIndex, setViewIndex] = useState(index)
@@ -1882,6 +1905,16 @@ export function PhotoViewer({
     onBackRef.current?.()
   }
 
+  const handleDirectToAlbum = useCallback((albumId: string) => {
+    if (typeof window !== "undefined") {
+      (window as unknown as { __last_subview_dismiss_time?: number }).__last_subview_dismiss_time = Date.now()
+    }
+    historyPushedRef.current = false
+    removePhotoIdFromUrl()
+    onBackRef.current?.()
+    router.push(`/albums/${albumId}`)
+  }, [router])
+
   // Pull-to-dismiss touch handlers
   const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
     if (zoomLevel > 1 || isVideoScrubbing || isVideoFullscreen || infoOpen) return
@@ -2154,6 +2187,7 @@ export function PhotoViewer({
       <AlbumOverlayBadge
         albums={photos[viewIndex]?.albums}
         isCinematicMode={isCinematicMode}
+        onDirectToAlbum={handleDirectToAlbum}
       />
 
       {/* Floating Reaction & Comment Bar for Photos (Lowered position) */}
@@ -2231,6 +2265,7 @@ export function PhotoViewer({
               setInsightsPhotoId(photoId)
               setInsightsDialogOpen(true)
             } : undefined}
+            onDirectToAlbum={handleDirectToAlbum}
           />
         )}
       </AnimatePresence>
