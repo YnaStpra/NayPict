@@ -6,8 +6,8 @@ import {
   MasonryScroller,
   type Positioner,
   type RenderComponentProps,
-  usePositioner,
 } from "masonic"
+import { useStablePositioner } from "@/hooks/use-stable-positioner"
 
 
 import dynamic from "next/dynamic"
@@ -294,15 +294,17 @@ const PhotoMasonry = memo(function PhotoMasonry({
     }
   )
   const width = wrapPosition.width
-  const positioner = usePositioner(
-    {
-      width,
-      columnCount,
-      columnGutter: 4,
-      rowGutter: 4,
+  const positioner = useStablePositioner({
+    width,
+    columnCount,
+    columnGutter: 4,
+    rowGutter: 4,
+    getItemRatio: (index) => {
+      const photo = photos[index]
+      return photo && photo.width && photo.height ? photo.height / photo.width : 1
     },
-    [resetKey, columnCount]
-  )
+    resetDeps: [resetKey, columnCount],
+  })
 
   syncPhotoPositioner(photos, positioner.columnWidth, positioner)
   const visibleSelectedPhotoIds = selectedPhotoIds.filter((photoId) => photos.some((photo) => photo.photoId === photoId))
@@ -739,7 +741,7 @@ const PhotoMasonry = memo(function PhotoMasonry({
       <PhotoTimelineScrubber photos={photos} enabled={enableTimelineScrubber} />
       <div
         ref={wrapRef}
-        className="w-full overflow-x-hidden masonry-grid-smooth subpixel-snap-grid transition-[width] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] touch-pan-y"
+        className="w-full overflow-x-hidden masonry-grid-smooth subpixel-snap-grid touch-pan-y"
         style={{ touchAction: "pan-y pinch-zoom" }}
       >
         {groupByDate && dateGroups ? (
@@ -751,22 +753,21 @@ const PhotoMasonry = memo(function PhotoMasonry({
                 { length: numCols },
                 () => []
               )
-              const colHeights = new Array(numCols).fill(0)
+              const colRatios = new Array(numCols).fill(0)
 
               group.items.forEach(({ photo, globalIndex }) => {
                 const ratio = photo.width && photo.height ? photo.height / photo.width : 1
                 const h = Math.max(1, Math.round(currentColumnWidth * ratio))
                 let minCol = 0
                 for (let c = 1; c < numCols; c++) {
-                  if (colHeights[c] < colHeights[minCol]) {
+                  if (colRatios[c] < colRatios[minCol]) {
                     minCol = c
                   }
                 }
                 cols[minCol].push({ photo, globalIndex, height: h })
-                colHeights[minCol] += h + 4
+                colRatios[minCol] += ratio
               })
 
-              const sectionHeight = Math.max(...colHeights, 160)
               return (
                 <section
                   key={group.dateKey}
@@ -820,22 +821,21 @@ const PhotoMasonry = memo(function PhotoMasonry({
                 { length: numCols },
                 () => []
               )
-              const colHeights = new Array(numCols).fill(0)
+              const colRatios = new Array(numCols).fill(0)
 
               group.items.forEach(({ photo, globalIndex }) => {
                 const ratio = photo.width && photo.height ? photo.height / photo.width : 1
                 const h = Math.max(1, Math.round(currentColumnWidth * ratio))
                 let minCol = 0
                 for (let c = 1; c < numCols; c++) {
-                  if (colHeights[c] < colHeights[minCol]) {
+                  if (colRatios[c] < colRatios[minCol]) {
                     minCol = c
                   }
                 }
                 cols[minCol].push({ photo, globalIndex, height: h })
-                colHeights[minCol] += h + 4
+                colRatios[minCol] += ratio
               })
 
-              const sectionHeight = Math.max(...colHeights, 160)
               return (
                 <section
                   key={group.typeKey}
