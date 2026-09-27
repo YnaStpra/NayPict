@@ -3,7 +3,7 @@
 import { memo, useEffect, useMemo, useRef, useState, useLayoutEffect, createContext, useContext, useCallback } from "react"
 import { flushSync } from "react-dom"
 import {
-  MasonryScroller,
+  useMasonry,
   type Positioner,
   type RenderComponentProps,
 } from "masonic"
@@ -172,6 +172,102 @@ function getPhotoDateKey(photo: PhotoVo): { dateKey: string; dateLabel: string }
 
   return { dateKey, dateLabel }
 }
+
+interface StableMasonryScrollerProps {
+  items: PhotoVo[]
+  positioner: Positioner
+  offset: number
+  height: number
+  overscanBy?: number
+  itemKey: (item: PhotoVo, index: number) => string
+  render: React.ComponentType<RenderComponentProps<PhotoVo>>
+  className?: string
+  sidebarOpen: boolean
+}
+
+// Custom virtualized scroller ensuring real-time scroll synchronization and instant
+// clamping when sidebar toggles so cards at the bottom never disappear or get desynchronized.
+const StableMasonryScroller = memo(function StableMasonryScroller({
+  items,
+  positioner,
+  offset,
+  height,
+  overscanBy = 8,
+  itemKey,
+  render,
+  className,
+  sidebarOpen,
+}: StableMasonryScrollerProps) {
+  const [scrollTop, setScrollTop] = useState(() => {
+    if (typeof window === "undefined") return 0
+    return Math.max(0, (window.scrollY || window.pageYOffset) - offset)
+  })
+  const [isScrolling, setIsScrolling] = useState(false)
+  const isScrollingTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+
+  // Calculate current max scrollable height based on actual positioner height
+  const totalEstimatedHeight = positioner.estimateHeight(items.length, 300)
+  const maxScrollTop = Math.max(0, totalEstimatedHeight - height)
+
+  // Clamp scrollTop to ensure Masonic NEVER queries past the bottom of the container
+  const safeScrollTop = Math.min(Math.max(0, scrollTop), maxScrollTop)
+
+  // Real-time window scroll listener (passive, rAF-scheduled for 120 FPS buttery smooth performance)
+  useEffect(() => {
+    let rAFId: number | null = null
+
+    const handleScroll = () => {
+      if (rAFId !== null) return
+      rAFId = requestAnimationFrame(() => {
+        rAFId = null
+        const currentY = window.scrollY || window.pageYOffset
+        const currentOffsetTop = Math.max(0, currentY - offset)
+        setScrollTop(currentOffsetTop)
+        setIsScrolling(true)
+
+        if (isScrollingTimeoutRef.current) clearTimeout(isScrollingTimeoutRef.current)
+        isScrollingTimeoutRef.current = setTimeout(() => {
+          setIsScrolling(false)
+        }, 120)
+      })
+    }
+
+    window.addEventListener("scroll", handleScroll, { passive: true })
+    return () => {
+      window.removeEventListener("scroll", handleScroll)
+      if (rAFId !== null) cancelAnimationFrame(rAFId)
+      if (isScrollingTimeoutRef.current) clearTimeout(isScrollingTimeoutRef.current)
+    }
+  }, [offset])
+
+  // Synchronize scroll position IMMEDIATELY when columnWidth or sidebarOpen changes
+  useLayoutEffect(() => {
+    if (typeof window === "undefined") return
+
+    const currentY = window.scrollY || window.pageYOffset
+    const currentMaxScroll = Math.max(0, document.documentElement.scrollHeight - window.innerHeight)
+
+    // If current scroll position overshoots the new document height (e.g. sidebar opened while at bottom)
+    if (currentY > currentMaxScroll && currentMaxScroll > 0) {
+      window.scrollTo({ top: currentMaxScroll, behavior: "instant" })
+      setScrollTop(Math.max(0, currentMaxScroll - offset))
+    } else {
+      setScrollTop(Math.max(0, currentY - offset))
+    }
+  }, [positioner.columnWidth, sidebarOpen, offset])
+
+  return useMasonry({
+    items,
+    positioner,
+    scrollTop: safeScrollTop,
+    isScrolling,
+    height,
+    overscanBy,
+    itemKey,
+    render,
+    className,
+  })
+})
 
 // Render photo waterfall, and notify parent component to load more when reaching bottom.
 const PhotoMasonry = memo(function PhotoMasonry({
@@ -884,7 +980,7 @@ const PhotoMasonry = memo(function PhotoMasonry({
             })}
           </div>
         ) : (
-          <MasonryScroller
+          <StableMasonryScroller
             className="outline-transparent"
             items={photos}
             positioner={positioner}
@@ -893,6 +989,7 @@ const PhotoMasonry = memo(function PhotoMasonry({
             itemKey={(item) => item?.photoId ?? ''}
             overscanBy={isMobile ? 8 : 8}
             render={MasonicPhotoCard}
+            sidebarOpen={sidebarOpen}
           />
         )}
       </div>

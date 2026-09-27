@@ -3,7 +3,7 @@
 import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState, createContext, useContext } from "react"
 import { flushSync } from "react-dom"
 import {
-  MasonryScroller,
+  useMasonry,
   type Positioner,
   type RenderComponentProps,
 } from "masonic"
@@ -118,6 +118,96 @@ function syncAlbumPositioner(items: AlbumVo[], columnWidth: number, positioner: 
     positioner.update(updates)
   }
 }
+
+interface StableAlbumMasonryScrollerProps {
+  items: AlbumVo[]
+  positioner: Positioner
+  offset: number
+  height: number
+  overscanBy?: number
+  itemKey: (item: AlbumVo, index: number) => string
+  render: React.ComponentType<RenderComponentProps<AlbumVo>>
+  className?: string
+  sidebarOpen: boolean
+}
+
+// Custom virtualized scroller for albums ensuring real-time scroll synchronization and instant
+// clamping when sidebar toggles so cards at the bottom never disappear or get desynchronized.
+const StableAlbumMasonryScroller = memo(function StableAlbumMasonryScroller({
+  items,
+  positioner,
+  offset,
+  height,
+  overscanBy = 6,
+  itemKey,
+  render,
+  className,
+  sidebarOpen,
+}: StableAlbumMasonryScrollerProps) {
+  const [scrollTop, setScrollTop] = useState(() => {
+    if (typeof window === "undefined") return 0
+    return Math.max(0, (window.scrollY || window.pageYOffset) - offset)
+  })
+  const [isScrolling, setIsScrolling] = useState(false)
+  const isScrollingTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+
+  const totalEstimatedHeight = positioner.estimateHeight(items.length, 300)
+  const maxScrollTop = Math.max(0, totalEstimatedHeight - height)
+  const safeScrollTop = Math.min(Math.max(0, scrollTop), maxScrollTop)
+
+  useEffect(() => {
+    let rAFId: number | null = null
+
+    const handleScroll = () => {
+      if (rAFId !== null) return
+      rAFId = requestAnimationFrame(() => {
+        rAFId = null
+        const currentY = window.scrollY || window.pageYOffset
+        const currentOffsetTop = Math.max(0, currentY - offset)
+        setScrollTop(currentOffsetTop)
+        setIsScrolling(true)
+
+        if (isScrollingTimeoutRef.current) clearTimeout(isScrollingTimeoutRef.current)
+        isScrollingTimeoutRef.current = setTimeout(() => {
+          setIsScrolling(false)
+        }, 120)
+      })
+    }
+
+    window.addEventListener("scroll", handleScroll, { passive: true })
+    return () => {
+      window.removeEventListener("scroll", handleScroll)
+      if (rAFId !== null) cancelAnimationFrame(rAFId)
+      if (isScrollingTimeoutRef.current) clearTimeout(isScrollingTimeoutRef.current)
+    }
+  }, [offset])
+
+  useLayoutEffect(() => {
+    if (typeof window === "undefined") return
+
+    const currentY = window.scrollY || window.pageYOffset
+    const currentMaxScroll = Math.max(0, document.documentElement.scrollHeight - window.innerHeight)
+
+    if (currentY > currentMaxScroll && currentMaxScroll > 0) {
+      window.scrollTo({ top: currentMaxScroll, behavior: "instant" })
+      setScrollTop(Math.max(0, currentMaxScroll - offset))
+    } else {
+      setScrollTop(Math.max(0, currentY - offset))
+    }
+  }, [positioner.columnWidth, sidebarOpen, offset])
+
+  return useMasonry({
+    items,
+    positioner,
+    scrollTop: safeScrollTop,
+    isScrolling,
+    height,
+    overscanBy,
+    itemKey,
+    render,
+    className,
+  })
+})
 
 // Rendering a virtual scrolling list of photo albums.
 export function AlbumMasonry({
@@ -262,7 +352,7 @@ export function AlbumMasonry({
   return (
     <AlbumMasonryContext.Provider value={albumContextValue}>
       <div ref={wrapRef} className="w-full overflow-x-hidden">
-        <MasonryScroller
+        <StableAlbumMasonryScroller
           items={albums}
           positioner={positioner}
           offset={wrapPosition.offset}
@@ -270,6 +360,7 @@ export function AlbumMasonry({
           itemKey={(item) => item?.albumId ?? ''}
           overscanBy={6}
           render={MasonicAlbumCard}
+          sidebarOpen={sidebarOpen}
         />
       </div>
     </AlbumMasonryContext.Provider>

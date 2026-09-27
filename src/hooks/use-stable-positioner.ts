@@ -54,7 +54,6 @@ export function useStablePositioner({
   const assignedColumnsRef = useRef<number[]>([])
   const columnItemsRef = useRef<number[][]>([])
   const columnHeightsRef = useRef<number[]>([])
-  const columnRatioSumsRef = useRef<number[]>([])
   const intervalTreeRef = useRef<ReturnType<typeof createIntervalTree>>(createIntervalTree())
   const versionRef = useRef(0)
 
@@ -91,7 +90,6 @@ export function useStablePositioner({
     assignedColumnsRef.current = []
     columnItemsRef.current = Array.from({ length: columnCount }, () => [])
     columnHeightsRef.current = new Array(columnCount).fill(0)
-    columnRatioSumsRef.current = new Array(columnCount).fill(0)
     intervalTreeRef.current = createIntervalTree()
 
     prevWidthRef.current = width
@@ -160,25 +158,24 @@ export function useStablePositioner({
       },
       set: (index: number, height: number) => {
         const items = itemsRef.current
+        // Guard against duplicate inserts: if already positioned, do not re-add to columnHeights or interval tree
+        if (items[index] !== undefined) {
+          return
+        }
+
         const assignedColumns = assignedColumnsRef.current
         const columnItems = columnItemsRef.current
         const columnHeights = columnHeightsRef.current
-        const columnRatioSums = columnRatioSumsRef.current
         const intervalTree = intervalTreeRef.current
         const colWidth = currentColumnWidthRef.current
 
         let column = assignedColumns[index]
         if (column === undefined) {
-          // Deterministic column assignment using aspect ratio sums so assignments
-          // are completely invariant to container width and sidebar toggles.
-          const ratio = getItemRatio
-            ? getItemRatio(index)
-            : colWidth > 0 && height > 0
-            ? height / colWidth
-            : 1
+          // Greedy shortest-column assignment based on actual pixel heights ensures
+          // all columns end evenly with minimal height delta at the bottom of the list.
           let minCol = 0
           for (let c = 1; c < columnCount; c++) {
-            if (columnRatioSums[c] < columnRatioSums[minCol]) {
+            if (columnHeights[c] < columnHeights[minCol]) {
               minCol = c
             }
           }
@@ -188,7 +185,6 @@ export function useStablePositioner({
             columnItems[column] = []
           }
           columnItems[column].push(index)
-          columnRatioSums[column] += ratio
         }
 
         const top = columnHeights[column] || 0
@@ -205,12 +201,11 @@ export function useStablePositioner({
         const intervalTree = intervalTreeRef.current
         const columns = new Array(columnCount)
 
-        for (let i = 0; i < updates.length - 1; i++) {
+        for (let i = 0; i < updates.length - 1; i += 2) {
           const index = updates[i]
+          const newHeight = updates[i + 1]
           const item = items[index]
-          if (!item) continue
-          const newHeight = updates[++i]
-          if (item.height === newHeight) continue
+          if (!item || item.height === newHeight) continue
           item.height = newHeight
           intervalTree.remove(index)
           intervalTree.insert(item.top, item.top + item.height, index)
