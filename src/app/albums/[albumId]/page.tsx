@@ -429,63 +429,61 @@ export default function Page() {
                   </BreadcrumbItem>
                 </BreadcrumbList>
               </Breadcrumb>
-            </div>
-            <div className="flex items-center gap-2 px-4">
-              {/* View Mode Toggle: Masonry vs 3D Infinite Canvas */}
-              <div className="flex items-center rounded-lg border bg-muted/40 p-0.5">
-                <Button
-                  type="button"
-                  size="icon-sm"
-                  variant={viewMode === "masonry" ? "secondary" : "ghost"}
-                  className="size-7 rounded-md"
-                  onClick={() => setViewMode("masonry")}
-                  aria-label="Masonry grid view"
-                  title="Masonry Grid"
-                >
-                  <LayoutGrid className="size-3.5" />
-                </Button>
-                <Button
-                  type="button"
-                  size="icon-sm"
-                  variant={viewMode === "infinite" ? "secondary" : "ghost"}
-                  className="size-7 rounded-md"
-                  onClick={() => setViewMode("infinite")}
-                  aria-label="3D Infinite gallery view"
-                  title="3D Canvas (Infinite)"
-                >
-                  <Sparkles className="size-3.5 text-amber-500" />
-                </Button>
-              </div>
 
-              {/* Photo Count Badge */}
+              {/* Photo Count Badge directly beside Album title */}
               <div
-                className="hidden sm:flex items-center gap-1.5 bg-muted/70 text-foreground text-xs font-semibold px-2.5 py-1 rounded-lg border border-border/50 select-none shadow-2xs tabular-nums"
-                title={`${totalCount} Photos`}
+                className="flex items-center gap-1.5 bg-muted/70 text-foreground text-xs font-semibold px-2.5 py-1 rounded-lg border border-border/50 select-none shadow-2xs tabular-nums"
+                title={`${totalCount} Photos in Album`}
               >
-                <ImageIcon className="size-3.5 text-primary" />
+                <ImageIcon className="size-3.5 text-emerald-500 dark:text-emerald-400 shrink-0" />
                 <OdometerCounter target={totalCount} duration={900} />
               </div>
+            </div>
+            <div className="flex items-center gap-1.5 px-4 z-30">
+              {/* View Mode Toggle: Masonry vs 3D Infinite Canvas */}
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="ghost"
+                      className="size-8 p-0 rounded-full hover:bg-muted/60 transition-all duration-200 hover:scale-110 active:scale-95"
+                      onClick={() => setViewMode((prev) => (prev === "masonry" ? "infinite" : "masonry"))}
+                    >
+                      {viewMode === "infinite" ? (
+                        <LayoutGrid className="size-4.5 text-cyan-400 drop-shadow-[0_0_4px_rgba(34,211,238,0.8)] animate-pulse" />
+                      ) : (
+                        <Sparkles className="size-4.5 text-amber-400 dark:text-amber-300 drop-shadow-[0_0_4px_rgba(251,191,36,0.85)] animate-pulse" />
+                      )}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">
+                    {viewMode === "infinite" ? "Switch to Masonry Grid View" : "Switch to Infinite Canvas View"}
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
 
-              {/* Sort Dropdown */}
+              {/* Sort Dropdown (Icon-only with panah bawah dan atas) */}
               <DropdownMenu modal={false}>
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <DropdownMenuTrigger asChild>
                         <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-8 gap-1.5 px-2.5 text-xs font-medium bg-background/80 backdrop-blur-sm border-dashed hover:border-solid hover:bg-accent/60 transition-all shadow-xs"
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="size-8 rounded-lg transition-all duration-200 cursor-pointer hover:bg-violet-500/10 active:scale-95 text-violet-500 dark:text-violet-400 border border-border/50 hover:border-violet-500/30 shadow-2xs"
+                          aria-label="Sort Album Photos"
                         >
-                          <ArrowUpDown className="size-3.5 text-primary shrink-0" />
-                          <span className="hidden md:inline-block max-w-[170px] truncate">
-                            {SORT_OPTIONS.find((o) => o.key === sortKey)?.label || "Sort"}
-                          </span>
-                          <ChevronDown className="size-3 text-muted-foreground" />
+                          <ArrowUpDown className="size-4 text-violet-500 dark:text-violet-400 shrink-0" />
                         </Button>
                       </DropdownMenuTrigger>
                     </TooltipTrigger>
-                    <TooltipContent side="bottom">Sort Album Photos</TooltipContent>
+                    <TooltipContent side="bottom">
+                      {`Sort: ${SORT_OPTIONS.find((o) => o.key === sortKey)?.label || "Default"}`}
+                    </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
 
@@ -505,14 +503,23 @@ export default function Page() {
               </DropdownMenu>
 
               {isAdmin && (
-                <Button
-                  type="button"
-                  size="icon"
-                  variant="ghost"
-                  onClick={() => openUpload(albumId)}
-                >
-                  <PlusIcon />
-                </Button>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="ghost"
+                        className="size-8 rounded-lg transition-all duration-200 cursor-pointer hover:bg-emerald-500/10 active:scale-95 text-emerald-500 dark:text-emerald-400"
+                        onClick={() => openUpload(albumId)}
+                        aria-label="Add Media to Album"
+                      >
+                        <PlusIcon className="size-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom">Add Media to Album</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               )}
             </div>
           </header>
