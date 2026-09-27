@@ -452,6 +452,15 @@ export default function Page() {
                   </BreadcrumbItem>
                 </BreadcrumbList>
               </Breadcrumb>
+
+              {/* Photo Count Badge beside Gallery title */}
+              <div
+                className="flex items-center gap-1.5 bg-muted/70 text-foreground text-xs font-semibold px-2.5 py-1 rounded-lg border border-border/50 select-none shadow-2xs tabular-nums"
+                title={`${totalCount} Items in Gallery`}
+              >
+                <ImageIcon className="size-3.5 text-emerald-500 dark:text-emerald-400 shrink-0" />
+                <OdometerCounter target={totalCount} duration={900} />
+              </div>
             </div>
             <div className="flex items-center gap-1.5 px-4 z-30">
               <TooltipProvider>
@@ -477,15 +486,6 @@ export default function Page() {
                 </Tooltip>
               </TooltipProvider>
 
-              {/* Photo Count Badge beside Grid Icon */}
-              <div
-                className="flex items-center gap-1.5 bg-muted/70 text-foreground text-xs font-semibold px-2.5 py-1 rounded-lg border border-border/50 select-none shadow-2xs tabular-nums"
-                title={`${totalCount} Items in Gallery`}
-              >
-                <ImageIcon className="size-3.5 text-primary" />
-                <OdometerCounter target={totalCount} duration={900} />
-              </div>
-
               {/* Group Photos by Date Taken Toggle */}
               {viewMode === "masonry" && (
                 <TooltipProvider>
@@ -497,12 +497,12 @@ export default function Page() {
                         size="icon"
                         className={`size-8 rounded-lg transition-all duration-200 cursor-pointer ${
                           groupByDate
-                            ? "bg-primary/15 text-primary border border-primary/20 shadow-2xs"
-                            : "text-muted-foreground hover:text-foreground"
+                            ? "bg-sky-500/15 text-sky-500 dark:text-sky-400 border border-sky-500/30 shadow-2xs"
+                            : "text-sky-500 dark:text-sky-400 hover:bg-sky-500/10 hover:text-sky-600 dark:hover:text-sky-300"
                         }`}
                         onClick={toggleGroupByDate}
                       >
-                        <CalendarDays className="size-4" />
+                        <CalendarDays className="size-4 text-sky-500 dark:text-sky-400" />
                       </Button>
                     </TooltipTrigger>
                     <TooltipContent side="bottom">
@@ -512,7 +512,7 @@ export default function Page() {
                 </TooltipProvider>
               )}
 
-              {/* Sort By Dropdown Menu */}
+              {/* Sort By Dropdown Menu (Icon-only with panah bawah dan atas) */}
               <DropdownMenu modal={false}>
                 <TooltipProvider>
                   <Tooltip>
@@ -520,19 +520,18 @@ export default function Page() {
                       <DropdownMenuTrigger asChild>
                         <Button
                           type="button"
-                          variant="outline"
-                          size="sm"
-                          className="h-8 gap-1.5 px-2.5 text-xs font-semibold rounded-lg shadow-2xs border-border/60"
+                          variant="ghost"
+                          size="icon"
+                          className="size-8 rounded-lg transition-all duration-200 cursor-pointer hover:bg-violet-500/10 active:scale-95 text-violet-500 dark:text-violet-400 border border-border/50 hover:border-violet-500/30 shadow-2xs"
+                          aria-label="Sort Gallery Media"
                         >
-                          <ArrowUpDown className="size-3.5 text-primary shrink-0" />
-                          <span className="hidden md:inline-block max-w-[170px] truncate">
-                            {SORT_OPTIONS.find((o) => o.key === sortKey)?.label || "Sort"}
-                          </span>
-                          <ChevronDown className="size-3 text-muted-foreground" />
+                          <ArrowUpDown className="size-4 text-violet-500 dark:text-violet-400 shrink-0" />
                         </Button>
                       </DropdownMenuTrigger>
                     </TooltipTrigger>
-                    <TooltipContent side="bottom">Sort Gallery Media</TooltipContent>
+                    <TooltipContent side="bottom">
+                      {`Sort: ${SORT_OPTIONS.find((o) => o.key === sortKey)?.label || "Default"}`}
+                    </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
 
