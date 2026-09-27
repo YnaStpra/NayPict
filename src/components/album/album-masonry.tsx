@@ -6,8 +6,8 @@ import {
   MasonryScroller,
   type Positioner,
   type RenderComponentProps,
-  usePositioner,
 } from "masonic"
+import { useStablePositioner } from "@/hooks/use-stable-positioner"
 
 import { FolderOpen } from "lucide-react"
 
@@ -142,15 +142,14 @@ export function AlbumMasonry({
   const columnCount = useMemo(() => getResponsiveAlbumColumnCount(screenWidth, isSmallScreen), [screenWidth, isSmallScreen])
   const width = wrapPosition.width
 
-  const positioner = usePositioner(
-    {
-      width,
-      columnCount,
-      columnGutter: isSmallScreen ? 8 : 12,
-      rowGutter: isSmallScreen ? 8 : 12,
-    },
-    [resetKey, columnCount]
-  )
+  const positioner = useStablePositioner({
+    width,
+    columnCount,
+    columnGutter: isSmallScreen ? 8 : 12,
+    rowGutter: isSmallScreen ? 8 : 12,
+    getItemRatio: () => 1,
+    resetDeps: [resetKey, columnCount],
+  })
 
   syncAlbumPositioner(albums, positioner.columnWidth, positioner)
 
@@ -262,7 +261,7 @@ export function AlbumMasonry({
 
   return (
     <AlbumMasonryContext.Provider value={albumContextValue}>
-      <div ref={wrapRef} className="w-full overflow-x-hidden transition-[width] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]">
+      <div ref={wrapRef} className="w-full overflow-x-hidden">
         <MasonryScroller
           items={albums}
           positioner={positioner}
