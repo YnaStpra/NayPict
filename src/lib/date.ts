@@ -10,7 +10,7 @@ function parseTime(value: string | null | undefined): Date | null {
   // directly to preserve the actual photo shooting calendar day and hour without timezone rolling.
   const localMatch = text.match(/^(\d{4})[:\-](\d{2})[:\-](\d{2})(?:[T\s](\d{2}):(\d{2})(?::(\d{2}))?)?/);
   if (localMatch) {
-    const [_, y, m, d, h, min, s] = localMatch;
+    const [, y, m, d, h, min, s] = localMatch;
     const local = new Date(Number(y), Number(m) - 1, Number(d), Number(h || 0), Number(min || 0), Number(s || 0));
     if (!Number.isNaN(local.getTime())) {
       return local;

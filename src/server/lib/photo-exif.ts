@@ -395,8 +395,6 @@ async function parseExifWithExifr(buffer: Buffer) {
 
     let takenTime: string | null = null
     const dateVal = rawTags.DateTimeOriginal || rawTags.CreateDate || rawTags.ModifyDate
-    const offsetVal = rawTags.OffsetTimeOriginal || rawTags.OffsetTime
-    const offsetStr = typeof offsetVal === 'string' && /^[+-]\d{2}:\d{2}$/.test(offsetVal.trim()) ? offsetVal.trim() : null
 
     if (dateVal instanceof Date && !isNaN(dateVal.getTime())) {
       const year = dateVal.getUTCFullYear()
@@ -411,7 +409,7 @@ async function parseExifWithExifr(buffer: Buffer) {
     } else if (typeof dateVal === "string") {
       const match = dateVal.trim().match(/^(\d{4})[:\-](\d{2})[:\-](\d{2})[T\s](\d{2}):(\d{2}):?(\d{2})?/)
       if (match) {
-        const [_, year, month, day, hour, min, sec] = match
+        const [, year, month, day, hour, min, sec] = match
         const second = sec || "00"
         takenTime = `${year}-${month}-${day}T${hour}:${min}:${second}`
       }

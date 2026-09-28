@@ -206,7 +206,7 @@ const analyticsService = {
   },
 
   // Update session duration and last active timestamp via lightweight heartbeat ping.
-  async heartbeat(params: HeartbeatBo, isAdmin?: boolean): Promise<boolean> {
+  async heartbeat(params: HeartbeatBo, _isAdmin?: boolean): Promise<boolean> {
     if (!params.sessionId) {
       return false;
     }
@@ -240,7 +240,7 @@ const analyticsService = {
   },
 
   // Update visitor session with consented device GPS location.
-  async updateLocation(params: UpdateVisitorLocationBo, isAdmin?: boolean): Promise<boolean> {
+  async updateLocation(params: UpdateVisitorLocationBo, _isAdmin?: boolean): Promise<boolean> {
     if (!params.sessionId) {
       return false;
     }

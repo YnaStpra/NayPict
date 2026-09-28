@@ -24,7 +24,4 @@ const readSql = neon(readConnectionString);
 export const orm = drizzle(sql, { schema });
 export const readOrm = drizzle(readSql, { schema });
 
-// Export a no-op db shim so legacy migrate.ts import does not break during transition.
-export const db = { exec: () => {} };
-
 

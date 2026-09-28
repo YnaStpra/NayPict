@@ -48,6 +48,10 @@ next-env.d.ts
 .idea
 .open-next
 .wrangler
+wrangler.toml
+!wrangler.toml.example
+workers/**/wrangler.toml
+!workers/**/wrangler.toml.example
 .vercelignore
 .vercel
 /standalone

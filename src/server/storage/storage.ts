@@ -5,7 +5,6 @@ import { storageService } from '@/server/service/storage-service';
 import '@/server/storage/s3-storage';
 import { resolveStorageStrategy } from '@/server/storage/storage-registry';
 import {
-  type StorageListItem,
   type StorageListResult,
   type StorageMultipartItem,
   type StorageObject,

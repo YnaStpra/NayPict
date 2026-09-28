@@ -18,12 +18,12 @@ const mediaGatewayHostname = getMediaGatewayHostname();
 
 const nextConfig: NextConfig = {
   env: {
-    NEXT_PUBLIC_MEDIA_GATEWAY_URL: process.env.NEXT_PUBLIC_MEDIA_GATEWAY_URL || process.env.R2_MEDIA_GATEWAY_URL || 'https://naypict-media-gateway.naypict.workers.dev',
+    NEXT_PUBLIC_MEDIA_GATEWAY_URL: process.env.NEXT_PUBLIC_MEDIA_GATEWAY_URL || process.env.R2_MEDIA_GATEWAY_URL || '',
   },
   // Disable X-Powered-By header to mitigate technology fingerprinting (OWASP WSTG-INFO-08)
   poweredByHeader: false,
   reactStrictMode: false,
-  serverExternalPackages: ['exiftool-vendored', 'better-sqlite3'],
+  serverExternalPackages: ['exiftool-vendored'],
   // Always use standalone output for Docker/Render; Vercel ignores this setting.
   output: 'standalone',
   experimental: {
