@@ -13,7 +13,7 @@ function formatHttpUrl(input?: string | null) {
   return httpUrl.replace(/\/+$/, '');
 }
 
-const MEDIA_GATEWAY_DEFAULT = process.env.NEXT_PUBLIC_MEDIA_GATEWAY_URL || process.env.R2_MEDIA_GATEWAY_URL || 'https://naypict-media-gateway.naypict.workers.dev';
+const MEDIA_GATEWAY_DEFAULT = process.env.NEXT_PUBLIC_MEDIA_GATEWAY_URL || process.env.R2_MEDIA_GATEWAY_URL || '';
 
 // Safely decode percent-encoded string repeatedly until normalized to prevent double/triple-encoding bugs.
 function safeDecodeKey(key: string): string {
@@ -46,7 +46,7 @@ function toMediaUrl(key: string, domain?: string | null) {
     return `${base}/${encodedKey}`;
   }
 
-  return `${formatHttpUrl(MEDIA_GATEWAY_DEFAULT)}/${encodedKey}`;
+  return `/media/${encodedKey}`;
 }
 
 // Remove photoId query parameter from current browser address bar without page reload.

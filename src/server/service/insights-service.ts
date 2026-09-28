@@ -483,7 +483,6 @@ const insightsService = {
         const files = fileMap.get(item.photoId);
         const thumbnailKey = files?.thumbnailKey || (checksum ? buildThumbnailKey(checksum, item.photoId) : '');
         const previewKey = files?.previewKey || (checksum ? buildPreviewKey(checksum, item.photoId) : '');
-        const isVideo = Boolean(item.type?.startsWith('video/'));
         const originalKey = files?.originalKey;
         const key = originalKey
           ? (domain ? toMediaUrl(originalKey, domain) : toProxyMediaUrl(originalKey))
@@ -585,7 +584,6 @@ const insightsService = {
         previewKey = buildPreviewKey(photo.checksum, photo.photoId);
       }
 
-      const isVideo = Boolean(photo.type?.startsWith('video/'));
       const thumbnail = toMediaUrl(thumbnailKey, domain);
       const preview = toMediaUrl(previewKey, domain);
       const key = originalKey

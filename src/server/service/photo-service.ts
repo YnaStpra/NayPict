@@ -1100,7 +1100,7 @@ const photoService = {
     // Assign final targetStorageId
     const activeStorageId = fileStorage.storageId;
 
-    const { buffer, name, size, type } = await this.readPhotoUpload(file);
+    const { buffer, name, type } = await this.readPhotoUpload(file);
     const checksum = await fileChecksum(new Blob([new Uint8Array(buffer)]));
     const images = await processPhotoImages(buffer, type);
 

@@ -21,7 +21,6 @@ import BizError from '@/server/error/biz-error';
 // This module handles visitor micro-reactions (Love, Fire, Camera, Place) and public claps/likes per photo.
 
 const VALID_REACTION_TYPES: ReactionType[] = ['love', 'fire', 'camera', 'place', 'clap'];
-const EMOJI_REACTION_TYPES: ReactionType[] = ['love', 'fire', 'camera', 'place'];
 
 const reactionService = {
   // Query aggregated reaction totals and visitor personal reaction state for a photo.
@@ -292,7 +291,6 @@ const reactionService = {
         const files = fileMap.get(photo.photoId);
         const thumbnailKey = files?.thumbnailKey || (checksum ? buildThumbnailKey(checksum, photo.photoId) : '');
         const previewKey = files?.previewKey || (checksum ? buildPreviewKey(checksum, photo.photoId) : '');
-        const isVideo = Boolean(photo.type?.startsWith('video/'));
         const originalKey = files?.originalKey;
         const key = originalKey
           ? (domain ? toMediaUrl(originalKey, domain) : toProxyMediaUrl(originalKey))

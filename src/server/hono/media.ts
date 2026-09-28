@@ -131,10 +131,10 @@ media.get('*', async (c: Context, next: Next) => {
   // Derivatives and public gallery videos are safe to cache on global CDN edge
   const isCacheable = !isOriginal || isVideo;
 
-  // Offload all public derivatives (previews, thumbnails) and all videos directly to Cloudflare Worker Media Gateway.
+  // Offload all public derivatives (previews, thumbnails) and all videos directly to Cloudflare Worker Media Gateway if configured.
   // Returning an instant 307 redirect reduces Vercel serverless execution to ~5ms and consumes 0 bytes of Fast Origin Transfer.
-  if (isCacheable) {
-    const gatewayBase = (process.env.NEXT_PUBLIC_MEDIA_GATEWAY_URL || process.env.R2_MEDIA_GATEWAY_URL || 'https://naypict-media-gateway.naypict.workers.dev').replace(/\/+$/, '');
+  const gatewayBase = (process.env.NEXT_PUBLIC_MEDIA_GATEWAY_URL || process.env.R2_MEDIA_GATEWAY_URL || '').replace(/\/+$/, '');
+  if (isCacheable && gatewayBase) {
     const encodedKey = photoFile.key.split('/').map((segment: string) => encodeURIComponent(segment)).join('/');
     return c.redirect(`${gatewayBase}/${encodedKey}`, 307);
   }

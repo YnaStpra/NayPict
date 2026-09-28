@@ -62,13 +62,15 @@ export default async function RootLayout({ children }: RootLayoutProps) {
   const [locale, messages] = await Promise.all([getLocale(), getMessages()])
 
   // Extract media gateway origin for DNS prefetch and preconnect acceleration without DB overhead.
-  const rawGatewayUrl = process.env.NEXT_PUBLIC_MEDIA_GATEWAY_URL || process.env.R2_MEDIA_GATEWAY_URL || "https://naypict-media-gateway.naypict.workers.dev"
+  const rawGatewayUrl = process.env.NEXT_PUBLIC_MEDIA_GATEWAY_URL || process.env.R2_MEDIA_GATEWAY_URL || ""
   const preconnectOrigins = new Set<string>()
 
-  try {
-    const formatted = rawGatewayUrl.startsWith("http") ? rawGatewayUrl : `https://${rawGatewayUrl}`
-    preconnectOrigins.add(new URL(formatted).origin)
-  } catch {}
+  if (rawGatewayUrl) {
+    try {
+      const formatted = rawGatewayUrl.startsWith("http") ? rawGatewayUrl : `https://${rawGatewayUrl}`
+      preconnectOrigins.add(new URL(formatted).origin)
+    } catch {}
+  }
 
   return (
     <html lang={locale} className={`${geist.variable} dark`} suppressHydrationWarning>

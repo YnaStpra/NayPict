@@ -1,7 +1,7 @@
 // This module manages real-time reaction synchronization across components, tabs, and SSE streams.
 
 import { photoReactionsGet, photoReactionAdd } from "@/request/reaction";
-import { type PhotoReactionsVo, type ReactionTotalsVo, type UserReactionsVo } from "@/server/entity/vo/reaction";
+import { type PhotoReactionsVo } from "@/server/entity/vo/reaction";
 import { type ReactionType } from "@/server/entity/bo/reaction";
 import { photoSse } from "@/lib/photo-sse";
 

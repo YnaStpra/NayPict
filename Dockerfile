@@ -3,7 +3,7 @@ FROM node:22-alpine AS builder
 
 WORKDIR /app
 
-# Native module build dependencies (better-sqlite3, sharp)
+# Native module build dependencies (sharp)
 RUN apk add --no-cache python3 make g++
 
 RUN corepack enable && corepack prepare pnpm@11.6.0 --activate
