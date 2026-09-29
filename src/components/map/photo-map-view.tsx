@@ -19,7 +19,6 @@ import {
   Compass,
   Expand,
   ExternalLink,
-  Eye,
   Filter,
   FolderArchive,
   Globe,
@@ -2445,17 +2444,7 @@ export default function PhotoMapView() {
             )}
 
             {/* Action Buttons */}
-            <div className="flex items-center gap-1.5 pt-1 w-full min-w-0 overflow-x-auto scrollbar-none">
-              <Button
-                type="button"
-                size="sm"
-                onClick={() => handleOpenPhotoViewer(selectedCluster.photos, activePhotoIndex)}
-                className="shrink-0 flex-1 h-8.5 text-xs rounded-xl gap-1.5 font-semibold bg-emerald-600 hover:bg-emerald-500 text-white cursor-pointer shadow-xs min-w-24"
-                title="Open media in full viewer"
-              >
-                <Eye className="size-3.5" />
-                <span>Open Media</span>
-              </Button>
+            <div className="flex items-center gap-1.5 pt-1 w-full min-w-0 flex-wrap">
               {isAdmin && (
                 <Button
                   type="button"
