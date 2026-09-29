@@ -218,3 +218,10 @@ export function formatDistancePerspective(distKm: number): string {
 export function getDirectionsUrl(lat: number, lng: number): string {
   return `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`
 }
+
+/**
+ * Generate universal Google Street View 360° panorama link for given coordinates.
+ */
+export function getStreetViewUrl(lat: number, lng: number): string {
+  return `https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${lat},${lng}`
+}

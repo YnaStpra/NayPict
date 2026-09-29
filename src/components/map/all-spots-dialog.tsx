@@ -31,6 +31,7 @@ import { getThumbHashUrl } from "@/lib/thumb-hash"
 import { toProxyMediaUrl } from "@/lib/url"
 import { useLocale } from "next-intl"
 import { useModalBackHandler } from "@/hooks/use-modal-back-handler"
+import { getStreetViewUrl } from "@/lib/geo"
 
 interface AllSpotsDialogProps {
   open: boolean
@@ -333,6 +334,25 @@ export function AllSpotsDialog({
                       >
                         <LocateFixed className="size-3.5 text-primary" />
                         <span>View on Map</span>
+                      </Button>
+
+                      {/* 360° Google Street View */}
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          window.open(
+                            getStreetViewUrl(spot.latitude, spot.longitude),
+                            "_blank",
+                            "noopener,noreferrer"
+                          )
+                        }}
+                        className="h-8.5 px-2.5 text-xs rounded-xl gap-1.5 border-amber-500/40 text-amber-600 dark:text-amber-400 hover:bg-amber-500/10 cursor-pointer shadow-xs"
+                        title="Open Google Street View 360° panorama"
+                      >
+                        <Compass className="size-3.5 text-amber-500" />
+                        <span className="hidden md:inline">360°</span>
                       </Button>
 
                       {/* Edit Coordinates for all photos in this spot */}
