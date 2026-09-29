@@ -412,6 +412,7 @@ export default function PhotoMapView() {
   const markerMapRef = useRef<Map<string, LType.Marker>>(new Map())
   const hasFitBoundsInitialRef = useRef<boolean>(false)
   const layerMenuRef = useRef<HTMLDivElement>(null)
+  const mobileLayerMenuRef = useRef<HTMLDivElement>(null)
   const albumMenuRef = useRef<HTMLDivElement>(null)
   const timelineRef = useRef<HTMLDivElement>(null)
   const thumbnailStripRef = useRef<HTMLDivElement>(null)
@@ -598,9 +599,11 @@ export default function PhotoMapView() {
 
   // Close popover menus (layer menu, album menu, timeline) on outside click
   useEffect(() => {
-    function handleClickOutside(e: MouseEvent) {
+    function handleClickOutside(e: PointerEvent | MouseEvent) {
       const target = e.target as Node
-      if (layerMenuRef.current && !layerMenuRef.current.contains(target)) {
+      const clickedDesktopLayer = layerMenuRef.current?.contains(target)
+      const clickedMobileLayer = mobileLayerMenuRef.current?.contains(target)
+      if (!clickedDesktopLayer && !clickedMobileLayer) {
         setIsLayerMenuOpen(false)
       }
       if (albumMenuRef.current && !albumMenuRef.current.contains(target)) {
@@ -608,16 +611,16 @@ export default function PhotoMapView() {
       }
       if (timelineRef.current && !timelineRef.current.contains(target)) {
         const el = e.target as HTMLElement
-        if (!el.closest("[data-timeline-toggle]")) {
+        if (!el?.closest?.("[data-timeline-toggle]")) {
           setIsTimelineOpen(false)
         }
       }
     }
     if (isLayerMenuOpen || isAlbumMenuOpen || isTimelineOpen) {
-      document.addEventListener("mousedown", handleClickOutside)
+      document.addEventListener("pointerdown", handleClickOutside)
     }
     return () => {
-      document.removeEventListener("mousedown", handleClickOutside)
+      document.removeEventListener("pointerdown", handleClickOutside)
     }
   }, [isLayerMenuOpen, isAlbumMenuOpen, isTimelineOpen])
 
@@ -1504,225 +1507,405 @@ export default function PhotoMapView() {
       {/* Fullscreen Map Canvas */}
       <div ref={mapContainerRef} className="w-full h-full z-0" />
 
-      {/* Top Floating Glass Header Control Bar */}
-      <div className="absolute top-3.5 left-3 right-3 sm:right-auto z-20 flex items-center gap-1.5 overflow-x-auto scrollbar-none sm:overflow-visible sm:flex-wrap pointer-events-auto py-0.5 max-w-full">
-        {/* Title & Stats Pill */}
-        <div className="flex items-center gap-2 px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-2xl backdrop-blur-xl bg-background/85 dark:bg-neutral-900/85 border border-border/70 shadow-xl shrink-0">
-          <MapPin className="size-3.5 sm:size-4 text-emerald-500 animate-pulse shrink-0" />
-          <span className="font-bold text-xs sm:text-sm whitespace-nowrap">Photo Map</span>
-          <span className="text-[10px] sm:text-[11px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-500 border border-emerald-500/30 whitespace-nowrap">
-            {filteredPhotos.length}{hasActiveFilter ? `/${photos.length}` : ""} media • {geoSpots.length} spots
-          </span>
-        </div>
-
-        {/* Google Maps Style / Layer Switcher Dropdown */}
-        <div ref={layerMenuRef} className="relative shrink-0">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              setIsLayerMenuOpen((prev) => !prev)
-              setIsAlbumMenuOpen(false)
-              setIsTimelineOpen(false)
-            }}
-            className={`h-9 px-3 text-xs rounded-2xl backdrop-blur-xl border shadow-xl gap-1.5 cursor-pointer transition-all hover:scale-105 shrink-0 ${
-              isLayerMenuOpen
-                ? "bg-primary/20 border-primary text-primary"
-                : "bg-background/80 dark:bg-neutral-900/80 border-border/70"
-            }`}
-            title="Switch map style (Google Streets, Satellite, Terrain, Dark Mode)"
-          >
-            <Layers className="size-3.5 text-emerald-500 shrink-0" />
-            <span className="font-semibold whitespace-nowrap">{currentMapStyleOption.label}</span>
-          </Button>
-
-          {/* Layer Selector Popover Card */}
-          {isLayerMenuOpen && (
-            <div className="absolute top-11 left-0 z-50 w-72 p-2.5 rounded-3xl backdrop-blur-2xl bg-background/95 dark:bg-neutral-900/95 border border-border/80 shadow-2xl animate-in fade-in zoom-in-95 duration-150 space-y-1.5">
-              <div className="px-2 py-1 flex items-center justify-between border-b border-border/50 pb-2">
-                <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
-                  <Globe className="size-3.5 text-primary" />
-                  <span>Map Styles & Layers</span>
-                </span>
-                <span className="text-[10px] text-muted-foreground font-medium">Google Maps</span>
-              </div>
-
-              <div className="space-y-1 pt-1">
-                {MAP_STYLE_OPTIONS.map((opt) => {
-                  const isActive = opt.key === mapStyle
-                  return (
-                    <button
-                      key={opt.key}
-                      type="button"
-                      onClick={() => handleSelectMapStyle(opt.key)}
-                      className={`w-full flex items-center justify-between p-2 rounded-2xl transition-all text-left cursor-pointer border ${
-                        isActive
-                          ? "bg-emerald-500/15 border-emerald-500/40 text-foreground ring-1 ring-emerald-500/30"
-                          : "border-transparent hover:bg-muted/60 text-muted-foreground hover:text-foreground"
-                      }`}
-                    >
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <span className="text-base shrink-0">{opt.icon}</span>
-                        <div className="min-w-0">
-                          <p className="font-bold text-xs leading-tight truncate">{opt.label}</p>
-                          <p className="text-[10px] text-muted-foreground truncate leading-tight mt-0.5">
-                            {opt.subtitle}
-                          </p>
-                        </div>
-                      </div>
-                      {isActive && (
-                        <div className="size-5 rounded-full bg-emerald-500 text-white flex items-center justify-center shrink-0 ml-1 shadow-xs">
-                          <Check className="size-3 stroke-[3]" />
-                        </div>
-                      )}
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Album Filter Dropdown (Saran No. 2) */}
-        <div ref={albumMenuRef} className="relative shrink-0">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              setIsAlbumMenuOpen((prev) => !prev)
-              setIsLayerMenuOpen(false)
-              setIsTimelineOpen(false)
-            }}
-            className={`h-9 px-3 text-xs rounded-2xl backdrop-blur-xl border shadow-xl gap-1.5 cursor-pointer transition-all hover:scale-105 shrink-0 ${
-              selectedAlbumId !== "all"
-                ? "bg-emerald-500/20 border-emerald-500/50 text-emerald-600 dark:text-emerald-400 font-bold ring-1 ring-emerald-500/30"
-                : isAlbumMenuOpen
-                ? "bg-primary/20 border-primary text-primary"
-                : "bg-background/80 dark:bg-neutral-900/80 border-border/70"
-            }`}
-            title="Filter map media by album"
-          >
-            <FolderArchive className="size-3.5 text-emerald-500 shrink-0" />
-            <span className="max-w-24 sm:max-w-36 truncate font-semibold">
-              {selectedAlbum ? selectedAlbum.name : "Albums"}
+      {/* Top Floating Controls Container */}
+      <div className="absolute top-3 left-3 right-3 sm:right-auto z-20 pointer-events-none flex flex-col gap-2 max-w-full sm:max-w-[calc(100vw-6rem)]">
+        {/* Top Buttons Bar (Wrapped naturally - No Horizontal Scrolling) */}
+        <div className="flex flex-wrap items-center gap-1.5 pointer-events-auto">
+          {/* Title & Stats Pill */}
+          <div className="flex items-center gap-2 px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-2xl backdrop-blur-xl bg-background/85 dark:bg-neutral-900/85 border border-border/70 shadow-xl shrink-0">
+            <MapPin className="size-3.5 sm:size-4 text-emerald-500 animate-pulse shrink-0" />
+            <span className="font-bold text-xs sm:text-sm whitespace-nowrap">Photo Map</span>
+            <span className="text-[10px] sm:text-[11px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-500 border border-emerald-500/30 whitespace-nowrap">
+              {filteredPhotos.length}{hasActiveFilter ? `/${photos.length}` : ""} media • {geoSpots.length} spots
             </span>
-            {selectedAlbumId !== "all" ? (
+          </div>
+
+          {/* Album Filter Dropdown (Saran No. 2) */}
+          <div ref={albumMenuRef} className="relative shrink-0">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setIsAlbumMenuOpen((prev) => !prev)
+                setIsLayerMenuOpen(false)
+                setIsTimelineOpen(false)
+              }}
+              className={`h-9 px-3 text-xs rounded-2xl backdrop-blur-xl border shadow-xl gap-1.5 cursor-pointer transition-all hover:scale-105 shrink-0 ${
+                selectedAlbumId !== "all"
+                  ? "bg-emerald-500/20 border-emerald-500/50 text-emerald-600 dark:text-emerald-400 font-bold ring-1 ring-emerald-500/30"
+                  : isAlbumMenuOpen
+                  ? "bg-primary/20 border-primary text-primary"
+                  : "bg-background/80 dark:bg-neutral-900/80 border-border/70"
+              }`}
+              title="Filter map media by album"
+            >
+              <FolderArchive className="size-3.5 text-emerald-500 shrink-0" />
+              <span className="max-w-24 sm:max-w-36 truncate font-semibold">
+                {selectedAlbum ? selectedAlbum.name : "Albums"}
+              </span>
+              {selectedAlbumId !== "all" ? (
+                <span
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setSelectedAlbumId("all")
+                  }}
+                  className="size-4 rounded-full bg-emerald-500/30 hover:bg-emerald-500/50 flex items-center justify-center ml-0.5 cursor-pointer text-emerald-700 dark:text-emerald-300"
+                  title="Clear album filter"
+                >
+                  <X className="size-2.5" />
+                </span>
+              ) : availableAlbums.length > 0 ? (
+                <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-muted text-muted-foreground font-mono">
+                  {availableAlbums.length}
+                </span>
+              ) : null}
+            </Button>
+
+            {/* Album Popover Card (Mobile-Optimized to prevent clipping, desktop attached) */}
+            {isAlbumMenuOpen && (
+              <div
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={(e) => e.stopPropagation()}
+                className="fixed inset-x-3 top-28 sm:absolute sm:inset-x-auto sm:top-11 sm:left-0 z-50 w-auto sm:w-80 p-2.5 rounded-3xl backdrop-blur-2xl bg-background/95 dark:bg-neutral-900/95 border border-border/80 shadow-2xl animate-in fade-in zoom-in-95 duration-150 space-y-2 max-h-[65vh] sm:max-h-96 flex flex-col"
+              >
+                <div className="px-2 py-1 flex items-center justify-between border-b border-border/50 pb-2">
+                  <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                    <FolderArchive className="size-3.5 text-emerald-500" />
+                    <span>Filter by Album</span>
+                  </span>
+                  <span className="text-[10px] text-muted-foreground font-medium">
+                    {availableAlbums.length} albums with GPS
+                  </span>
+                </div>
+
+                {availableAlbums.length > 3 && (
+                  <div className="relative px-1">
+                    <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
+                    <Input
+                      type="text"
+                      placeholder="Search album name..."
+                      value={albumSearchQuery}
+                      onChange={(e) => setAlbumSearchQuery(e.target.value)}
+                      className="h-8 pl-8 pr-2 text-xs rounded-xl bg-muted/50 border-border/60"
+                    />
+                  </div>
+                )}
+
+                <div className="space-y-1 overflow-y-auto max-h-60 scrollbar-thin scrollbar-thumb-muted pr-1">
+                  {/* All Albums Option */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedAlbumId("all")
+                      setIsAlbumMenuOpen(false)
+                    }}
+                    className={`w-full flex items-center justify-between p-2 rounded-2xl transition-all text-left cursor-pointer border ${
+                      selectedAlbumId === "all"
+                        ? "bg-emerald-500/15 border-emerald-500/40 text-foreground ring-1 ring-emerald-500/30"
+                        : "border-transparent hover:bg-muted/60 text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className="size-7 rounded-xl bg-emerald-500/15 text-emerald-500 flex items-center justify-center shrink-0">
+                        <FolderArchive className="size-3.5" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="font-bold text-xs leading-tight truncate">All Albums</p>
+                        <p className="text-[10px] text-muted-foreground truncate leading-tight mt-0.5">
+                          Show all geotagged photos ({photos.length})
+                        </p>
+                      </div>
+                    </div>
+                    {selectedAlbumId === "all" && (
+                      <div className="size-5 rounded-full bg-emerald-500 text-white flex items-center justify-center shrink-0 ml-1 shadow-xs">
+                        <Check className="size-3 stroke-[3]" />
+                      </div>
+                    )}
+                  </button>
+
+                  {availableAlbums
+                    .filter((alb) =>
+                      !albumSearchQuery.trim() ||
+                      alb.name.toLowerCase().includes(albumSearchQuery.toLowerCase().trim())
+                    )
+                    .map((alb) => {
+                      const isActive = selectedAlbumId === alb.albumId
+                      return (
+                        <button
+                          key={alb.albumId}
+                          type="button"
+                          onClick={() => {
+                            setSelectedAlbumId(alb.albumId)
+                            setIsAlbumMenuOpen(false)
+                          }}
+                          className={`w-full flex items-center justify-between p-2 rounded-2xl transition-all text-left cursor-pointer border ${
+                            isActive
+                              ? "bg-emerald-500/15 border-emerald-500/40 text-foreground ring-1 ring-emerald-500/30"
+                              : "border-transparent hover:bg-muted/60 text-muted-foreground hover:text-foreground"
+                          }`}
+                        >
+                          <div className="flex items-center gap-2 min-w-0">
+                            {alb.coverUrl ? (
+                              <img
+                                src={alb.coverUrl}
+                                alt=""
+                                className="size-7 rounded-xl object-cover shrink-0 border border-border/60"
+                                loading="lazy"
+                                decoding="async"
+                              />
+                            ) : (
+                              <div className="size-7 rounded-xl bg-muted flex items-center justify-center shrink-0 text-muted-foreground">
+                                <FolderArchive className="size-3.5" />
+                              </div>
+                            )}
+                            <div className="min-w-0">
+                              <p className="font-bold text-xs leading-tight truncate">{alb.name}</p>
+                              <p className="text-[10px] text-muted-foreground truncate leading-tight mt-0.5">
+                                {alb.count} photos on map
+                              </p>
+                            </div>
+                          </div>
+                          {isActive && (
+                            <div className="size-5 rounded-full bg-emerald-500 text-white flex items-center justify-center shrink-0 ml-1 shadow-xs">
+                              <Check className="size-3 stroke-[3]" />
+                            </div>
+                          )}
+                        </button>
+                      )
+                    })}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Timeline / Year Scrubber Toggle Button (Saran No. 3) */}
+          <Button
+            type="button"
+            data-timeline-toggle
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              setIsTimelineOpen((prev) => !prev)
+              setIsLayerMenuOpen(false)
+              setIsAlbumMenuOpen(false)
+            }}
+            className={`h-9 px-3 text-xs rounded-2xl backdrop-blur-xl border shadow-xl gap-1.5 cursor-pointer transition-all hover:scale-105 shrink-0 ${
+              selectedYear !== "all"
+                ? "bg-primary/20 border-primary text-primary font-bold ring-1 ring-primary/30"
+                : isTimelineOpen
+                ? "bg-primary/15 border-primary/50 text-primary"
+                : "bg-background/80 dark:bg-neutral-900/80 border-border/70"
+            }`}
+            title="Filter map photos by year timeline"
+          >
+            <Calendar className="size-3.5 text-primary shrink-0" />
+            <span className="font-semibold whitespace-nowrap">
+              {selectedYear === "all" ? "Timeline" : selectedYear}
+            </span>
+            {selectedYear !== "all" && (
               <span
                 onClick={(e) => {
                   e.stopPropagation()
-                  setSelectedAlbumId("all")
+                  setSelectedYear("all")
                 }}
-                className="size-4 rounded-full bg-emerald-500/30 hover:bg-emerald-500/50 flex items-center justify-center ml-0.5 cursor-pointer text-emerald-700 dark:text-emerald-300"
-                title="Clear album filter"
+                className="size-4 rounded-full bg-primary/20 hover:bg-primary/40 flex items-center justify-center ml-0.5 cursor-pointer text-primary"
+                title="Clear timeline year filter"
               >
                 <X className="size-2.5" />
               </span>
-            ) : availableAlbums.length > 0 ? (
-              <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-muted text-muted-foreground font-mono">
-                {availableAlbums.length}
-              </span>
-            ) : null}
+            )}
           </Button>
 
-          {/* Album Popover Card */}
-          {isAlbumMenuOpen && (
-            <div className="absolute top-11 left-0 z-50 w-72 sm:w-80 p-2.5 rounded-3xl backdrop-blur-2xl bg-background/95 dark:bg-neutral-900/95 border border-border/80 shadow-2xl animate-in fade-in zoom-in-95 duration-150 space-y-2 max-h-96 flex flex-col">
-              <div className="px-2 py-1 flex items-center justify-between border-b border-border/50 pb-2">
-                <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
-                  <FolderArchive className="size-3.5 text-emerald-500" />
-                  <span>Filter by Album</span>
-                </span>
-                <span className="text-[10px] text-muted-foreground font-medium">
-                  {availableAlbums.length} albums with GPS
-                </span>
-              </div>
+          {/* Admin Manage All Spots Button */}
+          {isAdmin && geoSpots.length > 0 && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setAllSpotsDialogOpen(true)}
+              className="h-9 px-3 text-xs rounded-2xl backdrop-blur-xl bg-background/80 dark:bg-neutral-900/80 border-border/70 shadow-xl gap-1.5 cursor-pointer hover:scale-105 transition-all text-emerald-600 dark:text-emerald-400 font-semibold shrink-0"
+              title="Open and manage all media map spots"
+            >
+              <ListFilter className="size-3.5 text-emerald-500 shrink-0" />
+              <span className="whitespace-nowrap">Manage Spots ({geoSpots.length})</span>
+            </Button>
+          )}
 
-              {availableAlbums.length > 3 && (
-                <div className="relative px-1">
-                  <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
-                  <Input
-                    type="text"
-                    placeholder="Search album name..."
-                    value={albumSearchQuery}
-                    onChange={(e) => setAlbumSearchQuery(e.target.value)}
-                    className="h-8 pl-8 pr-2 text-xs rounded-xl bg-muted/50 border-border/60"
-                  />
+          {/* Fit All Photos Button */}
+          {photos.length > 0 && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleFitAll}
+              className="h-9 px-3 text-xs rounded-2xl backdrop-blur-xl bg-background/80 dark:bg-neutral-900/80 border-border/70 shadow-xl gap-1.5 cursor-pointer hover:scale-105 transition-all shrink-0"
+              title="Fit view to show all mapped media"
+            >
+              <LocateFixed className="size-3.5 text-primary shrink-0" />
+              <span className="hidden sm:inline">View All</span>
+            </Button>
+          )}
+
+          {/* Locate User Current GPS Button */}
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={handleLocateUser}
+            disabled={locatingUser}
+            className={`h-9 px-3 text-xs rounded-2xl backdrop-blur-xl bg-background/80 dark:bg-neutral-900/80 border-border/70 shadow-xl gap-1.5 cursor-pointer hover:scale-105 active:scale-95 touch-manipulation select-none transition-all shrink-0 ${
+              userCoords ? "text-sky-500 border-sky-500/40 font-semibold ring-1 ring-sky-500/20" : ""
+            }`}
+            title="Center map on your current GPS location"
+          >
+            {locatingUser ? (
+              <Loader2 className="size-3.5 text-sky-500 animate-spin shrink-0" />
+            ) : (
+              <Navigation className={`size-3.5 shrink-0 ${userCoords ? "fill-sky-500 text-sky-500" : "text-sky-500"}`} />
+            )}
+            <span className="hidden sm:inline">
+              {locatingUser ? "Locating..." : userCoords ? "My Location" : "Locate Me"}
+            </span>
+          </Button>
+
+          {/* Admin Untagged Photos Notification Pill */}
+          {isAdmin && (
+            <>
+              {untaggedPhotos.length > 0 ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setUntaggedDialogOpen(true)}
+                  className="h-9 px-3 text-xs rounded-2xl backdrop-blur-xl bg-amber-500/10 dark:bg-amber-500/20 border-amber-500/35 text-amber-700 dark:text-amber-300 shadow-xl gap-1.5 cursor-pointer hover:bg-amber-500/25 transition-all hover:scale-105 shrink-0"
+                  title="Manage media missing GPS location coordinates"
+                >
+                  <AlertCircle className="size-3.5 text-amber-500 animate-bounce shrink-0" />
+                  <span className="font-bold whitespace-nowrap">{untaggedPhotos.length} Untagged</span>
+                </Button>
+              ) : (
+                <div className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 rounded-2xl backdrop-blur-xl bg-background/80 dark:bg-neutral-900/80 border border-emerald-500/30 text-emerald-500 text-xs font-semibold shadow-xl shrink-0">
+                  <CheckCircle2 className="size-3.5 shrink-0" />
+                  <span className="whitespace-nowrap">All Geotagged</span>
                 </div>
               )}
+            </>
+          )}
 
-              <div className="space-y-1 overflow-y-auto max-h-60 scrollbar-thin scrollbar-thumb-muted pr-1">
-                {/* All Albums Option */}
+          {/* Toggle Photos Drawer Button */}
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              setIsSidebarOpen((prev) => {
+                const next = !prev
+                if (next && typeof window !== "undefined" && window.innerWidth < 640) {
+                  setSelectedCluster(null)
+                }
+                return next
+              })
+            }}
+            className="h-9 px-3 text-xs rounded-2xl backdrop-blur-xl bg-background/80 dark:bg-neutral-900/80 border-border/70 shadow-xl gap-1.5 cursor-pointer shrink-0"
+          >
+            <Filter className="size-3.5 shrink-0" />
+            <span className="hidden sm:inline">{isSidebarOpen ? "Close Panel" : "Open Panel"}</span>
+          </Button>
+        </div>
+
+        {/* Sub-Row Underneath Buttons (Active Filter Pill on Left, Mobile Google Maps Style Layer Switcher on Right) */}
+        <div className="flex items-start justify-between gap-2 w-full pointer-events-none">
+          {/* Left: Active Filter Indicator Pill (Quick Reset Shortcut) */}
+          {hasActiveFilter && !isTimelineOpen ? (
+            <div className="pointer-events-auto animate-in fade-in slide-in-from-top-1 duration-150">
+              <div className="flex items-center gap-1.5 px-3 py-1 rounded-2xl backdrop-blur-xl bg-background/90 dark:bg-neutral-900/90 border border-emerald-500/30 shadow-lg text-xs">
+                <span className="size-2 rounded-full bg-emerald-500 animate-ping shrink-0" />
+                <span className="text-muted-foreground text-[11px]">Filtered:</span>
+                {selectedAlbum && (
+                  <span className="font-bold text-emerald-600 dark:text-emerald-400 text-[11px] truncate max-w-28 sm:max-w-40">
+                    {selectedAlbum.name}
+                  </span>
+                )}
+                {selectedAlbum && selectedYear !== "all" && <span className="text-muted-foreground text-[10px]">•</span>}
+                {selectedYear !== "all" && (
+                  <span className="font-bold text-primary text-[11px]">Year {selectedYear}</span>
+                )}
+                <span className="text-muted-foreground font-mono text-[10px]">({filteredPhotos.length})</span>
                 <button
                   type="button"
-                  onClick={() => {
-                    setSelectedAlbumId("all")
-                    setIsAlbumMenuOpen(false)
-                  }}
-                  className={`w-full flex items-center justify-between p-2 rounded-2xl transition-all text-left cursor-pointer border ${
-                    selectedAlbumId === "all"
-                      ? "bg-emerald-500/15 border-emerald-500/40 text-foreground ring-1 ring-emerald-500/30"
-                      : "border-transparent hover:bg-muted/60 text-muted-foreground hover:text-foreground"
-                  }`}
+                  onClick={handleResetFilters}
+                  className="size-4 rounded-full bg-muted hover:bg-muted-foreground/20 flex items-center justify-center ml-0.5 text-muted-foreground hover:text-foreground cursor-pointer transition-colors shrink-0"
+                  title="Reset all active filters"
                 >
-                  <div className="flex items-center gap-2 min-w-0">
-                    <div className="size-7 rounded-xl bg-emerald-500/15 text-emerald-500 flex items-center justify-center shrink-0">
-                      <FolderArchive className="size-3.5" />
-                    </div>
-                    <div className="min-w-0">
-                      <p className="font-bold text-xs leading-tight truncate">All Albums</p>
-                      <p className="text-[10px] text-muted-foreground truncate leading-tight mt-0.5">
-                        Show all geotagged photos ({photos.length})
-                      </p>
-                    </div>
-                  </div>
-                  {selectedAlbumId === "all" && (
-                    <div className="size-5 rounded-full bg-emerald-500 text-white flex items-center justify-center shrink-0 ml-1 shadow-xs">
-                      <Check className="size-3 stroke-[3]" />
-                    </div>
-                  )}
+                  <X className="size-2.5" />
                 </button>
+              </div>
+            </div>
+          ) : (
+            <div />
+          )}
 
-                {availableAlbums
-                  .filter((alb) =>
-                    !albumSearchQuery.trim() ||
-                    alb.name.toLowerCase().includes(albumSearchQuery.toLowerCase().trim())
-                  )
-                  .map((alb) => {
-                    const isActive = selectedAlbumId === alb.albumId
+          {/* Right: Google Maps Style Circular Layer Switcher Button (Mobile Only, floats right below top buttons) */}
+          <div ref={mobileLayerMenuRef} className="relative pointer-events-auto sm:hidden ml-auto shrink-0">
+            <button
+              type="button"
+              onClick={() => {
+                setIsLayerMenuOpen((prev) => !prev)
+                setIsAlbumMenuOpen(false)
+                setIsTimelineOpen(false)
+              }}
+              className={`size-11 rounded-full backdrop-blur-2xl border shadow-2xl flex items-center justify-center transition-all active:scale-90 cursor-pointer ${
+                isLayerMenuOpen
+                  ? "bg-primary text-primary-foreground border-primary ring-2 ring-primary/40 shadow-primary/30"
+                  : "bg-neutral-900/90 text-white border-white/20 hover:bg-neutral-800 shadow-black/40"
+              }`}
+              title="Change map style / layers"
+              aria-label="Change map style / layers"
+            >
+              <div className="relative flex items-center justify-center">
+                <Layers className="size-5" />
+                <span className="absolute -top-1.5 -right-1.5 text-[9px] font-black text-white leading-none">
+                  +
+                </span>
+              </div>
+            </button>
+
+            {/* Mobile Layer Selector Popover (Opens Downward to the left) */}
+            {isLayerMenuOpen && (
+              <div
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={(e) => e.stopPropagation()}
+                className="absolute top-13 right-0 z-50 w-72 p-2.5 rounded-3xl backdrop-blur-2xl bg-background/95 dark:bg-neutral-900/95 border border-border/80 shadow-2xl animate-in fade-in zoom-in-95 duration-150 space-y-1.5"
+              >
+                <div className="px-2 py-1 flex items-center justify-between border-b border-border/50 pb-2">
+                  <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                    <Globe className="size-3.5 text-primary" />
+                    <span>Map Styles & Layers</span>
+                  </span>
+                  <span className="text-[10px] text-muted-foreground font-medium">Google Maps</span>
+                </div>
+
+                <div className="space-y-1 pt-1">
+                  {MAP_STYLE_OPTIONS.map((opt) => {
+                    const isActive = opt.key === mapStyle
                     return (
                       <button
-                        key={alb.albumId}
+                        key={opt.key}
                         type="button"
-                        onClick={() => {
-                          setSelectedAlbumId(alb.albumId)
-                          setIsAlbumMenuOpen(false)
-                        }}
+                        onClick={() => handleSelectMapStyle(opt.key)}
                         className={`w-full flex items-center justify-between p-2 rounded-2xl transition-all text-left cursor-pointer border ${
                           isActive
                             ? "bg-emerald-500/15 border-emerald-500/40 text-foreground ring-1 ring-emerald-500/30"
                             : "border-transparent hover:bg-muted/60 text-muted-foreground hover:text-foreground"
                         }`}
                       >
-                        <div className="flex items-center gap-2 min-w-0">
-                          {alb.coverUrl ? (
-                            <img
-                              src={alb.coverUrl}
-                              alt=""
-                              className="size-7 rounded-xl object-cover shrink-0 border border-border/60"
-                              loading="lazy"
-                              decoding="async"
-                            />
-                          ) : (
-                            <div className="size-7 rounded-xl bg-muted flex items-center justify-center shrink-0 text-muted-foreground">
-                              <FolderArchive className="size-3.5" />
-                            </div>
-                          )}
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <span className="text-base shrink-0">{opt.icon}</span>
                           <div className="min-w-0">
-                            <p className="font-bold text-xs leading-tight truncate">{alb.name}</p>
+                            <p className="font-bold text-xs leading-tight truncate">{opt.label}</p>
                             <p className="text-[10px] text-muted-foreground truncate leading-tight mt-0.5">
-                              {alb.count} photos on map
+                              {opt.subtitle}
                             </p>
                           </div>
                         </div>
@@ -1734,341 +1917,180 @@ export default function PhotoMapView() {
                       </button>
                     )
                   })}
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Timeline / Year Scrubber Toggle Button (Saran No. 3) */}
-        <Button
-          type="button"
-          data-timeline-toggle
-          variant="outline"
-          size="sm"
-          onClick={() => {
-            setIsTimelineOpen((prev) => !prev)
-            setIsLayerMenuOpen(false)
-            setIsAlbumMenuOpen(false)
-          }}
-          className={`h-9 px-3 text-xs rounded-2xl backdrop-blur-xl border shadow-xl gap-1.5 cursor-pointer transition-all hover:scale-105 shrink-0 ${
-            selectedYear !== "all"
-              ? "bg-primary/20 border-primary text-primary font-bold ring-1 ring-primary/30"
-              : isTimelineOpen
-              ? "bg-primary/15 border-primary/50 text-primary"
-              : "bg-background/80 dark:bg-neutral-900/80 border-border/70"
-          }`}
-          title="Filter map photos by year timeline"
-        >
-          <Calendar className="size-3.5 text-primary shrink-0" />
-          <span className="font-semibold whitespace-nowrap">
-            {selectedYear === "all" ? "Timeline" : selectedYear}
-          </span>
-          {selectedYear !== "all" && (
-            <span
-              onClick={(e) => {
-                e.stopPropagation()
-                setSelectedYear("all")
-              }}
-              className="size-4 rounded-full bg-primary/20 hover:bg-primary/40 flex items-center justify-center ml-0.5 cursor-pointer text-primary"
-              title="Clear timeline year filter"
-            >
-              <X className="size-2.5" />
-            </span>
-          )}
-        </Button>
-
-        {/* Admin Manage All Spots Button */}
-        {isAdmin && geoSpots.length > 0 && (
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => setAllSpotsDialogOpen(true)}
-            className="h-9 px-3 text-xs rounded-2xl backdrop-blur-xl bg-background/80 dark:bg-neutral-900/80 border-border/70 shadow-xl gap-1.5 cursor-pointer hover:scale-105 transition-all text-emerald-600 dark:text-emerald-400 font-semibold shrink-0"
-            title="Open and manage all media map spots"
-          >
-            <ListFilter className="size-3.5 text-emerald-500 shrink-0" />
-            <span className="whitespace-nowrap">Manage Spots ({geoSpots.length})</span>
-          </Button>
-        )}
-
-        {/* Fit All Photos Button */}
-        {photos.length > 0 && (
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={handleFitAll}
-            className="h-9 px-3 text-xs rounded-2xl backdrop-blur-xl bg-background/80 dark:bg-neutral-900/80 border-border/70 shadow-xl gap-1.5 cursor-pointer hover:scale-105 transition-all shrink-0"
-            title="Fit view to show all mapped media"
-          >
-            <LocateFixed className="size-3.5 text-primary shrink-0" />
-            <span className="hidden sm:inline">View All</span>
-          </Button>
-        )}
-
-        {/* Locate User Current GPS Button */}
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={handleLocateUser}
-          disabled={locatingUser}
-          className={`h-9 px-3 text-xs rounded-2xl backdrop-blur-xl bg-background/80 dark:bg-neutral-900/80 border-border/70 shadow-xl gap-1.5 cursor-pointer hover:scale-105 active:scale-95 touch-manipulation select-none transition-all shrink-0 ${
-            userCoords ? "text-sky-500 border-sky-500/40 font-semibold ring-1 ring-sky-500/20" : ""
-          }`}
-          title="Center map on your current GPS location"
-        >
-          {locatingUser ? (
-            <Loader2 className="size-3.5 text-sky-500 animate-spin shrink-0" />
-          ) : (
-            <Navigation className={`size-3.5 shrink-0 ${userCoords ? "fill-sky-500 text-sky-500" : "text-sky-500"}`} />
-          )}
-          <span className="hidden sm:inline">
-            {locatingUser ? "Locating..." : userCoords ? "My Location" : "Locate Me"}
-          </span>
-        </Button>
-
-        {/* Admin Untagged Photos Notification Pill */}
-        {isAdmin && (
-          <>
-            {untaggedPhotos.length > 0 ? (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setUntaggedDialogOpen(true)}
-                className="h-9 px-3 text-xs rounded-2xl backdrop-blur-xl bg-amber-500/10 dark:bg-amber-500/20 border-amber-500/35 text-amber-700 dark:text-amber-300 shadow-xl gap-1.5 cursor-pointer hover:bg-amber-500/25 transition-all hover:scale-105 shrink-0"
-                title="Manage media missing GPS location coordinates"
-              >
-                <AlertCircle className="size-3.5 text-amber-500 animate-bounce shrink-0" />
-                <span className="font-bold whitespace-nowrap">{untaggedPhotos.length} Untagged</span>
-              </Button>
-            ) : (
-              <div className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 rounded-2xl backdrop-blur-xl bg-background/80 dark:bg-neutral-900/80 border border-emerald-500/30 text-emerald-500 text-xs font-semibold shadow-xl shrink-0">
-                <CheckCircle2 className="size-3.5 shrink-0" />
-                <span className="whitespace-nowrap">All Geotagged</span>
+                </div>
               </div>
             )}
-          </>
-        )}
-
-        {/* Toggle Photos Drawer Button */}
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={() => {
-            setIsSidebarOpen((prev) => {
-              const next = !prev
-              if (next && typeof window !== "undefined" && window.innerWidth < 640) {
-                setSelectedCluster(null)
-              }
-              return next
-            })
-          }}
-          className="h-9 px-3 text-xs rounded-2xl backdrop-blur-xl bg-background/80 dark:bg-neutral-900/80 border-border/70 shadow-xl gap-1.5 cursor-pointer shrink-0"
-        >
-          <Filter className="size-3.5 shrink-0" />
-          <span className="hidden sm:inline">{isSidebarOpen ? "Close Panel" : "Open Panel"}</span>
-        </Button>
-      </div>
-
-      {/* Active Filter Indicator Pill (Quick Reset Shortcut) */}
-      {hasActiveFilter && !isTimelineOpen && (
-        <div className="absolute top-15 left-3 sm:left-4 z-20 animate-in fade-in slide-in-from-top-1 duration-150 pointer-events-auto">
-          <div className="flex items-center gap-1.5 px-3 py-1 rounded-2xl backdrop-blur-xl bg-background/90 dark:bg-neutral-900/90 border border-emerald-500/30 shadow-lg text-xs">
-            <span className="size-2 rounded-full bg-emerald-500 animate-ping shrink-0" />
-            <span className="text-muted-foreground text-[11px]">Filtered:</span>
-            {selectedAlbum && (
-              <span className="font-bold text-emerald-600 dark:text-emerald-400 text-[11px] truncate max-w-28 sm:max-w-40">
-                {selectedAlbum.name}
-              </span>
-            )}
-            {selectedAlbum && selectedYear !== "all" && <span className="text-muted-foreground text-[10px]">•</span>}
-            {selectedYear !== "all" && (
-              <span className="font-bold text-primary text-[11px]">Year {selectedYear}</span>
-            )}
-            <span className="text-muted-foreground font-mono text-[10px]">({filteredPhotos.length})</span>
-            <button
-              type="button"
-              onClick={handleResetFilters}
-              className="size-4 rounded-full bg-muted hover:bg-muted-foreground/20 flex items-center justify-center ml-0.5 text-muted-foreground hover:text-foreground cursor-pointer transition-colors shrink-0"
-              title="Reset all active filters"
-            >
-              <X className="size-2.5" />
-            </button>
           </div>
         </div>
-      )}
 
-      {/* Floating Timeline Scrubber Bar (Saran No. 3) */}
-      {isTimelineOpen && (
-        <div
-          ref={timelineRef}
-          className="absolute top-15 left-3 right-3 sm:left-4 sm:right-auto sm:w-96 md:w-[480px] z-25 backdrop-blur-2xl bg-background/95 dark:bg-neutral-900/95 border border-border/80 rounded-3xl p-3 sm:p-3.5 shadow-2xl animate-in fade-in slide-in-from-top-2 duration-200 pointer-events-auto space-y-2.5"
-        >
-          <div className="flex items-center justify-between border-b border-border/50 pb-2">
-            <div className="flex items-center gap-2 min-w-0">
-              <div className="size-6 rounded-lg bg-primary/15 text-primary flex items-center justify-center shrink-0">
-                <Calendar className="size-3.5" />
+        {/* Floating Timeline Scrubber Bar (Saran No. 3) */}
+        {isTimelineOpen && (
+          <div
+            ref={timelineRef}
+            className="pointer-events-auto w-full sm:w-[420px] md:w-[480px] z-25 backdrop-blur-2xl bg-background/95 dark:bg-neutral-900/95 border border-border/80 rounded-3xl p-3 sm:p-3.5 shadow-2xl animate-in fade-in slide-in-from-top-2 duration-200 space-y-2.5"
+          >
+            <div className="flex items-center justify-between border-b border-border/50 pb-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <div className="size-6 rounded-lg bg-primary/15 text-primary flex items-center justify-center shrink-0">
+                  <Calendar className="size-3.5" />
+                </div>
+                <span className="text-xs font-bold text-foreground truncate">Timeline Scrubber</span>
+                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-primary/15 text-primary border border-primary/30 truncate">
+                  {selectedYear === "all"
+                    ? `All Years (${photos.length} items)`
+                    : `${selectedYear} (${availableYears.counts.get(selectedYear) || 0} items)`}
+                </span>
               </div>
-              <span className="text-xs font-bold text-foreground truncate">Timeline Scrubber</span>
-              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-primary/15 text-primary border border-primary/30 truncate">
-                {selectedYear === "all"
-                  ? `All Years (${photos.length} items)`
-                  : `${selectedYear} (${availableYears.counts.get(selectedYear) || 0} items)`}
-              </span>
-            </div>
-            <div className="flex items-center gap-1 shrink-0">
-              {selectedYear !== "all" && (
+              <div className="flex items-center gap-1 shrink-0">
+                {selectedYear !== "all" && (
+                  <button
+                    type="button"
+                    onClick={() => setSelectedYear("all")}
+                    className="text-[10px] font-semibold text-muted-foreground hover:text-foreground px-2 py-0.5 rounded-lg hover:bg-muted cursor-pointer transition-colors"
+                  >
+                    Reset
+                  </button>
+                )}
                 <button
                   type="button"
-                  onClick={() => setSelectedYear("all")}
-                  className="text-[10px] font-semibold text-muted-foreground hover:text-foreground px-2 py-0.5 rounded-lg hover:bg-muted cursor-pointer transition-colors"
+                  onClick={() => setIsTimelineOpen(false)}
+                  className="p-1 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted cursor-pointer transition-colors"
+                  title="Close Timeline"
                 >
-                  Reset
+                  <X className="size-3.5" />
                 </button>
-              )}
+              </div>
+            </div>
+
+            {/* Interactive Range Slider */}
+            {availableYears.years.length > 1 && (
+              <div className="space-y-1 px-1">
+                <div className="flex items-center justify-between text-[11px] text-muted-foreground font-medium">
+                  <span>{availableYears.minYear}</span>
+                  <span className="font-bold text-primary">
+                    {selectedYear === "all" ? "Showing All Years" : `Year ${selectedYear}`}
+                  </span>
+                  <span>{availableYears.maxYear}</span>
+                </div>
+                <input
+                  type="range"
+                  min={0}
+                  max={availableYears.years.length}
+                  value={selectedYear === "all" ? 0 : availableYears.years.indexOf(selectedYear) + 1}
+                  onChange={(e) => {
+                    const val = Number(e.target.value)
+                    if (val === 0) {
+                      setSelectedYear("all")
+                    } else {
+                      setSelectedYear(availableYears.years[val - 1])
+                    }
+                  }}
+                  className="w-full accent-primary cursor-pointer h-2 bg-muted rounded-lg"
+                />
+              </div>
+            )}
+
+            {/* Quick Year Selector Chips */}
+            <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none py-0.5">
               <button
                 type="button"
-                onClick={() => setIsTimelineOpen(false)}
-                className="p-1 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted cursor-pointer transition-colors"
-                title="Close Timeline"
+                onClick={() => setSelectedYear("all")}
+                className={`px-2.5 py-1 rounded-xl text-[11px] font-bold transition-all shrink-0 cursor-pointer ${
+                  selectedYear === "all"
+                    ? "bg-primary text-primary-foreground shadow-sm shadow-primary/25"
+                    : "bg-muted/70 text-muted-foreground hover:text-foreground hover:bg-muted"
+                }`}
+              >
+                All Years ({photos.length})
+              </button>
+              {availableYears.descYears.map((yr) => {
+                const count = availableYears.counts.get(yr) || 0
+                const isCurrent = selectedYear === yr
+                return (
+                  <button
+                    key={yr}
+                    type="button"
+                    onClick={() => setSelectedYear(yr)}
+                    className={`px-2.5 py-1 rounded-xl text-[11px] font-bold transition-all shrink-0 cursor-pointer ${
+                      isCurrent
+                        ? "bg-primary text-primary-foreground shadow-sm shadow-primary/25"
+                        : "bg-muted/70 text-muted-foreground hover:text-foreground hover:bg-muted"
+                    }`}
+                  >
+                    {yr} ({count})
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Non-intrusive Location Prompt Banner on Initial Map Visit */}
+        {showLocationPrompt && !userCoords && (
+          <div className="pointer-events-auto w-full sm:w-auto sm:max-w-md z-20 animate-in fade-in slide-in-from-top-2 duration-200">
+            <div className="p-3.5 sm:p-4 rounded-3xl backdrop-blur-2xl bg-background/95 dark:bg-neutral-900/95 border border-sky-500/30 shadow-2xl flex items-start gap-3">
+              <div className="size-9 rounded-2xl bg-sky-500/15 text-sky-500 flex items-center justify-center shrink-0 mt-0.5 shadow-sm border border-sky-500/20">
+                <Navigation className="size-4.5 fill-sky-500" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2 mb-1 flex-wrap">
+                  <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-sky-500/15 text-sky-600 dark:text-sky-400 border border-sky-500/25">
+                    Interactive Map
+                  </span>
+                  <span className="text-[10px] text-muted-foreground font-medium flex items-center gap-1">
+                    <ShieldCheck className="size-3 text-emerald-500" /> Strictly Private
+                  </span>
+                </div>
+                <p className="text-xs font-bold text-foreground leading-snug">
+                  Enabling location unlocks an exciting experience while exploring this website
+                </p>
+                <p className="text-[11px] text-muted-foreground leading-relaxed mt-1">
+                  Your location is used solely to enhance interactive features like discovering photos taken near you and calculating distances. Your location data is strictly private and will never be shared with or disclosed to anyone.
+                </p>
+                <div className="flex items-center gap-2 mt-2.5">
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={handleEnableLocationFromPrompt}
+                    disabled={locatingUser}
+                    className="h-7.5 px-3 text-[11px] font-semibold rounded-xl bg-sky-500 hover:bg-sky-600 text-white shadow-md shadow-sky-500/20 transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
+                  >
+                    {locatingUser ? (
+                      <>
+                        <Loader2 className="size-3 animate-spin mr-1.5" />
+                        <span>Locating...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Navigation className="size-3 fill-white mr-1.5" />
+                        <span>Enable Location</span>
+                      </>
+                    )}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleDismissLocationPrompt}
+                    className="h-7.5 px-2.5 text-[11px] text-muted-foreground hover:text-foreground cursor-pointer rounded-xl"
+                  >
+                    Maybe Later
+                  </Button>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={handleDismissLocationPrompt}
+                className="text-muted-foreground hover:text-foreground p-1 rounded-lg cursor-pointer transition-colors hover:bg-foreground/5"
+                title="Dismiss notification"
+                aria-label="Dismiss notification"
               >
                 <X className="size-3.5" />
               </button>
             </div>
           </div>
-
-          {/* Interactive Range Slider */}
-          {availableYears.years.length > 1 && (
-            <div className="space-y-1 px-1">
-              <div className="flex items-center justify-between text-[11px] text-muted-foreground font-medium">
-                <span>{availableYears.minYear}</span>
-                <span className="font-bold text-primary">
-                  {selectedYear === "all" ? "Showing All Years" : `Year ${selectedYear}`}
-                </span>
-                <span>{availableYears.maxYear}</span>
-              </div>
-              <input
-                type="range"
-                min={0}
-                max={availableYears.years.length}
-                value={selectedYear === "all" ? 0 : availableYears.years.indexOf(selectedYear) + 1}
-                onChange={(e) => {
-                  const val = Number(e.target.value)
-                  if (val === 0) {
-                    setSelectedYear("all")
-                  } else {
-                    setSelectedYear(availableYears.years[val - 1])
-                  }
-                }}
-                className="w-full accent-primary cursor-pointer h-2 bg-muted rounded-lg"
-              />
-            </div>
-          )}
-
-          {/* Quick Year Selector Chips */}
-          <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none py-0.5">
-            <button
-              type="button"
-              onClick={() => setSelectedYear("all")}
-              className={`px-2.5 py-1 rounded-xl text-[11px] font-bold transition-all shrink-0 cursor-pointer ${
-                selectedYear === "all"
-                  ? "bg-primary text-primary-foreground shadow-sm shadow-primary/25"
-                  : "bg-muted/70 text-muted-foreground hover:text-foreground hover:bg-muted"
-              }`}
-            >
-              All Years ({photos.length})
-            </button>
-            {availableYears.descYears.map((yr) => {
-              const count = availableYears.counts.get(yr) || 0
-              const isCurrent = selectedYear === yr
-              return (
-                <button
-                  key={yr}
-                  type="button"
-                  onClick={() => setSelectedYear(yr)}
-                  className={`px-2.5 py-1 rounded-xl text-[11px] font-bold transition-all shrink-0 cursor-pointer ${
-                    isCurrent
-                      ? "bg-primary text-primary-foreground shadow-sm shadow-primary/25"
-                      : "bg-muted/70 text-muted-foreground hover:text-foreground hover:bg-muted"
-                  }`}
-                >
-                  {yr} ({count})
-                </button>
-              )
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Non-intrusive Location Prompt Banner on Initial Map Visit */}
-      {showLocationPrompt && !userCoords && (
-        <div className="absolute top-18 sm:top-18 left-4 right-4 sm:left-4 sm:right-auto sm:max-w-md z-20 animate-in fade-in slide-in-from-top-3 duration-200 pointer-events-auto">
-          <div className="p-3.5 sm:p-4 rounded-3xl backdrop-blur-2xl bg-background/95 dark:bg-neutral-900/95 border border-sky-500/30 shadow-2xl flex items-start gap-3">
-            <div className="size-9 rounded-2xl bg-sky-500/15 text-sky-500 flex items-center justify-center shrink-0 mt-0.5 shadow-sm border border-sky-500/20">
-              <Navigation className="size-4.5 fill-sky-500" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2 mb-1 flex-wrap">
-                <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-sky-500/15 text-sky-600 dark:text-sky-400 border border-sky-500/25">
-                  Interactive Map
-                </span>
-                <span className="text-[10px] text-muted-foreground font-medium flex items-center gap-1">
-                  <ShieldCheck className="size-3 text-emerald-500" /> Strictly Private
-                </span>
-              </div>
-              <p className="text-xs font-bold text-foreground leading-snug">
-                Enabling location unlocks an exciting experience while exploring this website
-              </p>
-              <p className="text-[11px] text-muted-foreground leading-relaxed mt-1">
-                Your location is used solely to enhance interactive features like discovering photos taken near you and calculating distances. Your location data is strictly private and will never be shared with or disclosed to anyone.
-              </p>
-              <div className="flex items-center gap-2 mt-2.5">
-                <Button
-                  type="button"
-                  size="sm"
-                  onClick={handleEnableLocationFromPrompt}
-                  disabled={locatingUser}
-                  className="h-7.5 px-3 text-[11px] font-semibold rounded-xl bg-sky-500 hover:bg-sky-600 text-white shadow-md shadow-sky-500/20 transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
-                >
-                  {locatingUser ? (
-                    <>
-                      <Loader2 className="size-3 animate-spin mr-1.5" />
-                      <span>Locating...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Navigation className="size-3 fill-white mr-1.5" />
-                      <span>Enable Location</span>
-                    </>
-                  )}
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleDismissLocationPrompt}
-                  className="h-7.5 px-2.5 text-[11px] text-muted-foreground hover:text-foreground cursor-pointer rounded-xl"
-                >
-                  Maybe Later
-                </Button>
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={handleDismissLocationPrompt}
-              className="text-muted-foreground hover:text-foreground p-1 rounded-lg cursor-pointer transition-colors hover:bg-foreground/5"
-              title="Dismiss notification"
-              aria-label="Dismiss notification"
-            >
-              <X className="size-3.5" />
-            </button>
-          </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Floating Photo Preview Card (When a marker/spot is clicked) */}
       {selectedCluster && currentPhoto && (
@@ -2842,6 +2864,91 @@ export default function PhotoMapView() {
           )}
         </div>
       )}
+
+      {/* Desktop Google Maps Style / Layer Switcher (Bottom-Left Corner) */}
+      <div
+        ref={layerMenuRef}
+        className={`hidden sm:block absolute left-5 z-20 transition-all duration-300 pointer-events-auto ${
+          isSidebarOpen ? "bottom-58" : "bottom-5"
+        }`}
+      >
+        <button
+          type="button"
+          onClick={() => {
+            setIsLayerMenuOpen((prev) => !prev)
+            setIsAlbumMenuOpen(false)
+            setIsTimelineOpen(false)
+          }}
+          className={`h-11 px-3.5 rounded-2xl backdrop-blur-2xl border shadow-2xl flex items-center gap-2.5 cursor-pointer transition-all hover:scale-105 active:scale-95 group ${
+            isLayerMenuOpen
+              ? "bg-primary text-primary-foreground border-primary ring-2 ring-primary/40 shadow-primary/30"
+              : "bg-background/90 dark:bg-neutral-900/90 border-border/80 text-foreground hover:bg-background"
+          }`}
+          title="Switch map layer (Google Streets, Satellite, Terrain, Dark Mode)"
+        >
+          <div className="size-6 rounded-xl bg-emerald-500/15 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
+            <Layers className="size-4" />
+          </div>
+          <div className="flex flex-col text-left">
+            <span className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground leading-none">
+              Layers
+            </span>
+            <span className="text-xs font-bold leading-tight mt-0.5 truncate max-w-28">
+              {currentMapStyleOption.label}
+            </span>
+          </div>
+        </button>
+
+        {/* Desktop Layer Selector Popover (Opens Upward) */}
+        {isLayerMenuOpen && (
+          <div
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
+            className="absolute bottom-full mb-2.5 left-0 z-50 w-72 p-2.5 rounded-3xl backdrop-blur-2xl bg-background/95 dark:bg-neutral-900/95 border border-border/80 shadow-2xl animate-in fade-in slide-in-from-bottom-2 duration-150 space-y-1.5"
+          >
+            <div className="px-2 py-1 flex items-center justify-between border-b border-border/50 pb-2">
+              <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                <Globe className="size-3.5 text-primary" />
+                <span>Map Styles & Layers</span>
+              </span>
+              <span className="text-[10px] text-muted-foreground font-medium">Google Maps</span>
+            </div>
+
+            <div className="space-y-1 pt-1">
+              {MAP_STYLE_OPTIONS.map((opt) => {
+                const isActive = opt.key === mapStyle
+                return (
+                  <button
+                    key={opt.key}
+                    type="button"
+                    onClick={() => handleSelectMapStyle(opt.key)}
+                    className={`w-full flex items-center justify-between p-2 rounded-2xl transition-all text-left cursor-pointer border ${
+                      isActive
+                        ? "bg-emerald-500/15 border-emerald-500/40 text-foreground ring-1 ring-emerald-500/30"
+                        : "border-transparent hover:bg-muted/60 text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <span className="text-base shrink-0">{opt.icon}</span>
+                      <div className="min-w-0">
+                        <p className="font-bold text-xs leading-tight truncate">{opt.label}</p>
+                        <p className="text-[10px] text-muted-foreground truncate leading-tight mt-0.5">
+                          {opt.subtitle}
+                        </p>
+                      </div>
+                    </div>
+                    {isActive && (
+                      <div className="size-5 rounded-full bg-emerald-500 text-white flex items-center justify-center shrink-0 ml-1 shadow-xs">
+                        <Check className="size-3 stroke-[3]" />
+                      </div>
+                    )}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* Admin All Spots Management Dialog */}
       {isAdmin && (
