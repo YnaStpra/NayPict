@@ -538,6 +538,7 @@ export function PhotoInfoSidebar({
                 exit={{ opacity: 0, y: -6 }}
                 transition={{ duration: 0.18, ease: "easeOut" }}
                 ref={infoScrollRef}
+                data-lenis-prevent
                 className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-4 py-3 pb-32 space-y-4 overscroll-contain pointer-events-auto touch-pan-y"
                 style={{ touchAction: "pan-y" }}
               >
