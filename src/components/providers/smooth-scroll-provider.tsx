@@ -65,14 +65,27 @@ export function SmoothScrollProvider({ children }: SmoothScrollProviderProps) {
         touchMultiplier: 1.0,
         autoResize: true,
         prevent: (node) => {
-          // Allow normal inner scrolling inside dialogs, dropdowns, and sidebars
-          return Boolean(
-            node.hasAttribute("data-lenis-prevent") ||
-            node.closest("[data-lenis-prevent]") ||
-            node.closest('[data-slot="dialog-content"]') ||
-            node.closest('[role="dialog"]') ||
-            node.closest(".no-scrollbar")
-          )
+          if (!node || typeof (node as Element).closest !== "function") return false
+          const el = node as HTMLElement
+
+          // Allow normal inner scrolling inside elements explicitly preventing lenis,
+          // dialogs, dropdowns, sidebars, or any container with active scrollable overflow
+          if (
+            el.hasAttribute("data-lenis-prevent") ||
+            el.closest("[data-lenis-prevent]") ||
+            el.closest('[data-slot="dialog-content"]') ||
+            el.closest('[role="dialog"]') ||
+            el.closest(".no-scrollbar")
+          ) {
+            return true
+          }
+
+          const scrollable = el.closest(".overflow-y-auto, .overflow-auto, [data-scrollable]")
+          if (scrollable && scrollable.scrollHeight > scrollable.clientHeight) {
+            return true
+          }
+
+          return false
         },
       }}
     >

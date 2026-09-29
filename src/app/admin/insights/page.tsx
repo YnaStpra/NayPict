@@ -888,13 +888,16 @@ export default function AdminInsightsPage() {
                       </div>
                     </div>
                   </CardHeader>
-                  <CardContent className="p-5 pt-0 flex-1">
+                  <CardContent className="p-5 pt-0 flex-1 min-h-0">
                     {sortedViewedPhotos.length === 0 ? (
                       <div className="py-12 text-center text-xs text-muted-foreground">
                         No public media views recorded yet.
                       </div>
                     ) : (
-                      <div className="max-h-[580px] overflow-y-auto divide-y divide-border/50 pr-1.5 scrollbar-thin scrollbar-thumb-muted-foreground/20 hover:scrollbar-thumb-muted-foreground/30">
+                      <div
+                        data-lenis-prevent
+                        className="max-h-[580px] overflow-y-auto overscroll-contain divide-y divide-border/50 pr-1.5 touch-pan-y scrollbar-thin scrollbar-thumb-muted-foreground/20 hover:scrollbar-thumb-muted-foreground/30"
+                      >
                         {sortedViewedPhotos.map((photo, index) => (
                           <div
                             key={photo.photoId}
@@ -972,13 +975,16 @@ export default function AdminInsightsPage() {
                       Media with highest community responses
                     </CardDescription>
                   </CardHeader>
-                  <CardContent className="p-5 pt-0 flex-1">
+                  <CardContent className="p-5 pt-0 flex-1 min-h-0">
                     {topPhotos.mostCommented.length === 0 ? (
                       <div className="py-12 text-center text-xs text-muted-foreground">
                         No commented media recorded yet.
                       </div>
                     ) : (
-                      <div className="max-h-[580px] overflow-y-auto divide-y divide-border/50 pr-1.5 scrollbar-thin scrollbar-thumb-muted-foreground/20 hover:scrollbar-thumb-muted-foreground/30">
+                      <div
+                        data-lenis-prevent
+                        className="max-h-[580px] overflow-y-auto overscroll-contain divide-y divide-border/50 pr-1.5 touch-pan-y scrollbar-thin scrollbar-thumb-muted-foreground/20 hover:scrollbar-thumb-muted-foreground/30"
+                      >
                         {topPhotos.mostCommented.map((photo, index) => (
                           <div
                             key={photo.photoId}

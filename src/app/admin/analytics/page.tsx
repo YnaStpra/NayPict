@@ -1269,7 +1269,10 @@ export default function VisitorAnalyticsPage() {
                   </h4>
 
                   {sessionDetail.activities.length > 0 ? (
-                    <div className="space-y-2.5 overflow-y-auto flex-1 min-h-0 max-h-[280px] sm:max-h-[360px] pr-1.5 scrollbar-thin">
+                    <div
+                      data-lenis-prevent
+                      className="space-y-2.5 overflow-y-auto overscroll-contain flex-1 min-h-0 max-h-[280px] sm:max-h-[360px] pr-1.5 scrollbar-thin touch-pan-y"
+                    >
                       {sessionDetail.activities.map((item, idx) => (
                         <div
                           key={item.id}
