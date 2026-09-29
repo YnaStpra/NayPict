@@ -82,8 +82,9 @@ export type MapStyleKey =
   | "google-streets"
   | "google-hybrid"
   | "google-terrain"
-  | "carto-dark"
+  | "osm-standard"
   | "carto-light"
+  | "carto-dark"
 
 export interface MapStyleOption {
   key: MapStyleKey
@@ -128,13 +129,13 @@ export const MAP_STYLE_OPTIONS: MapStyleOption[] = [
     maxZoom: 20,
   },
   {
-    key: "carto-dark",
-    label: "Dark Mode",
-    subtitle: "High-contrast dark night mode (CartoDB)",
-    icon: "🌙",
-    badge: "Dark",
-    tileUrl: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
-    subdomains: "abcd",
+    key: "osm-standard",
+    label: "OpenStreetMap",
+    subtitle: "Global open community crowdsourced mapping",
+    icon: "🌐",
+    badge: "Open",
+    tileUrl: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+    subdomains: ["a", "b", "c"],
     maxZoom: 19,
   },
   {
@@ -144,6 +145,16 @@ export const MAP_STYLE_OPTIONS: MapStyleOption[] = [
     icon: "☀️",
     badge: "Light",
     tileUrl: "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",
+    subdomains: "abcd",
+    maxZoom: 19,
+  },
+  {
+    key: "carto-dark",
+    label: "Dark Mode",
+    subtitle: "High-contrast dark night mode (CartoDB)",
+    icon: "🌙",
+    badge: "Dark",
+    tileUrl: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
     subdomains: "abcd",
     maxZoom: 19,
   },
@@ -275,6 +286,112 @@ function computeScreenClusters(
   }
 
   return clusters
+}
+
+// Create a resilient Leaflet TileLayer that rotates through subdomains upon tile error,
+// retries with exponential backoff and cache-busting, and gracefully falls back to high-availability CDN.
+function createResilientTileLayer(
+  L: any,
+  styleOption: MapStyleOption
+): LType.TileLayer {
+  const ResilientTileLayer = L.TileLayer.extend({
+    createTile(coords: LType.Coords, done: (error?: Error, tile?: HTMLImageElement) => void) {
+      const tile = document.createElement("img")
+      tile.alt = ""
+      tile.setAttribute("role", "presentation")
+      tile.crossOrigin = "anonymous"
+
+      let retryCount = 0
+      const maxRetries = 3
+      const subdomainsList: string[] = Array.isArray(this.options.subdomains)
+        ? this.options.subdomains
+        : typeof this.options.subdomains === "string"
+        ? this.options.subdomains.split("")
+        : ["0", "1", "2", "3"]
+
+      let currentSubdomainIndex = Math.abs(coords.x + coords.y) % subdomainsList.length
+
+      const getUrl = (subdomainIdx: number, retry: number) => {
+        const s = subdomainsList[subdomainIdx % subdomainsList.length]
+        const z = typeof this._getZoomForUrl === "function" ? this._getZoomForUrl() : coords.z
+        let url = L.Util.template(this._url, {
+          ...coords,
+          x: coords.x,
+          y: coords.y,
+          z,
+          s,
+          r: this.options.detectRetina && L.Browser?.retina && this.options.maxZoom ? "@2x" : "",
+        })
+        if (retry > 0) {
+          url += (url.includes("?") ? "&" : "?") + `_r=${retry}&_t=${Date.now()}`
+        }
+        return url
+      }
+
+      const getFallbackUrl = () => {
+        const key = styleOption.key
+        if (key === "google-hybrid") {
+          return `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${coords.z}/${coords.y}/${coords.x}`
+        }
+        if (key === "google-terrain") {
+          return `https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/${coords.z}/${coords.y}/${coords.x}`
+        }
+        if (key === "carto-dark") {
+          return `https://a.basemaps.cartocdn.com/dark_all/${coords.z}/${coords.x}/${coords.y}.png`
+        }
+        return `https://a.basemaps.cartocdn.com/rastertiles/voyager/${coords.z}/${coords.x}/${coords.y}.png`
+      }
+
+      let isDone = false
+
+      const onLoad = () => {
+        if (!isDone) {
+          isDone = true
+          done(undefined, tile)
+        }
+      }
+
+      const onError = () => {
+        if (isDone) return
+
+        if (retryCount < maxRetries) {
+          retryCount++
+          // Deterministic modulo failed; rotate to alternate subdomain (e.g. mt0 -> mt1 -> mt2 -> mt3)
+          currentSubdomainIndex = (currentSubdomainIndex + 1) % subdomainsList.length
+          const delay = retryCount * 250 // 250ms, 500ms, 750ms backoff
+          setTimeout(() => {
+            if (!isDone) {
+              tile.src = getUrl(currentSubdomainIndex, retryCount)
+            }
+          }, delay)
+        } else {
+          // If all retries to primary tile server failed, fallback to high-availability CDN
+          const fallback = getFallbackUrl()
+          if (tile.src !== fallback) {
+            tile.src = fallback
+          } else {
+            isDone = true
+            done(new Error("Tile load failed after all retries and fallback"), tile)
+          }
+        }
+      }
+
+      tile.addEventListener("load", onLoad)
+      tile.addEventListener("error", onError)
+
+      tile.src = getUrl(currentSubdomainIndex, 0)
+      return tile
+    },
+  })
+
+  return new ResilientTileLayer(styleOption.tileUrl, {
+    maxZoom: styleOption.maxZoom,
+    subdomains: styleOption.subdomains,
+    keepBuffer: 8,
+    updateWhenIdle: false,
+    updateWhenZooming: false,
+    crossOrigin: "anonymous",
+  })
 }
 
 export default function PhotoMapView() {
@@ -582,10 +699,7 @@ export default function PhotoMapView() {
       L.control.zoom({ position: "bottomright" }).addTo(map)
 
       const initialStyle = styleRef.current
-      const tileLayer = L.tileLayer(initialStyle.tileUrl, {
-        maxZoom: initialStyle.maxZoom,
-        subdomains: initialStyle.subdomains,
-      }).addTo(map)
+      const tileLayer = createResilientTileLayer(L, initialStyle).addTo(map)
       tileLayerRef.current = tileLayer
 
       const markersLayer = L.layerGroup().addTo(map)
@@ -623,10 +737,7 @@ export default function PhotoMapView() {
         mapInstanceRef.current.removeLayer(tileLayerRef.current)
       }
 
-      const newTileLayer = L.tileLayer(currentMapStyleOption.tileUrl, {
-        maxZoom: currentMapStyleOption.maxZoom,
-        subdomains: currentMapStyleOption.subdomains,
-      }).addTo(mapInstanceRef.current)
+      const newTileLayer = createResilientTileLayer(L, currentMapStyleOption).addTo(mapInstanceRef.current)
 
       // Ensure tile layer stays beneath the markers
       newTileLayer.bringToBack()
