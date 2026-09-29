@@ -2,7 +2,7 @@
 // Provides Google Photos / iCloud-style 0ms media caching, background revalidation, and offline resilience.
 
 const CACHE_NAME = 'naypict-static-v2';
-const MEDIA_CACHE_NAME = 'naypict-media-v2';
+const MEDIA_CACHE_NAME = 'naypict-media-v3';
 const API_CACHE_NAME = 'naypict-api-v1';
 
 const PRECACHE_ASSETS = [
@@ -126,11 +126,24 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // Explicitly ignore external map tiles (Google Maps, OpenStreetMap, CARTO, ESRI ArcGIS)
+  // Let the browser's native HTTP cache, subdomains, and CDN headers handle map tiles directly.
+  const isExternalMapTile =
+    url.hostname.includes('google.com') ||
+    url.hostname.includes('googleapis.com') ||
+    url.hostname.includes('cartocdn.com') ||
+    url.hostname.includes('openstreetmap.org') ||
+    url.hostname.includes('arcgisonline.com');
+
+  if (isExternalMapTile) {
+    return;
+  }
+
   // 1. Photo Media, Thumbnails & Derivative Images (CDN edge & local proxy):
   // True Cache-First for immutable thumbnails & previews: 0ms instant display without network lag
   const isMediaRequest =
     url.pathname.startsWith('/media/') ||
-    request.destination === 'image' ||
+    (request.destination === 'image' && (url.origin === self.location.origin || url.hostname.includes('workers.dev') || url.hostname.includes('r2.dev'))) ||
     url.hostname.includes('workers.dev') ||
     url.hostname.includes('r2.dev') ||
     url.pathname.includes('/thumbnails/') ||
