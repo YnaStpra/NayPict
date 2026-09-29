@@ -18,8 +18,10 @@ import {
   ChevronRight,
   Compass,
   Expand,
+  ExternalLink,
   Eye,
   Filter,
+  FolderArchive,
   Globe,
   Image as ImageIcon,
   Images,
@@ -30,7 +32,10 @@ import {
   MapPin,
   Navigation,
   Play,
+  RotateCcw,
+  Search,
   ShieldCheck,
+  SlidersHorizontal,
   Sparkles,
   X,
 } from "lucide-react"
@@ -40,14 +45,15 @@ import "leaflet/dist/leaflet.css"
 import { photoMapList, photoUntaggedList } from "@/request/photo"
 import { type PhotoVo } from "@/server/entity/vo/photo"
 import { Button } from "@/components/ui/button"
-import { formatRelativeTime } from "@/lib/date"
+import { Input } from "@/components/ui/input"
+import { formatRelativeTime, parseTime } from "@/lib/date"
 import { getThumbHashUrl } from "@/lib/thumb-hash"
 import { toProxyMediaUrl } from "@/lib/url"
 import { useLocale } from "next-intl"
 import { useApp } from "@/app/provider"
 import { UserTypeEnum } from "@/server/enums/user-enum"
 import { useUserLocation } from "@/hooks/use-user-location"
-import { calculateDistance, formatDistance, getDirectionsUrl } from "@/lib/geo"
+import { calculateDistance, formatDistance, getDirectionsUrl, getStreetViewUrl } from "@/lib/geo"
 import { useModalBackHandler } from "@/hooks/use-modal-back-handler"
 import { UntaggedPhotosDialog } from "@/components/map/untagged-photos-dialog"
 import { AllSpotsDialog } from "@/components/map/all-spots-dialog"
@@ -406,6 +412,8 @@ export default function PhotoMapView() {
   const markerMapRef = useRef<Map<string, LType.Marker>>(new Map())
   const hasFitBoundsInitialRef = useRef<boolean>(false)
   const layerMenuRef = useRef<HTMLDivElement>(null)
+  const albumMenuRef = useRef<HTMLDivElement>(null)
+  const timelineRef = useRef<HTMLDivElement>(null)
   const thumbnailStripRef = useRef<HTMLDivElement>(null)
   const userMarkerRef = useRef<LType.Marker | null>(null)
 
@@ -498,6 +506,15 @@ export default function PhotoMapView() {
   })
   const [isLayerMenuOpen, setIsLayerMenuOpen] = useState<boolean>(false)
 
+  // Album filter state (Saran No. 2)
+  const [selectedAlbumId, setSelectedAlbumId] = useState<string>("all")
+  const [isAlbumMenuOpen, setIsAlbumMenuOpen] = useState<boolean>(false)
+  const [albumSearchQuery, setAlbumSearchQuery] = useState<string>("")
+
+  // Timeline & Year filter state (Saran No. 3)
+  const [selectedYear, setSelectedYear] = useState<number | "all">("all")
+  const [isTimelineOpen, setIsTimelineOpen] = useState<boolean>(false)
+
   // Dialog states
   const [untaggedDialogOpen, setUntaggedDialogOpen] = useState<boolean>(false)
   const [allSpotsDialogOpen, setAllSpotsDialogOpen] = useState<boolean>(false)
@@ -579,25 +596,138 @@ export default function PhotoMapView() {
     setViewerOpen(true)
   }, [])
 
-  // Close layer menu on outside click
+  // Close popover menus (layer menu, album menu, timeline) on outside click
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
-      if (layerMenuRef.current && !layerMenuRef.current.contains(e.target as Node)) {
+      const target = e.target as Node
+      if (layerMenuRef.current && !layerMenuRef.current.contains(target)) {
         setIsLayerMenuOpen(false)
       }
+      if (albumMenuRef.current && !albumMenuRef.current.contains(target)) {
+        setIsAlbumMenuOpen(false)
+      }
+      if (timelineRef.current && !timelineRef.current.contains(target)) {
+        const el = e.target as HTMLElement
+        if (!el.closest("[data-timeline-toggle]")) {
+          setIsTimelineOpen(false)
+        }
+      }
     }
-    if (isLayerMenuOpen) {
+    if (isLayerMenuOpen || isAlbumMenuOpen || isTimelineOpen) {
       document.addEventListener("mousedown", handleClickOutside)
     }
     return () => {
       document.removeEventListener("mousedown", handleClickOutside)
     }
-  }, [isLayerMenuOpen])
+  }, [isLayerMenuOpen, isAlbumMenuOpen, isTimelineOpen])
+
+  // Available albums derived from loaded photos with geotags (Saran No. 2)
+  const availableAlbums = useMemo(() => {
+    const map = new Map<string, { albumId: string; name: string; count: number; coverUrl?: string }>()
+    for (const photo of photos) {
+      if (photo.albums && photo.albums.length > 0) {
+        for (const alb of photo.albums) {
+          const existing = map.get(alb.albumId)
+          if (existing) {
+            existing.count++
+            if (!existing.coverUrl && (photo.thumbnail || photo.preview)) {
+              existing.coverUrl = photo.thumbnail || photo.preview
+            }
+          } else {
+            map.set(alb.albumId, {
+              albumId: alb.albumId,
+              name: alb.name,
+              count: 1,
+              coverUrl: photo.thumbnail || photo.preview,
+            })
+          }
+        }
+      }
+    }
+    return Array.from(map.values()).sort((a, b) => b.count - a.count)
+  }, [photos])
+
+  const selectedAlbum = useMemo(() => {
+    if (selectedAlbumId === "all") return null
+    return availableAlbums.find((a) => a.albumId === selectedAlbumId) || null
+  }, [availableAlbums, selectedAlbumId])
+
+  // Available years derived from photos' takenTime or createTime (Saran No. 3)
+  const availableYears = useMemo(() => {
+    const yearCounts = new Map<number, number>()
+    for (const p of photos) {
+      const timeStr = p.takenTime || p.createTime
+      if (timeStr) {
+        const d = parseTime(timeStr)
+        if (d && !isNaN(d.getFullYear())) {
+          const yr = d.getFullYear()
+          yearCounts.set(yr, (yearCounts.get(yr) || 0) + 1)
+        }
+      }
+    }
+    const years = Array.from(yearCounts.keys()).sort((a, b) => a - b)
+    const descYears = [...years].reverse()
+    return {
+      years,
+      descYears,
+      counts: yearCounts,
+      minYear: years.length > 0 ? years[0] : new Date().getFullYear(),
+      maxYear: years.length > 0 ? years[years.length - 1] : new Date().getFullYear(),
+    }
+  }, [photos])
+
+  // Filtered photos based on active Album and Year filters
+  const filteredPhotos = useMemo(() => {
+    return photos.filter((p) => {
+      // Album filter
+      if (selectedAlbumId !== "all") {
+        const inAlbum = p.albums?.some((a) => a.albumId === selectedAlbumId)
+        if (!inAlbum) return false
+      }
+      // Year filter
+      if (selectedYear !== "all") {
+        const timeStr = p.takenTime || p.createTime
+        if (!timeStr) return false
+        const d = parseTime(timeStr)
+        if (!d || d.getFullYear() !== selectedYear) return false
+      }
+      return true
+    })
+  }, [photos, selectedAlbumId, selectedYear])
 
   // Group photos that are at the exact same physical spot, prioritizing custom cover photo
   const geoSpots = useMemo(() => {
-    return groupExactGeoSpots(photos, 0.008, spotCovers)
-  }, [photos, spotCovers])
+    return groupExactGeoSpots(filteredPhotos, 0.008, spotCovers)
+  }, [filteredPhotos, spotCovers])
+
+  // Active filter state check & reset helper
+  const hasActiveFilter = selectedAlbumId !== "all" || selectedYear !== "all"
+
+  const handleResetFilters = () => {
+    setSelectedAlbumId("all")
+    setSelectedYear("all")
+  }
+
+  // Smoothly fit map camera bounds when active filter changes
+  useEffect(() => {
+    if (!mapReady || !mapInstanceRef.current || !geoSpots.length) return
+    if (selectedAlbumId === "all" && selectedYear === "all") return
+
+    import("leaflet").then((LMod) => {
+      const L = LMod.default || LMod
+      const bounds = L.latLngBounds(geoSpots.map((s) => [s.latitude, s.longitude] as LType.LatLngTuple))
+      if (bounds.isValid()) {
+        mapInstanceRef.current?.flyToBounds(bounds.pad(0.15), { duration: 1.2, maxZoom: 16 })
+      }
+    })
+  }, [selectedAlbumId, selectedYear, geoSpots, mapReady])
+
+  // Clear selected cluster if it is filtered out
+  useEffect(() => {
+    if (selectedCluster && !geoSpots.some((s) => s.id === selectedCluster.id)) {
+      setSelectedCluster(null)
+    }
+  }, [geoSpots, selectedCluster])
 
   // Preload thumbnails of all photos in the selected cluster into memory cache for 0ms transitions
   useEffect(() => {
@@ -1000,6 +1130,9 @@ export default function PhotoMapView() {
           map.flyToBounds(bounds, { padding: [80, 80], maxZoom: 18, duration: 1.4, easeLinearity: 0.25 })
         } else {
           const spotToSelect = cluster.spots[0]
+          if (typeof window !== "undefined" && window.innerWidth < 640) {
+            setIsSidebarOpen(false)
+          }
           setSelectedCluster(spotToSelect)
           setActivePhotoIndex(0)
           map.flyTo([spotToSelect.latitude, spotToSelect.longitude], Math.max(map.getZoom(), 16), {
@@ -1372,31 +1505,36 @@ export default function PhotoMapView() {
       <div ref={mapContainerRef} className="w-full h-full z-0" />
 
       {/* Top Floating Glass Header Control Bar */}
-      <div className="absolute top-4 left-4 right-4 sm:right-auto z-10 flex flex-wrap items-center gap-2 pointer-events-auto">
-        <div className="flex items-center gap-2 px-3.5 py-2 rounded-2xl backdrop-blur-xl bg-background/80 dark:bg-neutral-900/80 border border-border/70 shadow-xl">
-          <MapPin className="size-4 text-emerald-500 animate-pulse" />
-          <span className="font-bold text-xs sm:text-sm">Photo Map Explorer</span>
-          <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-500 border border-emerald-500/30 ml-1">
-            {photos.length} photos • {geoSpots.length} spots
+      <div className="absolute top-3.5 left-3 right-3 sm:right-auto z-20 flex items-center gap-1.5 overflow-x-auto scrollbar-none sm:overflow-visible sm:flex-wrap pointer-events-auto py-0.5 max-w-full">
+        {/* Title & Stats Pill */}
+        <div className="flex items-center gap-2 px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-2xl backdrop-blur-xl bg-background/85 dark:bg-neutral-900/85 border border-border/70 shadow-xl shrink-0">
+          <MapPin className="size-3.5 sm:size-4 text-emerald-500 animate-pulse shrink-0" />
+          <span className="font-bold text-xs sm:text-sm whitespace-nowrap">Photo Map</span>
+          <span className="text-[10px] sm:text-[11px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-500 border border-emerald-500/30 whitespace-nowrap">
+            {filteredPhotos.length}{hasActiveFilter ? `/${photos.length}` : ""} media • {geoSpots.length} spots
           </span>
         </div>
 
         {/* Google Maps Style / Layer Switcher Dropdown */}
-        <div ref={layerMenuRef} className="relative">
+        <div ref={layerMenuRef} className="relative shrink-0">
           <Button
             type="button"
             variant="outline"
             size="sm"
-            onClick={() => setIsLayerMenuOpen((prev) => !prev)}
-            className={`h-9 px-3 text-xs rounded-2xl backdrop-blur-xl border shadow-xl gap-1.5 cursor-pointer transition-all hover:scale-105 ${
+            onClick={() => {
+              setIsLayerMenuOpen((prev) => !prev)
+              setIsAlbumMenuOpen(false)
+              setIsTimelineOpen(false)
+            }}
+            className={`h-9 px-3 text-xs rounded-2xl backdrop-blur-xl border shadow-xl gap-1.5 cursor-pointer transition-all hover:scale-105 shrink-0 ${
               isLayerMenuOpen
                 ? "bg-primary/20 border-primary text-primary"
                 : "bg-background/80 dark:bg-neutral-900/80 border-border/70"
             }`}
             title="Switch map style (Google Streets, Satellite, Terrain, Dark Mode)"
           >
-            <Layers className="size-3.5 text-emerald-500" />
-            <span className="font-semibold">{currentMapStyleOption.label}</span>
+            <Layers className="size-3.5 text-emerald-500 shrink-0" />
+            <span className="font-semibold whitespace-nowrap">{currentMapStyleOption.label}</span>
           </Button>
 
           {/* Layer Selector Popover Card */}
@@ -1446,6 +1584,199 @@ export default function PhotoMapView() {
           )}
         </div>
 
+        {/* Album Filter Dropdown (Saran No. 2) */}
+        <div ref={albumMenuRef} className="relative shrink-0">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              setIsAlbumMenuOpen((prev) => !prev)
+              setIsLayerMenuOpen(false)
+              setIsTimelineOpen(false)
+            }}
+            className={`h-9 px-3 text-xs rounded-2xl backdrop-blur-xl border shadow-xl gap-1.5 cursor-pointer transition-all hover:scale-105 shrink-0 ${
+              selectedAlbumId !== "all"
+                ? "bg-emerald-500/20 border-emerald-500/50 text-emerald-600 dark:text-emerald-400 font-bold ring-1 ring-emerald-500/30"
+                : isAlbumMenuOpen
+                ? "bg-primary/20 border-primary text-primary"
+                : "bg-background/80 dark:bg-neutral-900/80 border-border/70"
+            }`}
+            title="Filter map media by album"
+          >
+            <FolderArchive className="size-3.5 text-emerald-500 shrink-0" />
+            <span className="max-w-24 sm:max-w-36 truncate font-semibold">
+              {selectedAlbum ? selectedAlbum.name : "Albums"}
+            </span>
+            {selectedAlbumId !== "all" ? (
+              <span
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setSelectedAlbumId("all")
+                }}
+                className="size-4 rounded-full bg-emerald-500/30 hover:bg-emerald-500/50 flex items-center justify-center ml-0.5 cursor-pointer text-emerald-700 dark:text-emerald-300"
+                title="Clear album filter"
+              >
+                <X className="size-2.5" />
+              </span>
+            ) : availableAlbums.length > 0 ? (
+              <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-muted text-muted-foreground font-mono">
+                {availableAlbums.length}
+              </span>
+            ) : null}
+          </Button>
+
+          {/* Album Popover Card */}
+          {isAlbumMenuOpen && (
+            <div className="absolute top-11 left-0 z-50 w-72 sm:w-80 p-2.5 rounded-3xl backdrop-blur-2xl bg-background/95 dark:bg-neutral-900/95 border border-border/80 shadow-2xl animate-in fade-in zoom-in-95 duration-150 space-y-2 max-h-96 flex flex-col">
+              <div className="px-2 py-1 flex items-center justify-between border-b border-border/50 pb-2">
+                <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                  <FolderArchive className="size-3.5 text-emerald-500" />
+                  <span>Filter by Album</span>
+                </span>
+                <span className="text-[10px] text-muted-foreground font-medium">
+                  {availableAlbums.length} albums with GPS
+                </span>
+              </div>
+
+              {availableAlbums.length > 3 && (
+                <div className="relative px-1">
+                  <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
+                  <Input
+                    type="text"
+                    placeholder="Search album name..."
+                    value={albumSearchQuery}
+                    onChange={(e) => setAlbumSearchQuery(e.target.value)}
+                    className="h-8 pl-8 pr-2 text-xs rounded-xl bg-muted/50 border-border/60"
+                  />
+                </div>
+              )}
+
+              <div className="space-y-1 overflow-y-auto max-h-60 scrollbar-thin scrollbar-thumb-muted pr-1">
+                {/* All Albums Option */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedAlbumId("all")
+                    setIsAlbumMenuOpen(false)
+                  }}
+                  className={`w-full flex items-center justify-between p-2 rounded-2xl transition-all text-left cursor-pointer border ${
+                    selectedAlbumId === "all"
+                      ? "bg-emerald-500/15 border-emerald-500/40 text-foreground ring-1 ring-emerald-500/30"
+                      : "border-transparent hover:bg-muted/60 text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div className="size-7 rounded-xl bg-emerald-500/15 text-emerald-500 flex items-center justify-center shrink-0">
+                      <FolderArchive className="size-3.5" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="font-bold text-xs leading-tight truncate">All Albums</p>
+                      <p className="text-[10px] text-muted-foreground truncate leading-tight mt-0.5">
+                        Show all geotagged photos ({photos.length})
+                      </p>
+                    </div>
+                  </div>
+                  {selectedAlbumId === "all" && (
+                    <div className="size-5 rounded-full bg-emerald-500 text-white flex items-center justify-center shrink-0 ml-1 shadow-xs">
+                      <Check className="size-3 stroke-[3]" />
+                    </div>
+                  )}
+                </button>
+
+                {availableAlbums
+                  .filter((alb) =>
+                    !albumSearchQuery.trim() ||
+                    alb.name.toLowerCase().includes(albumSearchQuery.toLowerCase().trim())
+                  )
+                  .map((alb) => {
+                    const isActive = selectedAlbumId === alb.albumId
+                    return (
+                      <button
+                        key={alb.albumId}
+                        type="button"
+                        onClick={() => {
+                          setSelectedAlbumId(alb.albumId)
+                          setIsAlbumMenuOpen(false)
+                        }}
+                        className={`w-full flex items-center justify-between p-2 rounded-2xl transition-all text-left cursor-pointer border ${
+                          isActive
+                            ? "bg-emerald-500/15 border-emerald-500/40 text-foreground ring-1 ring-emerald-500/30"
+                            : "border-transparent hover:bg-muted/60 text-muted-foreground hover:text-foreground"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          {alb.coverUrl ? (
+                            <img
+                              src={alb.coverUrl}
+                              alt=""
+                              className="size-7 rounded-xl object-cover shrink-0 border border-border/60"
+                              loading="lazy"
+                              decoding="async"
+                            />
+                          ) : (
+                            <div className="size-7 rounded-xl bg-muted flex items-center justify-center shrink-0 text-muted-foreground">
+                              <FolderArchive className="size-3.5" />
+                            </div>
+                          )}
+                          <div className="min-w-0">
+                            <p className="font-bold text-xs leading-tight truncate">{alb.name}</p>
+                            <p className="text-[10px] text-muted-foreground truncate leading-tight mt-0.5">
+                              {alb.count} photos on map
+                            </p>
+                          </div>
+                        </div>
+                        {isActive && (
+                          <div className="size-5 rounded-full bg-emerald-500 text-white flex items-center justify-center shrink-0 ml-1 shadow-xs">
+                            <Check className="size-3 stroke-[3]" />
+                          </div>
+                        )}
+                      </button>
+                    )
+                  })}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Timeline / Year Scrubber Toggle Button (Saran No. 3) */}
+        <Button
+          type="button"
+          data-timeline-toggle
+          variant="outline"
+          size="sm"
+          onClick={() => {
+            setIsTimelineOpen((prev) => !prev)
+            setIsLayerMenuOpen(false)
+            setIsAlbumMenuOpen(false)
+          }}
+          className={`h-9 px-3 text-xs rounded-2xl backdrop-blur-xl border shadow-xl gap-1.5 cursor-pointer transition-all hover:scale-105 shrink-0 ${
+            selectedYear !== "all"
+              ? "bg-primary/20 border-primary text-primary font-bold ring-1 ring-primary/30"
+              : isTimelineOpen
+              ? "bg-primary/15 border-primary/50 text-primary"
+              : "bg-background/80 dark:bg-neutral-900/80 border-border/70"
+          }`}
+          title="Filter map photos by year timeline"
+        >
+          <Calendar className="size-3.5 text-primary shrink-0" />
+          <span className="font-semibold whitespace-nowrap">
+            {selectedYear === "all" ? "Timeline" : selectedYear}
+          </span>
+          {selectedYear !== "all" && (
+            <span
+              onClick={(e) => {
+                e.stopPropagation()
+                setSelectedYear("all")
+              }}
+              className="size-4 rounded-full bg-primary/20 hover:bg-primary/40 flex items-center justify-center ml-0.5 cursor-pointer text-primary"
+              title="Clear timeline year filter"
+            >
+              <X className="size-2.5" />
+            </span>
+          )}
+        </Button>
+
         {/* Admin Manage All Spots Button */}
         {isAdmin && geoSpots.length > 0 && (
           <Button
@@ -1453,11 +1784,11 @@ export default function PhotoMapView() {
             variant="outline"
             size="sm"
             onClick={() => setAllSpotsDialogOpen(true)}
-            className="h-9 px-3 text-xs rounded-2xl backdrop-blur-xl bg-background/80 dark:bg-neutral-900/80 border-border/70 shadow-xl gap-1.5 cursor-pointer hover:scale-105 transition-all text-emerald-600 dark:text-emerald-400 font-semibold"
+            className="h-9 px-3 text-xs rounded-2xl backdrop-blur-xl bg-background/80 dark:bg-neutral-900/80 border-border/70 shadow-xl gap-1.5 cursor-pointer hover:scale-105 transition-all text-emerald-600 dark:text-emerald-400 font-semibold shrink-0"
             title="Open and manage all media map spots"
           >
-            <ListFilter className="size-3.5 text-emerald-500" />
-            <span>Manage All Spots ({geoSpots.length})</span>
+            <ListFilter className="size-3.5 text-emerald-500 shrink-0" />
+            <span className="whitespace-nowrap">Manage Spots ({geoSpots.length})</span>
           </Button>
         )}
 
@@ -1468,10 +1799,10 @@ export default function PhotoMapView() {
             variant="outline"
             size="sm"
             onClick={handleFitAll}
-            className="h-9 px-3 text-xs rounded-2xl backdrop-blur-xl bg-background/80 dark:bg-neutral-900/80 border-border/70 shadow-xl gap-1.5 cursor-pointer hover:scale-105 transition-all"
+            className="h-9 px-3 text-xs rounded-2xl backdrop-blur-xl bg-background/80 dark:bg-neutral-900/80 border-border/70 shadow-xl gap-1.5 cursor-pointer hover:scale-105 transition-all shrink-0"
             title="Fit view to show all mapped media"
           >
-            <LocateFixed className="size-3.5 text-primary" />
+            <LocateFixed className="size-3.5 text-primary shrink-0" />
             <span className="hidden sm:inline">View All</span>
           </Button>
         )}
@@ -1483,15 +1814,15 @@ export default function PhotoMapView() {
           size="sm"
           onClick={handleLocateUser}
           disabled={locatingUser}
-          className={`h-9 px-3 text-xs rounded-2xl backdrop-blur-xl bg-background/80 dark:bg-neutral-900/80 border-border/70 shadow-xl gap-1.5 cursor-pointer hover:scale-105 active:scale-95 touch-manipulation select-none transition-all ${
+          className={`h-9 px-3 text-xs rounded-2xl backdrop-blur-xl bg-background/80 dark:bg-neutral-900/80 border-border/70 shadow-xl gap-1.5 cursor-pointer hover:scale-105 active:scale-95 touch-manipulation select-none transition-all shrink-0 ${
             userCoords ? "text-sky-500 border-sky-500/40 font-semibold ring-1 ring-sky-500/20" : ""
           }`}
           title="Center map on your current GPS location"
         >
           {locatingUser ? (
-            <Loader2 className="size-3.5 text-sky-500 animate-spin" />
+            <Loader2 className="size-3.5 text-sky-500 animate-spin shrink-0" />
           ) : (
-            <Navigation className={`size-3.5 ${userCoords ? "fill-sky-500 text-sky-500" : "text-sky-500"}`} />
+            <Navigation className={`size-3.5 shrink-0 ${userCoords ? "fill-sky-500 text-sky-500" : "text-sky-500"}`} />
           )}
           <span className="hidden sm:inline">
             {locatingUser ? "Locating..." : userCoords ? "My Location" : "Locate Me"}
@@ -1507,16 +1838,16 @@ export default function PhotoMapView() {
                 variant="outline"
                 size="sm"
                 onClick={() => setUntaggedDialogOpen(true)}
-                className="h-9 px-3 text-xs rounded-2xl backdrop-blur-xl bg-amber-500/10 dark:bg-amber-500/20 border-amber-500/35 text-amber-700 dark:text-amber-300 shadow-xl gap-1.5 cursor-pointer hover:bg-amber-500/25 transition-all hover:scale-105"
+                className="h-9 px-3 text-xs rounded-2xl backdrop-blur-xl bg-amber-500/10 dark:bg-amber-500/20 border-amber-500/35 text-amber-700 dark:text-amber-300 shadow-xl gap-1.5 cursor-pointer hover:bg-amber-500/25 transition-all hover:scale-105 shrink-0"
                 title="Manage media missing GPS location coordinates"
               >
-                <AlertCircle className="size-3.5 text-amber-500 animate-bounce" />
-                <span className="font-bold">{untaggedPhotos.length} Untagged Media</span>
+                <AlertCircle className="size-3.5 text-amber-500 animate-bounce shrink-0" />
+                <span className="font-bold whitespace-nowrap">{untaggedPhotos.length} Untagged</span>
               </Button>
             ) : (
-              <div className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 rounded-2xl backdrop-blur-xl bg-background/80 dark:bg-neutral-900/80 border border-emerald-500/30 text-emerald-500 text-xs font-semibold shadow-xl">
-                <CheckCircle2 className="size-3.5" />
-                <span>All Media Geotagged</span>
+              <div className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 rounded-2xl backdrop-blur-xl bg-background/80 dark:bg-neutral-900/80 border border-emerald-500/30 text-emerald-500 text-xs font-semibold shadow-xl shrink-0">
+                <CheckCircle2 className="size-3.5 shrink-0" />
+                <span className="whitespace-nowrap">All Geotagged</span>
               </div>
             )}
           </>
@@ -1527,13 +1858,151 @@ export default function PhotoMapView() {
           type="button"
           variant="outline"
           size="sm"
-          onClick={() => setIsSidebarOpen((prev) => !prev)}
-          className="h-9 px-3 text-xs rounded-2xl backdrop-blur-xl bg-background/80 dark:bg-neutral-900/80 border-border/70 shadow-xl gap-1.5 cursor-pointer"
+          onClick={() => {
+            setIsSidebarOpen((prev) => {
+              const next = !prev
+              if (next && typeof window !== "undefined" && window.innerWidth < 640) {
+                setSelectedCluster(null)
+              }
+              return next
+            })
+          }}
+          className="h-9 px-3 text-xs rounded-2xl backdrop-blur-xl bg-background/80 dark:bg-neutral-900/80 border-border/70 shadow-xl gap-1.5 cursor-pointer shrink-0"
         >
-          <Filter className="size-3.5" />
+          <Filter className="size-3.5 shrink-0" />
           <span className="hidden sm:inline">{isSidebarOpen ? "Close Panel" : "Open Panel"}</span>
         </Button>
       </div>
+
+      {/* Active Filter Indicator Pill (Quick Reset Shortcut) */}
+      {hasActiveFilter && !isTimelineOpen && (
+        <div className="absolute top-15 left-3 sm:left-4 z-20 animate-in fade-in slide-in-from-top-1 duration-150 pointer-events-auto">
+          <div className="flex items-center gap-1.5 px-3 py-1 rounded-2xl backdrop-blur-xl bg-background/90 dark:bg-neutral-900/90 border border-emerald-500/30 shadow-lg text-xs">
+            <span className="size-2 rounded-full bg-emerald-500 animate-ping shrink-0" />
+            <span className="text-muted-foreground text-[11px]">Filtered:</span>
+            {selectedAlbum && (
+              <span className="font-bold text-emerald-600 dark:text-emerald-400 text-[11px] truncate max-w-28 sm:max-w-40">
+                {selectedAlbum.name}
+              </span>
+            )}
+            {selectedAlbum && selectedYear !== "all" && <span className="text-muted-foreground text-[10px]">•</span>}
+            {selectedYear !== "all" && (
+              <span className="font-bold text-primary text-[11px]">Year {selectedYear}</span>
+            )}
+            <span className="text-muted-foreground font-mono text-[10px]">({filteredPhotos.length})</span>
+            <button
+              type="button"
+              onClick={handleResetFilters}
+              className="size-4 rounded-full bg-muted hover:bg-muted-foreground/20 flex items-center justify-center ml-0.5 text-muted-foreground hover:text-foreground cursor-pointer transition-colors shrink-0"
+              title="Reset all active filters"
+            >
+              <X className="size-2.5" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Floating Timeline Scrubber Bar (Saran No. 3) */}
+      {isTimelineOpen && (
+        <div
+          ref={timelineRef}
+          className="absolute top-15 left-3 right-3 sm:left-4 sm:right-auto sm:w-96 md:w-[480px] z-25 backdrop-blur-2xl bg-background/95 dark:bg-neutral-900/95 border border-border/80 rounded-3xl p-3 sm:p-3.5 shadow-2xl animate-in fade-in slide-in-from-top-2 duration-200 pointer-events-auto space-y-2.5"
+        >
+          <div className="flex items-center justify-between border-b border-border/50 pb-2">
+            <div className="flex items-center gap-2 min-w-0">
+              <div className="size-6 rounded-lg bg-primary/15 text-primary flex items-center justify-center shrink-0">
+                <Calendar className="size-3.5" />
+              </div>
+              <span className="text-xs font-bold text-foreground truncate">Timeline Scrubber</span>
+              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-primary/15 text-primary border border-primary/30 truncate">
+                {selectedYear === "all"
+                  ? `All Years (${photos.length} items)`
+                  : `${selectedYear} (${availableYears.counts.get(selectedYear) || 0} items)`}
+              </span>
+            </div>
+            <div className="flex items-center gap-1 shrink-0">
+              {selectedYear !== "all" && (
+                <button
+                  type="button"
+                  onClick={() => setSelectedYear("all")}
+                  className="text-[10px] font-semibold text-muted-foreground hover:text-foreground px-2 py-0.5 rounded-lg hover:bg-muted cursor-pointer transition-colors"
+                >
+                  Reset
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => setIsTimelineOpen(false)}
+                className="p-1 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted cursor-pointer transition-colors"
+                title="Close Timeline"
+              >
+                <X className="size-3.5" />
+              </button>
+            </div>
+          </div>
+
+          {/* Interactive Range Slider */}
+          {availableYears.years.length > 1 && (
+            <div className="space-y-1 px-1">
+              <div className="flex items-center justify-between text-[11px] text-muted-foreground font-medium">
+                <span>{availableYears.minYear}</span>
+                <span className="font-bold text-primary">
+                  {selectedYear === "all" ? "Showing All Years" : `Year ${selectedYear}`}
+                </span>
+                <span>{availableYears.maxYear}</span>
+              </div>
+              <input
+                type="range"
+                min={0}
+                max={availableYears.years.length}
+                value={selectedYear === "all" ? 0 : availableYears.years.indexOf(selectedYear) + 1}
+                onChange={(e) => {
+                  const val = Number(e.target.value)
+                  if (val === 0) {
+                    setSelectedYear("all")
+                  } else {
+                    setSelectedYear(availableYears.years[val - 1])
+                  }
+                }}
+                className="w-full accent-primary cursor-pointer h-2 bg-muted rounded-lg"
+              />
+            </div>
+          )}
+
+          {/* Quick Year Selector Chips */}
+          <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none py-0.5">
+            <button
+              type="button"
+              onClick={() => setSelectedYear("all")}
+              className={`px-2.5 py-1 rounded-xl text-[11px] font-bold transition-all shrink-0 cursor-pointer ${
+                selectedYear === "all"
+                  ? "bg-primary text-primary-foreground shadow-sm shadow-primary/25"
+                  : "bg-muted/70 text-muted-foreground hover:text-foreground hover:bg-muted"
+              }`}
+            >
+              All Years ({photos.length})
+            </button>
+            {availableYears.descYears.map((yr) => {
+              const count = availableYears.counts.get(yr) || 0
+              const isCurrent = selectedYear === yr
+              return (
+                <button
+                  key={yr}
+                  type="button"
+                  onClick={() => setSelectedYear(yr)}
+                  className={`px-2.5 py-1 rounded-xl text-[11px] font-bold transition-all shrink-0 cursor-pointer ${
+                    isCurrent
+                      ? "bg-primary text-primary-foreground shadow-sm shadow-primary/25"
+                      : "bg-muted/70 text-muted-foreground hover:text-foreground hover:bg-muted"
+                  }`}
+                >
+                  {yr} ({count})
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Non-intrusive Location Prompt Banner on Initial Map Visit */}
       {showLocationPrompt && !userCoords && (
@@ -1872,6 +2341,26 @@ export default function PhotoMapView() {
                   <span>{formatRelativeTime(currentPhoto.takenTime, locale)}</span>
                 </div>
               )}
+
+              {/* Clickable Album Badges (Direct navigation to album) */}
+              {currentPhoto.albums && currentPhoto.albums.length > 0 && (
+                <div className="flex items-center gap-1 flex-wrap mt-1">
+                  <span className="text-[10px] text-muted-foreground font-medium flex items-center gap-0.5">
+                    <FolderArchive className="size-3 text-emerald-500 shrink-0" />
+                  </span>
+                  {currentPhoto.albums.map((alb) => (
+                    <Link
+                      key={alb.albumId}
+                      href={`/album/${alb.albumId}`}
+                      onClick={(e) => e.stopPropagation()}
+                      className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/25 transition-colors cursor-pointer"
+                      title={`Open album "${alb.name}"`}
+                    >
+                      {alb.name}
+                    </Link>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Coordinates & Location Badge */}
@@ -1882,24 +2371,37 @@ export default function PhotoMapView() {
                   {selectedCluster.latitude?.toFixed(4)}°, {selectedCluster.longitude?.toFixed(4)}°
                 </span>
               </div>
-              {isAdmin ? (
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    setEditSpotDialogOpen(true)
-                  }}
-                  className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 hover:text-emerald-500 hover:underline flex items-center gap-1 cursor-pointer"
-                  title="Edit location coordinates for all media in this pin"
+              <div className="flex items-center gap-2 shrink-0">
+                <a
+                  href={getStreetViewUrl(selectedCluster.latitude, selectedCluster.longitude)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                  className="text-[10px] font-semibold text-amber-600 dark:text-amber-400 hover:underline flex items-center gap-0.5"
+                  title="Open Google Street View 360° panorama"
                 >
-                  <MapPin className="size-3 text-emerald-500" />
-                  <span>Edit Spot ({selectedCluster.photos.length})</span>
-                </button>
-              ) : (
-                <span className="text-[10px] font-semibold text-emerald-500 uppercase tracking-wider">
-                  GPS EXIF
-                </span>
-              )}
+                  <span>360° Pano</span>
+                  <ExternalLink className="size-2.5" />
+                </a>
+                {isAdmin ? (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setEditSpotDialogOpen(true)
+                    }}
+                    className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 hover:text-emerald-500 hover:underline flex items-center gap-1 cursor-pointer"
+                    title="Edit location coordinates for all media in this pin"
+                  >
+                    <MapPin className="size-3 text-emerald-500" />
+                    <span>Edit ({selectedCluster.photos.length})</span>
+                  </button>
+                ) : (
+                  <span className="text-[10px] font-semibold text-emerald-500 uppercase tracking-wider">
+                    GPS EXIF
+                  </span>
+                )}
+              </div>
             </div>
 
             {/* Live Distance Perspective from Current User Location */}
@@ -1926,7 +2428,7 @@ export default function PhotoMapView() {
                 type="button"
                 size="sm"
                 onClick={() => handleOpenPhotoViewer(selectedCluster.photos, activePhotoIndex)}
-                className="shrink-0 flex-1 h-8.5 text-xs rounded-xl gap-1.5 font-semibold bg-emerald-600 hover:bg-emerald-500 text-white cursor-pointer shadow-xs"
+                className="shrink-0 flex-1 h-8.5 text-xs rounded-xl gap-1.5 font-semibold bg-emerald-600 hover:bg-emerald-500 text-white cursor-pointer shadow-xs min-w-24"
                 title="Open media in full viewer"
               >
                 <Eye className="size-3.5" />
@@ -1941,13 +2443,31 @@ export default function PhotoMapView() {
                     e.stopPropagation()
                     setEditSpotDialogOpen(true)
                   }}
-                  className="h-8.5 px-2.5 text-xs rounded-xl gap-1.5 border-emerald-500/40 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 cursor-pointer"
+                  className="h-8.5 px-2.5 text-xs rounded-xl gap-1.5 border-emerald-500/40 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 cursor-pointer shrink-0"
                   title="Edit GPS location for all media in this pin"
                 >
                   <MapPin className="size-3 text-emerald-500" />
                   <span>Edit Spot</span>
                 </Button>
               )}
+              {/* 360° Google Street View (Saran No. 6) */}
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  window.open(
+                    getStreetViewUrl(selectedCluster.latitude, selectedCluster.longitude),
+                    "_blank",
+                    "noopener,noreferrer"
+                  )
+                }
+                className="h-8.5 px-2.5 text-xs rounded-xl gap-1.5 border-amber-500/40 text-amber-600 dark:text-amber-400 hover:bg-amber-500/10 cursor-pointer shadow-xs shrink-0"
+                title="Open Google Street View 360° panorama"
+              >
+                <Compass className="size-3.5 text-amber-500" />
+                <span>360° View</span>
+              </Button>
               <Button
                 type="button"
                 variant="outline"
@@ -1959,7 +2479,7 @@ export default function PhotoMapView() {
                     "noopener,noreferrer"
                   )
                 }
-                className="h-8.5 px-2.5 text-xs rounded-xl gap-1.5 border-sky-500/40 text-sky-600 dark:text-sky-400 hover:bg-sky-500/10 cursor-pointer shadow-xs"
+                className="h-8.5 px-2.5 text-xs rounded-xl gap-1.5 border-sky-500/40 text-sky-600 dark:text-sky-400 hover:bg-sky-500/10 cursor-pointer shadow-xs shrink-0"
                 title="Open Google Maps navigation directions to this spot"
               >
                 <Navigation className="size-3.5 text-sky-500" />
@@ -1976,7 +2496,7 @@ export default function PhotoMapView() {
                     { duration: 1 }
                   )
                 }
-                className="h-8.5 px-2.5 text-xs rounded-xl gap-1.5"
+                className="h-8.5 px-2.5 text-xs rounded-xl gap-1.5 shrink-0"
                 title="Focus Camera"
               >
                 <Expand className="size-3.5" />
@@ -2016,7 +2536,7 @@ export default function PhotoMapView() {
                 }`}
               >
                 <Sparkles className="size-3.5 text-emerald-500" />
-                <span>All Photos ({photos.length})</span>
+                <span>All Photos ({filteredPhotos.length})</span>
               </button>
 
               {isAdmin && untaggedPhotos.length > 0 && (
@@ -2060,7 +2580,7 @@ export default function PhotoMapView() {
             <>
               {geoSpots.length === 0 ? (
                 <div className="py-6 text-center text-xs text-muted-foreground">
-                  No media spots yet.
+                  No media spots found for the selected filter.
                 </div>
               ) : (
                 <div className="flex items-center gap-2.5 overflow-x-auto pb-1 scrollbar-thin scrollbar-thumb-muted scrollbar-track-transparent">
@@ -2078,6 +2598,9 @@ export default function PhotoMapView() {
                       <div
                         key={spot.id}
                         onClick={() => {
+                          if (typeof window !== "undefined" && window.innerWidth < 640) {
+                            setIsSidebarOpen(false)
+                          }
                           setSelectedCluster(spot)
                           setActivePhotoIndex(0)
                           mapInstanceRef.current?.flyTo([spot.latitude, spot.longitude], 17, {
@@ -2122,25 +2645,38 @@ export default function PhotoMapView() {
                             <MapPin className="size-2.5" />
                             <span>{spot.photos.length} Items</span>
                           </span>
-                          {isTopVideo && (
-                            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-black/75 text-white shadow-md flex items-center gap-0.5 border border-white/20">
-                              <Play className="size-2 fill-current text-emerald-400" />
-                              <span>Video</span>
-                            </span>
-                          )}
-                          {isAdmin && !isTopVideo && (
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                setSpotToEdit(spot)
-                              }}
-                              className="p-1 rounded-md bg-black/60 hover:bg-emerald-600 text-white transition-colors"
-                              title="Edit location for this spot"
+                          <div className="flex items-center gap-1">
+                            {/* 360 Street View shortcut icon */}
+                            <a
+                              href={getStreetViewUrl(spot.latitude, spot.longitude)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={(e) => e.stopPropagation()}
+                              className="p-1 rounded-md bg-black/60 hover:bg-amber-600 text-white transition-colors flex items-center justify-center"
+                              title="Open Google Street View 360° panorama"
                             >
-                              <MapPin className="size-3" />
-                            </button>
-                          )}
+                              <Compass className="size-3 text-amber-400" />
+                            </a>
+                            {isTopVideo && (
+                              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-black/75 text-white shadow-md flex items-center gap-0.5 border border-white/20">
+                                <Play className="size-2 fill-current text-emerald-400" />
+                                <span>Video</span>
+                              </span>
+                            )}
+                            {isAdmin && !isTopVideo && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  setSpotToEdit(spot)
+                                }}
+                                className="p-1 rounded-md bg-black/60 hover:bg-emerald-600 text-white transition-colors"
+                                title="Edit location for this spot"
+                              >
+                                <MapPin className="size-3" />
+                              </button>
+                            )}
+                          </div>
                         </div>
 
                         {/* Bottom Label: Coordinates & Photo Name */}
@@ -2163,13 +2699,13 @@ export default function PhotoMapView() {
           {/* TAB 2: All Photos List */}
           {drawerTab === "map" && (
             <>
-              {photos.length === 0 ? (
+              {filteredPhotos.length === 0 ? (
                 <div className="py-6 text-center text-xs text-muted-foreground">
-                  No media items have GPS coordinates yet.
+                  No media items match the selected filter.
                 </div>
               ) : (
                 <div className="flex items-center gap-2.5 overflow-x-auto pb-1 scrollbar-thin scrollbar-thumb-muted scrollbar-track-transparent">
-                  {photos.map((photo) => {
+                  {filteredPhotos.map((photo) => {
                     const isSelected = currentPhoto?.photoId === photo.photoId
                     const thumb = photo.thumbnail || photo.preview || ""
                     const ph = getThumbHashUrl(photo.thumbHash)
@@ -2181,7 +2717,12 @@ export default function PhotoMapView() {
                     return (
                       <div
                         key={photo.photoId}
-                        onClick={() => handleFlyToPhoto(photo)}
+                        onClick={() => {
+                          if (typeof window !== "undefined" && window.innerWidth < 640) {
+                            setIsSidebarOpen(false)
+                          }
+                          handleFlyToPhoto(photo)
+                        }}
                         className={`group relative shrink-0 w-24 h-24 sm:w-28 sm:h-28 rounded-2xl overflow-hidden cursor-pointer border-2 transition-all duration-200 hover:scale-105 active:scale-95 bg-neutral-900 ${
                           isSelected
                             ? "border-emerald-500 ring-2 ring-emerald-500/50 shadow-lg"
