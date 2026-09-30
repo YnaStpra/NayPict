@@ -33,6 +33,8 @@ const PhotoViewer = dynamic(
   { ssr: false }
 )
 
+const STORAGE_KEY = 'naypict_ignored_duplicate_groups'
+
 export default function DuplicatesPage() {
   const router = useRouter()
   const { userInfo, sidebarOpen, setSidebarOpen } = useApp()
@@ -40,7 +42,20 @@ export default function DuplicatesPage() {
 
   const [loading, setLoading] = useState(true)
   const [groups, setGroups] = useState<PhotoDuplicateGroupVo[]>([])
-  const [ignoredGroupIds, setIgnoredGroupIds] = useState<Set<string>>(new Set())
+  const [ignoredGroupIds, setIgnoredGroupIds] = useState<Set<string>>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem(STORAGE_KEY)
+        if (saved) {
+          const parsed = JSON.parse(saved)
+          if (Array.isArray(parsed)) return new Set(parsed)
+        }
+      } catch (err) {
+        console.error('Failed to load ignored duplicate groups:', err)
+      }
+    }
+    return new Set()
+  })
 
   // Photo viewer modal state
   const [viewerOpen, setViewerOpen] = useState(false)
@@ -94,10 +109,27 @@ export default function DuplicatesPage() {
       })
   }, [])
 
-  // Ignore/Keep group
+  // Ignore/Keep group permanently
   const handleIgnoreGroup = useCallback((groupId: string) => {
-    setIgnoredGroupIds((prev) => new Set(prev).add(groupId))
-    toast.info('Duplicate group kept / ignored.')
+    setIgnoredGroupIds((prev) => {
+      const next = new Set(prev).add(groupId)
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(Array.from(next)))
+      } catch (err) {
+        console.error('Failed to persist ignored duplicate group:', err)
+      }
+      return next
+    })
+    toast.info('Grup duplikat disimpan & diabaikan. Tidak akan muncul lagi.')
+  }, [])
+
+  // Restore all ignored groups
+  const handleRestoreIgnored = useCallback(() => {
+    try {
+      localStorage.removeItem(STORAGE_KEY)
+    } catch {}
+    setIgnoredGroupIds(new Set())
+    toast.success('Semua grup duplikat yang diabaikan telah dipulihkan.')
   }, [])
 
   // 1-Click Clean All Duplicates across all groups
@@ -176,17 +208,32 @@ export default function DuplicatesPage() {
                 </BreadcrumbList>
               </Breadcrumb>
             </div>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={fetchDuplicates}
-              disabled={loading}
-              className="gap-1.5 text-xs font-medium"
-            >
-              <RefreshCw className={`size-3.5 ${loading ? 'animate-spin' : ''}`} />
-              <span>Rescan</span>
-            </Button>
+            <div className="flex items-center gap-2">
+              {ignoredGroupIds.size > 0 && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleRestoreIgnored}
+                  className="gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground"
+                  title="Restore hidden/ignored duplicate groups"
+                >
+                  <Eye className="size-3.5 text-primary" />
+                  <span>Restore {ignoredGroupIds.size} Ignored</span>
+                </Button>
+              )}
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={fetchDuplicates}
+                disabled={loading}
+                className="gap-1.5 text-xs font-medium"
+              >
+                <RefreshCw className={`size-3.5 ${loading ? 'animate-spin' : ''}`} />
+                <span>Rescan</span>
+              </Button>
+            </div>
           </header>
 
           <div className="p-4 md:p-6 space-y-6 max-w-7xl mx-auto">
@@ -244,8 +291,22 @@ export default function DuplicatesPage() {
                 <CheckCircle2 className="size-12 text-emerald-500" />
                 <h2 className="text-base font-semibold">No Duplicate Media Found</h2>
                 <p className="text-xs md:text-sm text-muted-foreground max-w-md">
-                  All items in your gallery have unique visuals! No duplicate media detected.
+                  {ignoredGroupIds.size > 0
+                    ? `All active items have unique visuals (${ignoredGroupIds.size} duplicate group${ignoredGroupIds.size > 1 ? 's' : ''} kept/ignored).`
+                    : 'All items in your gallery have unique visuals! No duplicate media detected.'}
                 </p>
+                {ignoredGroupIds.size > 0 && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleRestoreIgnored}
+                    className="gap-1.5 text-xs mt-2"
+                  >
+                    <Eye className="size-3.5" />
+                    <span>Restore {ignoredGroupIds.size} Ignored Group{ignoredGroupIds.size > 1 ? 's' : ''}</span>
+                  </Button>
+                )}
               </div>
             ) : (
               <div className="space-y-6">
