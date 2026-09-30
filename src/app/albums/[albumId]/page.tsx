@@ -28,7 +28,7 @@ import { useAlbumStore } from "@/store/album-store"
 import { usePhotoStore } from "@/store/photo-store"
 import type { PhotoVo } from "@/server/entity/vo/photo"
 import { emitCatalogSync } from "@/lib/catalog-sync"
-import { Archive, ArrowLeftIcon, ArrowUpDown, ChevronDown, ImageIcon, LayoutGrid, PlusIcon, Sparkles } from "lucide-react"
+import { Archive, ArrowLeftIcon, ArrowUpDown, CalendarDays, ChevronDown, ImageIcon, LayoutGrid, PlusIcon, Sparkles } from "lucide-react"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -98,6 +98,7 @@ export default function Page() {
   const albumIdRef = useRef(albumId)
   const [viewMode, setViewMode] = useState<"masonry" | "infinite">("masonry")
   const [sortKey, setSortKey] = useState<SortOptionKey>("none")
+  const [groupByDate, setGroupByDate] = useState(false)
 
   const handleUnarchiveAlbum = useCallback(async () => {
     try {
@@ -159,6 +160,14 @@ export default function Page() {
 
   const handleSortChange = (key: SortOptionKey) => {
     setSortKey(key)
+
+    // Automatically enable Group by Date when sorting by Taken Date (Newest or Oldest), matching main gallery
+    if (key === 'takenTime_desc' || key === 'takenTime_asc') {
+      setGroupByDate(true)
+    } else {
+      setGroupByDate(false)
+    }
+
     const option = SORT_OPTIONS.find((o) => o.key === key)
     if (option) {
       refreshPhotoList({
@@ -169,6 +178,23 @@ export default function Page() {
       })
     }
   }
+
+  // Toggle Group by Date: allows toggling on/off without resetting active Taken Date sorting
+  const toggleGroupByDate = () => {
+    setGroupByDate((prev) => {
+      const next = !prev
+      if (sortKey === 'takenTime_desc' || sortKey === 'takenTime_asc') {
+        return next
+      }
+      if (next) {
+        handleSortChange('takenTime_asc')
+      } else {
+        handleSortChange('none')
+      }
+      return next
+    })
+  }
+
   const [modelPhotoIndex, setModelPhotoIndex] = useState(0)
   const [showPhotoViewer, setShowPhotoViewer] = useState(false)
   // albumDialogOpen Control the opening status of the add album pop-up box.
@@ -380,6 +406,11 @@ export default function Page() {
     }
   }, [albumId, setPhotos])
 
+  const displayAlbumPhotos = useMemo(() => {
+    if (sortKey === 'none') return photos
+    return photos.map((p) => ({ ...p, isPinned: false }))
+  }, [photos, sortKey])
+
   return (
     <>
       <SidebarProvider open={sidebarOpen} onOpenChange={setSidebarOpen}>
@@ -464,6 +495,32 @@ export default function Page() {
                 </Tooltip>
               </TooltipProvider>
 
+              {/* Group Photos by Date Taken Toggle */}
+              {viewMode === "masonry" && (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        type="button"
+                        variant={groupByDate ? "secondary" : "ghost"}
+                        size="icon"
+                        className={`size-8 rounded-lg transition-all duration-200 cursor-pointer ${
+                          groupByDate
+                            ? "bg-sky-500/15 text-sky-500 dark:text-sky-400 border border-sky-500/30 shadow-2xs"
+                            : "text-sky-500 dark:text-sky-400 hover:bg-sky-500/10 hover:text-sky-600 dark:hover:text-sky-300"
+                        }`}
+                        onClick={toggleGroupByDate}
+                      >
+                        <CalendarDays className="size-4 text-sky-500 dark:text-sky-400" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom">
+                      {groupByDate ? "Grouped by Date Taken (Click to flatten)" : "Group Media by Date Taken"}
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
+
               {/* Sort Dropdown (Icon-only with panah bawah dan atas) */}
               <DropdownMenu modal={false}>
                 <TooltipProvider>
@@ -546,7 +603,7 @@ export default function Page() {
               viewMode === "infinite" ? (
                 <div className="relative w-full h-[calc(100vh-3.5rem)] rounded-xl overflow-hidden border bg-background/50">
                   <InfiniteGallery
-                    photos={photos}
+                    photos={displayAlbumPhotos}
                     onPhotoClick={(index) => openPhoto(index)}
                     density={10}
                     imageWidth={180}
@@ -560,21 +617,16 @@ export default function Page() {
               ) : (
                 <>
                   <PhotoMasonry
-                    photos={photos}
+                    photos={displayAlbumPhotos}
                     resetKey={masonryKey}
+                    groupByDate={groupByDate}
                     groupByType={sortKey === 'type_asc' || sortKey === 'type_desc'}
-                    enableTimelineScrubber={
-                      sortKey === 'takenTime_desc' ||
-                      sortKey === 'takenTime_asc' ||
-                      sortKey === 'createTime_desc' ||
-                      sortKey === 'createTime_asc'
-                    }
                     onReachBottom={loadMorePhotos}
                     onPhotoOpen={openPhoto}
                     onPhotoDelete={isAdmin ? recyclePhotos : undefined}
                     onAlbumOpen={isAdmin ? openAlbumDialog : undefined}
                     onAlbumRemove={isAdmin ? removeAlbumPhotos : undefined}
-                    onPhotoPin={isAdmin ? handleTogglePin : undefined}
+                    onPhotoPin={isAdmin && sortKey === 'none' ? handleTogglePin : undefined}
                     onPhotosUpdated={isAdmin ? updatePhotos : undefined}
                   />
                   <GalleryBottomStatus
@@ -599,7 +651,7 @@ export default function Page() {
       <PhotoViewer
         open={showPhotoViewer}
         index={modelPhotoIndex}
-        photos={photos}
+        photos={displayAlbumPhotos}
         onBack={closePhoto}
         onBrowserBack={closePhoto}
         onPhotoUpdate={updatePhoto}

@@ -17,7 +17,6 @@ import { useApp } from "@/app/provider"
 import { useIsMobile } from "@/hooks/use-mobile"
 import { PhotoCard, loadedThumbnails } from "@/components/photo/photo-card"
 import { PhotoSelectionDrawer } from "@/components/photo/photo-selection-drawer"
-import { PhotoTimelineScrubber } from "@/components/photo/photo-timeline-scrubber"
 import { type PhotoVo } from "@/server/entity/vo/photo"
 import { parseTime } from "@/lib/date"
 import { type HeroTransitionOrigin } from "@/components/photo/hero-photo-transition"
@@ -833,8 +832,6 @@ const PhotoMasonry = memo(function PhotoMasonry({
           </div>
         </div>
       )}
-      {/* Google Photos & Apple Photos style fast date timeline scrubber */}
-      <PhotoTimelineScrubber photos={photos} enabled={enableTimelineScrubber} />
       <div
         ref={wrapRef}
         className="w-full overflow-x-hidden masonry-grid-smooth subpixel-snap-grid touch-pan-y"
