@@ -78,8 +78,8 @@ export function registerAlbumApi(app: Hono<HonoEnv>) {
   // Add photos to album.
   app.post('/album/addPhoto', async (c: Context) => {
     const body = await c.req.json<AlbumAddPhotoBo>();
-    await albumService.addPhoto(body, getUserId());
-    return c.json(result.ok());
+    const data = await albumService.addPhoto(body, getUserId());
+    return c.json(result.ok(data));
   });
 
   // Remove photo associations from album.

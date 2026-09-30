@@ -18,7 +18,7 @@ import {
   type AlbumTogglePinPhotoBo,
 } from '@/server/entity/bo/album';
 import { PhotoStatusEnum, PhotoVisibilityEnum } from '@/server/enums/photo-enum';
-import { type AlbumVo } from '@/server/entity/vo/album';
+import { type AlbumVo, type AlbumAddPhotoResultVo } from '@/server/entity/vo/album';
 import { storageService } from '@/server/service/storage-service';
 import { formatHttpUrl, toMediaUrl } from '@/lib/url';
 import { fileService } from '@/server/service/file-service';
@@ -437,8 +437,8 @@ const albumService = {
     return scored;
   },
 
-  // Add photo associations, preventing duplicate photos (by ID, checksum, thumbHash, or resolution+size) in target albums.
-  async addPhoto(params: AlbumAddPhotoBo, userId: string): Promise<void> {
+  // Add photo associations to albums, ensuring photos are not duplicated by photoId.
+  async addPhoto(params: AlbumAddPhotoBo, userId: string): Promise<AlbumAddPhotoResultVo> {
     if (!params.photoIds?.length) {
       throw new BizError('photo.selectRequired');
     }
@@ -453,7 +453,7 @@ const albumService = {
 
     // Verify candidate photos belong to the requesting user (IDOR prevention)
     const candidatePhotos = await orm
-      .select()
+      .select({ photoId: photoTab.photoId })
       .from(photoTab)
       .where(and(
         eq(photoTab.userId, userId),
@@ -461,7 +461,7 @@ const albumService = {
       ));
 
     if (!candidatePhotos.length) {
-      return;
+      return { addedCount: 0, alreadyInAlbumCount: 0 };
     }
 
     // Verify target albums belong to the requesting user (IDOR prevention)
@@ -475,41 +475,26 @@ const albumService = {
 
     const verifiedAlbumIds = targetAlbums.map((a) => a.albumId);
     if (!verifiedAlbumIds.length) {
-      return;
+      return { addedCount: 0, alreadyInAlbumCount: 0 };
     }
 
+    let totalAdded = 0;
+    let totalAlready = 0;
+
     for (const albumId of verifiedAlbumIds) {
-      // Query all existing photos in this album to check for duplicates
+      // Query all existing photo IDs in this album to prevent duplicate associations
       const existingRows = await orm
         .select({
-          photoId: photoTab.photoId,
-          checksum: photoTab.checksum,
-          thumbHash: photoTab.thumbHash,
-          width: photoTab.width,
-          height: photoTab.height,
-          size: photoTab.size,
+          photoId: albumPhotoTab.photoId,
         })
         .from(albumPhotoTab)
-        .innerJoin(photoTab, eq(albumPhotoTab.photoId, photoTab.photoId))
         .where(eq(albumPhotoTab.albumId, albumId));
 
       const existingPhotoIds = new Set(existingRows.map((r: any) => r.photoId));
-      const existingChecksums = new Set(existingRows.map((r: any) => r.checksum).filter(Boolean));
-      const existingThumbHashes = new Set(existingRows.map((r: any) => r.thumbHash).filter(Boolean));
-      const existingDimSizes = new Set(
-        existingRows
-          .filter((r: any) => r.width && r.height && r.size)
-          .map((r: any) => `${r.width}x${r.height}:${r.size}`)
-      );
 
-      // Filter candidate photos that are NOT duplicates of any photo already in albumId
-      const newPhotosToAdd = candidatePhotos.filter((cp: any) => {
-        if (existingPhotoIds.has(cp.photoId)) return false;
-        if (cp.checksum && existingChecksums.has(cp.checksum)) return false;
-        if (cp.thumbHash && existingThumbHashes.has(cp.thumbHash)) return false;
-        if (cp.width && cp.height && cp.size && existingDimSizes.has(`${cp.width}x${cp.height}:${cp.size}`)) return false;
-        return true;
-      });
+      // Filter candidate photos that are NOT already associated with this album
+      const newPhotosToAdd = candidatePhotos.filter((cp: any) => !existingPhotoIds.has(cp.photoId));
+      totalAlready += candidatePhotos.length - newPhotosToAdd.length;
 
       if (newPhotosToAdd.length) {
         const rows = newPhotosToAdd.map((cp: any) => ({
@@ -518,10 +503,12 @@ const albumService = {
           albumId,
         }));
         await orm.insert(albumPhotoTab).values(rows);
+        totalAdded += newPhotosToAdd.length;
       }
     }
 
     void syncService.bump('all');
+    return { addedCount: totalAdded, alreadyInAlbumCount: totalAlready };
   },
 
   // Remove photo associations.

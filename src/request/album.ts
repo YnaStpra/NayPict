@@ -11,7 +11,7 @@ import {
   type AlbumSetNameBo,
   type AlbumTogglePinPhotoBo,
 } from "@/server/entity/bo/album";
-import { type AlbumVo } from "@/server/entity/vo/album";
+import { type AlbumVo, type AlbumAddPhotoResultVo } from "@/server/entity/vo/album";
 
 export interface AlbumCoverCandidate {
   photoId: string;
@@ -103,7 +103,7 @@ export function albumGetCoverCandidates(albumId: string) {
 // Add photos to album.
 export function albumAddPhoto(params: AlbumAddPhotoBo) {
   invalidateAlbumCache();
-  return http.post<void>('/album/addPhoto', params);
+  return http.post<AlbumAddPhotoResultVo>('/album/addPhoto', params);
 }
 
 // Remove photos from album.

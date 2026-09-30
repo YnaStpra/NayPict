@@ -11,4 +11,10 @@ interface AlbumVo extends Omit<Album, 'isManualCover'> {
   isManualCover: boolean;
 }
 
+export interface AlbumAddPhotoResultVo {
+  addedCount: number;
+  alreadyInAlbumCount: number;
+}
+
 export type { AlbumVo };
+
