@@ -42,6 +42,7 @@ interface PhotoExistsBo {
   width?: number;
   height?: number;
   thumbHash?: string;
+  duration?: number;
 }
 
 interface PhotoRecycleBo {

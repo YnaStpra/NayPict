@@ -30,6 +30,7 @@ import {
 import { PhotoUploadSettings, readPhotoUploadSettings } from "@/components/photo/photo-upload-settings"
 import { compressImageFile } from "@/lib/image-compress"
 import { extractClientExif } from "@/lib/photo-client-exif"
+import { generateClientImageThumbHash } from "@/lib/thumb-hash"
 import { extractVideoMetadata, compressVideoTo720p, formatVideoDuration, type VideoMetadata } from "@/lib/video-compress"
 import { useStorageStore } from "@/store/storage-store"
 import { usePhotoStore } from "@/store/photo-store"
@@ -97,13 +98,14 @@ function createUploadItemId(file: File): string {
 // Calculate browser SHA-1 Checksum using Web Crypto API with fast sliced fingerprint for large files
 async function getFileChecksum(file: File): Promise<string> {
   try {
-    // For large files (> 20MB), slice the first 2MB and last 2MB to compute instant fingerprint
+    // For large files (> 20MB), slice the first 2MB, middle 2MB, and last 2MB to compute instant deterministic fingerprint
     // without buffering 600MB into browser RAM which causes UI freezing
     let slice: Blob = file
     if (file.size > 20 * 1024 * 1024) {
       const head = file.slice(0, 2 * 1024 * 1024)
+      const mid = file.slice(Math.floor(file.size / 2) - 1024 * 1024, Math.floor(file.size / 2) + 1024 * 1024)
       const tail = file.slice(file.size - 2 * 1024 * 1024, file.size)
-      slice = new Blob([head, tail, `${file.size}-${file.lastModified}`])
+      slice = new Blob([head, mid, tail, String(file.size)])
     }
     const buffer = await slice.arrayBuffer()
     if (typeof crypto !== "undefined" && crypto.subtle) {
@@ -114,7 +116,7 @@ async function getFileChecksum(file: File): Promise<string> {
     return await sha1(new Uint8Array(buffer))
   } catch (err) {
     console.warn("Checksum calculation fallback:", err)
-    return `${file.name}-${file.size}-${file.lastModified}`
+    return `${file.name}-${file.size}`
   }
 }
 
@@ -760,9 +762,17 @@ export function PhotoUploadDialog() {
           )
         }
 
-        // 3. Deduplication check
+        // 3. Deduplication check with visual fingerprint & metadata
         const checksum = await getFileChecksum(compressedVideo)
-        const existsResult = await photoExists({ checksum, name: compressedVideo.name })
+        const existsResult = await photoExists({
+          checksum,
+          name: compressedVideo.name,
+          size: compressedVideo.size,
+          width: (compressedVideo as any).videoWidth || meta.width,
+          height: (compressedVideo as any).videoHeight || meta.height,
+          duration: meta.duration,
+          thumbHash: meta.thumbHash,
+        })
 
         if (existsResult.duplicate) {
           const dupPhotoId = existsResult.photoId
@@ -896,8 +906,28 @@ export function PhotoUploadDialog() {
         })
       }
 
+      // Extract client-side visual fingerprint and natural dimensions for high-precision deduplication
+      let clientThumbHash = ""
+      let imgWidth = 0
+      let imgHeight = 0
+      try {
+        const clientMeta = await generateClientImageThumbHash(item.file)
+        if (clientMeta) {
+          clientThumbHash = clientMeta.thumbHash
+          imgWidth = clientMeta.width
+          imgHeight = clientMeta.height
+        }
+      } catch {}
+
       const checksum = await getFileChecksum(fileToUpload)
-      const existsResult = await photoExists({ checksum, name: fileToUpload.name })
+      const existsResult = await photoExists({
+        checksum,
+        name: fileToUpload.name,
+        size: fileToUpload.size,
+        width: imgWidth || undefined,
+        height: imgHeight || undefined,
+        thumbHash: clientThumbHash || undefined,
+      })
 
       if (existsResult.duplicate) {
         const dupPhotoId = existsResult.photoId
