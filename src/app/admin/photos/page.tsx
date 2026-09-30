@@ -84,7 +84,10 @@ import { UserTypeEnum } from '@/server/enums/user-enum'
 import { PhotoStatusEnum, PhotoVisibilityEnum } from '@/server/enums/photo-enum'
 import { type PhotoVo } from '@/server/entity/vo/photo'
 import { photoBatchEdit, photoList, photoRecycle } from '@/request/photo'
-import { albumAddPhoto } from '@/request/album'
+import { albumAddPhoto, albumRemovePhoto } from '@/request/album'
+import { type AlbumAddPhotoResultVo } from '@/server/entity/vo/album'
+import { useAlbumStore } from '@/store/album-store'
+import { emitCatalogSync } from '@/lib/catalog-sync'
 import { getThumbHashUrl } from '@/lib/thumb-hash'
 import { toProxyMediaUrl } from '@/lib/url'
 import { formatPhotoTakenDate, formatRelativeTime, parseTime } from '@/lib/date'
@@ -232,7 +235,7 @@ function AdminPhotoThumbnail({
 export default function AdminPhotosPage() {
   const router = useRouter()
   const locale = useLocale()
-  const { userInfo, sidebarOpen, setSidebarOpen } = useApp()
+  const { userInfo, sidebarOpen, setSidebarOpen, refreshAlbums } = useApp()
   const isAdmin = userInfo?.type === UserTypeEnum.ADMIN
 
   // Data state
@@ -260,6 +263,15 @@ export default function AdminPhotosPage() {
   const [batchEditIds, setBatchEditIds] = useState<string[]>([])
   const [albumDialogOpen, setAlbumDialogOpen] = useState(false)
   const [albumTargetIds, setAlbumTargetIds] = useState<string[]>([])
+
+  // Pre-selected album IDs for targeted single photo
+  const targetPhotoInitialAlbumIds = useMemo(() => {
+    if (albumTargetIds.length === 1) {
+      const targetPhoto = photos.find((p) => p.photoId === albumTargetIds[0])
+      return targetPhoto?.albums?.map((a) => a.albumId) ?? []
+    }
+    return []
+  }, [albumTargetIds, photos])
 
   // Debounce search query
   useEffect(() => {
@@ -430,15 +442,86 @@ export default function AdminPhotosPage() {
   }
 
   const handleAlbumSuccess = async (albumIds: string[]) => {
-    if (!albumTargetIds.length || !albumIds.length) return
-    try {
-      await albumAddPhoto({ albumIds, photoIds: albumTargetIds })
-      toast.success(`Added ${albumTargetIds.length} photo(s) to ${albumIds.length} album(s).`)
+    if (!albumTargetIds.length) return
+
+    const isSingle = albumTargetIds.length === 1
+    const initialIds = isSingle ? targetPhotoInitialAlbumIds : []
+    const addedAlbumIds = albumIds.filter((id) => !initialIds.includes(id))
+    const removedAlbumIds = isSingle ? initialIds.filter((id) => !albumIds.includes(id)) : []
+
+    // If nothing changed for a single photo, simply close dialog
+    if (isSingle && addedAlbumIds.length === 0 && removedAlbumIds.length === 0) {
       setAlbumDialogOpen(false)
+      setAlbumTargetIds([])
+      return
+    }
+
+    try {
+      let addResult: AlbumAddPhotoResultVo | null = null
+
+      if (addedAlbumIds.length > 0) {
+        addResult = await albumAddPhoto({ albumIds: addedAlbumIds, photoIds: albumTargetIds })
+      }
+
+      if (removedAlbumIds.length > 0) {
+        for (const remAlbumId of removedAlbumIds) {
+          await albumRemovePhoto({ albumId: remAlbumId, photoIds: albumTargetIds })
+        }
+      }
+
+      // Optimistic update of local photos state so badges reflect changes instantly
+      const allAlbums = useAlbumStore.getState().albums
+      const selectedAlbumObjs = allAlbums
+        .filter((a) => albumIds.includes(a.albumId))
+        .map((a) => ({ albumId: a.albumId, name: a.name }))
+
+      setPhotos((prev) =>
+        prev.map((p) => {
+          if (!albumTargetIds.includes(p.photoId)) return p
+
+          if (isSingle) {
+            return {
+              ...p,
+              albums: selectedAlbumObjs,
+            }
+          } else {
+            const existing = p.albums ?? []
+            const existingIds = new Set(existing.map((a) => a.albumId))
+            const newlyAdded = selectedAlbumObjs.filter((a) => !existingIds.has(a.albumId))
+            return {
+              ...p,
+              albums: [...existing, ...newlyAdded],
+            }
+          }
+        })
+      )
+
+      if (isSingle) {
+        if (addedAlbumIds.length > 0 && removedAlbumIds.length > 0) {
+          toast.success('Updated album assignments for photo.')
+        } else if (addedAlbumIds.length > 0) {
+          toast.success(`Added photo to ${addedAlbumIds.length} album(s).`)
+        } else if (removedAlbumIds.length > 0) {
+          toast.success(`Removed photo from ${removedAlbumIds.length} album(s).`)
+        }
+      } else {
+        if (addResult && addResult.addedCount > 0) {
+          toast.success(`Added ${albumTargetIds.length} photo(s) to ${albumIds.length} album(s).`)
+        } else if (addResult && addResult.alreadyInAlbumCount > 0 && addResult.addedCount === 0) {
+          toast.info('Selected photo(s) are already in the chosen album(s).')
+        } else {
+          toast.success(`Updated album assignments for ${albumTargetIds.length} photo(s).`)
+        }
+      }
+
+      setAlbumDialogOpen(false)
+      setAlbumTargetIds([])
       setSelectedIds([])
+      void refreshAlbums()
+      emitCatalogSync('all')
       fetchPhotos()
     } catch {
-      toast.error('Failed to add photos to album.')
+      toast.error('Failed to update album assignments.')
     }
   }
 
@@ -953,22 +1036,32 @@ export default function AdminPhotosPage() {
 
                           {/* Albums Tag List */}
                           <td className="py-2.5 px-3">
-                            {photo.albums && photo.albums.length > 0 ? (
-                              <div className="flex flex-wrap gap-1 max-w-[150px]">
-                                {photo.albums.map((alb) => (
-                                  <Badge
-                                    key={alb.albumId}
-                                    variant="secondary"
-                                    className="text-[10px] px-1.5 py-0 rounded bg-muted/60 font-normal truncate max-w-[120px]"
-                                    title={alb.name}
-                                  >
-                                    📁 {alb.name}
-                                  </Badge>
-                                ))}
-                              </div>
-                            ) : (
-                              <span className="text-[11px] text-muted-foreground/60">—</span>
-                            )}
+                            <button
+                              type="button"
+                              onClick={() => handleAddToAlbumSelected([photo.photoId])}
+                              className="group/album text-left w-full hover:opacity-85 transition-opacity"
+                              title="Click to manage albums for this photo"
+                            >
+                              {photo.albums && photo.albums.length > 0 ? (
+                                <div className="flex flex-wrap gap-1 max-w-[150px]">
+                                  {photo.albums.map((alb) => (
+                                    <Badge
+                                      key={alb.albumId}
+                                      variant="secondary"
+                                      className="text-[10px] px-1.5 py-0 rounded bg-muted/60 hover:bg-muted font-normal truncate max-w-[120px] transition-colors"
+                                      title={alb.name}
+                                    >
+                                      📁 {alb.name}
+                                    </Badge>
+                                  ))}
+                                </div>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground/60 hover:text-foreground transition-colors group-hover/album:underline">
+                                  <span>—</span>
+                                  <FolderPlus className="size-3 opacity-0 group-hover/album:opacity-100 transition-opacity text-primary" />
+                                </span>
+                              )}
+                            </button>
                           </td>
 
                           {/* Date Taken */}
@@ -1122,6 +1215,19 @@ export default function AdminPhotosPage() {
                               📁 Album
                             </span>
                           )}
+                          {photo.albums && photo.albums.length > 0 && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleAddToAlbumSelected([photo.photoId])
+                              }}
+                              className="px-1.5 py-0.5 rounded-md bg-black/70 text-sky-300 hover:text-sky-200 font-medium text-[9px] backdrop-blur-xs border border-sky-500/30 hover:bg-black/90 transition-colors truncate max-w-[100px]"
+                              title={`Albums: ${photo.albums.map((a) => a.name).join(', ')} (click to manage)`}
+                            >
+                              📁 {photo.albums.length === 1 ? photo.albums[0].name : `${photo.albums.length} albums`}
+                            </button>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -1142,6 +1248,16 @@ export default function AdminPhotosPage() {
 
                       {/* Action quick buttons */}
                       <div className="pt-1.5 flex items-center justify-end gap-1 border-t border-border/50">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleAddToAlbumSelected([photo.photoId])}
+                          className="size-6 rounded-md text-muted-foreground hover:text-foreground"
+                          title="Manage Albums"
+                        >
+                          <FolderPlus className="size-3" />
+                        </Button>
                         <Button
                           type="button"
                           variant="ghost"
@@ -1224,7 +1340,11 @@ export default function AdminPhotosPage() {
       {albumDialogOpen && (
         <AlbumSelectDialog
           open={albumDialogOpen}
-          onOpenChange={setAlbumDialogOpen}
+          onOpenChange={(next) => {
+            setAlbumDialogOpen(next)
+            if (!next) setAlbumTargetIds([])
+          }}
+          initialSelectedAlbumIds={targetPhotoInitialAlbumIds}
           onAlbumSelect={handleAlbumSuccess}
         />
       )}

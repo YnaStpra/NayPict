@@ -411,9 +411,19 @@ export default function Page() {
       setPhotos((prevPhotos) =>
         prevPhotos.map((photo) => {
           if (albumPhotoIds.includes(photo.photoId)) {
-            return {
-              ...photo,
-              albums: selectedAlbumObjs,
+            if (albumPhotoIds.length === 1) {
+              return {
+                ...photo,
+                albums: selectedAlbumObjs,
+              }
+            } else {
+              const existing = photo.albums ?? []
+              const existingIds = new Set(existing.map((a) => a.albumId))
+              const newlyAdded = selectedAlbumObjs.filter((a) => !existingIds.has(a.albumId))
+              return {
+                ...photo,
+                albums: [...existing, ...newlyAdded],
+              }
             }
           }
           return photo
