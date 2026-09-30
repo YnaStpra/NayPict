@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars */
-import { and, asc, count, desc, eq, inArray, isNull, max, or, sql } from 'drizzle-orm';
+import { and, asc, count, desc, eq, inArray, isNull, max, ne, or, sql } from 'drizzle-orm';
 import { createId } from '@/server/lib/id';
 import { type Album, albumTab } from '@/server/entity/album';
 import { albumPhotoTab } from '@/server/entity/album-photo';
@@ -668,13 +668,17 @@ const albumService = {
     const nextPinned = albumPhoto.isPinned === 1 ? 0 : 1;
 
     if (nextPinned === 1) {
-      // Validate that the album currently has less than 3 pinned photos
+      // Validate that the album currently has less than 3 pinned active, visible photos
       const [pinnedCountRow] = await orm
         .select({ total: count() })
         .from(albumPhotoTab)
+        .innerJoin(photoTab, eq(albumPhotoTab.photoId, photoTab.photoId))
         .where(and(
           eq(albumPhotoTab.albumId, params.albumId),
-          eq(albumPhotoTab.isPinned, 1)
+          eq(albumPhotoTab.isPinned, 1),
+          eq(photoTab.status, PhotoStatusEnum.NORMAL),
+          ne(photoTab.visibility, PhotoVisibilityEnum.ARCHIVED),
+          ne(photoTab.visibility, PhotoVisibilityEnum.GALLERY_ONLY)
         ));
 
       const pinnedTotal = Number(pinnedCountRow?.total ?? 0);

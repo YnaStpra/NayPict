@@ -1548,6 +1548,11 @@ const photoService = {
       })
       .where(and(...whereList));
 
+    // Automatically unpin recycled photos from any albums so they do not hold pin slots
+    await orm.update(albumPhotoTab)
+      .set({ isPinned: 0, pinnedAt: null })
+      .where(inArray(albumPhotoTab.photoId, params.photoIds));
+
     invalidatePhotoFastPathCache();
     void syncService.bump('photo', -params.photoIds.length);
   },
@@ -1565,6 +1570,19 @@ const photoService = {
         recycleTime: new Date(0).toISOString()
       })
       .where(whereList.length ? and(...whereList) : undefined);
+
+    // Automatically unpin user's recycled photos from all albums
+    const userPhotos = await orm
+      .select({ photoId: photoTab.photoId })
+      .from(photoTab)
+      .where(eq(photoTab.userId, userId));
+
+    const userPhotoIds = userPhotos.map((p) => p.photoId);
+    if (userPhotoIds.length > 0) {
+      await orm.update(albumPhotoTab)
+        .set({ isPinned: 0, pinnedAt: null })
+        .where(inArray(albumPhotoTab.photoId, userPhotoIds));
+    }
 
     invalidatePhotoFastPathCache();
     void syncService.bump('photo');
@@ -1593,6 +1611,13 @@ const photoService = {
         visibility: params.visibility
       })
       .where(and(...whereList));
+
+    // If visibility is hidden from albums (ARCHIVED or GALLERY_ONLY), unpin them from albums
+    if (params.visibility === PhotoVisibilityEnum.ARCHIVED || params.visibility === PhotoVisibilityEnum.GALLERY_ONLY) {
+      await orm.update(albumPhotoTab)
+        .set({ isPinned: 0, pinnedAt: null })
+        .where(inArray(albumPhotoTab.photoId, params.photoIds));
+    }
 
     invalidatePhotoFastPathCache();
     void syncService.bump('all');
@@ -1888,6 +1913,11 @@ const photoService = {
 
     if (params.visibility !== undefined && params.visibility !== null) {
       updates.visibility = params.visibility;
+      if (params.visibility === PhotoVisibilityEnum.ARCHIVED || params.visibility === PhotoVisibilityEnum.GALLERY_ONLY) {
+        await orm.update(albumPhotoTab)
+          .set({ isPinned: 0, pinnedAt: null })
+          .where(inArray(albumPhotoTab.photoId, verifiedPhotoIds));
+      }
     }
 
     if (params.allowDownload !== undefined && params.allowDownload !== null) {
