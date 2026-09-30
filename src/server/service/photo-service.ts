@@ -343,8 +343,8 @@ const photoService = {
       ? await orm
         .select({
           ...getTableColumns(photoTab),
-          isPinned: albumPhotoTab.isPinned,
-          pinnedAt: albumPhotoTab.pinnedAt,
+          isPinned: params.sortBy ? sql<number>`0` : albumPhotoTab.isPinned,
+          pinnedAt: params.sortBy ? sql<string | null>`NULL` : albumPhotoTab.pinnedAt,
         })
         .from(photoTab)
         .innerJoin(albumPhotoTab, eq(photoTab.photoId, albumPhotoTab.photoId))
@@ -353,8 +353,12 @@ const photoService = {
           eq(albumPhotoTab.albumId, params.albumId)
         ))
         .orderBy(
-          desc(albumPhotoTab.isPinned),
-          desc(albumPhotoTab.pinnedAt),
+          ...(params.sortBy
+            ? []
+            : [
+                desc(albumPhotoTab.isPinned),
+                desc(albumPhotoTab.pinnedAt),
+              ]),
           ...(params.sortBy === 'type'
             ? [
                 asc(typeRankSql),

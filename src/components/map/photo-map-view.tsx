@@ -2393,17 +2393,6 @@ export default function PhotoMapView() {
                 </span>
               </div>
               <div className="flex items-center gap-2 shrink-0">
-                <a
-                  href={getStreetViewUrl(selectedCluster.latitude, selectedCluster.longitude)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={(e) => e.stopPropagation()}
-                  className="text-[10px] font-semibold text-amber-600 dark:text-amber-400 hover:underline flex items-center gap-0.5"
-                  title="Open Google Street View 360° panorama"
-                >
-                  <span>360° Pano</span>
-                  <ExternalLink className="size-2.5" />
-                </a>
                 {isAdmin ? (
                   <button
                     type="button"

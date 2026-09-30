@@ -596,13 +596,6 @@ export default function Page() {
                     resetKey={masonryKey}
                     groupByDate={groupByDate}
                     groupByType={sortKey === 'type_asc' || sortKey === 'type_desc'}
-                    enableTimelineScrubber={
-                      groupByDate ||
-                      sortKey === 'takenTime_desc' ||
-                      sortKey === 'takenTime_asc' ||
-                      sortKey === 'createTime_desc' ||
-                      sortKey === 'createTime_asc'
-                    }
                     onReachBottom={loadMorePhotos}
                     onPhotoOpen={openPhoto}
                     onPhotoDelete={recyclePhotos}
