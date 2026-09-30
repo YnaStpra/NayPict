@@ -303,126 +303,18 @@ export default function DuplicatesPage() {
 
                       {/* Photo Grid inside Group */}
                       <div className="p-4 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                        {group.photos.map((photo, pIdx) => {
-                          const isPrimary = pIdx === 0
-
-                          return (
-                            <div
-                              key={photo.photoId}
-                              className={`group relative flex flex-col rounded-lg border overflow-hidden bg-background transition-all ${
-                                isPrimary ? 'ring-2 ring-primary/40 border-primary/30' : 'hover:border-primary/40'
-                              }`}
-                            >
-                              {/* Primary / Dupe Badge */}
-                              <div className="absolute top-2 left-2 z-10">
-                                {isPrimary ? (
-                                  <span className="inline-flex items-center gap-1 rounded-md bg-emerald-600 px-2 py-0.5 text-[10px] font-semibold text-white shadow-xs">
-                                    <Check className="size-3" /> Main Media
-                                  </span>
-                                ) : (
-                                  <span className="inline-flex items-center gap-1 rounded-md bg-amber-500/90 px-2 py-0.5 text-[10px] font-semibold text-white shadow-xs">
-                                    Duplicate #{pIdx}
-                                  </span>
-                                )}
-                              </div>
-
-                              {/* Photo Thumbnail */}
-                              <div
-                                className="relative aspect-4/3 w-full bg-neutral-950 cursor-pointer overflow-hidden"
-                                onClick={() => handlePreviewPhoto(photo, group.photos)}
-                                style={
-                                  photo.thumbHash
-                                    ? {
-                                        backgroundImage: `url("${getThumbHashUrl(photo.thumbHash)}")`,
-                                        backgroundSize: 'cover',
-                                        backgroundPosition: 'center',
-                                      }
-                                    : undefined
-                                }
-                              >
-                                {photo.thumbHash && (
-                                  <img
-                                    src={getThumbHashUrl(photo.thumbHash)}
-                                    alt=""
-                                    className="absolute inset-0 size-full object-cover blur-xs scale-110"
-                                    aria-hidden
-                                  />
-                                )}
-                                {photo.thumbnail || photo.preview ? (
-                                  <img
-                                    src={photo.thumbnail || photo.preview}
-                                    alt=""
-                                    loading="lazy"
-                                    decoding="async"
-                                    className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-                                    onError={(e) => {
-                                      const el = e.currentTarget
-                                      if (el.src && !el.src.includes('/media/') && photo.thumbnail) {
-                                        el.src = toProxyMediaUrl(photo.thumbnail)
-                                      } else if (photo.preview && el.src !== toProxyMediaUrl(photo.preview)) {
-                                        el.src = toProxyMediaUrl(photo.preview)
-                                      } else if (photo.key && el.src !== toProxyMediaUrl(photo.key)) {
-                                        el.src = toProxyMediaUrl(photo.key)
-                                      } else {
-                                        el.style.display = 'none'
-                                      }
-                                    }}
-                                  />
-                                ) : (
-                                  <div className="size-full flex items-center justify-center bg-muted text-muted-foreground text-xs">
-                                    No Image
-                                  </div>
-                                )}
-                                <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center z-10">
-                                  <span className="flex items-center gap-1 rounded-full bg-black/60 px-3 py-1 text-xs text-white backdrop-blur-xs font-medium">
-                                    <Eye className="size-3.5" /> Preview
-                                  </span>
-                                </div>
-                              </div>
-
-                              {/* Photo Metadata */}
-                              <div className="p-3 text-xs space-y-1 flex-1 flex flex-col justify-between">
-                                <div>
-                                  <div className="font-semibold truncate text-foreground" title={photo.name}>
-                                    {photo.name}
-                                  </div>
-                                  <div className="text-[11px] text-muted-foreground mt-0.5">
-                                    {photo.width && photo.height ? `${photo.width}×${photo.height}` : 'Resolution n/a'} • {(photo.size / 1024 / 1024).toFixed(1)}MB
-                                  </div>
-                                  {photo.storageName && (
-                                    <div className="text-[10px] text-muted-foreground/80 truncate mt-0.5">
-                                      Storage: {photo.storageName}
-                                    </div>
-                                  )}
-                                  {photo.albums && photo.albums.length > 0 ? (
-                                    <div className="mt-1.5 flex items-center gap-1 text-[10px] text-primary bg-primary/10 px-2 py-0.5 rounded-md font-medium truncate" title={photo.albums.map((a) => a.name).join(", ")}>
-                                      <FolderIcon className="size-3 shrink-0" />
-                                      <span className="truncate">Album: {photo.albums.map((a) => a.name).join(", ")}</span>
-                                    </div>
-                                  ) : (
-                                    <div className="mt-1.5 inline-flex items-center gap-1 text-[10px] text-muted-foreground bg-muted px-2 py-0.5 rounded-md font-medium">
-                                      <span>Main Gallery</span>
-                                    </div>
-                                  )}
-                                </div>
-
-                                {/* Action button per photo */}
-                                <div className="pt-2 border-t mt-2 flex items-center gap-2">
-                                  <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="sm"
-                                    className="w-full text-xs h-7 text-destructive hover:bg-destructive/10 hover:text-destructive border-destructive/30"
-                                    onClick={() => handleRecyclePhotos([photo.photoId], group.groupId)}
-                                  >
-                                    <Trash2 className="size-3" />
-                                    <span>Delete This Photo</span>
-                                  </Button>
-                                </div>
-                              </div>
-                            </div>
-                          )
-                        })}
+                        {group.photos.map((photo, pIdx) => (
+                          <DuplicatePhotoCardItem
+                            key={photo.photoId}
+                            photo={photo}
+                            pIdx={pIdx}
+                            isPrimary={pIdx === 0}
+                            allGroupPhotos={group.photos}
+                            groupId={group.groupId}
+                            onPreview={handlePreviewPhoto}
+                            onRecycle={handleRecyclePhotos}
+                          />
+                        ))}
                       </div>
                     </div>
                   )
@@ -450,3 +342,152 @@ export default function DuplicatesPage() {
     </>
   )
 }
+
+interface DuplicatePhotoCardItemProps {
+  photo: PhotoVo
+  pIdx: number
+  isPrimary: boolean
+  allGroupPhotos: PhotoVo[]
+  groupId: string
+  onPreview: (photo: PhotoVo, photos: PhotoVo[]) => void
+  onRecycle: (photoIds: string[], groupId: string) => void
+}
+
+function DuplicatePhotoCardItem({
+  photo,
+  pIdx,
+  isPrimary,
+  allGroupPhotos,
+  groupId,
+  onPreview,
+  onRecycle,
+}: DuplicatePhotoCardItemProps) {
+  const initialSrc = photo.thumbnail || photo.preview || photo.key || ""
+  const [imgSrc, setImgSrc] = useState(initialSrc)
+  const [isLoaded, setIsLoaded] = useState(false)
+  const [hasError, setHasError] = useState(false)
+
+  const placeholderUrl = photo.thumbHash ? getThumbHashUrl(photo.thumbHash) : undefined
+
+  return (
+    <div
+      className={`group relative flex flex-col rounded-lg border overflow-hidden bg-background transition-all ${
+        isPrimary ? 'ring-2 ring-primary/40 border-primary/30' : 'hover:border-primary/40'
+      }`}
+    >
+      {/* Primary / Dupe Badge */}
+      <div className="absolute top-2 left-2 z-20 pointer-events-none">
+        {isPrimary ? (
+          <span className="inline-flex items-center gap-1 rounded-md bg-emerald-600 px-2 py-0.5 text-[10px] font-semibold text-white shadow-xs">
+            <Check className="size-3" /> Main Media
+          </span>
+        ) : (
+          <span className="inline-flex items-center gap-1 rounded-md bg-amber-500/90 px-2 py-0.5 text-[10px] font-semibold text-white shadow-xs">
+            Duplicate #{pIdx}
+          </span>
+        )}
+      </div>
+
+      {/* Photo Thumbnail Container */}
+      <div
+        className="relative aspect-4/3 w-full bg-neutral-900 cursor-pointer overflow-hidden"
+        onClick={() => onPreview(photo, allGroupPhotos)}
+        style={{
+          backgroundColor: 'rgba(128, 128, 128, 0.08)',
+          backgroundImage: !isLoaded && placeholderUrl ? `url("${placeholderUrl}")` : undefined,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+        }}
+      >
+        {imgSrc && !hasError ? (
+          <img
+            src={imgSrc}
+            alt={photo.name || 'Media'}
+            loading="eager"
+            decoding="async"
+            onLoad={() => setIsLoaded(true)}
+            onError={() => {
+              // Progressive fallback cascade: preview -> key -> /media/ proxy
+              if (photo.preview && imgSrc !== photo.preview) {
+                setImgSrc(photo.preview)
+              } else if (photo.key && imgSrc !== photo.key) {
+                setImgSrc(photo.key)
+              } else if (imgSrc && !imgSrc.includes('/media/')) {
+                setImgSrc(toProxyMediaUrl(photo.thumbnail || photo.preview || photo.key))
+              } else {
+                setHasError(true)
+              }
+            }}
+            className={`absolute inset-0 size-full object-cover transition-all duration-300 group-hover:scale-105 ${
+              isLoaded ? 'opacity-100' : 'opacity-0'
+            }`}
+          />
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center bg-muted text-muted-foreground text-xs">
+            {placeholderUrl ? (
+              <img
+                src={placeholderUrl}
+                alt=""
+                className="absolute inset-0 size-full object-cover"
+              />
+            ) : (
+              <span>No Image Available</span>
+            )}
+          </div>
+        )}
+
+        {/* Hover preview indicator */}
+        <div className="absolute inset-0 bg-black/25 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center z-10 pointer-events-none">
+          <span className="flex items-center gap-1.5 rounded-full bg-black/75 px-3 py-1 text-xs text-white backdrop-blur-xs font-medium shadow-sm">
+            <Eye className="size-3.5" /> Inspect Photo
+          </span>
+        </div>
+      </div>
+
+      {/* Photo Metadata */}
+      <div className="p-3 text-xs space-y-1 flex-1 flex flex-col justify-between">
+        <div>
+          <div className="font-semibold truncate text-foreground" title={photo.name}>
+            {photo.name}
+          </div>
+          <div className="text-[11px] text-muted-foreground mt-0.5">
+            {photo.width && photo.height ? `${photo.width}×${photo.height}` : 'Resolution n/a'} • {(photo.size / 1024 / 1024).toFixed(1)}MB
+          </div>
+          {photo.storageName && (
+            <div className="text-[10px] text-muted-foreground/80 truncate mt-0.5">
+              Storage: {photo.storageName}
+            </div>
+          )}
+          {photo.albums && photo.albums.length > 0 ? (
+            <div
+              className="mt-1.5 flex items-center gap-1 text-[10px] text-primary bg-primary/10 px-2 py-0.5 rounded-md font-medium truncate"
+              title={photo.albums.map((a) => a.name).join(', ')}
+            >
+              <FolderIcon className="size-3 shrink-0" />
+              <span className="truncate">Album: {photo.albums.map((a) => a.name).join(', ')}</span>
+            </div>
+          ) : (
+            <div className="mt-1.5 inline-flex items-center gap-1 text-[10px] text-muted-foreground bg-muted px-2 py-0.5 rounded-md font-medium">
+              <span>Main Gallery</span>
+            </div>
+          )}
+        </div>
+
+        {/* Action button per photo */}
+        <div className="pt-2 border-t mt-2 flex items-center gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="w-full text-xs h-7 text-destructive hover:bg-destructive/10 hover:text-destructive border-destructive/30"
+            onClick={() => onRecycle([photo.photoId], groupId)}
+          >
+            <Trash2 className="size-3" />
+            <span>Delete This Photo</span>
+          </Button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
