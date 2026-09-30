@@ -47,6 +47,7 @@ import { albumService } from '@/server/service/album-service';
 import { settingService } from '@/server/service/setting-service';
 import { SettingOnThisDayEnum, SettingPhotoDedupEnum, SettingSyncDeleteEnum } from '@/server/enums/setting-enum';
 import { formatHttpUrl, toMediaUrl, toProxyMediaUrl } from '@/lib/url';
+import { createHash } from 'crypto';
 import { fileChecksum } from '@/server/lib/crypto';
 import {
   areThumbHashesDuplicate,
@@ -1049,7 +1050,7 @@ const photoService = {
           const candSig = createVisualSignature(cand.photoId, cand.thumbHash);
           if (candSig) {
             const similarity = calculateVisualSimilarity(incomingSig, candSig);
-            if (similarity >= 0.94) {
+            if (similarity >= 0.965) {
               return { duplicate: true, photoId: cand.photoId };
             }
           }
@@ -2183,182 +2184,255 @@ const photoService = {
       photoVoMap.set(photo.photoId, vo);
     }
 
-    // Initialize Disjoint-Set Union (DSU) for multi-criteria grouping
-    const parentMap = new Map<string, string>();
-    function find(id: string): string {
-      if (!parentMap.has(id)) parentMap.set(id, id);
-      if (parentMap.get(id) !== id) {
-        parentMap.set(id, find(parentMap.get(id)!));
-      }
-      return parentMap.get(id)!;
-    }
+    // Isolate media types: photos ONLY compare with photos, videos ONLY compare with videos
+    const isVideoItem = (p: Photo) => p.type?.startsWith('video/') || false;
 
-    function union(id1: string, id2: string) {
-      const root1 = find(id1);
-      const root2 = find(id2);
-      if (root1 !== root2) {
-        parentMap.set(root1, root2);
-      }
-    }
+    // Cluster helper: complete-linkage / clique clustering
+    // Every member added to a cluster must satisfy the pairwise similarity threshold with ALL members of that cluster.
+    // This strictly eliminates transitive chaining (A ~ B ~ C ~ D false positives).
+    const clusters: { ids: string[]; reasons: Set<string>; hasExact: boolean }[] = [];
 
-    const matchReasonsMap = new Map<string, Set<string>>();
-    function addReason(photoId: string, reason: string) {
-      const set = matchReasonsMap.get(photoId) ?? new Set<string>();
-      set.add(reason);
-      matchReasonsMap.set(photoId, set);
-    }
+    const getClusterForId = (id: string) => clusters.find(c => c.ids.includes(id));
+
+    const mergeClusters = (c1: (typeof clusters)[0], c2: (typeof clusters)[0]) => {
+      for (const id of c2.ids) {
+        if (!c1.ids.includes(id)) c1.ids.push(id);
+      }
+      for (const r of c2.reasons) {
+        c1.reasons.add(r);
+      }
+      if (c2.hasExact) c1.hasExact = true;
+      const idx = clusters.indexOf(c2);
+      if (idx !== -1) clusters.splice(idx, 1);
+    };
+
+    const addExactPair = (id1: string, id2: string, reason: string) => {
+      const c1 = getClusterForId(id1);
+      const c2 = getClusterForId(id2);
+      if (!c1 && !c2) {
+        clusters.push({ ids: [id1, id2], reasons: new Set([reason]), hasExact: true });
+      } else if (c1 && !c2) {
+        c1.ids.push(id2);
+        c1.reasons.add(reason);
+        c1.hasExact = true;
+      } else if (!c1 && c2) {
+        c2.ids.push(id1);
+        c2.reasons.add(reason);
+        c2.hasExact = true;
+      } else if (c1 && c2 && c1 !== c2) {
+        mergeClusters(c1, c2);
+        c1.reasons.add(reason);
+        c1.hasExact = true;
+      }
+    };
 
     // 1. Group by Cryptographic Checksum (100% Exact Binary Match)
     const checksumMap = new Map<string, string[]>();
-    // 2. Group by Exact File Copy (Same Normalized Name + Dimensions)
-    const fileCopyMap = new Map<string, string[]>();
-    // 3. Group by Exact Resolution + Exact File Size (Different name, same binary content)
-    const resolutionSizeMap = new Map<string, string[]>();
-
     for (const p of list) {
-      find(p.photoId); // Register node in DSU
-
       if (p.checksum) {
         const arr = checksumMap.get(p.checksum) ?? [];
         arr.push(p.photoId);
         checksumMap.set(p.checksum, arr);
       }
+    }
+    for (const [, pIds] of checksumMap.entries()) {
+      if (pIds.length >= 2) {
+        for (let i = 1; i < pIds.length; i++) {
+          addExactPair(pIds[0], pIds[i], 'Identical Checksum');
+        }
+      }
+    }
 
+    // 2. Group by Exact File Copy (Same Normalized Name + Dimensions)
+    const fileCopyMap = new Map<string, string[]>();
+    for (const p of list) {
       if (p.name && p.width && p.height) {
         const cleanName = this.stripCopySuffix(p.name);
         if (cleanName.length >= 3) {
-          const key = `${cleanName}:${p.width}x${p.height}`;
+          const key = `${isVideoItem(p) ? 'v' : 'i'}:${cleanName}:${p.width}x${p.height}`;
           const arr = fileCopyMap.get(key) ?? [];
           arr.push(p.photoId);
           fileCopyMap.set(key, arr);
         }
       }
+    }
+    for (const [, pIds] of fileCopyMap.entries()) {
+      if (pIds.length >= 2) {
+        for (let i = 1; i < pIds.length; i++) {
+          addExactPair(pIds[0], pIds[i], 'Exact Duplicate File Copy');
+        }
+      }
+    }
 
+    // 3. Group by Exact Resolution + Exact File Size (Same media type, exact dimensions & byte size)
+    const resolutionSizeMap = new Map<string, string[]>();
+    for (const p of list) {
       if (p.width && p.height && p.size) {
-        const key = `${p.width}x${p.height}:${p.size}`;
+        const key = `${isVideoItem(p) ? 'v' : 'i'}:${p.width}x${p.height}:${p.size}`;
         const arr = resolutionSizeMap.get(key) ?? [];
         arr.push(p.photoId);
         resolutionSizeMap.set(key, arr);
       }
     }
-
-    // Perform Union operations for Exact / Near-Exact Matches
-    for (const [, pIds] of checksumMap.entries()) {
-      if (pIds.length >= 2) {
-        for (let i = 1; i < pIds.length; i++) {
-          union(pIds[0], pIds[i]);
-          addReason(pIds[i], 'Identical Checksum');
-        }
-        addReason(pIds[0], 'Identical Checksum');
-      }
-    }
-
-    for (const [, pIds] of fileCopyMap.entries()) {
-      if (pIds.length >= 2) {
-        for (let i = 1; i < pIds.length; i++) {
-          union(pIds[0], pIds[i]);
-          addReason(pIds[i], 'Exact Duplicate File Copy');
-        }
-        addReason(pIds[0], 'Exact Duplicate File Copy');
-      }
-    }
-
     for (const [, pIds] of resolutionSizeMap.entries()) {
       if (pIds.length >= 2) {
         for (let i = 1; i < pIds.length; i++) {
-          union(pIds[0], pIds[i]);
-          addReason(pIds[i], 'Identical Resolution & File Size');
+          addExactPair(pIds[0], pIds[i], 'Identical Resolution & File Size');
         }
-        addReason(pIds[0], 'Identical Resolution & File Size');
       }
     }
 
-    // 4. Perceptual Visual Similarity Match (via ThumbHash, tolerant to re-compression, format change, or slight noise)
-    const signatures: VisualSignature[] = [];
+    // 4. Perceptual Visual Similarity Matching
+    // Separate images and videos so they are NEVER matched against each other
+    const imageList = list.filter(p => !isVideoItem(p) && p.thumbHash);
+    const videoList = list.filter(p => isVideoItem(p) && p.thumbHash);
+
+    const sigMap = new Map<string, VisualSignature>();
     for (const p of list) {
       if (p.thumbHash) {
         const sig = createVisualSignature(p.photoId, p.thumbHash);
-        if (sig) signatures.push(sig);
+        if (sig) sigMap.set(p.photoId, sig);
       }
     }
 
-    const sigCount = signatures.length;
-    for (let i = 0; i < sigCount; i++) {
-      const sigA = signatures[i];
-      for (let j = i + 1; j < sigCount; j++) {
-        const sigB = signatures[j];
+    // Helper to test if a candidate is compatible with an entire cluster
+    const canJoinCluster = (cluster: (typeof clusters)[0], candidateId: string, minSim = 0.94): boolean => {
+      const candSig = sigMap.get(candidateId);
+      if (!candSig) return false;
+      for (const memberId of cluster.ids) {
+        if (memberId === candidateId) continue;
+        const memberSig = sigMap.get(memberId);
+        if (!memberSig) return false;
+        const sim = calculateVisualSimilarity(memberSig, candSig);
+        if (sim < minSim) return false;
+      }
+      return true;
+    };
+
+    // Pairwise visual match for images
+    for (let i = 0; i < imageList.length; i++) {
+      const pA = imageList[i];
+      const sigA = sigMap.get(pA.photoId);
+      if (!sigA) continue;
+
+      for (let j = i + 1; j < imageList.length; j++) {
+        const pB = imageList[j];
+        const sigB = sigMap.get(pB.photoId);
+        if (!sigB) continue;
+
         const sim = calculateVisualSimilarity(sigA, sigB);
-        if (sim >= 0.93) {
-          union(sigA.photoId, sigB.photoId);
-          addReason(sigA.photoId, 'Visual Similarity (Perceptual Match)');
-          addReason(sigB.photoId, 'Visual Similarity (Perceptual Match)');
-        }
-      }
-    }
+        if (sim >= 0.965) {
+          const cA = getClusterForId(pA.photoId);
+          const cB = getClusterForId(pB.photoId);
 
-    // 5. Group by Timestamp Proximity (<= 2 seconds) + Visual Similarity
-    for (let i = 0; i < list.length; i++) {
-      const pA = list[i];
-      if (!pA.takenTime) continue;
-      const timeA = new Date(pA.takenTime).getTime();
-      if (isNaN(timeA)) continue;
-
-      for (let j = i + 1; j < list.length; j++) {
-        const pB = list[j];
-        if (!pB.takenTime) continue;
-        const timeB = new Date(pB.takenTime).getTime();
-        if (isNaN(timeB)) continue;
-
-        if (Math.abs(timeA - timeB) <= 2000) {
-          if (pA.thumbHash && pB.thumbHash) {
-            if (areThumbHashesDuplicate(pA.thumbHash, pB.thumbHash, 0.88)) {
-              union(pA.photoId, pB.photoId);
-              addReason(pA.photoId, 'Identical Timestamp & Visual Match');
-              addReason(pB.photoId, 'Identical Timestamp & Visual Match');
+          if (!cA && !cB) {
+            clusters.push({ ids: [pA.photoId, pB.photoId], reasons: new Set(['Visual Similarity (Perceptual Match)']), hasExact: false });
+          } else if (cA && !cB) {
+            if (canJoinCluster(cA, pB.photoId)) {
+              cA.ids.push(pB.photoId);
+              cA.reasons.add('Visual Similarity (Perceptual Match)');
             }
-          } else if (pA.width && pB.width && pA.width === pB.width && pA.height === pB.height) {
-            union(pA.photoId, pB.photoId);
-            addReason(pA.photoId, 'Identical Timestamp & Resolution');
-            addReason(pB.photoId, 'Identical Timestamp & Resolution');
+          } else if (!cA && cB) {
+            if (canJoinCluster(cB, pA.photoId)) {
+              cB.ids.push(pA.photoId);
+              cB.reasons.add('Visual Similarity (Perceptual Match)');
+            }
+          } else if (cA && cB && cA !== cB) {
+            // Verify all cross-pairs satisfy clique similarity
+            let allCompatible = true;
+            for (const idA of cA.ids) {
+              if (!canJoinCluster(cB, idA)) {
+                allCompatible = false;
+                break;
+              }
+            }
+            if (allCompatible) {
+              mergeClusters(cA, cB);
+              cA.reasons.add('Visual Similarity (Perceptual Match)');
+            }
           }
         }
       }
     }
 
-    // Collect DSU root groups
-    const rootGroupsMap = new Map<string, string[]>();
-    for (const p of list) {
-      const root = find(p.photoId);
-      const arr = rootGroupsMap.get(root) ?? [];
-      arr.push(p.photoId);
-      rootGroupsMap.set(root, arr);
+    // Pairwise visual match for videos (must match poster visual similarity >= 0.975 AND resolution)
+    for (let i = 0; i < videoList.length; i++) {
+      const vA = videoList[i];
+      const sigA = sigMap.get(vA.photoId);
+      if (!sigA) continue;
+
+      for (let j = i + 1; j < videoList.length; j++) {
+        const vB = videoList[j];
+        if (vA.width !== vB.width || vA.height !== vB.height) continue;
+        const sigB = sigMap.get(vB.photoId);
+        if (!sigB) continue;
+
+        const sim = calculateVisualSimilarity(sigA, sigB);
+        if (sim >= 0.975) {
+          const cA = getClusterForId(vA.photoId);
+          const cB = getClusterForId(vB.photoId);
+
+          if (!cA && !cB) {
+            clusters.push({ ids: [vA.photoId, vB.photoId], reasons: new Set(['Video Visual & Resolution Match']), hasExact: false });
+          } else if (cA && !cB) {
+            if (canJoinCluster(cA, vB.photoId, 0.95)) {
+              cA.ids.push(vB.photoId);
+              cA.reasons.add('Video Visual & Resolution Match');
+            }
+          } else if (!cA && cB) {
+            if (canJoinCluster(cB, vA.photoId, 0.95)) {
+              cB.ids.push(vA.photoId);
+              cB.reasons.add('Video Visual & Resolution Match');
+            }
+          } else if (cA && cB && cA !== cB) {
+            let allCompatible = true;
+            for (const idA of cA.ids) {
+              if (!canJoinCluster(cB, idA, 0.95)) {
+                allCompatible = false;
+                break;
+              }
+            }
+            if (allCompatible) {
+              mergeClusters(cA, cB);
+              cA.reasons.add('Video Visual & Resolution Match');
+            }
+          }
+        }
+      }
     }
 
+    // Build final result groups with deterministic IDs
     const resultGroups: PhotoDuplicateGroupVo[] = [];
-    let groupCounter = 1;
 
-    for (const [, pIds] of rootGroupsMap.entries()) {
-      if (pIds.length >= 2) {
-        const photos = pIds
+    for (const cluster of clusters) {
+      if (cluster.ids.length >= 2) {
+        const photos = cluster.ids
           .map((id) => photoVoMap.get(id))
           .filter((p): p is PhotoVo => Boolean(p));
 
         if (photos.length >= 2) {
-          const reasons = new Set<string>();
-          for (const id of pIds) {
-            matchReasonsMap.get(id)?.forEach((r) => reasons.add(r));
-          }
-          const hasExact = reasons.has('Identical Checksum') || reasons.has('Identical Resolution & File Size');
-          const simType: 'checksum' | 'visual' = hasExact ? 'checksum' : 'visual';
+          const sortedPhotoIds = photos.map(p => p.photoId).sort();
+          const groupHash = createHash('sha1').update(sortedPhotoIds.join(',')).digest('hex').slice(0, 16);
+          const groupId = `dup-${groupHash}`;
 
           resultGroups.push({
-            groupId: `dup-group-${groupCounter++}`,
-            similarityType: simType,
+            groupId,
+            similarityType: cluster.hasExact ? 'checksum' : 'visual',
             photos,
           });
         }
       }
     }
+
+    // Sort groups deterministically: largest duplicate clusters first, then newest takenTime
+    resultGroups.sort((a, b) => {
+      if (b.photos.length !== a.photos.length) {
+        return b.photos.length - a.photos.length;
+      }
+      const timeA = a.photos[0]?.takenTime ? new Date(a.photos[0].takenTime).getTime() : 0;
+      const timeB = b.photos[0]?.takenTime ? new Date(b.photos[0].takenTime).getTime() : 0;
+      return timeB - timeA;
+    });
 
     return resultGroups;
   },

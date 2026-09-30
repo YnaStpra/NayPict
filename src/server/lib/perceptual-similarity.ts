@@ -10,6 +10,9 @@ export interface VisualSignature {
   aspectRatio: number;
   avgColor: { r: number; g: number; b: number };
   grid: Uint8Array; // 16x16x3 normalized RGB vector (768 bytes)
+  luma: Float32Array; // 16x16 grayscale luminance (256 floats)
+  dHash0: number; // 32-bit lower gradient hash
+  dHash1: number; // 32-bit upper gradient hash
 }
 
 /**
@@ -26,8 +29,18 @@ export function hexToBytes(hex: string): Uint8Array {
 }
 
 /**
+ * Highly optimized O(1) Hamming weight (population count) for 32-bit unsigned integers.
+ */
+export function popcount32(n: number): number {
+  let v = n >>> 0;
+  v = v - ((v >>> 1) & 0x55555555);
+  v = (v & 0x33333333) + ((v >>> 2) & 0x33333333);
+  return (((v + (v >>> 4)) & 0x0f0f0f0f) * 0x01010101) >>> 24;
+}
+
+/**
  * Pre-computes a compact visual fingerprint from a stored ThumbHash.
- * Decoding takes < 0.05ms per item and creates a 768-byte normalized descriptor.
+ * Incorporates color sampling, grayscale luminance, and directional gradient hash (dHash).
  */
 export function createVisualSignature(photoId: string, thumbHashHex?: string | null): VisualSignature | null {
   if (!thumbHashHex || thumbHashHex.length < 10) return null;
@@ -44,6 +57,7 @@ export function createVisualSignature(photoId: string, thumbHashHex?: string | n
 
     const sampleGrid = 16;
     const grid = new Uint8Array(sampleGrid * sampleGrid * 3);
+    const luma = new Float32Array(sampleGrid * sampleGrid);
     let ptr = 0;
 
     for (let sy = 0; sy < sampleGrid; sy++) {
@@ -51,9 +65,39 @@ export function createVisualSignature(photoId: string, thumbHashHex?: string | n
       for (let sx = 0; sx < sampleGrid; sx++) {
         const x = Math.floor((sx / sampleGrid) * rendered.w);
         const idx = (y * rendered.w + x) * 4;
-        grid[ptr++] = rendered.rgba[idx];
-        grid[ptr++] = rendered.rgba[idx + 1];
-        grid[ptr++] = rendered.rgba[idx + 2];
+        const r = rendered.rgba[idx];
+        const g = rendered.rgba[idx + 1];
+        const b = rendered.rgba[idx + 2];
+
+        grid[ptr++] = r;
+        grid[ptr++] = g;
+        grid[ptr++] = b;
+
+        // ITU-R BT.601 perceptual luminance formula
+        luma[sy * sampleGrid + sx] = 0.299 * r + 0.587 * g + 0.114 * b;
+      }
+    }
+
+    // 8x8 gradient difference hash (dHash) from luminance (split into two 32-bit unsigned ints)
+    let dHash0 = 0;
+    let dHash1 = 0;
+    let bitIdx = 0;
+
+    for (let y = 0; y < 8; y++) {
+      const yOffset = y * 2;
+      for (let x = 0; x < 8; x++) {
+        const xOffset = x * 2;
+        const left = luma[yOffset * sampleGrid + xOffset];
+        const right = luma[yOffset * sampleGrid + xOffset + 1];
+
+        if (left > right) {
+          if (bitIdx < 32) {
+            dHash0 |= 1 << bitIdx;
+          } else {
+            dHash1 |= 1 << (bitIdx - 32);
+          }
+        }
+        bitIdx++;
       }
     }
 
@@ -63,6 +107,9 @@ export function createVisualSignature(photoId: string, thumbHashHex?: string | n
       aspectRatio,
       avgColor: { r: avg.r, g: avg.g, b: avg.b },
       grid,
+      luma,
+      dHash0: dHash0 >>> 0,
+      dHash1: dHash1 >>> 0,
     };
   } catch (err) {
     return null;
@@ -71,19 +118,25 @@ export function createVisualSignature(photoId: string, thumbHashHex?: string | n
 
 /**
  * Calculates visual similarity score (0.0 to 1.0) between two pre-computed visual signatures.
- * Fast execution: ~0.005ms per pair comparison.
+ * Employs multi-layer verification:
+ * 1. Strict aspect ratio tolerance (<= 3.5%)
+ * 2. Average color distance (<= 0.14)
+ * 3. Gradient difference hash (Hamming distance <= 4 of 64 bits)
+ * 4. Normalized pixel L1 distance (similarity >= 0.965)
  */
 export function calculateVisualSimilarity(
   sigA: VisualSignature,
   sigB: VisualSignature,
-  options?: { maxArDiff?: number; maxColorDist?: number }
+  options?: { maxArDiff?: number; maxColorDist?: number; minPixelSim?: number; maxHammingDist?: number }
 ): number {
   if (sigA.thumbHashHex === sigB.thumbHashHex) {
     return 1.0;
   }
 
-  const maxArDiff = options?.maxArDiff ?? 0.08; // 8% aspect ratio tolerance
-  const maxColorDist = options?.maxColorDist ?? 0.22;
+  const maxArDiff = options?.maxArDiff ?? 0.035; // 3.5% aspect ratio tolerance
+  const maxColorDist = options?.maxColorDist ?? 0.14;
+  const minPixelSim = options?.minPixelSim ?? 0.965;
+  const maxHammingDist = options?.maxHammingDist ?? 4;
 
   // 1. Aspect Ratio check
   const maxAr = Math.max(sigA.aspectRatio, sigB.aspectRatio);
@@ -111,8 +164,19 @@ export function calculateVisualSimilarity(
   }
 
   const maxDiff = len * 255;
-  const similarity = 1 - (totalDiff / maxDiff);
-  return similarity;
+  const pixelSim = 1 - totalDiff / maxDiff;
+  if (pixelSim < minPixelSim) return 0;
+
+  // 4. dHash Hamming Distance (Gradient verification)
+  const diff0 = (sigA.dHash0 ^ sigB.dHash0) >>> 0;
+  const diff1 = (sigA.dHash1 ^ sigB.dHash1) >>> 0;
+  const hammingDist = popcount32(diff0) + popcount32(diff1);
+  if (hammingDist > maxHammingDist) return 0;
+
+  const dHashSim = 1 - hammingDist / 64;
+
+  // Weighted combined score: 60% pixel correlation + 40% structural gradient match
+  return pixelSim * 0.6 + dHashSim * 0.4;
 }
 
 /**
@@ -121,7 +185,7 @@ export function calculateVisualSimilarity(
 export function areThumbHashesDuplicate(
   hashA?: string | null,
   hashB?: string | null,
-  threshold = 0.93
+  threshold = 0.965
 ): boolean {
   if (!hashA || !hashB) return false;
   if (hashA === hashB) return true;
