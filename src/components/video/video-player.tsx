@@ -14,6 +14,7 @@ import {
   Loader2,
   Wifi,
   WifiOff,
+  Sparkles,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { formatVideoDuration } from "@/lib/video-compress"
@@ -21,6 +22,7 @@ import { toProxyMediaUrl } from "@/lib/url"
 import { PhotoReactions } from "@/components/photo/photo-reactions"
 import { AnalogFilmStripCompact } from "@/components/photo/analog-film-strip"
 import { getIsOffline, notifyConnectionRestored } from "@/lib/network-status"
+import { VideoAmbientGlow } from "./video-ambient-glow"
 
 // Module-level map to store the exact playback timestamp per media item across view toggles and re-renders
 const globalVideoPositions = new Map<string, number>()
@@ -35,6 +37,7 @@ export interface VideoPlayerProps {
   photoId?: string
   exif?: string | null
   isCinematicMode?: boolean
+  ambientMode?: boolean
   onScrubbingChange?: (isScrubbing: boolean) => void
   onOpenComments?: () => void
   onOpenInfo?: () => void
@@ -55,6 +58,7 @@ export const VideoPlayer = memo(function VideoPlayer({
   photoId,
   exif,
   isCinematicMode = false,
+  ambientMode: ambientModeProp,
   onScrubbingChange,
   onOpenComments,
   onOpenInfo,
@@ -100,6 +104,29 @@ export const VideoPlayer = memo(function VideoPlayer({
       onControlsVisibleChange?.(visible)
     }
   }, [isActive, onControlsVisibleChange])
+
+  // Dynamic video ambient glow state (persisted across sessions via localStorage)
+  const [internalAmbientEnabled, setInternalAmbientEnabled] = useState<boolean>(() => {
+    if (typeof window === "undefined") return true
+    try {
+      const saved = localStorage.getItem("naypict_video_ambient_mode")
+      return saved !== null ? saved === "true" : true
+    } catch {
+      return true
+    }
+  })
+
+  const ambientEnabled = ambientModeProp !== undefined ? ambientModeProp : internalAmbientEnabled
+
+  const toggleAmbient = useCallback(() => {
+    setInternalAmbientEnabled((prev) => {
+      const next = !prev
+      try {
+        localStorage.setItem("naypict_video_ambient_mode", String(next))
+      } catch {}
+      return next
+    })
+  }, [])
 
   const [isScrubbing, setIsScrubbing] = useState(false)
   const [showCenterIcon, setShowCenterIcon] = useState(false)
@@ -933,13 +960,25 @@ export const VideoPlayer = memo(function VideoPlayer({
             : undefined
         }
       >
+      {/* Dynamic Cinema Ambient Glow (100% Client-Side GPU Canvas) */}
+      <VideoAmbientGlow
+        videoRef={videoRef}
+        isPlaying={isPlaying}
+        poster={poster}
+        enabled={ambientEnabled}
+        isActive={isActive}
+        className={cn(
+          hasThumbnails && !isFullscreen && !isCinematicMode ? "pb-12 md:pb-16" : ""
+        )}
+      />
+
       {/* Visual Poster Overlay: Stays visible until video decodes and renders first frame */}
       {poster && (
         <img
           src={poster}
           alt={alt}
           className={cn(
-            "absolute inset-0 size-full object-contain pointer-events-none transition-all duration-300 z-5",
+            "absolute inset-0 size-full object-contain pointer-events-none transition-all duration-300 z-[5]",
             hasThumbnails && !isFullscreen && !isCinematicMode ? "pb-12 md:pb-16" : "",
             hasFirstFrame ? "opacity-0 pointer-events-none" : "opacity-100"
           )}
@@ -957,7 +996,7 @@ export const VideoPlayer = memo(function VideoPlayer({
         preload="auto"
         crossOrigin="anonymous"
         className={cn(
-          "max-h-full max-w-full object-contain cursor-pointer transition-[padding] duration-300",
+          "relative z-[10] max-h-full max-w-full object-contain cursor-pointer transition-[padding] duration-300",
           hasThumbnails && !isFullscreen && !isCinematicMode ? "pb-12 md:pb-16" : ""
         )}
         onTimeUpdate={handleTimeUpdate}
@@ -1031,7 +1070,7 @@ export const VideoPlayer = memo(function VideoPlayer({
 
       {/* Transparent Clickable Screen Backdrop for Toggling Overlay Controls */}
       <div
-        className="absolute inset-0 z-10 cursor-pointer"
+        className="absolute inset-0 z-[15] cursor-pointer"
         onClick={handleScreenClick}
       />
 
@@ -1351,8 +1390,27 @@ export const VideoPlayer = memo(function VideoPlayer({
             </div>
           </div>
 
-          {/* Right Controls: Replay, Fullscreen */}
+          {/* Right Controls: Ambient Mode, Replay, Fullscreen */}
           <div className="flex items-center gap-1.5">
+            {/* Dynamic Video Ambient Glow Toggle */}
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation()
+                toggleAmbient()
+              }}
+              className={cn(
+                "p-1.5 rounded-lg transition-all duration-200 cursor-pointer relative",
+                ambientEnabled
+                  ? "text-amber-300 hover:text-amber-200 bg-amber-400/15 border border-amber-400/30 shadow-[0_0_12px_rgba(251,191,36,0.35)]"
+                  : "text-white/60 hover:text-white hover:bg-white/15"
+              )}
+              title={ambientEnabled ? "Matikan Ambient Mode (Cahaya Bioskop)" : "Aktifkan Ambient Mode (Cahaya Bioskop)"}
+              aria-label={ambientEnabled ? "Matikan Ambient Mode" : "Aktifkan Ambient Mode"}
+            >
+              <Sparkles className="size-4.5" />
+            </button>
+
             <button
               type="button"
               onClick={() => {
