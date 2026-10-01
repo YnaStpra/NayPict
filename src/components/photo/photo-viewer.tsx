@@ -1975,10 +1975,13 @@ export function PhotoViewer({
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
     >
-      {/* Dynamic Cinema Ambient Glow */}
+      {/* Dynamic Cinema Ambient Glow for Photos (Videos use their own real-time VideoAmbientGlow) */}
       <PhotoViewerAmbientGlow
         thumbHash={photos[viewIndex]?.thumbHash}
-        visible={!fullscreenOpen}
+        visible={
+          !fullscreenOpen &&
+          !photos[viewIndex]?.type?.startsWith("video/")
+        }
       />
 
       {/* Mobile Instagram-Style Double-Tap Heart Burst Overlay */}
