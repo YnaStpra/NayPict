@@ -23,9 +23,11 @@ import {
   Download,
   Layers,
   Loader2,
+  Moon,
   QrCode,
   Share2,
   Sparkles,
+  Sun,
 } from "lucide-react";
 import { InstagramIcon } from "@/components/icons/instagram";
 import { type PhotoVo } from "@/server/entity/vo/photo";
@@ -35,10 +37,12 @@ import {
   downloadStoryCard,
   copyStoryImageToClipboard,
   type StoryTemplate,
+  type StoryCardTheme,
   type StoryCardOptions,
 } from "@/lib/story-card";
 import { useApp } from "@/app/provider";
 import { useModalBackHandler } from "@/hooks/use-modal-back-handler";
+import { cn } from "@/lib/utils";
 
 interface PhotoStoryDialogProps {
   photo: PhotoVo | null;
@@ -58,6 +62,43 @@ export function PhotoStoryDialog({ photo, open, onOpenChange }: PhotoStoryDialog
 
   // Template style state
   const [template, setTemplate] = useState<StoryTemplate>("minimalist");
+
+  // Background Theme state (Light vs Dark)
+  const [theme, setTheme] = useState<StoryCardTheme>(() => {
+    if (typeof window === "undefined") return "light";
+    try {
+      const saved = localStorage.getItem("naypict_story_theme");
+      return saved === "dark" ? "dark" : "light";
+    } catch {
+      return "light";
+    }
+  });
+
+  // Brand Header Title ("NayPict") toggle state
+  const [showBrandTitle, setShowBrandTitle] = useState<boolean>(() => {
+    if (typeof window === "undefined") return true;
+    try {
+      const saved = localStorage.getItem("naypict_story_show_brand");
+      return saved !== null ? saved === "true" : true;
+    } catch {
+      return true;
+    }
+  });
+
+  const handleThemeChange = (newTheme: StoryCardTheme) => {
+    setTheme(newTheme);
+    try {
+      localStorage.setItem("naypict_story_theme", newTheme);
+    } catch {}
+  };
+
+  const handleBrandTitleChange = (val: boolean) => {
+    setShowBrandTitle(val);
+    try {
+      localStorage.setItem("naypict_story_show_brand", String(val));
+    } catch {}
+  };
+
   // Options state
   const [showTitle, setShowTitle] = useState(true);
   const [showExif, setShowExif] = useState(true);
@@ -86,6 +127,8 @@ export function PhotoStoryDialog({ photo, open, onOpenChange }: PhotoStoryDialog
     try {
       const options: StoryCardOptions = {
         template,
+        theme,
+        showBrandTitle,
         showTitle,
         showExif,
         showQrCode,
@@ -123,7 +166,7 @@ export function PhotoStoryDialog({ photo, open, onOpenChange }: PhotoStoryDialog
       setIsGenerating(false);
       toast.error("Failed to generate Story Card. Please try again.");
     }
-  }, [photo, open, template, showTitle, showExif, showQrCode, showLocation, showDate, galleryTitle, photoUrl]);
+  }, [photo, open, template, theme, showBrandTitle, showTitle, showExif, showQrCode, showLocation, showDate, galleryTitle, photoUrl]);
 
   // Re-generate canvas whenever dialog opens or options change
   useEffect(() => {
@@ -276,6 +319,48 @@ export function PhotoStoryDialog({ photo, open, onOpenChange }: PhotoStoryDialog
               </Tabs>
             </div>
 
+            {/* Background Color Theme (Light vs Dark) - Minimalist Exhibition */}
+            {template === "minimalist" && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs font-semibold uppercase tracking-wider text-zinc-400">
+                    Background Theme
+                  </Label>
+                  <span className="text-[11px] text-zinc-400 font-medium">
+                    {theme === "dark" ? "Mode Gelap (Obsidian Black)" : "Mode Terang (Gallery Light)"}
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleThemeChange("light")}
+                    className={cn(
+                      "flex items-center justify-center gap-2 h-11 px-3 rounded-xl border text-xs sm:text-sm font-medium transition-all cursor-pointer",
+                      theme === "light"
+                        ? "bg-white text-zinc-950 border-white shadow-md font-semibold"
+                        : "bg-white/5 border-white/10 text-zinc-300 hover:bg-white/10 hover:text-white"
+                    )}
+                  >
+                    <Sun className="size-4 text-amber-500" />
+                    <span>Light Background</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleThemeChange("dark")}
+                    className={cn(
+                      "flex items-center justify-center gap-2 h-11 px-3 rounded-xl border text-xs sm:text-sm font-medium transition-all cursor-pointer",
+                      theme === "dark"
+                        ? "bg-zinc-900 text-white border-white/40 ring-1 ring-white/20 shadow-md font-semibold"
+                        : "bg-white/5 border-white/10 text-zinc-300 hover:bg-white/10 hover:text-white"
+                    )}
+                  >
+                    <Moon className="size-4 text-indigo-400" />
+                    <span>Dark Background</span>
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* Content Toggles */}
             <div className="space-y-3 rounded-2xl border border-white/10 bg-white/5 p-4 sm:p-5 shadow-sm">
               <Label className="text-xs font-semibold uppercase tracking-wider text-zinc-400">
@@ -283,6 +368,18 @@ export function PhotoStoryDialog({ photo, open, onOpenChange }: PhotoStoryDialog
               </Label>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                {/* Toggle Brand Title ("NayPict") */}
+                <div className="flex items-center justify-between p-2.5 rounded-xl bg-white/5 border border-white/5 hover:bg-white/10 transition-colors">
+                  <Label htmlFor="toggle-brand" className="text-xs sm:text-sm font-medium cursor-pointer text-zinc-200">
+                    Header Title ("{galleryTitle || "NayPict"}")
+                  </Label>
+                  <Switch
+                    id="toggle-brand"
+                    checked={showBrandTitle}
+                    onCheckedChange={handleBrandTitleChange}
+                  />
+                </div>
+
                 {/* Toggle EXIF */}
                 <div className="flex items-center justify-between p-2.5 rounded-xl bg-white/5 border border-white/5 hover:bg-white/10 transition-colors">
                   <Label htmlFor="toggle-exif" className="text-xs sm:text-sm font-medium cursor-pointer text-zinc-200">
@@ -320,8 +417,8 @@ export function PhotoStoryDialog({ photo, open, onOpenChange }: PhotoStoryDialog
                   />
                 </div>
 
-                {/* Toggle Title */}
-                <div className="flex items-center justify-between p-2.5 rounded-xl bg-white/5 border border-white/5 hover:bg-white/10 transition-colors">
+                {/* Toggle Title / File Name */}
+                <div className="flex items-center justify-between p-2.5 rounded-xl bg-white/5 border border-white/5 hover:bg-white/10 transition-colors sm:col-span-2">
                   <Label htmlFor="toggle-title" className="text-xs sm:text-sm font-medium cursor-pointer text-zinc-200">
                     Photo File Name
                   </Label>
