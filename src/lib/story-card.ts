@@ -7,9 +7,12 @@ import { formatPhotoTakenDate } from "@/lib/date";
 import { toProxyMediaUrl } from "@/lib/url";
 
 export type StoryTemplate = "minimalist" | "cinematic";
+export type StoryCardTheme = "light" | "dark";
 
 export interface StoryCardOptions {
   template: StoryTemplate;
+  theme?: StoryCardTheme;
+  showBrandTitle?: boolean;
   showTitle: boolean;
   showExif: boolean;
   showQrCode: boolean;
@@ -106,12 +109,13 @@ export async function renderStoryCardToCanvas(
   let qrImg: HTMLImageElement | null = null;
   if (options.showQrCode && options.photoUrl) {
     try {
+      const isDark = options.theme === "dark" || options.template === "cinematic";
       const qrDataUrl = await QRCode.toDataURL(options.photoUrl, {
         width: 240,
         margin: 1,
         color: {
-          dark: options.template === "minimalist" ? "#18181b" : "#ffffff",
-          light: options.template === "minimalist" ? "#f4f4f5" : "#00000000",
+          dark: isDark ? "#ffffff" : "#18181b",
+          light: isDark ? "#00000000" : "#f4f4f5",
         },
       });
       qrImg = await loadImage(qrDataUrl);
@@ -240,15 +244,19 @@ function renderMinimalistTemplate(
   photo: PhotoVo,
   params: TemplateRenderParams
 ) {
-  // 1. Clean Pure White background (Polos putih tanpa bingkai luar)
-  ctx.fillStyle = "#f7f5efff";
+  const isDark = params.theme === "dark";
+
+  // 1. Background: Light warm gallery white (#f7f5efff) or Dark obsidian black (#09090b)
+  ctx.fillStyle = isDark ? "#09090b" : "#f7f5efff";
   ctx.fillRect(0, 0, STORY_WIDTH, STORY_HEIGHT);
 
-  // 2. Header: Clean Gallery Title (Centered, Safe distance from top status bars)
-  ctx.fillStyle = "#18181b";
-  ctx.font = "bold 38px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
-  ctx.textAlign = "center";
-  ctx.fillText(params.galleryTitle || "NayPict", STORY_WIDTH / 2, 160);
+  // 2. Header: Gallery Title (Centered, Safe distance from top status bars)
+  if (params.showBrandTitle !== false) {
+    ctx.fillStyle = isDark ? "#ffffff" : "#18181b";
+    ctx.font = "bold 38px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText(params.galleryTitle || "NayPict", STORY_WIDTH / 2, 160);
+  }
 
   // 3. Central Photo Frame
   const framePadding = 90;
@@ -268,19 +276,35 @@ function renderMinimalistTemplate(
   const photoX = (STORY_WIDTH - targetWidth) / 2;
   const photoY = frameTop + (maxFrameHeight - targetHeight) / 2;
 
-  // Matte border with soft elevation shadow around photo
+  // Matte border with soft elevation shadow around photo (Preserve crisp white frame in both light and dark mode)
   ctx.save();
-  ctx.shadowColor = "rgba(0, 0, 0, 0.09)";
-  ctx.shadowBlur = 28;
-  ctx.shadowOffsetY = 14;
+  if (isDark) {
+    ctx.shadowColor = "rgba(0, 0, 0, 0.7)";
+    ctx.shadowBlur = 36;
+    ctx.shadowOffsetY = 18;
+  } else {
+    ctx.shadowColor = "rgba(0, 0, 0, 0.09)";
+    ctx.shadowBlur = 28;
+    ctx.shadowOffsetY = 14;
+  }
   ctx.fillStyle = "#ffffff";
   ctx.fillRect(photoX - 12, photoY - 12, targetWidth + 24, targetHeight + 24);
   ctx.restore();
 
+  // Draw the main photo inside the white frame
   ctx.drawImage(img, photoX, photoY, targetWidth, targetHeight);
-  ctx.strokeStyle = "rgba(0, 0, 0, 0.08)";
+
+  // Border between photo and white matte
+  ctx.strokeStyle = isDark ? "rgba(0, 0, 0, 0.2)" : "rgba(0, 0, 0, 0.08)";
   ctx.lineWidth = 1;
   ctx.strokeRect(photoX, photoY, targetWidth, targetHeight);
+
+  // In dark mode, add a subtle crisp outer stroke around the white frame
+  if (isDark) {
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.4)";
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(photoX - 12.5, photoY - 12.5, targetWidth + 25, targetHeight + 25);
+  }
 
   // 4. Bottom Typography & Info (Structured EXIF Card format aligned with photoX)
   const textX = Math.max(photoX, 100);
@@ -295,7 +319,7 @@ function renderMinimalistTemplate(
     // 1. Camera Device Body (Bold Title at TOP of EXIF block)
     if (params.cameraName) {
       ctx.textAlign = "left";
-      ctx.fillStyle = "#18181b";
+      ctx.fillStyle = isDark ? "#ffffff" : "#18181b";
       ctx.font = "bold 25px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
       ctx.fillText(params.cameraName, textX, currentBottomY, maxTextWidth);
       currentBottomY += 34;
@@ -304,7 +328,7 @@ function renderMinimalistTemplate(
     // 2. Lens Model (Placed below camera as lens spec)
     if (params.lensName) {
       ctx.textAlign = "left";
-      ctx.fillStyle = "#3f3f46";
+      ctx.fillStyle = isDark ? "#e4e4e7" : "#3f3f46";
       ctx.font = "500 20px -apple-system, BlinkMacSystemFont, monospace";
       ctx.fillText(params.lensName, textX, currentBottomY, maxTextWidth);
       currentBottomY += 30;
@@ -313,7 +337,7 @@ function renderMinimalistTemplate(
     // 3. File Specs (Resolution | Megapixels - file size removed)
     if (params.fileSpecsLine) {
       ctx.textAlign = "left";
-      ctx.fillStyle = "#52525b";
+      ctx.fillStyle = isDark ? "#a1a1aa" : "#52525b";
       ctx.font = "500 20px -apple-system, BlinkMacSystemFont, monospace";
       ctx.fillText(params.fileSpecsLine, textX, currentBottomY, maxTextWidth);
       currentBottomY += 30;
@@ -322,7 +346,7 @@ function renderMinimalistTemplate(
     // 4. Exposure Specs (ISO | Focal | EV | Aperture | Shutter)
     if (params.exposureSpecsLine) {
       ctx.textAlign = "left";
-      ctx.fillStyle = "#27272a";
+      ctx.fillStyle = isDark ? "#38bdf8" : "#27272a";
       ctx.font = "600 20px -apple-system, BlinkMacSystemFont, monospace";
       ctx.fillText(params.exposureSpecsLine, textX, currentBottomY, maxTextWidth);
       currentBottomY += 32;
@@ -332,7 +356,7 @@ function renderMinimalistTemplate(
   // Location text (if enabled and available)
   if (params.showLocation && params.locationText) {
     ctx.textAlign = "left";
-    ctx.fillStyle = "#71717a";
+    ctx.fillStyle = isDark ? "#a1a1aa" : "#71717a";
     ctx.font = "18px -apple-system, BlinkMacSystemFont, sans-serif";
     ctx.fillText(params.locationText, textX, currentBottomY, maxTextWidth);
     currentBottomY += 30;
@@ -342,7 +366,7 @@ function renderMinimalistTemplate(
   if (params.showTitle) {
     const photoTitle = photo.name || "Untitled Photo";
     ctx.textAlign = "left";
-    ctx.fillStyle = "#71717a";
+    ctx.fillStyle = isDark ? "#a1a1aa" : "#71717a";
     ctx.font = "500 20px -apple-system, BlinkMacSystemFont, monospace";
     ctx.fillText(photoTitle, textX, currentBottomY, maxTextWidth);
   }
@@ -356,19 +380,25 @@ function renderMinimalistTemplate(
 
     // Call to Action Text above QR Code
     ctx.textAlign = "center";
-    ctx.fillStyle = "#18181b";
+    ctx.fillStyle = isDark ? "#ffffff" : "#18181b";
     ctx.font = "bold 17px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
     ctx.fillText("See more photos ↗", qrX + qrSize / 2, safeQrY - 14);
 
+    // Subtle container background for QR code on dark theme
+    if (isDark) {
+      ctx.fillStyle = "rgba(255, 255, 255, 0.06)";
+      ctx.fillRect(qrX - 4, safeQrY - 4, qrSize + 8, qrSize + 8);
+    }
+
     // QR Code Image with Border
     ctx.drawImage(qrImg, qrX, safeQrY, qrSize, qrSize);
-    ctx.strokeStyle = "#d4d4d8";
+    ctx.strokeStyle = isDark ? "rgba(255, 255, 255, 0.25)" : "#d4d4d8";
     ctx.lineWidth = 1;
     ctx.strokeRect(qrX - 4, safeQrY - 4, qrSize + 8, qrSize + 8);
 
     // Direct Website Link under QR Code
     const displayUrl = getDisplayUrl(params.photoUrl);
-    ctx.fillStyle = "#2563eb"; // Blue link accent
+    ctx.fillStyle = isDark ? "#38bdf8" : "#2563eb"; // Vibrant cyan on dark, royal blue on light
     ctx.font = "bold 15px -apple-system, BlinkMacSystemFont, monospace";
     ctx.fillText(displayUrl, qrX + qrSize / 2, safeQrY + qrSize + 24);
   }
@@ -424,10 +454,12 @@ function renderCinematicTemplate(
   ctx.fillRect(0, STORY_HEIGHT - 650, STORY_WIDTH, 650);
 
   // Top Brand
-  ctx.fillStyle = "#ffffff";
-  ctx.font = "900 38px -apple-system, BlinkMacSystemFont, sans-serif";
-  ctx.textAlign = "left";
-  ctx.fillText(params.galleryTitle || "NAYPICT", 80, 150);
+  if (params.showBrandTitle !== false) {
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "900 38px -apple-system, BlinkMacSystemFont, sans-serif";
+    ctx.textAlign = "left";
+    ctx.fillText(params.galleryTitle || "NAYPICT", 80, 150);
+  }
 
   // Bottom Info Overlay
   let currentBottomContentY = STORY_HEIGHT - 310;
