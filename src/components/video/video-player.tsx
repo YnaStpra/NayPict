@@ -1405,8 +1405,8 @@ export const VideoPlayer = memo(function VideoPlayer({
                   ? "text-amber-300 hover:text-amber-200 bg-amber-400/15 border border-amber-400/30 shadow-[0_0_12px_rgba(251,191,36,0.35)]"
                   : "text-white/60 hover:text-white hover:bg-white/15"
               )}
-              title={ambientEnabled ? "Matikan Ambient Mode (Cahaya Bioskop)" : "Aktifkan Ambient Mode (Cahaya Bioskop)"}
-              aria-label={ambientEnabled ? "Matikan Ambient Mode" : "Aktifkan Ambient Mode"}
+              title={ambientEnabled ? "Disable Ambient Mode (Cinema Glow)" : "Enable Ambient Mode (Cinema Glow)"}
+              aria-label={ambientEnabled ? "Disable Ambient Mode" : "Enable Ambient Mode"}
             >
               <Sparkles className="size-4.5" />
             </button>

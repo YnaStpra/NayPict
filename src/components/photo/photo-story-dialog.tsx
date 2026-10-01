@@ -327,7 +327,7 @@ export function PhotoStoryDialog({ photo, open, onOpenChange }: PhotoStoryDialog
                     Background Theme
                   </Label>
                   <span className="text-[11px] text-zinc-400 font-medium">
-                    {theme === "dark" ? "Mode Gelap (Obsidian Black)" : "Mode Terang (Gallery Light)"}
+                    {theme === "dark" ? "Obsidian Dark" : "Gallery Light"}
                   </span>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
