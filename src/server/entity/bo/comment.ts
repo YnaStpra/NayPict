@@ -7,6 +7,10 @@ interface CommentAddBo {
   name: string;
   // Comment body text.
   content: string;
+  // Optional visitor telemetry identifier.
+  visitorId?: string;
+  // Optional visitor session identifier.
+  sessionId?: string;
   // Optional Cloudflare Turnstile verification token.
   turnstileToken?: string;
   // Invisible honeypot field (must remain empty for human users).

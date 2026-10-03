@@ -16,11 +16,16 @@ export const commentTab = pgTable(
     replyTime: timestamp('reply_time', { mode: 'string' }),
     isHearted: integer('is_hearted').notNull().default(0),
     isPinned: integer('is_pinned').notNull().default(0),
+    visitorId: text('visitor_id'),
+    sessionId: text('session_id'),
+    ip: text('ip'),
     createTime: timestamp('create_time', { mode: 'string' }).notNull().default(sql`now()`),
   },
   (table) => [
     index('idx_comment_photo_id').on(table.photoId),
     index('idx_comment_photo_pinned').on(table.photoId, table.isPinned),
+    index('idx_comment_visitor_id').on(table.visitorId),
+    index('idx_comment_session_id').on(table.sessionId),
   ]
 );
 

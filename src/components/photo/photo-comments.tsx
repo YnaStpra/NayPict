@@ -13,6 +13,8 @@ import { Turnstile } from "@/components/common/turnstile";
 
 import { formatRelativeTime } from "@/lib/date";
 import { photoSse } from "@/lib/photo-sse";
+import { getClientVisitorId } from "@/lib/reaction-sync";
+import { trackVisitorMedia } from "@/hooks/use-visitor-tracker";
 
 interface PhotoCommentsProps {
   // Target photo ID to display and post comments for.
@@ -261,14 +263,22 @@ export function PhotoComments({ photoId }: PhotoCommentsProps) {
     }
 
     try {
+      const vid = getClientVisitorId();
+      const sid = typeof sessionStorage !== "undefined" ? sessionStorage.getItem("naypict_session_id") || undefined : undefined;
+
       const newComment = await commentAdd({
         photoId,
         name: trimmedName,
         content: trimmedContent,
+        visitorId: vid || undefined,
+        sessionId: sid || undefined,
         website: honeypot || undefined,
         timestamp: formLoadedAt,
         turnstileToken: turnstileToken || undefined,
       });
+
+      // Track comment activity in visitor session timeline
+      trackVisitorMedia(photoId, "comment");
 
       // Save valid name to local storage for convenience.
       try {

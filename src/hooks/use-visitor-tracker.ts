@@ -36,7 +36,10 @@ async function postTelemetry(path: string, body: Record<string, unknown>): Promi
 }
 
 // Helper function to track media interactions from anywhere in the client UI
-export function trackVisitorMedia(photoId: string, action: "view" | "download" | "share" | "reaction" = "view") {
+export function trackVisitorMedia(
+  photoId: string,
+  action: "view" | "download" | "share" | "reaction" | "comment" = "view"
+) {
   if (typeof window === "undefined" || !photoId) return
 
   const sessionId = sessionStorage.getItem(SESSION_STORAGE_KEY)
