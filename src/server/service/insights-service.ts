@@ -12,6 +12,7 @@ import { PhotoStatusEnum } from '@/server/enums/photo-enum';
 import { FileTypeEnum } from '@/server/enums/file-enum';
 import { buildPreviewKey, buildThumbnailKey } from '@/server/lib/photo-path';
 import { toMediaUrl, toProxyMediaUrl } from '@/lib/url';
+import { toUtcIsoString } from '@/lib/date';
 import { reactionService } from '@/server/service/reaction-service';
 import { type PhotoViewRecordBo } from '@/server/entity/bo/insights';
 import {
@@ -41,7 +42,7 @@ async function ensurePhotoViewTable(): Promise<void> {
         "photo_id" text NOT NULL REFERENCES "photo"("photo_id") ON DELETE CASCADE,
         "visitor_id" text NOT NULL,
         "type" text DEFAULT 'view' NOT NULL,
-        "viewed_at" timestamp DEFAULT now() NOT NULL
+        "viewed_at" timestamptz DEFAULT now() NOT NULL
       );
     `;
     await rawSql`CREATE INDEX IF NOT EXISTS "photo_view_photo_id_idx" ON "photo_view" ("photo_id");`;
@@ -488,17 +489,7 @@ const insightsService = {
           ? (domain ? toMediaUrl(originalKey, domain) : toProxyMediaUrl(originalKey))
           : null;
 
-        let formattedLastViewedAt: string | null = null;
-        if (item.lastViewedAt) {
-          const rawStr = String(item.lastViewedAt).trim();
-          if (rawStr) {
-            if (rawStr.endsWith('Z') || /[+-]\d{2}:?\d{2}$/.test(rawStr)) {
-              formattedLastViewedAt = rawStr;
-            } else {
-              formattedLastViewedAt = `${rawStr.replace(' ', 'T')}Z`;
-            }
-          }
-        }
+        const formattedLastViewedAt = toUtcIsoString(item.lastViewedAt);
 
         return {
           photoId: item.photoId,

@@ -8,7 +8,7 @@ export const albumPhotoTab = pgTable(
     photoId: text('photo_id').notNull(),
     albumId: text('album_id').notNull(),
     isPinned: integer('is_pinned').default(0).notNull(),
-    pinnedAt: timestamp('pinned_at'),
+    pinnedAt: timestamp('pinned_at', { withTimezone: true, mode: 'string' }),
   },
   (table) => [
     index('idx_album_photo_album_pinned').on(table.albumId, table.isPinned, table.pinnedAt),

@@ -9,6 +9,7 @@ import { storageTab } from '@/server/entity/storage';
 import { commentTab } from '@/server/entity/comment';
 import { buildThumbnailKey } from '@/server/lib/photo-path';
 import { toMediaUrl } from '@/lib/url';
+import { toUtcIsoString } from '@/lib/date';
 import { locationService } from '@/server/service/location-service';
 import {
   type HeartbeatBo,
@@ -114,16 +115,9 @@ async function ensureAnalyticsTables(): Promise<void> {
   }
 }
 
-// Safely convert date string or Date object into standard ISO string ending with Z
+// Safely convert date string or Date object into standard UTC ISO string ending with Z
 function toIsoString(dateInput: string | Date | null | undefined): string {
-  if (!dateInput) return new Date().toISOString();
-  try {
-    const d = new Date(dateInput);
-    if (!isNaN(d.getTime())) {
-      return d.toISOString();
-    }
-  } catch {}
-  return String(dateInput);
+  return toUtcIsoString(dateInput) || new Date().toISOString();
 }
 
 // In-memory throttling map to prevent excessive Neon DB write IOPS from frequent client heartbeats

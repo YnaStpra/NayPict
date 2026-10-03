@@ -11,7 +11,7 @@ import { UserTypeEnum } from "@/server/enums/user-enum";
 import { useLocale } from "next-intl";
 import { Turnstile } from "@/components/common/turnstile";
 
-import { formatRelativeTime } from "@/lib/date";
+import { formatRelativeTime, parseUtcTime } from "@/lib/date";
 import { photoSse } from "@/lib/photo-sse";
 import { getClientVisitorId } from "@/lib/reaction-sync";
 import { trackVisitorMedia } from "@/hooks/use-visitor-tracker";
@@ -159,7 +159,7 @@ export function PhotoComments({ photoId }: PhotoCommentsProps) {
           return [...updated].sort((a, b) => {
             if (a.isPinned && !b.isPinned) return -1;
             if (!a.isPinned && b.isPinned) return 1;
-            return new Date(b.createTime).getTime() - new Date(a.createTime).getTime();
+            return (parseUtcTime(b.createTime) ?? 0) - (parseUtcTime(a.createTime) ?? 0);
           });
         });
       }),
@@ -436,7 +436,7 @@ export function PhotoComments({ photoId }: PhotoCommentsProps) {
         return [...updated].sort((a, b) => {
           if (a.isPinned && !b.isPinned) return -1;
           if (!a.isPinned && b.isPinned) return 1;
-          return new Date(b.createTime).getTime() - new Date(a.createTime).getTime();
+          return (parseUtcTime(b.createTime) ?? 0) - (parseUtcTime(a.createTime) ?? 0);
         });
       });
       toast.success(res.isPinned ? "Comment pinned to top! 📌" : "Comment unpinned");

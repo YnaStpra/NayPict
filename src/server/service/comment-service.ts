@@ -14,6 +14,7 @@ import { type File as PhotoFile } from '@/server/entity/file';
 import { fileService } from '@/server/service/file-service';
 import { storageService } from '@/server/service/storage-service';
 import { formatHttpUrl, toMediaUrl } from '@/lib/url';
+import { toUtcIsoString } from '@/lib/date';
 import { FileTypeEnum } from '@/server/enums/file-enum';
 import { commentRateLimiter } from '@/server/lib/rate-limiter';
 
@@ -41,10 +42,10 @@ const commentService = {
         name: row.name,
         content: row.content,
         replyContent: row.replyContent,
-        replyTime: row.replyTime,
+        replyTime: toUtcIsoString(row.replyTime),
         isHearted: Boolean(row.isHearted),
         isPinned: Boolean(row.isPinned),
-        createTime: row.createTime,
+        createTime: toUtcIsoString(row.createTime) || row.createTime,
       }));
     } catch (err) {
       // Return empty comments list gracefully if table is empty or not yet provisioned
@@ -151,10 +152,10 @@ const commentService = {
             name: r.name,
             content: r.content,
             replyContent: r.replyContent,
-            replyTime: r.replyTime,
+            replyTime: toUtcIsoString(r.replyTime),
             isHearted: Boolean(r.isHearted),
             isPinned: Boolean(r.isPinned),
-            createTime: r.createTime,
+            createTime: toUtcIsoString(r.createTime) || r.createTime,
           };
         }),
         total,
@@ -357,7 +358,7 @@ const commentService = {
       content: existing.content,
       replyContent,
       replyTime: now,
-      createTime: existing.createTime,
+      createTime: toUtcIsoString(existing.createTime) || existing.createTime,
     };
 
     // Broadcast real-time SSE reply event

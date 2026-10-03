@@ -59,6 +59,7 @@ import {
   type VisitorSessionVo,
 } from "@/server/entity/vo/analytics"
 import { toast } from "sonner"
+import { parseUtcTime } from "@/lib/date"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -95,29 +96,9 @@ import {
 } from "lucide-react"
 
 // Safely parse timestamps from Postgres, ensuring UTC interpretation regardless of local machine offset
-function parseUtcDate(input?: string | Date | null): Date | null {
-  if (!input) return null
-  if (input instanceof Date) return isNaN(input.getTime()) ? null : input
-  let str = String(input).trim()
-  if (!str) return null
-
-  // Fix PostgreSQL timestamp format: replace space with T
-  if (str.includes(" ") && !str.includes("T")) {
-    str = str.replace(" ", "T")
-  }
-
-  // Fix PostgreSQL 2-digit timezone offset (e.g. +00 or -08) to standard +00:00 or -08:00
-  if (/[+-]\d{2}$/.test(str)) {
-    str = str + ":00"
-  }
-
-  // If no timezone offset present, append Z to force UTC evaluation
-  if (!str.endsWith("Z") && !/[+-]\d{2}:\d{2}$/.test(str)) {
-    str += "Z"
-  }
-
-  const d = new Date(str)
-  return isNaN(d.getTime()) ? null : d
+function parseUtcDate(input?: string | Date | number | null): Date | null {
+  const ms = parseUtcTime(input)
+  return ms === null ? null : new Date(ms)
 }
 
 // Convert 2-letter ISO country code into Unicode flag emoji

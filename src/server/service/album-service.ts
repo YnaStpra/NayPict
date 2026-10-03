@@ -690,7 +690,7 @@ const albumService = {
     await orm.update(albumPhotoTab)
       .set({
         isPinned: nextPinned,
-        pinnedAt: nextPinned === 1 ? new Date() : null,
+        pinnedAt: nextPinned === 1 ? new Date().toISOString() : null,
       })
       .where(eq(albumPhotoTab.id, albumPhoto.id));
 
