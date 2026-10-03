@@ -360,10 +360,10 @@ function PrevButton({
       type="button"
       size="icon"
       variant="secondary"
-      className={[
-        "absolute top-1/2 left-3 z-40 hidden rounded-full bg-black/40 text-white transition-opacity duration-200 hover:bg-black/50 md:inline-flex cursor-pointer pointer-events-auto",
-        getActionVisibleClass(showActions),
-      ].join(" ")}
+      className={cn(
+        "absolute top-1/2 left-3 md:left-4 z-40 hidden rounded-full bg-black/40 text-white transition-opacity duration-200 hover:bg-black/50 md:inline-flex cursor-pointer pointer-events-auto",
+        getActionVisibleClass(showActions)
+      )}
       style={{ transform: "translateY(-50%)" }}
       onClick={(e) => {
         e.stopPropagation()
@@ -381,10 +381,12 @@ function NextButton({
   showActions,
   onClick,
   disabled,
+  isSidebarOpen,
 }: {
   showActions: boolean
   onClick: () => void
   disabled: boolean
+  isSidebarOpen?: boolean
 }) {
   if (disabled) return null
 
@@ -393,10 +395,11 @@ function NextButton({
       type="button"
       size="icon"
       variant="secondary"
-      className={[
-        "absolute top-1/2 right-3 md:right-4 z-40 hidden rounded-full bg-black/40 text-white transition-opacity duration-200 hover:bg-black/50 md:inline-flex cursor-pointer pointer-events-auto",
-        getActionVisibleClass(showActions),
-      ].join(" ")}
+      className={cn(
+        "absolute top-1/2 z-40 hidden rounded-full bg-black/40 text-white transition-[right,opacity] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] hover:bg-black/50 md:inline-flex cursor-pointer pointer-events-auto",
+        isSidebarOpen ? "right-3 md:right-[352px]" : "right-3 md:right-4",
+        getActionVisibleClass(showActions)
+      )}
       style={{ transform: "translateY(-50%)" }}
       onClick={(e) => {
         e.stopPropagation()
@@ -2109,6 +2112,7 @@ export function PhotoViewer({
         showActions={actionsVisible}
         onClick={() => emblaApi?.scrollNext()}
         disabled={!canScrollNext}
+        isSidebarOpen={isSidebarOpen}
       />
 
       {/* Top Left Close Back Button */}
