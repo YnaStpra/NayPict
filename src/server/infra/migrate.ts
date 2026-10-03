@@ -51,21 +51,27 @@ export async function migrate(): Promise<void> {
           "name" text NOT NULL,
           "content" text NOT NULL,
           "reply_content" text,
-          "reply_time" timestamp,
-          "create_time" timestamp DEFAULT now() NOT NULL
+          "reply_time" timestamptz,
+          "create_time" timestamptz DEFAULT now() NOT NULL
         );
       `;
       await sql`
         ALTER TABLE "comment" ADD COLUMN IF NOT EXISTS "reply_content" text;
       `;
       await sql`
-        ALTER TABLE "comment" ADD COLUMN IF NOT EXISTS "reply_time" timestamp;
+        ALTER TABLE "comment" ADD COLUMN IF NOT EXISTS "reply_time" timestamptz;
       `;
       await sql`
         ALTER TABLE "comment" ADD COLUMN IF NOT EXISTS "is_hearted" integer DEFAULT 0 NOT NULL;
       `;
       await sql`
         ALTER TABLE "comment" ADD COLUMN IF NOT EXISTS "is_pinned" integer DEFAULT 0 NOT NULL;
+      `;
+      await sql`
+        ALTER TABLE "comment" ALTER COLUMN "create_time" TYPE timestamptz;
+      `;
+      await sql`
+        ALTER TABLE "comment" ALTER COLUMN "reply_time" TYPE timestamptz;
       `;
       await sql`
         CREATE INDEX IF NOT EXISTS "comment_photo_id_idx" ON "comment" ("photo_id");
@@ -86,9 +92,15 @@ export async function migrate(): Promise<void> {
           "visitor_id" text NOT NULL,
           "reaction_type" text NOT NULL,
           "count" integer DEFAULT 1 NOT NULL,
-          "created_at" timestamp DEFAULT now() NOT NULL,
-          "updated_at" timestamp DEFAULT now() NOT NULL
+          "created_at" timestamptz DEFAULT now() NOT NULL,
+          "updated_at" timestamptz DEFAULT now() NOT NULL
         );
+      `;
+      await sql`
+        ALTER TABLE "photo_reaction" ALTER COLUMN "created_at" TYPE timestamptz;
+      `;
+      await sql`
+        ALTER TABLE "photo_reaction" ALTER COLUMN "updated_at" TYPE timestamptz;
       `;
       await sql`
         CREATE UNIQUE INDEX IF NOT EXISTS "photo_reaction_unique_idx" ON "photo_reaction" ("photo_id", "visitor_id", "reaction_type");
@@ -108,8 +120,11 @@ export async function migrate(): Promise<void> {
           "photo_id" text NOT NULL REFERENCES "photo"("photo_id") ON DELETE CASCADE,
           "visitor_id" text NOT NULL,
           "type" text DEFAULT 'view' NOT NULL,
-          "viewed_at" timestamp DEFAULT now() NOT NULL
+          "viewed_at" timestamptz DEFAULT now() NOT NULL
         );
+      `;
+      await sql`
+        ALTER TABLE "photo_view" ALTER COLUMN "viewed_at" TYPE timestamptz;
       `;
       await sql`
         CREATE INDEX IF NOT EXISTS "photo_view_photo_id_idx" ON "photo_view" ("photo_id");
@@ -136,6 +151,12 @@ export async function migrate(): Promise<void> {
         ALTER TABLE "album" ADD COLUMN IF NOT EXISTS "is_archived" integer DEFAULT 0 NOT NULL;
       `;
       await sql`
+        ALTER TABLE "album" ALTER COLUMN "create_time" TYPE timestamptz;
+      `;
+      await sql`
+        ALTER TABLE "album" ALTER COLUMN "update_time" TYPE timestamptz;
+      `;
+      await sql`
         CREATE INDEX IF NOT EXISTS "album_is_archived_idx" ON "album" ("is_archived");
       `;
     } catch (albumArchErr) {
@@ -148,7 +169,10 @@ export async function migrate(): Promise<void> {
         ALTER TABLE "album_photo" ADD COLUMN IF NOT EXISTS "is_pinned" integer DEFAULT 0 NOT NULL;
       `;
       await sql`
-        ALTER TABLE "album_photo" ADD COLUMN IF NOT EXISTS "pinned_at" timestamp;
+        ALTER TABLE "album_photo" ADD COLUMN IF NOT EXISTS "pinned_at" timestamptz;
+      `;
+      await sql`
+        ALTER TABLE "album_photo" ALTER COLUMN "pinned_at" TYPE timestamptz;
       `;
     } catch (albumPhotoErr) {
       console.warn('[MIGRATE] Error updating album_photo columns:', albumPhotoErr);
@@ -159,6 +183,9 @@ export async function migrate(): Promise<void> {
       await sql`
         ALTER TABLE "photo" ADD COLUMN IF NOT EXISTS "visibility" integer DEFAULT 1 NOT NULL;
       `;
+      await sql`
+        ALTER TABLE "photo" ALTER COLUMN "create_time" TYPE timestamptz;
+      `;
     } catch (photoVisErr) {
       console.warn('[MIGRATE] Error updating photo visibility column:', photoVisErr);
     }
@@ -167,6 +194,9 @@ export async function migrate(): Promise<void> {
     try {
       await sql`
         ALTER TABLE "user" ADD COLUMN IF NOT EXISTS "token_version" integer DEFAULT 1 NOT NULL;
+      `;
+      await sql`
+        ALTER TABLE "user" ALTER COLUMN "create_time" TYPE timestamptz;
       `;
     } catch (userTokenErr) {
       console.warn('[MIGRATE] Error updating user token_version column:', userTokenErr);

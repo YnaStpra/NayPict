@@ -27,6 +27,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
   Table,
   TableBody,
@@ -58,6 +59,7 @@ import {
   type VisitorSessionVo,
 } from "@/server/entity/vo/analytics"
 import { toast } from "sonner"
+import { parseUtcTime } from "@/lib/date"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -90,32 +92,13 @@ import {
   Trash2,
   Shield,
   User,
+  MessageSquare,
 } from "lucide-react"
 
 // Safely parse timestamps from Postgres, ensuring UTC interpretation regardless of local machine offset
-function parseUtcDate(input?: string | Date | null): Date | null {
-  if (!input) return null
-  if (input instanceof Date) return isNaN(input.getTime()) ? null : input
-  let str = String(input).trim()
-  if (!str) return null
-
-  // Fix PostgreSQL timestamp format: replace space with T
-  if (str.includes(" ") && !str.includes("T")) {
-    str = str.replace(" ", "T")
-  }
-
-  // Fix PostgreSQL 2-digit timezone offset (e.g. +00 or -08) to standard +00:00 or -08:00
-  if (/[+-]\d{2}$/.test(str)) {
-    str = str + ":00"
-  }
-
-  // If no timezone offset present, append Z to force UTC evaluation
-  if (!str.endsWith("Z") && !/[+-]\d{2}:\d{2}$/.test(str)) {
-    str += "Z"
-  }
-
-  const d = new Date(str)
-  return isNaN(d.getTime()) ? null : d
+function parseUtcDate(input?: string | Date | number | null): Date | null {
+  const ms = parseUtcTime(input)
+  return ms === null ? null : new Date(ms)
 }
 
 // Convert 2-letter ISO country code into Unicode flag emoji
@@ -1261,82 +1244,246 @@ export default function VisitorAnalyticsPage() {
                   </div>
                 </div>
 
-                {/* Media Viewed Timeline (Dedicated scroll container for media only) */}
-                <div className="flex flex-col flex-1 min-h-0 pt-1">
-                  <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2.5 flex items-center justify-between shrink-0">
-                    <span>Media Opened & Actions ({sessionDetail.activities.length})</span>
-                    <span className="text-[10px] font-normal normal-case">Chronological order</span>
-                  </h4>
-
-                  {sessionDetail.activities.length > 0 ? (
-                    <div
-                      data-lenis-prevent
-                      className="space-y-2.5 overflow-y-auto overscroll-contain flex-1 min-h-0 max-h-[280px] sm:max-h-[360px] pr-1.5 scrollbar-thin touch-pan-y"
-                    >
-                      {sessionDetail.activities.map((item, idx) => (
-                        <div
-                          key={item.id}
-                          className="flex items-center justify-between gap-3 rounded-lg border bg-card p-2.5 shadow-sm hover:border-border transition-colors"
+                {/* Interactive Activity & Comments Tabs */}
+                <Tabs defaultValue="media" className="flex flex-col flex-1 min-h-0 pt-1">
+                  <div className="flex items-center justify-between pb-1.5 shrink-0">
+                    <TabsList className="h-8 p-1 bg-muted/50 border">
+                      <TabsTrigger
+                        value="media"
+                        className="text-xs px-2.5 py-1 gap-1.5 cursor-pointer data-[state=active]:bg-background data-[state=active]:shadow-xs"
+                      >
+                        <Eye className="size-3.5" />
+                        <span>Media & Actions</span>
+                        <Badge
+                          variant="secondary"
+                          className="text-[10px] px-1.5 py-0 h-4 min-w-4 ml-0.5 rounded-full font-semibold"
                         >
-                          <div className="flex items-center gap-3 min-w-0">
-                            <span className="font-mono text-[10px] text-muted-foreground w-4 text-center">
-                              #{idx + 1}
-                            </span>
+                          {sessionDetail.activities.length}
+                        </Badge>
+                      </TabsTrigger>
+                      <TabsTrigger
+                        value="comments"
+                        className="text-xs px-2.5 py-1 gap-1.5 cursor-pointer data-[state=active]:bg-background data-[state=active]:shadow-xs"
+                      >
+                        <MessageSquare className="size-3.5" />
+                        <span>Comments History</span>
+                        {sessionDetail.comments && sessionDetail.comments.length > 0 ? (
+                          <Badge className="text-[10px] px-1.5 py-0 h-4 min-w-4 ml-0.5 rounded-full bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-semibold border-none">
+                            {sessionDetail.comments.length}
+                          </Badge>
+                        ) : (
+                          <Badge
+                            variant="secondary"
+                            className="text-[10px] px-1.5 py-0 h-4 min-w-4 ml-0.5 rounded-full text-muted-foreground font-normal"
+                          >
+                            0
+                          </Badge>
+                        )}
+                      </TabsTrigger>
+                    </TabsList>
+                    <span className="text-[10px] text-muted-foreground hidden sm:inline-block">Chronological order</span>
+                  </div>
 
-                            {item.thumbnail ? (
-                              <div className="relative size-12 shrink-0 rounded-md overflow-hidden bg-muted border">
-                                <Image
-                                  src={item.thumbnail}
-                                  alt={item.photoTitle}
-                                  fill
-                                  sizes="48px"
-                                  className="object-cover"
-                                />
-                              </div>
-                            ) : (
-                              <div className="size-12 shrink-0 rounded-md bg-muted border flex items-center justify-center text-muted-foreground">
-                                <Eye className="size-4" />
-                              </div>
-                            )}
+                  {/* Tab 1: Media Opened & Actions */}
+                  <TabsContent value="media" className="flex-1 min-h-0 m-0 outline-none">
+                    {sessionDetail.activities.length > 0 ? (
+                      <div
+                        data-lenis-prevent
+                        className="space-y-2.5 overflow-y-auto overscroll-contain flex-1 min-h-0 max-h-[280px] sm:max-h-[360px] pr-1.5 scrollbar-thin touch-pan-y"
+                      >
+                        {sessionDetail.activities.map((item, idx) => (
+                          <div
+                            key={item.id}
+                            className="flex items-center justify-between gap-3 rounded-lg border bg-card p-2.5 shadow-sm hover:border-border transition-colors"
+                          >
+                            <div className="flex items-center gap-3 min-w-0">
+                              <span className="font-mono text-[10px] text-muted-foreground w-4 text-center">
+                                #{idx + 1}
+                              </span>
 
-                            <div className="min-w-0">
-                              <div className="font-medium text-xs truncate max-w-[240px] text-foreground">
-                                {item.photoTitle}
-                              </div>
-                              <div className="text-[10px] text-muted-foreground mt-0.5">
-                                {parseUtcDate(item.createdAt)?.toLocaleTimeString() || item.createdAt}
+                              {item.thumbnail ? (
+                                <div className="relative size-12 shrink-0 rounded-md overflow-hidden bg-muted border">
+                                  <Image
+                                    src={item.thumbnail}
+                                    alt={item.photoTitle}
+                                    fill
+                                    sizes="48px"
+                                    className="object-cover"
+                                  />
+                                </div>
+                              ) : (
+                                <div className="size-12 shrink-0 rounded-md bg-muted border flex items-center justify-center text-muted-foreground">
+                                  <Eye className="size-4" />
+                                </div>
+                              )}
+
+                              <div className="min-w-0">
+                                <div className="font-medium text-xs truncate max-w-[240px] text-foreground">
+                                  {item.photoTitle}
+                                </div>
+                                <div className="text-[10px] text-muted-foreground mt-0.5">
+                                  {parseUtcDate(item.createdAt)?.toLocaleTimeString() || item.createdAt}
+                                </div>
                               </div>
                             </div>
-                          </div>
 
-                          <div className="shrink-0 flex items-center gap-1.5">
-                            {item.action === "download" ? (
-                              <Badge className="bg-amber-500/15 text-amber-600 dark:text-amber-400 border-none text-[10px] gap-1 px-2">
-                                <Download className="size-3" /> Downloaded
-                              </Badge>
-                            ) : item.action === "reaction" ? (
-                              <Badge className="bg-rose-500/15 text-rose-600 dark:text-rose-400 border-none text-[10px] gap-1 px-2">
-                                <Heart className="size-3" /> Reacted
-                              </Badge>
-                            ) : item.action === "share" ? (
-                              <Badge className="bg-blue-500/15 text-blue-600 dark:text-blue-400 border-none text-[10px] gap-1 px-2">
-                                <Share2 className="size-3" /> Shared
-                              </Badge>
-                            ) : (
-                              <Badge variant="secondary" className="text-[10px] gap-1 px-2">
-                                <Eye className="size-3" /> Viewed
-                              </Badge>
-                            )}
+                            <div className="shrink-0 flex items-center gap-1.5">
+                              {item.action === "download" ? (
+                                <Badge className="bg-amber-500/15 text-amber-600 dark:text-amber-400 border-none text-[10px] gap-1 px-2">
+                                  <Download className="size-3" /> Downloaded
+                                </Badge>
+                              ) : item.action === "reaction" ? (
+                                <Badge className="bg-rose-500/15 text-rose-600 dark:text-rose-400 border-none text-[10px] gap-1 px-2">
+                                  <Heart className="size-3" /> Reacted
+                                </Badge>
+                              ) : item.action === "comment" ? (
+                                <Badge className="bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-none text-[10px] gap-1 px-2">
+                                  <MessageSquare className="size-3" /> Commented
+                                </Badge>
+                              ) : item.action === "share" ? (
+                                <Badge className="bg-blue-500/15 text-blue-600 dark:text-blue-400 border-none text-[10px] gap-1 px-2">
+                                  <Share2 className="size-3" /> Shared
+                                </Badge>
+                              ) : (
+                                <Badge variant="secondary" className="text-[10px] gap-1 px-2">
+                                  <Eye className="size-3" /> Viewed
+                                </Badge>
+                              )}
+                            </div>
                           </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="rounded-lg border border-dashed py-8 text-center text-xs text-muted-foreground">
+                        No media opened during this session.
+                      </div>
+                    )}
+                  </TabsContent>
+
+                  {/* Tab 2: Comments History */}
+                  <TabsContent value="comments" className="flex-1 min-h-0 m-0 outline-none">
+                    {(() => {
+                      const comments = sessionDetail.comments || []
+                      if (comments.length === 0) {
+                        return (
+                          <div className="rounded-lg border border-dashed py-8 text-center text-xs text-muted-foreground">
+                            No comments posted by this visitor.
+                          </div>
+                        )
+                      }
+
+                      const uniqueNames = Array.from(new Set(comments.map((c) => c.name.trim()).filter(Boolean)))
+
+                      return (
+                        <div
+                          data-lenis-prevent
+                          className="space-y-2.5 overflow-y-auto overscroll-contain flex-1 min-h-0 max-h-[280px] sm:max-h-[360px] pr-1.5 scrollbar-thin touch-pan-y"
+                        >
+                          {/* Alert if visitor switched names across media comments */}
+                          {uniqueNames.length > 1 && (
+                            <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-2.5 text-xs flex items-start gap-2">
+                              <AlertTriangle className="size-4 shrink-0 text-amber-500 mt-0.5" />
+                              <div>
+                                <div className="font-semibold text-amber-600 dark:text-amber-400">
+                                  Multiple Commenter Names Detected ({uniqueNames.length})
+                                </div>
+                                <div className="text-[11px] text-amber-700/80 dark:text-amber-300/80 mt-0.5 leading-relaxed">
+                                  This visitor switched identities across media:{" "}
+                                  {uniqueNames.map((n, i) => (
+                                    <span key={i} className="font-semibold text-foreground bg-muted/60 px-1 py-0.5 rounded mr-1">
+                                      "{n}"
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
+                          {comments.map((comment, idx) => (
+                            <div
+                              key={comment.id}
+                              className="rounded-lg border bg-card p-3 shadow-sm hover:border-border transition-colors space-y-2"
+                            >
+                              {/* Top row: Media info + Commenter identity */}
+                              <div className="flex items-center justify-between gap-2">
+                                <div className="flex items-center gap-2.5 min-w-0">
+                                  <span className="font-mono text-[10px] text-muted-foreground w-4 text-center shrink-0">
+                                    #{idx + 1}
+                                  </span>
+                                  {comment.thumbnail ? (
+                                    <div className="relative size-8 shrink-0 rounded overflow-hidden bg-muted border">
+                                      <Image
+                                        src={comment.thumbnail}
+                                        alt={comment.photoTitle}
+                                        fill
+                                        sizes="32px"
+                                        className="object-cover"
+                                      />
+                                    </div>
+                                  ) : (
+                                    <div className="size-8 shrink-0 rounded bg-muted border flex items-center justify-center text-muted-foreground">
+                                      <MessageSquare className="size-3.5" />
+                                    </div>
+                                  )}
+                                  <div className="min-w-0">
+                                    <span className="font-medium text-xs truncate block max-w-[180px] sm:max-w-[240px] text-foreground">
+                                      {comment.photoTitle}
+                                    </span>
+                                    <span className="text-[10px] text-muted-foreground block">
+                                      {parseUtcDate(comment.createdAt)?.toLocaleString() || comment.createdAt}
+                                    </span>
+                                  </div>
+                                </div>
+
+                                <div className="flex items-center gap-1.5 shrink-0">
+                                  <Badge
+                                    variant="outline"
+                                    className="bg-primary/5 text-primary border-primary/20 text-[10px] font-semibold gap-1 px-2 py-0.5"
+                                  >
+                                    <User className="size-3 text-primary" />
+                                    <span className="truncate max-w-[110px]">{comment.name}</span>
+                                  </Badge>
+                                  {comment.isCurrentSession ? (
+                                    <Badge variant="secondary" className="text-[9px] px-1.5 py-0 font-normal">
+                                      This Session
+                                    </Badge>
+                                  ) : (
+                                    <Badge variant="outline" className="text-[9px] px-1.5 py-0 text-muted-foreground">
+                                      Prior Session
+                                    </Badge>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* Comment body */}
+                              <div className="rounded-md bg-muted/30 border border-border/50 p-2.5 text-xs text-foreground/90 break-words leading-relaxed font-normal">
+                                "{comment.content}"
+                              </div>
+
+                              {/* Optional Admin/Photographer Reply */}
+                              {comment.replyContent && (
+                                <div className="rounded-md bg-purple-500/10 border border-purple-500/20 p-2 text-xs text-purple-700 dark:text-purple-300 ml-4 space-y-0.5">
+                                  <div className="flex items-center gap-1 font-semibold text-[10px] text-purple-600 dark:text-purple-400">
+                                    <Shield className="size-3" />
+                                    <span>Photographer Reply</span>
+                                    {comment.replyTime && (
+                                      <span className="text-[9px] font-normal text-muted-foreground ml-auto">
+                                        {parseUtcDate(comment.replyTime)?.toLocaleDateString()}
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div className="text-[11px] leading-relaxed break-words">
+                                    "{comment.replyContent}"
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          ))}
                         </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="rounded-lg border border-dashed py-8 text-center text-xs text-muted-foreground">
-                      No media opened during this session.
-                    </div>
-                  )}
-                </div>
+                      )
+                    })()}
+                  </TabsContent>
+                </Tabs>
               </div>
             ) : null}
           </DialogContent>

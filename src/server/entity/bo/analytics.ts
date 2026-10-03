@@ -29,7 +29,7 @@ export type HeartbeatBo = {
 export type TrackMediaBo = {
   sessionId?: string;
   photoId: string;
-  action?: 'view' | 'download' | 'share' | 'reaction';
+  action?: 'view' | 'download' | 'share' | 'reaction' | 'comment';
 };
 
 export type VisitorSessionsQueryBo = {

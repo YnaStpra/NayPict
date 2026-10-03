@@ -25,43 +25,74 @@ function parseTime(value: string | null | undefined): Date | null {
   return date;
 }
 
-// Parse ISO or database date string into timestamp accurately in UTC.
-function parseUtcTime(value: string | Date | number) {
+// Safely normalize date inputs (ISO, PostgreSQL timestamptz, timestamps) into a standard UTC ISO string (ending with Z).
+function toUtcIsoString(dateInput: string | Date | number | null | undefined): string | null {
+  if (dateInput === null || dateInput === undefined || dateInput === "") {
+    return null;
+  }
+  if (dateInput instanceof Date) {
+    return Number.isNaN(dateInput.getTime()) ? null : dateInput.toISOString();
+  }
+  if (typeof dateInput === "number") {
+    const d = new Date(dateInput);
+    return Number.isNaN(d.getTime()) ? null : d.toISOString();
+  }
+
+  let text = String(dateInput).trim();
+  if (!text) return null;
+
+  // If already standard ISO ending with Z (e.g. "2026-10-03T14:16:50.041Z"):
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$/.test(text)) {
+    return text;
+  }
+
+  // Normalize PostgreSQL timestamp format: replace space with 'T'
+  if (text.includes(" ") && !text.includes("T")) {
+    text = text.replace(" ", "T");
+  }
+
+  // Normalize PostgreSQL 2-digit timezone offset (e.g. +00 or -08) to standard RFC 3339 (+00:00 or -08:00)
+  if (/[+-]\d{2}$/.test(text)) {
+    text = `${text}:00`;
+  }
+
+  // If no timezone indicator present, force UTC evaluation by appending 'Z'
+  if (!text.endsWith("Z") && !/[+-]\d{2}:\d{2}$/.test(text)) {
+    text = `${text}Z`;
+  }
+
+  const d = new Date(text);
+  if (!Number.isNaN(d.getTime())) {
+    return d.toISOString();
+  }
+
+  const fallback = new Date(dateInput);
+  if (!Number.isNaN(fallback.getTime())) {
+    return fallback.toISOString();
+  }
+
+  return null;
+}
+
+// Parse ISO or database date string into millisecond timestamp accurately in UTC.
+function parseUtcTime(value: string | Date | number | null | undefined): number | null {
+  if (value === null || value === undefined || value === "") {
+    return null;
+  }
   if (value instanceof Date) {
-    return value.getTime()
+    const ms = value.getTime();
+    return Number.isNaN(ms) ? null : ms;
   }
   if (typeof value === "number") {
-    return value
-  }
-  if (!value) {
-    return null
+    return Number.isNaN(value) ? null : value;
   }
 
-  const text = String(value).trim()
-  if (!text) return null
+  const iso = toUtcIsoString(value);
+  if (!iso) return null;
 
-  // If text already has UTC 'Z' or timezone offset (+08:00, -05:00), parse directly
-  if (text.endsWith("Z") || /[+-]\d{2}(?::?\d{2})?$/.test(text)) {
-    const d = new Date(text)
-    if (!Number.isNaN(d.getTime())) {
-      return d.getTime()
-    }
-  }
-
-  // Database timestamps (e.g. "2026-09-18 04:29:53" or "2026-09-18T04:29:53") are stored in UTC.
-  // Appending 'Z' prevents the browser from incorrectly interpreting them as local time.
-  const isoWithZ = `${text.replace(" ", "T")}Z`
-  const dateUtc = new Date(isoWithZ)
-  if (!Number.isNaN(dateUtc.getTime())) {
-    return dateUtc.getTime()
-  }
-
-  const fallbackDate = new Date(text)
-  if (!Number.isNaN(fallbackDate.getTime())) {
-    return fallbackDate.getTime()
-  }
-
-  return null
+  const d = new Date(iso);
+  const ms = d.getTime();
+  return Number.isNaN(ms) ? null : ms;
 }
 
 // Format photo shooting time as local date, for list display.
@@ -191,5 +222,6 @@ export {
   getLocalTzOffsetMin,
   parseTime,
   parseUtcTime,
+  toUtcIsoString,
 }
 

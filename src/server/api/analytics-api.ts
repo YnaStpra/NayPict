@@ -463,7 +463,7 @@ export function registerAnalyticsApi(app: Hono<HonoEnv>) {
       return c.json(result.ok({ tracked: false }));
     }
 
-    const validActions = ['view', 'download', 'share', 'reaction'];
+    const validActions = ['view', 'download', 'share', 'reaction', 'comment'];
     const safeAction = body.action && validActions.includes(body.action) ? body.action : 'view';
     const isAdmin = await checkIsAdmin(c);
 
@@ -472,7 +472,7 @@ export function registerAnalyticsApi(app: Hono<HonoEnv>) {
         ...body,
         photoId: body.photoId.slice(0, 64),
         sessionId: typeof body.sessionId === 'string' ? body.sessionId.slice(0, 64) : undefined,
-        action: safeAction as 'view' | 'download' | 'share' | 'reaction',
+        action: safeAction as 'view' | 'download' | 'share' | 'reaction' | 'comment',
       },
       isAdmin
     );

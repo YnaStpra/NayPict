@@ -32,9 +32,23 @@ export type VisitorActivityItemVo = {
   createdAt: string;
 };
 
+export type VisitorSessionCommentVo = {
+  id: string;
+  photoId: string;
+  photoTitle: string;
+  thumbnail: string;
+  name: string;
+  content: string;
+  replyContent: string | null;
+  replyTime: string | null;
+  createdAt: string;
+  isCurrentSession: boolean;
+};
+
 export type VisitorSessionDetailVo = {
   session: VisitorSessionVo;
   activities: VisitorActivityItemVo[];
+  comments: VisitorSessionCommentVo[];
 };
 
 export type AnalyticsDistributionVo = {

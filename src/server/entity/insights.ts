@@ -13,7 +13,7 @@ export const photoViewTab = pgTable(
       .references(() => photoTab.photoId, { onDelete: 'cascade' }),
     visitorId: text('visitor_id').notNull(),
     type: text('type').notNull().default('view'),
-    viewedAt: timestamp('viewed_at', { mode: 'string' }).notNull().default(sql`now()`),
+    viewedAt: timestamp('viewed_at', { withTimezone: true, mode: 'string' }).notNull().default(sql`now()`),
   },
   (table) => [
     index('idx_photo_view_photo_type').on(table.photoId, table.type),

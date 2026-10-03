@@ -14,6 +14,7 @@ import { type File as PhotoFile } from '@/server/entity/file';
 import { fileService } from '@/server/service/file-service';
 import { storageService } from '@/server/service/storage-service';
 import { formatHttpUrl, toMediaUrl } from '@/lib/url';
+import { toUtcIsoString } from '@/lib/date';
 import { FileTypeEnum } from '@/server/enums/file-enum';
 import { commentRateLimiter } from '@/server/lib/rate-limiter';
 
@@ -41,10 +42,10 @@ const commentService = {
         name: row.name,
         content: row.content,
         replyContent: row.replyContent,
-        replyTime: row.replyTime,
+        replyTime: toUtcIsoString(row.replyTime),
         isHearted: Boolean(row.isHearted),
         isPinned: Boolean(row.isPinned),
-        createTime: row.createTime,
+        createTime: toUtcIsoString(row.createTime) || row.createTime,
       }));
     } catch (err) {
       // Return empty comments list gracefully if table is empty or not yet provisioned
@@ -151,10 +152,10 @@ const commentService = {
             name: r.name,
             content: r.content,
             replyContent: r.replyContent,
-            replyTime: r.replyTime,
+            replyTime: toUtcIsoString(r.replyTime),
             isHearted: Boolean(r.isHearted),
             isPinned: Boolean(r.isPinned),
-            createTime: r.createTime,
+            createTime: toUtcIsoString(r.createTime) || r.createTime,
           };
         }),
         total,
@@ -243,6 +244,9 @@ const commentService = {
         photoId,
         name,
         content,
+        visitorId: params.visitorId || null,
+        sessionId: params.sessionId || null,
+        ip: clientIp || null,
         createTime: now,
       });
     } catch (insertErr) {
@@ -259,15 +263,26 @@ const commentService = {
               "content" text NOT NULL,
               "reply_content" text,
               "reply_time" timestamp,
+              "visitor_id" text DEFAULT '',
+              "session_id" text DEFAULT '',
+              "ip" text DEFAULT '',
               "create_time" timestamp DEFAULT now() NOT NULL
             );
           `;
+          await sql`ALTER TABLE "comment" ADD COLUMN IF NOT EXISTS "visitor_id" text DEFAULT '';`;
+          await sql`ALTER TABLE "comment" ADD COLUMN IF NOT EXISTS "session_id" text DEFAULT '';`;
+          await sql`ALTER TABLE "comment" ADD COLUMN IF NOT EXISTS "ip" text DEFAULT '';`;
           await sql`CREATE INDEX IF NOT EXISTS "comment_photo_id_idx" ON "comment" ("photo_id");`;
+          await sql`CREATE INDEX IF NOT EXISTS "idx_comment_visitor_id" ON "comment" ("visitor_id");`;
+          await sql`CREATE INDEX IF NOT EXISTS "idx_comment_session_id" ON "comment" ("session_id");`;
           await orm.insert(commentTab).values({
             commentId,
             photoId,
             name,
             content,
+            visitorId: params.visitorId || null,
+            sessionId: params.sessionId || null,
+            ip: clientIp || null,
             createTime: now,
           });
         } catch (retryErr) {
@@ -343,7 +358,7 @@ const commentService = {
       content: existing.content,
       replyContent,
       replyTime: now,
-      createTime: existing.createTime,
+      createTime: toUtcIsoString(existing.createTime) || existing.createTime,
     };
 
     // Broadcast real-time SSE reply event

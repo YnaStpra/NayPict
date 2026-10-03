@@ -16,7 +16,7 @@ export const photoTab = pgTable(
     width: integer('width'),
     height: integer('height'),
     takenTime: text('taken_time'),
-    createTime: timestamp('create_time', { mode: 'string' }).notNull().default(sql`now()`),
+    createTime: timestamp('create_time', { withTimezone: true, mode: 'string' }).notNull().default(sql`now()`),
     recycleTime: text('recycle_time'),
     userId: text('user_id').notNull(),
     status: integer('status').notNull().default(PhotoStatusEnum.NORMAL),

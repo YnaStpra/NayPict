@@ -6,8 +6,10 @@ import { visitorActivityTab, visitorSessionTab } from '@/server/entity/analytics
 import { photoTab } from '@/server/entity/photo';
 import { fileTab } from '@/server/entity/file';
 import { storageTab } from '@/server/entity/storage';
+import { commentTab } from '@/server/entity/comment';
 import { buildThumbnailKey } from '@/server/lib/photo-path';
 import { toMediaUrl } from '@/lib/url';
+import { toUtcIsoString } from '@/lib/date';
 import { locationService } from '@/server/service/location-service';
 import {
   type HeartbeatBo,
@@ -20,6 +22,7 @@ import {
   type AnalyticsDistributionVo,
   type AnalyticsOverviewVo,
   type VisitorActivityItemVo,
+  type VisitorSessionCommentVo,
   type VisitorSessionDetailVo,
   type VisitorSessionsListVo,
   type VisitorSessionVo,
@@ -83,6 +86,15 @@ async function ensureAnalyticsTables(): Promise<void> {
     await rawSql`CREATE INDEX IF NOT EXISTS "visitor_activity_session_id_idx" ON "visitor_activity" ("session_id");`;
     await rawSql`CREATE INDEX IF NOT EXISTS "visitor_activity_photo_id_idx" ON "visitor_activity" ("photo_id");`;
 
+    // Ensure comment table has visitor tracking columns for session inspection
+    try {
+      await rawSql`ALTER TABLE "comment" ADD COLUMN IF NOT EXISTS "visitor_id" text DEFAULT '';`;
+      await rawSql`ALTER TABLE "comment" ADD COLUMN IF NOT EXISTS "session_id" text DEFAULT '';`;
+      await rawSql`ALTER TABLE "comment" ADD COLUMN IF NOT EXISTS "ip" text DEFAULT '';`;
+      await rawSql`CREATE INDEX IF NOT EXISTS "idx_comment_session_id" ON "comment" ("session_id");`;
+      await rawSql`CREATE INDEX IF NOT EXISTS "idx_comment_visitor_id" ON "comment" ("visitor_id");`;
+    } catch {}
+
     // Self-healing database calibration for edge GeoIP anomalies
     try {
       await rawSql`
@@ -103,16 +115,9 @@ async function ensureAnalyticsTables(): Promise<void> {
   }
 }
 
-// Safely convert date string or Date object into standard ISO string ending with Z
+// Safely convert date string or Date object into standard UTC ISO string ending with Z
 function toIsoString(dateInput: string | Date | null | undefined): string {
-  if (!dateInput) return new Date().toISOString();
-  try {
-    const d = new Date(dateInput);
-    if (!isNaN(d.getTime())) {
-      return d.toISOString();
-    }
-  } catch {}
-  return String(dateInput);
+  return toUtcIsoString(dateInput) || new Date().toISOString();
 }
 
 // In-memory throttling map to prevent excessive Neon DB write IOPS from frequent client heartbeats
@@ -604,9 +609,37 @@ const analyticsService = {
       .where(eq(visitorActivityTab.sessionId, sessionId))
       .orderBy(desc(visitorActivityTab.createdAt));
 
-    // Resolve storage domains and file keys
+    // Fetch comments left during this session or by this visitor
+    const commentConditions = [eq(commentTab.sessionId, sessionId)];
+    if (session.visitorId && session.visitorId.trim()) {
+      commentConditions.push(eq(commentTab.visitorId, session.visitorId.trim()));
+    }
+
+    const commentRows = await readOrm
+      .select({
+        commentId: commentTab.commentId,
+        photoId: commentTab.photoId,
+        name: commentTab.name,
+        content: commentTab.content,
+        replyContent: commentTab.replyContent,
+        replyTime: commentTab.replyTime,
+        createTime: commentTab.createTime,
+        sessionId: commentTab.sessionId,
+        photoTitle: photoTab.name,
+        storageId: photoTab.storageId,
+        checksum: photoTab.checksum,
+      })
+      .from(commentTab)
+      .innerJoin(photoTab, eq(commentTab.photoId, photoTab.photoId))
+      .where(or(...commentConditions))
+      .orderBy(desc(commentTab.createTime));
+
+    // Resolve storage domains and file keys across both activities and comments
     const storageIds = Array.from(
-      new Set(activityRows.map((a) => a.storageId).filter(Boolean) as string[])
+      new Set([
+        ...activityRows.map((a) => a.storageId),
+        ...commentRows.map((c) => c.storageId),
+      ].filter(Boolean) as string[])
     );
     const storageMap = new Map<string, string | null>();
 
@@ -620,7 +653,12 @@ const analyticsService = {
       }
     }
 
-    const photoIds = Array.from(new Set(activityRows.map((a) => a.photoId)));
+    const photoIds = Array.from(
+      new Set([
+        ...activityRows.map((a) => a.photoId),
+        ...commentRows.map((c) => c.photoId),
+      ])
+    );
     const fileThumbnailMap = new Map<string, string>();
 
     if (photoIds.length > 0) {
@@ -648,7 +686,6 @@ const analyticsService = {
         thumbnail = toMediaUrl(generatedKey, storageDomain);
       }
 
-
       return {
         id: a.id,
         photoId: a.photoId,
@@ -656,6 +693,32 @@ const analyticsService = {
         thumbnail,
         action: a.action,
         createdAt: toIsoString(a.createdAt),
+      };
+    });
+
+    const comments: VisitorSessionCommentVo[] = commentRows.map((c) => {
+      const storageDomain = c.storageId ? storageMap.get(c.storageId) ?? null : null;
+      let thumbnail = '';
+
+      const thumbKey = fileThumbnailMap.get(c.photoId);
+      if (thumbKey) {
+        thumbnail = toMediaUrl(thumbKey, storageDomain);
+      } else if (c.checksum) {
+        const generatedKey = buildThumbnailKey(c.checksum, c.photoId);
+        thumbnail = toMediaUrl(generatedKey, storageDomain);
+      }
+
+      return {
+        id: c.commentId,
+        photoId: c.photoId,
+        photoTitle: c.photoTitle || 'Untitled Media',
+        thumbnail,
+        name: c.name,
+        content: c.content,
+        replyContent: c.replyContent || null,
+        replyTime: c.replyTime ? toIsoString(c.replyTime) : null,
+        createdAt: toIsoString(c.createTime),
+        isCurrentSession: c.sessionId === sessionId,
       };
     });
 
@@ -696,6 +759,7 @@ const analyticsService = {
     return {
       session: sessionVo,
       activities,
+      comments,
     };
   },
 

@@ -12,7 +12,7 @@ export const userTab = pgTable('user', {
   type: integer('type').notNull().default(UserTypeEnum.NORMAL),
   status: integer('status').notNull().default(UserStatusEnum.NORMAL),
   tokenVersion: integer('token_version').notNull().default(1),
-  createTime: timestamp('create_time', { mode: 'string' }).notNull().default(sql`now()`),
+  createTime: timestamp('create_time', { withTimezone: true, mode: 'string' }).notNull().default(sql`now()`),
 });
 
 export type User = typeof userTab.$inferSelect;

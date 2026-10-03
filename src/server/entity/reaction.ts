@@ -13,8 +13,8 @@ export const photoReactionTab = pgTable(
     visitorId: text('visitor_id').notNull(),
     reactionType: text('reaction_type').notNull(), // 'love', 'fire', 'camera', 'place', 'clap'
     count: integer('count').notNull().default(1),
-    createdAt: timestamp('created_at', { mode: 'string' }).notNull().default(sql`now()`),
-    updatedAt: timestamp('updated_at', { mode: 'string' }).notNull().default(sql`now()`),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).notNull().default(sql`now()`),
+    updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'string' }).notNull().default(sql`now()`),
   },
   (table) => [
     uniqueIndex('idx_photo_reaction_unique').on(table.photoId, table.visitorId, table.reactionType),
