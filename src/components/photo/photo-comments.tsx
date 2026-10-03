@@ -163,22 +163,62 @@ export function PhotoComments({ photoId }: PhotoCommentsProps) {
       }),
     ];
 
-    // Adaptive low-frequency polling while comments drawer is actively open (20s interval, only when tab is visible)
-    const pollInterval = setInterval(() => {
-      if (typeof document !== "undefined" && document.visibilityState === "visible") {
-        commentList(photoId)
-          .then((data) => {
-            if (isMounted && Array.isArray(data)) {
-              setComments(data);
+    // Adaptive near-realtime heartbeat while comments drawer is actively open (5s interval, only when tab is visible)
+    const COMMENT_POLL_INTERVAL_MS = 5000;
+    let isFetchingPoll = false;
+
+    const pollFreshComments = async () => {
+      if (!isMounted || isFetchingPoll) return;
+      if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
+
+      isFetchingPoll = true;
+      try {
+        const data = await commentList(photoId);
+        if (isMounted && Array.isArray(data)) {
+          setComments((prev) => {
+            if (prev.length === data.length) {
+              let hasChange = false;
+              for (let i = 0; i < prev.length; i++) {
+                if (
+                  prev[i].commentId !== data[i].commentId ||
+                  prev[i].content !== data[i].content ||
+                  prev[i].replyContent !== data[i].replyContent ||
+                  prev[i].replyTime !== data[i].replyTime ||
+                  prev[i].isHearted !== data[i].isHearted ||
+                  prev[i].isPinned !== data[i].isPinned
+                ) {
+                  hasChange = true;
+                  break;
+                }
+              }
+              if (!hasChange) return prev;
             }
-          })
-          .catch(() => {});
+            return data;
+          });
+        }
+      } catch {
+        // Silent catch to prevent UI disruptions
+      } finally {
+        isFetchingPoll = false;
       }
-    }, 20000);
+    };
+
+    const pollInterval = setInterval(pollFreshComments, COMMENT_POLL_INTERVAL_MS);
+
+    const handleFocusResume = () => {
+      if (typeof document !== "undefined" && document.visibilityState === "visible") {
+        pollFreshComments();
+      }
+    };
+
+    window.addEventListener("focus", handleFocusResume);
+    document.addEventListener("visibilitychange", handleFocusResume);
 
     return () => {
       isMounted = false;
       clearInterval(pollInterval);
+      window.removeEventListener("focus", handleFocusResume);
+      document.removeEventListener("visibilitychange", handleFocusResume);
       unsubs.forEach((unsub) => unsub());
     };
   }, [photoId]);

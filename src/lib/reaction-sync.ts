@@ -30,10 +30,13 @@ const DEFAULT_STATE: PhotoReactionsVo = {
   userReactions: { love: false, fire: false, camera: false, place: false, clap: 0 },
 };
 
+const ADAPTIVE_POLL_INTERVAL_MS = 5000; // 5-second near-realtime heartbeat while photo is viewed
+
 class ReactionSyncManager {
   private cache = new Map<string, PhotoReactionsVo>();
   private listeners = new Map<string, Set<(data: PhotoReactionsVo) => void>>();
   private pollTimers = new Map<string, NodeJS.Timeout>();
+  private inFlight = new Set<string>();
   private channel: BroadcastChannel | null = null;
 
   constructor() {
@@ -99,7 +102,7 @@ class ReactionSyncManager {
       } else {
         this.stopPolling(photoId);
       }
-    }, 25000);
+    }, ADAPTIVE_POLL_INTERVAL_MS);
 
     this.pollTimers.set(photoId, timer);
   }
@@ -189,6 +192,11 @@ class ReactionSyncManager {
     const cleanId = photoId?.trim();
     if (!cleanId) return { ...DEFAULT_STATE };
 
+    if (this.inFlight.has(cleanId)) {
+      return this.cache.get(cleanId) || { ...DEFAULT_STATE, photoId: cleanId };
+    }
+
+    this.inFlight.add(cleanId);
     try {
       const res = await photoReactionsGet({ photoId: cleanId, visitorId: getClientVisitorId() });
       if (res) {
@@ -200,6 +208,8 @@ class ReactionSyncManager {
       }
     } catch (err) {
       console.warn("[REACTION-SYNC] Failed to fetch photo reactions:", cleanId, err);
+    } finally {
+      this.inFlight.delete(cleanId);
     }
 
     return this.cache.get(cleanId) || { ...DEFAULT_STATE, photoId: cleanId };
