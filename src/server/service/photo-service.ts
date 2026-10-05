@@ -7,6 +7,7 @@ import { orm } from '@/server/infra/db';
 import BizError from '@/server/error/biz-error';
 import { storage } from '@/server/storage/storage';
 import {
+  type PhotoAddDirectBo,
   type PhotoAddVideoBo,
   type PhotoBatchEditBo,
   type PhotoDeleteBo,
@@ -17,6 +18,7 @@ import {
   type PhotoMultipartInitiateBo,
   type PhotoMultipartPartUrlBo,
   type PhotoOnThisDayBo,
+  type PhotoPresignedPhotoUploadUrlsBo,
   type PhotoRandomIdListBo,
   type PhotoRecycleBo,
   type PhotoRestoreBo,
@@ -37,6 +39,7 @@ import {
   type PhotoMultipartPartUrlVo,
   type PhotoOnThisDayItemVo,
   type PhotoOnThisDayVo,
+  type PhotoPresignedPhotoUploadUrlsVo,
   type PhotoTakenDateVo,
   type PhotoVo,
 } from '@/server/entity/vo/photo';
@@ -877,6 +880,73 @@ const photoService = {
     };
   },
 
+  // Generate presigned PUT URLs for direct-to-storage photo upload (original, preview, and thumbnail).
+  async getPresignedPhotoUploadUrls(
+    params: PhotoPresignedPhotoUploadUrlsBo,
+    userId?: string
+  ): Promise<PhotoPresignedPhotoUploadUrlsVo> {
+    if (!userId) {
+      throw new BizError('auth.failed', 401);
+    }
+
+    const filename = params.filename?.trim();
+    if (!filename) {
+      throw new BizError('photo.fileNameRequired');
+    }
+
+    const checksum = params.checksum?.trim();
+    if (!checksum) {
+      throw new BizError('photo.checksumRequired');
+    }
+
+    const fileType = getCanonicalMimeType(filename, params.fileType);
+    let storageList = await storageService.getStorageList();
+    let targetStorage: Storage | undefined = params.storageId
+      ? storageList.find((s) => s.storageId === params.storageId)
+      : storageList[0];
+
+    // If requested storageId is not found in cache, force refresh from database
+    if (!targetStorage && params.storageId) {
+      storageList = await storageService.getStorageList(true);
+      targetStorage = storageList.find((s) => s.storageId === params.storageId);
+      if (!targetStorage) {
+        targetStorage = (await storageService.getStorageById(params.storageId)) || storageList[0];
+      }
+    }
+
+    if (!targetStorage) {
+      targetStorage = storageList[0];
+    }
+
+    if (!targetStorage) {
+      throw new BizError('storage.notFound');
+    }
+
+    const photoId = createId();
+    const originalKey = await this.resolvePhotoKey(userId, filename);
+    const previewKey = buildPreviewKey(checksum, photoId);
+    const thumbnailKey = buildThumbnailKey(checksum, photoId);
+
+    const thumbnailType = params.thumbnailType || 'image/webp';
+
+    const [originalUploadUrl, previewUploadUrl, thumbnailUploadUrl] = await Promise.all([
+      storage.getPresignedPutUrl(originalKey, fileType, targetStorage.storageId),
+      storage.getPresignedPutUrl(previewKey, 'image/jpeg', targetStorage.storageId),
+      storage.getPresignedPutUrl(thumbnailKey, thumbnailType, targetStorage.storageId),
+    ]);
+
+    return {
+      photoId,
+      storageId: targetStorage.storageId,
+      originalKey,
+      originalUploadUrl,
+      previewKey,
+      previewUploadUrl,
+      thumbnailKey,
+      thumbnailUploadUrl,
+    };
+  },
+
   // Initiate S3 / Cloudflare R2 direct multipart upload session for large video files.
   async initiateMultipartUpload(params: PhotoMultipartInitiateBo, userId?: string): Promise<PhotoMultipartInitiateVo> {
     if (!userId) {
@@ -1522,6 +1592,154 @@ const photoService = {
         latitude: finalVideoLat,
         longitude: finalVideoLng,
         altitude: finalVideoAlt,
+      }),
+      duplicate: false,
+    };
+  },
+
+  // Register a photo directly uploaded to Cloudflare R2 / S3 via presigned URLs with derivatives and metadata.
+  async addDirect(params: PhotoAddDirectBo, userId: string): Promise<PhotoAddResultVo> {
+    if (!userId) {
+      throw new BizError('auth.failed', 401);
+    }
+    const {
+      photoId,
+      key,
+      previewKey,
+      thumbnailKey,
+      previewSize = 100000,
+      thumbnailSize = 30000,
+      storageId,
+      name,
+      size,
+      type,
+      width,
+      height,
+      checksum,
+      thumbHash = '',
+      albumId,
+      lastModified = 0,
+      allowDownload = false,
+      latitude,
+      longitude,
+      altitude,
+      takenTime,
+      exifJson,
+    } = params;
+
+    // Security: Enforce maximum file size limit (max 500MB)
+    if (size && size > 500 * 1024 * 1024) {
+      throw new BizError('photo.fileTooLarge');
+    }
+
+    const cleanType = type?.split(';')[0]?.trim().toLowerCase();
+    const finalType = getCanonicalMimeType(name, cleanType);
+    if (!ALLOWED_UPLOAD_MIMES.has(finalType)) {
+      throw new BizError('photo.invalidFileType');
+    }
+
+    let fileStorageList = await storageService.getStorageList();
+    let photoStorage: Storage | undefined = fileStorageList.find((s) => s.storageId === storageId) || fileStorageList[0];
+
+    if (!photoStorage && storageId) {
+      fileStorageList = await storageService.getStorageList(true);
+      photoStorage = fileStorageList.find((s) => s.storageId === storageId);
+      if (!photoStorage) {
+        photoStorage = (await storageService.getStorageById(storageId)) || fileStorageList[0];
+      }
+    }
+
+    if (!photoStorage) {
+      photoStorage = fileStorageList[0];
+    }
+
+    if (!photoStorage) {
+      throw new BizError('storage.notFound');
+    }
+
+    // Deduplication check: verify photo does not already exist in gallery
+    const existingCheck = await this.exists({
+      checksum,
+      name,
+      size,
+      width,
+      height,
+      thumbHash,
+    }, userId);
+
+    if (existingCheck.duplicate && existingCheck.photoId) {
+      if (albumId) {
+        await albumService.addPhoto({ albumIds: [albumId], photoIds: [existingCheck.photoId] }, userId);
+      }
+      const existingPhotoVo = await this.getById(existingCheck.photoId, userId);
+      return { photo: existingPhotoVo, duplicate: true };
+    }
+
+    const now = new Date().toISOString();
+    const finalTakenTime = takenTime || (lastModified > 0 ? new Date(lastModified).toISOString() : now);
+    const typeDesc = finalType.split('/').pop()?.toUpperCase() || 'JPEG';
+    const finalPhotoId = photoId || createId();
+
+    const [photo] = await orm.insert(photoTab).values({
+      photoId: finalPhotoId,
+      name,
+      thumbHash,
+      checksum,
+      type: finalType,
+      typeDesc,
+      size,
+      width: width || 1920,
+      height: height || 1080,
+      takenTime: finalTakenTime,
+      createTime: now,
+      userId,
+      status: PhotoStatusEnum.NORMAL,
+      storageId: photoStorage.storageId,
+      allowDownload: allowDownload ? 1 : 0,
+    }).returning();
+
+    const fileRecords: { fileId: string; photoId: string; key: string; type: number; fileType: string; size: number }[] = [
+      { fileId: createId(), photoId: finalPhotoId, key, type: FileTypeEnum.ORIGINAL, fileType: finalType, size },
+      { fileId: createId(), photoId: finalPhotoId, key: previewKey, type: FileTypeEnum.PREVIEW, fileType: 'image/jpeg', size: previewSize },
+      { fileId: createId(), photoId: finalPhotoId, key: thumbnailKey, type: FileTypeEnum.THUMBNAIL, fileType: 'image/webp', size: thumbnailSize },
+    ];
+
+    const files = await fileService.save(fileRecords);
+
+    const parseCoord = (raw: unknown, min: number, max: number): number | null => {
+      if (raw === null || raw === undefined || raw === '') return null;
+      const n = typeof raw === 'number' ? raw : Number(raw);
+      return Number.isFinite(n) && n >= min && n <= max ? n : null;
+    };
+    const finalLat = parseCoord(latitude, -90, 90);
+    const finalLng = parseCoord(longitude, -180, 180);
+    const finalAlt = parseCoord(altitude, -10000, 100000);
+
+    await exifService.save(finalPhotoId, {
+      exif: exifJson || null,
+      latitude: finalLat,
+      longitude: finalLng,
+      altitude: finalAlt,
+    });
+
+    if (albumId) {
+      await albumService.addPhoto({
+        albumIds: [albumId],
+        photoIds: [photo.photoId],
+      }, userId);
+    }
+
+    const domain = formatHttpUrl(photoStorage.domain);
+
+    void syncService.bump('photo', 1);
+
+    return {
+      photo: this.toPhotoVo(photo, files, photoStorage, domain, {
+        photoId: finalPhotoId,
+        exif: exifJson || null,
+        latitude: finalLat,
+        longitude: finalLng,
+        altitude: finalAlt,
       }),
       duplicate: false,
     };

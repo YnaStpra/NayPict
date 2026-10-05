@@ -137,7 +137,41 @@ interface PhotoMultipartAbortBo {
   storageId: string;
 }
 
+interface PhotoPresignedPhotoUploadUrlsBo {
+  filename: string;
+  fileType: string;
+  checksum: string;
+  thumbnailType?: string;
+  storageId?: string;
+}
+
+interface PhotoAddDirectBo {
+  photoId: string;
+  key: string;
+  previewKey: string;
+  thumbnailKey: string;
+  previewSize?: number;
+  thumbnailSize?: number;
+  storageId: string;
+  name: string;
+  size: number;
+  type: string;
+  width: number;
+  height: number;
+  checksum: string;
+  thumbHash?: string;
+  albumId?: string;
+  lastModified?: number;
+  allowDownload?: boolean;
+  latitude?: number;
+  longitude?: number;
+  altitude?: number;
+  takenTime?: string;
+  exifJson?: string;
+}
+
 export type {
+  PhotoAddDirectBo,
   PhotoAddVideoBo,
   PhotoBatchEditBo,
   PhotoDeleteBo,
@@ -148,6 +182,7 @@ export type {
   PhotoMultipartInitiateBo,
   PhotoMultipartPartUrlBo,
   PhotoOnThisDayBo,
+  PhotoPresignedPhotoUploadUrlsBo,
   PhotoRandomIdListBo,
   PhotoRecycleBo,
   PhotoRestoreBo,

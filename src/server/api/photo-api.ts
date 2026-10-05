@@ -3,6 +3,7 @@ import result from '@/server/model/result';
 import { photoService } from '@/server/service/photo-service';
 import { getUserId } from "@/server/security/context";
 import {
+  type PhotoAddDirectBo,
   type PhotoAddVideoBo,
   type PhotoBatchEditBo,
   type PhotoDeleteBo,
@@ -13,6 +14,7 @@ import {
   type PhotoMultipartInitiateBo,
   type PhotoMultipartPartUrlBo,
   type PhotoOnThisDayBo,
+  type PhotoPresignedPhotoUploadUrlsBo,
   type PhotoRandomIdListBo,
   type PhotoRecycleBo,
   type PhotoRestoreBo,
@@ -55,6 +57,20 @@ export function registerPhotoApi(app: Hono<HonoEnv>) {
 
     const body = await c.req.json<{ filename: string; fileType: string; storageId?: string }>();
     const data = await photoService.getPresignedUploadUrl(body, getUserId());
+    return c.json(result.ok(data));
+  });
+
+  // Generate presigned PUT URLs for direct-to-storage photo upload (original, preview, thumbnail).
+  app.post('/photo/presignedPhotoUploadUrls', async (c: Context) => {
+    const clientIp = getClientIp(c);
+    const rateLimit = await uploadRateLimiter.consume(clientIp);
+    if (!rateLimit.allowed) {
+      c.header('Retry-After', String(Math.ceil(rateLimit.resetMs / 1000)));
+      return c.json(result.fail('Upload rate limit exceeded. Please try again later.', 429), 429);
+    }
+
+    const body = await c.req.json<PhotoPresignedPhotoUploadUrlsBo>();
+    const data = await photoService.getPresignedPhotoUploadUrls(body, getUserId());
     return c.json(result.ok(data));
   });
 
@@ -417,6 +433,20 @@ export function registerPhotoApi(app: Hono<HonoEnv>) {
 
     const body = await c.req.json<PhotoAddVideoBo>();
     const data = await photoService.addVideo(body, getUserId());
+    return c.json(result.ok(data));
+  });
+
+  // Register a photo uploaded via direct presigned URLs with derivatives and metadata.
+  app.post('/photo/addDirect', async (c: Context) => {
+    const clientIp = getClientIp(c);
+    const rateLimit = await uploadRateLimiter.consume(clientIp);
+    if (!rateLimit.allowed) {
+      c.header('Retry-After', String(Math.ceil(rateLimit.resetMs / 1000)));
+      return c.json(result.fail('Upload rate limit exceeded. Please try again later.', 429), 429);
+    }
+
+    const body = await c.req.json<PhotoAddDirectBo>();
+    const data = await photoService.addDirect(body, getUserId());
     return c.json(result.ok(data));
   });
 

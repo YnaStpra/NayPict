@@ -219,7 +219,6 @@ class S3StorageStrategy implements StorageStrategy {
       Bucket: bucket,
       Key: key,
       ContentType: contentType,
-      CacheControl: 'private, no-store',
     });
 
     const { getSignedUrl } = await import('@aws-sdk/s3-request-presigner');

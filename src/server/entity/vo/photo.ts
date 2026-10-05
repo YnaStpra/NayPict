@@ -66,6 +66,17 @@ interface PhotoMultipartCompleteVo {
   key: string;
 }
 
+interface PhotoPresignedPhotoUploadUrlsVo {
+  photoId: string;
+  storageId: string;
+  originalKey: string;
+  originalUploadUrl: string;
+  previewKey: string;
+  previewUploadUrl: string;
+  thumbnailKey: string;
+  thumbnailUploadUrl: string;
+}
+
 export type {
   PhotoVo,
   PhotoTakenDateVo,
@@ -77,6 +88,7 @@ export type {
   PhotoMultipartPartUrlVo,
   PhotoOnThisDayItemVo,
   PhotoOnThisDayVo,
+  PhotoPresignedPhotoUploadUrlsVo,
 };
 
 
