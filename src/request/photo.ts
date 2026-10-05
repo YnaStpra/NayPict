@@ -1,5 +1,6 @@
 import { http } from "@/request/request";
 import {
+  type PhotoAddDirectBo,
   type PhotoAddVideoBo,
   type PhotoBatchEditBo,
   type PhotoDeleteBo,
@@ -10,6 +11,7 @@ import {
   type PhotoMultipartInitiateBo,
   type PhotoMultipartPartUrlBo,
   type PhotoOnThisDayBo,
+  type PhotoPresignedPhotoUploadUrlsBo,
   type PhotoRandomIdListBo,
   type PhotoRecycleBo,
   type PhotoRestoreBo,
@@ -25,6 +27,7 @@ import {
   type PhotoMultipartInitiateVo,
   type PhotoMultipartPartUrlVo,
   type PhotoOnThisDayVo,
+  type PhotoPresignedPhotoUploadUrlsVo,
   type PhotoTakenDateVo,
   type PhotoVo,
 } from "@/server/entity/vo/photo";
@@ -77,6 +80,11 @@ export function photoGetPresignedUploadUrl(params: { filename: string; fileType:
   return http.post<{ uploadUrl: string; key: string; storageId: string }>('/photo/presignedUploadUrl', params);
 }
 
+// Request presigned PUT URLs for photo direct upload (original, preview, thumbnail).
+export function photoGetPresignedPhotoUploadUrls(params: PhotoPresignedPhotoUploadUrlsBo) {
+  return http.post<PhotoPresignedPhotoUploadUrlsVo>('/photo/presignedPhotoUploadUrls', params);
+}
+
 // Initiate direct S3 / Cloudflare R2 multipart upload session.
 export function photoMultipartInitiate(params: PhotoMultipartInitiateBo) {
   return http.post<PhotoMultipartInitiateVo>('/photo/multipart/initiate', params);
@@ -100,6 +108,11 @@ export function photoMultipartAbort(params: PhotoMultipartAbortBo) {
 // Register a video directly uploaded via presigned URL with poster derivatives and metadata.
 export function photoAddVideo(params: PhotoAddVideoBo) {
   return http.post<PhotoAddResultVo>('/photo/addVideo', params);
+}
+
+// Register a photo directly uploaded via presigned URLs with derivatives and EXIF metadata.
+export function photoAddDirect(params: PhotoAddDirectBo) {
+  return http.post<PhotoAddResultVo>('/photo/addDirect', params);
 }
 
 // Check if the file already exists before uploading.

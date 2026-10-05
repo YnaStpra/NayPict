@@ -28,15 +28,17 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { PhotoUploadSettings, readPhotoUploadSettings } from "@/components/photo/photo-upload-settings"
-import { compressImageFile } from "@/lib/image-compress"
+import { compressImageFile, generateClientImageDerivatives } from "@/lib/image-compress"
 import { extractClientExif } from "@/lib/photo-client-exif"
 import { generateClientImageThumbHash } from "@/lib/thumb-hash"
 import { extractVideoMetadata, compressVideoTo720p, formatVideoDuration, type VideoMetadata } from "@/lib/video-compress"
 import { useStorageStore } from "@/store/storage-store"
 import { usePhotoStore } from "@/store/photo-store"
 import {
+  photoAddDirect,
   photoAddVideo,
   photoExists,
+  photoGetPresignedPhotoUploadUrls,
   photoGetPresignedUploadUrl,
   photoMultipartAbort,
   photoMultipartComplete,
@@ -142,7 +144,13 @@ function getCanonicalMimeType(filename: string, fileType?: string): string {
     heic: "image/heic",
     jxl: "image/jxl",
   }
-  return mimeMap[ext] || "video/mp4"
+  if (mimeMap[ext]) {
+    return mimeMap[ext]
+  }
+  if (fileType?.startsWith("image/")) {
+    return fileType
+  }
+  return "image/jpeg"
 }
 
 function getUploadErrorMessage(xhr: XMLHttpRequest): string {
@@ -226,7 +234,7 @@ function uploadPhotoAdd(
 
 function uploadFileDirect(
   uploadUrl: string,
-  file: File,
+  file: File | Blob,
   contentType: string,
   onProgress?: (progress: number) => void,
   onAbort?: (abort: () => void) => void
@@ -400,7 +408,7 @@ async function uploadFileDirectMultipart(
 
 async function uploadFileDirectWithRetry(
   uploadUrl: string,
-  file: File,
+  file: File | Blob,
   contentType: string,
   onProgress?: (progress: number) => void,
   onAbort?: (abort: () => void) => void,
@@ -960,44 +968,139 @@ export function PhotoUploadDialog() {
         return
       }
 
-      const formData = new FormData()
       const targetPhotoStorageId = (currentStorageId === "auto" || !currentStorageId)
         ? photoStorage?.storageId
         : currentStorageId
-      if (targetPhotoStorageId) {
-        formData.set("storageId", targetPhotoStorageId)
-      }
-      formData.set("file", fileToUpload)
-      formData.set("lastModified", String(item.file.lastModified))
-      formData.set("allowDownload", String(uploadSettings.allowDownload))
-      if (item.albumId) {
-        formData.set("albumId", item.albumId)
-      }
-      if (clientExif.latitude != null) {
-        formData.set("latitude", String(clientExif.latitude))
-      }
-      if (clientExif.longitude != null) {
-        formData.set("longitude", String(clientExif.longitude))
-      }
-      if (clientExif.altitude != null) {
-        formData.set("altitude", String(clientExif.altitude))
-      }
-      if (clientExif.takenTime) {
-        formData.set("takenTime", clientExif.takenTime)
-      }
-      if (clientExif.exif) {
-        formData.set("exifJson", clientExif.exif)
+
+      let result: PhotoAddResultVo | null = null
+      let directUploadSuccess = false
+
+      // Try direct-to-storage upload (S3 / Cloudflare R2) - 0MB Vercel serverless load
+      try {
+        setPreviews((prev) => prev.map((p) => (p.id === item.id ? { ...p, statusText: "Generating derivatives..." } : p)))
+        const derivatives = await generateClientImageDerivatives(fileToUpload)
+        if (!imgWidth) imgWidth = derivatives.width
+        if (!imgHeight) imgHeight = derivatives.height
+
+        const targetMimeType = getCanonicalMimeType(fileToUpload.name, fileToUpload.type)
+        const presigned = await photoGetPresignedPhotoUploadUrls({
+          filename: fileToUpload.name,
+          fileType: targetMimeType,
+          checksum,
+          thumbnailType: derivatives.thumbnailMime || 'image/webp',
+          storageId: targetPhotoStorageId || undefined,
+        })
+
+        // 1. Upload original photo directly to storage
+        setPreviews((prev) => prev.map((p) => (p.id === item.id ? { ...p, statusText: "Uploading to storage..." } : p)))
+        await uploadFileDirectWithRetry(
+          presigned.originalUploadUrl,
+          fileToUpload,
+          targetMimeType,
+          (upProg) => {
+            const totalProgress = 30 + Math.round(upProg * 0.5) // 30% -> 80%
+            setPreviews((prev) =>
+              prev.map((p) =>
+                p.id === item.id ? { ...p, progress: totalProgress, statusText: `Uploading original (${upProg}%)` } : p
+              )
+            )
+          },
+          (abort) => abortMapRef.current.set(preview.id, abort),
+          (attempt, max) => {
+            setPreviews((prev) =>
+              prev.map((p) =>
+                p.id === item.id ? { ...p, statusText: `Retrying network (${attempt}/${max})...` } : p
+              )
+            )
+          }
+        )
+
+        // 2. Upload preview derivative directly to storage
+        setPreviews((prev) => prev.map((p) => (p.id === item.id ? { ...p, progress: 85, statusText: "Uploading preview..." } : p)))
+        await uploadFileDirectWithRetry(
+          presigned.previewUploadUrl,
+          derivatives.previewBlob,
+          'image/jpeg'
+        )
+
+        // 3. Upload thumbnail derivative directly to storage
+        setPreviews((prev) => prev.map((p) => (p.id === item.id ? { ...p, progress: 92, statusText: "Uploading thumbnail..." } : p)))
+        await uploadFileDirectWithRetry(
+          presigned.thumbnailUploadUrl,
+          derivatives.thumbnailBlob,
+          derivatives.thumbnailMime || 'image/webp'
+        )
+
+        // 4. Register in database with metadata JSON (0MB file payload on Vercel)
+        setPreviews((prev) => prev.map((p) => (p.id === item.id ? { ...p, progress: 96, statusText: "Registering photo..." } : p)))
+        result = await photoAddDirect({
+          photoId: presigned.photoId,
+          key: presigned.originalKey,
+          previewKey: presigned.previewKey,
+          thumbnailKey: presigned.thumbnailKey,
+          previewSize: derivatives.previewBlob.size,
+          thumbnailSize: derivatives.thumbnailBlob.size,
+          storageId: presigned.storageId,
+          name: fileToUpload.name,
+          size: fileToUpload.size,
+          type: targetMimeType,
+          width: imgWidth || derivatives.width,
+          height: imgHeight || derivatives.height,
+          checksum,
+          thumbHash: clientThumbHash,
+          albumId: item.albumId,
+          lastModified: item.file.lastModified,
+          allowDownload: uploadSettings.allowDownload,
+          latitude: clientExif.latitude ?? undefined,
+          longitude: clientExif.longitude ?? undefined,
+          altitude: clientExif.altitude ?? undefined,
+          takenTime: clientExif.takenTime ?? undefined,
+          exifJson: clientExif.exif ?? undefined,
+        })
+
+        directUploadSuccess = true
+      } catch (directErr: any) {
+        console.warn("Direct storage upload failed, falling back to serverless upload:", directErr)
       }
 
-      const result = await uploadPhotoAdd(
-        formData,
-        (progress) => {
-          setPreviews((prev) => prev.map((p) => (
-            p.id === item.id ? { ...p, progress } : p
-          )))
-        },
-        (abort) => abortMapRef.current.set(preview.id, abort)
-      )
+      if (!directUploadSuccess || !result) {
+        // Fallback: Legacy uploadPhotoAdd via FormData
+        const formData = new FormData()
+        if (targetPhotoStorageId) {
+          formData.set("storageId", targetPhotoStorageId)
+        }
+        formData.set("file", fileToUpload)
+        formData.set("lastModified", String(item.file.lastModified))
+        formData.set("allowDownload", String(uploadSettings.allowDownload))
+        if (item.albumId) {
+          formData.set("albumId", item.albumId)
+        }
+        if (clientExif.latitude != null) {
+          formData.set("latitude", String(clientExif.latitude))
+        }
+        if (clientExif.longitude != null) {
+          formData.set("longitude", String(clientExif.longitude))
+        }
+        if (clientExif.altitude != null) {
+          formData.set("altitude", String(clientExif.altitude))
+        }
+        if (clientExif.takenTime) {
+          formData.set("takenTime", clientExif.takenTime)
+        }
+        if (clientExif.exif) {
+          formData.set("exifJson", clientExif.exif)
+        }
+
+        result = await uploadPhotoAdd(
+          formData,
+          (progress) => {
+            setPreviews((prev) => prev.map((p) => (
+              p.id === item.id ? { ...p, progress } : p
+            )))
+          },
+          (abort) => abortMapRef.current.set(preview.id, abort)
+        )
+      }
 
       if (result.duplicate) {
         if (result.photo && item.albumId) {

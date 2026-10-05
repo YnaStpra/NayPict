@@ -394,3 +394,130 @@ export async function compressImageFile(
     return file;
   }
 }
+
+export interface ClientImageDerivatives {
+  previewBlob: Blob;
+  thumbnailBlob: Blob;
+  thumbnailMime: string;
+  width: number;
+  height: number;
+}
+
+/**
+ * Generates browser-side image derivatives (2560px JPEG preview and 480px WebP thumbnail)
+ * matching the server's sharp pipeline for direct-to-storage upload (0MB Vercel serverless load).
+ */
+export async function generateClientImageDerivatives(
+  file: File | Blob
+): Promise<ClientImageDerivatives> {
+  return new Promise((resolve, reject) => {
+    if (typeof window === 'undefined') {
+      reject(new Error('generateClientImageDerivatives must run in browser environment'));
+      return;
+    }
+
+    const objectUrl = URL.createObjectURL(file);
+    const img = new Image();
+
+    img.onload = async () => {
+      try {
+        const origWidth = img.naturalWidth || img.width || 1920;
+        const origHeight = img.naturalHeight || img.height || 1080;
+
+        // 1. Generate 2560px max bound preview (high-fidelity JPEG quality 0.86)
+        let prevW = origWidth;
+        let prevH = origHeight;
+        const maxPreview = 2560;
+        if (prevW > maxPreview || prevH > maxPreview) {
+          if (prevW > prevH) {
+            prevH = Math.round((prevH * maxPreview) / prevW);
+            prevW = maxPreview;
+          } else {
+            prevW = Math.round((prevW * maxPreview) / prevH);
+            prevH = maxPreview;
+          }
+        }
+
+        const previewCanvas = document.createElement('canvas');
+        previewCanvas.width = prevW;
+        previewCanvas.height = prevH;
+        const pCtx = previewCanvas.getContext('2d');
+        if (!pCtx) {
+          throw new Error('Could not create preview canvas 2D context');
+        }
+        pCtx.imageSmoothingEnabled = true;
+        pCtx.imageSmoothingQuality = 'high';
+        pCtx.drawImage(img, 0, 0, prevW, prevH);
+
+        const previewBlob = await new Promise<Blob>((res, rej) => {
+          previewCanvas.toBlob(
+            (b) => (b ? res(b) : rej(new Error('Preview canvas toBlob failed'))),
+            'image/jpeg',
+            0.86
+          );
+        });
+
+        // 2. Generate 480px max bound thumbnail (crisp WebP quality 0.84, with JPEG fallback)
+        let thumbW = origWidth;
+        let thumbH = origHeight;
+        const maxThumb = 480;
+        if (thumbW > maxThumb || thumbH > maxThumb) {
+          if (thumbW > thumbH) {
+            thumbH = Math.round((thumbH * maxThumb) / thumbW);
+            thumbW = maxThumb;
+          } else {
+            thumbW = Math.round((thumbW * maxThumb) / thumbH);
+            thumbH = maxThumb;
+          }
+        }
+
+        const thumbCanvas = document.createElement('canvas');
+        thumbCanvas.width = thumbW;
+        thumbCanvas.height = thumbH;
+        const tCtx = thumbCanvas.getContext('2d');
+        if (!tCtx) {
+          throw new Error('Could not create thumbnail canvas 2D context');
+        }
+        tCtx.imageSmoothingEnabled = true;
+        tCtx.imageSmoothingQuality = 'high';
+        tCtx.drawImage(previewCanvas, 0, 0, thumbW, thumbH);
+
+        let thumbnailMime = 'image/webp';
+        let thumbnailBlob = await new Promise<Blob | null>((res) => {
+          thumbCanvas.toBlob(res, 'image/webp', 0.84);
+        });
+
+        // Fallback to JPEG if browser doesn't export WebP
+        if (!thumbnailBlob || (thumbnailBlob.type !== 'image/webp' && !thumbnailBlob.type.includes('webp'))) {
+          thumbnailMime = 'image/jpeg';
+          thumbnailBlob = await new Promise<Blob>((res, rej) => {
+            thumbCanvas.toBlob(
+              (b) => (b ? res(b) : rej(new Error('Thumbnail canvas toBlob failed'))),
+              'image/jpeg',
+              0.84
+            );
+          });
+        }
+
+        resolve({
+          previewBlob,
+          thumbnailBlob,
+          thumbnailMime,
+          width: origWidth,
+          height: origHeight,
+        });
+      } catch (err) {
+        reject(err);
+      } finally {
+        URL.revokeObjectURL(objectUrl);
+      }
+    };
+
+    img.onerror = (err) => {
+      URL.revokeObjectURL(objectUrl);
+      reject(err instanceof Error ? err : new Error('Failed to load image for derivative generation'));
+    };
+
+    img.src = objectUrl;
+  });
+}
