@@ -168,19 +168,23 @@ export function VideoAmbientGlow({
     const supportsRVFC = typeof video.requestVideoFrameCallback === "function"
 
     if (supportsRVFC && video.requestVideoFrameCallback) {
-      const onFrame = () => {
+      const onFrame = (now: number) => {
         if (!isRunningRef.current) return
-        drawVideoFrame()
+        // Throttle ambient glow diffusion to ~15fps (every 66ms) to conserve GPU and battery on laptops
+        if (now - lastDrawTimeRef.current >= 66) {
+          lastDrawTimeRef.current = now
+          drawVideoFrame()
+        }
         if (video && video.requestVideoFrameCallback) {
           rvfcHandleRef.current = video.requestVideoFrameCallback(onFrame)
         }
       }
       rvfcHandleRef.current = video.requestVideoFrameCallback(onFrame)
     } else {
-      // Fallback: throttled requestAnimationFrame (~30fps)
+      // Fallback: throttled requestAnimationFrame (~15fps)
       const onRaf = (timestamp: number) => {
         if (!isRunningRef.current) return
-        if (timestamp - lastDrawTimeRef.current >= 33) {
+        if (timestamp - lastDrawTimeRef.current >= 66) {
           lastDrawTimeRef.current = timestamp
           drawVideoFrame()
         }
@@ -238,17 +242,18 @@ export function VideoAmbientGlow({
       )}
       style={{
         opacity: enabled ? dragOpacity : 0,
-        transform: "translateZ(0)",
+        transform: "translate3d(0, 0, 0)",
         contain: "paint",
       }}
       aria-hidden="true"
     >
-      {/* Outer Atmosphere Canvas: Ultra-wide color wash with enhanced saturation (Desktop only to conserve mobile GPU fill-rate) */}
+      {/* Outer Atmosphere Canvas: Soft wide diffusion wash */}
       <canvas
         ref={outerCanvasRef}
         width={32}
         height={18}
-        className="absolute w-[110%] h-[110%] md:w-[135%] md:h-[135%] max-w-none rounded-full blur-[100px] md:blur-[140px] opacity-75 dark:opacity-85 scale-125 md:scale-140 saturate-[2.2] contrast-[1.25] pointer-events-none transition-all duration-300 ease-out hidden md:block"
+        className="absolute w-[105%] h-[105%] md:w-[120%] md:h-[120%] max-w-none rounded-full blur-[40px] md:blur-[60px] opacity-75 dark:opacity-85 scale-110 md:scale-120 saturate-[1.8] contrast-[1.15] pointer-events-none transition-all duration-300 ease-out hidden md:block"
+        style={{ willChange: "transform" }}
       />
 
       {/* Inner Core Bloom Canvas: Radiant atmospheric halo hugging the video edges */}
@@ -256,7 +261,8 @@ export function VideoAmbientGlow({
         ref={innerCanvasRef}
         width={32}
         height={18}
-        className="absolute w-[95%] h-[95%] md:w-[105%] md:h-[105%] max-w-none rounded-2xl md:rounded-3xl blur-[28px] md:blur-[60px] opacity-70 dark:opacity-85 scale-105 md:scale-115 saturate-[1.8] contrast-[1.2] pointer-events-none transition-all duration-300 ease-out"
+        className="absolute w-[95%] h-[95%] md:w-[102%] md:h-[102%] max-w-none rounded-2xl md:rounded-3xl blur-[20px] md:blur-[35px] opacity-70 dark:opacity-85 scale-105 md:scale-110 saturate-[1.6] contrast-[1.15] pointer-events-none transition-all duration-300 ease-out"
+        style={{ willChange: "transform" }}
       />
 
       {/* Cinema Contrast Vignette: Preserves deep black viewport edges and contrast */}

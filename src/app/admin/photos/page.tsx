@@ -256,6 +256,10 @@ export default function AdminPhotosPage() {
   // Selection state
   const [selectedIds, setSelectedIds] = useState<string[]>([])
 
+  // Pagination state (50 items per page to prevent browser CPU/memory thrashing on large inventories)
+  const [currentPage, setCurrentPage] = useState<number>(1)
+  const pageSize = 50
+
   // Dialog & Viewer states
   const [viewerOpen, setViewerOpen] = useState(false)
   const [viewerIndex, setViewerIndex] = useState(0)
@@ -280,6 +284,11 @@ export default function AdminPhotosPage() {
     }, 300)
     return () => clearTimeout(timer)
   }, [searchQuery])
+
+  // Reset to first page whenever search or filter criteria change
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [debouncedQuery, visibilityFilter, downloadFilter, locationFilter, sortBy, sortOrder])
 
   // Fetch photos from server with allowAllVisibility=true for full admin inventory
   const fetchPhotos = useCallback(async () => {
@@ -330,6 +339,13 @@ export default function AdminPhotosPage() {
     })
   }, [photos, locationFilter])
 
+  // Pagination calculations
+  const totalPages = Math.max(1, Math.ceil(filteredPhotos.length / pageSize))
+  const paginatedPhotos = useMemo(() => {
+    const start = (currentPage - 1) * pageSize
+    return filteredPhotos.slice(start, start + pageSize)
+  }, [filteredPhotos, currentPage, pageSize])
+
   // Summary Metrics calculations
   const metrics = useMemo(() => {
     const total = totalCount || photos.length
@@ -349,14 +365,17 @@ export default function AdminPhotosPage() {
     }
   }, [photos, totalCount])
 
-  // Selection helpers
+  // Selection helpers (supports page selection or full selection)
+  const isPageSelected = paginatedPhotos.length > 0 && paginatedPhotos.every((p) => selectedIds.includes(p.photoId))
   const isAllSelected = filteredPhotos.length > 0 && selectedIds.length === filteredPhotos.length
 
   const toggleSelectAll = () => {
-    if (isAllSelected) {
-      setSelectedIds([])
+    if (isPageSelected) {
+      const pageIds = new Set(paginatedPhotos.map((p) => p.photoId))
+      setSelectedIds((prev) => prev.filter((id) => !pageIds.has(id)))
     } else {
-      setSelectedIds(filteredPhotos.map((p) => p.photoId))
+      const newSelected = new Set([...selectedIds, ...paginatedPhotos.map((p) => p.photoId)])
+      setSelectedIds(Array.from(newSelected))
     }
   }
 
@@ -914,12 +933,12 @@ export default function AdminPhotosPage() {
                           type="button"
                           onClick={toggleSelectAll}
                           className={`size-4 rounded border flex items-center justify-center transition-colors ${
-                            isAllSelected
+                            isPageSelected
                               ? 'bg-primary border-primary text-primary-foreground'
                               : 'border-muted-foreground/40 bg-background'
                           }`}
                         >
-                          {isAllSelected && <Check className="size-3 stroke-[3]" />}
+                          {isPageSelected && <Check className="size-3 stroke-[3]" />}
                         </button>
                       </th>
                       <th className="py-3 px-3 min-w-[220px]">Photo & Name</th>
@@ -933,7 +952,7 @@ export default function AdminPhotosPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border/60">
-                    {filteredPhotos.map((photo) => {
+                    {paginatedPhotos.map((photo) => {
                       const isSelected = selectedIds.includes(photo.photoId)
                       const imgUrl = photo.thumbnail || photo.preview || ''
                       const thumbHashUrl = getThumbHashUrl(photo.thumbHash)
@@ -1162,7 +1181,7 @@ export default function AdminPhotosPage() {
           ) : (
             /* Visual Grid Cards View */
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
-              {filteredPhotos.map((photo) => {
+              {paginatedPhotos.map((photo) => {
                 const isSelected = selectedIds.includes(photo.photoId)
                 const imgUrl = photo.thumbnail || photo.preview || ''
                 const thumbHashUrl = getThumbHashUrl(photo.thumbHash)
@@ -1286,16 +1305,48 @@ export default function AdminPhotosPage() {
             </div>
           )}
 
-          {/* Inventory Count Footer */}
+          {/* Inventory Count & Pagination Footer */}
           {!loading && filteredPhotos.length > 0 && (
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-muted-foreground pt-4 pb-12 border-t border-border/60">
-              <span className="font-medium">
-                Showing all {filteredPhotos.length} of {totalCount || photos.length} media items
-              </span>
-              {selectedIds.length > 0 && (
-                <span className="text-primary font-medium">
-                  {selectedIds.length} item(s) selected
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-muted-foreground pt-4 pb-12 border-t border-border/60">
+              <div className="flex items-center gap-2">
+                <span className="font-medium">
+                  Showing {(currentPage - 1) * pageSize + 1}–{Math.min(currentPage * pageSize, filteredPhotos.length)} of {filteredPhotos.length} media items
                 </span>
+                {selectedIds.length > 0 && (
+                  <span className="text-primary font-medium">
+                    • {selectedIds.length} item(s) selected
+                  </span>
+                )}
+              </div>
+
+              {totalPages > 1 && (
+                <div className="flex items-center gap-1.5">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                    disabled={currentPage <= 1}
+                    className="h-8 text-xs rounded-xl"
+                  >
+                    Previous
+                  </Button>
+
+                  <div className="flex items-center gap-1 px-2 font-mono text-xs text-foreground font-semibold">
+                    <span>{currentPage}</span>
+                    <span className="text-muted-foreground font-normal">/</span>
+                    <span className="text-muted-foreground font-normal">{totalPages}</span>
+                  </div>
+
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                    disabled={currentPage >= totalPages}
+                    className="h-8 text-xs rounded-xl"
+                  >
+                    Next
+                  </Button>
+                </div>
               )}
             </div>
           )}
