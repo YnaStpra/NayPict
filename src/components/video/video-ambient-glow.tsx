@@ -94,28 +94,35 @@ export function VideoAmbientGlow({
     }
   }
 
-  // Synchronize internal canvas pixel buffer resolution to video aspect ratio
+  // Synchronize internal canvas pixel buffer resolution
   const syncDimensions = (width?: number, height?: number) => {
     const video = videoRef.current
     const vw = width || video?.videoWidth || 16
     const vh = height || video?.videoHeight || 9
     const aspect = vw / vh
 
+    // Outer canvas is fixed landscape ratio (32x18) to wash the entire screen
+    const outerW = 32
+    const outerH = 18
+
+    // Inner canvas matches the exact video frame aspect ratio to hug video edges
     const base = 24
-    const w = aspect >= 1 ? base : Math.max(12, Math.round(base * aspect))
-    const h = aspect >= 1 ? Math.max(12, Math.round(base / aspect)) : base
+    const innerW = aspect >= 1 ? base : Math.max(12, Math.round(base * aspect))
+    const innerH = aspect >= 1 ? Math.max(12, Math.round(base / aspect)) : base
 
-    const canvases = [
-      buf0OuterRef.current,
-      buf0InnerRef.current,
-      buf1OuterRef.current,
-      buf1InnerRef.current,
-    ]
+    const outerCanvases = [buf0OuterRef.current, buf1OuterRef.current]
+    for (const c of outerCanvases) {
+      if (c && (c.width !== outerW || c.height !== outerH)) {
+        c.width = outerW
+        c.height = outerH
+      }
+    }
 
-    for (const c of canvases) {
-      if (c && (c.width !== w || c.height !== h)) {
-        c.width = w
-        c.height = h
+    const innerCanvases = [buf0InnerRef.current, buf1InnerRef.current]
+    for (const c of innerCanvases) {
+      if (c && (c.width !== innerW || c.height !== innerH)) {
+        c.width = innerW
+        c.height = innerH
       }
     }
   }
@@ -335,7 +342,7 @@ export function VideoAmbientGlow({
 
   if (!isActive) return null
 
-  // Sizing styles for glow box: matches video geometry exactly, or falls back to full area
+  // Sizing styles for core bloom: matches video geometry exactly, or falls back to full area
   const sizeStyle: React.CSSProperties = videoSize
     ? {
         width: `${videoSize.width}px`,
@@ -373,22 +380,22 @@ export function VideoAmbientGlow({
           willChange: "opacity",
         }}
       >
-        <div className="relative flex items-center justify-center" style={sizeStyle}>
-          {/* Outer Atmosphere Canvas: Expansive soft room wash */}
-          <canvas
-            ref={buf0OuterRef}
-            width={24}
-            height={14}
-            className="absolute inset-0 w-full h-full rounded-full blur-[60px] md:blur-[95px] opacity-75 dark:opacity-85 scale-115 md:scale-125 saturate-[1.8] contrast-[1.12] pointer-events-none"
-            style={{ transform: "translate3d(0, 0, 0)" }}
-          />
+        {/* 1. Ultra-Wide Room Diffusion Wash: Expands across entire viewport to illuminate letterbox/pillarbox voids */}
+        <canvas
+          ref={buf0OuterRef}
+          width={32}
+          height={18}
+          className="absolute w-[110%] h-[110%] md:w-[130%] md:h-[130%] max-w-none rounded-full blur-[85px] md:blur-[140px] opacity-75 dark:opacity-85 scale-125 md:scale-150 saturate-[2.0] contrast-[1.18] pointer-events-none"
+          style={{ transform: "translate3d(0, 0, 0)" }}
+        />
 
-          {/* Inner Core Bloom Canvas: Radiant atmospheric halo hugging video edges */}
+        {/* 2. Video-Fitted Core Bloom: Radiant atmospheric halo hugging exact video borders */}
+        <div className="relative flex items-center justify-center pointer-events-none" style={sizeStyle}>
           <canvas
             ref={buf0InnerRef}
             width={24}
             height={14}
-            className="absolute inset-0 w-full h-full rounded-2xl md:rounded-3xl blur-[28px] md:blur-[42px] opacity-80 dark:opacity-90 scale-102 md:scale-106 saturate-[1.6] contrast-[1.1] pointer-events-none"
+            className="absolute inset-0 w-full h-full rounded-2xl md:rounded-3xl blur-[28px] md:blur-[42px] opacity-80 dark:opacity-90 scale-104 md:scale-110 saturate-[1.6] contrast-[1.1] pointer-events-none"
             style={{ transform: "translate3d(0, 0, 0)" }}
           />
         </div>
@@ -404,33 +411,33 @@ export function VideoAmbientGlow({
           willChange: "opacity",
         }}
       >
-        <div className="relative flex items-center justify-center" style={sizeStyle}>
-          {/* Outer Atmosphere Canvas: Expansive soft room wash */}
-          <canvas
-            ref={buf1OuterRef}
-            width={24}
-            height={14}
-            className="absolute inset-0 w-full h-full rounded-full blur-[60px] md:blur-[95px] opacity-75 dark:opacity-85 scale-115 md:scale-125 saturate-[1.8] contrast-[1.12] pointer-events-none"
-            style={{ transform: "translate3d(0, 0, 0)" }}
-          />
+        {/* 1. Ultra-Wide Room Diffusion Wash: Expands across entire viewport to illuminate letterbox/pillarbox voids */}
+        <canvas
+          ref={buf1OuterRef}
+          width={32}
+          height={18}
+          className="absolute w-[110%] h-[110%] md:w-[130%] md:h-[130%] max-w-none rounded-full blur-[85px] md:blur-[140px] opacity-75 dark:opacity-85 scale-125 md:scale-150 saturate-[2.0] contrast-[1.18] pointer-events-none"
+          style={{ transform: "translate3d(0, 0, 0)" }}
+        />
 
-          {/* Inner Core Bloom Canvas: Radiant atmospheric halo hugging video edges */}
+        {/* 2. Video-Fitted Core Bloom: Radiant atmospheric halo hugging exact video borders */}
+        <div className="relative flex items-center justify-center pointer-events-none" style={sizeStyle}>
           <canvas
             ref={buf1InnerRef}
             width={24}
             height={14}
-            className="absolute inset-0 w-full h-full rounded-2xl md:rounded-3xl blur-[28px] md:blur-[42px] opacity-80 dark:opacity-90 scale-102 md:scale-106 saturate-[1.6] contrast-[1.1] pointer-events-none"
+            className="absolute inset-0 w-full h-full rounded-2xl md:rounded-3xl blur-[28px] md:blur-[42px] opacity-80 dark:opacity-90 scale-104 md:scale-110 saturate-[1.6] contrast-[1.1] pointer-events-none"
             style={{ transform: "translate3d(0, 0, 0)" }}
           />
         </div>
       </div>
 
-      {/* Cinema Contrast Vignette: Preserves deep black viewport edges and contrast */}
+      {/* Cinema Contrast Vignette: Soft feathering that keeps viewport edges clean without darkening ambient fill */}
       <div
         className="absolute inset-0 pointer-events-none"
         style={{
           background:
-            "radial-gradient(ellipse at 50% 50%, transparent 35%, rgba(0,0,0,0.45) 70%, rgba(0,0,0,0.90) 98%)",
+            "radial-gradient(ellipse at 50% 50%, transparent 50%, rgba(0,0,0,0.18) 78%, rgba(0,0,0,0.50) 98%)",
         }}
       />
     </div>
