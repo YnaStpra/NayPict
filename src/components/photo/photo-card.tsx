@@ -257,6 +257,17 @@ export const PhotoCard = memo(function PhotoCard({
     }
   }, [])
 
+  // Ensure video playback triggers reliably when isVideoPlaying becomes true (e.g. in Eco Mode when src mounts)
+  useEffect(() => {
+    if (!isVideo || !isVideoPlaying) return
+    const video = videoRef.current
+    if (!video) return
+
+    video.muted = true
+    video.defaultMuted = true
+    video.play().catch(() => {})
+  }, [isVideo, isVideoPlaying])
+
   // Stop video autoplay and reset playback time
   const stopAutoplay = useCallback(() => {
     setIsVideoPlaying(false)

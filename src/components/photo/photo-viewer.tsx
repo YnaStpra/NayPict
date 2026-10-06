@@ -2029,30 +2029,54 @@ export function PhotoViewer({
                 >
                   {isVideo ? (
                     <div className="relative flex h-full w-full items-center justify-center overflow-hidden p-0 select-none">
-                      <VideoPlayer
-                        src={slide.src || toProxyMediaUrl(slide.key)}
-                        poster={slide.preview || slide.thumbnail}
-                        alt={slide.alt || "Video"}
-                        isActive={isCurrentSlide}
-                        autoPlay={isCurrentSlide}
-                        photoId={slide.photoId}
-                        exif={slide.exif}
-                        isCinematicMode={isCinematicMode}
-                        controlsVisible={isCurrentSlide ? actionsVisible : false}
-                        onControlsVisibleChange={isCurrentSlide ? setShowActions : undefined}
-                        onScrubbingChange={(isScrubbing) => {
-                          isVideoScrubbingRef.current = isScrubbing
-                          setIsVideoScrubbing(isScrubbing)
-                        }}
-                        onFullscreenChange={(isFullscreen) => {
-                          isVideoFullscreenRef.current = isFullscreen
-                          setIsVideoFullscreen(isFullscreen)
-                        }}
-                        onOpenComments={handleOpenComments}
-                        onOpenInfo={handleOpenInfo}
-                        className="w-full h-full"
-                        hasThumbnails={actionsVisible && !isCinematicMode && !isVideoFullscreen}
-                      />
+                      {isCurrentSlide ? (
+                        <VideoPlayer
+                          src={slide.src || toProxyMediaUrl(slide.key)}
+                          poster={slide.preview || slide.thumbnail}
+                          alt={slide.alt || "Video"}
+                          isActive={isCurrentSlide}
+                          autoPlay={isCurrentSlide}
+                          photoId={slide.photoId}
+                          exif={slide.exif}
+                          isCinematicMode={isCinematicMode}
+                          controlsVisible={isCurrentSlide ? actionsVisible : false}
+                          onControlsVisibleChange={isCurrentSlide ? setShowActions : undefined}
+                          onScrubbingChange={(isScrubbing) => {
+                            isVideoScrubbingRef.current = isScrubbing
+                            setIsVideoScrubbing(isScrubbing)
+                          }}
+                          onFullscreenChange={(isFullscreen) => {
+                            isVideoFullscreenRef.current = isFullscreen
+                            setIsVideoFullscreen(isFullscreen)
+                          }}
+                          onOpenComments={handleOpenComments}
+                          onOpenInfo={handleOpenInfo}
+                          className="w-full h-full"
+                          hasThumbnails={actionsVisible && !isCinematicMode && !isVideoFullscreen}
+                        />
+                      ) : (
+                        /* Inactive neighboring video slide: Render lightweight poster image to avoid decoder contention */
+                        <div
+                          className={cn(
+                            "relative flex h-full w-full items-center justify-center select-none transition-[padding] duration-300",
+                            actionsVisible && !isCinematicMode && !isVideoFullscreen ? "pb-12 md:pb-16" : ""
+                          )}
+                        >
+                          {slide.preview || slide.thumbnail ? (
+                            <img
+                              src={slide.preview || slide.thumbnail}
+                              alt={slide.alt || "Video"}
+                              className="max-h-full max-w-full object-contain select-none pointer-events-none"
+                              loading="lazy"
+                            />
+                          ) : null}
+                          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                            <div className="size-14 rounded-full bg-black/45 backdrop-blur-sm border border-white/20 flex items-center justify-center text-white/80 shadow-lg">
+                              <Play className="size-6 fill-white/80 translate-x-0.5" />
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   ) : (
                     <div
