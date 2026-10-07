@@ -76,6 +76,7 @@ const PUBLIC_API_PATHS = [
   '/location',
   '/csp-report',
   '/sync',
+  '/setting/public',
   '/analytics/session/init',
   '/analytics/session/ping',
   '/analytics/session/location',
@@ -107,6 +108,7 @@ describe('Access Control & RBAC Policy Suite', () => {
     assert.strictEqual(isPublicApiPath('/cron/cleanup'), true);
     assert.strictEqual(isPublicApiPath('/photo/download'), true);
     assert.strictEqual(isPublicApiPath('/location/reverse'), true);
+    assert.strictEqual(isPublicApiPath('/setting/public'), true);
   });
 
   it('strictly classifies sensitive administrative endpoints as system paths', () => {

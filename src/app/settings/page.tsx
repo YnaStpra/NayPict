@@ -109,6 +109,21 @@ export default function Page() {
   // Save current system settings.
   function saveSetting() {
     settingSet(setting).then(() => {
+      if (typeof window !== "undefined") {
+        try {
+          sessionStorage.setItem(
+            "naypict_right_click_guard",
+            String(setting.rightClickGuard === SettingRightClickGuardEnum.ENABLE)
+          )
+        } catch {}
+        window.dispatchEvent(
+          new CustomEvent("naypict:setting-changed", {
+            detail: {
+              rightClickGuard: setting.rightClickGuard === SettingRightClickGuardEnum.ENABLE,
+            },
+          })
+        )
+      }
       toast.success(t("saved"))
     })
   }

@@ -88,6 +88,7 @@ const PUBLIC_API_PATHS = [
   '/location',
   '/csp-report',
   '/sync',
+  '/setting/public',
   '/analytics/session/init',
   '/analytics/session/ping',
   '/analytics/session/location',
