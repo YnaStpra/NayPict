@@ -14,8 +14,8 @@ export function registerSettingApi(app: Hono<HonoEnv>) {
   // Public system settings query (e.g. right-click protection status for visitors)
   app.get('/setting/public', async (c: Context) => {
     const setting = await settingService.get();
-    c.header('Cache-Control', 'public, max-age=60, s-maxage=120, stale-while-revalidate=300');
-    c.header('CDN-Cache-Control', 'public, s-maxage=120, stale-while-revalidate=300');
+    c.header('Cache-Control', 'public, max-age=0, s-maxage=5, stale-while-revalidate=15');
+    c.header('CDN-Cache-Control', 'public, s-maxage=5, stale-while-revalidate=15');
     return c.json(result.ok({
       rightClickGuard: setting.rightClickGuard === SettingRightClickGuardEnum.ENABLE,
     }));

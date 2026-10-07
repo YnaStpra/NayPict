@@ -98,12 +98,33 @@ export default function Page() {
     }))
   }
 
-  // Modify right-click and drag protection switch value.
+  // Modify right-click and drag protection switch value and auto-save immediately.
   function changeRightClickGuard(checked: boolean) {
-    setSetting((prev) => ({
-      ...prev,
-      rightClickGuard: checked ? SettingRightClickGuardEnum.ENABLE : SettingRightClickGuardEnum.DISABLE,
-    }))
+    const nextVal = checked ? SettingRightClickGuardEnum.ENABLE : SettingRightClickGuardEnum.DISABLE
+    const nextSetting = {
+      ...setting,
+      rightClickGuard: nextVal,
+    }
+    setSetting(nextSetting)
+
+    settingSet(nextSetting)
+      .then(() => {
+        if (typeof window !== "undefined") {
+          try {
+            sessionStorage.setItem("naypict_right_click_guard", String(checked))
+            localStorage.setItem("naypict_right_click_guard", String(checked))
+          } catch {}
+          window.dispatchEvent(
+            new CustomEvent("naypict:setting-changed", {
+              detail: { rightClickGuard: checked },
+            })
+          )
+        }
+        toast.success(checked ? "Right-click protection enabled" : "Right-click protection disabled")
+      })
+      .catch(() => {
+        toast.error("Failed to save setting")
+      })
   }
 
   // Save current system settings.
@@ -111,10 +132,9 @@ export default function Page() {
     settingSet(setting).then(() => {
       if (typeof window !== "undefined") {
         try {
-          sessionStorage.setItem(
-            "naypict_right_click_guard",
-            String(setting.rightClickGuard === SettingRightClickGuardEnum.ENABLE)
-          )
+          const isEnabled = setting.rightClickGuard === SettingRightClickGuardEnum.ENABLE
+          sessionStorage.setItem("naypict_right_click_guard", String(isEnabled))
+          localStorage.setItem("naypict_right_click_guard", String(isEnabled))
         } catch {}
         window.dispatchEvent(
           new CustomEvent("naypict:setting-changed", {
