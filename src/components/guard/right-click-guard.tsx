@@ -23,7 +23,9 @@ export function RightClickGuard({ enabled }: RightClickGuardProps) {
     if (cachedGuardEnabled !== null) return cachedGuardEnabled
     if (typeof window !== "undefined") {
       try {
-        const stored = sessionStorage.getItem("naypict_right_click_guard")
+        const stored =
+          sessionStorage.getItem("naypict_right_click_guard") ||
+          localStorage.getItem("naypict_right_click_guard")
         if (stored !== null) return stored === "true"
       } catch {}
     }
@@ -45,6 +47,7 @@ export function RightClickGuard({ enabled }: RightClickGuardProps) {
           setIsGuardEnabled(active)
           try {
             sessionStorage.setItem("naypict_right_click_guard", String(active))
+            localStorage.setItem("naypict_right_click_guard", String(active))
           } catch {}
         })
         .catch(() => {
@@ -61,6 +64,7 @@ export function RightClickGuard({ enabled }: RightClickGuardProps) {
         setIsGuardEnabled(customEvent.detail.rightClickGuard)
         try {
           sessionStorage.setItem("naypict_right_click_guard", String(customEvent.detail.rightClickGuard))
+          localStorage.setItem("naypict_right_click_guard", String(customEvent.detail.rightClickGuard))
         } catch {}
       } else {
         fetchSetting()
@@ -82,23 +86,35 @@ export function RightClickGuard({ enabled }: RightClickGuardProps) {
       return
     }
 
-    // Intercept right-click context menu on images silently without intrusive toast alerts
+    // Intercept right-click context menu on images and media containers
     const handleContextMenu = (e: MouseEvent) => {
       const target = e.target as HTMLElement | null
       if (
         target &&
         (target.tagName === "IMG" ||
+          target.tagName === "VIDEO" ||
+          target.closest(".photo-viewer") ||
           target.closest(".yet-another-react-lightbox") ||
           target.closest("[data-photo-item]"))
       ) {
+        // Do not block interactive controls in sidebars or dialogs (e.g. comment input, links)
+        if (target.closest("input, textarea, button, a, [role='button'], [data-allow-context-menu]")) {
+          return
+        }
         e.preventDefault()
       }
     }
 
-    // Prevent dragging images to desktop or folder
+    // Prevent dragging images or media to desktop/folder
     const handleDragStart = (e: DragEvent) => {
       const target = e.target as HTMLElement | null
-      if (target && target.tagName === "IMG") {
+      if (
+        target &&
+        (target.tagName === "IMG" ||
+          target.tagName === "VIDEO" ||
+          target.closest(".photo-viewer") ||
+          target.closest("[data-photo-item]"))
+      ) {
         e.preventDefault()
       }
     }
@@ -112,7 +128,7 @@ export function RightClickGuard({ enabled }: RightClickGuardProps) {
     }
   }, [effectiveEnabled, isAdmin])
 
-  // Inject global CSS rule for non-admin visitors to prevent drag ghosting
+  // Inject global CSS rule for non-admin visitors to prevent drag ghosting and mobile long-press callout
   if (!effectiveEnabled || isAdmin) {
     return null
   }
@@ -121,9 +137,12 @@ export function RightClickGuard({ enabled }: RightClickGuardProps) {
     <style
       dangerouslySetInnerHTML={{
         __html: `
-        img {
+        img, video {
           -webkit-user-drag: none !important;
           user-select: none !important;
+        }
+        .photo-viewer img, .photo-viewer video, [data-photo-item] img {
+          -webkit-touch-callout: none !important;
         }
       `,
       }}
