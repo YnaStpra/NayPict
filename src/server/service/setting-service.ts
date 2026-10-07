@@ -22,10 +22,17 @@ const defaultSetting: Setting = {
   rightClickGuard: SettingRightClickGuardEnum.DISABLE,
 };
 
+let cachedSetting: Setting | null = null;
+let lastSettingFetch = 0;
+const SETTING_CACHE_TTL = 30000; // 30 seconds
+
 const settingService = {
 
   // Read system configuration from database; insert and return defaults if missing.
   async get(): Promise<Setting> {
+    if (cachedSetting && Date.now() - lastSettingFetch < SETTING_CACHE_TTL) {
+      return cachedSetting;
+    }
     try {
       const [row] = await orm
         .select()
@@ -35,17 +42,23 @@ const settingService = {
 
       if (!row || !row.value) {
         await this.set(defaultSetting);
+        cachedSetting = defaultSetting;
+        lastSettingFetch = Date.now();
         return defaultSetting;
       }
 
-      return JSON.parse(row.value) as Setting;
+      cachedSetting = JSON.parse(row.value) as Setting;
+      lastSettingFetch = Date.now();
+      return cachedSetting;
     } catch {
-      return defaultSetting;
+      return cachedSetting ?? defaultSetting;
     }
   },
 
   // Overwrite the entire system configuration.
   async set(params: Setting): Promise<void> {
+    cachedSetting = params;
+    lastSettingFetch = Date.now();
     await orm
       .insert(settingTab)
       .values({
