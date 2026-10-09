@@ -1,6 +1,6 @@
 import { inArray } from 'drizzle-orm';
 import { type File, type FileInto, fileTab } from '@/server/entity/file';
-import { orm } from '@/server/infra/db';
+import { orm, readOrm } from '@/server/infra/db';
 
 // This module handles photo file data query and writing.
 
@@ -21,7 +21,7 @@ const fileService = {
       return map;
     }
 
-    const list = await orm
+    const list = await readOrm
       .select()
       .from(fileTab)
       .where(inArray(fileTab.photoId, photoIds));

@@ -27,17 +27,43 @@ export function PwaRegister() {
             })
           }
         })
+
+        // Register background sync for transient offline recovery if supported by browser
+        if ("sync" in registration) {
+          try {
+            await (registration as any).sync.register("sync-catalog")
+          } catch {
+            // Background sync permission not granted or unsupported
+          }
+        }
       } catch (err) {
         console.warn("[PWA] Service worker registration failed:", err)
       }
     }
+
+    const handleOnline = () => {
+      if ("serviceWorker" in navigator && "SyncManager" in window) {
+        navigator.serviceWorker.ready
+          .then((reg: any) => {
+            if (reg && reg.sync) {
+              reg.sync.register("sync-catalog").catch(() => {})
+            }
+          })
+          .catch(() => {})
+      }
+    }
+    window.addEventListener("online", handleOnline)
 
     // Register after page is fully loaded to not block first contentful paint
     if (document.readyState === "complete") {
       registerSw()
     } else {
       window.addEventListener("load", registerSw)
-      return () => window.removeEventListener("load", registerSw)
+    }
+
+    return () => {
+      window.removeEventListener("load", registerSw)
+      window.removeEventListener("online", handleOnline)
     }
   }, [])
 

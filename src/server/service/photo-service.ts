@@ -3,7 +3,7 @@ import { createId } from '@/server/lib/id';
 import { type Photo, photoTab } from '@/server/entity/photo';
 import { albumPhotoTab } from '@/server/entity/album-photo';
 import { albumTab } from '@/server/entity/album';
-import { orm } from '@/server/infra/db';
+import { orm, readOrm } from '@/server/infra/db';
 import BizError from '@/server/error/biz-error';
 import { storage } from '@/server/storage/storage';
 import {
@@ -272,7 +272,7 @@ const photoService = {
     // Exclude photos belonging to archived albums when browsing general feeds or active albums
     let isCurrentAlbumArchived = false;
     if (params.albumId) {
-      const [currentAlbum] = await orm
+      const [currentAlbum] = await readOrm
         .select({ isArchived: albumTab.isArchived })
         .from(albumTab)
         .where(eq(albumTab.albumId, params.albumId))
@@ -343,7 +343,7 @@ const photoService = {
     const offset = params.offset && params.offset > 0 ? params.offset : 0;
 
     const list = params.albumId
-      ? await orm
+      ? await readOrm
         .select({
           ...getTableColumns(photoTab),
           isPinned: params.sortBy ? sql<number>`0` : albumPhotoTab.isPinned,
@@ -377,7 +377,7 @@ const photoService = {
         )
         .offset(offset)
         .limit(size)
-      : await orm
+      : await readOrm
         .select()
         .from(photoTab)
         .where(and(...whereList))
@@ -435,12 +435,12 @@ const photoService = {
     let totalCount: number | undefined = undefined;
     if (!isSubsequentPage) {
       const [totalRow] = params.albumId
-        ? await orm
+        ? await readOrm
           .select({ total: count() })
           .from(photoTab)
           .innerJoin(albumPhotoTab, eq(photoTab.photoId, albumPhotoTab.photoId))
           .where(and(...baseWhereList, eq(albumPhotoTab.albumId, params.albumId)))
-        : await orm
+        : await readOrm
           .select({ total: count() })
           .from(photoTab)
           .where(and(...baseWhereList));
@@ -500,7 +500,7 @@ const photoService = {
     // Exclude photos belonging to archived albums when browsing general feeds or active albums
     let isCurrentAlbumArchived = false;
     if (params.albumId) {
-      const [currentAlbum] = await orm
+      const [currentAlbum] = await readOrm
         .select({ isArchived: albumTab.isArchived })
         .from(albumTab)
         .where(eq(albumTab.albumId, params.albumId))
@@ -527,7 +527,7 @@ const photoService = {
     }
 
     const rows = params.albumId
-      ? await orm
+      ? await readOrm
         .select({
           photoId: photoTab.photoId,
           isPinned: albumPhotoTab.isPinned,
@@ -541,7 +541,7 @@ const photoService = {
           desc(albumPhotoTab.pinnedAt),
           desc(photoTab.photoId)
         )
-      : await orm
+      : await readOrm
         .select({ photoId: photoTab.photoId })
         .from(photoTab)
         .where(and(...whereList))
@@ -606,7 +606,7 @@ const photoService = {
     // Exclude photos belonging to archived albums when browsing general feeds or active albums
     let isCurrentAlbumArchived = false;
     if (params.albumId) {
-      const [currentAlbum] = await orm
+      const [currentAlbum] = await readOrm
         .select({ isArchived: albumTab.isArchived })
         .from(albumTab)
         .where(eq(albumTab.albumId, params.albumId))
@@ -633,7 +633,7 @@ const photoService = {
     };
 
     const list = params.albumId
-      ? await orm
+      ? await readOrm
         .select(selectColumns)
         .from(photoTab)
         .innerJoin(albumPhotoTab, eq(photoTab.photoId, albumPhotoTab.photoId))
@@ -643,7 +643,7 @@ const photoService = {
         ))
         .groupBy(takenDate)
         .orderBy(asc(takenDate))
-      : await orm
+      : await readOrm
         .select(selectColumns)
         .from(photoTab)
         .where(and(...whereList))
@@ -726,7 +726,7 @@ const photoService = {
         )`,
       ];
 
-      const list = await orm
+      const list = await readOrm
         .select()
         .from(photoTab)
         .where(and(...baseWhereList))
@@ -822,7 +822,7 @@ const photoService = {
     }
 
     let key = buildPhotoKey(userId, safeName);
-    const [existing] = await orm
+    const [existing] = await readOrm
       .select({ fileId: fileTab.fileId })
       .from(fileTab)
       .where(eq(fileTab.key, key))
@@ -925,9 +925,10 @@ const photoService = {
     const photoId = createId();
     const originalKey = await this.resolvePhotoKey(userId, filename);
     const previewKey = buildPreviewKey(checksum, photoId);
-    const thumbnailKey = buildThumbnailKey(checksum, photoId);
 
-    const thumbnailType = params.thumbnailType || 'image/webp';
+    const thumbnailType = params.thumbnailType || 'image/avif';
+    const thumbnailExt = thumbnailType.includes('avif') ? '.avif' : thumbnailType.includes('jpeg') ? '.jpg' : '.webp';
+    const thumbnailKey = buildThumbnailKey(checksum, photoId, thumbnailExt);
 
     const [originalUploadUrl, previewUploadUrl, thumbnailUploadUrl] = await Promise.all([
       storage.getPresignedPutUrl(originalKey, fileType, targetStorage.storageId),
@@ -1090,7 +1091,7 @@ const photoService = {
 
     // 1. Exact Binary Checksum Match (100% Guaranteed Exact File)
     if (checksum) {
-      const [duplicatePhoto] = await orm
+      const [duplicatePhoto] = await readOrm
         .select({ photoId: photoTab.photoId })
         .from(photoTab)
         .where(and(...baseConditions, eq(photoTab.checksum, checksum)))
@@ -1105,7 +1106,7 @@ const photoService = {
     if (incomingThumbHash && incomingThumbHash.length >= 10) {
       const incomingSig = createVisualSignature('incoming', incomingThumbHash);
       if (incomingSig) {
-        const candidates = await orm
+        const candidates = await readOrm
           .select({
             photoId: photoTab.photoId,
             thumbHash: photoTab.thumbHash,
@@ -1136,7 +1137,7 @@ const photoService = {
     if (name && width && height) {
       const baseClean = this.stripCopySuffix(name);
       if (baseClean.length >= 3) {
-        const candidates = await orm
+        const candidates = await readOrm
           .select({
             photoId: photoTab.photoId,
             name: photoTab.name,
@@ -1169,7 +1170,7 @@ const photoService = {
 
     // 4. Exact Resolution & File Size Match (different name, but identical dimensions & byte size)
     if (size && width && height) {
-      const [exactSizeMatch] = await orm
+      const [exactSizeMatch] = await readOrm
         .select({ photoId: photoTab.photoId })
         .from(photoTab)
         .where(
@@ -1297,7 +1298,8 @@ const photoService = {
     const key = await this.resolvePhotoKey(userId, name);
     const photoId = createId();
     const preview = buildPreviewKey(checksum, photoId);
-    const thumbnail = buildThumbnailKey(checksum, photoId);
+    const thumbnailExt = images.thumbnailType?.includes('avif') ? '.avif' : '.webp';
+    const thumbnail = buildThumbnailKey(checksum, photoId, thumbnailExt);
 
     const cacheMetadata = [['Cache-Control', 'private, max-age=604800']];
     const keyMetadata = [
@@ -1321,7 +1323,7 @@ const photoService = {
       {
         key: thumbnail,
         body: images.thumbnailBuffer,
-        type: 'image/webp',
+        type: images.thumbnailType || 'image/avif',
         metadata: cacheMetadata,
       },
     ], activeStorageId);
@@ -1349,7 +1351,7 @@ const photoService = {
     const files = await fileService.save([
       { fileId: createId(), photoId, key, type: FileTypeEnum.ORIGINAL, fileType: finalType, size: finalSize },
       { fileId: createId(), photoId, key: preview, type: FileTypeEnum.PREVIEW, fileType: 'image/jpeg', size: images.previewBuffer.length },
-      { fileId: createId(), photoId, key: thumbnail, type: FileTypeEnum.THUMBNAIL, fileType: 'image/webp', size: images.thumbnailBuffer.length },
+      { fileId: createId(), photoId, key: thumbnail, type: FileTypeEnum.THUMBNAIL, fileType: images.thumbnailType || 'image/avif', size: images.thumbnailBuffer.length },
     ]);
 
     await exifService.save(photoId, {
@@ -1698,10 +1700,11 @@ const photoService = {
       allowDownload: allowDownload ? 1 : 0,
     }).returning();
 
+    const finalThumbType = params.thumbnailType || (thumbnailKey.endsWith('.avif') ? 'image/avif' : thumbnailKey.endsWith('.jpg') ? 'image/jpeg' : 'image/webp');
     const fileRecords: { fileId: string; photoId: string; key: string; type: number; fileType: string; size: number }[] = [
       { fileId: createId(), photoId: finalPhotoId, key, type: FileTypeEnum.ORIGINAL, fileType: finalType, size },
       { fileId: createId(), photoId: finalPhotoId, key: previewKey, type: FileTypeEnum.PREVIEW, fileType: 'image/jpeg', size: previewSize },
-      { fileId: createId(), photoId: finalPhotoId, key: thumbnailKey, type: FileTypeEnum.THUMBNAIL, fileType: 'image/webp', size: thumbnailSize },
+      { fileId: createId(), photoId: finalPhotoId, key: thumbnailKey, type: FileTypeEnum.THUMBNAIL, fileType: finalThumbType, size: thumbnailSize },
     ];
 
     const files = await fileService.save(fileRecords);
@@ -2000,7 +2003,7 @@ const photoService = {
 
   // Query single photo by ID.
   async getById(photoId: string, currentUserId?: string): Promise<PhotoVo | null> {
-    const [photo] = await orm
+    const [photo] = await readOrm
       .select()
       .from(photoTab)
       .where(eq(photoTab.photoId, photoId))
@@ -2021,7 +2024,7 @@ const photoService = {
 
     // Hide photos belonging to any archived album from unauthenticated visitors
     if (!currentUserId) {
-      const [archivedAlbumRel] = await orm
+      const [archivedAlbumRel] = await readOrm
         .select({ id: albumPhotoTab.id })
         .from(albumPhotoTab)
         .innerJoin(albumTab, eq(albumTab.albumId, albumPhotoTab.albumId))
@@ -2047,7 +2050,7 @@ const photoService = {
 
   // Retrieve original photo buffer from storage for watermarking or server-side processing.
   async getOriginalPhotoBuffer(photoId: string): Promise<{ buffer: Buffer; fileName: string; contentType: string } | null> {
-    const [photo] = await orm
+    const [photo] = await readOrm
       .select()
       .from(photoTab)
       .where(eq(photoTab.photoId, photoId))
@@ -2395,7 +2398,7 @@ const photoService = {
 
     let list: Photo[] = [];
     if (albumId) {
-      const rows = await orm
+      const rows = await readOrm
         .select({ photo: photoTab })
         .from(photoTab)
         .innerJoin(albumPhotoTab, eq(photoTab.photoId, albumPhotoTab.photoId))
@@ -2403,7 +2406,7 @@ const photoService = {
         .orderBy(desc(photoTab.takenTime), desc(photoTab.photoId));
       list = rows.map((r: any) => r.photo);
     } else {
-      list = await orm
+      list = await readOrm
         .select()
         .from(photoTab)
         .where(and(...whereList))
@@ -2711,7 +2714,7 @@ const photoService = {
       )`
     );
 
-    const rows = await orm
+    const rows = await readOrm
       .select({
         ...getTableColumns(photoTab),
         latitude: exifTab.latitude,
@@ -2773,7 +2776,7 @@ const photoService = {
           )
     );
 
-    const rows = await orm
+    const rows = await readOrm
       .select({
         ...getTableColumns(photoTab),
         latitude: exifTab.latitude,

@@ -1,9 +1,9 @@
 // NayPict Progressive Web App (PWA) Service Worker with intelligent offline caching.
 // Provides Google Photos / iCloud-style 0ms media caching, background revalidation, and offline resilience.
 
-const CACHE_NAME = 'naypict-static-v2';
-const MEDIA_CACHE_NAME = 'naypict-media-v3';
-const API_CACHE_NAME = 'naypict-api-v1';
+const CACHE_NAME = 'naypict-static-v3';
+const MEDIA_CACHE_NAME = 'naypict-media-v4';
+const API_CACHE_NAME = 'naypict-api-v2';
 
 const PRECACHE_ASSETS = [
   '/',
@@ -87,6 +87,33 @@ function isCacheableMedia(res) {
   return !cc.includes('private') && !cc.includes('no-store');
 }
 
+/**
+ * Helper to fetch with exponential backoff retry (1s, 2s, 4s).
+ * Prevents broken images and transient network request failures on weak or fluctuating mobile connections.
+ */
+async function fetchWithExponentialRetry(request, retries = 3, delays = [1000, 2000, 4000]) {
+  let lastError;
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const req = (attempt > 0 && request instanceof Request) ? request.clone() : request;
+      const response = await fetch(req);
+      if (!response.ok && [502, 503, 504].includes(response.status) && attempt < retries) {
+        const delay = delays[attempt] || 1000 * Math.pow(2, attempt);
+        await new Promise((resolve) => setTimeout(resolve, delay));
+        continue;
+      }
+      return response;
+    } catch (err) {
+      lastError = err;
+      if (attempt < retries) {
+        const delay = delays[attempt] || 1000 * Math.pow(2, attempt);
+        await new Promise((resolve) => setTimeout(resolve, delay));
+      }
+    }
+  }
+  throw lastError;
+}
+
 // Fetch Event: Cache-First for media & derivatives, Stale-While-Revalidate for read-only catalog APIs
 self.addEventListener('fetch', (event) => {
   const { request } = event;
@@ -166,8 +193,8 @@ self.addEventListener('fetch', (event) => {
             return cachedResponse;
           }
 
-          // Fetch fresh version in background for mutable/dynamic images if online
-          fetch(request)
+          // Fetch fresh version in background with exponential retry for mutable/dynamic images if online
+          fetchWithExponentialRetry(request, 2, [1000, 2000])
             .then((networkResponse) => {
               if (isCacheableMedia(networkResponse)) {
                 const responseToCache = networkResponse.clone();
@@ -182,8 +209,8 @@ self.addEventListener('fetch', (event) => {
           return cachedResponse;
         }
 
-        // Cache miss: fetch from network and store in CacheStorage
-        return fetch(request)
+        // Cache miss: fetch from network with exponential backoff (1s, 2s, 4s) and store in CacheStorage
+        return fetchWithExponentialRetry(request, 3, [1000, 2000, 4000])
           .then((networkResponse) => {
             if (isCacheableMedia(networkResponse)) {
               const responseToCache = networkResponse.clone();
@@ -202,13 +229,13 @@ self.addEventListener('fetch', (event) => {
   }
 
   // 2. Read-Only Catalog & Album Lists (/api/photo/list, /api/album/list):
-  // Stale-While-Revalidate delivers instant 0ms cached list, then updates in background
+  // Stale-While-Revalidate delivers instant 0ms cached list, then updates in background with retry
   if (url.pathname === '/api/photo/list' || url.pathname === '/api/album/list') {
     event.respondWith(
       caches.open(API_CACHE_NAME).then(async (cache) => {
         const cachedResponse = await cache.match(request);
 
-        const fetchPromise = fetch(request)
+        const fetchPromise = fetchWithExponentialRetry(request, 3, [1000, 2000, 4000])
           .then((networkResponse) => {
             if (networkResponse && networkResponse.status === 200) {
               const responseToCache = networkResponse.clone();
@@ -224,10 +251,10 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 3. Navigation / Page Requests: Network-First with offline fallback
+  // 3. Navigation / Page Requests: Network-First with quick retry then offline fallback
   if (request.mode === 'navigate') {
     event.respondWith(
-      fetch(request).catch(async () => {
+      fetchWithExponentialRetry(request, 2, [500, 1000]).catch(async () => {
         const cache = await caches.open(CACHE_NAME);
         const cachedPage = await cache.match(request);
         return cachedPage || (await cache.match('/photos')) || (await cache.match('/'));
@@ -236,10 +263,10 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 4. Static Assets (CSS, JS, Fonts): Stale-While-Revalidate
+  // 4. Static Assets (CSS, JS, Fonts): Stale-While-Revalidate with retry
   event.respondWith(
     caches.match(request).then((cachedResponse) => {
-      const fetchPromise = fetch(request)
+      const fetchPromise = fetchWithExponentialRetry(request, 2, [1000, 2000])
         .then((networkResponse) => {
           if (networkResponse && networkResponse.status === 200) {
             const responseToCache = networkResponse.clone();
@@ -272,7 +299,7 @@ self.addEventListener('message', (event) => {
         try {
           const match = await cache.match(mediaUrl);
           if (!match) {
-            const res = await fetch(mediaUrl, { priority: 'low' });
+            const res = await fetchWithExponentialRetry(mediaUrl, 2, [1000, 2000]);
             if (isCacheableMedia(res)) {
               await cache.put(mediaUrl, res);
             }
@@ -289,3 +316,32 @@ self.addEventListener('message', (event) => {
     caches.delete(API_CACHE_NAME).catch(() => {});
   }
 });
+
+// Background Sync Event: Automatically synchronize catalog data when device regains connectivity
+self.addEventListener('sync', (event) => {
+  if (event.tag === 'sync-catalog' || event.tag === 'sync-media-cache') {
+    event.waitUntil(
+      (async () => {
+        try {
+          const apiCache = await caches.open(API_CACHE_NAME);
+          const syncUrls = ['/api/photo/list', '/api/album/list'];
+          await Promise.allSettled(
+            syncUrls.map(async (url) => {
+              try {
+                const res = await fetchWithExponentialRetry(url, 2, [1000, 2000]);
+                if (res && res.status === 200) {
+                  await apiCache.put(url, res);
+                }
+              } catch {
+                // Ignore transient background sync failure
+              }
+            })
+          );
+        } catch {
+          // Ignore background sync errors
+        }
+      })()
+    );
+  }
+});
+

@@ -11,6 +11,7 @@ export const SHARP_SECURITY_OPTIONS = {
 export interface ProcessedPhotoImages {
   previewBuffer: Buffer
   thumbnailBuffer: Buffer
+  thumbnailType: string
   mediumBuffer?: Buffer
   optimizedOriginalBuffer: Buffer
   optimizedOriginalType: string
@@ -129,11 +130,21 @@ export async function processPhotoImages(buffer: Buffer, mimeType?: string): Pro
     .webp({ quality: 85, effort: 5 })
     .toBuffer()
 
-  // 4. Crisp gallery grid thumbnail (480px max bound with high-efficiency WebP effort 6)
-  const thumbnailBuffer = await sharp(mediumBuffer, SHARP_SECURITY_OPTIONS)
-    .resize({ width: 480, height: 480, fit: "inside", withoutEnlargement: true })
-    .webp({ quality: 84, effort: 6, smartSubsample: true })
-    .toBuffer()
+  // 4. Crisp gallery grid thumbnail: High-compression AVIF format (25-35% lighter than WebP) with WebP fallback
+  let thumbnailBuffer: Buffer
+  let thumbnailType = "image/avif"
+  try {
+    thumbnailBuffer = await sharp(mediumBuffer, SHARP_SECURITY_OPTIONS)
+      .resize({ width: 480, height: 480, fit: "inside", withoutEnlargement: true })
+      .avif({ quality: 80, effort: 4 })
+      .toBuffer()
+  } catch {
+    thumbnailType = "image/webp"
+    thumbnailBuffer = await sharp(mediumBuffer, SHARP_SECURITY_OPTIONS)
+      .resize({ width: 480, height: 480, fit: "inside", withoutEnlargement: true })
+      .webp({ quality: 84, effort: 6, smartSubsample: true })
+      .toBuffer()
+  }
 
   // 5. ThumbHash placeholder generation (100x100 raw RGBA)
   const hashImage = await sharp(thumbnailBuffer, SHARP_SECURITY_OPTIONS)
@@ -151,6 +162,7 @@ export async function processPhotoImages(buffer: Buffer, mimeType?: string): Pro
     previewBuffer,
     mediumBuffer,
     thumbnailBuffer,
+    thumbnailType,
     optimizedOriginalBuffer: optimizedOriginal.buffer,
     optimizedOriginalType: optimizedOriginal.type,
     optimizedOriginalSize: optimizedOriginal.size,

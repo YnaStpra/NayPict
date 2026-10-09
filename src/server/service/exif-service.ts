@@ -1,7 +1,7 @@
 import { eq, inArray } from 'drizzle-orm';
 import { type ExifSaveBo } from '@/server/entity/bo/exif';
 import { type Exif, exifTab } from '@/server/entity/exif';
-import { orm } from '@/server/infra/db';
+import { orm, readOrm } from '@/server/infra/db';
 
 // This module processes photo Exif reading and writing.
 
@@ -19,7 +19,7 @@ const exifService = {
       return new Map();
     }
 
-    const rows = await orm
+    const rows = await readOrm
       .select()
       .from(exifTab)
       .where(inArray(exifTab.photoId, photoIds));
