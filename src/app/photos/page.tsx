@@ -78,7 +78,7 @@ const PhotoLocationBanner = dynamic(
   { ssr: false }
 )
 
-type SortOptionKey = 'none' | 'takenTime_desc' | 'takenTime_asc' | 'createTime_desc' | 'createTime_asc' | 'type_asc' | 'type_desc' | 'size_desc' | 'size_asc' | 'name_asc' | 'name_desc' | 'nearby'
+type SortOptionKey = 'none' | 'takenTime_desc' | 'takenTime_asc' | 'createTime_desc' | 'createTime_asc' | 'type_asc' | 'type_desc' | 'nearby'
 
 const SORT_OPTIONS: { key: SortOptionKey; label: string; sortBy?: 'takenTime' | 'createTime' | 'size' | 'name' | 'type' | null; sortOrder?: 'asc' | 'desc' | null; shuffle?: boolean }[] = [
   { key: 'none', label: 'Default / Random', sortBy: null, sortOrder: null, shuffle: true },
@@ -89,10 +89,6 @@ const SORT_OPTIONS: { key: SortOptionKey; label: string; sortBy?: 'takenTime' | 
   { key: 'createTime_asc', label: 'Oldest Added', sortBy: 'createTime', sortOrder: 'asc', shuffle: false },
   { key: 'type_asc', label: 'Media Type (Videos First)', sortBy: 'type', sortOrder: 'asc', shuffle: false },
   { key: 'type_desc', label: 'Media Type (Photos First)', sortBy: 'type', sortOrder: 'desc', shuffle: false },
-  { key: 'size_desc', label: 'File Size (Largest)', sortBy: 'size', sortOrder: 'desc', shuffle: false },
-  { key: 'size_asc', label: 'File Size (Smallest)', sortBy: 'size', sortOrder: 'asc', shuffle: false },
-  { key: 'name_asc', label: 'Name (A - Z)', sortBy: 'name', sortOrder: 'asc', shuffle: false },
-  { key: 'name_desc', label: 'Name (Z - A)', sortBy: 'name', sortOrder: 'desc', shuffle: false },
 ]
 
 const emptySubscribe = () => () => {}
