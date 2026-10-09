@@ -7,7 +7,7 @@ import { commentTab } from '@/server/entity/comment';
 import { photoViewTab } from '@/server/entity/insights';
 import { photoReactionTab } from '@/server/entity/reaction';
 import { storageTab } from '@/server/entity/storage';
-import { orm } from '@/server/infra/db';
+import { orm, readOrm } from '@/server/infra/db';
 import { PhotoStatusEnum } from '@/server/enums/photo-enum';
 import { FileTypeEnum } from '@/server/enums/file-enum';
 import { buildPreviewKey, buildThumbnailKey } from '@/server/lib/photo-path';
@@ -150,55 +150,55 @@ const insightsService = {
 
     try {
       // 1. Total active photos count
-      const [photoCountRes] = await orm
+      const [photoCountRes] = await readOrm
         .select({ count: count() })
         .from(photoTab)
         .where(eq(photoTab.status, PhotoStatusEnum.NORMAL));
       totalPhotos = photoCountRes?.count ?? 0;
 
       // 2. Total comments count
-      const [commentCountRes] = await orm
+      const [commentCountRes] = await readOrm
         .select({ count: count() })
         .from(commentTab);
       totalComments = commentCountRes?.count ?? 0;
 
       // 3. Total public views
-      const [totalViewsRes] = await orm
+      const [totalViewsRes] = await readOrm
         .select({ count: count() })
         .from(photoViewTab)
         .where(eq(photoViewTab.type, 'view'));
       totalViews = totalViewsRes?.count ?? 0;
 
       // 4. Views today
-      const [viewsTodayRes] = await orm
+      const [viewsTodayRes] = await readOrm
         .select({ count: count() })
         .from(photoViewTab)
         .where(and(eq(photoViewTab.type, 'view'), gte(photoViewTab.viewedAt, todayStart)));
       viewsToday = viewsTodayRes?.count ?? 0;
 
       // 5. Views this week
-      const [viewsWeekRes] = await orm
+      const [viewsWeekRes] = await readOrm
         .select({ count: count() })
         .from(photoViewTab)
         .where(and(eq(photoViewTab.type, 'view'), gte(photoViewTab.viewedAt, weekStart)));
       viewsThisWeek = viewsWeekRes?.count ?? 0;
 
       // 6. Views this month
-      const [viewsMonthRes] = await orm
+      const [viewsMonthRes] = await readOrm
         .select({ count: count() })
         .from(photoViewTab)
         .where(and(eq(photoViewTab.type, 'view'), gte(photoViewTab.viewedAt, monthStart)));
       viewsThisMonth = viewsMonthRes?.count ?? 0;
 
       // 7. Total shares
-      const [sharesRes] = await orm
+      const [sharesRes] = await readOrm
         .select({ count: count() })
         .from(photoViewTab)
         .where(eq(photoViewTab.type, 'share'));
       totalShares = sharesRes?.count ?? 0;
 
       // 8. Total downloads
-      const [downloadsRes] = await orm
+      const [downloadsRes] = await readOrm
         .select({ count: count() })
         .from(photoViewTab)
         .where(eq(photoViewTab.type, 'download'));
@@ -211,7 +211,7 @@ const insightsService = {
     let totalReactions = 0;
     const reactionsBreakdown = { love: 0, fire: 0, camera: 0, place: 0, clap: 0 };
     try {
-      const reactionRows = await orm
+      const reactionRows = await readOrm
         .select({
           reactionType: photoReactionTab.reactionType,
           count: sql<number>`COALESCE(SUM(${photoReactionTab.count}), 0)::int`,
@@ -266,7 +266,7 @@ const insightsService = {
 
     try {
       // Query aggregated views grouped by date formatted as YYYY-MM-DD
-      const rows = await orm
+      const rows = await readOrm
         .select({
           day: sql<string>`TO_CHAR(${photoViewTab.viewedAt}, 'YYYY-MM-DD')`,
           views: count(),
@@ -325,7 +325,7 @@ const insightsService = {
     try {
       // 1. Fetch public viewed photos (strictly views > 0 via innerJoin)
       const viewedLimit = Math.max(limit, 500);
-      const mostViewedRaw = await orm
+      const mostViewedRaw = await readOrm
         .select({
           photoId: photoTab.photoId,
           name: photoTab.name,
@@ -356,7 +356,7 @@ const insightsService = {
         .limit(viewedLimit);
 
       // 2. Fetch top photos by comments
-      const mostCommentedRaw = await orm
+      const mostCommentedRaw = await readOrm
         .select({
           photoId: photoTab.photoId,
           name: photoTab.name,
@@ -396,7 +396,7 @@ const insightsService = {
 
       const storageMap = new Map<string, string | null>();
       if (storageIds.length > 0) {
-        const storageRows = await orm
+        const storageRows = await readOrm
           .select({
             storageId: storageTab.storageId,
             domain: storageTab.domain,
@@ -419,7 +419,7 @@ const insightsService = {
       const viewCountMap = new Map<string, number>();
 
       if (allPhotoIds.length > 0) {
-        const fileRows = await orm
+        const fileRows = await readOrm
           .select({
             photoId: fileTab.photoId,
             type: fileTab.type,
@@ -440,7 +440,7 @@ const insightsService = {
           fileMap.set(f.photoId, current);
         }
 
-        const commentRows = await orm
+        const commentRows = await readOrm
           .select({
             photoId: commentTab.photoId,
             count: count(),
@@ -453,7 +453,7 @@ const insightsService = {
           commentCountMap.set(c.photoId, Number(c.count) || 0);
         }
 
-        const viewRows = await orm
+        const viewRows = await readOrm
           .select({
             photoId: photoViewTab.photoId,
             count: count(),
@@ -522,7 +522,7 @@ const insightsService = {
     await ensurePhotoViewTable();
 
     try {
-      const [photo] = await orm
+      const [photo] = await readOrm
         .select({
           photoId: photoTab.photoId,
           name: photoTab.name,
@@ -542,7 +542,7 @@ const insightsService = {
 
       let domain: string | null = null;
       if (photo.storageId) {
-        const [s] = await orm
+        const [s] = await readOrm
           .select({ domain: storageTab.domain })
           .from(storageTab)
           .where(eq(storageTab.storageId, photo.storageId))
@@ -554,7 +554,7 @@ const insightsService = {
       let previewKey = '';
       let originalKey = '';
 
-      const fileRows = await orm
+      const fileRows = await readOrm
         .select({
           type: fileTab.type,
           key: fileTab.key,
@@ -587,14 +587,14 @@ const insightsService = {
       const monthStart = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
 
       // 1. Total views for this photo
-      const [totalViewsRes] = await orm
+      const [totalViewsRes] = await readOrm
         .select({ count: count() })
         .from(photoViewTab)
         .where(and(eq(photoViewTab.photoId, photoId), eq(photoViewTab.type, 'view')));
       const totalViews = Number(totalViewsRes?.count || 0);
 
       // 2. Views today
-      const [todayViewsRes] = await orm
+      const [todayViewsRes] = await readOrm
         .select({ count: count() })
         .from(photoViewTab)
         .where(
@@ -607,7 +607,7 @@ const insightsService = {
       const viewsToday = Number(todayViewsRes?.count || 0);
 
       // 3. Views this week (last 7 days)
-      const [weekViewsRes] = await orm
+      const [weekViewsRes] = await readOrm
         .select({ count: count() })
         .from(photoViewTab)
         .where(
@@ -620,7 +620,7 @@ const insightsService = {
       const viewsThisWeek = Number(weekViewsRes?.count || 0);
 
       // 4. Views this month (last 30 days)
-      const [monthViewsRes] = await orm
+      const [monthViewsRes] = await readOrm
         .select({ count: count() })
         .from(photoViewTab)
         .where(
@@ -633,21 +633,21 @@ const insightsService = {
       const viewsThisMonth = Number(monthViewsRes?.count || 0);
 
       // 5. Total comments for this photo
-      const [commentRes] = await orm
+      const [commentRes] = await readOrm
         .select({ count: count() })
         .from(commentTab)
         .where(eq(commentTab.photoId, photoId));
       const comments = Number(commentRes?.count || 0);
 
       // 6. Total downloads for this photo
-      const [downloadRes] = await orm
+      const [downloadRes] = await readOrm
         .select({ count: count() })
         .from(photoViewTab)
         .where(and(eq(photoViewTab.photoId, photoId), eq(photoViewTab.type, 'download')));
       const downloads = Number(downloadRes?.count || 0);
 
       // 7. Total shares for this photo
-      const [shareRes] = await orm
+      const [shareRes] = await readOrm
         .select({ count: count() })
         .from(photoViewTab)
         .where(and(eq(photoViewTab.photoId, photoId), eq(photoViewTab.type, 'share')));

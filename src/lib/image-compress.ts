@@ -482,13 +482,31 @@ export async function generateClientImageDerivatives(
         tCtx.imageSmoothingQuality = 'high';
         tCtx.drawImage(previewCanvas, 0, 0, thumbW, thumbH);
 
-        let thumbnailMime = 'image/webp';
+        // Multi-format progressive encoding: Try modern AVIF first (25-35% lighter payload),
+        // gracefully fall back to WebP, and finally standard JPEG for older webviews.
+        let thumbnailMime = 'image/avif';
         let thumbnailBlob = await new Promise<Blob | null>((res) => {
-          thumbCanvas.toBlob(res, 'image/webp', 0.84);
+          try {
+            thumbCanvas.toBlob(res, 'image/avif', 0.80);
+          } catch {
+            res(null);
+          }
         });
 
-        // Fallback to JPEG if browser doesn't export WebP
-        if (!thumbnailBlob || (thumbnailBlob.type !== 'image/webp' && !thumbnailBlob.type.includes('webp'))) {
+        // Fallback to WebP if browser cannot export AVIF via Canvas
+        if (!thumbnailBlob || (!thumbnailBlob.type.includes('avif') && thumbnailBlob.type !== 'image/avif')) {
+          thumbnailMime = 'image/webp';
+          thumbnailBlob = await new Promise<Blob | null>((res) => {
+            try {
+              thumbCanvas.toBlob(res, 'image/webp', 0.84);
+            } catch {
+              res(null);
+            }
+          });
+        }
+
+        // Final fallback to JPEG if browser doesn't export WebP
+        if (!thumbnailBlob || (!thumbnailBlob.type.includes('webp') && thumbnailBlob.type !== 'image/webp')) {
           thumbnailMime = 'image/jpeg';
           thumbnailBlob = await new Promise<Blob>((res, rej) => {
             thumbCanvas.toBlob(

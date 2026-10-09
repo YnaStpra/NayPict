@@ -1056,6 +1056,7 @@ export function PhotoUploadDialog() {
           altitude: clientExif.altitude ?? undefined,
           takenTime: clientExif.takenTime ?? undefined,
           exifJson: clientExif.exif ?? undefined,
+          thumbnailType: derivatives.thumbnailMime || 'image/avif',
         })
 
         directUploadSuccess = true

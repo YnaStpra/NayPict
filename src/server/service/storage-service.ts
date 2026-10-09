@@ -9,7 +9,7 @@ import { StorageStatusEnum, StorageTypeEnum } from '@/server/enums/storage-enum'
 import BizError from '@/server/error/biz-error';
 import { STORAGE_LIST_CACHE_KEY } from '@/server/const/cache';
 import { cache } from '@/server/infra/cache';
-import { orm } from '@/server/infra/db';
+import { orm, readOrm } from '@/server/infra/db';
 import { formatHttpUrl } from '@/lib/url';
 
 // This module handles the data query and writing business of storage configuration.
@@ -26,7 +26,7 @@ const storageService = {
 
   // Query all normal storage configurations, Return to the drop-down and select the required fields.
   async select(): Promise<StorageSelectVo[]> {
-    return orm
+    return readOrm
       .select({
         storageId: storageTab.storageId,
         name: storageTab.name,
@@ -40,7 +40,7 @@ const storageService = {
   // Query all storage configurations, And count the number of photos and used capacity under each storage.
   async list(): Promise<PageVo<StorageVo>> {
 
-    const storageList = await orm
+    const storageList = await readOrm
       .select()
       .from(storageTab)
       .orderBy(desc(storageTab.sort));
@@ -51,7 +51,7 @@ const storageService = {
 
     const storageIds = storageList.map((storage: any) => storage.storageId).filter(Boolean) as string[];
 
-    const photoStatList = await orm
+    const photoStatList = await readOrm
       .select({
         storageId: photoTab.storageId,
         photoTotal: count(photoTab.photoId),
@@ -218,7 +218,7 @@ const storageService = {
 
     // Re-query database when cache is missing, empty array, or forceRefresh requested
     if (!storageList || !Array.isArray(storageList) || storageList.length === 0) {
-      storageList = await orm
+      storageList = await readOrm
         .select()
         .from(storageTab)
         .orderBy(desc(storageTab.sort));
@@ -245,7 +245,7 @@ const storageService = {
           storageList = [defaultR2];
         } catch {
           // If already inserted concurrently
-          storageList = await orm.select().from(storageTab).orderBy(desc(storageTab.sort));
+          storageList = await readOrm.select().from(storageTab).orderBy(desc(storageTab.sort));
         }
       }
 

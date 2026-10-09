@@ -20,9 +20,10 @@ function buildPreviewKey(checksum: string, photoId: string): string {
   return buildChecksumImageKey('previews', checksum, photoId, '.jpg');
 }
 
-// Generate thumbnail storage path.
-function buildThumbnailKey(checksum: string, photoId: string): string {
-  return buildChecksumImageKey('thumbnails', checksum, photoId, '.webp');
+// Generate thumbnail storage path with configurable extension (.webp or .avif).
+function buildThumbnailKey(checksum: string, photoId: string, ext = '.webp'): string {
+  const normalizedExt = ext.startsWith('.') ? ext : `.${ext}`;
+  return buildChecksumImageKey('thumbnails', checksum, photoId, normalizedExt);
 }
 
 // Generate thumbnail video (360p) storage path under public previews prefix.

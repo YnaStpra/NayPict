@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import type { Context, Next } from 'hono';
 import { storage } from '@/server/storage/storage';
-import { orm } from '@/server/infra/db';
+import { readOrm } from '@/server/infra/db';
 import { photoTab } from '@/server/entity/photo';
 import { fileTab } from '@/server/entity/file';
 import { eq } from 'drizzle-orm';
@@ -48,7 +48,7 @@ async function getPhotoFile(key: string) {
     photoFileCache.delete(key);
   }
 
-  const [row] = await orm
+  const [row] = await readOrm
     .select({
       key: fileTab.key,
       type: fileTab.type,

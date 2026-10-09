@@ -168,6 +168,7 @@ interface PhotoAddDirectBo {
   altitude?: number;
   takenTime?: string;
   exifJson?: string;
+  thumbnailType?: string;
 }
 
 export type {

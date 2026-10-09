@@ -4,7 +4,7 @@ import { createId } from '@/server/lib/id';
 import { type Album, albumTab } from '@/server/entity/album';
 import { albumPhotoTab } from '@/server/entity/album-photo';
 import { photoTab } from '@/server/entity/photo';
-import { orm } from '@/server/infra/db';
+import { orm, readOrm } from '@/server/infra/db';
 import BizError from '@/server/error/biz-error';
 import {
   type AlbumAddBo,
@@ -103,7 +103,7 @@ const albumService = {
       albumConditions.push(or(eq(albumTab.isArchived, 0), isNull(albumTab.isArchived))!);
     }
 
-    const albumList = await orm
+    const albumList = await readOrm
       .select()
       .from(albumTab)
       .where(and(...albumConditions))
@@ -138,7 +138,7 @@ const albumService = {
       );
     }
 
-    const allAlbumPhotos = await orm
+    const allAlbumPhotos = await readOrm
       .select({
         albumId: albumPhotoTab.albumId,
         photoId: photoTab.photoId,
@@ -382,7 +382,7 @@ const albumService = {
     }
 
     // If target album is active, exclude photos belonging to any archived album
-    const [targetAlbum] = await orm
+    const [targetAlbum] = await readOrm
       .select({ isArchived: albumTab.isArchived })
       .from(albumTab)
       .where(eq(albumTab.albumId, albumId))
@@ -399,7 +399,7 @@ const albumService = {
       );
     }
 
-    const albumPhotos = await orm
+    const albumPhotos = await readOrm
       .select({
         photoId: photoTab.photoId,
         name: photoTab.name,
@@ -753,7 +753,7 @@ const albumService = {
   // Virtual trash album.
   async trash(userId: string): Promise<AlbumVo> {
     const fileStorageList = await storageService.list();
-    const photoList = await orm
+    const photoList = await readOrm
       .select()
       .from(photoTab)
       .where(and(
@@ -798,7 +798,7 @@ const albumService = {
     const map = new Map<string, { albumId: string; name: string }[]>();
     if (!photoIds || !photoIds.length) return map;
 
-    const rows = await orm
+    const rows = await readOrm
       .select({
         photoId: albumPhotoTab.photoId,
         albumId: albumTab.albumId,
