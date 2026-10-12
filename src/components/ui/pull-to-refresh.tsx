@@ -196,7 +196,7 @@ export function PullToRefresh({
             }}
             exit={{ opacity: 0, y: -20, scale: 0.85 }}
             transition={{ type: "spring", stiffness: 450, damping: 28 }}
-            className="fixed top-2 inset-x-0 z-[60] flex justify-center pointer-events-none"
+            className="fixed top-[max(0.5rem,env(safe-area-inset-top))] inset-x-0 z-[60] flex justify-center pointer-events-none"
           >
             <div className="flex items-center gap-2.5 px-3.5 py-1.5 rounded-full bg-neutral-900/90 border border-white/15 backdrop-blur-xl shadow-xl text-white">
               <CameraShutterIcon progress={progress} refreshing={refreshing} />

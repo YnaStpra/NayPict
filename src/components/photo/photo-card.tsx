@@ -240,6 +240,7 @@ export const PhotoCard = memo(function PhotoCard({
   const [isVideoPlaying, setIsVideoPlaying] = useState(false)
   const [isVideoFrameReady, setIsVideoFrameReady] = useState(false)
   const [currentSeconds, setCurrentSeconds] = useState(0)
+  const [isTouchPressed, setIsTouchPressed] = useState(false)
   // Adaptive above-the-fold LCP prioritization:
   // Mobile (2-column): first 6 photos load eager & high priority.
   // Desktop (multi-column): first 12 photos load eager.
@@ -433,6 +434,7 @@ export const PhotoCard = memo(function PhotoCard({
       time: Date.now(),
     }
     isLongPressActiveRef.current = false
+    setIsTouchPressed(true)
 
     // Start long-press timer for Quick Peek (280ms)
     if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current)
@@ -451,7 +453,7 @@ export const PhotoCard = memo(function PhotoCard({
     }, 280)
   }
 
-  // Cancel long-press immediately if finger moves (user is scrolling)
+  // Cancel long-press and press feedback immediately if finger moves (user is scrolling)
   function handleTouchMove(e: React.TouchEvent<HTMLDivElement>) {
     if (!touchStartPosRef.current) return
     const touch = e.touches[0]
@@ -460,7 +462,8 @@ export const PhotoCard = memo(function PhotoCard({
     const dx = touch.clientX - touchStartPosRef.current.x
     const dy = touch.clientY - touchStartPosRef.current.y
 
-    if (Math.hypot(dx, dy) > 10) {
+    if (Math.hypot(dx, dy) > 8) {
+      setIsTouchPressed(false)
       if (longPressTimerRef.current) {
         clearTimeout(longPressTimerRef.current)
         longPressTimerRef.current = null
@@ -468,8 +471,9 @@ export const PhotoCard = memo(function PhotoCard({
     }
   }
 
-  // Process tap, double-tap, or long-press release
+  // Process tap, double-tap, or long-press release with optimized 160ms opening latency
   function handleTouchEnd(e: React.TouchEvent<HTMLDivElement>) {
+    setIsTouchPressed(false)
     if (longPressTimerRef.current) {
       clearTimeout(longPressTimerRef.current)
       longPressTimerRef.current = null
@@ -511,7 +515,7 @@ export const PhotoCard = memo(function PhotoCard({
     const now = Date.now()
     const timeSinceLastTap = now - lastTapTimeRef.current
 
-    if (timeSinceLastTap < 260) {
+    if (timeSinceLastTap < 190) {
       // Double tap detected!
       lastTapTimeRef.current = 0
       if (singleTapTimerRef.current) {
@@ -548,7 +552,7 @@ export const PhotoCard = memo(function PhotoCard({
       return
     }
 
-    // First tap: debounce opening so double tap can cancel it
+    // First tap: ultra-snappy 160ms trigger so double-tap can cancel while eliminating perceived input lag
     lastTapTimeRef.current = now
     if (singleTapTimerRef.current) clearTimeout(singleTapTimerRef.current)
     singleTapTimerRef.current = setTimeout(() => {
@@ -557,11 +561,12 @@ export const PhotoCard = memo(function PhotoCard({
         return
       }
       triggerOpen()
-    }, 220)
+    }, 160)
   }
 
   // Handle touch cancellation (e.g. system alert or interruption)
   function handleTouchCancel() {
+    setIsTouchPressed(false)
     if (longPressTimerRef.current) {
       clearTimeout(longPressTimerRef.current)
       longPressTimerRef.current = null
@@ -695,7 +700,8 @@ export const PhotoCard = memo(function PhotoCard({
       role="img"
       aria-label={data.name || (isVideo ? "Video" : "Photo")}
       className={[
-        "group relative overflow-hidden houdini-smooth-card touch-press-feedback touch-manipulation",
+        "group relative overflow-hidden houdini-smooth-card touch-press-feedback touch-manipulation cursor-pointer",
+        isTouchPressed ? "scale-[0.98] brightness-95" : "",
         shouldAnimateReveal ? "cascade-wave-card" : "",
       ].join(" ")}
       onClick={handlePhotoClick}

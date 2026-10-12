@@ -560,13 +560,23 @@ body {
   will-change: transform;
 }
 
-/* 4. Mobile Touch-Press Feedback */
+/* 4. Mobile Fast-Tap & Touch-Press Feedback */
+button,
+a,
+[role="button"],
+.touch-manipulation {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
 .touch-press-feedback {
-  transition: transform 0.12s cubic-bezier(0.2, 0, 0, 1);
+  transition: transform 0.1s cubic-bezier(0.2, 0, 0, 1), filter 0.1s ease;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .touch-press-feedback:active {
-  transform: scale(0.975);
+  transform: scale(0.978);
+  filter: brightness(0.95);
 }
 
 /* 5. Elastic Pop-In for Badges & Controls */
