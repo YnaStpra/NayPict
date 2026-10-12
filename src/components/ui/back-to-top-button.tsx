@@ -71,7 +71,7 @@ export function BackToTopButton() {
         transform: "scale(0.85)",
         transition: "opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1), transform 0.25s cubic-bezier(0.16, 1, 0.3, 1)",
       }}
-      className="fixed bottom-6 right-6 z-40 flex items-center gap-2 pl-3 pr-2 py-1.5 rounded-full bg-background/85 dark:bg-neutral-900/85 backdrop-blur-xl border border-white/25 dark:border-white/15 shadow-2xl text-foreground elastic-pop-badge hover:scale-105 active:scale-95 cursor-pointer select-none group will-change-transform"
+      className="fixed bottom-[max(1.5rem,calc(env(safe-area-inset-bottom,0px)+0.75rem))] right-[max(1.5rem,calc(env(safe-area-inset-right,0px)+0.75rem))] z-40 flex items-center gap-2 pl-3 pr-2 py-1.5 rounded-full bg-background/85 dark:bg-neutral-900/85 backdrop-blur-xl border border-white/25 dark:border-white/15 shadow-2xl text-foreground elastic-pop-badge hover:scale-105 active:scale-95 cursor-pointer select-none group will-change-transform"
       aria-label="Back to top"
       title="Scroll back to top"
     >

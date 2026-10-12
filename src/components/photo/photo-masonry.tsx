@@ -822,7 +822,7 @@ const PhotoMasonry = memo(function PhotoMasonry({
         <div
           role="status"
           aria-live="polite"
-          className="fixed top-16 left-1/2 -translate-x-1/2 z-50 pointer-events-none transition-all duration-300 ease-out animate-in fade-in zoom-in-95 slide-in-from-top-2"
+          className="fixed top-[max(4rem,calc(3.5rem+env(safe-area-inset-top,0px)))] left-1/2 -translate-x-1/2 z-50 pointer-events-none transition-all duration-300 ease-out animate-in fade-in zoom-in-95 slide-in-from-top-2"
         >
           <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-background/90 dark:bg-zinc-900/90 backdrop-blur-md border border-border/60 shadow-xl text-xs font-semibold text-foreground tracking-wide">
             <LayoutGrid className="w-3.5 h-3.5 text-primary" />

@@ -690,7 +690,7 @@ export function PhotoComments({ photoId }: PhotoCommentsProps) {
       </div>
 
       {/* Comment submission form */}
-      <form onSubmit={handleSubmit} className="mt-auto shrink-0 pt-3 space-y-2 border-t border-white/15">
+      <form onSubmit={handleSubmit} className="mt-auto shrink-0 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] space-y-2 border-t border-white/15">
         {/* Invisible Honeypot Field for Automated Bot Spam Protection */}
         <div className="absolute opacity-0 -z-50 pointer-events-none select-none h-0 w-0 overflow-hidden" aria-hidden="true" tabIndex={-1}>
           <label htmlFor="hp_comment_website">Website</label>

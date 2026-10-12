@@ -323,7 +323,7 @@ function OriginalProgressButton({
     <Button
       type="button"
       variant="secondary"
-      className="absolute right-3 md:right-4 bottom-16 md:bottom-20 z-[450] h-auto gap-3 rounded-xl bg-black/80 px-3 py-2 text-white transition-opacity duration-200 hover:bg-black/80 pointer-events-auto"
+      className="absolute right-[max(0.75rem,env(safe-area-inset-right))] md:right-4 bottom-[calc(4.25rem+env(safe-area-inset-bottom,0px))] md:bottom-20 z-[450] h-auto gap-3 rounded-xl bg-black/80 px-3 py-2 text-white transition-opacity duration-200 hover:bg-black/80 pointer-events-auto"
     >
       {error ? (
         <CircleAlertIcon className="size-4 text-red-500" />
@@ -793,7 +793,7 @@ function LightboxInteractionBar({
   return (
     <div
       className={[
-        "fixed left-3 bottom-14 sm:bottom-16 md:bottom-22 z-40 flex flex-col items-start gap-2 transition-all duration-300 pointer-events-auto select-none max-w-[calc(100vw-1.5rem)]",
+        "fixed left-[max(0.75rem,env(safe-area-inset-left))] bottom-[calc(3.75rem+env(safe-area-inset-bottom,0px))] sm:bottom-16 md:bottom-22 z-40 flex flex-col items-start gap-2 transition-all duration-300 pointer-events-auto select-none max-w-[calc(100vw-1.5rem)]",
         getActionVisibleClass(showActions),
       ].join(" ")}
     >
@@ -856,7 +856,7 @@ function CloseButton({
       size="icon"
       variant="secondary"
       className={[
-        "absolute top-2 left-2 md:top-3 md:left-3 z-40 rounded-full bg-black/40 text-white transition-opacity duration-200 hover:bg-black/50 cursor-pointer pointer-events-auto",
+        "absolute top-[max(0.75rem,env(safe-area-inset-top))] left-[max(0.75rem,env(safe-area-inset-left))] md:top-3 md:left-3 z-40 rounded-full bg-black/40 text-white transition-opacity duration-200 hover:bg-black/50 cursor-pointer pointer-events-auto",
         getActionVisibleClass(showActions),
       ].join(" ")}
       {...tap}
@@ -902,7 +902,7 @@ function PhotoViewerThumbnails({
         !visible ? "opacity-0 pointer-events-none translate-y-full" : "opacity-100 translate-y-0"
       )}
     >
-      <div className="h-12 md:h-16 flex items-center justify-center bg-black/75 backdrop-blur-xl border-t border-white/10 px-2">
+      <div className="h-[calc(3rem+env(safe-area-inset-bottom,0px))] md:h-16 flex items-center justify-center bg-black/75 backdrop-blur-xl border-t border-white/10 px-2 pb-[env(safe-area-inset-bottom,0px)]">
         <div
           ref={containerRef}
           className="flex items-center gap-1.5 h-full overflow-x-auto no-scrollbar py-1.5 max-w-full"
@@ -1124,7 +1124,7 @@ function PhotoSlideImage({
       const now = Date.now()
       const timeSinceLast = now - lastTapTimeRef.current
 
-      if (timeSinceLast < 300) {
+      if (timeSinceLast < 240) {
         // Double tap!
         if (singleTapTimerRef.current) {
           clearTimeout(singleTapTimerRef.current)
@@ -1160,7 +1160,7 @@ function PhotoSlideImage({
             onSingleTap()
           }
           singleTapTimerRef.current = null
-        }, 280)
+        }, 175)
       }
     }
   }
@@ -2145,8 +2145,8 @@ export function PhotoViewer({
       {/* Top Right Actions Toolbar */}
       <div
         className={cn(
-          "absolute top-2 md:top-3 z-40 flex items-center gap-1.5 max-w-[calc(100vw-3.75rem)] overflow-x-auto no-scrollbar transition-[right] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]",
-          isSidebarOpen ? "right-2 md:right-[352px]" : "right-2 md:right-4",
+          "absolute top-[max(0.75rem,env(safe-area-inset-top))] md:top-3 z-40 flex items-center gap-1.5 max-w-[calc(100vw-4.5rem)] overflow-x-auto no-scrollbar transition-[right] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]",
+          isSidebarOpen ? "right-[max(0.75rem,env(safe-area-inset-right))] md:right-[352px]" : "right-[max(0.75rem,env(safe-area-inset-right))] md:right-4",
           getActionVisibleClass(actionsVisible)
         )}
       >
@@ -2252,7 +2252,7 @@ export function PhotoViewer({
       {showGestureHint && !infoOpen && !isCinematicMode && (
         <div
           className={cn(
-            "fixed bottom-36 sm:bottom-40 inset-x-0 z-50 flex justify-center px-4 pointer-events-none select-none md:hidden transition-all duration-500 ease-out",
+            "fixed bottom-[calc(8.5rem+env(safe-area-inset-bottom,0px))] sm:bottom-40 inset-x-0 z-50 flex justify-center px-4 pointer-events-none select-none md:hidden transition-all duration-500 ease-out",
             hintFading
               ? "opacity-0 translate-y-2 scale-95"
               : "opacity-100 translate-y-0 scale-100 animate-in fade-in zoom-in-95 duration-300"

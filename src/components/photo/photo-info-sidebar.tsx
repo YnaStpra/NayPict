@@ -466,7 +466,7 @@ export function PhotoInfoSidebar({
       {photo && (
         <div className="relative z-10 flex flex-col flex-1 h-full min-h-0">
           {/* Top Header with title and close button */}
-          <div className="flex items-center justify-between px-4 pt-3 pb-2 shrink-0 border-b border-white/10 select-none md:select-auto">
+          <div className="flex items-center justify-between px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-2 md:pt-3 shrink-0 border-b border-white/10 select-none md:select-auto">
             <h2 className="text-sm font-bold text-white truncate pr-2" title={photo.name}>
               {formatPhotoName(photo.name)}
             </h2>
@@ -539,7 +539,7 @@ export function PhotoInfoSidebar({
                 transition={{ duration: 0.18, ease: "easeOut" }}
                 ref={infoScrollRef}
                 data-lenis-prevent
-                className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-4 py-3 pb-32 space-y-4 overscroll-contain pointer-events-auto touch-pan-y"
+                className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-4 py-3 pb-[max(8rem,calc(env(safe-area-inset-bottom,0px)+6rem))] space-y-4 overscroll-contain pointer-events-auto touch-pan-y"
                 style={{ touchAction: "pan-y" }}
               >
               {/* Admin Actions: Add to Album, Photo Insights, Edit Meta/Location & Display Scope */}
