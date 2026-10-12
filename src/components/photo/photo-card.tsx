@@ -95,7 +95,6 @@ function prefetchPhotoHighRes(previewUrl?: string | null) {
 
   const run = () => {
     const img = new Image()
-    img.crossOrigin = "anonymous"
     img.decoding = "async"
     if ("fetchPriority" in img) {
       ;(img as any).fetchPriority = "high"

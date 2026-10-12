@@ -269,7 +269,6 @@ function loadPreviewImage(
   }
 
   const img = new Image()
-  img.crossOrigin = "anonymous"
   img.decoding = "async"
   if ("fetchPriority" in img) {
     ;(img as any).fetchPriority = "high"
@@ -1015,7 +1014,6 @@ function PhotoSlideImage({
       setIsOnline(true)
       if (!loaded && currentSrc) {
         const img = new Image()
-        img.crossOrigin = "anonymous"
         img.src = currentSrc
       }
     }
@@ -1272,7 +1270,6 @@ function PhotoSlideImage({
           src={slide.thumbnail}
           alt=""
           aria-hidden
-          crossOrigin="anonymous"
           decoding="async"
           className="absolute select-none max-w-none object-contain pointer-events-none transition-opacity duration-300"
           style={{
@@ -1305,7 +1302,6 @@ function PhotoSlideImage({
         src={currentSrc}
         alt={slide.alt}
         draggable={false}
-        crossOrigin="anonymous"
         fetchPriority={isActive ? "high" : "low"}
         decoding="async"
         className="select-none max-w-none object-contain transition-opacity duration-200"
@@ -1316,8 +1312,8 @@ function PhotoSlideImage({
           }
         }}
         onError={() => {
-          if (currentSrc && !currentSrc.startsWith("/media/")) {
-            setCurrentSrc(toProxyMediaUrl(currentSrc))
+          if (currentSrc && !currentSrc.includes("/media/")) {
+            setCurrentSrc(toProxyMediaUrl(currentSrc, true))
           } else if (slide.thumbnail && currentSrc !== slide.thumbnail) {
             setCurrentSrc(slide.thumbnail)
           }
@@ -1581,7 +1577,6 @@ export function PhotoViewer({
           const url = p.preview || p.thumbnail
           if (url && !loadedThumbnails.has(url)) {
             const img = new Image()
-            img.crossOrigin = "anonymous"
             img.decoding = "async"
             if ("fetchPriority" in img) {
               ;(img as any).fetchPriority = "high"

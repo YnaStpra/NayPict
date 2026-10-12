@@ -79,8 +79,8 @@ function setPhotoIdInUrl(photoId?: string | null) {
 }
 
 // Safely extract media key and convert any URL (CDN or relative) into optimized file URL.
-// Videos and derivatives always route to Cloudflare Worker Media Gateway to preserve Vercel bandwidth and execution time.
-function toProxyMediaUrl(urlOrKey?: string | null): string {
+// When forceDirect is true, bypasses external gateway domains and forces the origin /media server route.
+function toProxyMediaUrl(urlOrKey?: string | null, forceDirect = false): string {
   if (!urlOrKey || !urlOrKey.trim()) {
     return '';
   }
@@ -98,6 +98,10 @@ function toProxyMediaUrl(urlOrKey?: string | null): string {
   cleanKey = cleanKey.replace(/^\/+media\/+/, '').replace(/^\/+/, '');
   cleanKey = safeDecodeKey(cleanKey);
   const encodedKey = cleanKey.split('/').map((segment) => encodeURIComponent(segment)).join('/');
+
+  if (forceDirect) {
+    return `/media/${encodedKey}?direct=1`;
+  }
 
   const isDerivative = cleanKey.startsWith('previews/') || cleanKey.startsWith('thumbnails/');
   const isVideo = Boolean(cleanKey.match(/\.(mp4|webm|mov|m4v|mkv)$/i));

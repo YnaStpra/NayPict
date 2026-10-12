@@ -55,19 +55,15 @@ function isRefererAllowed(referer, allowedOrigin) {
 }
 
 
-// Build the CORS and defensive response headers dynamically reflecting approved request origin.
+// Build the CORS and defensive response headers for public media derivatives.
 function buildBaseHeaders(allowedOrigin, requestOrigin) {
-  const originHeader = (requestOrigin && isOriginAllowed(requestOrigin, allowedOrigin))
-    ? requestOrigin
-    : (allowedOrigin || "*")
-
   return new Headers({
-    "Access-Control-Allow-Origin": originHeader,
+    "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Methods": ALLOW_METHODS,
     "Access-Control-Allow-Headers": ALLOW_HEADERS,
     "Access-Control-Expose-Headers": EXPOSE_HEADERS,
     "Cross-Origin-Resource-Policy": "cross-origin",
-    "Vary": "Origin, Accept",
+    "Vary": "Accept",
     "X-Content-Type-Options": "nosniff",
   })
 }

@@ -131,10 +131,11 @@ media.get('*', async (c: Context, next: Next) => {
   // Derivatives and public gallery videos are safe to cache on global CDN edge
   const isCacheable = !isOriginal || isVideo;
 
-  // Offload all public derivatives (previews, thumbnails) and all videos directly to Cloudflare Worker Media Gateway if configured.
+  // Offload public derivatives and videos to Cloudflare Worker Media Gateway if configured, unless direct streaming is requested.
   // Returning an instant 307 redirect reduces Vercel serverless execution to ~5ms and consumes 0 bytes of Fast Origin Transfer.
+  const isDirectRequested = c.req.query('direct') === '1' || c.req.header('x-direct-media') === '1';
   const gatewayBase = (process.env.NEXT_PUBLIC_MEDIA_GATEWAY_URL || process.env.R2_MEDIA_GATEWAY_URL || '').replace(/\/+$/, '');
-  if (isCacheable && gatewayBase) {
+  if (isCacheable && gatewayBase && !isDirectRequested) {
     const encodedKey = photoFile.key.split('/').map((segment: string) => encodeURIComponent(segment)).join('/');
     return c.redirect(`${gatewayBase}/${encodedKey}`, 307);
   }
