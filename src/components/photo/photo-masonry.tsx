@@ -637,7 +637,6 @@ const PhotoMasonry = memo(function PhotoMasonry({
     const warmUrl = (url?: string | null) => {
       if (!url || loadedThumbnails.has(url)) return
       const img = new Image()
-      img.crossOrigin = "anonymous"
       img.decoding = "async"
       img.onload = () => {
         loadedThumbnails.add(url)
