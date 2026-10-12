@@ -31,6 +31,7 @@ interface PhotoAddResultVo {
 interface PhotoExistsVo {
   duplicate: boolean;
   photoId?: string | null;
+  photo?: PhotoVo | null;
 }
 
 interface PhotoDuplicateGroupVo {

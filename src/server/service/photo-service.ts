@@ -1089,6 +1089,12 @@ const photoService = {
       baseConditions.push(eq(photoTab.userId, userId));
     }
 
+    // Helper to return duplicate result with existing photo VO
+    const returnDuplicate = async (dupId: string): Promise<PhotoExistsVo> => {
+      const existingPhoto = await this.getById(dupId, userId);
+      return { duplicate: true, photoId: dupId, photo: existingPhoto };
+    };
+
     // 1. Exact Binary Checksum Match (100% Guaranteed Exact File)
     if (checksum) {
       const [duplicatePhoto] = await readOrm
@@ -1098,7 +1104,7 @@ const photoService = {
         .limit(1);
 
       if (duplicatePhoto) {
-        return { duplicate: true, photoId: duplicatePhoto.photoId };
+        return returnDuplicate(duplicatePhoto.photoId);
       }
     }
 
@@ -1120,13 +1126,13 @@ const photoService = {
         for (const cand of candidates) {
           if (!cand.thumbHash) continue;
           if (cand.thumbHash === incomingThumbHash) {
-            return { duplicate: true, photoId: cand.photoId };
+            return returnDuplicate(cand.photoId);
           }
           const candSig = createVisualSignature(cand.photoId, cand.thumbHash);
           if (candSig) {
             const similarity = calculateVisualSimilarity(incomingSig, candSig);
             if (similarity >= 0.965) {
-              return { duplicate: true, photoId: cand.photoId };
+              return returnDuplicate(cand.photoId);
             }
           }
         }
@@ -1163,7 +1169,7 @@ const photoService = {
         });
 
         if (matched) {
-          return { duplicate: true, photoId: matched.photoId };
+          return returnDuplicate(matched.photoId);
         }
       }
     }
@@ -1184,7 +1190,7 @@ const photoService = {
         .limit(1);
 
       if (exactSizeMatch) {
-        return { duplicate: true, photoId: exactSizeMatch.photoId };
+        return returnDuplicate(exactSizeMatch.photoId);
       }
     }
 

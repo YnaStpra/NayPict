@@ -30,7 +30,7 @@ import {
 import { PhotoUploadSettings, readPhotoUploadSettings } from "@/components/photo/photo-upload-settings"
 import { compressImageFile, generateClientImageDerivatives } from "@/lib/image-compress"
 import { extractClientExif } from "@/lib/photo-client-exif"
-import { generateClientImageThumbHash } from "@/lib/thumb-hash"
+import { generateClientImageThumbHash, getThumbHashUrl } from "@/lib/thumb-hash"
 import { extractVideoMetadata, compressVideoTo720p, formatVideoDuration, type VideoMetadata } from "@/lib/video-compress"
 import { useStorageStore } from "@/store/storage-store"
 import { usePhotoStore } from "@/store/photo-store"
@@ -40,6 +40,7 @@ import {
   photoExists,
   photoGetPresignedPhotoUploadUrls,
   photoGetPresignedUploadUrl,
+  photoList,
   photoMultipartAbort,
   photoMultipartComplete,
   photoMultipartInitiate,
@@ -465,6 +466,33 @@ export function PhotoUploadDialog() {
   // Duplicate Review Modal States
   const [duplicatePairs, setDuplicatePairs] = useState<DuplicateReviewPair[]>([])
   const [showDuplicateModal, setShowDuplicateModal] = useState<boolean>(false)
+
+  // Resilient fallback: ensure existingPhoto details and thumbnails are fetched if not yet populated
+  useEffect(() => {
+    if (!showDuplicateModal || duplicatePairs.length === 0) return
+    const missingIds = duplicatePairs
+      .filter((p) => !p.existingPhoto && p.photoId)
+      .map((p) => p.photoId as string)
+
+    if (missingIds.length === 0) return
+
+    photoList({ size: missingIds.length, photoIds: missingIds } as any)
+      .then((res) => {
+        const list = res?.list || []
+        if (list.length > 0) {
+          const map = new Map(list.map((item) => [item.photoId, item]))
+          setDuplicatePairs((prev) =>
+            prev.map((p) => {
+              if (!p.existingPhoto && p.photoId && map.has(p.photoId)) {
+                return { ...p, existingPhoto: map.get(p.photoId) }
+              }
+              return p
+            })
+          )
+        }
+      })
+      .catch(() => {})
+  }, [showDuplicateModal, duplicatePairs])
 
   const storages = useStorageStore((state) => state.storages)
   const open = usePhotoStore((state) => state.uploadOpen)
@@ -944,11 +972,12 @@ export function PhotoUploadDialog() {
           toast.success("Photo already exists in gallery, automatically linked to album!")
         }
 
-        // Record duplicate pair for end-of-upload review modal
+        // Record duplicate pair for end-of-upload review modal with existing photo details
         detectedDuplicatesRef.current.push({
           id: item.id,
           uploadPreview: item,
-          existingPhoto: null,
+          existingPhoto: existsResult.photo ?? null,
+          uploadedPhoto: null,
           photoId: dupPhotoId ?? null,
         })
 
@@ -1267,14 +1296,14 @@ export function PhotoUploadDialog() {
 
   const handleDeleteNewDuplicatePair = async (pair: DuplicateReviewPair) => {
     try {
-      const pId = pair.photoId || pair.uploadedPhoto?.photoId
+      const pId = pair.uploadedPhoto?.photoId
       if (pId) {
         await photoRecycle({ photoIds: [pId] })
       }
       setDuplicatePairs((prev) => prev.filter((p) => p.id !== pair.id))
-      toast.success("New duplicate item moved to Trash.")
+      toast.success("New duplicate item discarded.")
     } catch {
-      toast.error("Failed to delete duplicate item.")
+      toast.error("Failed to discard duplicate item.")
     }
   }
 
@@ -1287,7 +1316,7 @@ export function PhotoUploadDialog() {
   const handleDeleteAllDuplicates = async () => {
     try {
       const photoIdsToDelete = duplicatePairs
-        .map((p) => p.photoId || p.uploadedPhoto?.photoId)
+        .map((p) => p.uploadedPhoto?.photoId)
         .filter((id): id is string => Boolean(id))
 
       if (photoIdsToDelete.length > 0) {
@@ -1295,7 +1324,7 @@ export function PhotoUploadDialog() {
       }
       setDuplicatePairs([])
       setShowDuplicateModal(false)
-      toast.success(`Successfully deleted ${photoIdsToDelete.length} duplicate item(s)!`)
+      toast.success(`Successfully discarded ${duplicatePairs.length} duplicate item(s)!`)
     } catch {
       toast.error("Failed to delete duplicate items.")
     }
@@ -1732,15 +1761,34 @@ export function PhotoUploadDialog() {
                     {/* Existing Photo in Gallery Card */}
                     <div className="p-3 rounded-xl bg-muted/40 border flex gap-3 items-center">
                       {pair.existingPhoto?.thumbnail || pair.existingPhoto?.preview ? (
+                        pair.existingPhoto?.type?.startsWith("video/") ? (
+                          <div className="relative size-16 rounded-lg overflow-hidden shrink-0 border bg-neutral-900 flex items-center justify-center">
+                            <img
+                              src={pair.existingPhoto.thumbnail || pair.existingPhoto.preview}
+                              alt="Video in Gallery"
+                              className="size-16 object-cover pointer-events-none"
+                            />
+                            <div className="absolute inset-0 flex items-center justify-center bg-black/40">
+                              <Play className="size-3.5 fill-current text-white ml-0.5" />
+                            </div>
+                          </div>
+                        ) : (
+                          <img
+                            src={pair.existingPhoto.thumbnail || pair.existingPhoto.preview}
+                            alt="Photo in Gallery"
+                            className="size-16 object-cover rounded-lg shrink-0 border"
+                          />
+                        )
+                      ) : pair.existingPhoto?.thumbHash ? (
                         <img
-                          src={pair.existingPhoto.thumbnail || pair.existingPhoto.preview}
+                          src={getThumbHashUrl(pair.existingPhoto.thumbHash)}
                           alt="Photo in Gallery"
                           className="size-16 object-cover rounded-lg shrink-0 border"
-                          crossOrigin="anonymous"
                         />
                       ) : (
-                        <div className="size-16 rounded-lg bg-muted flex items-center justify-center text-[10px] text-muted-foreground shrink-0 border">
-                          Gallery
+                        <div className="size-16 rounded-lg bg-muted flex flex-col items-center justify-center text-[10px] text-muted-foreground shrink-0 border gap-1">
+                          <Loader2 className="size-3.5 animate-spin text-muted-foreground/60" />
+                          <span>Loading...</span>
                         </div>
                       )}
                       <div className="min-w-0 text-xs space-y-1">
@@ -1749,7 +1797,7 @@ export function PhotoUploadDialog() {
                         </div>
                         <div className="font-semibold truncate text-foreground">{pair.existingPhoto?.name || pair.uploadPreview.file.name}</div>
                         <div className="text-muted-foreground">
-                          {pair.existingPhoto ? `${pair.existingPhoto.width} × ${pair.existingPhoto.height} • ${formatPhotoSize(pair.existingPhoto.size)}` : 'Already saved in gallery'}
+                          {pair.existingPhoto ? `${pair.existingPhoto.width ?? 0} × ${pair.existingPhoto.height ?? 0} • ${formatPhotoSize(pair.existingPhoto.size)}` : 'Already saved in gallery'}
                         </div>
                       </div>
                     </div>
