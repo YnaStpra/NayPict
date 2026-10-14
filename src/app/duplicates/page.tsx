@@ -120,7 +120,7 @@ export default function DuplicatesPage() {
       }
       return next
     })
-    toast.info('Grup duplikat disimpan & diabaikan. Tidak akan muncul lagi.')
+    toast.info('Duplicate group kept and ignored. It will no longer appear.')
   }, [])
 
   // Restore all ignored groups
@@ -129,7 +129,7 @@ export default function DuplicatesPage() {
       localStorage.removeItem(STORAGE_KEY)
     } catch {}
     setIgnoredGroupIds(new Set())
-    toast.success('Semua grup duplikat yang diabaikan telah dipulihkan.')
+    toast.success('All ignored duplicate groups have been restored.')
   }, [])
 
   // 1-Click Clean All Duplicates across all groups

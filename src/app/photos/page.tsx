@@ -518,7 +518,7 @@ export default function Page() {
                 </TooltipProvider>
               )}
 
-              {/* Sort By Dropdown Menu (Icon-only with panah bawah dan atas) */}
+              {/* Sort By Dropdown Menu (Icon-only with sort direction indicator) */}
               <DropdownMenu modal={false}>
                 <TooltipProvider>
                   <Tooltip>
