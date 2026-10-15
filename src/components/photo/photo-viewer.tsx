@@ -65,6 +65,7 @@ const PhotoBatchEditDialog = dynamic(
 import { cn } from "@/lib/utils"
 import { InstagramIcon } from "@/components/icons/instagram"
 import { useTapAction } from "@/hooks/use-tap-action"
+import { useIsMobile } from "@/hooks/use-mobile"
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { getThumbHashUrl } from "@/lib/thumb-hash"
@@ -988,10 +989,13 @@ function PhotoSlideImage({
   const [isSlowLoading, setIsSlowLoading] = useState(false)
   const slowTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
+  const isMobile = useIsMobile()
+
   // Zoom & Pan state
   const [scale, setScale] = useState(1)
   const [position, setPosition] = useState({ x: 0, y: 0 })
   const lastTapTimeRef = useRef<number>(0)
+  const lastTapPosRef = useRef({ x: 0, y: 0 })
   const singleTapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const isDraggingRef = useRef(false)
   const dragStartRef = useRef({ x: 0, y: 0, posX: 0, posY: 0 })
@@ -1121,35 +1125,48 @@ function PhotoSlideImage({
     if (dx < 8 && dy < 8) {
       const now = Date.now()
       const timeSinceLast = now - lastTapTimeRef.current
+      const distFromLastTap = Math.hypot(
+        e.clientX - lastTapPosRef.current.x,
+        e.clientY - lastTapPosRef.current.y
+      )
 
-      if (timeSinceLast < 240) {
-        // Double tap!
+      const isTouchOrMobile = e.pointerType === "touch" || isMobile
+
+      if (timeSinceLast < 260 && distFromLastTap < 48) {
+        // Double tap detected!
         if (singleTapTimerRef.current) {
           clearTimeout(singleTapTimerRef.current)
           singleTapTimerRef.current = null
         }
         lastTapTimeRef.current = 0
+        lastTapPosRef.current = { x: 0, y: 0 }
 
-        if (scale > 1) {
-          // Zoom out back to 1x
-          setScale(1)
-          setPosition({ x: 0, y: 0 })
-          onZoomChange(false)
-        } else {
-          // Zoom in to 2.5x centered on tap point
+        if (isTouchOrMobile) {
+          // Mobile: double tap ONLY triggers reaction heart burst (like Instagram), NO zoom!
+          // Zooming is exclusively controlled via multi-touch pinch gesture.
           onDoubleTapHeart({ x: e.clientX, y: e.clientY })
-          setScale(2.5)
-
-          const rect = containerRef.current?.getBoundingClientRect()
-          if (rect) {
-            const offsetX = (rect.width / 2 - (e.clientX - rect.left)) * 1.5
-            const offsetY = (rect.height / 2 - (e.clientY - rect.top)) * 1.5
-            setPosition({ x: offsetX, y: offsetY })
+        } else {
+          // Desktop mouse: double click toggles zoom
+          if (scale > 1) {
+            // Zoom out back to 1x
+            setScale(1)
+            setPosition({ x: 0, y: 0 })
+            onZoomChange(false)
+          } else {
+            // Zoom in to 2.5x centered on click point
+            setScale(2.5)
+            const rect = containerRef.current?.getBoundingClientRect()
+            if (rect) {
+              const offsetX = (rect.width / 2 - (e.clientX - rect.left)) * 1.5
+              const offsetY = (rect.height / 2 - (e.clientY - rect.top)) * 1.5
+              setPosition({ x: offsetX, y: offsetY })
+            }
+            onZoomChange(true)
           }
-          onZoomChange(true)
         }
       } else {
         lastTapTimeRef.current = now
+        lastTapPosRef.current = { x: e.clientX, y: e.clientY }
         if (singleTapTimerRef.current) {
           clearTimeout(singleTapTimerRef.current)
         }
@@ -1166,6 +1183,12 @@ function PhotoSlideImage({
   // Multi-touch Pinch to Zoom on mobile
   const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
     if (e.touches.length === 2) {
+      isDraggingRef.current = false
+      if (singleTapTimerRef.current) {
+        clearTimeout(singleTapTimerRef.current)
+        singleTapTimerRef.current = null
+      }
+      lastTapTimeRef.current = 0
       const dist = Math.hypot(
         e.touches[0].clientX - e.touches[1].clientX,
         e.touches[0].clientY - e.touches[1].clientY
