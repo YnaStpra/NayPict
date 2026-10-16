@@ -32,7 +32,25 @@ import { formatHttpUrl } from '@/lib/url';
 const s3ClientCache = new Map<string, S3Client>();
 const corsConfiguredBuckets = new Set<string>();
 
-// Ensure bucket has open CORS headers for direct browser PUT uploads
+// Resolve approved origins for direct-to-bucket browser uploads
+function getBucketAllowedOrigins(): string[] {
+  const origins = new Set<string>();
+  if (process.env.APP_URL) {
+    try { origins.add(new URL(process.env.APP_URL).origin); } catch {}
+  }
+  if (process.env.NEXT_PUBLIC_APP_URL) {
+    try { origins.add(new URL(process.env.NEXT_PUBLIC_APP_URL).origin); } catch {}
+  }
+  origins.add('https://naypict.my.id');
+  origins.add('https://www.naypict.my.id');
+  if (process.env.NODE_ENV !== 'production') {
+    origins.add('http://localhost:3000');
+    origins.add('http://127.0.0.1:3000');
+  }
+  return origins.size > 0 ? Array.from(origins) : ['*'];
+}
+
+// Ensure bucket has scoped CORS headers for direct browser PUT uploads
 async function ensureBucketCors(client: S3Client, bucket: string): Promise<void> {
   if (corsConfiguredBuckets.has(bucket)) return;
   corsConfiguredBuckets.add(bucket);
@@ -46,8 +64,8 @@ async function ensureBucketCors(client: S3Client, bucket: string): Promise<void>
           CORSRules: [
             {
               AllowedHeaders: ['*'],
-              AllowedMethods: ['GET', 'HEAD', 'PUT', 'POST', 'DELETE'],
-              AllowedOrigins: ['*'],
+              AllowedMethods: ['GET', 'HEAD', 'PUT'],
+              AllowedOrigins: getBucketAllowedOrigins(),
               ExposeHeaders: ['ETag', 'Content-Range', 'Accept-Ranges', 'x-amz-request-id'],
               MaxAgeSeconds: 3600,
             },

@@ -340,10 +340,10 @@ export function registerPhotoApi(app: Hono<HonoEnv>) {
       }
     }
 
-    // Protect photographer location privacy: Strip GPS coordinates from public image downloads (under 4.5MB serverless limit)
+    // Protect photographer location privacy: Strip GPS coordinates from all public image downloads
     if (!userId && photo.type?.startsWith('image/')) {
       const photoData = await photoService.getOriginalPhotoBuffer(photoId);
-      if (photoData && photoData.buffer.length < 4.5 * 1024 * 1024) {
+      if (photoData) {
         try {
           const metadata = await sharp(photoData.buffer, SHARP_SECURITY_OPTIONS).metadata();
           const sanitized = await sharp(photoData.buffer, SHARP_SECURITY_OPTIONS)
@@ -353,7 +353,9 @@ export function registerPhotoApi(app: Hono<HonoEnv>) {
           c.header('Content-Disposition', `attachment; filename="${encodeURIComponent(photoData.fileName)}"`);
           c.header('Content-Length', String(sanitized.length));
           return c.body(new Uint8Array(sanitized));
-        } catch {}
+        } catch (err) {
+          console.error('[SECURITY] Failed to strip GPS from public image download:', err);
+        }
       }
     }
 
@@ -399,7 +401,9 @@ export function registerPhotoApi(app: Hono<HonoEnv>) {
       });
     }
 
-    return c.json(result.ok({ url: photo.key }));
+    // Public/unauthenticated guests download via the GPS-sanitizing API endpoint; authenticated users can access the original key directly.
+    const downloadUrl = userId ? photo.key : `/api/photo/download/${photoId}`;
+    return c.json(result.ok({ url: downloadUrl }));
   });
 
   // Batch update photo download protection status (Admin only).

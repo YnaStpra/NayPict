@@ -19,7 +19,11 @@ interface TotpUserData {
 
 // Retrieve master encryption key for 2FA secrets at rest.
 function getEncryptionKey(): string {
-  return process.env.TOTP_ENCRYPTION_KEY?.trim() || process.env.JWT_SECRET?.trim() || 'naypict-totp-default-encryption-key-2026';
+  const key = process.env.TOTP_ENCRYPTION_KEY?.trim() || process.env.JWT_SECRET?.trim();
+  if (!key) {
+    throw new Error('FATAL: [SECURITY] TOTP_ENCRYPTION_KEY or JWT_SECRET must be configured in environment to securely encrypt 2FA secrets.');
+  }
+  return key;
 }
 
 const totpService = {

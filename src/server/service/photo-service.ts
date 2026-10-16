@@ -1635,6 +1635,36 @@ const photoService = {
       exifJson,
     } = params;
 
+    // Security: Validate storage key format, prevent path traversal, and ensure key belongs to current user
+    const userOriginalPrefix = `originals/${userId}/`;
+    const legacyUserPrefix = `${userId}/`;
+    if (
+      !key ||
+      key.includes('..') ||
+      key.includes('\0') ||
+      (!key.startsWith(userOriginalPrefix) && !key.startsWith(legacyUserPrefix))
+    ) {
+      throw new BizError('photo.invalidStorageKey', 400);
+    }
+
+    if (
+      !previewKey ||
+      previewKey.includes('..') ||
+      previewKey.includes('\0') ||
+      !previewKey.startsWith('previews/')
+    ) {
+      throw new BizError('photo.invalidStorageKey', 400);
+    }
+
+    if (
+      !thumbnailKey ||
+      thumbnailKey.includes('..') ||
+      thumbnailKey.includes('\0') ||
+      !thumbnailKey.startsWith('thumbnails/')
+    ) {
+      throw new BizError('photo.invalidStorageKey', 400);
+    }
+
     // Security: Enforce maximum file size limit (max 500MB)
     if (size && size > 500 * 1024 * 1024) {
       throw new BizError('photo.fileTooLarge');
@@ -1663,6 +1693,17 @@ const photoService = {
 
     if (!photoStorage) {
       throw new BizError('storage.notFound');
+    }
+
+    // Security: Verify object exists in storage to prevent phantom entries
+    try {
+      const headCheck = await storage.head(key, photoStorage.storageId);
+      if (!headCheck.exists) {
+        throw new BizError('photo.uploadFailed', 400);
+      }
+    } catch (headErr) {
+      if (headErr instanceof BizError) throw headErr;
+      console.warn('[STORAGE] Head check warning during addDirect:', headErr);
     }
 
     // Deduplication check: verify photo does not already exist in gallery

@@ -37,7 +37,7 @@ function resolveAllowedOrigin(origin: string): string | null {
   if (list.includes(origin)) return origin;
   try {
     const host = new URL(origin).hostname.toLowerCase();
-    if (host === 'naypict.my.id' || host.endsWith('.naypict.my.id') || host.endsWith('.vercel.app') || host === 'localhost' || host === '127.0.0.1') {
+    if (host === 'naypict.my.id' || host.endsWith('.naypict.my.id') || host === 'localhost' || host === '127.0.0.1') {
       return origin;
     }
   } catch {}
