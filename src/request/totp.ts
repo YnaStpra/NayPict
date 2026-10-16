@@ -1,5 +1,5 @@
 import { http } from "@/request/request";
-import { type TotpSetupBo } from "@/server/entity/bo/totp";
+import { type TotpDisableBo, type TotpSetupBo } from "@/server/entity/bo/totp";
 import { type TotpSetupVo, type TotpStatusVo } from "@/server/entity/vo/totp";
 
 // This module encapsulates TOTP / Google Authenticator interface requests.
@@ -19,7 +19,8 @@ export function enableTotp(params: TotpSetupBo) {
   return http.post<void>('/totp/enable', params);
 }
 
-// Disable 2FA
-export function disableTotp() {
-  return http.post<void>('/totp/disable');
+// Disable 2FA with re-authentication
+export function disableTotp(params: TotpDisableBo) {
+  return http.post<void>('/totp/disable', params);
 }
+

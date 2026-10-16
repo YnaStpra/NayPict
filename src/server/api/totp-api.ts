@@ -3,7 +3,7 @@ import result from '@/server/model/result';
 import { getUserId } from "@/server/security/context";
 import { totpService } from "@/server/service/totp-service";
 import { userService } from "@/server/service/user-service";
-import { type TotpSetupBo } from "@/server/entity/bo/totp";
+import { type TotpDisableBo, type TotpSetupBo } from "@/server/entity/bo/totp";
 import type { HonoEnv } from '../hono/type';
 
 // This module registers Google Authenticator (TOTP 2FA) interfaces.
@@ -43,14 +43,16 @@ export function registerTotpApi(app: Hono<HonoEnv>) {
     return c.json(result.ok());
   });
 
-  // Disable 2FA Google Authenticator
+  // Disable 2FA Google Authenticator with re-authentication
   app.post('/totp/disable', async (c: Context) => {
     const userId = getUserId();
     if (!userId) {
       return c.json(result.fail('login.unauthorized'), 401);
     }
 
-    await totpService.disableTotp(userId);
+    const body = await c.req.json<TotpDisableBo>().catch(() => ({} as TotpDisableBo));
+    await totpService.disableTotp(userId, body);
     return c.json(result.ok());
   });
 }
+

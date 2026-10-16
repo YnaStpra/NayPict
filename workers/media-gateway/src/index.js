@@ -29,7 +29,6 @@ function isOriginAllowed(origin, allowedOrigin) {
     const parsed = new URL(origin)
     const host = parsed.hostname
     if (host === "naypict.my.id" || host.endsWith(".naypict.my.id")) return true
-    if (host.endsWith(".vercel.app")) return true
     if (host === "localhost" || host === "127.0.0.1") return true
   } catch {}
   return false
@@ -48,7 +47,6 @@ function isRefererAllowed(referer, allowedOrigin) {
       } catch {}
     }
     if (host === "naypict.my.id" || host.endsWith(".naypict.my.id")) return true
-    if (host.endsWith(".vercel.app")) return true
     if (host === "localhost" || host === "127.0.0.1") return true
   } catch {}
   return false

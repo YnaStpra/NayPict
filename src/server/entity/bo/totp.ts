@@ -17,4 +17,9 @@ interface TotpToggleBo {
   enabled: boolean;
 }
 
-export type { TotpSetupBo, TotpVerifyBo, TotpToggleBo };
+interface TotpDisableBo {
+  password?: string;
+  code?: string;
+}
+
+export type { TotpSetupBo, TotpVerifyBo, TotpToggleBo, TotpDisableBo };

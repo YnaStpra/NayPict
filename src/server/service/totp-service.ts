@@ -5,9 +5,10 @@ import { orm } from '@/server/infra/db';
 import BizError from '@/server/error/biz-error';
 import { generateOtpAuthUrl, generateTotpSecret, getQrCodeImageUrl, verifyTotpCode } from '@/server/lib/totp';
 import { type TotpSetupVo, type TotpStatusVo } from '@/server/entity/vo/totp';
+import { type TotpDisableBo } from '@/server/entity/bo/totp';
 import { cache } from '@/server/infra/cache';
 import { AUTH_CACHE_KEY } from '@/server/const/cache';
-import { encryptData, decryptData } from '@/server/lib/crypto';
+import { encryptData, decryptData, verifyPasswordDetailed } from '@/server/lib/crypto';
 
 // This module manages TOTP configuration, verification, and related session revocation with AES-256-GCM encryption at rest.
 
@@ -19,7 +20,11 @@ interface TotpUserData {
 
 // Retrieve master encryption key for 2FA secrets at rest.
 function getEncryptionKey(): string {
-  return process.env.TOTP_ENCRYPTION_KEY?.trim() || process.env.JWT_SECRET?.trim() || 'naypict-totp-default-encryption-key-2026';
+  const key = process.env.TOTP_ENCRYPTION_KEY?.trim() || process.env.JWT_SECRET?.trim();
+  if (!key) {
+    throw new Error('FATAL: [SECURITY] TOTP_ENCRYPTION_KEY or JWT_SECRET must be configured in environment to securely encrypt 2FA secrets.');
+  }
+  return key;
 }
 
 const totpService = {
@@ -152,10 +157,51 @@ const totpService = {
     return true;
   },
 
-  // Disable 2FA Google Authenticator for user.
-  async disableTotp(userId: string): Promise<void> {
+  // Disable 2FA Google Authenticator for user with mandatory password or OTP re-authentication.
+  async disableTotp(userId: string, params?: TotpDisableBo): Promise<void> {
     const existingData = await this.getTotpData(userId);
-    if (!existingData) return;
+    if (!existingData || !existingData.enabled) return;
+
+    const [user] = await orm.select().from(userTab).where(eq(userTab.userId, userId)).limit(1);
+    if (!user) {
+      throw new BizError('user.notFound');
+    }
+
+    const password = params?.password?.trim();
+    const code = params?.code?.trim();
+
+    if (!password && !code) {
+      throw new BizError('totp.verificationRequired');
+    }
+
+    let verified = false;
+
+    // Verify account password if provided
+    if (password) {
+      const { valid } = await verifyPasswordDetailed(password, user.salt, user.password);
+      if (!valid) {
+        throw new BizError('totp.invalidPassword');
+      }
+      verified = true;
+    } else if (code) {
+      // Otherwise verify 6-digit authenticator code
+      const replayKey = `totp_used_${userId}_${code}`;
+      if (await cache.get(replayKey)) {
+        throw new BizError('totp.codeAlreadyUsed');
+      }
+
+      const isValid = verifyTotpCode(existingData.secret, code);
+      if (!isValid) {
+        throw new BizError('totp.invalidCode');
+      }
+
+      await cache.set(replayKey, true, { ttl: 90 });
+      verified = true;
+    }
+
+    if (!verified) {
+      throw new BizError('totp.verificationRequired');
+    }
 
     const key = this.getSettingKey(userId);
     const encryptedSecret = await encryptData(existingData.secret, getEncryptionKey());
