@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { ShieldCheck, ShieldAlert, QrCode, Copy, Check, LoaderCircle } from "lucide-react"
+import { ShieldCheck, ShieldAlert, QrCode, Copy, Check, LoaderCircle, KeyRound, Smartphone, AlertTriangle } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -18,6 +18,7 @@ import { disableTotp, enableTotp, getTotpStatus, setupTotp } from "@/request/tot
 import { type TotpSetupVo, type TotpStatusVo } from "@/server/entity/vo/totp"
 import { useModalBackHandler } from "@/hooks/use-modal-back-handler"
 import { humanizeError } from "@/lib/error-formatter"
+import { cn } from "@/lib/utils"
 
 export function TotpSettingsCard() {
   const [status, setStatus] = useState<TotpStatusVo>({ enabled: false, configured: false })
@@ -28,8 +29,16 @@ export function TotpSettingsCard() {
   const [submitting, setSubmitting] = useState(false)
   const [copiedSecret, setCopiedSecret] = useState(false)
 
-  // Intercept Android / mobile back gesture to close modal cleanly
+  // Disable 2FA Re-authentication Modal State
+  const [disableDialogOpen, setDisableDialogOpen] = useState(false)
+  const [disableMethod, setDisableMethod] = useState<"password" | "code">("password")
+  const [disablePassword, setDisablePassword] = useState("")
+  const [disableCode, setDisableCode] = useState("")
+  const [submittingDisable, setSubmittingDisable] = useState(false)
+
+  // Intercept Android / mobile back gesture to close modals cleanly
   useModalBackHandler(dialogOpen, setDialogOpen)
+  useModalBackHandler(disableDialogOpen, setDisableDialogOpen)
 
   // Fetch current 2FA status on mount
   useEffect(() => {
@@ -95,14 +104,34 @@ export function TotpSettingsCard() {
       })
   }
 
-  // Disable 2FA
-  function handleDisable2Fa() {
-    if (!confirm("Are you sure you want to disable Google Authenticator 2FA security?")) return
-    setSubmitting(true)
+  // Open modal to disable 2FA with re-authentication
+  function handleOpenDisable() {
+    setDisablePassword("")
+    setDisableCode("")
+    setDisableMethod("password")
+    setDisableDialogOpen(true)
+  }
 
-    disableTotp()
+  // Submit re-authentication to disable 2FA
+  function handleConfirmDisable() {
+    if (disableMethod === "password" && !disablePassword.trim()) {
+      toast.error("Please enter your account password.")
+      return
+    }
+    if (disableMethod === "code" && disableCode.trim().length !== 6) {
+      toast.error("Please enter a valid 6-digit verification code.")
+      return
+    }
+
+    setSubmittingDisable(true)
+    const payload = disableMethod === "password"
+      ? { password: disablePassword.trim() }
+      : { code: disableCode.trim() }
+
+    disableTotp(payload)
       .then(() => {
         toast.success("Google Authenticator (2FA) successfully disabled.")
+        setDisableDialogOpen(false)
         fetchStatus()
       })
       .catch((err) => {
@@ -111,7 +140,7 @@ export function TotpSettingsCard() {
         }
       })
       .finally(() => {
-        setSubmitting(false)
+        setSubmittingDisable(false)
       })
   }
 
@@ -143,8 +172,8 @@ export function TotpSettingsCard() {
                 type="button"
                 variant="outline"
                 size="sm"
-                onClick={handleDisable2Fa}
-                disabled={submitting}
+                onClick={handleOpenDisable}
+                disabled={submitting || submittingDisable}
               >
                 Disable 2FA
               </Button>
@@ -257,6 +286,135 @@ export function TotpSettingsCard() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* 2FA Disable Confirmation Dialog */}
+      <Dialog open={disableDialogOpen} onOpenChange={setDisableDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-lg font-semibold text-destructive">
+              <ShieldAlert className="size-5" />
+              Disable Two-Factor Authentication
+            </DialogTitle>
+            <DialogDescription>
+              To protect your account, please verify your identity before disabling Google Authenticator.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex flex-col gap-4 py-2">
+            {/* Warning Callout */}
+            <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg flex items-start gap-2.5 text-xs text-amber-700 dark:text-amber-400">
+              <AlertTriangle className="size-4 shrink-0 mt-0.5" />
+              <span>
+                Disabling 2FA reduces account security. Any device with your username and password will be able to sign in directly.
+              </span>
+            </div>
+
+            {/* Verification Method Switcher */}
+            <div className="grid grid-cols-2 p-1 bg-muted rounded-lg text-xs font-medium">
+              <button
+                type="button"
+                onClick={() => setDisableMethod("password")}
+                className={cn(
+                  "flex items-center justify-center gap-1.5 py-1.5 rounded-md transition-all",
+                  disableMethod === "password"
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <KeyRound className="size-3.5" />
+                Account Password
+              </button>
+              <button
+                type="button"
+                onClick={() => setDisableMethod("code")}
+                className={cn(
+                  "flex items-center justify-center gap-1.5 py-1.5 rounded-md transition-all",
+                  disableMethod === "code"
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <Smartphone className="size-3.5" />
+                Authenticator Code
+              </button>
+            </div>
+
+            {/* Password Verification Field */}
+            {disableMethod === "password" ? (
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-semibold text-foreground">
+                  Current Account Password
+                </label>
+                <Input
+                  type="password"
+                  placeholder="Enter your current password"
+                  value={disablePassword}
+                  onChange={(e) => setDisablePassword(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && disablePassword.trim()) {
+                      handleConfirmDisable()
+                    }
+                  }}
+                  autoFocus
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  Enter your administrator password to confirm your identity.
+                </p>
+              </div>
+            ) : (
+              /* OTP Code Verification Field */
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-semibold text-foreground text-center">
+                  6-Digit Authenticator Code
+                </label>
+                <Input
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  maxLength={6}
+                  placeholder="000000"
+                  value={disableCode}
+                  onChange={(e) => setDisableCode(e.target.value.replace(/\D/g, ""))}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && disableCode.trim().length === 6) {
+                      handleConfirmDisable()
+                    }
+                  }}
+                  className="text-center tracking-[0.5em] text-lg font-mono"
+                  autoFocus
+                />
+                <p className="text-[11px] text-muted-foreground text-center">
+                  Enter the live 6-digit code from your Google Authenticator app.
+                </p>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setDisableDialogOpen(false)}
+              disabled={submittingDisable}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={handleConfirmDisable}
+              disabled={
+                submittingDisable ||
+                (disableMethod === "password" ? !disablePassword.trim() : disableCode.length !== 6)
+              }
+            >
+              {submittingDisable && <LoaderCircle className="size-4 animate-spin mr-2" />}
+              Disable 2FA
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   )
 }
+

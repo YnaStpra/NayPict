@@ -44,6 +44,8 @@
   "totp.codeAlreadyUsed": "This 2FA code has already been used.",
   "totp.sessionExpired": "2FA verification session has expired.",
   "totp.codeRequired": "2FA verification code is required.",
+  "totp.verificationRequired": "Account password or a valid 6-digit 2FA code is required to disable two-factor authentication.",
+  "totp.invalidPassword": "Incorrect account password.",
   "login.tooManyAttempts": "Too many login attempts. Please try again later.",
   "login.unauthorized": "Unauthorized access.",
   "photo.notFound": "Media not found.",
