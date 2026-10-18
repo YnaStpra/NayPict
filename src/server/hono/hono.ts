@@ -6,6 +6,7 @@ import BizError from '../error/biz-error';
 import { security } from '../security/security';
 import { csrfProtection } from '../security/csrf';
 import { apiCors } from '../security/cors';
+import { botBlocker } from '../security/bot-blocker';
 import { i18nMiddleware, t } from '@/server/i18n';
 import type { HonoEnv } from './type';
 
@@ -16,6 +17,7 @@ export function createHonoApp() {
 
   instance.use('*', compress());
   instance.use('*', apiCors);
+  instance.use('*', botBlocker);
   instance.use('*', contextStorage());
   instance.use('*', i18nMiddleware);
   instance.use('*', csrfProtection);
