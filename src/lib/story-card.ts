@@ -39,28 +39,121 @@ function getDisplayUrl(photoUrl: string): string {
 }
 
 /**
- * Load an image from URL into an HTMLImageElement with CORS enabled.
+ * Load an image from URL into an HTMLImageElement with multi-tier CORS and Blob fallbacks
+ * to prevent tainted canvas SecurityError and browser CORS cache collisions.
  */
-function loadImage(src: string): Promise<HTMLImageElement> {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.crossOrigin = "anonymous";
-    img.onload = () => resolve(img);
-    img.onerror = () => {
-      // If direct crossOrigin fails, retry with proxy URL if available
-      const proxySrc = toProxyMediaUrl(src);
-      if (proxySrc !== src) {
-        const fallbackImg = new Image();
-        fallbackImg.crossOrigin = "anonymous";
-        fallbackImg.onload = () => resolve(fallbackImg);
-        fallbackImg.onerror = (e) => reject(e);
-        fallbackImg.src = proxySrc;
-      } else {
-        reject(new Error(`Failed to load image: ${src}`));
+async function loadImage(src: string): Promise<HTMLImageElement> {
+  if (!src || !src.trim()) {
+    throw new Error("Empty image source URL");
+  }
+
+  const cleanSrc = src.trim();
+
+  // Helper: Load an HTMLImageElement from a URL
+  const loadImgElement = (url: string, crossOrigin = true): Promise<HTMLImageElement> => {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      if (crossOrigin) {
+        img.crossOrigin = "anonymous";
       }
-    };
-    img.src = src;
-  });
+      img.onload = () => resolve(img);
+      img.onerror = (e) => reject(e);
+      img.src = url;
+    });
+  };
+
+  // Data URLs and local Blob URLs don't need CORS headers or network fetching
+  if (cleanSrc.startsWith("data:") || cleanSrc.startsWith("blob:")) {
+    return loadImgElement(cleanSrc, false);
+  }
+
+  // Tier 1: Fetch as Blob with CORS. Converting to a local Object URL completely eliminates
+  // tainted canvas SecurityError and browser disk-cache CORS mismatch in Chrome and Safari.
+  try {
+    const fetchUrl = cleanSrc.includes("?")
+      ? `${cleanSrc}&_story_cors=${Date.now()}`
+      : `${cleanSrc}?_story_cors=${Date.now()}`;
+
+    const res = await fetch(fetchUrl, { mode: "cors", credentials: "omit" });
+    if (res.ok) {
+      const blob = await res.blob();
+      if (blob.type.startsWith("image/") || blob.size > 0) {
+        const objectUrl = URL.createObjectURL(blob);
+        try {
+          const img = await loadImgElement(objectUrl, false);
+          // Revoke object URL after rendering window to avoid memory leaks
+          setTimeout(() => URL.revokeObjectURL(objectUrl), 60000);
+          return img;
+        } catch {
+          URL.revokeObjectURL(objectUrl);
+        }
+      }
+    }
+  } catch (err) {
+    console.warn("[StoryCard] Tier 1 CORS blob fetch failed, falling back to direct media proxy:", err);
+  }
+
+  // Tier 2: Same-origin direct server proxy (/media/... ?direct=1) bypasses external CDN CORS entirely
+  const directProxySrc = toProxyMediaUrl(cleanSrc, true);
+  if (directProxySrc && directProxySrc !== cleanSrc) {
+    try {
+      const res = await fetch(directProxySrc);
+      if (res.ok) {
+        const blob = await res.blob();
+        if (blob.type.startsWith("image/") || blob.size > 0) {
+          const objectUrl = URL.createObjectURL(blob);
+          try {
+            const img = await loadImgElement(objectUrl, false);
+            setTimeout(() => URL.revokeObjectURL(objectUrl), 60000);
+            return img;
+          } catch {
+            URL.revokeObjectURL(objectUrl);
+          }
+        }
+      }
+    } catch (err) {
+      console.warn("[StoryCard] Tier 2 direct proxy fetch failed, falling back to cache-busted Image:", err);
+    }
+  }
+
+  // Tier 3: Standard Image element with cache-buster to prevent poisoned no-cors disk cache
+  try {
+    const cacheBusted = cleanSrc.includes("?")
+      ? `${cleanSrc}&_cb=${Date.now()}`
+      : `${cleanSrc}?_cb=${Date.now()}`;
+    return await loadImgElement(cacheBusted, true);
+  } catch (err) {
+    console.warn("[StoryCard] Tier 3 cache-busted Image load failed, falling back to standard Image:", err);
+  }
+
+  // Tier 4: Direct standard Image element
+  return await loadImgElement(cleanSrc, true);
+}
+
+/**
+ * Creates a fallback placeholder image when image fetching fails completely.
+ */
+function createFallbackImage(width = 1080, height = 1080): HTMLImageElement {
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d");
+  if (ctx) {
+    // Elegant dark gradient placeholder
+    const grad = ctx.createLinearGradient(0, 0, width, height);
+    grad.addColorStop(0, "#27272a");
+    grad.addColorStop(1, "#18181b");
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, width, height);
+
+    ctx.fillStyle = "rgba(255, 255, 255, 0.4)";
+    ctx.font = "bold 32px sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText("📷 Photo Preview", width / 2, height / 2);
+  }
+  const img = new Image();
+  img.src = canvas.toDataURL("image/png");
+  return img;
 }
 
 /**
@@ -101,9 +194,34 @@ export async function renderStoryCardToCanvas(
   const ctx = canvas.getContext("2d", { willReadFrequently: true });
   if (!ctx) throw new Error("Could not acquire 2D canvas context");
 
-  // Determine main image source (prefer preview / original)
-  const mainImageSrc = toProxyMediaUrl(photo.preview || photo.key || photo.thumbnail || "");
-  const photoImg = await loadImage(mainImageSrc);
+  // Determine main image source (handle videos vs photos properly)
+  const isVideo = Boolean(
+    photo.type?.startsWith("video/") ||
+    photo.name?.match(/\.(mp4|webm|mov|m4v|mkv)$/i)
+  );
+
+  // For videos, always use poster / videoPreview / thumbnail (never load .mp4 as Image!)
+  const candidateSrc = isVideo
+    ? (photo.videoPreview || photo.preview || photo.thumbnail || "")
+    : (photo.preview || photo.key || photo.thumbnail || "");
+
+  const mainImageSrc = toProxyMediaUrl(candidateSrc);
+
+  let photoImg: HTMLImageElement;
+  try {
+    photoImg = await loadImage(mainImageSrc);
+  } catch (err) {
+    console.warn("[StoryCard] Primary image load failed, attempting thumbnail fallback:", err);
+    if (photo.thumbnail && photo.thumbnail !== candidateSrc) {
+      try {
+        photoImg = await loadImage(toProxyMediaUrl(photo.thumbnail));
+      } catch {
+        photoImg = createFallbackImage(photo.width || 1080, photo.height || 1080);
+      }
+    } else {
+      photoImg = createFallbackImage(photo.width || 1080, photo.height || 1080);
+    }
+  }
 
   // Generate QR Code if enabled
   let qrImg: HTMLImageElement | null = null;
@@ -119,7 +237,8 @@ export async function renderStoryCardToCanvas(
         },
       });
       qrImg = await loadImage(qrDataUrl);
-    } catch {
+    } catch (qrErr) {
+      console.warn("[StoryCard] QR code generation failed:", qrErr);
       qrImg = null;
     }
   }

@@ -156,13 +156,20 @@ export function PhotoStoryDialog({ photo, open, onOpenChange }: PhotoStoryDialog
       // Convert full canvas to high-res Blob
       canvas.toBlob(
         (blob) => {
+          if (!blob) {
+            console.error("[StoryCard] canvas.toBlob returned null");
+            setIsGenerating(false);
+            toast.error("Could not export Story Card. Please try again.");
+            return;
+          }
           setCurrentBlob(blob);
           setIsGenerating(false);
         },
         "image/png",
         1.0
       );
-    } catch {
+    } catch (err) {
+      console.error("[StoryCard] Failed to generate Story Card:", err);
       setIsGenerating(false);
       toast.error("Failed to generate Story Card. Please try again.");
     }
@@ -278,6 +285,21 @@ export function PhotoStoryDialog({ photo, open, onOpenChange }: PhotoStoryDialog
                   <div className="absolute inset-0 z-30 bg-black/70 backdrop-blur-xs flex flex-col items-center justify-center gap-2 text-white text-xs">
                     <Loader2 className="size-6 animate-spin text-pink-500" />
                     <span>Rendering 1080×1920 HD...</span>
+                  </div>
+                )}
+                {!isGenerating && !currentBlob && (
+                  <div className="absolute inset-0 z-20 bg-zinc-950/95 flex flex-col items-center justify-center p-4 text-center gap-2.5 text-zinc-300">
+                    <Sparkles className="size-8 text-pink-500/80 animate-pulse" />
+                    <span className="text-xs text-zinc-400">Story preview ready</span>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => generateStoryCard()}
+                      className="text-xs h-8 border-white/20 bg-white/10 hover:bg-white/20 text-white"
+                    >
+                      Generate Story
+                    </Button>
                   </div>
                 )}
                 <canvas
