@@ -1,10 +1,11 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import {
   Ban,
   Calendar,
   CheckCircle2,
+  Clock,
   Compass,
   Download,
   Eye,
@@ -70,6 +71,125 @@ function formatToDatetimeLocalInput(dateStr?: string | null): string {
   return ""
 }
 
+// Helper: Convert YYYY-MM-DDTHH:mm to human-readable editable string "YYYY-MM-DD HH:mm"
+function isoToDisplayDateTime(iso: string): string {
+  if (!iso) return ""
+  return iso.replace("T", " ")
+}
+
+// Helper: Parse user-typed date/time string with high flexibility (ISO, DMY, MDY, AM/PM)
+function parseFlexibleDateTime(input: string): { iso: string; formatted: string } | null {
+  const trimmed = input.trim()
+  if (!trimmed) return null
+
+  let isPM = false
+  let hasMeridiem = false
+  let cleanInput = trimmed
+
+  if (/\b(pm)\b/i.test(trimmed)) {
+    isPM = true
+    hasMeridiem = true
+    cleanInput = trimmed.replace(/\b(pm)\b/gi, "").trim()
+  } else if (/\b(am)\b/i.test(trimmed)) {
+    hasMeridiem = true
+    cleanInput = trimmed.replace(/\b(am)\b/gi, "").trim()
+  }
+
+  // Remove comma separators and normalize spaces e.g. "07/16/2019, 12:00" -> "07/16/2019 12:00"
+  cleanInput = cleanInput.replace(/,/g, " ").replace(/\s+/g, " ").trim()
+
+  let year: number, month: number, day: number, hour = 12, min = 0
+
+  // Format 1: YYYY[-/.]MM[-/.]DD [T or space] HH:mm(:ss)?
+  const isoMatch = cleanInput.match(/^(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})(?:[T\s](\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?$/)
+  // Format 2: MM[-/.]DD[-/.]YYYY or DD[-/.]MM[-/.]YYYY [T or space] HH:mm(:ss)?
+  const mdyMatch = cleanInput.match(/^(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{4})(?:[T\s](\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?$/)
+
+  if (isoMatch) {
+    year = parseInt(isoMatch[1], 10)
+    month = parseInt(isoMatch[2], 10)
+    day = parseInt(isoMatch[3], 10)
+    if (isoMatch[4] !== undefined && isoMatch[5] !== undefined) {
+      hour = parseInt(isoMatch[4], 10)
+      min = parseInt(isoMatch[5], 10)
+    }
+  } else if (mdyMatch) {
+    const first = parseInt(mdyMatch[1], 10)
+    const second = parseInt(mdyMatch[2], 10)
+    year = parseInt(mdyMatch[3], 10)
+    if (first > 12) {
+      day = first
+      month = second
+    } else if (second > 12) {
+      month = first
+      day = second
+    } else {
+      month = first
+      day = second
+    }
+    if (mdyMatch[4] !== undefined && mdyMatch[5] !== undefined) {
+      hour = parseInt(mdyMatch[4], 10)
+      min = parseInt(mdyMatch[5], 10)
+    }
+  } else {
+    const d = new Date(trimmed)
+    if (!isNaN(d.getTime())) {
+      year = d.getFullYear()
+      month = d.getMonth() + 1
+      day = d.getDate()
+      hour = d.getHours()
+      min = d.getMinutes()
+      hasMeridiem = false
+    } else {
+      return null
+    }
+  }
+
+  if (hasMeridiem) {
+    if (isPM && hour < 12) {
+      hour += 12
+    } else if (!isPM && hour === 12) {
+      hour = 0
+    }
+  }
+
+  if (
+    year < 1900 ||
+    year > 2100 ||
+    month < 1 ||
+    month > 12 ||
+    day < 1 ||
+    day > 31 ||
+    hour < 0 ||
+    hour > 23 ||
+    min < 0 ||
+    min > 59
+  ) {
+    return null
+  }
+
+  const yStr = String(year).padStart(4, "0")
+  const mStr = String(month).padStart(2, "0")
+  const dStr = String(day).padStart(2, "0")
+  const hStr = String(hour).padStart(2, "0")
+  const minStr = String(min).padStart(2, "0")
+
+  const iso = `${yStr}-${mStr}-${dStr}T${hStr}:${minStr}`
+
+  const testDate = new Date(year, month - 1, day, hour, min)
+  const formatted = testDate.toLocaleString("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  })
+
+  return { iso, formatted }
+}
+
 interface PhotoBatchEditDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -103,6 +223,10 @@ export function PhotoBatchEditDialog({
   const [takenTimeValue, setTakenTimeValue] = useState<string>(() =>
     formatToDatetimeLocalInput(initialTakenTime)
   )
+  const [dateTextInput, setDateTextInput] = useState<string>(() =>
+    isoToDisplayDateTime(formatToDatetimeLocalInput(initialTakenTime))
+  )
+  const nativePickerRef = useRef<HTMLInputElement | null>(null)
 
   // File name state values
   const [nameMode, setNameMode] = useState<string>("unchanged")
@@ -130,9 +254,13 @@ export function PhotoBatchEditDialog({
       setReplaceText("")
 
       if (initialTakenTime && photoIds.length === 1) {
-        setTakenTimeValue(formatToDatetimeLocalInput(initialTakenTime))
+        const dt = formatToDatetimeLocalInput(initialTakenTime)
+        setTakenTimeValue(dt)
+        setDateTextInput(isoToDisplayDateTime(dt))
       } else {
-        setTakenTimeValue(formatToDatetimeLocalInput(null))
+        const dt = formatToDatetimeLocalInput(null)
+        setTakenTimeValue(dt)
+        setDateTextInput(isoToDisplayDateTime(dt))
       }
       setTakenTimeMode("unchanged")
 
@@ -240,12 +368,50 @@ export function PhotoBatchEditDialog({
     }
   }
 
+  // Live parsed date from text input
+  const parsedDate = parseFlexibleDateTime(dateTextInput)
+
+  const handleDateTextChange = (val: string) => {
+    setDateTextInput(val)
+    const res = parseFlexibleDateTime(val)
+    if (res) {
+      setTakenTimeValue(res.iso)
+    }
+  }
+
+  const handleNativePickerChange = (val: string) => {
+    if (!val) return
+    setTakenTimeValue(val)
+    setDateTextInput(isoToDisplayDateTime(val))
+  }
+
+  const adjustYear = (delta: number) => {
+    const currentParsed = parseFlexibleDateTime(dateTextInput)
+    let baseDate = new Date()
+    if (currentParsed) {
+      const parts = currentParsed.iso.split("T")
+      const [y, m, d] = parts[0].split("-").map(Number)
+      const [h, min] = parts[1].split(":").map(Number)
+      baseDate = new Date(y, m - 1, d, h, min)
+    }
+    baseDate.setFullYear(baseDate.getFullYear() + delta)
+    const yStr = String(baseDate.getFullYear()).padStart(4, "0")
+    const mStr = String(baseDate.getMonth() + 1).padStart(2, "0")
+    const dStr = String(baseDate.getDate()).padStart(2, "0")
+    const hStr = String(baseDate.getHours()).padStart(2, "0")
+    const minStr = String(baseDate.getMinutes()).padStart(2, "0")
+    const newIso = `${yStr}-${mStr}-${dStr}T${hStr}:${minStr}`
+    setTakenTimeValue(newIso)
+    setDateTextInput(isoToDisplayDateTime(newIso))
+  }
+
   // Reset internal state when dialog closes
   const handleOpenChange = (nextOpen: boolean) => {
     if (!nextOpen) {
       setVisibility("unchanged")
       setAllowDownload("unchanged")
       setTakenTimeMode("unchanged")
+      setDateTextInput("")
       setLocationMode("unchanged")
       setNameMode("unchanged")
       setNameInput("")
@@ -324,8 +490,14 @@ export function PhotoBatchEditDialog({
         payload.takenTime = ""
         clientUpdates.takenTime = null
       } else {
+        const parsed = parseFlexibleDateTime(dateTextInput)
+        if (!parsed && !takenTimeValue) {
+          toast.error("Please enter a valid date and time (e.g. 2019-07-16 12:00)")
+          return
+        }
+        const activeIso = parsed ? parsed.iso : takenTimeValue
         // Preserve exact local wall-clock time string without UTC day-shift rollback
-        const formattedTakenTime = takenTimeValue.length === 16 ? `${takenTimeValue}:00` : takenTimeValue
+        const formattedTakenTime = activeIso.length === 16 ? `${activeIso}:00` : activeIso
         payload.takenTime = formattedTakenTime
         clientUpdates.takenTime = formattedTakenTime
       }
@@ -531,13 +703,88 @@ export function PhotoBatchEditDialog({
             </Select>
 
             {takenTimeMode === "set" && (
-              <div className="pt-1.5 animate-in fade-in-50 duration-200">
-                <Input
-                  type="datetime-local"
-                  value={takenTimeValue}
-                  onChange={(e) => setTakenTimeValue(e.target.value)}
-                  className="w-full text-xs h-9 bg-background"
-                />
+              <div className="pt-1.5 space-y-2 animate-in fade-in-50 duration-200">
+                {/* Direct editable text input that opens mobile on-screen keyboard immediately */}
+                <div className="relative flex items-center">
+                  <Input
+                    type="text"
+                    inputMode="text"
+                    value={dateTextInput}
+                    onChange={(e) => handleDateTextChange(e.target.value)}
+                    placeholder="YYYY-MM-DD HH:mm (e.g. 2019-07-16 12:00)"
+                    className="w-full text-xs h-9 pr-10 bg-background font-mono focus-visible:ring-amber-500/30"
+                  />
+                  {/* Native datetime-local picker invoked via showPicker() on calendar button */}
+                  <input
+                    ref={nativePickerRef}
+                    type="datetime-local"
+                    value={takenTimeValue}
+                    onChange={(e) => handleNativePickerChange(e.target.value)}
+                    tabIndex={-1}
+                    aria-hidden="true"
+                    className="sr-only"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => {
+                      try {
+                        nativePickerRef.current?.showPicker?.()
+                      } catch {
+                        nativePickerRef.current?.focus()
+                      }
+                    }}
+                    className="absolute right-1 top-1 h-7 w-7 text-muted-foreground hover:text-foreground"
+                    title="Open Native Calendar Picker"
+                  >
+                    <Calendar className="size-4" />
+                  </Button>
+                </div>
+
+                {/* Live validation & formatted preview */}
+                <div className="flex items-center justify-between text-[11px] px-1">
+                  {parsedDate ? (
+                    <span className="text-emerald-500 dark:text-emerald-400 flex items-center gap-1 font-medium truncate">
+                      <CheckCircle2 className="size-3 shrink-0" />
+                      <span>{parsedDate.formatted}</span>
+                    </span>
+                  ) : (
+                    <span className="text-amber-500/90 flex items-center gap-1">
+                      <span>⚠️ Format: YYYY-MM-DD HH:mm</span>
+                    </span>
+                  )}
+                </div>
+
+                {/* Quick Presets: Now, -1 Year, +1 Year */}
+                <div className="flex items-center gap-1.5 pt-0.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const nowIso = formatToDatetimeLocalInput(null)
+                      setTakenTimeValue(nowIso)
+                      setDateTextInput(isoToDisplayDateTime(nowIso))
+                    }}
+                    className="text-[10px] font-medium px-2 py-1 rounded bg-muted/60 hover:bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer flex items-center gap-1"
+                  >
+                    <Clock className="size-3" />
+                    <span>Set to Now</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => adjustYear(-1)}
+                    className="text-[10px] font-medium px-2 py-1 rounded bg-muted/60 hover:bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                  >
+                    −1 Year
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => adjustYear(1)}
+                    className="text-[10px] font-medium px-2 py-1 rounded bg-muted/60 hover:bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                  >
+                    +1 Year
+                  </button>
+                </div>
               </div>
             )}
           </div>
