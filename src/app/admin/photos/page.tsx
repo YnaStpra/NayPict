@@ -41,7 +41,6 @@ import {
   Table as TableIcon,
   Tag,
   Trash2,
-  Unlock,
   X,
   Ban,
 } from 'lucide-react'
@@ -247,7 +246,6 @@ export default function AdminPhotosPage() {
   const [searchQuery, setSearchQuery] = useState<string>('')
   const [debouncedQuery, setDebouncedQuery] = useState<string>('')
   const [visibilityFilter, setVisibilityFilter] = useState<string>('all')
-  const [downloadFilter, setDownloadFilter] = useState<string>('all')
   const [locationFilter, setLocationFilter] = useState<string>('all')
   const [sortBy, setSortBy] = useState<'takenTime' | 'createTime' | 'size' | 'name' | 'type'>('takenTime')
   const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc')
@@ -288,7 +286,7 @@ export default function AdminPhotosPage() {
   // Reset to first page whenever search or filter criteria change
   useEffect(() => {
     setCurrentPage(1)
-  }, [debouncedQuery, visibilityFilter, downloadFilter, locationFilter, sortBy, sortOrder])
+  }, [debouncedQuery, visibilityFilter, locationFilter, sortBy, sortOrder])
 
   // Fetch photos from server with allowAllVisibility=true for full admin inventory
   const fetchPhotos = useCallback(async () => {
@@ -301,7 +299,6 @@ export default function AdminPhotosPage() {
         allowAllVisibility: true,
         keyword: debouncedQuery || undefined,
         visibility: visibilityFilter !== 'all' ? Number(visibilityFilter) : undefined,
-        allowDownload: downloadFilter === 'allowed' ? true : downloadFilter === 'protected' ? false : undefined,
         sortBy,
         sortOrder,
       })
@@ -314,7 +311,7 @@ export default function AdminPhotosPage() {
     } finally {
       setLoading(false)
     }
-  }, [isAdmin, debouncedQuery, visibilityFilter, downloadFilter, sortBy, sortOrder])
+  }, [isAdmin, debouncedQuery, visibilityFilter, sortBy, sortOrder])
 
   useEffect(() => {
     setSelectedIds([])
@@ -763,21 +760,6 @@ export default function AdminPhotosPage() {
                 </Select>
               </div>
 
-              {/* Download Filter */}
-              <div className="flex items-center gap-1.5 text-xs">
-                <span className="text-muted-foreground font-medium text-[11px]">Download:</span>
-                <Select value={downloadFilter} onValueChange={setDownloadFilter}>
-                  <SelectTrigger className="h-7 text-xs bg-muted/20 border-border/70 rounded-lg w-auto min-w-[100px]">
-                    <SelectValue placeholder="All" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all" className="text-xs">All</SelectItem>
-                    <SelectItem value="allowed" className="text-xs">✅ Allowed</SelectItem>
-                    <SelectItem value="protected" className="text-xs">🔒 Protected</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
               {/* Location Filter */}
               <div className="flex items-center gap-1.5 text-xs">
                 <span className="text-muted-foreground font-medium text-[11px]">GPS:</span>
@@ -795,13 +777,12 @@ export default function AdminPhotosPage() {
               </div>
 
               {/* Reset filter button if any active */}
-              {(visibilityFilter !== 'all' || downloadFilter !== 'all' || locationFilter !== 'all' || searchQuery) && (
+              {(visibilityFilter !== 'all' || locationFilter !== 'all' || searchQuery) && (
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={() => {
                     setVisibilityFilter('all')
-                    setDownloadFilter('all')
                     setLocationFilter('all')
                     setSearchQuery('')
                   }}
@@ -943,7 +924,6 @@ export default function AdminPhotosPage() {
                       </th>
                       <th className="py-3 px-3 min-w-[220px]">Photo & Name</th>
                       <th className="py-3 px-3">Visibility Scope</th>
-                      <th className="py-3 px-3">Public Download</th>
                       <th className="py-3 px-3">Albums</th>
                       <th className="py-3 px-3">Date Taken</th>
                       <th className="py-3 px-3">GPS Location</th>
@@ -1035,21 +1015,6 @@ export default function AdminPhotosPage() {
                               <Badge variant="outline" className="text-[10px] px-2 py-0.5 rounded-md border-rose-500/30 bg-rose-500/10 text-rose-600 dark:text-rose-400 font-medium">
                                 📦 Archived
                               </Badge>
-                            )}
-                          </td>
-
-                          {/* Download Permission Badge */}
-                          <td className="py-2.5 px-3">
-                            {photo.allowDownload === 1 ? (
-                              <span className="inline-flex items-center gap-1 text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">
-                                <Unlock className="size-3 text-emerald-500" />
-                                <span>Allowed</span>
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
-                                <Lock className="size-3 text-muted-foreground" />
-                                <span>Protected</span>
-                              </span>
                             )}
                           </td>
 
@@ -1146,18 +1111,14 @@ export default function AdminPhotosPage() {
                                 <FolderPlus className="size-3.5" />
                               </Button>
 
-                              {photo.key && (
-                                <a
-                                  href={photo.key}
-                                  download={photo.name}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="inline-flex items-center justify-center size-7 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted"
-                                  title="Download Original"
-                                >
-                                  <Download className="size-3.5" />
-                                </a>
-                              )}
+                              <a
+                                href={`/api/photo/download/${photo.photoId}`}
+                                download={photo.name}
+                                className="inline-flex items-center justify-center size-7 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted cursor-pointer"
+                                title="Download Original Media"
+                              >
+                                <Download className="size-3.5" />
+                              </a>
 
                               <Button
                                 type="button"

@@ -7,7 +7,6 @@ import {
   CheckCircle2,
   Clock,
   Compass,
-  Download,
   Eye,
   FileText,
   LoaderCircle,
@@ -218,7 +217,6 @@ export function PhotoBatchEditDialog({
 
   // Category state values ('unchanged' means keep existing metadata)
   const [visibility, setVisibility] = useState<string>("unchanged")
-  const [allowDownload, setAllowDownload] = useState<string>("unchanged")
   const [takenTimeMode, setTakenTimeMode] = useState<string>("unchanged")
   const [takenTimeValue, setTakenTimeValue] = useState<string>(() =>
     formatToDatetimeLocalInput(initialTakenTime)
@@ -316,7 +314,6 @@ export function PhotoBatchEditDialog({
 
   // Calculate modified count
   const isVisModified = visibility !== "unchanged"
-  const isDlModified = allowDownload !== "unchanged"
   const isDateModified = takenTimeMode !== "unchanged"
   const isLocModified = locationMode !== "unchanged"
   const isNameModified =
@@ -328,7 +325,6 @@ export function PhotoBatchEditDialog({
 
   const modifiedCount = [
     isVisModified,
-    isDlModified,
     isDateModified,
     isLocModified,
     isNameModified,
@@ -409,7 +405,6 @@ export function PhotoBatchEditDialog({
   const handleOpenChange = (nextOpen: boolean) => {
     if (!nextOpen) {
       setVisibility("unchanged")
-      setAllowDownload("unchanged")
       setTakenTimeMode("unchanged")
       setDateTextInput("")
       setLocationMode("unchanged")
@@ -477,12 +472,6 @@ export function PhotoBatchEditDialog({
       const visNum = Number(visibility)
       payload.visibility = visNum
       clientUpdates.visibility = visNum
-    }
-
-    if (isDlModified) {
-      const dlBool = allowDownload === "true"
-      payload.allowDownload = dlBool
-      clientUpdates.allowDownload = dlBool ? 1 : 0
     }
 
     if (isDateModified) {
@@ -641,43 +630,12 @@ export function PhotoBatchEditDialog({
             </Select>
           </div>
 
-          {/* 2. Download Permission */}
-          <div className="rounded-xl border border-border/80 bg-card p-3.5 space-y-2 shadow-2xs">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-sm font-semibold">
-                <Download className="size-4 text-blue-500" />
-                <span>2. Public Download Permission</span>
-              </div>
-              {isDlModified && (
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-500/15 text-blue-500 border border-blue-500/30">
-                  Will Change
-                </span>
-              )}
-            </div>
-            <Select value={allowDownload} onValueChange={setAllowDownload}>
-              <SelectTrigger className="w-full text-xs h-9 bg-muted/30">
-                <SelectValue placeholder="Select Download Permission..." />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="unchanged" className="text-xs text-muted-foreground">
-                  ⚪ — Keep Current (Unchanged) —
-                </SelectItem>
-                <SelectItem value="true" className="text-xs">
-                  ✅ Allowed (Guests can download original)
-                </SelectItem>
-                <SelectItem value="false" className="text-xs">
-                  🔒 Protected (Guests cannot download)
-                </SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* 3. Taken Date & Time */}
-          <div className="rounded-xl border border-border/80 bg-card p-3.5 space-y-2 shadow-2xs">
+          {/* 2. Taken Date & Time */}
+          <div className="rounded-xl border border-border/80 bg-card p-3.5 space-y-2.5 shadow-2xs">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 text-sm font-semibold">
                 <Calendar className="size-4 text-amber-500" />
-                <span>3. Taken Date & Time</span>
+                <span>2. Taken Date & Time</span>
               </div>
               {isDateModified && (
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-500 border border-amber-500/30">
@@ -789,12 +747,12 @@ export function PhotoBatchEditDialog({
             )}
           </div>
 
-          {/* 4. GPS Location */}
+          {/* 3. GPS Location */}
           <div className="rounded-xl border border-border/80 bg-card p-3.5 space-y-2 shadow-2xs">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-1.5 font-semibold text-xs text-foreground">
                 <MapPin className="size-3.5 text-emerald-500" />
-                <span>4. GPS Coordinates</span>
+                <span>3. GPS Coordinates</span>
               </div>
               <div className="flex items-center gap-2">
                 <button
@@ -949,12 +907,12 @@ export function PhotoBatchEditDialog({
             )}
           </div>
 
-          {/* 5. File Name */}
+          {/* 4. File Name */}
           <div className="rounded-xl border border-border/80 bg-card p-3.5 space-y-2 shadow-2xs">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 text-sm font-semibold">
                 <FileText className="size-4 text-purple-500" />
-                <span>5. File Name</span>
+                <span>4. File Name</span>
               </div>
               {isNameModified && (
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-500/15 text-purple-500 border border-purple-500/30">

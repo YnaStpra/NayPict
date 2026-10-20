@@ -18,6 +18,7 @@ import {
   ChevronsUpDownIcon,
   CircleAlertIcon,
   CircleIcon,
+  Download,
   FolderIcon,
   FolderPlusIcon,
   LockIcon,
@@ -685,6 +686,39 @@ function AddToAlbumButton({
         </TooltipTrigger>
         <TooltipContent side="bottom">
           <p>Add to Album</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  )
+}
+
+// Render download original media button in toolbar (Admin only).
+function AdminDownloadButton({
+  showActions,
+  photo,
+}: {
+  showActions: boolean
+  photo?: PhotoVo
+}) {
+  if (!photo?.photoId) return null
+
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <a
+            href={`/api/photo/download/${photo.photoId}`}
+            download={photo.name}
+            tabIndex={showActions ? 0 : -1}
+            className="inline-flex items-center justify-center size-9 rounded-full bg-black/40 text-white transition-opacity duration-200 hover:bg-black/60 cursor-pointer pointer-events-auto"
+            title="Download Original Media (Admin Only)"
+          >
+            <Download className="size-4 text-amber-400" />
+            <span className="sr-only">Download Original Media</span>
+          </a>
+        </TooltipTrigger>
+        <TooltipContent side="bottom">
+          <p>Download Original Media</p>
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>
@@ -2187,6 +2221,12 @@ export function PhotoViewer({
                 showActions={actionsVisible}
                 onAlbumOpen={onAlbumOpen}
                 photoId={photos[viewIndex]?.photoId}
+              />
+            )}
+            {isAdmin && (
+              <AdminDownloadButton
+                showActions={actionsVisible}
+                photo={photos[viewIndex]}
               />
             )}
             {!isCurrentVideo && (

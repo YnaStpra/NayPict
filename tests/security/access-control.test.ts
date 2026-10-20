@@ -17,6 +17,7 @@ const SYSTEM_PATHS = [
   '/photo/restore',
   '/photo/delete',
   '/photo/clear',
+  '/photo/download',
   '/photo/duplicates',
   '/photo/add',
   '/photo/addVideo',
@@ -62,7 +63,6 @@ const PUBLIC_API_PATHS = [
   '/photo/randomIdList',
   '/photo/takenDateList',
   '/photo/onThisDay',
-  '/photo/download',
   '/album/list',
   '/storage/select',
   '/media',
@@ -106,7 +106,6 @@ describe('Access Control & RBAC Policy Suite', () => {
     assert.strictEqual(isPublicApiPath('/storage/select'), true);
     assert.strictEqual(isPublicApiPath('/health'), true);
     assert.strictEqual(isPublicApiPath('/cron/cleanup'), true);
-    assert.strictEqual(isPublicApiPath('/photo/download'), true);
     assert.strictEqual(isPublicApiPath('/location/reverse'), true);
     assert.strictEqual(isPublicApiPath('/setting/public'), true);
   });
@@ -119,6 +118,7 @@ describe('Access Control & RBAC Policy Suite', () => {
     assert.strictEqual(isSystemPath('/album/delete'), true);
     assert.strictEqual(isSystemPath('/photo/delete'), true);
     assert.strictEqual(isSystemPath('/photo/clear'), true);
+    assert.strictEqual(isSystemPath('/photo/download'), true);
     assert.strictEqual(isSystemPath('/photo/recycle'), true);
     assert.strictEqual(isSystemPath('/photo/restore'), true);
     assert.strictEqual(isSystemPath('/backup/export'), true);

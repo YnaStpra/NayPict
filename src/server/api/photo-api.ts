@@ -285,26 +285,20 @@ export function registerPhotoApi(app: Hono<HonoEnv>) {
   app.get('/photo/takenDateList', handlePhotoTakenDateList);
   app.post('/photo/takenDateList', handlePhotoTakenDateList);
 
-  // Download original photo file with server-side protection and sliding window rate limiting.
+  // Download original photo file with full EXIF metadata and original quality (Admin only).
   app.get('/photo/download/:id', async (c: Context) => {
     const photoId = c.req.param('id') ?? '';
     const userId = getUserId();
 
-    // Rate limiting for public/unauthenticated requests (max 30 downloads per 5 mins per IP)
+    // STRICT: Only authenticated Admin can download media!
     if (!userId) {
-      const clientIp = getClientIp(c);
-      const rateLimit = await downloadRateLimiter.consume(clientIp);
-      if (!rateLimit.allowed) {
-        return c.json({
-          code: 429,
-          error: "TOO_MANY_REQUESTS",
-          message: "Download rate limit exceeded. Please wait a few minutes before downloading more photos."
-        }, 429, {
-          'Retry-After': String(Math.ceil(rateLimit.resetMs / 1000)),
-          'X-RateLimit-Limit': String(downloadRateLimiter.limit),
-          'X-RateLimit-Remaining': String(rateLimit.remaining),
-        });
-      }
+      return c.json({
+        code: 403,
+        error: "FORBIDDEN",
+        message: "Media download is restricted to administrators only."
+      }, 403, {
+        'Cache-Control': 'no-store, private'
+      });
     }
 
     const photo = await photoService.getById(photoId, userId);
@@ -313,74 +307,35 @@ export function registerPhotoApi(app: Hono<HonoEnv>) {
       return c.json({ code: 404, error: "NOT_FOUND", message: "Photo not found" }, 404);
     }
 
-    const isAllowed = photo.allowDownload || Boolean(userId);
-
-    if (!isAllowed || !photo.key) {
-      return c.json({
-        code: 403,
-        error: "DOWNLOAD_PROTECTED",
-        message: "This photo is protected from download."
-      }, 403, {
-        'Cache-Control': 'no-store, private'
-      });
+    // Serve original uncompressed buffer with complete EXIF metadata and proper filename attachment
+    const photoData = await photoService.getOriginalPhotoBuffer(photoId);
+    if (photoData) {
+      c.header('Content-Type', photoData.contentType || 'application/octet-stream');
+      c.header('Content-Disposition', `attachment; filename="${encodeURIComponent(photoData.fileName || photo.name)}"`);
+      c.header('Content-Length', String(photoData.buffer.length));
+      c.header('Cache-Control', 'private, no-cache');
+      return c.body(new Uint8Array(photoData.buffer));
     }
 
-    // Apply dynamic copyright watermark for public/unauthenticated downloads if enabled
-    const setting = await settingService.get();
-    if (setting.watermarkEnabled === SettingWatermarkEnum.ENABLE && !userId) {
-      const photoData = await photoService.getOriginalPhotoBuffer(photoId);
-      if (photoData) {
-        const { buffer, contentType } = await applyWatermark(photoData.buffer, {
-          text: setting.watermarkText || '© NayPict',
-        });
-        c.header('Content-Type', contentType);
-        c.header('Content-Disposition', `attachment; filename="${encodeURIComponent(photoData.fileName)}"`);
-        c.header('Content-Length', String(buffer.length));
-        return c.body(new Uint8Array(buffer));
-      }
+    if (photo.key) {
+      return c.redirect(photo.key);
     }
 
-    // Protect photographer location privacy: Strip GPS coordinates from all public image downloads
-    if (!userId && photo.type?.startsWith('image/')) {
-      const photoData = await photoService.getOriginalPhotoBuffer(photoId);
-      if (photoData) {
-        try {
-          const metadata = await sharp(photoData.buffer, SHARP_SECURITY_OPTIONS).metadata();
-          const sanitized = await sharp(photoData.buffer, SHARP_SECURITY_OPTIONS)
-            .withMetadata({ orientation: metadata.orientation })
-            .toBuffer();
-          c.header('Content-Type', photoData.contentType || 'image/jpeg');
-          c.header('Content-Disposition', `attachment; filename="${encodeURIComponent(photoData.fileName)}"`);
-          c.header('Content-Length', String(sanitized.length));
-          return c.body(new Uint8Array(sanitized));
-        } catch (err) {
-          console.error('[SECURITY] Failed to strip GPS from public image download:', err);
-        }
-      }
-    }
-
-    return c.redirect(photo.key);
+    return c.json({ code: 404, error: "NOT_FOUND", message: "Media file not found" }, 404);
   });
 
   app.post('/photo/download', async (c: Context) => {
     const { photoId } = await c.req.json<{ photoId: string }>();
     const userId = getUserId();
 
-    // Rate limiting for public/unauthenticated requests (max 30 downloads per 5 mins per IP)
     if (!userId) {
-      const clientIp = getClientIp(c);
-      const rateLimit = await downloadRateLimiter.consume(clientIp);
-      if (!rateLimit.allowed) {
-        return c.json({
-          code: 429,
-          error: "TOO_MANY_REQUESTS",
-          message: "Download rate limit exceeded. Please wait a few minutes before downloading more photos."
-        }, 429, {
-          'Retry-After': String(Math.ceil(rateLimit.resetMs / 1000)),
-          'X-RateLimit-Limit': String(downloadRateLimiter.limit),
-          'X-RateLimit-Remaining': String(rateLimit.remaining),
-        });
-      }
+      return c.json({
+        code: 403,
+        error: "FORBIDDEN",
+        message: "Media download is restricted to administrators only."
+      }, 403, {
+        'Cache-Control': 'no-store, private'
+      });
     }
 
     const photo = await photoService.getById(photoId, userId);
@@ -389,21 +344,8 @@ export function registerPhotoApi(app: Hono<HonoEnv>) {
       return c.json({ code: 404, error: "NOT_FOUND", message: "Photo not found" }, 404);
     }
 
-    const isAllowed = photo.allowDownload || Boolean(userId);
-
-    if (!isAllowed || !photo.key) {
-      return c.json({
-        code: 403,
-        error: "DOWNLOAD_PROTECTED",
-        message: "This photo is protected from download."
-      }, 403, {
-        'Cache-Control': 'no-store, private'
-      });
-    }
-
-    // Public/unauthenticated guests download via the GPS-sanitizing API endpoint; authenticated users can access the original key directly.
-    const downloadUrl = userId ? photo.key : `/api/photo/download/${photoId}`;
-    return c.json(result.ok({ url: downloadUrl }));
+    // Authenticated admin downloads via the download endpoint with complete metadata & filename
+    return c.json(result.ok({ url: `/api/photo/download/${photoId}` }));
   });
 
   // Batch update photo download protection status (Admin only).

@@ -99,7 +99,7 @@ export function PhotoSelectionDrawer({
                     <span className="hidden sm:inline">Edit Metadata</span>
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent side="bottom">Edit Visibility, Date & Download Permission</TooltipContent>
+                <TooltipContent side="bottom">Edit Visibility, Date & Location</TooltipContent>
               </Tooltip>
             )}
 
