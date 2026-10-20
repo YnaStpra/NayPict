@@ -116,13 +116,11 @@ media.get('*', async (c: Context, next: Next) => {
 
   // Server-side Download Protection for ORIGINAL photo requests (videos are public gallery display media)
   if (photoFile.type === FileTypeEnum.ORIGINAL && !isVideo) {
-    const isAllowed = photoFile.allowDownload === 1 || Boolean(userId);
-
-    if (!isAllowed) {
+    if (!userId) {
       return c.json({
         code: 403,
         error: "DOWNLOAD_PROTECTED",
-        message: "This photo is protected from download."
+        message: "Media download is restricted to administrators only."
       }, 403, {
         'Cache-Control': 'no-store, private'
       });

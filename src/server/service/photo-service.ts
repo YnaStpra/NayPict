@@ -2300,9 +2300,10 @@ const photoService = {
       ? (domain ? toMediaUrl(videoPreviewKey, domain) : toProxyMediaUrl(videoPreviewKey))
       : null;
 
-    // If allowDownload === 0 (Protected) and requester is not authenticated Admin (currentUserId is empty/falsy),
-    // mask photo key as null so original raw photo is not leaked. For videos, key is required for streaming playback.
-    const isAllowed = isVideo || photo.allowDownload === 1 || Boolean(currentUserId);
+    // Raw photo original key is exclusively available to authenticated Admin.
+    // For public guests, key is masked as null so original raw photo is not leaked.
+    // For videos, rawKey is required for streaming video playback.
+    const isAllowed = isVideo || Boolean(currentUserId);
     // Protected photo originals always traverse the same-origin authorization proxy; the CDN only serves derivatives.
     // For videos and derivatives, deliver directly via Cloudflare Worker Media Gateway to eliminate Vercel serverless execution & transfer.
     const key = isAllowed && rawKey

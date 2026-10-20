@@ -220,7 +220,7 @@ export default function Page() {
             </SettingItem>
             <SettingItem
               title="Dynamic Copyright Watermark"
-              description="Automatically append a subtle semi-transparent copyright watermark to photos downloaded by public visitors."
+              description="Automatically append a subtle semi-transparent copyright watermark to exported photos."
             >
               <div className="flex flex-col gap-2.5 items-end">
                 <Switch

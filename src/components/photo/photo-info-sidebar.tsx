@@ -1,6 +1,6 @@
 "use client"
 
-import { Archive, ChevronRightIcon, Eye, FolderHeart, FolderPlusIcon, Globe, Image as ImageIcon, InfoIcon, MapPin, MessageSquareIcon, Pencil, TrendingUp, XIcon } from "lucide-react"
+import { Archive, ChevronRightIcon, Download, Eye, FolderHeart, FolderPlusIcon, Globe, Image as ImageIcon, InfoIcon, MapPin, MessageSquareIcon, Pencil, TrendingUp, XIcon } from "lucide-react"
 import { InstagramIcon } from "@/components/icons/instagram"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
@@ -778,7 +778,19 @@ export function PhotoInfoSidebar({
                   {isAdmin && (
                     <PhotoInfoRow label={t("storage")} value={formatStorageLocation(photo, storageT)} />
                   )}
-                  <PhotoInfoRow label="Download" value={photo.allowDownload === 1 ? "↓ Downloadable" : "🔒 Protected"} />
+                  {isAdmin && (
+                    <div className="pt-2">
+                      <a
+                        href={`/api/photo/download/${photo.photoId}`}
+                        download={photo.name}
+                        className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-white/10 hover:bg-white/15 text-white font-medium text-xs border border-white/15 transition-all shadow-xs cursor-pointer active:scale-98"
+                        title="Download original media with full EXIF metadata (Admin Only)"
+                      >
+                        <Download className="size-3.5 text-amber-400" />
+                        <span>Download Original Media</span>
+                      </a>
+                    </div>
+                  )}
                 </div>
               </div>
 

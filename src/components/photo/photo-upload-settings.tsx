@@ -188,24 +188,6 @@ export function PhotoUploadSettings({ onChange }: { onChange?: () => void }) {
           onCheckedChange={(retryOnFail) => updateSettings({ retryOnFail })}
         />
       </div>
-      <div className="flex flex-col gap-2 border-t pt-3 border-border">
-        <div className="flex items-center justify-between text-sm font-medium">
-          <span>Download Protection</span>
-          <span className="text-xs font-semibold px-2 py-0.5 rounded bg-muted text-foreground">
-            {settings.allowDownload ? "Allow Download" : "Protected"}
-          </span>
-        </div>
-        <div className="flex items-center justify-between gap-2">
-          <span className="text-xs text-muted-foreground">Allow public downloads</span>
-          <Switch
-            checked={settings.allowDownload}
-            onCheckedChange={(allowDownload) => updateSettings({ allowDownload })}
-          />
-        </div>
-        <p className="text-[11px] text-muted-foreground leading-snug mt-0.5">
-          Protected photos can be viewed publicly, but the original file cannot be downloaded.
-        </p>
-      </div>
     </div>
   )
 }
