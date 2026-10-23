@@ -27,6 +27,11 @@ const PhotoBatchEditDialog = dynamic(
   { ssr: false }
 )
 
+const PhotoBatchDownloadDialog = dynamic(
+  () => import("@/components/photo/photo-batch-download-dialog").then((mod) => mod.PhotoBatchDownloadDialog),
+  { ssr: false }
+)
+
 interface PhotoMasonryProps {
   photos: PhotoVo[]
   resetKey?: number
@@ -294,6 +299,7 @@ const PhotoMasonry = memo(function PhotoMasonry({
   const [wrapPosition, setWrapPosition] = useState({ offset: 0, width: getInitialWrapWidth(sidebarOpen) })
   const [selectedPhotoIds, setSelectedPhotoIds] = useState<string[]>([])
   const [batchEditDialogOpen, setBatchEditDialogOpen] = useState(false)
+  const [batchDownloadDialogOpen, setBatchDownloadDialogOpen] = useState(false)
   const touchHoverCloseRef = useRef<(() => void) | null>(null)
 
   const defaultColumnCount = useMemo(() => getResponsiveColumnCount(screenWidth, isMobile), [screenWidth, isMobile])
@@ -805,16 +811,25 @@ const PhotoMasonry = memo(function PhotoMasonry({
         onAlbumOpen={onAlbumOpen ? openAlbumDialog : undefined}
         onAlbumRemove={onAlbumRemove ? removeAlbumPhotos : undefined}
         onBatchEdit={isAdmin ? () => setBatchEditDialogOpen(true) : undefined}
+        onBatchDownload={isAdmin ? () => setBatchDownloadDialogOpen(true) : undefined}
       />
       {isAdmin && (
-        <PhotoBatchEditDialog
-          open={batchEditDialogOpen}
-          onOpenChange={setBatchEditDialogOpen}
-          photoIds={visibleSelectedPhotoIds}
-          initialName={visibleSelectedPhotoIds.length === 1 ? photos.find((p) => p.photoId === visibleSelectedPhotoIds[0])?.name : undefined}
-          initialTakenTime={visibleSelectedPhotoIds.length === 1 ? photos.find((p) => p.photoId === visibleSelectedPhotoIds[0])?.takenTime : undefined}
-          onSuccess={handleBatchEditSuccess}
-        />
+        <>
+          <PhotoBatchEditDialog
+            open={batchEditDialogOpen}
+            onOpenChange={setBatchEditDialogOpen}
+            photoIds={visibleSelectedPhotoIds}
+            initialName={visibleSelectedPhotoIds.length === 1 ? photos.find((p) => p.photoId === visibleSelectedPhotoIds[0])?.name : undefined}
+            initialTakenTime={visibleSelectedPhotoIds.length === 1 ? photos.find((p) => p.photoId === visibleSelectedPhotoIds[0])?.takenTime : undefined}
+            onSuccess={handleBatchEditSuccess}
+          />
+          <PhotoBatchDownloadDialog
+            open={batchDownloadDialogOpen}
+            onOpenChange={setBatchDownloadDialogOpen}
+            photos={photos}
+            selectedPhotoIds={visibleSelectedPhotoIds}
+          />
+        </>
       )}
       {/* Apple Photos-style floating capsule indicator during/after pinch gesture */}
       {indicatorInfo?.visible && (

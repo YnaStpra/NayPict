@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect } from "react"
-import { CheckCheck, FolderMinusIcon, FolderPlusIcon, RotateCcwIcon, SlidersHorizontal, Trash2Icon, XIcon } from "lucide-react"
+import { Archive, CheckCheck, FolderMinusIcon, FolderPlusIcon, RotateCcwIcon, SlidersHorizontal, Trash2Icon, XIcon } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
@@ -16,6 +16,7 @@ interface PhotoSelectionDrawerProps {
   onAlbumOpen?: () => void
   onAlbumRemove?: () => void
   onBatchEdit?: () => void
+  onBatchDownload?: () => void
 }
 
 // Render the top action drawer in photo multi-select state.
@@ -29,6 +30,7 @@ export function PhotoSelectionDrawer({
   onAlbumOpen,
   onAlbumRemove,
   onBatchEdit,
+  onBatchDownload,
 }: PhotoSelectionDrawerProps) {
   useEffect(() => {
     if (!open) {
@@ -100,6 +102,24 @@ export function PhotoSelectionDrawer({
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent side="bottom">Edit Visibility, Date & Location</TooltipContent>
+              </Tooltip>
+            )}
+
+            {onBatchDownload && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={onBatchDownload}
+                    aria-label="Download selected as ZIP"
+                    className="h-8 gap-1.5 text-xs font-medium border-sky-500/40 text-sky-500 hover:bg-sky-500/10"
+                  >
+                    <Archive className="size-3.5" />
+                    <span className="hidden sm:inline">Download ZIP</span>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">Download as ZIP archive</TooltipContent>
               </Tooltip>
             )}
 
