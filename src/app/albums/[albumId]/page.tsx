@@ -67,6 +67,11 @@ const InfiniteGallery = dynamic(
   { ssr: false }
 )
 
+const PhotoBatchDownloadDialog = dynamic(
+  () => import("@/components/photo/photo-batch-download-dialog").then((mod) => mod.PhotoBatchDownloadDialog),
+  { ssr: false }
+)
+
 type SortOptionKey = 'none' | 'takenTime_desc' | 'takenTime_asc' | 'createTime_desc' | 'createTime_asc' | 'type_asc' | 'type_desc'
 
 const SORT_OPTIONS: { key: SortOptionKey; label: string; sortBy?: 'takenTime' | 'createTime' | 'size' | 'name' | 'type' | null; sortOrder?: 'asc' | 'desc' | null; shuffle?: boolean }[] = [
@@ -195,6 +200,7 @@ export default function Page() {
   const [showPhotoViewer, setShowPhotoViewer] = useState(false)
   // albumDialogOpen Control the opening status of the add album pop-up box.
   const [albumDialogOpen, setAlbumDialogOpen] = useState(false)
+  const [albumDownloadOpen, setAlbumDownloadOpen] = useState(false)
   // albumPhotoIds Save this photo to be added to other albums id.
   const [albumPhotoIds, setAlbumPhotoIds] = useState<string[]>([])
   const openUpload = usePhotoStore((state) => state.openUpload)
@@ -555,6 +561,26 @@ export default function Page() {
                 </DropdownMenuContent>
               </DropdownMenu>
 
+              {isAdmin && photos.length > 0 && (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="ghost"
+                        className="size-8 rounded-lg transition-all duration-200 cursor-pointer hover:bg-sky-500/10 active:scale-95 text-sky-500 dark:text-sky-400"
+                        onClick={() => setAlbumDownloadOpen(true)}
+                        aria-label="Download Album as ZIP"
+                      >
+                        <Archive className="size-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom">Download Album as ZIP</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
+
               {isAdmin && (
                 <TooltipProvider>
                   <Tooltip>
@@ -659,6 +685,15 @@ export default function Page() {
         onAlbumSelect={changePhotoAlbum}
         initialSelectedAlbumIds={initialAlbumIds}
       />
+      {isAdmin && (
+        <PhotoBatchDownloadDialog
+          open={albumDownloadOpen}
+          onOpenChange={setAlbumDownloadOpen}
+          photos={photos}
+          selectedPhotoIds={photos.map((p) => p.photoId)}
+          albumName={albumDisplayName}
+        />
+      )}
       <BackToTopButton />
     </>
   )
