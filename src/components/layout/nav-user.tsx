@@ -26,9 +26,10 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar"
 import { ThemeSwitcher } from "@/components/layout/theme-switcher"
-import { ChevronsUpDownIcon, UserRound, Key, BookOpen, LogOutIcon, LogIn } from "lucide-react"
+import { ChevronsUpDownIcon, UserRound, Key, BookOpen, LogOutIcon, LogIn, Keyboard } from "lucide-react"
 import { logout } from "@/request/login"
 import { useApp } from "@/app/provider"
+import { useShortcutsStore } from "@/store/shortcuts-store"
 import { useTranslations } from "next-intl"
 
 const AvatarUpload = dynamic(
@@ -70,6 +71,7 @@ export function NavUser({
   const [avatarOpen, setAvatarOpen] = useState(false)
   // passwordOpen Control the opening status of the password change popup box.
   const [passwordOpen, setPasswordOpen] = useState(false)
+  const openShortcuts = useShortcutsStore((s) => s.openShortcuts)
 
   useEffect(() => {
     return () => {
@@ -145,6 +147,17 @@ export function NavUser({
     return (
       <div className="flex flex-col gap-2 p-1.5 rounded-xl bg-sidebar-accent/50 border border-sidebar-border/60 text-xs">
         <ThemeSwitcher />
+        <button
+          type="button"
+          onClick={openShortcuts}
+          className="flex items-center justify-between w-full py-1.5 px-2.5 rounded-lg bg-background/50 hover:bg-background/80 text-muted-foreground hover:text-foreground transition-colors border border-border/40 cursor-pointer"
+        >
+          <span className="flex items-center gap-1.5">
+            <Keyboard className="size-3.5" />
+            <span>Shortcuts</span>
+          </span>
+          <kbd className="text-[10px] font-mono px-1 py-0.5 rounded bg-muted border border-border">?</kbd>
+        </button>
         <Link
           href="/login"
           className="flex items-center justify-center gap-1.5 w-full py-1.5 px-3 rounded-lg bg-primary text-primary-foreground font-medium hover:bg-primary/90 transition-colors shadow-2xs cursor-pointer"
@@ -210,6 +223,11 @@ export function NavUser({
                 <DropdownMenuItem onClick={openUpdatePassword}>
                   <Key />
                   {t("changePassword")}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={openShortcuts}>
+                  <Keyboard className="size-4" />
+                  <span>Shortcuts</span>
+                  <kbd className="ml-auto text-[10px] font-mono px-1 py-0.5 rounded bg-muted border border-border">?</kbd>
                 </DropdownMenuItem>
                 <DropdownMenuItem>
                   <BookOpen />

@@ -21,6 +21,7 @@ import {
   Download,
   FolderIcon,
   FolderPlusIcon,
+  Keyboard,
   LockIcon,
   Menu,
   LoaderCircleIcon,
@@ -49,6 +50,7 @@ import { VideoPlayer } from "@/components/video/video-player"
 import { prebufferVideo } from "@/lib/video-prebuffer"
 import { loadedThumbnails } from "@/components/photo/photo-card"
 import { getIsOffline, notifyConnectionRestored } from "@/lib/network-status"
+import { useShortcutsStore } from "@/store/shortcuts-store"
 
 // Dynamic code-splitting: Lazy-load heavy dialog bundles on demand to drastically minimize initial photo viewer bundle
 const PhotoInsightsDialog = dynamic(
@@ -527,6 +529,37 @@ function InfoButton({
         </TooltipTrigger>
         <TooltipContent side="bottom">
           <p>Information & Comments</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  )
+}
+
+// Render keyboard shortcuts cheatsheet button in toolbar.
+function KeyboardShortcutsViewerButton({
+  showActions,
+}: {
+  showActions: boolean
+}) {
+  const openShortcuts = useShortcutsStore((s) => s.openShortcuts)
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            type="button"
+            size="icon"
+            variant="secondary"
+            className="rounded-full bg-black/40 text-white transition-opacity duration-200 hover:bg-black/60 cursor-pointer pointer-events-auto"
+            onClick={openShortcuts}
+            tabIndex={showActions ? 0 : -1}
+          >
+            <Keyboard className="size-4" />
+            <span className="sr-only">Keyboard Shortcuts (?)</span>
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom">
+          <p>Keyboard Shortcuts (?)</p>
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>
@@ -1608,6 +1641,72 @@ export function PhotoViewer({
     setInfoOpen(true)
   }, [setInfoOpen])
 
+  const handleToggleInfo = useCallback(() => {
+    if (infoOpen && infoTab === "info") {
+      setInfoOpen(false)
+    } else {
+      setInfoTab("info")
+      setInfoOpen(true)
+    }
+  }, [infoOpen, infoTab, setInfoOpen])
+
+  const handleToggleComments = useCallback(() => {
+    if (infoOpen && infoTab === "comments") {
+      setInfoOpen(false)
+    } else {
+      setInfoTab("comments")
+      setInfoOpen(true)
+    }
+  }, [infoOpen, infoTab, setInfoOpen])
+
+  const handleTriggerHeart = useCallback(() => {
+    const currentPhoto = photos[viewIndex]
+    if (!currentPhoto?.photoId) return
+
+    setViewerBurstCoords({
+      x: typeof window !== "undefined" ? window.innerWidth / 2 : 200,
+      y: typeof window !== "undefined" ? window.innerHeight / 2 : 200,
+    })
+    setShowViewerHeartBurst(true)
+    try {
+      if (typeof navigator !== "undefined" && navigator.vibrate) {
+        navigator.vibrate([15, 35, 15])
+      }
+    } catch {}
+
+    const cached = reactionSync.getCached(currentPhoto.photoId)
+    if (!cached?.userReactions?.love && !isAdmin) {
+      reactionSync.toggleReaction(currentPhoto.photoId, "love")
+    }
+    trackVisitorMedia(currentPhoto.photoId, "reaction")
+    toast.success("Hearted!", { duration: 1200 })
+  }, [photos, viewIndex, isAdmin])
+
+  const [slideshowRequested, setSlideshowRequested] = useState(false)
+  const isSlideshowActive = open && !isCurrentVideo && slideshowRequested
+
+  const toggleSlideshow = useCallback(() => {
+    setSlideshowRequested((prev) => {
+      const next = !prev
+      if (next) {
+        toast.info("Slideshow Started (Space to pause)", { duration: 1500 })
+      } else {
+        toast.info("Slideshow Paused", { duration: 1200 })
+      }
+      return next
+    })
+  }, [])
+
+  useEffect(() => {
+    if (!isSlideshowActive) return
+
+    const timer = setInterval(() => {
+      emblaApi?.scrollNext()
+    }, 4000)
+
+    return () => clearInterval(timer)
+  }, [isSlideshowActive, emblaApi])
+
   // Speculative prefetcher
   useEffect(() => {
     if (!open || typeof window === "undefined") return
@@ -1729,7 +1828,7 @@ export function PhotoViewer({
     if (!open || isAnySubModalOpen) return
 
     function handleKeyDown(event: KeyboardEvent) {
-      if (isAnySubModalOpen) return
+      if (isAnySubModalOpen || useShortcutsStore.getState().open) return
 
       const target = event.target as HTMLElement | null
       if (
@@ -1750,6 +1849,23 @@ export function PhotoViewer({
       } else if (event.key === "f" || event.key === "F") {
         event.preventDefault()
         toggleCinematicMode()
+      } else if (event.key === "i" || event.key === "I") {
+        event.preventDefault()
+        handleToggleInfo()
+      } else if (event.key === "c" || event.key === "C") {
+        event.preventDefault()
+        handleToggleComments()
+      } else if (event.key === "l" || event.key === "L" || event.key === "h" || event.key === "H") {
+        event.preventDefault()
+        handleTriggerHeart()
+      } else if (event.key === " " || event.code === "Space") {
+        if (!isCurrentVideo) {
+          event.preventDefault()
+          toggleSlideshow()
+        }
+      } else if (event.key === "?" || (event.shiftKey && event.key === "/")) {
+        event.preventDefault()
+        useShortcutsStore.getState().openShortcuts()
       } else if (event.key === "Escape") {
         if (infoOpen) {
           event.preventDefault()
@@ -1771,7 +1887,20 @@ export function PhotoViewer({
     return () => {
       window.removeEventListener("keydown", handleKeyDown, true)
     }
-  }, [open, isAnySubModalOpen, emblaApi, infoOpen, isCinematicMode, toggleCinematicMode, setInfoOpen])
+  }, [
+    open,
+    isAnySubModalOpen,
+    emblaApi,
+    infoOpen,
+    isCinematicMode,
+    isCurrentVideo,
+    toggleCinematicMode,
+    setInfoOpen,
+    handleToggleInfo,
+    handleToggleComments,
+    handleTriggerHeart,
+    toggleSlideshow,
+  ])
 
   // Auto-hide UI controls after 2.5s idle when in Cinematic Mode
   useEffect(() => {
@@ -2019,6 +2148,7 @@ export function PhotoViewer({
 
   return (
     <div
+      data-yarl-viewer-open="true"
       className={cn(
         "fixed inset-0 z-[1000] bg-black select-none overflow-hidden touch-none photo-viewer",
         isAnySubModalOpen && "pointer-events-none select-none touch-none"
@@ -2251,15 +2381,9 @@ export function PhotoViewer({
             <InfoButton
               showActions={actionsVisible}
               open={infoOpen && infoTab === "info"}
-              onToggle={() => {
-                if (infoOpen && infoTab === "info") {
-                  setInfoOpen(false)
-                } else {
-                  setInfoTab("info")
-                  setInfoOpen(true)
-                }
-              }}
+              onToggle={handleToggleInfo}
             />
+            <KeyboardShortcutsViewerButton showActions={actionsVisible} />
           </>
         )}
         <CinematicButton
@@ -2268,6 +2392,15 @@ export function PhotoViewer({
           onToggle={toggleCinematicMode}
         />
       </div>
+
+      {isSlideshowActive && (
+        <div className="fixed top-16 left-1/2 -translate-x-1/2 z-50 pointer-events-none transition-all duration-300 animate-in fade-in zoom-in-95">
+          <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-black/70 dark:bg-zinc-900/80 backdrop-blur-md border border-white/20 text-white text-xs font-medium shadow-2xl">
+            <Play className="size-3 text-amber-400 fill-amber-400 animate-pulse" />
+            <span>Auto-Slideshow (Space to pause)</span>
+          </div>
+        </div>
+      )}
 
       {showOriginalProgress && !isCinematicMode && (
         <OriginalProgressButton progress={originalProgress} error={originalError} />

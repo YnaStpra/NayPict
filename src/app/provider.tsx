@@ -33,6 +33,11 @@ const RightClickGuard = dynamic(
   { ssr: false }
 )
 
+const KeyboardShortcutsDialog = dynamic(
+  () => import("@/components/common/keyboard-shortcuts-dialog").then((mod) => mod.KeyboardShortcutsDialog),
+  { ssr: false }
+)
+
 type Theme = "light" | "dark"
 
 const THEME_COOKIE_NAME = "theme"
@@ -284,6 +289,7 @@ function Provider({ children, defaultTheme, defaultSidebarOpen, initialUserInfo,
         <RightClickGuard />
         <PhotoUploadDialog />
         <NetworkStatusNotifier />
+        <KeyboardShortcutsDialog />
         <Toaster
           position="top-center"
           richColors
