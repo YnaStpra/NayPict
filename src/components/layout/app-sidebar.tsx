@@ -16,7 +16,8 @@ import {
   SidebarHeader,
   SidebarRail,
 } from "@/components/ui/sidebar"
-import { Activity, Archive, Library, MonitorCog, Image as ImageIcon, Images, Trash2, FolderOpen, Database, Settings, CopyCheck, MessageSquare, BarChart3, MapPin, Sparkles } from "lucide-react"
+import { Activity, Archive, MonitorCog, Images, Trash2, FolderOpen, Database, Settings, CopyCheck, MessageSquare, BarChart3, MapPin, Sparkles } from "lucide-react"
+import { NaypictLogo } from "@/components/icons/naypict-logo"
 
 // Determine whether the current browser path hits the menu URL.
 
@@ -44,7 +45,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     teams: [
       {
         name: "",
-        logo: <Library className="text-primary" />,
+        logo: <NaypictLogo className="size-4 text-foreground" />,
       },
       {
         name: t("systemSettings"),

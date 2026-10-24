@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/sidebar"
 import { ThemeSwitcher } from "@/components/layout/theme-switcher"
 import { ChevronsUpDownIcon, UserRound, Key, BookOpen, LogOutIcon, LogIn, Keyboard } from "lucide-react"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { logout } from "@/request/login"
 import { useApp } from "@/app/provider"
 import { useShortcutsStore } from "@/store/shortcuts-store"
@@ -57,7 +58,8 @@ export function NavUser({
   }
 }) {
   const t = useTranslations("layout.userMenu")
-  const { isMobile } = useSidebar()
+  const { isMobile, state } = useSidebar()
+  const isCollapsed = state === "collapsed" && !isMobile
   const router = useRouter()
   const { userInfo, setUserInfo } = useApp()
 
@@ -144,6 +146,41 @@ export function NavUser({
 
   // Render guest theme switcher & login button for public non-admin visitors
   if (!userInfo) {
+    if (isCollapsed) {
+      return (
+        <TooltipProvider>
+          <div className="flex flex-col items-center gap-1.5 py-1">
+            <ThemeSwitcher iconOnly />
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  onClick={openShortcuts}
+                  className="flex size-8 items-center justify-center rounded-lg text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors cursor-pointer"
+                  aria-label="Keyboard Shortcuts (?)"
+                >
+                  <Keyboard className="size-4 text-muted-foreground" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="right">Shortcuts (?)</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Link
+                  href="/login"
+                  className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors shadow-2xs cursor-pointer"
+                  aria-label="Admin Login"
+                >
+                  <LogIn className="size-4" />
+                </Link>
+              </TooltipTrigger>
+              <TooltipContent side="right">Admin Login</TooltipContent>
+            </Tooltip>
+          </div>
+        </TooltipProvider>
+      )
+    }
+
     return (
       <div className="flex flex-col gap-2 p-1.5 rounded-xl bg-sidebar-accent/50 border border-sidebar-border/60 text-xs">
         <ThemeSwitcher />

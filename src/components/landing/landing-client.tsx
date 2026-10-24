@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
 import { FolderHeart, Image as ImageIcon, ArrowRight, Loader2, MapPin } from 'lucide-react'
+import { NaypictLogo } from '@/components/icons/naypict-logo'
 import { type PhotoVo } from '@/server/entity/vo/photo'
 import { photoList } from '@/request/photo'
 
@@ -182,12 +183,9 @@ export function LandingClient({ initialPhotos }: LandingClientProps) {
             <div className="relative">
               <div className="absolute -inset-2 rounded-2xl bg-gradient-to-r from-blue-500/20 via-purple-500/20 to-pink-500/20 opacity-80 blur-lg animate-pulse" />
               <div className="relative size-16 sm:size-20 rounded-2xl bg-gradient-to-br from-neutral-900 via-black to-neutral-950 border border-white/25 flex items-center justify-center shadow-2xl p-3.5 sm:p-4">
-                <img
-                  src="/naypict-icon.svg"
-                  alt="NayPict Logo"
-                  className="size-full object-contain drop-shadow-md select-none pointer-events-none"
-                  width={48}
-                  height={48}
+                <NaypictLogo
+                  className="size-full text-white drop-shadow-md select-none pointer-events-none"
+                  strokeWidth={18}
                 />
               </div>
             </div>

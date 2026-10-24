@@ -27,7 +27,7 @@ import { removePhotoIdFromUrl } from "@/lib/url"
 import { albumAddPhoto, albumRemovePhoto } from "@/request/album"
 import { usePhotoStore } from "@/store/photo-store"
 import { useAlbumStore } from "@/store/album-store"
-import { ArrowUpDown, CalendarDays, ChevronDown, ImageIcon, LayoutGrid, Plus, Sparkles, WifiOff } from "lucide-react"
+import { ArrowUpDown, CalendarDays, ImageIcon, LayoutGrid, Plus, Sparkles, WifiOff } from "lucide-react"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -480,9 +480,9 @@ export default function Page() {
                       onClick={() => setViewMode((prev) => (prev === "masonry" ? "infinite" : "masonry"))}
                     >
                       {viewMode === "infinite" ? (
-                        <LayoutGrid className="size-4.5 text-cyan-400 drop-shadow-[0_0_4px_rgba(34,211,238,0.8)] animate-pulse" />
+                        <LayoutGrid className="size-4.5 text-cyan-600 dark:text-cyan-400 drop-shadow-[0_0_4px_rgba(34,211,238,0.4)] animate-pulse" />
                       ) : (
-                        <Sparkles className="size-4.5 text-amber-400 dark:text-amber-300 drop-shadow-[0_0_4px_rgba(251,191,36,0.85)] animate-pulse" />
+                        <Sparkles className="size-4.5 text-amber-500 dark:text-amber-400 drop-shadow-[0_0_4px_rgba(251,191,36,0.5)] animate-pulse" />
                       )}
                     </Button>
                   </TooltipTrigger>

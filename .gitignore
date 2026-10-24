@@ -58,7 +58,8 @@ workers/**/wrangler.toml
 standalone.zip
 package-lock.json
 Icon?
-Icon\r
+!**/icons/
+!**/icons/**
 
 # SQLite local databases and derivatives
 *.sqlite
