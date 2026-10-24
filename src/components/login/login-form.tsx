@@ -1,9 +1,11 @@
+/* eslint-disable react-hooks/set-state-in-effect */
 "use client"
 
-import { useEffect, useState, type FormEvent, type KeyboardEvent } from "react"
+import { useEffect, useState, type FormEvent } from "react"
 import { LoaderCircle } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useApp } from "@/app/provider"
+import { NaypictLogo } from "@/components/icons/naypict-logo"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -92,11 +94,7 @@ export function LoginForm({
       <Card className="shadow-lg shadow-black/10">
         <CardHeader>
           <CardTitle className="text-xl font-semibold flex gap-3 items-center">
-            <img
-              src="/naypict-icon.svg"
-              alt="NayPict Logo"
-              className="size-10 object-contain"
-            />
+            <NaypictLogo className="size-10 text-foreground shrink-0" />
             {title} Admin Portal
           </CardTitle>
           <CardDescription>

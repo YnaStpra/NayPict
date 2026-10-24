@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/set-state-in-effect */
 "use client"
 
 import dynamic from "next/dynamic"
@@ -153,6 +154,7 @@ function Provider({ children, defaultTheme, defaultSidebarOpen, initialUserInfo,
       const savedTheme = (localStorage.getItem("theme") || (document.cookie.match(/theme=([^;]+)/) || [])[1]) as Theme | undefined
       if (savedTheme === "light" || savedTheme === "dark") {
         setThemeState(savedTheme)
+        document.documentElement.classList.toggle("dark", savedTheme === "dark")
       }
     }
   }, [])
@@ -224,6 +226,11 @@ function Provider({ children, defaultTheme, defaultSidebarOpen, initialUserInfo,
     setThemeState(theme)
     document.documentElement.classList.toggle("dark", theme === "dark")
     document.cookie = `${THEME_COOKIE_NAME}=${theme}; path=/; max-age=${TOKEN_COOKIE_MAX_AGE}`
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.setItem("theme", theme)
+      } catch {}
+    }
   }, [])
 
   // Switch between light and dark themes.

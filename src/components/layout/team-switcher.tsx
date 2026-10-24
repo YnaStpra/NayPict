@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/sidebar"
 import { useRouter } from "next/navigation"
 import { ChevronsUpDownIcon } from "lucide-react"
+import { NaypictLogo } from "@/components/icons/naypict-logo"
 
 export function TeamSwitcher({
   teams,
@@ -49,11 +50,7 @@ export function TeamSwitcher({
             className="cursor-pointer hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
           >
             <div className="flex aspect-square size-8 items-center justify-center">
-              <img
-                src="/naypict-icon.svg"
-                alt="NayPict Logo"
-                className="size-7 object-contain"
-              />
+              <NaypictLogo className="size-6 sm:size-7 text-foreground" />
             </div>
             <div className="grid flex-1 text-left text-sm leading-tight">
               <span className="truncate font-medium">{activeTeam.name}</span>
@@ -74,11 +71,7 @@ export function TeamSwitcher({
               className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
             >
               <div className="flex aspect-square size-8 items-center justify-center">
-                <img
-                  src="/naypict-icon.svg"
-                  alt="NayPict Logo"
-                  className="size-7 object-contain"
-                />
+                <NaypictLogo className="size-6 sm:size-7 text-foreground" />
               </div>
               <div className="grid flex-1 text-left text-sm leading-tight">
                 <span className="truncate font-medium">{activeTeam.name}</span>
