@@ -25,8 +25,11 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=8082
 
-# Create data directory for SQLite persistent storage
-RUN mkdir -p /app/data
+# Create non-root system group and user
+RUN addgroup --system --gid 1001 nodejs && adduser --system --uid 1001 nextjs
+
+# Create data directory for SQLite persistent storage and set ownership
+RUN mkdir -p /app/data && chown -R nextjs:nodejs /app
 
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next/standalone ./
@@ -34,6 +37,10 @@ COPY --from=builder /app/.next/static ./.next/static
 
 # Copy initial seed database if it exists
 COPY --from=builder /app/data ./data
+
+RUN chown -R nextjs:nodejs /app
+
+USER nextjs
 
 EXPOSE 8082
 

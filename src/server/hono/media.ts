@@ -16,6 +16,8 @@ import BizError from '@/server/error/biz-error';
 import { i18nMiddleware, t } from '@/server/i18n';
 import { antiHotlink } from '@/server/security/hotlink';
 import { botBlocker } from '@/server/security/bot-blocker';
+import { userService } from '@/server/service/user-service';
+import { UserTypeEnum } from '@/server/enums/user-enum';
 import type { HonoEnv } from './type';
 
 // This module handles the photo media reading interface, the path is /media/{key}.
@@ -116,7 +118,19 @@ media.get('*', async (c: Context, next: Next) => {
 
   // Server-side Download Protection for ORIGINAL photo requests (videos are public gallery display media)
   if (photoFile.type === FileTypeEnum.ORIGINAL && !isVideo) {
-    if (!userId) {
+    const isPublicDownloadAllowed = photoFile.allowDownload === 1;
+    let isAdmin = false;
+
+    if (userId) {
+      try {
+        const user = await userService.getById(userId);
+        isAdmin = user?.type === UserTypeEnum.ADMIN;
+      } catch {
+        isAdmin = false;
+      }
+    }
+
+    if (!isPublicDownloadAllowed && !isAdmin) {
       return c.json({
         code: 403,
         error: "DOWNLOAD_PROTECTED",
