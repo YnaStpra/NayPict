@@ -1,5 +1,6 @@
 import { Hono, Context } from "hono";
 import result from '@/server/model/result';
+import BizError from '@/server/error/biz-error';
 import { photoService } from '@/server/service/photo-service';
 import { getUserId } from "@/server/security/context";
 import {
@@ -160,13 +161,21 @@ export function registerPhotoApi(app: Hono<HonoEnv>) {
 
   // Query all photos without GPS coordinates for Admin geotagging (RESTful route).
   app.get('/photos/untagged', async (c: Context) => {
-    const data = await photoService.getUntaggedPhotos(getUserId());
+    const userId = getUserId();
+    if (!userId) {
+      throw new BizError('auth.failed', 401);
+    }
+    const data = await photoService.getUntaggedPhotos(userId);
     return c.json(result.ok(data));
   });
 
   // Query all photos without GPS coordinates for Admin geotagging (POST route).
   app.post('/photo/untagged/list', async (c: Context) => {
-    const data = await photoService.getUntaggedPhotos(getUserId());
+    const userId = getUserId();
+    if (!userId) {
+      throw new BizError('auth.failed', 401);
+    }
+    const data = await photoService.getUntaggedPhotos(userId);
     return c.json(result.ok(data));
   });
 

@@ -11,8 +11,27 @@ import { STORAGE_LIST_CACHE_KEY } from '@/server/const/cache';
 import { cache } from '@/server/infra/cache';
 import { orm, readOrm } from '@/server/infra/db';
 import { formatHttpUrl } from '@/lib/url';
+import { encryptData, decryptData } from '@/server/lib/crypto';
 
 // This module handles the data query and writing business of storage configuration.
+
+// Retrieve master encryption key for cloud storage credentials at rest.
+function getStorageMasterKey(): string {
+  return process.env.STORAGE_ENCRYPTION_KEY?.trim() || process.env.JWT_SECRET?.trim() || 'naypict-storage-master-key';
+}
+
+// Transparently decrypt stored S3/R2 access credentials while supporting unencrypted legacy format.
+async function decryptStorageCredentials(storage: Storage): Promise<Storage> {
+  const masterKey = getStorageMasterKey();
+  const accessKey = storage.accessKey ? await decryptData(storage.accessKey, masterKey).catch(() => storage.accessKey) : storage.accessKey;
+  const secretKey = storage.secretKey ? await decryptData(storage.secretKey, masterKey).catch(() => storage.secretKey) : storage.secretKey;
+  return {
+    ...storage,
+    accessKey,
+    secretKey,
+    domain: formatMediaDomain(storage.domain),
+  };
+}
 
 // Format a media domain for direct CDN acceleration, returning null if empty.
 function formatMediaDomain(domain?: string | null): string | null {
@@ -102,8 +121,14 @@ const storageService = {
       throw new BizError('storage.nameExists');
     }
 
+    const masterKey = getStorageMasterKey();
+    const accessKey = params.accessKey?.trim() ? await encryptData(params.accessKey.trim(), masterKey) : (params.accessKey ?? null);
+    const secretKey = params.secretKey?.trim() ? await encryptData(params.secretKey.trim(), masterKey) : (params.secretKey ?? null);
+
     await orm.insert(storageTab).values({
       ...params,
+      accessKey,
+      secretKey,
       storageId: createId(),
       name,
       userId,
@@ -173,18 +198,28 @@ const storageService = {
       throw new BizError('storage.typeRequired');
     }
 
+    const masterKey = getStorageMasterKey();
+    const updateValues: Record<string, unknown> = {
+      name,
+      type: params.type,
+      domain: params.domain?.trim() || null,
+      bucket: params.bucket?.trim() || null,
+      region: params.region?.trim() || null,
+      endpoint: params.endpoint?.trim() || null,
+      status: params.status ?? StorageStatusEnum.NORMAL,
+    };
+
+    if (params.accessKey !== undefined) {
+      updateValues.accessKey = params.accessKey?.trim() ? await encryptData(params.accessKey.trim(), masterKey) : null;
+    }
+
+    const cleanSecretKey = params.secretKey?.trim();
+    if (cleanSecretKey) {
+      updateValues.secretKey = await encryptData(cleanSecretKey, masterKey);
+    }
+
     await orm.update(storageTab)
-      .set({
-        name,
-        type: params.type,
-        domain: params.domain?.trim() || null,
-        bucket: params.bucket?.trim() || null,
-        region: params.region?.trim() || null,
-        endpoint: params.endpoint?.trim() || null,
-        accessKey: params.accessKey?.trim() || null,
-        secretKey: params.secretKey?.trim() || null,
-        status: params.status ?? StorageStatusEnum.NORMAL
-      })
+      .set(updateValues)
       .where(eq(storageTab.storageId, params.storageId));
 
     await this.refreshStorageCache();
@@ -255,17 +290,14 @@ const storageService = {
       }
     }
 
-    const formatted = (storageList ?? []).map((item) => ({
-      ...item,
-      domain: formatMediaDomain(item.domain),
-    })) as Storage[];
+    const decryptedList = await Promise.all((storageList ?? []).map(decryptStorageCredentials));
 
     l1StorageCache = {
-      list: formatted,
+      list: decryptedList,
       expiresAt: Date.now() + 60 * 1000,
     };
 
-    return formatted;
+    return decryptedList;
   },
 
   // Query storage by ID with direct database fallback.
@@ -278,10 +310,7 @@ const storageService = {
       .limit(1);
 
     if (!row) return null;
-    return {
-      ...row,
-      domain: formatMediaDomain(row.domain),
-    } as Storage;
+    return decryptStorageCredentials(row);
   },
 
   // Flush storage configuration cache across distributed instances.

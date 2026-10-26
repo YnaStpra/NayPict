@@ -153,7 +153,13 @@ const backupService = {
     // 3. Derive 256-bit encryption key using scrypt
     const salt = crypto.randomBytes(16);
     const iv = crypto.randomBytes(12);
-    const secret = password && password.trim() ? password.trim() : (process.env.JWT_SECRET || 'naypict-secure-backup-salt');
+    const configuredSecret = process.env.BACKUP_ENCRYPTION_KEY?.trim() || process.env.JWT_SECRET?.trim();
+    const secret = password && password.trim() ? password.trim() : configuredSecret;
+
+    if (!secret) {
+      throw new BizError('backup.secretRequired');
+    }
+
     const key = crypto.scryptSync(secret, salt, 32);
 
     // 4. Encrypt with AES-256-GCM

@@ -57,6 +57,7 @@ const SYSTEM_PATHS = [
   '/photo/comment/heart',
   '/photo/comment/pin',
   '/photo/untagged',
+  '/photos/untagged',
   '/admin/insights',
   '/insights',
   '/analytics/overview',
@@ -107,6 +108,9 @@ function isPathMatched(path: string, target: string) {
 
 // Determine whether the current interface belongs to the public browsing interface.
 function isPublicApiPath(path: string) {
+  if (path === '/photos/untagged' || path.startsWith('/photos/untagged/')) {
+    return false;
+  }
   return PUBLIC_API_PATHS.some((target) => isPathMatched(path, target));
 }
 

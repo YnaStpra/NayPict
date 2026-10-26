@@ -206,11 +206,11 @@ async function resolveAccurateGeo(
     }
   } catch {}
 
-  // Provider 2: ip-api.com fallback
+  // Provider 2: get.geojs.io HTTPS fallback
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 2000);
-    const res = await fetch(`http://ip-api.com/json/${encodeURIComponent(ip)}`, {
+    const res = await fetch(`https://get.geojs.io/v1/ip/geo/${encodeURIComponent(ip)}.json`, {
       signal: controller.signal,
       headers: { 'User-Agent': 'NayPict-Geo/1.0' },
     });
@@ -218,11 +218,11 @@ async function resolveAccurateGeo(
 
     if (res.ok) {
       const data = await res.json();
-      if (data && data.status === 'success') {
-        const isDc = isDatacenterOrHosting(data.isp, data.org);
-        const rawCountry = (data.countryCode || fallback.country || 'Unknown').trim().toUpperCase();
+      if (data && (data.country_code || data.organization)) {
+        const isDc = isDatacenterOrHosting(data.organization_name || data.organization);
+        const rawCountry = (data.country_code || fallback.country || 'Unknown').trim().toUpperCase();
         const rawCity = (data.city || fallback.city || 'Unknown').trim();
-        const rawRegion = normalizeRegionName(rawCountry, data.regionName || fallback.region, data.region);
+        const rawRegion = normalizeRegionName(rawCountry, data.region || fallback.region);
 
         const sanitized = sanitizeGeoRecord({
           city: rawCity,

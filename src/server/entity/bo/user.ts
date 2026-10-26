@@ -14,6 +14,7 @@ interface UserSetBo {
 }
 
 interface UserPasswordBo {
+  oldPassword?: string;
   password: string;
 }
 

@@ -1,5 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars */
-import { hashPassword } from '@/server/lib/crypto';
+import { hashPassword, verifyPasswordDetailed } from '@/server/lib/crypto';
 import { createId } from '@/server/lib/id';
 import { and, count, eq, inArray, ne, sql, sum } from 'drizzle-orm';
 import { userTab } from '@/server/entity/user';
@@ -342,9 +341,40 @@ const userService = {
 
   // Modify the current login user password, and regenerate salt and password hashes.
   async setUserPassword(params: UserPasswordBo, userId: string): Promise<void> {
+    if (!userId) {
+      throw new BizError('auth.failed', 401);
+    }
+
+    if (!params.oldPassword?.trim()) {
+      throw new BizError('user.oldPasswordRequired');
+    }
 
     if (!params.password?.trim()) {
       throw new BizError('user.passwordRequired');
+    }
+
+    const [user] = await orm
+      .select({
+        userId: userTab.userId,
+        password: userTab.password,
+        salt: userTab.salt,
+      })
+      .from(userTab)
+      .where(eq(userTab.userId, userId))
+      .limit(1);
+
+    if (!user) {
+      throw new BizError('user.notFound', 404);
+    }
+
+    const { valid: isOldPasswordValid } = await verifyPasswordDetailed(
+      params.oldPassword.trim(),
+      user.salt,
+      user.password
+    );
+
+    if (!isOldPasswordValid) {
+      throw new BizError('user.oldPasswordIncorrect');
     }
 
     validatePasswordComplexity(params.password);
