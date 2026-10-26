@@ -1,4 +1,4 @@
-import { describe, it, beforeEach, afterEach } from 'node:test';
+import { describe, it, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { isScraperUserAgent, botBlocker } from '../../src/server/security/bot-blocker.ts';
 
@@ -76,6 +76,63 @@ describe('Scraper & Bot Detection Middleware Test Suite', () => {
       }
     });
 
+    it('blocks AI web scrapers and LLM training harvesters', () => {
+      const aiUas = [
+        'Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko; compatible; GPTBot/1.2; +https://openai.com/gptbot)',
+        'ChatGPT-User/1.0',
+        'Mozilla/5.0 (compatible; ClaudeBot/1.0; +claudebot@anthropic.com)',
+        'Claude-Web/1.0',
+        'anthropic-ai/1.0',
+        'Bytespider; spider-feedback@bytedance.com',
+        'CCBot/2.0 (https://commoncrawl.org/faq/)',
+        'Mozilla/5.0 (compatible; Google-Extended; +https://developers.google.com/search/docs/crawling-indexing/overview-google-crawlers)',
+        'PerplexityBot/1.0 (+https://perplexity.ai/perplexitybot)',
+        'Diffbot/0.1',
+        'cohere-ai',
+        'Omgilibot/0.6',
+        'FacebookBot/1.0',
+        'Meta-ExternalAgent/1.0',
+        'Amazonbot/0.1',
+      ];
+
+      for (const ua of aiUas) {
+        assert.equal(
+          isScraperUserAgent(ua),
+          true,
+          `Expected AI scraper UA "${ua}" to be blocked`
+        );
+      }
+    });
+
+    it('blocks automated vulnerability scanners and exploit reconnaissance tools', () => {
+      const scannerUas = [
+        'nuclei - automated scanner',
+        'sqlmap/1.7.2#stable (https://sqlmap.org)',
+        'Mozilla/5.0 (compatible; Nikto/2.1.6)',
+        'Acunetix Vulnerability Scanner',
+        'Nmap Scripting Engine',
+        'masscan/1.3.2',
+        'WPScan v3.8.22',
+        'DirBuster-1.0-RC1',
+        'gobuster/3.5',
+        'ffuf v2.0.0',
+        'CensysInspect/1.1',
+        'Shodan-Scanner',
+        'zgrab/0.x',
+        'OpenVAS-Scanner',
+        'Nessus/10.5.0',
+        'Qualys-Scanner',
+      ];
+
+      for (const ua of scannerUas) {
+        assert.equal(
+          isScraperUserAgent(ua),
+          true,
+          `Expected security scanner UA "${ua}" to be blocked`
+        );
+      }
+    });
+
     it('blocks empty, whitespace, or missing User-Agent headers', () => {
       assert.equal(isScraperUserAgent(''), true);
       assert.equal(isScraperUserAgent('   '), true);
@@ -139,6 +196,14 @@ describe('Scraper & Bot Detection Middleware Test Suite', () => {
       process.env.DISABLE_BOT_BLOCKER = originalEnv;
     });
 
+    interface MockResponse {
+      type: string;
+      status: number;
+      data?: { code: number; message: string };
+      text?: string;
+      headers?: Record<string, string>;
+    }
+
     function createMockContext(path: string, userAgent?: string) {
       const headers: Record<string, string> = {};
       if (userAgent !== undefined) {
@@ -162,7 +227,7 @@ describe('Scraper & Bot Detection Middleware Test Suite', () => {
           text,
           headers: extraHeaders,
         }),
-      } as any;
+      } as unknown as Parameters<typeof botBlocker>[0];
     }
 
     it('blocks Python request to API endpoint with 403 Forbidden', async () => {
@@ -170,13 +235,13 @@ describe('Scraper & Bot Detection Middleware Test Suite', () => {
       let nextCalled = false;
       const next = async () => { nextCalled = true; };
 
-      const response: any = await botBlocker(c, next);
+      const response = (await botBlocker(c, next)) as unknown as MockResponse;
 
       assert.equal(nextCalled, false);
       assert.ok(response);
       assert.equal(response.status, 403);
       assert.equal(response.type, 'json');
-      assert.equal(response.data.code, 403);
+      assert.equal(response.data?.code, 403);
     });
 
     it('blocks curl request to /media/ with 403 text response', async () => {
@@ -184,7 +249,7 @@ describe('Scraper & Bot Detection Middleware Test Suite', () => {
       let nextCalled = false;
       const next = async () => { nextCalled = true; };
 
-      const response: any = await botBlocker(c, next);
+      const response = (await botBlocker(c, next)) as unknown as MockResponse;
 
       assert.equal(nextCalled, false);
       assert.ok(response);
