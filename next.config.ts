@@ -63,7 +63,7 @@ const nextConfig: NextConfig = {
       // Prevent Adobe Flash / Acrobat cross-domain policy file inspection
       { key: 'X-Permitted-Cross-Domain-Policies', value: 'none' },
       // Disable browser features not required by this app, while allowing geolocation for self (maps & analytics)
-      { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=(self), interest-cohort=()' },
+      { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=(self), interest-cohort=(), browsing-topics=(), payment=(), usb=()' },
       // Force HTTPS (only meaningful in production behind HTTPS)
       { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains; preload' },
       // HTTP/3 QUIC protocol advertisement and 0-RTT connection acceleration
@@ -101,6 +101,28 @@ const nextConfig: NextConfig = {
           {
             key: 'Link',
             value: '</naypict-icon.svg>; rel=preload; as=image',
+          },
+        ],
+      },
+      {
+        source: '/media/:path*',
+        headers: [
+          {
+            key: 'X-Robots-Tag',
+            value: 'noindex, nofollow, noarchive',
+          },
+          {
+            key: 'X-Content-Type-Options',
+            value: 'nosniff',
+          },
+        ],
+      },
+      {
+        source: '/api/:path*',
+        headers: [
+          {
+            key: 'X-Robots-Tag',
+            value: 'noindex, nofollow, noarchive',
           },
         ],
       },

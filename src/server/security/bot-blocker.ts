@@ -39,6 +39,41 @@ const SCRAPER_USER_AGENT_PATTERNS: RegExp[] = [
   /selenium/i,
   /puppeteer/i,
   /playwright(?!.*(?:chrome|safari|firefox))/i,
+
+  // AI web scrapers and LLM dataset harvesters
+  /gptbot/i,
+  /chatgpt-user/i,
+  /claudebot/i,
+  /claude-web/i,
+  /anthropic-ai/i,
+  /bytespider/i,
+  /ccbot/i,
+  /google-extended/i,
+  /perplexitybot/i,
+  /diffbot/i,
+  /cohere-ai/i,
+  /omgilibot/i,
+  /facebookbot/i,
+  /meta-externalagent/i,
+  /amazonbot/i,
+
+  // Automated vulnerability scanners & security reconnaissance tools
+  /nuclei/i,
+  /sqlmap/i,
+  /nikto/i,
+  /acunetix/i,
+  /nmap/i,
+  /masscan/i,
+  /wpscan/i,
+  /dirbuster/i,
+  /gobuster/i,
+  /ffuf/i,
+  /censys/i,
+  /shodan/i,
+  /zgrab/i,
+  /openvas/i,
+  /nessus/i,
+  /qualys/i,
 ];
 
 // Exempt known legitimate search engine crawlers so SEO indexing is never disrupted
