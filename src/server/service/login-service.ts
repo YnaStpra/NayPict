@@ -143,10 +143,13 @@ const loginService = {
       try {
         await totpService.verifyLoginTotp(tempSession.userId, params.code);
       } catch {
-        // Increment failure counter
-        await cache.set(attemptKey, totpAttempts + 1, { ttl: 300 });
-        await loginRateLimiter.consume(clientIp);
-        throw new BizError('totp.invalidCode');
+        const isBackupValid = await totpService.verifyAndConsumeBackupCode(tempSession.userId, params.code);
+        if (!isBackupValid) {
+          // Increment failure counter
+          await cache.set(attemptKey, totpAttempts + 1, { ttl: 300 });
+          await loginRateLimiter.consume(clientIp);
+          throw new BizError('totp.invalidCode');
+        }
       }
 
       // Success: clean up both tempToken and attempt counter
@@ -241,9 +244,12 @@ const loginService = {
         try {
           await totpService.verifyLoginTotp(user.userId, params.code);
         } catch {
-          await loginRateLimiter.consume(clientIp);
-          await accountLockoutRateLimiter.consume(normalizedUsername);
-          throw new BizError('totp.invalidCode');
+          const isBackupValid = await totpService.verifyAndConsumeBackupCode(user.userId, params.code);
+          if (!isBackupValid) {
+            await loginRateLimiter.consume(clientIp);
+            await accountLockoutRateLimiter.consume(normalizedUsername);
+            throw new BizError('totp.invalidCode');
+          }
         }
       } else {
         const tempToken = createId();

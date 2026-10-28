@@ -4,6 +4,7 @@ import result from '@/server/model/result';
 import { commentService } from '@/server/service/comment-service';
 import { type CommentAddBo, type CommentDeleteBo, type CommentListAdminBo, type CommentReplyBo } from '@/server/entity/bo/comment';
 import { getClientIp } from '@/server/lib/ip';
+import { resolveSignedVisitorId } from '@/server/lib/visitor-cookie';
 import type { HonoEnv } from '../hono/type';
 
 // This module registers public and administrative photo comment interfaces.
@@ -35,8 +36,7 @@ export function registerCommentApi(app: Hono<HonoEnv>) {
     const photoId = c.req.param('photoId') ?? '';
     const body = await c.req.json<CommentAddBo>().catch(() => ({ photoId: '', name: '', content: '' } as CommentAddBo));
     const clientIp = getClientIp(c);
-    const cookieVid = getCookie(c, 'naypict_vid') || '';
-    const visitorId = (body.visitorId?.trim() || cookieVid || '').slice(0, 64);
+    const visitorId = resolveSignedVisitorId(c, body.visitorId);
     const sessionId = (body.sessionId?.trim() || '').slice(0, 64);
 
     const data = await commentService.add({
@@ -53,8 +53,7 @@ export function registerCommentApi(app: Hono<HonoEnv>) {
   app.post('/photo/comment/add', async (c: Context) => {
     const body = await c.req.json<CommentAddBo>().catch(() => ({ photoId: '', name: '', content: '' } as CommentAddBo));
     const clientIp = getClientIp(c);
-    const cookieVid = getCookie(c, 'naypict_vid') || '';
-    const visitorId = (body.visitorId?.trim() || cookieVid || '').slice(0, 64);
+    const visitorId = resolveSignedVisitorId(c, body.visitorId);
     const sessionId = (body.sessionId?.trim() || '').slice(0, 64);
 
     const data = await commentService.add({

@@ -1,6 +1,8 @@
 import { Hono, Context } from 'hono';
 import result from '@/server/model/result';
 import { getUserId } from '@/server/security/context';
+import { getClientIp } from '@/server/lib/ip';
+import { logSecurityAudit } from '@/server/lib/audit';
 import { albumService } from '@/server/service/album-service';
 import {
   type AlbumAddBo,
@@ -116,21 +118,42 @@ export function registerAlbumApi(app: Hono<HonoEnv>) {
   // Archive album.
   app.post('/album/archive', async (c: Context) => {
     const body = await c.req.json<AlbumArchiveBo>();
-    await albumService.archive(body, getUserId());
+    const userId = getUserId();
+    await albumService.archive(body, userId);
+    logSecurityAudit({
+      action: 'ALBUM_ARCHIVE',
+      userId,
+      clientIp: getClientIp(c),
+      targetId: body.albumId,
+    });
     return c.json(result.ok());
   });
 
   // Unarchive album.
   app.post('/album/unarchive', async (c: Context) => {
     const body = await c.req.json<AlbumArchiveBo>();
-    await albumService.unarchive(body, getUserId());
+    const userId = getUserId();
+    await albumService.unarchive(body, userId);
+    logSecurityAudit({
+      action: 'ALBUM_UNARCHIVE',
+      userId,
+      clientIp: getClientIp(c),
+      targetId: body.albumId,
+    });
     return c.json(result.ok());
   });
 
   // Delete album.
   app.post('/album/delete', async (c: Context) => {
     const body = await c.req.json<AlbumDeleteBo>();
-    await albumService.delete(body, getUserId());
+    const userId = getUserId();
+    await albumService.delete(body, userId);
+    logSecurityAudit({
+      action: 'ALBUM_DELETE',
+      userId,
+      clientIp: getClientIp(c),
+      targetId: body.albumId,
+    });
     return c.json(result.ok());
   });
 }

@@ -1,4 +1,5 @@
 import { eq, sql } from 'drizzle-orm';
+import crypto from 'node:crypto';
 import { settingTab } from '@/server/entity/setting';
 import { userTab } from '@/server/entity/user';
 import { orm } from '@/server/infra/db';
@@ -10,12 +11,26 @@ import { cache } from '@/server/infra/cache';
 import { AUTH_CACHE_KEY } from '@/server/const/cache';
 import { encryptData, decryptData, verifyPasswordDetailed } from '@/server/lib/crypto';
 
-// This module manages TOTP configuration, verification, and related session revocation with AES-256-GCM encryption at rest.
+// This module manages TOTP configuration, verification, emergency backup codes, and related session revocation with AES-256-GCM encryption at rest.
 
 interface TotpUserData {
   secret: string;
   enabled: boolean;
   createTime: string;
+  backupCodes?: string[]; // SHA-256 hashes of single-use recovery codes
+}
+
+// Generate single-use emergency recovery codes (formatted xxxx-xxxx)
+function generateEmergencyBackupCodes(count = 8): { plainCodes: string[]; hashedCodes: string[] } {
+  const plainCodes: string[] = [];
+  const hashedCodes: string[] = [];
+  for (let i = 0; i < count; i++) {
+    const raw = crypto.randomBytes(4).toString('hex').toLowerCase();
+    const formatted = `${raw.slice(0, 4)}-${raw.slice(4, 8)}`;
+    plainCodes.push(formatted);
+    hashedCodes.push(crypto.createHash('sha256').update(formatted).digest('hex'));
+  }
+  return { plainCodes, hashedCodes };
 }
 
 // Retrieve master encryption key for 2FA secrets at rest.
@@ -63,19 +78,23 @@ const totpService = {
     }
   },
 
-  // Initialize or setup Google Authenticator TOTP QR code for user with encrypted secret storage.
+  // Initialize or setup Google Authenticator TOTP QR code for user with encrypted secret storage and emergency backup codes.
   async setupTotp(username: string, userId: string): Promise<TotpSetupVo> {
     const existingData = await this.getTotpData(userId);
     let secret = existingData?.secret;
+    const { plainCodes, hashedCodes } = generateEmergencyBackupCodes(8);
+    let generatedBackupCodes: string[] | undefined = undefined;
 
-    if (!secret) {
-      secret = generateTotpSecret(16);
+    if (!secret || !existingData?.backupCodes || existingData.backupCodes.length === 0) {
+      secret = secret || generateTotpSecret(16);
+      generatedBackupCodes = plainCodes;
       const key = this.getSettingKey(userId);
       const encryptedSecret = await encryptData(secret, getEncryptionKey());
       const data: TotpUserData = {
         secret: encryptedSecret,
-        enabled: false,
-        createTime: new Date().toISOString(),
+        enabled: Boolean(existingData?.enabled),
+        createTime: existingData?.createTime || new Date().toISOString(),
+        backupCodes: hashedCodes,
       };
 
       await orm
@@ -98,6 +117,7 @@ const totpService = {
       otpauthUrl,
       qrCodeUrl,
       enabled: Boolean(existingData?.enabled),
+      backupCodes: generatedBackupCodes,
     };
   },
 
@@ -133,6 +153,7 @@ const totpService = {
       secret: encryptedSecret,
       enabled: true,
       createTime: existingData?.createTime || new Date().toISOString(),
+      backupCodes: existingData?.backupCodes,
     };
 
     // Persist the stronger 2FA policy and revoke pre-2FA sessions atomically.
@@ -209,6 +230,7 @@ const totpService = {
       ...existingData,
       secret: encryptedSecret,
       enabled: false,
+      backupCodes: undefined,
     };
 
     // Persist the weaker 2FA policy and revoke every previously authenticated session atomically.
@@ -256,6 +278,47 @@ const totpService = {
 
     // Mark this code as used for 90s to prevent replay
     await cache.set(replayKey, true, { ttl: 90 });
+
+    return true;
+  },
+
+  // Verify and consume a single-use emergency backup code.
+  async verifyAndConsumeBackupCode(userId: string, code: string): Promise<boolean> {
+    const data = await this.getTotpData(userId);
+    if (!data || !data.enabled || !data.backupCodes || data.backupCodes.length === 0) {
+      return false;
+    }
+
+    const cleanCode = code.trim().toLowerCase();
+    const inputHash = crypto.createHash('sha256').update(cleanCode).digest('hex');
+
+    const codeIndex = data.backupCodes.indexOf(inputHash);
+    if (codeIndex === -1) {
+      return false;
+    }
+
+    // Single-use: remove matched code from user's remaining list
+    const remainingCodes = [...data.backupCodes];
+    remainingCodes.splice(codeIndex, 1);
+
+    const key = this.getSettingKey(userId);
+    const encryptedSecret = await encryptData(data.secret, getEncryptionKey());
+    const updatedData: TotpUserData = {
+      ...data,
+      secret: encryptedSecret,
+      backupCodes: remainingCodes,
+    };
+
+    await orm
+      .insert(settingTab)
+      .values({
+        key,
+        value: JSON.stringify(updatedData),
+      })
+      .onConflictDoUpdate({
+        target: settingTab.key,
+        set: { value: JSON.stringify(updatedData) },
+      });
 
     return true;
   }

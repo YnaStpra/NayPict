@@ -249,11 +249,14 @@ const albumService = {
   // Add the current user's photo album.
   async add(params: AlbumAddBo, userId: string): Promise<Album> {
 
-    const name = params.name?.trim();
-
-    if (!name) {
+    const clean = (params.name || '').replace(/[\0\r\n\t]/g, '').trim();
+    if (!clean) {
       throw new BizError('album.nameRequired');
     }
+    if (clean.length > 100) {
+      throw new BizError('album.nameTooLong');
+    }
+    const name = clean;
 
     const [existsAlbum] = await orm
       .select()
@@ -552,11 +555,15 @@ const albumService = {
 
   // Modify album name.
   async setName(params: AlbumSetNameBo, userId: string): Promise<void> {
-    const name = params.name?.trim();
+    const clean = (params.name || '').replace(/[\0\r\n\t]/g, '').trim();
 
-    if (!name) {
+    if (!clean) {
       throw new BizError('album.nameRequired');
     }
+    if (clean.length > 100) {
+      throw new BizError('album.nameTooLong');
+    }
+    const name = clean;
 
     await orm.update(albumTab)
       .set({

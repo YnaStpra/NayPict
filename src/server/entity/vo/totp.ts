@@ -5,6 +5,7 @@ interface TotpSetupVo {
   otpauthUrl: string;
   qrCodeUrl: string;
   enabled: boolean;
+  backupCodes?: string[];
 }
 
 interface TotpStatusVo {

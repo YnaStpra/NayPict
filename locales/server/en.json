@@ -75,6 +75,11 @@
   "user.selfDemoteForbidden": "You cannot demote your own administrator privileges.",
   "user.lastAdminForbidden": "Cannot remove, disable, or demote the last active administrator account.",
   "telemetry.rateLimited": "Too many requests. Please wait a moment before trying again.",
-  "location.rateLimited": "Too many location requests. Please wait a moment before trying again."
+  "location.rateLimited": "Too many location requests. Please wait a moment before trying again.",
+  "album.nameTooLong": "Album name cannot exceed 100 characters.",
+  "comment.duplicateContent": "Duplicate comment detected. Please wait before posting the same message again.",
+  "backup.passwordTooShort": "Backup encryption password must be at least 12 characters long.",
+  "user.passwordTooCommon": "This password is too common and easily guessed. Please choose a stronger password.",
+  "user.passwordMatchesUsername": "Password cannot be the same as your username."
 }
 

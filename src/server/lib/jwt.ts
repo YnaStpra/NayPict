@@ -9,11 +9,14 @@ interface LoginTokenPayload extends JWTPayload {
   tokenVersion?: number;
 }
 
-// Retrieve JWT secret from environment and fail fast if missing.
+// Retrieve JWT secret from environment and fail fast if missing or insufficient.
 function getJwtSecret(): string {
   const secret = process.env.JWT_SECRET?.trim();
   if (!secret) {
     throw new Error('FATAL: [SECURITY] JWT_SECRET environment variable is required for authentication but not set in environment.');
+  }
+  if (process.env.NODE_ENV === 'production' && secret.length < 32) {
+    throw new Error('FATAL: [SECURITY] JWT_SECRET must be at least 32 characters long in production (RFC 7518 HS256 requirement).');
   }
   return secret;
 }

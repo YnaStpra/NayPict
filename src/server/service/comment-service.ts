@@ -17,8 +17,21 @@ import { formatHttpUrl, toMediaUrl } from '@/lib/url';
 import { toUtcIsoString } from '@/lib/date';
 import { FileTypeEnum } from '@/server/enums/file-enum';
 import { commentRateLimiter } from '@/server/lib/rate-limiter';
+import { cache } from '@/server/infra/cache';
+import crypto from 'node:crypto';
 
 // This module handles business logic and storage operations for photo comments and admin replies.
+
+// Sanitize comment text against stored XSS, HTML script injection, and control characters
+function sanitizeCommentText(text?: string): string {
+  if (!text) return '';
+  return text
+    .replace(/<[^>]*>?/gm, '') // Strip HTML tags
+    .replace(/javascript:/gi, '') // Strip javascript: pseudo-protocol
+    .replace(/data:\s*text\/html/gi, '') // Strip HTML data URIs
+    .replace(/[\u0000-\u0008\u000B-\u000C\u000E-\u001F\u007F]/g, '') // Strip ASCII control characters
+    .trim();
+}
 
 const commentService = {
 
@@ -169,22 +182,12 @@ const commentService = {
   // Add a new comment to a photo with server-side validation and abuse rate limiting.
   async add(params: CommentAddBo, clientIp?: string): Promise<CommentVo> {
     const photoId = params.photoId?.trim();
-    const name = params.name?.trim();
-    const content = params.content?.trim();
+    const name = sanitizeCommentText(params.name);
+    const content = sanitizeCommentText(params.content);
 
     // 1. Validate Photo ID
     if (!photoId) {
       throw new BizError('photo.selectRequired');
-    }
-
-    const [photo] = await orm
-      .select({ photoId: photoTab.photoId })
-      .from(photoTab)
-      .where(and(eq(photoTab.photoId, photoId), eq(photoTab.status, PhotoStatusEnum.NORMAL)))
-      .limit(1);
-
-    if (!photo) {
-      throw new BizError('photo.notFound');
     }
 
     // 2. Validate Commenter Name (required, max 50 characters)
@@ -203,7 +206,26 @@ const commentService = {
       throw new BizError('comment.contentTooLong');
     }
 
-    // 4. Invisible Honeypot Bot Detection (Anti-Spam)
+    // 4. Validate Photo exists in database
+    const [photo] = await orm
+      .select({ photoId: photoTab.photoId })
+      .from(photoTab)
+      .where(and(eq(photoTab.photoId, photoId), eq(photoTab.status, PhotoStatusEnum.NORMAL)))
+      .limit(1);
+
+    if (!photo) {
+      throw new BizError('photo.notFound');
+    }
+
+    // 4. Duplicate Comment Flood Check (prevent spamming identical text to same photo within 60s)
+    const contentHash = crypto.createHash('sha256').update(content.toLowerCase()).digest('hex').slice(0, 16);
+    const dupKey = `comment_dup_${photoId}_${contentHash}`;
+    const isDuplicate = await cache.get(dupKey);
+    if (isDuplicate) {
+      throw new BizError('comment.duplicateContent');
+    }
+
+    // 5. Invisible Honeypot Bot Detection (Anti-Spam)
     if (params.website && params.website.trim().length > 0) {
       console.warn(`[COMMENT BOT BLOCKED] Honeypot field filled by IP ${clientIp || 'unknown'}: "${params.website}"`);
       throw new BizError('comment.botDetected');
@@ -234,7 +256,10 @@ const commentService = {
       }
     }
 
-    // 6. Insert new comment record
+    // 8. Cache duplicate key to enforce cooldown
+    await cache.set(dupKey, true, { ttl: 60 });
+
+    // 9. Insert new comment record
     const commentId = createId();
     const now = new Date().toISOString();
 
@@ -317,7 +342,7 @@ const commentService = {
   // Admin replies to a comment.
   async reply(params: CommentReplyBo): Promise<CommentVo> {
     const commentId = params.commentId?.trim();
-    const replyContent = params.replyContent?.trim();
+    const replyContent = sanitizeCommentText(params.replyContent);
 
     if (!commentId) {
       throw new BizError('comment.selectRequired');
