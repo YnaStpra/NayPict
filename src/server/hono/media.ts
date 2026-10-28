@@ -11,7 +11,7 @@ import { getUserId } from '@/server/security/context';
 import { mediaCors } from '@/server/security/cors';
 import { buildContentDisposition } from '@/server/lib/file';
 import { FileTypeEnum } from '@/server/enums/file-enum';
-import { PhotoStatusEnum } from '@/server/enums/photo-enum';
+import { PhotoStatusEnum, PhotoVisibilityEnum } from '@/server/enums/photo-enum';
 import BizError from '@/server/error/biz-error';
 import { i18nMiddleware, t } from '@/server/i18n';
 import { antiHotlink } from '@/server/security/hotlink';
@@ -61,7 +61,8 @@ async function getPhotoFile(key: string) {
       photoId: photoTab.photoId,
       storageId: photoTab.storageId,
       allowDownload: photoTab.allowDownload,
-      status: photoTab.status
+      status: photoTab.status,
+      visibility: photoTab.visibility
     })
     .from(fileTab)
     .innerJoin(photoTab, eq(fileTab.photoId, photoTab.photoId))
@@ -106,6 +107,11 @@ media.get('*', async (c: Context, next: Next) => {
 
   // If photo is in trash / recycled, only allow authenticated user/admin to view
   if (photoFile.status === PhotoStatusEnum.DELETE && !userId) {
+    return next();
+  }
+
+  // If photo is archived, only allow authenticated user/admin to view
+  if (photoFile.visibility === PhotoVisibilityEnum.ARCHIVED && !userId) {
     return next();
   }
 

@@ -31,6 +31,7 @@ import { SettingWatermarkEnum } from '@/server/enums/setting-enum';
 import { applyWatermark } from '@/server/lib/photo-watermark';
 import sharp from 'sharp';
 import { SHARP_SECURITY_OPTIONS } from '@/server/lib/photo-process';
+import { buildContentDisposition } from '@/server/lib/file';
 import type { HonoEnv } from '../hono/type';
 
 // This module registers photo-related interfaces.
@@ -130,8 +131,15 @@ export function registerPhotoApi(app: Hono<HonoEnv>) {
     const userId = getUserId();
     const body = await c.req.json<PhotoBatchEditBo>();
 
+    logSecurityAudit({
+      action: 'PHOTO_BATCH_EDIT_STREAM',
+      userId,
+      clientIp: getClientIp(c),
+      details: { count: body.photoIds?.length, visibility: body.visibility, allowDownload: body.allowDownload },
+    });
+
     return streamSSE(c, async (stream) => {
-      const total = body.photoIds.length;
+      const total = Array.isArray(body.photoIds) ? body.photoIds.length : 0;
       await stream.writeSSE({
         data: JSON.stringify({ type: 'start', total }),
       });
@@ -323,11 +331,11 @@ export function registerPhotoApi(app: Hono<HonoEnv>) {
       return c.json({ code: 404, error: "NOT_FOUND", message: "Photo not found" }, 404);
     }
 
-    // Serve original uncompressed buffer with complete EXIF metadata and proper filename attachment
+    // Serve original uncompressed buffer with complete EXIF metadata and RFC 6266 filename attachment
     const photoData = await photoService.getOriginalPhotoBuffer(photoId);
     if (photoData) {
       c.header('Content-Type', photoData.contentType || 'application/octet-stream');
-      c.header('Content-Disposition', `attachment; filename="${encodeURIComponent(photoData.fileName || photo.name)}"`);
+      c.header('Content-Disposition', buildContentDisposition(photoData.fileName || photo.name, 'attachment'));
       c.header('Content-Length', String(photoData.buffer.length));
       c.header('Cache-Control', 'private, no-cache');
       return c.body(new Uint8Array(photoData.buffer));

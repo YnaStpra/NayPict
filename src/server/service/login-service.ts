@@ -19,6 +19,7 @@ import { totpService } from '@/server/service/totp-service';
 import { userService } from '@/server/service/user-service';
 import { accountLockoutRateLimiter, loginRateLimiter } from '@/server/lib/rate-limiter';
 import { verifyTurnstileToken } from '@/server/lib/turnstile';
+import { logSecurityAudit } from '@/server/lib/audit';
 
 // This module handles login authentication related services.
 
@@ -169,6 +170,14 @@ const loginService = {
       const uuid = await this.saveAuthInfo(user, { ip: clientIp, userAgent: clientMeta?.userAgent });
       const token = await createLoginToken(user.userId, uuid, user.tokenVersion);
       const userVo = await userService.getById(user.userId);
+
+      logSecurityAudit({
+        action: 'AUTH_LOGIN_SUCCESS',
+        userId: user.userId,
+        clientIp,
+        details: { username: user.username, method: '2fa_totp', isNewDevice },
+      });
+
       return { token, user: userVo, isNewDevice };
     }
 
@@ -182,6 +191,11 @@ const loginService = {
     // Account-Level Lockout (Anti-Distributed Password Spraying): max 10 failed attempts per 15 minutes per username
     const accountLimit = await accountLockoutRateLimiter.check(normalizedUsername);
     if (!accountLimit.allowed) {
+      logSecurityAudit({
+        action: 'AUTH_ACCOUNT_LOCKED',
+        clientIp,
+        details: { username },
+      });
       throw new BizError('login.accountLocked');
     }
 
@@ -194,6 +208,11 @@ const loginService = {
       await verifyPasswordDetailed(params.password || "dummy", DUMMY_SALT, DUMMY_HASH).catch(() => {});
       await loginRateLimiter.consume(clientIp);
       await accountLockoutRateLimiter.consume(normalizedUsername);
+      logSecurityAudit({
+        action: 'AUTH_LOGIN_FAILED',
+        clientIp,
+        details: { username, reason: 'user_not_found' },
+      });
       throw new BizError("login.invalidCredentials");
     }
 
@@ -206,6 +225,12 @@ const loginService = {
     if (!isValidPassword) {
       await loginRateLimiter.consume(clientIp);
       await accountLockoutRateLimiter.consume(normalizedUsername);
+      logSecurityAudit({
+        action: 'AUTH_LOGIN_FAILED',
+        userId: user.userId,
+        clientIp,
+        details: { username, reason: 'invalid_password' },
+      });
       throw new BizError('login.invalidCredentials');
     }
 
@@ -278,6 +303,14 @@ const loginService = {
     const uuid = await this.saveAuthInfo(user, { ip: clientIp, userAgent: clientMeta?.userAgent });
     const token = await createLoginToken(user.userId, uuid, user.tokenVersion);
     const userVo = await userService.getById(user.userId);
+
+    logSecurityAudit({
+      action: 'AUTH_LOGIN_SUCCESS',
+      userId: user.userId,
+      clientIp,
+      details: { username: user.username, method: 'password', isNewDevice },
+    });
+
     return { token, user: userVo, isNewDevice };
   },
 

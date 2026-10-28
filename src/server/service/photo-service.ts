@@ -194,8 +194,10 @@ const photoService = {
       if (cached) return cached;
     }
 
+    // Security: allowAllVisibility is strictly restricted to authenticated users. Guests cannot override visibility filters.
+    const effectiveAllowAllVisibility = Boolean(userId && params.allowAllVisibility);
     // Allow up to 10,000 for authenticated admin or allowAllVisibility requests; clamp public unauthenticated requests to 100
-    const maxSize = (userId || params.allowAllVisibility) ? 10000 : 100;
+    const maxSize = (userId || effectiveAllowAllVisibility) ? 10000 : 100;
     const size = Math.min(Math.max(1, params.size || PHOTO_LIST_PAGE_SIZE), maxSize);
     const status = params.status ?? PhotoStatusEnum.NORMAL;
 
@@ -249,9 +251,18 @@ const photoService = {
     }
 
     // Scoped visibility filtering (Both, Gallery Only, Album Only, Archived):
-    if (params.visibility !== undefined && params.visibility !== null) {
-      baseWhereList.push(eq(photoTab.visibility, params.visibility));
-    } else if (!params.allowAllVisibility && status === PhotoStatusEnum.NORMAL && (!params.photoIds || params.photoIds.length === 0)) {
+    // Security: Unauthenticated guests cannot query ARCHIVED photos or bypass public visibility scoping.
+    const requestedVisibility = params.visibility !== undefined && params.visibility !== null ? params.visibility : null;
+    const isGuest = !userId;
+
+    if (requestedVisibility !== null) {
+      if (isGuest && requestedVisibility === PhotoVisibilityEnum.ARCHIVED) {
+        // Guests cannot view archived photos
+        baseWhereList.push(sql`1 = 0`);
+      } else {
+        baseWhereList.push(eq(photoTab.visibility, requestedVisibility));
+      }
+    } else if (!effectiveAllowAllVisibility && status === PhotoStatusEnum.NORMAL && (!params.photoIds || params.photoIds.length === 0)) {
       if (params.albumId) {
         baseWhereList.push(
           or(
@@ -482,8 +493,14 @@ const photoService = {
       whereList.push(lte(photoTab.takenTime, params.endTakenTime));
     }
 
-    if (params.visibility) {
-      whereList.push(eq(photoTab.visibility, params.visibility));
+    const requestedVisibility = params.visibility !== undefined && params.visibility !== null ? params.visibility : null;
+    const isGuest = !userId;
+
+    if (requestedVisibility !== null) {
+      if (isGuest && requestedVisibility === PhotoVisibilityEnum.ARCHIVED) {
+        return [];
+      }
+      whereList.push(eq(photoTab.visibility, requestedVisibility));
     } else if (status === PhotoStatusEnum.NORMAL) {
       if (params.albumId) {
         whereList.push(
@@ -2287,10 +2304,19 @@ const photoService = {
 
     // If latitude or longitude is specified in batch edit, update EXIF GPS coordinates strictly on verified photos
     if (params.latitude !== undefined || params.longitude !== undefined) {
+      const parseCoord = (val: unknown, min: number, max: number): number | null => {
+        if (val === null || val === undefined || val === '') return null;
+        const n = typeof val === 'number' ? val : Number(val);
+        return Number.isFinite(n) && n >= min && n <= max ? n : null;
+      };
+
+      const finalLat = params.latitude !== undefined ? parseCoord(params.latitude, -90, 90) : undefined;
+      const finalLng = params.longitude !== undefined ? parseCoord(params.longitude, -180, 180) : undefined;
+
       await exifService.updateLocation(
         verifiedPhotoIds,
-        params.latitude !== undefined ? params.latitude : null,
-        params.longitude !== undefined ? params.longitude : null
+        finalLat !== undefined ? finalLat : null,
+        finalLng !== undefined ? finalLng : null
       );
     }
 
@@ -2475,14 +2501,16 @@ const photoService = {
         .from(photoTab)
         .innerJoin(albumPhotoTab, eq(photoTab.photoId, albumPhotoTab.photoId))
         .where(and(eq(albumPhotoTab.albumId, albumId), ...whereList))
-        .orderBy(desc(photoTab.takenTime), desc(photoTab.photoId));
+        .orderBy(desc(photoTab.takenTime), desc(photoTab.photoId))
+        .limit(2000);
       list = rows.map((r: any) => r.photo);
     } else {
       list = await readOrm
         .select()
         .from(photoTab)
         .where(and(...whereList))
-        .orderBy(desc(photoTab.takenTime), desc(photoTab.photoId));
+        .orderBy(desc(photoTab.takenTime), desc(photoTab.photoId))
+        .limit(2000);
     }
 
     if (!list.length) return [];

@@ -30,13 +30,15 @@ function formatFileTimestamp(date = new Date()) {
   return `${year}${month}${day}_${hour}${minute}${second}_${millisecond}`;
 }
 
-// Generate based on original file name Content-Disposition.
-function buildContentDisposition(name: string) {
-  const encodedName = encodeURIComponent(name)
+// Generate RFC 6266 and RFC 5987 compliant Content-Disposition with ASCII fallback and UTF-8 encoded filename.
+function buildContentDisposition(name: string, dispositionType: 'inline' | 'attachment' = 'inline') {
+  const cleanName = (name || 'photo').replace(/[\r\n\t"]/g, '_').trim();
+  const asciiFallback = cleanName.replace(/[^\x20-\x7E]/g, '_');
+  const encodedName = encodeURIComponent(cleanName)
     .replace(/[!'()*]/g, (char) =>
       `%${char.charCodeAt(0).toString(16).toUpperCase()}`
     );
-  return `inline; filename*=UTF-8''${encodedName}`;
+  return `${dispositionType}; filename="${asciiFallback}"; filename*=UTF-8''${encodedName}`;
 }
 
 export interface MagicBytesResult {

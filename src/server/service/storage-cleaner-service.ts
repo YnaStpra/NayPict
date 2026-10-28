@@ -200,13 +200,22 @@ class StorageCleanerService {
       return { deleted: 0, freedBytes: 0 };
     }
 
-    // Critical Safeguard: Verify none of the keys exist in DB
-    const existingDbFiles = await orm
-      .select({ key: fileTab.key })
-      .from(fileTab)
-      .where(inArray(fileTab.key, params.keys));
+    // Security: Cap maximum keys per deletion request to 1,000 to prevent DoS / timeout
+    const keysToInspect = params.keys.slice(0, 1000);
 
-    const existingDbKeySet = new Set(existingDbFiles.map((f) => f.key));
+    // Critical Safeguard: Verify none of the keys exist in DB (chunked to prevent SQL parameter limits)
+    const existingDbKeySet = new Set<string>();
+    const queryChunkSize = 500;
+    for (let i = 0; i < keysToInspect.length; i += queryChunkSize) {
+      const chunk = keysToInspect.slice(i, i + queryChunkSize);
+      const rows = await orm
+        .select({ key: fileTab.key })
+        .from(fileTab)
+        .where(inArray(fileTab.key, chunk));
+      for (const r of rows) {
+        existingDbKeySet.add(r.key);
+      }
+    }
 
     const users = await orm
       .select({ avatar: userTab.avatar })
@@ -216,7 +225,7 @@ class StorageCleanerService {
     }
 
     // Critical Safeguard: Only allow deleting objects with NayPict managed prefixes that do not exist in DB
-    const safeKeysToDelete = params.keys.filter((k) =>
+    const safeKeysToDelete = keysToInspect.filter((k) =>
       !existingDbKeySet.has(k) &&
       NAYPICT_MANAGED_PREFIXES.some((prefix) => k.startsWith(prefix))
     );

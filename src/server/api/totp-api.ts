@@ -1,6 +1,9 @@
 import { Hono, Context } from "hono";
 import result from '@/server/model/result';
 import { getUserId } from "@/server/security/context";
+import { getClientIp } from "@/server/lib/ip";
+import { logSecurityAudit } from "@/server/lib/audit";
+import { totpVerifyRateLimiter } from "@/server/lib/rate-limiter";
 import { totpService } from "@/server/service/totp-service";
 import { userService } from "@/server/service/user-service";
 import { type TotpDisableBo, type TotpSetupBo } from "@/server/entity/bo/totp";
@@ -38,8 +41,21 @@ export function registerTotpApi(app: Hono<HonoEnv>) {
       return c.json(result.fail('login.unauthorized'), 401);
     }
 
+    const clientIp = getClientIp(c);
+    const rateLimit = await totpVerifyRateLimiter.consume(`${userId}:${clientIp}`);
+    if (!rateLimit.allowed) {
+      return c.json(result.fail('totp.tooManyAttempts', 429), 429);
+    }
+
     const body = await c.req.json<TotpSetupBo>();
     await totpService.verifyAndEnableTotp(body.code, body.secret, userId);
+
+    logSecurityAudit({
+      action: 'TOTP_ENABLE',
+      userId,
+      clientIp,
+    });
+
     return c.json(result.ok());
   });
 
@@ -50,8 +66,16 @@ export function registerTotpApi(app: Hono<HonoEnv>) {
       return c.json(result.fail('login.unauthorized'), 401);
     }
 
+    const clientIp = getClientIp(c);
     const body = await c.req.json<TotpDisableBo>().catch(() => ({} as TotpDisableBo));
     await totpService.disableTotp(userId, body);
+
+    logSecurityAudit({
+      action: 'TOTP_DISABLE',
+      userId,
+      clientIp,
+    });
+
     return c.json(result.ok());
   });
 }

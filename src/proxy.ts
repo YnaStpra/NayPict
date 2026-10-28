@@ -6,6 +6,7 @@ import { UserTypeEnum } from '@/server/enums/user-enum';
 import { type AuthInfo } from '@/server/entity/vo/auth';
 import { cache } from '@/server/infra/cache';
 import { userService } from '@/server/service/user-service';
+import { sessionService } from '@/server/service/session-service';
 
 // This module proxy page routing, Jump to login page when not logged in.
 
@@ -103,6 +104,16 @@ export async function proxy(req: NextRequest) {
     try {
       const user = await userService.getById(userId);
       if (user) {
+        const revokedUuids = await sessionService.getRevokedUuids(userId);
+        if (revokedUuids.includes(uuid)) {
+          if (isPublicPath(pathname)) {
+            return clearLoginCookies(NextResponse.next());
+          }
+          const loginUrl = req.nextUrl.clone();
+          loginUrl.pathname = '/login';
+          return clearLoginCookies(NextResponse.redirect(loginUrl));
+        }
+
         authInfo = {
           userId: user.userId,
           username: user.username,
@@ -127,6 +138,21 @@ export async function proxy(req: NextRequest) {
     const loginUrl = req.nextUrl.clone();
     loginUrl.pathname = '/login';
     return clearLoginCookies(NextResponse.redirect(loginUrl));
+  }
+
+  // Verify session inactivity timeout (idle timeout defense, default 7 days)
+  const SESSION_IDLE_TIMEOUT_MS = Number(process.env.SESSION_IDLE_TIMEOUT_MS) || (7 * 24 * 60 * 60 * 1000);
+  if (authInfo.sessions && authInfo.sessions.length > 0) {
+    const activeSession = authInfo.sessions.find((s) => s.uuid === uuid);
+    if (activeSession?.lastActive && (Date.now() - activeSession.lastActive > SESSION_IDLE_TIMEOUT_MS)) {
+      sessionService.revokeSession(authInfo.userId, uuid).catch(() => {});
+      if (isPublicPath(pathname)) {
+        return clearLoginCookies(NextResponse.next());
+      }
+      const loginUrl = req.nextUrl.clone();
+      loginUrl.pathname = '/login';
+      return clearLoginCookies(NextResponse.redirect(loginUrl));
+    }
   }
 
   if (isSystemPath(pathname) && authInfo.type !== UserTypeEnum.ADMIN) {

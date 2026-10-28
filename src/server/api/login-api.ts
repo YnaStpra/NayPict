@@ -6,6 +6,7 @@ import { type LoginBo } from "@/server/entity/bo/login";
 import { getLoginInfo } from "@/lib/cookie";
 import { loginService } from "@/server/service/login-service";
 import { getClientIp } from "@/server/lib/ip";
+import { logSecurityAudit } from "@/server/lib/audit";
 import type { HonoEnv } from '../hono/type';
 
 // This module registers login and logout interfaces.
@@ -53,6 +54,14 @@ export function registerLoginApi(app: Hono<HonoEnv>) {
   app.post('/logout', async (c: Context) => {
     const { userId, uuid } = await getLoginInfo(c.req.header('cookie'));
     await loginService.logout(userId, uuid);
+
+    if (userId) {
+      logSecurityAudit({
+        action: 'AUTH_LOGOUT',
+        userId,
+        clientIp: getClientIp(c),
+      });
+    }
 
     deleteCookie(c, TOKEN_COOKIE_NAME, {
       path: '/',
