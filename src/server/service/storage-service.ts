@@ -12,6 +12,35 @@ import { cache } from '@/server/infra/cache';
 import { orm, readOrm } from '@/server/infra/db';
 import { formatHttpUrl } from '@/lib/url';
 import { encryptData, decryptData } from '@/server/lib/crypto';
+import { isPrivateOrReservedIp } from '@/server/lib/ip';
+
+// Validate custom endpoint and domain to strictly prevent SSRF (Server-Side Request Forgery) attacks
+function validateStorageUrl(rawUrl?: string | null): void {
+  if (!rawUrl?.trim()) return;
+  try {
+    const trimmed = rawUrl.trim();
+    const parsed = new URL(trimmed.startsWith('http://') || trimmed.startsWith('https://') ? trimmed : `https://${trimmed}`);
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+      throw new BizError('storage.invalidUrlProtocol');
+    }
+
+    const host = parsed.hostname.toLowerCase();
+    // Block cloud metadata service IP explicitly
+    if (host === '169.254.169.254' || host === 'metadata.google.internal' || host === 'instance-data') {
+      throw new BizError('storage.ssrfBlocked');
+    }
+
+    // In production, strictly reject local loopback and private network ranges
+    if (process.env.NODE_ENV === 'production') {
+      if (host === 'localhost' || isPrivateOrReservedIp(host)) {
+        throw new BizError('storage.ssrfBlocked');
+      }
+    }
+  } catch (err) {
+    if (err instanceof BizError) throw err;
+    throw new BizError('storage.invalidUrlFormat');
+  }
+}
 
 // This module handles the data query and writing business of storage configuration.
 
@@ -111,6 +140,9 @@ const storageService = {
       throw new BizError('storage.typeRequired');
     }
 
+    validateStorageUrl(params.endpoint);
+    validateStorageUrl(params.domain);
+
     const [existsStorage] = await orm
       .select()
       .from(storageTab)
@@ -197,6 +229,9 @@ const storageService = {
     if (!params.type) {
       throw new BizError('storage.typeRequired');
     }
+
+    validateStorageUrl(params.endpoint);
+    validateStorageUrl(params.domain);
 
     const masterKey = getStorageMasterKey();
     const updateValues: Record<string, unknown> = {

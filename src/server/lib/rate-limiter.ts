@@ -347,3 +347,17 @@ export const locationRateLimiter = new DistributedRateLimiter({
   windowMs: 60 * 1000, // 1 minute
 })
 
+// 14. Photo Insights View & Share Rate Limiter: Max 60 tracking events per 1 minute per IP
+export const insightsRateLimiter = new DistributedRateLimiter({
+  name: 'insights',
+  limit: 60,
+  windowMs: 60 * 1000, // 1 minute
+})
+
+// 15. CSP Violation Report Rate Limiter: Max 30 reports per 1 minute per IP
+export const cspReportRateLimiter = new DistributedRateLimiter({
+  name: 'csp-report',
+  limit: 30,
+  windowMs: 60 * 1000, // 1 minute
+})
+

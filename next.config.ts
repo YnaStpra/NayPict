@@ -81,7 +81,7 @@ const nextConfig: NextConfig = {
           "img-src 'self' data: blob: https://*.tile.openstreetmap.org https://challenges.cloudflare.com https:",
           "media-src 'self' blob: https:",
           "font-src 'self' data:",
-          `connect-src 'self' https://challenges.cloudflare.com https://nominatim.openstreetmap.org https://*.tile.openstreetmap.org https://get.geojs.io https://ipwho.is https://*.r2.cloudflarestorage.com https://*.amazonaws.com ${mediaGatewayHostname ? `https://${mediaGatewayHostname}` : ''} wss:`.trim().replace(/\s+/g, ' '),
+          `connect-src 'self' https://challenges.cloudflare.com https://nominatim.openstreetmap.org https://*.tile.openstreetmap.org https://get.geojs.io https://ipwho.is https://*.r2.cloudflarestorage.com https://*.amazonaws.com ${mediaGatewayHostname ? `https://${mediaGatewayHostname}` : ''} ${process.env.NODE_ENV !== 'production' ? 'ws: wss:' : ''}`.trim().replace(/\s+/g, ' '),
           "frame-ancestors 'none'",
           "object-src 'none'",
           "base-uri 'self'",

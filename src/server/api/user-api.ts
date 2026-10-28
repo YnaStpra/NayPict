@@ -73,9 +73,14 @@ export function registerUserApi(app: Hono<HonoEnv>) {
 
   // According to avatar key Read avatar image from storage, Browser img Tags are loaded directly.
   app.get('/user/avatar/:key', async (c: Context) => {
+    const rawKey = c.req.param('key')?.trim() || '';
 
-    const key = c.req.param('key');
-    const file = await userService.getAvatar(key);
+    // Security: Validate avatar key strictly to prevent path traversal and arbitrary bucket reads
+    if (!rawKey || rawKey.includes('..') || rawKey.includes('/') || rawKey.includes('\\') || !/^[a-zA-Z0-9_\-.]+\.(webp|jpg|jpeg|png)$/i.test(rawKey)) {
+      return c.body(null, 400);
+    }
+
+    const file = await userService.getAvatar(rawKey);
 
     if (!file) {
       return c.body(null, 404);
@@ -85,6 +90,7 @@ export function registerUserApi(app: Hono<HonoEnv>) {
       'Content-Type': 'image/webp',
       'Cache-Control': 'public, max-age=31536000, immutable',
       'Content-Length': String(file.size),
+      'X-Content-Type-Options': 'nosniff',
     });
   });
 

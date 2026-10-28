@@ -18,6 +18,9 @@ import {
   type StorageCleanerFixBrokenBo,
 } from '@/server/entity/vo/storage-cleaner';
 
+// Recognized storage prefixes strictly managed by NayPict to prevent accidental deletion in shared buckets
+const NAYPICT_MANAGED_PREFIXES = ['originals/', 'previews/', 'thumbnails/', 'profile/'];
+
 class StorageCleanerService {
   // Scans storage buckets (Cloudflare R2 / S3) and correlates with DB records.
   async scan(targetStorageId?: string): Promise<StorageScanReportVo> {
@@ -80,11 +83,18 @@ class StorageCleanerService {
             totalBucketBytes += item.size;
             r2KeyMap.set(item.key, item.size);
 
+            // Security: Only inspect objects matching NayPict's managed directory prefixes
+            const isManagedPrefix = NAYPICT_MANAGED_PREFIXES.some((prefix) => item.key.startsWith(prefix));
+            if (!isManagedPrefix) {
+              continue;
+            }
+
             if (!dbKeySet.has(item.key)) {
               let probableType: StorageOrphanFileVo['probableType'] = 'other';
               if (item.key.startsWith('originals/')) probableType = 'original';
               else if (item.key.startsWith('previews/')) probableType = 'preview';
               else if (item.key.startsWith('thumbnails/')) probableType = 'thumbnail';
+              else if (item.key.startsWith('profile/')) probableType = 'other';
 
               orphanFiles.push({
                 key: item.key,
@@ -205,7 +215,11 @@ class StorageCleanerService {
       if (u.avatar) existingDbKeySet.add(`profile/${u.avatar}`);
     }
 
-    const safeKeysToDelete = params.keys.filter((k) => !existingDbKeySet.has(k));
+    // Critical Safeguard: Only allow deleting objects with NayPict managed prefixes that do not exist in DB
+    const safeKeysToDelete = params.keys.filter((k) =>
+      !existingDbKeySet.has(k) &&
+      NAYPICT_MANAGED_PREFIXES.some((prefix) => k.startsWith(prefix))
+    );
 
     if (!safeKeysToDelete.length) {
       return { deleted: 0, freedBytes: 0 };

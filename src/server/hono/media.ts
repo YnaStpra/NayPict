@@ -116,8 +116,10 @@ media.get('*', async (c: Context, next: Next) => {
     photoFile.key?.match(/\.(mp4|webm|mov|m4v|mkv)$/i)
   );
 
-  // Server-side Download Protection for ORIGINAL photo requests (videos are public gallery display media)
-  if (photoFile.type === FileTypeEnum.ORIGINAL && !isVideo) {
+  const isDownloadRequested = c.req.query('download') === '1' || c.req.query('download') === 'true';
+
+  // Server-side Download Protection for ORIGINAL photo requests and explicit original video download requests
+  if (photoFile.type === FileTypeEnum.ORIGINAL && (!isVideo || isDownloadRequested)) {
     const isPublicDownloadAllowed = photoFile.allowDownload === 1;
     let isAdmin = false;
 

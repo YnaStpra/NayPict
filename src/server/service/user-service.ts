@@ -153,15 +153,15 @@ const userService = {
     };
   },
 
-  // According to avatar key Read avatar file from storage.
+  // According to avatar key Read avatar file from storage with path traversal sanitization.
   async getAvatar(key?: string) {
-
-    if (!key) {
+    const cleanKey = key?.trim();
+    if (!cleanKey || cleanKey.includes('..') || cleanKey.includes('/') || cleanKey.includes('\\')) {
       return null;
     }
 
     try {
-      return await storage.get(`profile/${key}`, 'local');
+      return await storage.get(`profile/${cleanKey}`, 'local');
     } catch {
       return null;
     }

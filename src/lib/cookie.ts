@@ -55,13 +55,16 @@ async function getLoginInfo(cookie: string | null = null): Promise<LoginCookie> 
     // Legacy tokens without the claim remain valid only while the persisted version is still one.
     const tokenVersion = payload.tokenVersion ?? 1;
     let persistedVersion: number | null = null;
+    let dbLookupFailed = false;
     try {
       persistedVersion = await sessionService.getTokenVersion(payload.userId);
     } catch (err) {
       console.warn("Proxy DB query for tokenVersion failed or timed out:", err);
+      dbLookupFailed = true;
     }
 
-    if (persistedVersion !== null && persistedVersion !== tokenVersion) {
+    // Fail-Closed: In production, reject unverified tokens if DB lookup fails, or if tokenVersion does not match
+    if ((dbLookupFailed && process.env.NODE_ENV === 'production') || (persistedVersion !== null && persistedVersion !== tokenVersion)) {
       return {
         userId: null,
         uuid: null,
