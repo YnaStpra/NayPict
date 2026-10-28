@@ -361,3 +361,17 @@ export const cspReportRateLimiter = new DistributedRateLimiter({
   windowMs: 60 * 1000, // 1 minute
 })
 
+// 16. TOTP Verification Rate Limiter: Max 5 attempts per 5 minutes per user/IP
+export const totpVerifyRateLimiter = new DistributedRateLimiter({
+  name: 'totp-verify',
+  limit: 5,
+  windowMs: 5 * 60 * 1000, // 5 minutes
+})
+
+// 17. Database Backup Export Rate Limiter: Max 3 exports per 15 minutes per user/IP
+export const backupExportRateLimiter = new DistributedRateLimiter({
+  name: 'backup-export',
+  limit: 3,
+  windowMs: 15 * 60 * 1000, // 15 minutes
+})
+

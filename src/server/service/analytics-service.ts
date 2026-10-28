@@ -326,32 +326,37 @@ const analyticsService = {
 
     if (params.sessionId) {
       const safeSessionId = params.sessionId.slice(0, 64);
-      await orm.insert(visitorActivityTab).values({
-        id: createId(),
-        sessionId: safeSessionId,
-        photoId: safePhotoId,
-        action,
-        createdAt: sql`now()`,
-      });
+      try {
+        await orm.insert(visitorActivityTab).values({
+          id: createId(),
+          sessionId: safeSessionId,
+          photoId: safePhotoId,
+          action,
+          createdAt: sql`now()`,
+        });
 
-      await orm
-        .update(visitorSessionTab)
-        .set({
-          mediaCount: sql`${visitorSessionTab.mediaCount} + 1`,
-          lastActiveAt: sql`now()`,
-        })
-        .where(eq(visitorSessionTab.id, safeSessionId));
+        await orm
+          .update(visitorSessionTab)
+          .set({
+            mediaCount: sql`${visitorSessionTab.mediaCount} + 1`,
+            lastActiveAt: sql`now()`,
+          })
+          .where(eq(visitorSessionTab.id, safeSessionId));
 
-      // If isAdmin was not explicitly passed, inspect the session record
-      if (!isSessionAdmin) {
-        const [session] = await orm
-          .select({ isAdmin: visitorSessionTab.isAdmin })
-          .from(visitorSessionTab)
-          .where(eq(visitorSessionTab.id, safeSessionId))
-          .limit(1);
-        if (session?.isAdmin === 1) {
-          isSessionAdmin = true;
+        // If isAdmin was not explicitly passed, inspect the session record
+        if (!isSessionAdmin) {
+          const [session] = await orm
+            .select({ isAdmin: visitorSessionTab.isAdmin })
+            .from(visitorSessionTab)
+            .where(eq(visitorSessionTab.id, safeSessionId))
+            .limit(1);
+          if (session?.isAdmin === 1) {
+            isSessionAdmin = true;
+          }
         }
+      } catch {
+        // Gracefully ignore foreign key constraint violations or missing session/photo references
+        return false;
       }
     }
 

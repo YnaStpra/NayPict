@@ -100,7 +100,8 @@ const PUBLIC_API_PATHS = [
   '/telemetry/session/init',
   '/telemetry/session/ping',
   '/telemetry/session/location',
-  '/telemetry/media/track'
+  '/telemetry/media/track',
+  '/user/avatar'
 ];
 
 

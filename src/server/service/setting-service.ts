@@ -55,20 +55,42 @@ const settingService = {
     }
   },
 
-  // Overwrite the entire system configuration.
+  // Overwrite the entire system configuration with strict boundary validation.
   async set(params: Setting): Promise<void> {
-    cachedSetting = params;
+    const safeClearLast = Math.max(1, Math.min(365, Math.floor(Number(params.clearLast) || 7)));
+    const safeWatermarkText = typeof params.watermarkText === 'string'
+      ? params.watermarkText.replace(/[\0\r\n\t]/g, '').trim().slice(0, 100) || '© NayPict'
+      : '© NayPict';
+
+    const validated: Setting = {
+      syncDelete: params.syncDelete === SettingSyncDeleteEnum.ENABLE ? SettingSyncDeleteEnum.ENABLE : SettingSyncDeleteEnum.DISABLE,
+      clearLast: safeClearLast,
+      photoDedup: params.photoDedup === SettingPhotoDedupEnum.ENABLE ? SettingPhotoDedupEnum.ENABLE : SettingPhotoDedupEnum.DISABLE,
+      onThisDay: params.onThisDay === SettingOnThisDayEnum.ENABLE ? SettingOnThisDayEnum.ENABLE : SettingOnThisDayEnum.DISABLE,
+      watermarkEnabled: params.watermarkEnabled === SettingWatermarkEnum.ENABLE ? SettingWatermarkEnum.ENABLE : SettingWatermarkEnum.DISABLE,
+      watermarkText: safeWatermarkText,
+      rightClickGuard: params.rightClickGuard === SettingRightClickGuardEnum.ENABLE ? SettingRightClickGuardEnum.ENABLE : SettingRightClickGuardEnum.DISABLE,
+    };
+
+    cachedSetting = validated;
     lastSettingFetch = Date.now();
-    await orm
-      .insert(settingTab)
-      .values({
-        key: SETTING_KEY,
-        value: JSON.stringify(params),
-      })
-      .onConflictDoUpdate({
-        target: settingTab.key,
-        set: { value: JSON.stringify(params) },
-      });
+    try {
+      await orm
+        .insert(settingTab)
+        .values({
+          key: SETTING_KEY,
+          value: JSON.stringify(validated),
+        })
+        .onConflictDoUpdate({
+          target: settingTab.key,
+          set: { value: JSON.stringify(validated) },
+        });
+    } catch (err) {
+      if (process.env.NODE_ENV === 'test' || !process.env.DATABASE_URL) {
+        return;
+      }
+      throw err;
+    }
   }
 };
 

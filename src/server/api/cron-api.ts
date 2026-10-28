@@ -31,9 +31,8 @@ export function registerCronApi(app: Hono<HonoEnv>) {
 
       return c.json(result.ok({ message: 'Cleanup completed successfully.' }));
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Cleanup task failed';
       console.error('[cron/cleanup] Scheduled maintenance error:', err);
-      return c.json(result.fail(message, 500), 500);
+      return c.json(result.fail('Scheduled maintenance task failed.', 500), 500);
     }
   });
 }

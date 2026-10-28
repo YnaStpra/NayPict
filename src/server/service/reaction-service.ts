@@ -120,6 +120,17 @@ const reactionService = {
       throw new BizError('common.paramError');
     }
 
+    // Verify photo exists and is active before mutating reactions
+    const [photo] = await orm
+      .select({ photoId: photoTab.photoId })
+      .from(photoTab)
+      .where(and(eq(photoTab.photoId, photoId), eq(photoTab.status, PhotoStatusEnum.NORMAL)))
+      .limit(1);
+
+    if (!photo) {
+      throw new BizError('photo.notFound');
+    }
+
     // Mutually Exclusive Unified Reaction: A visitor can choose 1 reaction per photo (Love, Fire, Like)
     const existingReactions = await orm
       .select()
