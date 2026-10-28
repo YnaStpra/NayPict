@@ -1,12 +1,28 @@
 import { Hono, type Context } from 'hono';
 import result from '@/server/model/result';
+import { getClientIp } from '@/server/lib/ip';
+import { cspReportRateLimiter } from '@/server/lib/rate-limiter';
 import type { HonoEnv } from '../hono/type';
 
 // This module captures and processes browser Content Security Policy (CSP) violation reports.
+const MAX_CSP_REPORT_BYTES = 32 * 1024; // 32 KB ceiling
 
 export function registerCspApi(app: Hono<HonoEnv>) {
   // Capture and process CSP violation reports sent by user agents.
   app.post('/csp-report', async (c: Context) => {
+    // 1. Distributed Rate Limiting to prevent telemetry flooding
+    const clientIp = getClientIp(c);
+    const rateLimit = await cspReportRateLimiter.consume(clientIp);
+    if (!rateLimit.allowed) {
+      return c.json(result.fail('Too many CSP reports', 429), 429);
+    }
+
+    // 2. Reject oversized payloads to prevent memory bloat
+    const contentLength = Number(c.req.header('content-length') || 0);
+    if (contentLength > MAX_CSP_REPORT_BYTES) {
+      return c.json(result.fail('Payload too large', 413), 413);
+    }
+
     try {
       const contentType = c.req.header('content-type') || '';
       let reportData: any = null;
@@ -19,11 +35,11 @@ export function registerCspApi(app: Hono<HonoEnv>) {
         reportData = await c.req.json().catch(() => null);
       } else {
         const text = await c.req.text().catch(() => '');
-        if (text) {
+        if (text && text.length <= MAX_CSP_REPORT_BYTES) {
           try {
             reportData = JSON.parse(text);
           } catch {
-            reportData = { raw: text };
+            reportData = { raw: text.slice(0, 1024) };
           }
         }
       }
@@ -40,3 +56,4 @@ export function registerCspApi(app: Hono<HonoEnv>) {
     return c.json(result.ok({ received: true }));
   });
 }
+

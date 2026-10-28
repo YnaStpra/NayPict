@@ -1,5 +1,6 @@
 import { eq } from 'drizzle-orm';
 import { userTab } from '@/server/entity/user';
+import { settingTab } from '@/server/entity/setting';
 import { orm } from '@/server/infra/db';
 import { cache } from '@/server/infra/cache';
 import { AUTH_CACHE_KEY } from '@/server/const/cache';
@@ -20,6 +21,35 @@ const sessionService = {
       .limit(1);
 
     return user?.tokenVersion ?? null;
+  },
+
+  // Read persistent list of revoked session UUIDs for a user to prevent resurrection on cache cold-starts.
+  async getRevokedUuids(userId: string): Promise<string[]> {
+    try {
+      const revokedKey = `revoked_uuids_${userId}`;
+      const [row] = await orm.select().from(settingTab).where(eq(settingTab.key, revokedKey)).limit(1);
+      if (row?.value) {
+        return JSON.parse(row.value) as string[];
+      }
+    } catch {}
+    return [];
+  },
+
+  // Persist revoked session UUIDs to database storage.
+  async persistRevokedUuids(userId: string, uuids: string[]): Promise<void> {
+    try {
+      const revokedKey = `revoked_uuids_${userId}`;
+      const val = JSON.stringify(uuids.slice(-50));
+      await orm
+        .insert(settingTab)
+        .values({ key: revokedKey, value: val })
+        .onConflictDoUpdate({
+          target: settingTab.key,
+          set: { value: val },
+        });
+    } catch (err) {
+      console.warn('[SESSION] Failed to persist revoked UUIDs:', err);
+    }
   },
 
   // Query all active device sessions for a user, highlighting the current caller session.
@@ -86,6 +116,13 @@ const sessionService = {
     };
 
     await cache.set(AUTH_CACHE_KEY + userId, updatedAuthInfo, { ttl: AUTH_CACHE_TTL });
+
+    // Persist revoked UUID to database storage
+    const currentRevoked = await this.getRevokedUuids(userId);
+    if (!currentRevoked.includes(targetUuid)) {
+      await this.persistRevokedUuids(userId, [...currentRevoked, targetUuid]);
+    }
+
     return true;
   },
 
@@ -96,6 +133,7 @@ const sessionService = {
       return false;
     }
 
+    const otherUuids = authInfo.uuidList.filter((id) => id !== currentUuid);
     const updatedUuidList = authInfo.uuidList.filter((id) => id === currentUuid);
     const updatedSessions = (authInfo.sessions || []).filter((s) => s.uuid === currentUuid);
 
@@ -106,6 +144,11 @@ const sessionService = {
     };
 
     await cache.set(AUTH_CACHE_KEY + userId, updatedAuthInfo, { ttl: AUTH_CACHE_TTL });
+
+    // Persist all other revoked UUIDs to database storage
+    const currentRevoked = await this.getRevokedUuids(userId);
+    await this.persistRevokedUuids(userId, Array.from(new Set([...currentRevoked, ...otherUuids])));
+
     return true;
   },
 

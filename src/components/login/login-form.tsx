@@ -51,13 +51,12 @@ export function LoginForm({
 
   useEffect(() => {
     const username = process.env.NEXT_PUBLIC_DEMO_USERNAME
-    const password = process.env.NEXT_PUBLIC_DEMO_PASSWORD
 
-    if (!username && !password) return
+    if (!username) return
 
     setForm((prev) => ({
+      ...prev,
       username: username || prev.username,
-      password: password || prev.password,
     }))
   }, [])
 

@@ -22,32 +22,50 @@ function resolveAllowedOrigin(appUrl) {
 }
 
 // Check if an HTTP origin belongs to NayPict or approved environments.
-function isOriginAllowed(origin, allowedOrigin) {
+function isOriginAllowed(origin, allowedOrigin, env) {
   if (!origin) return true
   if (origin === allowedOrigin) return true
   try {
     const parsed = new URL(origin)
-    const host = parsed.hostname
-    if (host === "naypict.my.id" || host.endsWith(".naypict.my.id")) return true
+    const host = parsed.hostname.toLowerCase()
     if (host === "localhost" || host === "127.0.0.1") return true
+
+    if (allowedOrigin) {
+      try {
+        const allowedHost = new URL(allowedOrigin).hostname.toLowerCase()
+        if (host === allowedHost || host.endsWith(`.${allowedHost}`)) return true
+      } catch {}
+    }
+
+    const envDomains = env?.ALLOWED_DOMAINS ? String(env.ALLOWED_DOMAINS).split(",").map((d) => d.trim().toLowerCase()) : []
+    if (envDomains.some((d) => host === d || host.endsWith(`.${d}`))) return true
+
+    // Legacy fallback
+    if (host === "naypict.my.id" || host.endsWith(".naypict.my.id")) return true
   } catch {}
   return false
 }
 
 // Check if an HTTP referer belongs to NayPict or approved environments (Anti-Hotlinking).
-function isRefererAllowed(referer, allowedOrigin) {
+function isRefererAllowed(referer, allowedOrigin, env) {
   if (!referer) return true
   try {
     const parsed = new URL(referer)
     const host = parsed.hostname.toLowerCase()
+    if (host === "localhost" || host === "127.0.0.1") return true
+
     if (allowedOrigin) {
       try {
         const allowedHost = new URL(allowedOrigin).hostname.toLowerCase()
-        if (host === allowedHost) return true
+        if (host === allowedHost || host.endsWith(`.${allowedHost}`)) return true
       } catch {}
     }
+
+    const envDomains = env?.ALLOWED_DOMAINS ? String(env.ALLOWED_DOMAINS).split(",").map((d) => d.trim().toLowerCase()) : []
+    if (envDomains.some((d) => host === d || host.endsWith(`.${d}`))) return true
+
+    // Legacy fallback
     if (host === "naypict.my.id" || host.endsWith(".naypict.my.id")) return true
-    if (host === "localhost" || host === "127.0.0.1") return true
   } catch {}
   return false
 }

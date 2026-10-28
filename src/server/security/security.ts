@@ -152,6 +152,13 @@ async function security(c: Context, next: Next) {
   if (!authInfo) {
     const user = await userService.getById(userId);
     if (user) {
+      // Check persistent revoked UUIDs from database to prevent session resurrection
+      const revokedUuids = await sessionService.getRevokedUuids(userId);
+      if (revokedUuids.includes(uuid)) {
+        clearLoginCookies(c);
+        throw new BizError('auth.failed', 401);
+      }
+
       authInfo = {
         userId: user.userId,
         username: user.username,

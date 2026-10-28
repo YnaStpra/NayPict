@@ -280,6 +280,11 @@ const photoService = {
       isCurrentAlbumArchived = currentAlbum?.isArchived === 1;
     }
 
+    // Security: Unauthenticated guests are strictly forbidden from viewing photos in archived albums
+    if (isCurrentAlbumArchived && !userId) {
+      throw new BizError('auth.forbidden', 403);
+    }
+
     if (!isCurrentAlbumArchived && status === PhotoStatusEnum.NORMAL) {
       baseWhereList.push(
         sql`NOT EXISTS (
@@ -506,6 +511,11 @@ const photoService = {
         .where(eq(albumTab.albumId, params.albumId))
         .limit(1);
       isCurrentAlbumArchived = currentAlbum?.isArchived === 1;
+    }
+
+    // Security: Unauthenticated guests cannot request random IDs for archived albums
+    if (isCurrentAlbumArchived && !userId) {
+      return [];
     }
 
     if (!isCurrentAlbumArchived && status === PhotoStatusEnum.NORMAL) {
@@ -2300,16 +2310,17 @@ const photoService = {
       ? (domain ? toMediaUrl(videoPreviewKey, domain) : toProxyMediaUrl(videoPreviewKey))
       : null;
 
-    // Raw photo original key is exclusively available to authenticated Admin.
-    // For public guests, key is masked as null so original raw photo is not leaked.
+    // Raw photo original key is exclusively available to authenticated Admin or when explicitly allowed for download.
+    // For public guests, key is masked as null so original raw photo is not leaked unless allowDownload === 1.
     // For videos, rawKey is required for streaming video playback.
-    const isAllowed = isVideo || Boolean(currentUserId);
+    const isAllowed = isVideo || Boolean(currentUserId) || photo.allowDownload === 1;
     // Protected photo originals always traverse the same-origin authorization proxy; the CDN only serves derivatives.
     // For videos and derivatives, deliver directly via Cloudflare Worker Media Gateway to eliminate Vercel serverless execution & transfer.
     const key = isAllowed && rawKey
       ? (domain ? toMediaUrl(rawKey, domain) : toProxyMediaUrl(rawKey))
       : null;
-    const isLocationIgnored = exifRow?.latitude === 999 && exifRow?.longitude === 999;
+    const isGpsPubliclyHidden = Boolean(!currentUserId && process.env.HIDE_PUBLIC_GPS === 'true');
+    const isLocationIgnored = (exifRow?.latitude === 999 && exifRow?.longitude === 999) || isGpsPubliclyHidden;
     const latitude = isLocationIgnored ? null : (exifRow?.latitude ?? null);
     const longitude = isLocationIgnored ? null : (exifRow?.longitude ?? null);
     const altitude = isLocationIgnored ? null : (exifRow?.altitude ?? null);

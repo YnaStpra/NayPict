@@ -1,36 +1,18 @@
 import type { Context, Hono } from 'hono';
-import { getCookie, setCookie } from 'hono/cookie';
 import result from '@/server/model/result';
 import { insightsService } from '@/server/service/insights-service';
 import { reactionService } from '@/server/service/reaction-service';
 import { getLoginInfo } from '@/lib/cookie';
 import { userService } from '@/server/service/user-service';
 import { UserTypeEnum } from '@/server/enums/user-enum';
-import { createId } from '@/server/lib/id';
 import BizError from '@/server/error/biz-error';
 import { type PhotoViewRecordBo } from '@/server/entity/bo/insights';
+import { resolveSignedVisitorId } from '@/server/lib/visitor-cookie';
+import { getClientIp } from '@/server/lib/ip';
+import { insightsRateLimiter } from '@/server/lib/rate-limiter';
 import type { HonoEnv } from '../hono/type';
 
 // This module handles API endpoints for photo analytics, view tracking, and admin insights.
-
-const VISITOR_COOKIE_NAME = 'naypict_vid';
-const ONE_YEAR_SECONDS = 365 * 24 * 60 * 60;
-
-// Resolve or create an anonymous visitor identifier from request cookies.
-function getOrCreateVisitorId(c: Context): string {
-  let vid = getCookie(c, VISITOR_COOKIE_NAME);
-  if (!vid) {
-    vid = createId();
-    setCookie(c, VISITOR_COOKIE_NAME, vid, {
-      path: '/',
-      maxAge: ONE_YEAR_SECONDS,
-      httpOnly: true,
-      sameSite: 'Lax',
-      secure: process.env.NODE_ENV === 'production',
-    });
-  }
-  return vid;
-}
 
 // Verify if the current request belongs to an authenticated Admin session.
 async function checkIsAdmin(c: Context): Promise<boolean> {
@@ -51,8 +33,14 @@ export function registerInsightsApi(app: Hono<HonoEnv>) {
 
   // Public endpoint to record photo view event (Admin interactions are excluded server-side)
   app.post('/photo/view', async (c: Context) => {
+    const clientIp = getClientIp(c);
+    const rateLimit = await insightsRateLimiter.consume(clientIp);
+    if (!rateLimit.allowed) {
+      throw new BizError('insights.rateLimited', 429);
+    }
+
     const body = await c.req.json<PhotoViewRecordBo>().catch(() => ({} as PhotoViewRecordBo));
-    const visitorId = getOrCreateVisitorId(c);
+    const visitorId = resolveSignedVisitorId(c);
     const isAdmin = await checkIsAdmin(c);
     if (isAdmin) {
       return c.json(result.ok({ recorded: false, reason: 'admin_excluded' }));
@@ -69,8 +57,14 @@ export function registerInsightsApi(app: Hono<HonoEnv>) {
 
   // REST alias for public photo view tracking: POST /photos/:photoId/view
   app.post('/photos/:photoId/view', async (c: Context) => {
+    const clientIp = getClientIp(c);
+    const rateLimit = await insightsRateLimiter.consume(clientIp);
+    if (!rateLimit.allowed) {
+      throw new BizError('insights.rateLimited', 429);
+    }
+
     const photoId = c.req.param('photoId') ?? '';
-    const visitorId = getOrCreateVisitorId(c);
+    const visitorId = resolveSignedVisitorId(c);
     const isAdmin = await checkIsAdmin(c);
     if (isAdmin) {
       return c.json(result.ok({ recorded: false, reason: 'admin_excluded' }));
@@ -87,8 +81,14 @@ export function registerInsightsApi(app: Hono<HonoEnv>) {
 
   // Public endpoint to record photo share event
   app.post('/photo/share', async (c: Context) => {
+    const clientIp = getClientIp(c);
+    const rateLimit = await insightsRateLimiter.consume(clientIp);
+    if (!rateLimit.allowed) {
+      throw new BizError('insights.rateLimited', 429);
+    }
+
     const body = await c.req.json<PhotoViewRecordBo>().catch(() => ({} as PhotoViewRecordBo));
-    const visitorId = getOrCreateVisitorId(c);
+    const visitorId = resolveSignedVisitorId(c);
     const isAdmin = await checkIsAdmin(c);
     if (isAdmin) {
       return c.json(result.ok({ recorded: false, reason: 'admin_excluded' }));
@@ -105,8 +105,14 @@ export function registerInsightsApi(app: Hono<HonoEnv>) {
 
   // REST alias for photo share tracking: POST /photos/:photoId/share
   app.post('/photos/:photoId/share', async (c: Context) => {
+    const clientIp = getClientIp(c);
+    const rateLimit = await insightsRateLimiter.consume(clientIp);
+    if (!rateLimit.allowed) {
+      throw new BizError('insights.rateLimited', 429);
+    }
+
     const photoId = c.req.param('photoId') ?? '';
-    const visitorId = getOrCreateVisitorId(c);
+    const visitorId = resolveSignedVisitorId(c);
     const isAdmin = await checkIsAdmin(c);
     if (isAdmin) {
       return c.json(result.ok({ recorded: false, reason: 'admin_excluded' }));

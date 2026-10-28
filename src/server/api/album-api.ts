@@ -22,16 +22,19 @@ export function registerAlbumApi(app: Hono<HonoEnv>) {
   const handleAlbumList = async (c: Context) => {
     const userId = getUserId();
     let isArchived = 0;
-    const queryVal = c.req.query('isArchived');
-    if (queryVal !== undefined) {
-      isArchived = Number(queryVal) || 0;
-    } else {
-      try {
-        const body = await c.req.json<{ isArchived?: number }>().catch(() => null);
-        if (body && typeof body.isArchived === 'number') {
-          isArchived = body.isArchived;
-        }
-      } catch {}
+    // Security: Unauthenticated guests can only query active public albums (isArchived = 0)
+    if (userId) {
+      const queryVal = c.req.query('isArchived');
+      if (queryVal !== undefined) {
+        isArchived = Number(queryVal) || 0;
+      } else {
+        try {
+          const body = await c.req.json<{ isArchived?: number }>().catch(() => null);
+          if (body && typeof body.isArchived === 'number') {
+            isArchived = body.isArchived;
+          }
+        } catch {}
+      }
     }
 
     if (userId || isArchived === 1) {
