@@ -37,6 +37,8 @@ const SYSTEM_PATHS = [
   '/album/togglePinPhoto',
   '/album/setName',
   '/album/reorder',
+  '/album/archive',
+  '/album/unarchive',
   '/album/delete',
   '/album/trash',
   '/photo/comment/admin',
@@ -62,6 +64,7 @@ const PUBLIC_API_PATHS = [
   '/logout',
   '/photo/list',
   '/photo/randomIdList',
+  '/photo/map/list',
   '/photo/takenDateList',
   '/photo/onThisDay',
   '/album/list',
@@ -111,6 +114,7 @@ describe('Access Control & RBAC Policy Suite', () => {
     assert.strictEqual(isPublicApiPath('/health'), true);
     assert.strictEqual(isPublicApiPath('/cron/cleanup'), true);
     assert.strictEqual(isPublicApiPath('/location/reverse'), true);
+    assert.strictEqual(isPublicApiPath('/photo/map/list'), true);
     assert.strictEqual(isPublicApiPath('/setting/public'), true);
   });
 
@@ -119,6 +123,8 @@ describe('Access Control & RBAC Policy Suite', () => {
     assert.strictEqual(isSystemPath('/storage/add'), true);
     assert.strictEqual(isSystemPath('/storage/delete'), true);
     assert.strictEqual(isSystemPath('/album/reorder'), true);
+    assert.strictEqual(isSystemPath('/album/archive'), true);
+    assert.strictEqual(isSystemPath('/album/unarchive'), true);
     assert.strictEqual(isSystemPath('/album/delete'), true);
     assert.strictEqual(isSystemPath('/photo/delete'), true);
     assert.strictEqual(isSystemPath('/photo/clear'), true);

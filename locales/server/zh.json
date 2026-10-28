@@ -72,6 +72,11 @@
   "user.selfDemoteForbidden": "You cannot demote your own administrator privileges.",
   "user.lastAdminForbidden": "Cannot remove, disable, or demote the last active administrator account.",
   "telemetry.rateLimited": "请求过于频繁，请稍后再试。",
-  "location.rateLimited": "位置请求过于频繁，请稍后再试。"
+  "location.rateLimited": "位置请求过于频繁，请稍后再试。",
+  "album.nameTooLong": "相册名称不能超过 100 个字符。",
+  "comment.duplicateContent": "检测到重复评论，请勿频繁发送相同内容。",
+  "backup.passwordTooShort": "备份加密密码长度至少需要 12 个字符。",
+  "user.passwordTooCommon": "该密码过于常见容易被破解，请设置更复杂的密码。",
+  "user.passwordMatchesUsername": "密码不能与用户名相同。"
 }
 

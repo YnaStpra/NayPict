@@ -1307,7 +1307,16 @@ const photoService = {
 
     let finalExif = meta.exif;
     if (!finalExif && typeof clientExifJson === 'string' && clientExifJson) {
-      finalExif = clientExifJson;
+      if (clientExifJson.length <= 65536) {
+        try {
+          const parsed = JSON.parse(clientExifJson);
+          if (parsed && typeof parsed === 'object') {
+            finalExif = JSON.stringify(parsed);
+          }
+        } catch {
+          finalExif = null;
+        }
+      }
     }
 
     const takenTime = finalTakenTime;
@@ -1432,11 +1441,13 @@ const photoService = {
       throw new BizError('photo.fileTooLarge');
     }
 
+    const sanitizedName = sanitizeFileName(name?.trim() || 'video.mp4');
+
     // Security: Enforce approved video MIME type allowlist
     const cleanType = type?.split(';')[0]?.trim().toLowerCase();
     const finalType = cleanType && ALLOWED_VIDEO_MIMES.has(cleanType)
       ? cleanType
-      : getCanonicalMimeType(name, type);
+      : getCanonicalMimeType(sanitizedName, type);
     if (!ALLOWED_VIDEO_MIMES.has(finalType)) {
       throw new BizError('photo.invalidFileType');
     }
@@ -1503,7 +1514,7 @@ const photoService = {
     // Deduplication check: verify video does not already exist in gallery
     const existingCheck = await this.exists({
       checksum,
-      name,
+      name: sanitizedName,
       size,
       width: width || posterWidth,
       height: height || posterHeight,
@@ -1525,7 +1536,7 @@ const photoService = {
 
     const [photo] = await orm.insert(photoTab).values({
       photoId,
-      name,
+      name: sanitizedName,
       thumbHash: finalThumbHash,
       checksum,
       type: finalType,
@@ -1680,8 +1691,10 @@ const photoService = {
       throw new BizError('photo.fileTooLarge');
     }
 
+    const sanitizedName = sanitizeFileName(name?.trim() || 'photo.jpg');
+
     const cleanType = type?.split(';')[0]?.trim().toLowerCase();
-    const finalType = getCanonicalMimeType(name, cleanType);
+    const finalType = getCanonicalMimeType(sanitizedName, cleanType);
     if (!ALLOWED_UPLOAD_MIMES.has(finalType)) {
       throw new BizError('photo.invalidFileType');
     }
@@ -1719,7 +1732,7 @@ const photoService = {
     // Deduplication check: verify photo does not already exist in gallery
     const existingCheck = await this.exists({
       checksum,
-      name,
+      name: sanitizedName,
       size,
       width,
       height,
@@ -1741,7 +1754,7 @@ const photoService = {
 
     const [photo] = await orm.insert(photoTab).values({
       photoId: finalPhotoId,
-      name,
+      name: sanitizedName,
       thumbHash,
       checksum,
       type: finalType,

@@ -3,6 +3,8 @@ import result from '@/server/model/result';
 import { sessionService } from '@/server/service/session-service';
 import { getLoginInfo } from '@/lib/cookie';
 import { getUserId } from '@/server/security/context';
+import { getClientIp } from '@/server/lib/ip';
+import { logSecurityAudit } from '@/server/lib/audit';
 import BizError from '@/server/error/biz-error';
 import type { HonoEnv } from '../hono/type';
 
@@ -35,6 +37,12 @@ export function registerSessionApi(app: Hono<HonoEnv>) {
     }
 
     const success = await sessionService.revokeSession(userId, body.uuid.trim());
+    logSecurityAudit({
+      action: 'SESSION_REVOKE',
+      userId,
+      clientIp: getClientIp(c),
+      targetId: body.uuid.trim(),
+    });
     return c.json(result.ok(success));
   });
 
@@ -51,6 +59,12 @@ export function registerSessionApi(app: Hono<HonoEnv>) {
     }
 
     const success = await sessionService.revokeOtherSessions(userId, uuid);
+    logSecurityAudit({
+      action: 'SESSION_REVOKE_OTHERS',
+      userId,
+      clientIp: getClientIp(c),
+      targetId: uuid,
+    });
     return c.json(result.ok(success));
   });
 }

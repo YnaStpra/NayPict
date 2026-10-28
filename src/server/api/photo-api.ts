@@ -42,7 +42,7 @@ function applyPublicCacheHeaders(c: Context, userId?: string) {
   } else {
     c.header('Cache-Control', 'public, max-age=30, s-maxage=60, stale-while-revalidate=86400, stale-if-error=604800');
     c.header('CDN-Cache-Control', 'public, s-maxage=60, stale-while-revalidate=86400');
-    c.header('Vary', 'Accept-Encoding');
+    c.header('Vary', 'Accept-Encoding, Cookie');
   }
 }
 
@@ -113,7 +113,14 @@ export function registerPhotoApi(app: Hono<HonoEnv>) {
   // Batch edit photo metadata (visibility, allowDownload, takenTime, GPS location).
   app.post('/photo/batchEdit', async (c: Context) => {
     const body = await c.req.json<PhotoBatchEditBo>();
-    await photoService.batchEdit(body, getUserId());
+    const userId = getUserId();
+    await photoService.batchEdit(body, userId);
+    logSecurityAudit({
+      action: 'PHOTO_BATCH_EDIT',
+      userId,
+      clientIp: getClientIp(c),
+      details: { count: body.photoIds?.length, visibility: body.visibility, allowDownload: body.allowDownload },
+    });
     return c.json(result.ok());
   });
 
@@ -360,7 +367,14 @@ export function registerPhotoApi(app: Hono<HonoEnv>) {
   // Batch update photo download protection status (Admin only).
   app.post('/photo/setAllowDownload', async (c: Context) => {
     const body = await c.req.json<PhotoSetAllowDownloadBo>();
-    await photoService.setAllowDownload(body, getUserId());
+    const userId = getUserId();
+    await photoService.setAllowDownload(body, userId);
+    logSecurityAudit({
+      action: 'PHOTO_SET_ALLOW_DOWNLOAD',
+      userId,
+      clientIp: getClientIp(c),
+      details: { count: body.photoIds?.length, allowDownload: body.allowDownload },
+    });
     return c.json(result.ok());
   });
 
@@ -415,21 +429,42 @@ export function registerPhotoApi(app: Hono<HonoEnv>) {
   // Move photos to recycle bin.
   app.post('/photo/recycle', async (c: Context) => {
     const body = await c.req.json<PhotoRecycleBo>();
-    await photoService.recycle(body, getUserId());
+    const userId = getUserId();
+    await photoService.recycle(body, userId);
+    logSecurityAudit({
+      action: 'PHOTO_RECYCLE',
+      userId,
+      clientIp: getClientIp(c),
+      details: { count: body.photoIds?.length },
+    });
     return c.json(result.ok());
   });
 
   // Restore photos from recycle bin.
   app.post('/photo/restore', async (c: Context) => {
     const body = await c.req.json<PhotoRestoreBo>();
-    await photoService.restore(body, getUserId());
+    const userId = getUserId();
+    await photoService.restore(body, userId);
+    logSecurityAudit({
+      action: 'PHOTO_RESTORE',
+      userId,
+      clientIp: getClientIp(c),
+      details: { count: body.photoIds?.length },
+    });
     return c.json(result.ok());
   });
 
   // Completely delete photo files and records.
   app.post('/photo/delete', async (c: Context) => {
     const body = await c.req.json<PhotoDeleteBo>();
-    await photoService.delete(body, getUserId());
+    const userId = getUserId();
+    await photoService.delete(body, userId);
+    logSecurityAudit({
+      action: 'PHOTO_DELETE',
+      userId,
+      clientIp: getClientIp(c),
+      details: { count: body.photoIds?.length, photoIdsSample: body.photoIds?.slice(0, 5) },
+    });
     return c.json(result.ok());
   });
 

@@ -87,3 +87,4 @@ export function resolveSignedVisitorId(c: Context, explicitId?: string): string 
 
   return resolvedVid;
 }
+

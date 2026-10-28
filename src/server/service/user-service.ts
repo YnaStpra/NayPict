@@ -19,14 +19,28 @@ import { storage } from '@/server/storage/storage';
 
 // This module handles user data query and writing related services.
 
-// Validate password length according to OWASP guidelines (min 8 characters, max 128 characters).
-function validatePasswordComplexity(password?: string): void {
+// Blocklist of common weak passwords vulnerable to dictionary attacks (OWASP A07)
+const COMMON_WEAK_PASSWORDS = new Set([
+  '12345678', '123456789', '1234567890', 'password', 'password123',
+  'admin123', 'admin1234', 'administrator', 'qwertyuiop', 'iloveyou',
+  'naypict123', 'welcome123', 'root1234', 'changeme',
+]);
+
+// Validate password length and entropy according to OWASP guidelines (min 8 chars, max 128 chars, non-common).
+function validatePasswordComplexity(password?: string, username?: string): void {
   const trimmed = password?.trim();
   if (!trimmed || trimmed.length < 8) {
     throw new BizError('user.passwordLengthInvalid');
   }
   if (trimmed.length > 128) {
     throw new BizError('user.passwordTooLong');
+  }
+  const lower = trimmed.toLowerCase();
+  if (COMMON_WEAK_PASSWORDS.has(lower)) {
+    throw new BizError('user.passwordTooCommon');
+  }
+  if (username && lower === username.trim().toLowerCase()) {
+    throw new BizError('user.passwordMatchesUsername');
   }
 }
 
@@ -211,7 +225,7 @@ const userService = {
       throw new BizError('user.credentialsRequired');
     }
 
-    validatePasswordComplexity(params.password);
+    validatePasswordComplexity(params.password, username);
 
     if (!params.type) {
       throw new BizError('user.typeRequired');
@@ -305,7 +319,7 @@ const userService = {
 
     const nextPassword = params.password?.trim();
     if (nextPassword) {
-      validatePasswordComplexity(nextPassword);
+      validatePasswordComplexity(nextPassword, username);
       const password = await hashPassword(nextPassword);
       await orm.update(userTab)
         .set({
@@ -356,6 +370,7 @@ const userService = {
     const [user] = await orm
       .select({
         userId: userTab.userId,
+        username: userTab.username,
         password: userTab.password,
         salt: userTab.salt,
       })
@@ -377,7 +392,7 @@ const userService = {
       throw new BizError('user.oldPasswordIncorrect');
     }
 
-    validatePasswordComplexity(params.password);
+    validatePasswordComplexity(params.password, user.username);
 
     const password = await hashPassword(params.password.trim());
 

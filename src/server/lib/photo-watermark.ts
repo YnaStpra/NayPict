@@ -1,4 +1,5 @@
 import sharp from 'sharp';
+import { SHARP_SECURITY_OPTIONS } from '@/server/lib/photo-process';
 
 // This module provides dynamic watermark generation and compositing over photo buffers using Sharp and SVG vector overlays.
 
@@ -16,7 +17,7 @@ export async function applyWatermark(
   const opacity = Math.max(0.1, Math.min(1.0, options.opacity ?? 0.8));
 
   // Inspect image dimensions to scale watermark typography proportionally
-  const metadata = await sharp(imageBuffer).metadata();
+  const metadata = await sharp(imageBuffer, SHARP_SECURITY_OPTIONS).metadata();
   const width = metadata.width || 1920;
   const height = metadata.height || 1080;
   const format = metadata.format || 'jpeg';
@@ -61,7 +62,7 @@ export async function applyWatermark(
   `;
 
   // Composite SVG overlay onto base image
-  const watermarkedBuffer = await sharp(imageBuffer)
+  const watermarkedBuffer = await sharp(imageBuffer, SHARP_SECURITY_OPTIONS)
     .composite([
       {
         input: Buffer.from(svgWatermark),

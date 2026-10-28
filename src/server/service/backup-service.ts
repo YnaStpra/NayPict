@@ -84,6 +84,12 @@ const backupService = {
 
   // Create a gzip-compressed, AES-256-GCM encrypted binary snapshot of the database.
   async createEncryptedBackup(password?: string): Promise<BackupResultVo> {
+    if (password && password.trim()) {
+      if (password.trim().length < 12) {
+        throw new BizError('backup.passwordTooShort');
+      }
+    }
+
     let rawPayloadBuffer: Buffer;
 
     if (process.env.DATABASE_URL) {

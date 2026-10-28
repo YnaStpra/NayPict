@@ -22,33 +22,17 @@ import {
   sanitizeGeoRecord,
 } from '@/server/lib/geo-normalizer';
 import { getClientIp, isPublicIp } from '@/server/lib/ip';
+import { logSecurityAudit } from '@/server/lib/audit';
+import { getUserId } from '@/server/security/context';
 import {
   telemetryInitRateLimiter,
   telemetryLocationRateLimiter,
   telemetryPingRateLimiter,
   telemetryTrackRateLimiter,
 } from '@/server/lib/rate-limiter';
+import { resolveSignedVisitorId } from '@/server/lib/visitor-cookie';
 
 // This module handles API endpoints for visitor session initialization, telemetry heartbeats, media tracking, and admin inspection.
-
-const VISITOR_COOKIE_NAME = 'naypict_vid';
-const ONE_YEAR_SECONDS = 365 * 24 * 60 * 60;
-
-// Resolve or create an anonymous visitor identifier from request cookies.
-function getOrCreateVisitorId(c: Context): string {
-  let vid = getCookie(c, VISITOR_COOKIE_NAME);
-  if (!vid) {
-    vid = createId();
-    setCookie(c, VISITOR_COOKIE_NAME, vid, {
-      path: '/',
-      maxAge: ONE_YEAR_SECONDS,
-      httpOnly: true,
-      sameSite: 'Lax',
-      secure: process.env.NODE_ENV === 'production',
-    });
-  }
-  return vid;
-}
 
 // Verify if the current request belongs to an authenticated Admin session.
 async function checkIsAdmin(c: Context): Promise<boolean> {
@@ -272,7 +256,7 @@ export function registerAnalyticsApi(app: Hono<HonoEnv>) {
     }
 
     const body = await c.req.json<InitVisitorSessionBo>().catch(() => ({} as InitVisitorSessionBo));
-    const visitorId = getOrCreateVisitorId(c);
+    const visitorId = resolveSignedVisitorId(c, body.visitorId);
     const rawMeta = extractVisitorMeta(c);
 
     // Accurately resolve city & region (e.g. Denpasar, Bali for XL Axiata)
@@ -556,6 +540,11 @@ export function registerAnalyticsApi(app: Hono<HonoEnv>) {
     }
 
     await analyticsService.resetAnalytics();
+    logSecurityAudit({
+      action: 'ANALYTICS_RESET',
+      userId: getUserId(),
+      clientIp: getClientIp(c),
+    });
     return c.json(result.ok(true));
   });
 }

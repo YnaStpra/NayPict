@@ -10,6 +10,8 @@ import { type PhotoViewRecordBo } from '@/server/entity/bo/insights';
 import { resolveSignedVisitorId } from '@/server/lib/visitor-cookie';
 import { getClientIp } from '@/server/lib/ip';
 import { insightsRateLimiter } from '@/server/lib/rate-limiter';
+import { logSecurityAudit } from '@/server/lib/audit';
+import { getUserId } from '@/server/security/context';
 import type { HonoEnv } from '../hono/type';
 
 // This module handles API endpoints for photo analytics, view tracking, and admin insights.
@@ -165,6 +167,11 @@ export function registerInsightsApi(app: Hono<HonoEnv>) {
   // Admin-only endpoint: Reset all insights analytics and interaction history
   app.post('/admin/insights/reset', async (c: Context) => {
     const res = await insightsService.resetInsights();
+    logSecurityAudit({
+      action: 'INSIGHTS_RESET',
+      userId: getUserId(),
+      clientIp: getClientIp(c),
+    });
     return c.json(result.ok(res));
   });
 
@@ -179,12 +186,23 @@ export function registerInsightsApi(app: Hono<HonoEnv>) {
   app.post('/admin/insights/photo/:photoId/reactions/reset', async (c: Context) => {
     const photoId = c.req.param('photoId') ?? '';
     const res = await reactionService.resetPhotoReactions(photoId);
+    logSecurityAudit({
+      action: 'PHOTO_REACTIONS_RESET',
+      userId: getUserId(),
+      clientIp: getClientIp(c),
+      targetId: photoId,
+    });
     return c.json(result.ok(res));
   });
 
   // Admin-only endpoint: Reset all reactions across all photos in the gallery
   app.post('/admin/insights/reactions/reset', async (c: Context) => {
     const res = await reactionService.resetAllReactions();
+    logSecurityAudit({
+      action: 'ALL_REACTIONS_RESET',
+      userId: getUserId(),
+      clientIp: getClientIp(c),
+    });
     return c.json(result.ok(res));
   });
 }

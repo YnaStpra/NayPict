@@ -23,6 +23,8 @@ function getAllowedOrigins(): string[] {
   const origins = [
     normalizeOrigin(process.env.APP_URL),
     normalizeOrigin(process.env.NEXT_PUBLIC_APP_URL),
+    normalizeOrigin(process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : undefined),
+    normalizeOrigin(process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : undefined),
     'https://naypict.my.id',
     'https://www.naypict.my.id',
   ].filter((origin): origin is string => Boolean(origin));
@@ -37,7 +39,13 @@ function resolveAllowedOrigin(origin: string): string | null {
   if (list.includes(origin)) return origin;
   try {
     const host = new URL(origin).hostname.toLowerCase();
-    if (host === 'naypict.my.id' || host.endsWith('.naypict.my.id') || host === 'localhost' || host === '127.0.0.1') {
+    if (
+      host === 'naypict.my.id' ||
+      host.endsWith('.naypict.my.id') ||
+      host === 'localhost' ||
+      host === '127.0.0.1' ||
+      (process.env.VERCEL === '1' && host.endsWith('.vercel.app'))
+    ) {
       return origin;
     }
   } catch {}

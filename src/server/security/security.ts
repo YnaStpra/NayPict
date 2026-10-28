@@ -49,6 +49,8 @@ const SYSTEM_PATHS = [
   '/album/togglePinPhoto',
   '/album/setName',
   '/album/reorder',
+  '/album/archive',
+  '/album/unarchive',
   '/album/delete',
   '/album/trash',
   '/photo/comment/admin',
@@ -74,6 +76,7 @@ const PUBLIC_API_PATHS = [
   '/logout',
   '/photo/list',
   '/photo/randomIdList',
+  '/photo/map/list',
   '/photo/takenDateList',
   '/photo/onThisDay',
   '/album/list',
@@ -179,6 +182,17 @@ async function security(c: Context, next: Next) {
   ) {
     clearLoginCookies(c);
     throw new BizError('auth.failed', 401);
+  }
+
+  // Verify session inactivity timeout (idle timeout defense, default 7 days)
+  const SESSION_IDLE_TIMEOUT_MS = Number(process.env.SESSION_IDLE_TIMEOUT_MS) || (7 * 24 * 60 * 60 * 1000);
+  if (authInfo.sessions && authInfo.sessions.length > 0) {
+    const activeSession = authInfo.sessions.find((s) => s.uuid === uuid);
+    if (activeSession?.lastActive && (Date.now() - activeSession.lastActive > SESSION_IDLE_TIMEOUT_MS)) {
+      clearLoginCookies(c);
+      sessionService.revokeSession(authInfo.userId, uuid).catch(() => {});
+      throw new BizError('auth.failed', 401);
+    }
   }
 
   if (isSystemPath(path) && !isPublicApiPath(path) && authInfo.type === UserTypeEnum.NORMAL) {
