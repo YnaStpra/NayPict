@@ -17,6 +17,7 @@ import { parseUserAgent } from '@/server/lib/user-agent';
 import { type LoginVo } from '@/server/entity/vo/login';
 import { totpService } from '@/server/service/totp-service';
 import { userService } from '@/server/service/user-service';
+import { sessionService } from '@/server/service/session-service';
 import { accountLockoutRateLimiter, loginRateLimiter } from '@/server/lib/rate-limiter';
 import { verifyTurnstileToken } from '@/server/lib/turnstile';
 import { logSecurityAudit } from '@/server/lib/audit';
@@ -314,32 +315,13 @@ const loginService = {
     return { token, user: userVo, isNewDevice };
   },
 
-  // Remove current session from cache when logging out uuid.
+  // Remove current session from cache and database when logging out uuid to prevent resurrection.
   async logout(userId: string | null, uuid: string | null): Promise<void> {
-
     if (!userId || !uuid) {
       return
     }
 
-    const authInfo = await cache.get<AuthInfo>(AUTH_CACHE_KEY + userId)
-
-    if (!authInfo) {
-      return
-    }
-
-    const uuidList = authInfo.uuidList.filter((item) => item !== uuid)
-    const sessions = (authInfo.sessions || []).filter((item) => item.uuid !== uuid)
-
-    if (!uuidList.length) {
-      await cache.delete(AUTH_CACHE_KEY + userId)
-      return
-    }
-
-    await cache.set(AUTH_CACHE_KEY + userId, {
-      ...authInfo,
-      uuidList,
-      sessions,
-    }, { ttl: AUTH_CACHE_TTL })
+    await sessionService.revokeSession(userId, uuid)
   },
 
 }

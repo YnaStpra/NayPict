@@ -66,6 +66,14 @@ const exifService = {
       }
     }
   },
+
+  // Batch delete Exif records by multiple photo IDs.
+  async deleteByPhotoIds(photoIds: string[]): Promise<void> {
+    if (!photoIds.length) {
+      return;
+    }
+    await orm.delete(exifTab).where(inArray(exifTab.photoId, photoIds));
+  },
 };
 
 export { exifService };

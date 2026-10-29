@@ -147,7 +147,8 @@ export function registerInsightsApi(app: Hono<HonoEnv>) {
 
   // Admin-only endpoint: Get top viewed and top commented photos ranking
   app.get('/admin/insights/top-photos', async (c: Context) => {
-    const limit = Number(c.req.query('limit')) || 1000;
+    const rawLimit = Number(c.req.query('limit'));
+    const limit = Math.min(Math.max(1, Number.isFinite(rawLimit) && rawLimit > 0 ? rawLimit : 100), 500);
     const topPhotos = await insightsService.getTopPhotos(limit);
     return c.json(result.ok(topPhotos));
   });
@@ -177,7 +178,8 @@ export function registerInsightsApi(app: Hono<HonoEnv>) {
 
   // Admin-only endpoint: Get photos with public reactions
   app.get('/admin/insights/reactions/top', async (c: Context) => {
-    const limit = Number(c.req.query('limit')) || 50;
+    const rawLimit = Number(c.req.query('limit'));
+    const limit = Math.min(Math.max(1, Number.isFinite(rawLimit) && rawLimit > 0 ? rawLimit : 50), 500);
     const topReactions = await reactionService.getTopReactionPhotos(limit);
     return c.json(result.ok(topReactions));
   });

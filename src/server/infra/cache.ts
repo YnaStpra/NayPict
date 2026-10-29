@@ -28,6 +28,7 @@ class UpstashRedisClient {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(cmd),
+        signal: AbortSignal.timeout(3000),
       })
 
       if (!res.ok) {
@@ -54,6 +55,7 @@ class UpstashRedisClient {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(cmds),
+        signal: AbortSignal.timeout(3000),
       })
 
       if (!res.ok) return null

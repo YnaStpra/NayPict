@@ -1723,10 +1723,13 @@ const photoService = {
       throw new BizError('photo.invalidStorageKey', 400);
     }
 
-    // Security: Enforce maximum file size limit (max 500MB)
-    if (size && size > 500 * 1024 * 1024) {
+    // Security: Enforce strictly positive file size within limit (max 500MB)
+    if (!size || typeof size !== 'number' || size <= 0 || size > 500 * 1024 * 1024) {
       throw new BizError('photo.fileTooLarge');
     }
+
+    const safePreviewSize = typeof previewSize === 'number' && previewSize > 0 ? previewSize : 100000;
+    const safeThumbnailSize = typeof thumbnailSize === 'number' && thumbnailSize > 0 ? thumbnailSize : 30000;
 
     const sanitizedName = sanitizeFileName(name?.trim() || 'photo.jpg');
 
@@ -1755,6 +1758,10 @@ const photoService = {
       throw new BizError('storage.notFound');
     }
 
+    if (photoStorage.status === StorageStatusEnum.DISABLE) {
+      throw new BizError('storage.disabled');
+    }
+
     // Security: Verify object exists in storage to prevent phantom entries
     try {
       const headCheck = await storage.head(key, photoStorage.storageId);
@@ -1764,6 +1771,7 @@ const photoService = {
     } catch (headErr) {
       if (headErr instanceof BizError) throw headErr;
       console.warn('[STORAGE] Head check warning during addDirect:', headErr);
+      throw new BizError('photo.uploadFailed', 400);
     }
 
     // Deduplication check: verify photo does not already exist in gallery
@@ -1810,8 +1818,8 @@ const photoService = {
     const finalThumbType = params.thumbnailType || (thumbnailKey.endsWith('.avif') ? 'image/avif' : thumbnailKey.endsWith('.jpg') ? 'image/jpeg' : 'image/webp');
     const fileRecords: { fileId: string; photoId: string; key: string; type: number; fileType: string; size: number }[] = [
       { fileId: createId(), photoId: finalPhotoId, key, type: FileTypeEnum.ORIGINAL, fileType: finalType, size },
-      { fileId: createId(), photoId: finalPhotoId, key: previewKey, type: FileTypeEnum.PREVIEW, fileType: 'image/jpeg', size: previewSize },
-      { fileId: createId(), photoId: finalPhotoId, key: thumbnailKey, type: FileTypeEnum.THUMBNAIL, fileType: finalThumbType, size: thumbnailSize },
+      { fileId: createId(), photoId: finalPhotoId, key: previewKey, type: FileTypeEnum.PREVIEW, fileType: 'image/jpeg', size: safePreviewSize },
+      { fileId: createId(), photoId: finalPhotoId, key: thumbnailKey, type: FileTypeEnum.THUMBNAIL, fileType: finalThumbType, size: safeThumbnailSize },
     ];
 
     const files = await fileService.save(fileRecords);
@@ -2017,6 +2025,7 @@ const photoService = {
 
     await fileService.deleteByPhotoIds(photoIds);
     await commentService.deleteByPhotoIds(photoIds);
+    await exifService.deleteByPhotoIds(photoIds);
 
     await orm.delete(photoTab)
       .where(inArray(photoTab.photoId, photoIds));
@@ -2102,6 +2111,7 @@ const photoService = {
 
       await fileService.deleteByPhotoIds(photoIds);
       await commentService.deleteByPhotoIds(photoIds);
+      await exifService.deleteByPhotoIds(photoIds);
 
       await orm.delete(photoTab)
         .where(and(
@@ -2314,6 +2324,10 @@ const photoService = {
           const replace = params.replaceText || '';
           const newBase = originalBase.replaceAll(find, replace);
           newFullName = `${newBase}${originalExt}`;
+        }
+
+        if (newFullName) {
+          newFullName = sanitizeFileName(newFullName);
         }
 
         if (newFullName && newFullName !== oldFullName) {

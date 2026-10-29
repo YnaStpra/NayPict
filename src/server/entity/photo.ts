@@ -29,6 +29,7 @@ export const photoTab = pgTable(
     index('idx_photo_pub_timeline').on(table.status, table.visibility, table.takenTime, table.createTime),
     index('idx_photo_user_status').on(table.userId, table.status),
     index('idx_photo_checksum').on(table.checksum),
+    index('idx_photo_recycle_time').on(table.status, table.recycleTime),
   ]
 );
 

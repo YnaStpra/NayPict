@@ -375,3 +375,10 @@ export const backupExportRateLimiter = new DistributedRateLimiter({
   windowMs: 15 * 60 * 1000, // 15 minutes
 })
 
+// 18. User Password Change Rate Limiter: Max 5 attempts per 15 minutes per user/IP
+export const passwordChangeRateLimiter = new DistributedRateLimiter({
+  name: 'password-change',
+  limit: 5,
+  windowMs: 15 * 60 * 1000, // 15 minutes
+})
+

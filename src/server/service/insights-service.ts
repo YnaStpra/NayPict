@@ -324,7 +324,7 @@ const insightsService = {
 
     try {
       // 1. Fetch public viewed photos (strictly views > 0 via innerJoin)
-      const viewedLimit = Math.max(limit, 500);
+      const viewedLimit = Math.min(Math.max(1, limit), 500);
       const mostViewedRaw = await readOrm
         .select({
           photoId: photoTab.photoId,
@@ -690,6 +690,17 @@ const insightsService = {
     } catch (err) {
       console.error('[INSIGHTS] Error fetching photo detail insights:', err);
       return null;
+    }
+  },
+
+  // Prune photo view tracking records older than retention period (default 90 days).
+  async cleanStaleViews(retentionDays = 90): Promise<void> {
+    try {
+      await ensurePhotoViewTable();
+      const cutoff = new Date(Date.now() - retentionDays * 24 * 60 * 60 * 1000).toISOString();
+      await orm.delete(photoViewTab).where(sql`${photoViewTab.viewedAt} < ${cutoff}`);
+    } catch (err) {
+      console.warn('[INSIGHTS] Stale views cleanup error:', err);
     }
   },
 

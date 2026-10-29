@@ -1,6 +1,8 @@
 import { type Hono } from 'hono';
 import { photoService } from '@/server/service/photo-service';
 import { cache } from '@/server/infra/cache';
+import { analyticsService } from '@/server/service/analytics-service';
+import { insightsService } from '@/server/service/insights-service';
 import result from '@/server/model/result';
 import { timingSafeEqual } from '@/server/lib/crypto';
 import type { HonoEnv } from '@/server/hono/type';
@@ -27,6 +29,8 @@ export function registerCronApi(app: Hono<HonoEnv>) {
       await Promise.all([
         photoService.clearExpired(),
         cache.clearExpired(),
+        analyticsService.cleanStaleSessions(90),
+        insightsService.cleanStaleViews(90),
       ]);
 
       return c.json(result.ok({ message: 'Cleanup completed successfully.' }));
