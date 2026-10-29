@@ -125,7 +125,32 @@ const userService = {
   },
 
   // Set current user avatar, And return the latest user basic information.
+  // Set current user avatar with file size limit and WebP magic byte validation.
   async setAvatar(params: UserSetAvatarBo, userId: string): Promise<UserInfoVo> {
+    if (!userId) {
+      throw new BizError('auth.failed', 401);
+    }
+
+    const match = params.avatar?.match(/^data:image\/webp;base64,(.+)$/);
+    if (!match?.[1]) {
+      throw new BizError('user.avatarInvalid');
+    }
+
+    const avatarBuffer = Buffer.from(match[1], 'base64');
+
+    // Security: Enforce maximum avatar buffer size (2MB)
+    if (avatarBuffer.length === 0 || avatarBuffer.length > 2 * 1024 * 1024) {
+      throw new BizError('user.avatarInvalid');
+    }
+
+    // Security: Validate WebP magic header signature (RIFF....WEBP)
+    const isWebP = avatarBuffer.length >= 12 &&
+      avatarBuffer.toString('ascii', 0, 4) === 'RIFF' &&
+      avatarBuffer.toString('ascii', 8, 12) === 'WEBP';
+
+    if (!isWebP) {
+      throw new BizError('user.avatarInvalid');
+    }
 
     const [user] = await orm
       .select({
@@ -143,15 +168,10 @@ const userService = {
     }
 
     const avatarKey = `${createId()}.webp`;
-    const match = params.avatar.match(/^data:image\/webp;base64,(.+)$/);
-
-    if (!match?.[1]) {
-      throw new BizError('user.avatarInvalid');
-    }
 
     await storage.put([{
       key: `profile/${avatarKey}`,
-      body: Buffer.from(match[1], 'base64'),
+      body: avatarBuffer,
       type: 'image/webp',
     }], 'local');
 
@@ -162,7 +182,9 @@ const userService = {
       .where(eq(userTab.userId, userId));
 
     return {
-      ...user,
+      userId: user?.userId || userId,
+      username: user?.username || '',
+      type: user?.type ?? 1,
       avatar: avatarKey
     };
   },
@@ -225,13 +247,23 @@ const userService = {
       throw new BizError('user.credentialsRequired');
     }
 
+    // Security: Validate username format and character set (3-30 alphanumeric, underscore, hyphen)
+    if (!/^[a-zA-Z0-9_-]{3,30}$/.test(username)) {
+      throw new BizError('user.usernameInvalid');
+    }
+
     validatePasswordComplexity(params.password, username);
 
     if (!params.type) {
       throw new BizError('user.typeRequired');
     }
 
-    const [user] = await orm.select().from(userTab).where(eq(userTab.username, username)).limit(1);
+    // Security: Case-insensitive uniqueness check to prevent duplicate / homograph accounts
+    const [user] = await orm
+      .select({ userId: userTab.userId })
+      .from(userTab)
+      .where(sql`lower(${userTab.username}) = ${username.toLowerCase()}`)
+      .limit(1);
 
     if (user) {
       throw new BizError('user.usernameExists');
@@ -263,6 +295,11 @@ const userService = {
 
     if (!username) {
       throw new BizError('user.usernameRequired');
+    }
+
+    // Security: Validate username format and character set (3-30 alphanumeric, underscore, hyphen)
+    if (!/^[a-zA-Z0-9_-]{3,30}$/.test(username)) {
+      throw new BizError('user.usernameInvalid');
     }
 
     if (!params.type) {
@@ -305,12 +342,13 @@ const userService = {
       }
     }
 
+    // Security: Case-insensitive uniqueness check to prevent duplicate / homograph accounts
     const [existsUser] = await orm
       .select({
         userId: userTab.userId
       })
       .from(userTab)
-      .where(eq(userTab.username, username))
+      .where(sql`lower(${userTab.username}) = ${username.toLowerCase()}`)
       .limit(1);
 
     if (existsUser && existsUser.userId !== userId) {
@@ -318,6 +356,8 @@ const userService = {
     }
 
     const nextPassword = params.password?.trim();
+    const isTypeChanged = params.type !== user.type;
+
     if (nextPassword) {
       validatePasswordComplexity(nextPassword, username);
       const password = await hashPassword(nextPassword);
@@ -339,17 +379,23 @@ const userService = {
       .set({
         username,
         type: params.type,
+        ...(isTypeChanged ? { tokenVersion: sql`${userTab.tokenVersion} + 1` } : {}),
       })
       .where(eq(userTab.userId, userId));
 
-    // If there is a login cache, Synchronously update the user types in it.
-    const authInfo = await cache.get<AuthInfo>(AUTH_CACHE_KEY + userId);
-
-    if (authInfo) {
-      await cache.set(AUTH_CACHE_KEY + userId, {
-        ...authInfo,
-        type: params.type,
-      }, { ttl: AUTH_CACHE_TTL });
+    if (isTypeChanged) {
+      // Security: Invalidate active login session cache across all devices when role changes
+      await cache.delete(AUTH_CACHE_KEY + userId);
+    } else {
+      // If there is a login cache, Synchronously update the user types and username in it.
+      const authInfo = await cache.get<AuthInfo>(AUTH_CACHE_KEY + userId);
+      if (authInfo) {
+        await cache.set(AUTH_CACHE_KEY + userId, {
+          ...authInfo,
+          username,
+          type: params.type,
+        }, { ttl: AUTH_CACHE_TTL });
+      }
     }
   },
 

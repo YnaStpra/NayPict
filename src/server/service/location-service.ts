@@ -10,8 +10,16 @@ interface ReverseGeocodeResult {
   country?: string;
 }
 
-// In-memory cache for reverse geocoding results to minimize external API requests.
+// In-memory cache for reverse geocoding results to minimize external API requests (bounded LRU, max 1,000 entries).
 const addressCache = new Map<string, ReverseGeocodeResult>();
+
+function setAddressCache(key: string, result: ReverseGeocodeResult): void {
+  if (addressCache.size >= 1000) {
+    const oldest = addressCache.keys().next().value;
+    if (oldest) addressCache.delete(oldest);
+  }
+  addressCache.set(key, result);
+}
 
 const locationService = {
 
@@ -51,7 +59,7 @@ const locationService = {
       const { cache } = await import('@/server/infra/cache');
       const persisted = await cache.get<ReverseGeocodeResult>(`geo:${cacheKey}`);
       if (persisted && persisted.address) {
-        addressCache.set(cacheKey, persisted);
+        setAddressCache(cacheKey, persisted);
         return persisted;
       }
     } catch {}
@@ -136,11 +144,7 @@ const locationService = {
         country: detectedCountry,
       };
 
-      if (addressCache.size > 500) {
-        const oldest = addressCache.keys().next().value;
-        if (oldest) addressCache.delete(oldest);
-      }
-      addressCache.set(cacheKey, result);
+      setAddressCache(cacheKey, result);
 
       // Persist to distributed cache (30-day TTL) to survive serverless instance restarts
       void import('@/server/infra/cache').then(({ cache }) => {

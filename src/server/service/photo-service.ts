@@ -1028,7 +1028,13 @@ const photoService = {
     const uploadId = params.uploadId?.trim();
     const partNumber = Number(params.partNumber);
 
-    if (!key || !uploadId || !partNumber || partNumber < 1) {
+    // Security: Validate key prefix matches user namespace and prevent path traversal
+    if (!key || !uploadId || !key.startsWith(`originals/${userId}/`) || key.includes('..')) {
+      throw new BizError('param.invalid');
+    }
+
+    // Security: Validate partNumber integer within S3/R2 range [1, 10000]
+    if (!partNumber || !Number.isInteger(partNumber) || partNumber < 1 || partNumber > 10000) {
       throw new BizError('param.invalid');
     }
 
@@ -1048,7 +1054,12 @@ const photoService = {
     const key = params.key?.trim();
     const uploadId = params.uploadId?.trim();
 
-    if (!key || !uploadId || !Array.isArray(params.parts) || params.parts.length === 0) {
+    // Security: Validate key prefix matches user namespace and prevent path traversal
+    if (!key || !uploadId || !key.startsWith(`originals/${userId}/`) || key.includes('..')) {
+      throw new BizError('param.invalid');
+    }
+
+    if (!Array.isArray(params.parts) || params.parts.length === 0 || params.parts.length > 10000) {
       throw new BizError('param.invalid');
     }
 
@@ -1069,7 +1080,8 @@ const photoService = {
     const key = params.key?.trim();
     const uploadId = params.uploadId?.trim();
 
-    if (!key || !uploadId) {
+    // Security: Validate key prefix matches user namespace and prevent path traversal
+    if (!key || !uploadId || !key.startsWith(`originals/${userId}/`) || key.includes('..')) {
       throw new BizError('param.invalid');
     }
 
@@ -1453,8 +1465,16 @@ const photoService = {
       posterBase64,
     } = params;
 
-    // Security: Enforce maximum file size limit (max 2GB for direct video upload)
-    if (size && size > 2 * 1024 * 1024 * 1024) {
+    // Security: Validate key prefix matches user namespace and prevent path traversal
+    if (!key || !key.startsWith(`originals/${userId}/`) || key.includes('..')) {
+      throw new BizError('param.invalid');
+    }
+
+    // Security: Enforce positive, valid file size limit (max 2GB for direct video upload)
+    if (typeof size !== 'number' || !Number.isFinite(size) || size <= 0) {
+      throw new BizError('param.invalid');
+    }
+    if (size > 2 * 1024 * 1024 * 1024) {
       throw new BizError('photo.fileTooLarge');
     }
 
@@ -2038,8 +2058,11 @@ const photoService = {
   // Cycle through the recycle bin photo files and database records by the passed in value.
   async clearDeletedPhotos(params: { userId?: string, recycleTime: string, syncDelete: boolean }): Promise<void> {
     const fileStorageList = params.syncDelete ? await storageService.list() : null;
+    const MAX_BATCHES = 50; // Cap to 50 batches (max 5,000 photos per run) to prevent serverless function timeout
+    let batchCount = 0;
 
-    while (true) {
+    while (batchCount < MAX_BATCHES) {
+      batchCount++;
       const whereList = [
         lte(photoTab.recycleTime, params.recycleTime),
         eq(photoTab.status, PhotoStatusEnum.DELETE)

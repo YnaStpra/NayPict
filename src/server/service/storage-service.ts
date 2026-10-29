@@ -46,7 +46,11 @@ function validateStorageUrl(rawUrl?: string | null): void {
 
 // Retrieve master encryption key for cloud storage credentials at rest.
 function getStorageMasterKey(): string {
-  return process.env.STORAGE_ENCRYPTION_KEY?.trim() || process.env.JWT_SECRET?.trim() || 'naypict-storage-master-key';
+  const key = process.env.STORAGE_ENCRYPTION_KEY?.trim() || process.env.JWT_SECRET?.trim();
+  if (!key && process.env.NODE_ENV === 'production') {
+    console.warn('[SECURITY WARNING] STORAGE_ENCRYPTION_KEY or JWT_SECRET is not configured. Using default storage key in production is strongly discouraged.');
+  }
+  return key || 'naypict-storage-master-key';
 }
 
 // Transparently decrypt stored S3/R2 access credentials while supporting unencrypted legacy format.

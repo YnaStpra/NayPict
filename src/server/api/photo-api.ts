@@ -334,10 +334,12 @@ export function registerPhotoApi(app: Hono<HonoEnv>) {
     // Serve original uncompressed buffer with complete EXIF metadata and RFC 6266 filename attachment
     const photoData = await photoService.getOriginalPhotoBuffer(photoId);
     if (photoData) {
-      c.header('Content-Type', photoData.contentType || 'application/octet-stream');
+      const safeContentType = (photoData.contentType || 'application/octet-stream').replace(/[^a-zA-Z0-9_\-\.\+/]/g, '');
+      c.header('Content-Type', safeContentType || 'application/octet-stream');
       c.header('Content-Disposition', buildContentDisposition(photoData.fileName || photo.name, 'attachment'));
       c.header('Content-Length', String(photoData.buffer.length));
       c.header('Cache-Control', 'private, no-cache');
+      c.header('X-Content-Type-Options', 'nosniff');
       return c.body(new Uint8Array(photoData.buffer));
     }
 

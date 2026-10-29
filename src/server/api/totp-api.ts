@@ -67,6 +67,11 @@ export function registerTotpApi(app: Hono<HonoEnv>) {
     }
 
     const clientIp = getClientIp(c);
+    const rateLimit = await totpVerifyRateLimiter.consume(`${userId}:${clientIp}`);
+    if (!rateLimit.allowed) {
+      return c.json(result.fail('totp.tooManyAttempts', 429), 429);
+    }
+
     const body = await c.req.json<TotpDisableBo>().catch(() => ({} as TotpDisableBo));
     await totpService.disableTotp(userId, body);
 

@@ -131,6 +131,15 @@ interface CachedGeo {
 }
 const geoCache = new Map<string, CachedGeo>();
 
+// Bounded in-memory cache helper with LRU eviction (max 2,000 entries) to prevent memory leak
+function setGeoCache(ip: string, record: CachedGeo): void {
+  if (geoCache.size >= 2000) {
+    const oldestKey = geoCache.keys().next().value;
+    if (oldestKey) geoCache.delete(oldestKey);
+  }
+  geoCache.set(ip, record);
+}
+
 // High-precision geolocation lookup to resolve authoritative city, region, country, and identify hosting bots
 async function resolveAccurateGeo(
   ip: string,
@@ -184,7 +193,7 @@ async function resolveAccurateGeo(
         }
 
         const result = { ...sanitized, isDatacenter: isDc };
-        geoCache.set(ip, { ...result, expires: now + 24 * 60 * 60 * 1000 });
+        setGeoCache(ip, { ...result, expires: now + 24 * 60 * 60 * 1000 });
         return result;
       }
     }
@@ -221,7 +230,7 @@ async function resolveAccurateGeo(
         }
 
         const result = { ...sanitized, isDatacenter: isDc };
-        geoCache.set(ip, { ...result, expires: now + 24 * 60 * 60 * 1000 });
+        setGeoCache(ip, { ...result, expires: now + 24 * 60 * 60 * 1000 });
         return result;
       }
     }
@@ -235,7 +244,7 @@ async function resolveAccurateGeo(
   }
 
   const result = { ...sanitized };
-  geoCache.set(ip, { ...result, expires: now + 60 * 60 * 1000 });
+  setGeoCache(ip, { ...result, expires: now + 60 * 60 * 1000 });
   return result;
 }
 
