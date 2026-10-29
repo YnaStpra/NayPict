@@ -399,6 +399,15 @@ function createResilientTileLayer(
   })
 }
 
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 export default function PhotoMapView() {
   const locale = useLocale()
   const { userInfo } = useApp()
@@ -1084,6 +1093,8 @@ export default function PhotoMapView() {
       const photoDate = topPhoto.takenTime ? formatRelativeTime(topPhoto.takenTime, locale) : ""
       const photoName = topPhoto.name || "Photo"
       const photoTitle = photoName.lastIndexOf('.') > 0 ? photoName.slice(0, photoName.lastIndexOf('.')) : photoName
+      const safePhotoTitle = escapeHtml(photoTitle)
+      const safePhotoDate = photoDate ? escapeHtml(photoDate) : ""
 
       marker.bindTooltip(
         `
@@ -1091,7 +1102,7 @@ export default function PhotoMapView() {
           <div class="relative w-full h-24 rounded-lg overflow-hidden bg-neutral-900 mb-1.5 border border-white/10 shadow-inner">
             ${
               imgUrl
-                ? `<img src="${imgUrl}" alt="${photoTitle}" onerror="if(this.src&&!this.src.includes('/media/')){this.src=this.src.replace(/^https?:\\/\\/[^\\/]+/, '/media')}" style="width: 100%; height: 100%; object-fit: cover; display: block;" loading="lazy" />`
+                ? `<img src="${imgUrl}" alt="${safePhotoTitle}" onerror="if(this.src&&!this.src.includes('/media/')){this.src=this.src.replace(/^https?:\\/\\/[^\\/]+/, '/media')}" style="width: 100%; height: 100%; object-fit: cover; display: block;" loading="lazy" />`
                 : `<div class="w-full h-full flex items-center justify-center text-xs">📷</div>`
             }
             ${
@@ -1108,8 +1119,8 @@ export default function PhotoMapView() {
                 : ""
             }
           </div>
-          <div class="text-xs font-bold truncate text-white leading-tight">${photoTitle}</div>
-          ${photoDate ? `<div class="text-[10px] text-white/60 mt-0.5">${photoDate}</div>` : ""}
+          <div class="text-xs font-bold truncate text-white leading-tight">${safePhotoTitle}</div>
+          ${safePhotoDate ? `<div class="text-[10px] text-white/60 mt-0.5">${safePhotoDate}</div>` : ""}
         </div>
       `,
         {

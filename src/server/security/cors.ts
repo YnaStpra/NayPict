@@ -44,7 +44,11 @@ function resolveAllowedOrigin(origin: string): string | null {
       host.endsWith('.naypict.my.id') ||
       host === 'localhost' ||
       host === '127.0.0.1' ||
-      (process.env.VERCEL === '1' && host.endsWith('.vercel.app'))
+      (process.env.VERCEL === '1' && (
+        host === 'naypict.vercel.app' ||
+        /^naypict[a-z0-9-]*\.vercel\.app$/i.test(host) ||
+        (process.env.VERCEL_URL ? host === process.env.VERCEL_URL.toLowerCase() : false)
+      ))
     ) {
       return origin;
     }

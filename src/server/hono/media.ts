@@ -4,7 +4,9 @@ import { storage } from '@/server/storage/storage';
 import { readOrm } from '@/server/infra/db';
 import { photoTab } from '@/server/entity/photo';
 import { fileTab } from '@/server/entity/file';
-import { eq } from 'drizzle-orm';
+import { albumPhotoTab } from '@/server/entity/album-photo';
+import { albumTab } from '@/server/entity/album';
+import { and, eq } from 'drizzle-orm';
 import { contextStorage } from 'hono/context-storage';
 import { security } from '../security/security';
 import { getUserId } from '@/server/security/context';
@@ -115,6 +117,20 @@ media.get('*', async (c: Context, next: Next) => {
     return next();
   }
 
+  // If photo is ALBUM_ONLY, only allow unauthenticated visitors if it belongs to an active public album
+  if (photoFile.visibility === PhotoVisibilityEnum.ALBUM_ONLY && !userId) {
+    const [archivedAlbumRel] = await readOrm
+      .select({ id: albumPhotoTab.id })
+      .from(albumPhotoTab)
+      .innerJoin(albumTab, eq(albumTab.albumId, albumPhotoTab.albumId))
+      .where(and(eq(albumPhotoTab.photoId, photoFile.photoId), eq(albumTab.isArchived, 1)))
+      .limit(1);
+
+    if (archivedAlbumRel) {
+      return next();
+    }
+  }
+
   // Detect if the requested resource is a video
   const isVideo = Boolean(
     photoFile.fileType?.startsWith('video/') ||
@@ -170,6 +186,7 @@ media.get('*', async (c: Context, next: Next) => {
     const notModifiedHeaders: Record<string, string> = {
       'ETag': etag,
       'Cache-Control': isCacheable ? 'public, max-age=31536000, immutable' : 'no-cache, private',
+      'X-Content-Type-Options': 'nosniff',
     };
     if (isCacheable) {
       notModifiedHeaders['CDN-Cache-Control'] = 'public, max-age=31536000, immutable';
@@ -189,6 +206,7 @@ media.get('*', async (c: Context, next: Next) => {
     'ETag': etag,
     'Vary': 'Accept, Accept-Encoding',
     'Accept-Ranges': 'bytes',
+    'X-Content-Type-Options': 'nosniff',
   };
 
   if (isPartial && obj.contentRange) {

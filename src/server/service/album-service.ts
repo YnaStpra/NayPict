@@ -584,6 +584,11 @@ const albumService = {
       throw new BizError('album.selectRequired');
     }
 
+    // Security: Cap maximum albums in a single reorder request to 500 to prevent DoS / connection pool exhaustion
+    if (params.albumIds.length > 500) {
+      throw new BizError('param.invalid');
+    }
+
     const now = new Date().toISOString();
     await Promise.all(
       params.albumIds.map((albumId, index) =>

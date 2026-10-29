@@ -57,6 +57,12 @@ function clearLoginCookies(response: NextResponse) {
     });
   }
 
+  // Synchronize client-readable session state cookie
+  response.cookies.set('naypict_session', '', {
+    path: '/',
+    maxAge: 0,
+  });
+
   return response;
 }
 

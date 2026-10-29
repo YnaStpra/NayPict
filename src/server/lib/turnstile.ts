@@ -32,6 +32,7 @@ export async function verifyTurnstileToken(token: string, remoteIp?: string): Pr
     const response = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
       method: 'POST',
       body: formData,
+      signal: AbortSignal.timeout(5000),
       headers: {
         'content-type': 'application/x-www-form-urlencoded',
       },
@@ -66,7 +67,9 @@ export async function verifyTurnstileToken(token: string, remoteIp?: string): Pr
       const isHostAllowed =
         allowedHosts.includes(host) ||
         host.endsWith('.naypict.my.id') ||
-        host.endsWith('.vercel.app');
+        host === 'naypict.vercel.app' ||
+        /^naypict[a-z0-9-]*\.vercel\.app$/i.test(host) ||
+        (process.env.VERCEL_URL ? host === process.env.VERCEL_URL.toLowerCase() : false);
 
       if (!isHostAllowed) {
         console.warn(`[TURNSTILE REJECTED] Hostname mismatch: solved on "${outcome.hostname}"`);
