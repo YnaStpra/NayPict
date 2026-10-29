@@ -79,6 +79,7 @@ const storage = {
   // According to storage id, query configuration, select strategy, and read the file (supports HTTP range).
   async get(key: string, storageId: string, range?: string): Promise<StorageObject> {
     const fileStorage = await getStorage(storageId);
+    assertStorageEnabled(fileStorage);
     return createStorageStrategy(fileStorage)!.get(key, fileStorage, range);
   },
 

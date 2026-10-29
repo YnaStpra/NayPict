@@ -67,11 +67,9 @@ export function resolveSignedVisitorId(c: Context, explicitId?: string): string 
     return resolvedVid;
   }
 
-  // If cookie was an unsigned legacy cookie or valid explicitId, upgrade and sign
+  // If cookie was an unsigned legacy cookie, upgrade and sign. Otherwise generate a fresh server-side ID.
   if (cookieVal && /^[a-zA-Z0-9_\-]{8,64}$/.test(cookieVal.trim())) {
     resolvedVid = cookieVal.trim();
-  } else if (explicitId && /^[a-zA-Z0-9_\-]{8,64}$/.test(explicitId.trim())) {
-    resolvedVid = explicitId.trim();
   } else {
     resolvedVid = createId();
   }

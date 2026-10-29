@@ -768,6 +768,18 @@ const analyticsService = {
     };
   },
 
+  // Prune visitor sessions and activities older than retention period (default 90 days).
+  async cleanStaleSessions(retentionDays = 90): Promise<void> {
+    await ensureAnalyticsTables();
+    const cutoff = new Date(Date.now() - retentionDays * 24 * 60 * 60 * 1000).toISOString();
+    try {
+      await orm.delete(visitorActivityTab).where(sql`${visitorActivityTab.createdAt} < ${cutoff}`);
+      await orm.delete(visitorSessionTab).where(sql`${visitorSessionTab.lastActiveAt} < ${cutoff}`);
+    } catch (err) {
+      console.warn('[ANALYTICS] Stale sessions cleanup error:', err);
+    }
+  },
+
   // Wipe all visitor sessions and activity tracking records (admin-only).
   async resetAnalytics(): Promise<boolean> {
     await ensureAnalyticsTables();

@@ -99,25 +99,26 @@ const sessionService = {
     }).sort((a, b) => (b.isCurrent ? 1 : 0) - (a.isCurrent ? 1 : 0));
   },
 
-  // Revoke a specific active device session by its UUID.
+  // Revoke a specific active device session by its UUID and persist to DB.
   async revokeSession(userId: string, targetUuid: string): Promise<boolean> {
     const authInfo = await cache.get<AuthInfo>(AUTH_CACHE_KEY + userId);
-    if (!authInfo) {
-      return false;
+    if (authInfo) {
+      const updatedUuidList = authInfo.uuidList.filter((id) => id !== targetUuid);
+      const updatedSessions = (authInfo.sessions || []).filter((s) => s.uuid !== targetUuid);
+
+      if (!updatedUuidList.length) {
+        await cache.delete(AUTH_CACHE_KEY + userId);
+      } else {
+        const updatedAuthInfo: AuthInfo = {
+          ...authInfo,
+          uuidList: updatedUuidList,
+          sessions: updatedSessions,
+        };
+        await cache.set(AUTH_CACHE_KEY + userId, updatedAuthInfo, { ttl: AUTH_CACHE_TTL });
+      }
     }
 
-    const updatedUuidList = authInfo.uuidList.filter((id) => id !== targetUuid);
-    const updatedSessions = (authInfo.sessions || []).filter((s) => s.uuid !== targetUuid);
-
-    const updatedAuthInfo: AuthInfo = {
-      ...authInfo,
-      uuidList: updatedUuidList,
-      sessions: updatedSessions,
-    };
-
-    await cache.set(AUTH_CACHE_KEY + userId, updatedAuthInfo, { ttl: AUTH_CACHE_TTL });
-
-    // Persist revoked UUID to database storage
+    // Persist revoked UUID to database storage to prevent cold-start session resurrection
     const currentRevoked = await this.getRevokedUuids(userId);
     if (!currentRevoked.includes(targetUuid)) {
       await this.persistRevokedUuids(userId, [...currentRevoked, targetUuid]);

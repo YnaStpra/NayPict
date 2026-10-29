@@ -187,6 +187,7 @@ const reactionService = {
 
   // Query photos that have received reactions, sorted by total reactions descending (Admin).
   async getTopReactionPhotos(limit = 20): Promise<InsightsTopReactionPhotoVo[]> {
+    const safeLimit = Math.min(Math.max(1, limit), 500);
     try {
       // 1. Group reactions by photoId and aggregate totals per reaction type
       const reactionAggRows = await readOrm
@@ -202,7 +203,7 @@ const reactionService = {
         .from(photoReactionTab)
         .groupBy(photoReactionTab.photoId)
         .orderBy(desc(sql`COALESCE(SUM(${photoReactionTab.count}), 0)`))
-        .limit(limit);
+        .limit(safeLimit);
 
       if (reactionAggRows.length === 0) {
         return [];

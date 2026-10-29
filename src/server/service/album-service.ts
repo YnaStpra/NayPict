@@ -565,6 +565,33 @@ const albumService = {
     }
     const name = clean;
 
+    const [existsAlbum] = await orm
+      .select()
+      .from(albumTab)
+      .where(and(
+        eq(albumTab.albumId, params.albumId),
+        eq(albumTab.userId, userId)
+      ))
+      .limit(1);
+
+    if (!existsAlbum) {
+      throw new BizError('album.notFound');
+    }
+
+    const [duplicateAlbum] = await orm
+      .select()
+      .from(albumTab)
+      .where(and(
+        eq(albumTab.userId, userId),
+        eq(albumTab.name, name),
+        ne(albumTab.albumId, params.albumId)
+      ))
+      .limit(1);
+
+    if (duplicateAlbum) {
+      throw new BizError('album.nameExists');
+    }
+
     await orm.update(albumTab)
       .set({
         name,
@@ -575,6 +602,7 @@ const albumService = {
         eq(albumTab.userId, userId)
       ));
 
+    invalidateAlbumFastPathCache();
     void syncService.bump('album');
   },
 
