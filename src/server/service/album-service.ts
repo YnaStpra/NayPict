@@ -531,7 +531,8 @@ const albumService = {
 
     const [album] = await orm
       .select({
-        albumId: albumTab.albumId
+        albumId: albumTab.albumId,
+        coverPhotoId: albumTab.coverPhotoId,
       })
       .from(albumTab)
       .where(and(
@@ -550,6 +551,18 @@ const albumService = {
         inArray(albumPhotoTab.photoId, params.photoIds)
       ));
 
+    // Security: If current cover photo was removed from album, reset coverPhotoId
+    if (album.coverPhotoId && params.photoIds.includes(album.coverPhotoId)) {
+      await orm.update(albumTab)
+        .set({
+          coverPhotoId: null,
+          isManualCover: 0,
+          updateTime: new Date().toISOString(),
+        })
+        .where(eq(albumTab.albumId, params.albumId));
+    }
+
+    invalidateAlbumFastPathCache();
     void syncService.bump('all');
   },
 
@@ -617,20 +630,27 @@ const albumService = {
       throw new BizError('param.invalid');
     }
 
+    const uniqueAlbumIds = Array.from(new Set(params.albumIds));
     const now = new Date().toISOString();
-    await Promise.all(
-      params.albumIds.map((albumId, index) =>
-        orm.update(albumTab)
-          .set({
-            sort: index,
-            updateTime: now,
-          })
-          .where(and(
-            eq(albumTab.albumId, albumId),
-            eq(albumTab.userId, userId)
-          ))
-      )
-    );
+
+    // Security: Chunk queries in batches of 25 to prevent connection pool exhaustion on Neon PostgreSQL
+    const CHUNK_SIZE = 25;
+    for (let i = 0; i < uniqueAlbumIds.length; i += CHUNK_SIZE) {
+      const chunk = uniqueAlbumIds.slice(i, i + CHUNK_SIZE);
+      await Promise.all(
+        chunk.map((albumId, idx) =>
+          orm.update(albumTab)
+            .set({
+              sort: i + idx,
+              updateTime: now,
+            })
+            .where(and(
+              eq(albumTab.albumId, albumId),
+              eq(albumTab.userId, userId)
+            ))
+        )
+      );
+    }
 
     invalidateAlbumFastPathCache();
     void syncService.bump('album');

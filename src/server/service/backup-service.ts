@@ -84,10 +84,19 @@ const backupService = {
 
   // Create a gzip-compressed, AES-256-GCM encrypted binary snapshot of the database.
   async createEncryptedBackup(password?: string): Promise<BackupResultVo> {
-    if (password && password.trim()) {
-      if (password.trim().length < 12) {
-        throw new BizError('backup.passwordTooShort');
-      }
+    const configuredSecret = process.env.BACKUP_ENCRYPTION_KEY?.trim() || process.env.JWT_SECRET?.trim();
+    const secret = password && password.trim() ? password.trim() : configuredSecret;
+
+    if (!secret) {
+      throw new BizError('backup.secretRequired');
+    }
+
+    if (password && password.trim() && password.trim().length < 12) {
+      throw new BizError('backup.passwordTooShort');
+    }
+
+    if (secret.length < 12) {
+      throw new BizError('backup.secretTooShort');
     }
 
     let rawPayloadBuffer: Buffer;
@@ -159,13 +168,6 @@ const backupService = {
     // 3. Derive 256-bit encryption key using scrypt
     const salt = crypto.randomBytes(16);
     const iv = crypto.randomBytes(12);
-    const configuredSecret = process.env.BACKUP_ENCRYPTION_KEY?.trim() || process.env.JWT_SECRET?.trim();
-    const secret = password && password.trim() ? password.trim() : configuredSecret;
-
-    if (!secret) {
-      throw new BizError('backup.secretRequired');
-    }
-
     const key = crypto.scryptSync(secret, salt, 32);
 
     // 4. Encrypt with AES-256-GCM

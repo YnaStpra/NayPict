@@ -44,25 +44,47 @@ const exifService = {
     });
   },
 
-  // Batch update or upsert GPS location coordinates for multiple photos.
-  async updateLocation(photoIds: string[], latitude: number | null, longitude: number | null): Promise<void> {
+  // Batch update or upsert GPS location coordinates for multiple photos (optimized bulk queries).
+  async updateLocation(
+    photoIds: string[],
+    latitude: number | null,
+    longitude: number | null,
+    altitude?: number | null
+  ): Promise<void> {
     if (!photoIds.length) return;
 
-    for (const photoId of photoIds) {
-      const existing = await this.getByPhotoId(photoId);
-      if (existing) {
-        await orm
-          .update(exifTab)
-          .set({ latitude, longitude })
-          .where(eq(exifTab.photoId, photoId));
-      } else if (latitude != null || longitude != null) {
-        await orm.insert(exifTab).values({
-          photoId,
-          latitude,
-          longitude,
-          exif: null,
-          altitude: null,
-        });
+    // 1. Fetch all existing records in a single query (eliminates N+1 loop)
+    const existingMap = await this.listByPhotoIds(photoIds);
+    const existingPhotoIds = photoIds.filter((id) => existingMap.has(id));
+    const newPhotoIds = photoIds.filter((id) => !existingMap.has(id));
+
+    const updates: Record<string, any> = { latitude, longitude };
+    if (altitude !== undefined) {
+      updates.altitude = altitude;
+    }
+
+    // 2. Bulk update existing records in chunks of 100
+    const CHUNK_SIZE = 100;
+    for (let i = 0; i < existingPhotoIds.length; i += CHUNK_SIZE) {
+      const chunk = existingPhotoIds.slice(i, i + CHUNK_SIZE);
+      await orm
+        .update(exifTab)
+        .set(updates)
+        .where(inArray(exifTab.photoId, chunk));
+    }
+
+    // 3. Bulk insert new records if coordinates or altitude are present
+    if (newPhotoIds.length && (latitude != null || longitude != null || altitude != null)) {
+      const rows = newPhotoIds.map((photoId) => ({
+        photoId,
+        latitude,
+        longitude,
+        altitude: altitude ?? null,
+        exif: null,
+      }));
+      for (let i = 0; i < rows.length; i += CHUNK_SIZE) {
+        const chunk = rows.slice(i, i + CHUNK_SIZE);
+        await orm.insert(exifTab).values(chunk);
       }
     }
   },

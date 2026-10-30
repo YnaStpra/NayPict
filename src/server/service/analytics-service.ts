@@ -508,7 +508,8 @@ const analyticsService = {
       conditions.push(eq(visitorSessionTab.country, params.country.toUpperCase()));
     }
     if (params.search?.trim()) {
-      const q = `%${params.search.trim()}%`;
+      const cleanSearch = params.search.trim().slice(0, 50).replace(/[%_\\]/g, '\\$&');
+      const q = `%${cleanSearch}%`;
       conditions.push(
         or(
           ilike(visitorSessionTab.ip, q),

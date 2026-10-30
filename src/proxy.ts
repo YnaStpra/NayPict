@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { TOKEN_COOKIE_NAME } from '@/server/const/global';
 import { AUTH_CACHE_KEY } from '@/server/const/cache';
 import { getLoginInfo } from '@/lib/cookie';
-import { UserTypeEnum } from '@/server/enums/user-enum';
+import { UserStatusEnum, UserTypeEnum } from '@/server/enums/user-enum';
 import { type AuthInfo } from '@/server/entity/vo/auth';
 import { cache } from '@/server/infra/cache';
 import { userService } from '@/server/service/user-service';
@@ -110,6 +110,15 @@ export async function proxy(req: NextRequest) {
     try {
       const user = await userService.getById(userId);
       if (user) {
+        if (user.status === UserStatusEnum.DISABLE) {
+          if (isPublicPath(pathname)) {
+            return clearLoginCookies(NextResponse.next());
+          }
+          const loginUrl = req.nextUrl.clone();
+          loginUrl.pathname = '/login';
+          return clearLoginCookies(NextResponse.redirect(loginUrl));
+        }
+
         const revokedUuids = await sessionService.getRevokedUuids(userId);
         if (revokedUuids.includes(uuid)) {
           if (isPublicPath(pathname)) {
@@ -125,6 +134,7 @@ export async function proxy(req: NextRequest) {
           username: user.username,
           avatar: user.avatar,
           type: user.type,
+          status: user.status,
           tokenVersion,
           uuidList: [uuid],
         };
@@ -136,7 +146,7 @@ export async function proxy(req: NextRequest) {
   }
 
   const cachedTokenVersion = authInfo?.tokenVersion ?? 1;
-  if (!authInfo || cachedTokenVersion !== tokenVersion || !authInfo.uuidList.includes(uuid)) {
+  if (!authInfo || authInfo.status === UserStatusEnum.DISABLE || cachedTokenVersion !== tokenVersion || !authInfo.uuidList.includes(uuid)) {
     if (isPublicPath(pathname)) {
       return clearLoginCookies(NextResponse.next());
     }

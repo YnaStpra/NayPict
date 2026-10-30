@@ -15,6 +15,7 @@ import { AUTH_CACHE_KEY } from '@/server/const/cache';
 import { AUTH_CACHE_TTL } from '@/server/const/global';
 import { albumService } from '@/server/service/album-service';
 import { photoService } from '@/server/service/photo-service';
+import { sessionService } from '@/server/service/session-service';
 import { storage } from '@/server/storage/storage';
 
 // This module handles user data query and writing related services.
@@ -92,7 +93,8 @@ const userService = {
         userId: userTab.userId,
         username: userTab.username,
         avatar: userTab.avatar,
-        type: userTab.type
+        type: userTab.type,
+        status: userTab.status,
       })
       .from(userTab)
       .where(eq(userTab.userId, userId))
@@ -498,16 +500,24 @@ const userService = {
       }
     }
 
+    const nextStatus = user.status === UserStatusEnum.DISABLE
+      ? UserStatusEnum.NORMAL
+      : UserStatusEnum.DISABLE;
+
     await orm.update(userTab)
       .set({
-        status: user.status === UserStatusEnum.DISABLE
-          ? UserStatusEnum.NORMAL
-          : UserStatusEnum.DISABLE
+        status: nextStatus,
+        tokenVersion: sql`${userTab.tokenVersion} + 1`,
       })
       .where(eq(userTab.userId, params.userId));
 
     // Clear login cache after switching status.
     await cache.delete(AUTH_CACHE_KEY + params.userId);
+
+    // If disabled, revoke all active sessions immediately across all devices
+    if (nextStatus === UserStatusEnum.DISABLE) {
+      await sessionService.revokeAllSessions(params.userId).catch(() => {});
+    }
   },
 
   // Delete the specified user and their associated albums, with self-deletion and last-admin safeguard.

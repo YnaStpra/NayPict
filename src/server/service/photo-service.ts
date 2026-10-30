@@ -1524,6 +1524,22 @@ const photoService = {
       throw new BizError('storage.notFound');
     }
 
+    if (videoStorage.status === StorageStatusEnum.DISABLE) {
+      throw new BizError('storage.disabled');
+    }
+
+    // Security: Verify video object exists in storage to prevent phantom entries
+    try {
+      const headCheck = await storage.head(key, videoStorage.storageId);
+      if (!headCheck.exists) {
+        throw new BizError('photo.uploadFailed', 400);
+      }
+    } catch (headErr) {
+      if (headErr instanceof BizError) throw headErr;
+      console.warn('[STORAGE] Head check warning during addVideo:', headErr);
+      throw new BizError('photo.uploadFailed', 400);
+    }
+
     // Process poster frame buffer if provided by client (JPEG/WebP)
     let previewKey = '';
     let thumbnailKey = '';
@@ -2068,6 +2084,11 @@ const photoService = {
     await orm.delete(albumPhotoTab)
       .where(inArray(albumPhotoTab.photoId, photoIds));
 
+    // Security: Reset dangling cover photo references in albumTab for permanently deleted photos
+    await orm.update(albumTab)
+      .set({ coverPhotoId: null, isManualCover: 0, updateTime: new Date().toISOString() })
+      .where(inArray(albumTab.coverPhotoId, photoIds));
+
     await fileService.deleteByPhotoIds(photoIds);
     await commentService.deleteByPhotoIds(photoIds);
     await exifService.deleteByPhotoIds(photoIds);
@@ -2153,6 +2174,11 @@ const photoService = {
 
       await orm.delete(albumPhotoTab)
         .where(inArray(albumPhotoTab.photoId, photoIds));
+
+      // Security: Reset dangling cover photo references in albumTab for permanently deleted photos
+      await orm.update(albumTab)
+        .set({ coverPhotoId: null, isManualCover: 0, updateTime: new Date().toISOString() })
+        .where(inArray(albumTab.coverPhotoId, photoIds));
 
       await fileService.deleteByPhotoIds(photoIds);
       await commentService.deleteByPhotoIds(photoIds);
@@ -2384,8 +2410,8 @@ const photoService = {
       }
     }
 
-    // If latitude or longitude is specified in batch edit, update EXIF GPS coordinates strictly on verified photos
-    if (params.latitude !== undefined || params.longitude !== undefined) {
+    // If latitude, longitude, or altitude is specified in batch edit, update EXIF GPS coordinates strictly on verified photos
+    if (params.latitude !== undefined || params.longitude !== undefined || params.altitude !== undefined) {
       const parseCoord = (val: unknown, min: number, max: number): number | null => {
         if (val === null || val === undefined || val === '') return null;
         const n = typeof val === 'number' ? val : Number(val);
@@ -2394,11 +2420,13 @@ const photoService = {
 
       const finalLat = params.latitude !== undefined ? parseCoord(params.latitude, -90, 90) : undefined;
       const finalLng = params.longitude !== undefined ? parseCoord(params.longitude, -180, 180) : undefined;
+      const finalAlt = params.altitude !== undefined ? parseCoord(params.altitude, -10000, 100000) : undefined;
 
       await exifService.updateLocation(
         verifiedPhotoIds,
         finalLat !== undefined ? finalLat : null,
-        finalLng !== undefined ? finalLng : null
+        finalLng !== undefined ? finalLng : null,
+        finalAlt !== undefined ? finalAlt : null
       );
     }
 

@@ -59,7 +59,7 @@ export const syncService = {
             if (memoryVersion && memoryVersion.photoCount !== freshCount) {
               memoryVersion.photoCount = freshCount;
               memoryVersion.v = Date.now();
-              void cache.set(SYNC_CACHE_KEY, memoryVersion, { ttl: 86400 });
+              void cache.set(SYNC_CACHE_KEY, memoryVersion, { ttl: 86400 }).catch(() => {});
             }
           })
           .catch(() => {});
@@ -89,7 +89,7 @@ export const syncService = {
     };
     lastCountRefreshTime = now;
 
-    void cache.set(SYNC_CACHE_KEY, memoryVersion, { ttl: 86400 });
+    void cache.set(SYNC_CACHE_KEY, memoryVersion, { ttl: 86400 }).catch(() => {});
     return memoryVersion;
   },
 
@@ -113,22 +113,22 @@ export const syncService = {
       current.photoV = now;
     }
 
-    if (countDelta !== undefined) {
-      current.photoCount = Math.max(0, current.photoCount + countDelta);
+    if (countDelta !== undefined && typeof countDelta === 'number' && Number.isFinite(countDelta)) {
+      current.photoCount = Math.max(0, (current.photoCount || 0) + Math.round(countDelta));
     } else {
       // Asynchronously re-verify exact active photo count
       this.getActivePhotoCount()
         .then((fresh) => {
           if (memoryVersion) {
             memoryVersion.photoCount = fresh;
-            void cache.set(SYNC_CACHE_KEY, memoryVersion, { ttl: 86400 });
+            void cache.set(SYNC_CACHE_KEY, memoryVersion, { ttl: 86400 }).catch(() => {});
           }
         })
         .catch(() => {});
     }
 
     // Persist to shared cache across serverless instances
-    void cache.set(SYNC_CACHE_KEY, current, { ttl: 86400 });
+    void cache.set(SYNC_CACHE_KEY, current, { ttl: 86400 }).catch(() => {});
 
     // Invalidate fast-path edge queries
     import('@/server/service/photo-service')
