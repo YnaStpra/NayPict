@@ -5,6 +5,7 @@ import { getLoginInfo } from '@/lib/cookie';
 import { getUserId } from '@/server/security/context';
 import { getClientIp } from '@/server/lib/ip';
 import { logSecurityAudit } from '@/server/lib/audit';
+import { clearLoginCookies } from '@/server/security/security';
 import BizError from '@/server/error/biz-error';
 import type { HonoEnv } from '../hono/type';
 
@@ -36,13 +37,21 @@ export function registerSessionApi(app: Hono<HonoEnv>) {
       throw new BizError('system.internalError');
     }
 
-    const success = await sessionService.revokeSession(userId, body.uuid.trim());
+    const targetUuid = body.uuid.trim();
+    const { uuid: currentUuid } = await getLoginInfo(c.req.header('cookie') ?? null);
+
+    const success = await sessionService.revokeSession(userId, targetUuid);
     logSecurityAudit({
       action: 'SESSION_REVOKE',
       userId,
       clientIp: getClientIp(c),
-      targetId: body.uuid.trim(),
+      targetId: targetUuid,
     });
+
+    if (currentUuid && currentUuid === targetUuid) {
+      clearLoginCookies(c);
+    }
+
     return c.json(result.ok(success));
   });
 

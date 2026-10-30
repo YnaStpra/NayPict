@@ -333,6 +333,7 @@ const albumService = {
           updateTime: new Date().toISOString()
         })
         .where(eq(albumTab.albumId, params.albumId));
+      invalidateAlbumFastPathCache();
       void syncService.bump('album');
       return;
     }
@@ -668,6 +669,7 @@ const albumService = {
         eq(albumTab.userId, userId)
       ));
 
+    invalidateAlbumFastPathCache();
     void syncService.bump('all');
   },
 
@@ -683,6 +685,7 @@ const albumService = {
         eq(albumTab.userId, userId)
       ));
 
+    invalidateAlbumFastPathCache();
     void syncService.bump('all');
   },
 
@@ -784,6 +787,7 @@ const albumService = {
         eq(albumTab.userId, userId)
       ));
 
+    invalidateAlbumFastPathCache();
     void syncService.bump('all');
   },
 
@@ -808,6 +812,8 @@ const albumService = {
 
     await orm.delete(albumTab)
       .where(eq(albumTab.userId, userId));
+
+    invalidateAlbumFastPathCache();
   },
 
   // Virtual trash album.

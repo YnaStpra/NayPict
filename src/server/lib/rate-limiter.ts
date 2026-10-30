@@ -389,3 +389,18 @@ export const mediaDownloadRateLimiter = new DistributedRateLimiter({
   windowMs: 60 * 1000, // 1 minute
 })
 
+// 20. User Avatar Upload Rate Limiter: Max 10 avatar updates per 10 minutes per user/IP
+export const avatarUploadRateLimiter = new DistributedRateLimiter({
+  name: 'avatar-upload',
+  limit: 10,
+  windowMs: 10 * 60 * 1000, // 10 minutes
+})
+
+// 21. TOTP Setup Rate Limiter: Max 5 setup/QR generations per 15 minutes per user/IP
+export const totpSetupRateLimiter = new DistributedRateLimiter({
+  name: 'totp-setup',
+  limit: 5,
+  windowMs: 15 * 60 * 1000, // 15 minutes
+})
+
+

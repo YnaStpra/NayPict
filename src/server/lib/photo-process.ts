@@ -1,5 +1,6 @@
 import sharp from "sharp"
 import { rgbaToThumbHash } from "thumbhash"
+import BizError from "@/server/error/biz-error"
 
 // This module is responsible for multi-resolution image derivative processing, lossless/near-lossless original compression, and ThumbHash generation.
 
@@ -114,6 +115,10 @@ export async function processPhotoImages(buffer: Buffer, mimeType?: string): Pro
   const metadata = await sharp(orientedBuffer, SHARP_SECURITY_OPTIONS).metadata()
   const width = metadata.width ?? 0
   const height = metadata.height ?? 0
+
+  if (width <= 0 || height <= 0) {
+    throw new BizError('photo.invalidImage')
+  }
 
   // 1. Optimize original photo buffer (cuts file size without perceptual loss)
   const optimizedOriginal = await optimizeOriginalBuffer(orientedBuffer, buffer, mimeType)

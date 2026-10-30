@@ -2,11 +2,13 @@ import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 import { orm, readOrm } from '@/server/infra/db';
 import { photoReactionTab } from '@/server/entity/reaction';
 import { photoTab } from '@/server/entity/photo';
+import { albumTab } from '@/server/entity/album';
+import { albumPhotoTab } from '@/server/entity/album-photo';
 import { fileTab } from '@/server/entity/file';
 import { commentTab } from '@/server/entity/comment';
 import { photoViewTab } from '@/server/entity/insights';
 import { storageTab } from '@/server/entity/storage';
-import { PhotoStatusEnum } from '@/server/enums/photo-enum';
+import { PhotoStatusEnum, PhotoVisibilityEnum } from '@/server/enums/photo-enum';
 import { FileTypeEnum } from '@/server/enums/file-enum';
 import { buildPreviewKey, buildThumbnailKey } from '@/server/lib/photo-path';
 import { toMediaUrl, toProxyMediaUrl } from '@/lib/url';
@@ -38,6 +40,42 @@ const reactionService = {
     const dbClient = useMaster ? orm : readOrm;
 
     try {
+      // Security: verify photo exists, is active and not archived
+      const [photo] = await dbClient
+        .select({
+          photoId: photoTab.photoId,
+          visibility: photoTab.visibility,
+        })
+        .from(photoTab)
+        .where(and(eq(photoTab.photoId, cleanPhotoId), eq(photoTab.status, PhotoStatusEnum.NORMAL)))
+        .limit(1);
+
+      if (!photo || photo.visibility === PhotoVisibilityEnum.ARCHIVED) {
+        return {
+          photoId: cleanPhotoId,
+          totals: { love: 0, fire: 0, camera: 0, place: 0, clap: 0 },
+          userReactions: { love: false, fire: false, camera: false, place: false, clap: 0 },
+        };
+      }
+
+      // Reject reactions view on ALBUM_ONLY photos that belong to an archived album
+      if (photo.visibility === PhotoVisibilityEnum.ALBUM_ONLY) {
+        const [archivedAlbumRel] = await dbClient
+          .select({ id: albumPhotoTab.id })
+          .from(albumPhotoTab)
+          .innerJoin(albumTab, eq(albumTab.albumId, albumPhotoTab.albumId))
+          .where(and(eq(albumPhotoTab.photoId, cleanPhotoId), eq(albumTab.isArchived, 1)))
+          .limit(1);
+
+        if (archivedAlbumRel) {
+          return {
+            photoId: cleanPhotoId,
+            totals: { love: 0, fire: 0, camera: 0, place: 0, clap: 0 },
+            userReactions: { love: false, fire: false, camera: false, place: false, clap: 0 },
+          };
+        }
+      }
+
       // 1. Fetch aggregated totals grouped by reaction_type
       const totalRows = await dbClient
         .select({
@@ -122,13 +160,30 @@ const reactionService = {
 
     // Verify photo exists and is active before mutating reactions
     const [photo] = await orm
-      .select({ photoId: photoTab.photoId })
+      .select({
+        photoId: photoTab.photoId,
+        visibility: photoTab.visibility,
+      })
       .from(photoTab)
       .where(and(eq(photoTab.photoId, photoId), eq(photoTab.status, PhotoStatusEnum.NORMAL)))
       .limit(1);
 
-    if (!photo) {
+    if (!photo || photo.visibility === PhotoVisibilityEnum.ARCHIVED) {
       throw new BizError('photo.notFound');
+    }
+
+    // Reject reactions on ALBUM_ONLY photos that belong to an archived album
+    if (photo.visibility === PhotoVisibilityEnum.ALBUM_ONLY) {
+      const [archivedAlbumRel] = await orm
+        .select({ id: albumPhotoTab.id })
+        .from(albumPhotoTab)
+        .innerJoin(albumTab, eq(albumTab.albumId, albumPhotoTab.albumId))
+        .where(and(eq(albumPhotoTab.photoId, photoId), eq(albumTab.isArchived, 1)))
+        .limit(1);
+
+      if (archivedAlbumRel) {
+        throw new BizError('photo.notFound');
+      }
     }
 
     // Mutually Exclusive Unified Reaction: A visitor can choose 1 reaction per photo (Love, Fire, Like)

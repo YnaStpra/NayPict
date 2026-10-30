@@ -29,8 +29,9 @@ export async function applyWatermark(
   const posX = width - marginX;
   const posY = height - marginY;
 
-  // Escape special XML characters for SVG text safety
+  // Escape special XML characters and strip ASCII control characters for SVG text safety
   const safeText = text
+    .replace(/[\u0000-\u0008\u000B-\u000C\u000E-\u001F\u007F]/g, '')
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')

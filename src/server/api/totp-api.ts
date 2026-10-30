@@ -3,7 +3,7 @@ import result from '@/server/model/result';
 import { getUserId } from "@/server/security/context";
 import { getClientIp } from "@/server/lib/ip";
 import { logSecurityAudit } from "@/server/lib/audit";
-import { totpVerifyRateLimiter } from "@/server/lib/rate-limiter";
+import { totpSetupRateLimiter, totpVerifyRateLimiter } from "@/server/lib/rate-limiter";
 import { totpService } from "@/server/service/totp-service";
 import { userService } from "@/server/service/user-service";
 import { type TotpDisableBo, type TotpSetupBo } from "@/server/entity/bo/totp";
@@ -27,6 +27,13 @@ export function registerTotpApi(app: Hono<HonoEnv>) {
     const userId = getUserId();
     if (!userId) {
       return c.json(result.fail('login.unauthorized'), 401);
+    }
+
+    const clientIp = getClientIp(c);
+    const rateLimit = await totpSetupRateLimiter.consume(`${userId}:${clientIp}`);
+    if (!rateLimit.allowed) {
+      c.header('Retry-After', String(Math.ceil(rateLimit.resetMs / 1000)));
+      return c.json(result.fail('totp.tooManyAttempts', 429), 429);
     }
 
     const user = await userService.getById(userId);

@@ -2,13 +2,15 @@ import { and, count, desc, eq, gte, inArray, sql } from 'drizzle-orm';
 import { neon } from '@neondatabase/serverless';
 import { createId } from '@/server/lib/id';
 import { photoTab } from '@/server/entity/photo';
+import { albumTab } from '@/server/entity/album';
+import { albumPhotoTab } from '@/server/entity/album-photo';
 import { fileTab } from '@/server/entity/file';
 import { commentTab } from '@/server/entity/comment';
 import { photoViewTab } from '@/server/entity/insights';
 import { photoReactionTab } from '@/server/entity/reaction';
 import { storageTab } from '@/server/entity/storage';
 import { orm, readOrm } from '@/server/infra/db';
-import { PhotoStatusEnum } from '@/server/enums/photo-enum';
+import { PhotoStatusEnum, PhotoVisibilityEnum } from '@/server/enums/photo-enum';
 import { FileTypeEnum } from '@/server/enums/file-enum';
 import { buildPreviewKey, buildThumbnailKey } from '@/server/lib/photo-path';
 import { toMediaUrl, toProxyMediaUrl } from '@/lib/url';
@@ -77,15 +79,32 @@ const insightsService = {
     const type = params.type || 'view';
 
     try {
-      // Verify photo exists and is active
+      // Verify photo exists, is active and publicly visible
       const [photo] = await orm
-        .select({ photoId: photoTab.photoId })
+        .select({
+          photoId: photoTab.photoId,
+          visibility: photoTab.visibility,
+        })
         .from(photoTab)
         .where(and(eq(photoTab.photoId, photoId), eq(photoTab.status, PhotoStatusEnum.NORMAL)))
         .limit(1);
 
-      if (!photo) {
+      if (!photo || photo.visibility === PhotoVisibilityEnum.ARCHIVED) {
         return { recorded: false, reason: 'photo_not_found' };
+      }
+
+      // Reject interaction records on ALBUM_ONLY photos that belong to an archived album
+      if (photo.visibility === PhotoVisibilityEnum.ALBUM_ONLY) {
+        const [archivedAlbumRel] = await orm
+          .select({ id: albumPhotoTab.id })
+          .from(albumPhotoTab)
+          .innerJoin(albumTab, eq(albumTab.albumId, albumPhotoTab.albumId))
+          .where(and(eq(albumPhotoTab.photoId, photoId), eq(albumTab.isArchived, 1)))
+          .limit(1);
+
+        if (archivedAlbumRel) {
+          return { recorded: false, reason: 'photo_not_found' };
+        }
       }
 
       // 60-second cooldown for views to prevent spam/refresh inflation
