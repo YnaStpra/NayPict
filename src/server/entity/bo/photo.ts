@@ -81,6 +81,7 @@ interface PhotoBatchEditBo {
   takenTime?: string | null;
   latitude?: number | null;
   longitude?: number | null;
+  altitude?: number | null;
   name?: string | null;
   nameMode?: 'set' | 'prefix' | 'suffix' | 'replace' | null;
   findText?: string | null;

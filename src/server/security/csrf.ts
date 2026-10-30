@@ -79,31 +79,58 @@ function getHostname(urlOrHost: string): string {
   }
 }
 
+// Canonical production and configured hostnames
+function getCanonicalAllowedHosts(): Set<string> {
+  const set = new Set<string>();
+  const add = (val?: string) => {
+    if (!val) return;
+    const h = getHostname(val);
+    if (h) set.add(h);
+  };
+
+  add(process.env.APP_URL);
+  add(process.env.NEXT_PUBLIC_APP_URL);
+  add(process.env.NEXT_PUBLIC_SITE_URL);
+  add(process.env.VERCEL_URL);
+  add(process.env.VERCEL_PROJECT_PRODUCTION_URL);
+  set.add('localhost');
+  set.add('127.0.0.1');
+  set.add('::1');
+  set.add('naypict.my.id');
+  set.add('www.naypict.my.id');
+  set.add('naypict.vercel.app');
+  return set;
+}
+
 // Validates request Origin / Referer against the current server host and allowed origins.
-function isOriginAllowed(originOrReferer: string, expectedHost: string): boolean {
+function isOriginAllowed(originOrReferer: string, expectedHost: string, forwardedHost?: string): boolean {
   if (!originOrReferer) return false;
 
   const sourceHost = getHostname(originOrReferer);
   const targetHost = getHostname(expectedHost);
 
-  if (!sourceHost || !targetHost) return false;
+  if (!sourceHost) return false;
 
-  // 1. Exact hostname match
-  if (sourceHost === targetHost) return true;
+  // 1. Exact match with authoritative Host header
+  if (targetHost && sourceHost === targetHost) return true;
 
   // 2. Allow local loopback addresses (localhost / 127.0.0.1)
   const isLocalSource = sourceHost === 'localhost' || sourceHost === '127.0.0.1' || sourceHost === '::1';
   const isLocalTarget = targetHost === 'localhost' || targetHost === '127.0.0.1' || targetHost === '::1';
   if (isLocalSource && isLocalTarget) return true;
 
-  // 3. Optional configured allowed origins (APP_URL or NEXT_PUBLIC_APP_URL)
-  if (process.env.APP_URL) {
-    const appHost = getHostname(process.env.APP_URL);
-    if (appHost && sourceHost === appHost) return true;
+  // 3. Match against canonical allowed hostnames
+  const canonicalHosts = getCanonicalAllowedHosts();
+  if (canonicalHosts.has(sourceHost)) {
+    return true;
   }
-  if (process.env.NEXT_PUBLIC_APP_URL) {
-    const pubHost = getHostname(process.env.NEXT_PUBLIC_APP_URL);
-    if (pubHost && sourceHost === pubHost) return true;
+
+  // 4. If behind a trusted internal reverse proxy where targetHost is loopback and forwardedHost is verified
+  if (isLocalTarget && forwardedHost) {
+    const fwdHost = getHostname(forwardedHost);
+    if (fwdHost && canonicalHosts.has(fwdHost) && sourceHost === fwdHost) {
+      return true;
+    }
   }
 
   return false;
@@ -128,20 +155,22 @@ export async function csrfProtection(c: Context, next: Next) {
 
   const origin = c.req.header('origin') || '';
   const referer = c.req.header('referer') || '';
-  const host = c.req.header('x-forwarded-host') || c.req.header('host') || '';
+  // Security: Prioritize authoritative Host header over untrusted client-supplied X-Forwarded-Host
+  const host = c.req.header('host') || c.req.header('x-forwarded-host') || '';
+  const forwardedHost = c.req.header('x-forwarded-host') || '';
 
   // Determine whether this request is targeting a high-risk sensitive mutation
   const isSensitive = SENSITIVE_MUTATION_PATHS.some((p) => path === p || path.startsWith(`${p}/`));
 
   // 1. If Origin header is provided (sent automatically on cross-origin and fetch requests)
   if (origin) {
-    if (origin === 'null' || !isOriginAllowed(origin, host)) {
+    if (origin === 'null' || !isOriginAllowed(origin, host, forwardedHost)) {
       console.warn(`[CSRF BLOCKED] Origin mismatch on ${method} ${path}: Origin="${origin}", Host="${host}"`);
       throw new BizError('csrf.originMismatch', 403);
     }
   } else if (referer) {
     // 2. If Origin is missing, verify Referer header
-    if (!isOriginAllowed(referer, host)) {
+    if (!isOriginAllowed(referer, host, forwardedHost)) {
       console.warn(`[CSRF BLOCKED] Referer mismatch on ${method} ${path}: Referer="${referer}", Host="${host}"`);
       throw new BizError('csrf.originMismatch', 403);
     }

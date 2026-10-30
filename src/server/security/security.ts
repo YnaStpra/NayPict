@@ -7,7 +7,7 @@ import { getLoginInfo } from '@/lib/cookie';
 import { setUserId } from '@/server/security/context';
 import { cache } from '@/server/infra/cache';
 import { type AuthInfo } from '@/server/entity/vo/auth';
-import { UserTypeEnum } from '@/server/enums/user-enum';
+import { UserStatusEnum, UserTypeEnum } from '@/server/enums/user-enum';
 import { userService } from '@/server/service/user-service';
 import { sessionService } from '@/server/service/session-service';
 import { getClientIp } from '@/server/lib/ip';
@@ -160,6 +160,12 @@ async function security(c: Context, next: Next) {
   if (!authInfo) {
     const user = await userService.getById(userId);
     if (user) {
+      // Security: Reject disabled user accounts immediately
+      if (user.status === UserStatusEnum.DISABLE) {
+        clearLoginCookies(c);
+        throw new BizError('auth.userDisabled', 401);
+      }
+
       // Check persistent revoked UUIDs from database to prevent session resurrection
       const revokedUuids = await sessionService.getRevokedUuids(userId);
       if (revokedUuids.includes(uuid)) {
@@ -172,6 +178,7 @@ async function security(c: Context, next: Next) {
         username: user.username,
         avatar: user.avatar,
         type: user.type,
+        status: user.status,
         tokenVersion,
         uuidList: [uuid],
       };
@@ -182,6 +189,7 @@ async function security(c: Context, next: Next) {
   const cachedTokenVersion = authInfo?.tokenVersion ?? 1;
   if (
     !authInfo
+    || authInfo.status === UserStatusEnum.DISABLE
     || cachedTokenVersion !== tokenVersion
     || !authInfo.uuidList.includes(uuid)
   ) {

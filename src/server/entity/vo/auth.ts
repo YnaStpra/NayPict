@@ -15,6 +15,7 @@ interface AuthInfo {
   username: string
   avatar: string
   type: number
+  status?: number
   tokenVersion: number
   // Current unexpired login session uuid list.
   uuidList: string[]

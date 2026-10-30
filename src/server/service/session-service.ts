@@ -153,6 +153,17 @@ const sessionService = {
     return true;
   },
 
+  // Revoke all active device sessions for a user and persist to DB.
+  async revokeAllSessions(userId: string): Promise<boolean> {
+    const authInfo = await cache.get<AuthInfo>(AUTH_CACHE_KEY + userId);
+    const existingUuids = authInfo?.uuidList || [];
+    await cache.delete(AUTH_CACHE_KEY + userId);
+
+    const currentRevoked = await this.getRevokedUuids(userId);
+    await this.persistRevokedUuids(userId, Array.from(new Set([...currentRevoked, ...existingUuids])));
+    return true;
+  },
+
   // Periodically update the last active timestamp of a session (throttled).
   async touchSession(userId: string, currentUuid: string, ip?: string): Promise<void> {
     const authInfo = await cache.get<AuthInfo>(AUTH_CACHE_KEY + userId);

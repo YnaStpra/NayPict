@@ -12,6 +12,7 @@ interface UserInfoVo {
   username: string;
   avatar: string;
   type: number;
+  status?: number;
 }
 
 export type { UserVo, UserInfoVo };

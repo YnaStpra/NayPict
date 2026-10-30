@@ -33,7 +33,7 @@ const loginService = {
 
   // Write user information to login cache, and return to this session uuid.
   async saveAuthInfo(
-    user: Pick<User, 'userId' | 'username' | 'avatar' | 'type' | 'tokenVersion'>,
+    user: Pick<User, 'userId' | 'username' | 'avatar' | 'type' | 'status' | 'tokenVersion'>,
     clientMeta?: { ip?: string; userAgent?: string }
   ): Promise<string> {
     const uuid = createId()
@@ -64,6 +64,7 @@ const loginService = {
       username: user.username,
       avatar: user.avatar,
       type: user.type,
+      status: user.status,
       tokenVersion: user.tokenVersion,
       uuidList: updatedUuids,
       sessions: updatedSessions,

@@ -5,6 +5,7 @@ import { photoTab } from '@/server/entity/photo';
 import { userTab } from '@/server/entity/user';
 import { storage } from '@/server/storage/storage';
 import { storageService } from '@/server/service/storage-service';
+import { StorageStatusEnum } from '@/server/enums/storage-enum';
 import { photoService } from '@/server/service/photo-service';
 import BizError from '@/server/error/biz-error';
 import {
@@ -196,6 +197,16 @@ class StorageCleanerService {
     if (!params.storageId) {
       throw new BizError('storage.notFound');
     }
+
+    const storages = await storageService.getStorageList();
+    const targetStorage = storages.find((s) => s.storageId === params.storageId);
+    if (!targetStorage) {
+      throw new BizError('storage.notFound');
+    }
+    if (targetStorage.status === StorageStatusEnum.DISABLE) {
+      throw new BizError('storage.disabled');
+    }
+
     if (!params.keys || !params.keys.length) {
       return { deleted: 0, freedBytes: 0 };
     }
@@ -254,6 +265,16 @@ class StorageCleanerService {
     if (!params.storageId) {
       throw new BizError('storage.notFound');
     }
+
+    const storages = await storageService.getStorageList();
+    const targetStorage = storages.find((s) => s.storageId === params.storageId);
+    if (!targetStorage) {
+      throw new BizError('storage.notFound');
+    }
+    if (targetStorage.status === StorageStatusEnum.DISABLE) {
+      throw new BizError('storage.disabled');
+    }
+
     if (!params.uploads || !params.uploads.length) {
       return { aborted: 0 };
     }
