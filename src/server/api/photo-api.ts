@@ -155,7 +155,14 @@ export function registerPhotoApi(app: Hono<HonoEnv>) {
   // Set photo display scope / visibility (Both, Gallery Only, Album Only, Archived).
   app.post('/photo/setVisibility', async (c: Context) => {
     const body = await c.req.json<PhotoSetVisibilityBo>();
-    await photoService.setVisibility(body, getUserId());
+    const userId = getUserId();
+    await photoService.setVisibility(body, userId);
+    logSecurityAudit({
+      action: 'PHOTO_SET_VISIBILITY',
+      userId,
+      clientIp: getClientIp(c),
+      details: { count: body.photoIds?.length, visibility: body.visibility },
+    });
     return c.json(result.ok());
   });
   // Query all geotagged photos for the interactive map explorer (RESTful route).
@@ -313,6 +320,13 @@ export function registerPhotoApi(app: Hono<HonoEnv>) {
   app.get('/photo/download/:id', async (c: Context) => {
     const photoId = c.req.param('id') ?? '';
     const userId = getUserId();
+    const clientIp = getClientIp(c);
+
+    const rateLimit = await downloadRateLimiter.consume(`${userId || 'guest'}:${clientIp}`);
+    if (!rateLimit.allowed) {
+      c.header('Retry-After', String(Math.ceil(rateLimit.resetMs / 1000)));
+      return c.json(result.fail('Media download rate limit exceeded. Please wait a moment.', 429), 429);
+    }
 
     // STRICT: Only authenticated Admin can download media!
     if (!userId) {
@@ -353,6 +367,13 @@ export function registerPhotoApi(app: Hono<HonoEnv>) {
   app.post('/photo/download', async (c: Context) => {
     const { photoId } = await c.req.json<{ photoId: string }>();
     const userId = getUserId();
+    const clientIp = getClientIp(c);
+
+    const rateLimit = await downloadRateLimiter.consume(`${userId || 'guest'}:${clientIp}`);
+    if (!rateLimit.allowed) {
+      c.header('Retry-After', String(Math.ceil(rateLimit.resetMs / 1000)));
+      return c.json(result.fail('Media download rate limit exceeded. Please wait a moment.', 429), 429);
+    }
 
     if (!userId) {
       return c.json({

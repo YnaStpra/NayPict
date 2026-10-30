@@ -152,10 +152,6 @@ const ALLOWED_VIDEO_MIMES = new Set([
 
 // Resolve canonical MIME type matching file extension when client MIME is absent or generic.
 function getCanonicalMimeType(filename: string, fileType?: string): string {
-  const cleanType = fileType?.split(';')[0]?.trim().toLowerCase();
-  if (cleanType && cleanType !== 'application/octet-stream' && ALLOWED_UPLOAD_MIMES.has(cleanType)) {
-    return cleanType;
-  }
   const ext = filename.split('.').pop()?.toLowerCase() || '';
   const mimeMap: Record<string, string> = {
     mp4: 'video/mp4',
@@ -180,6 +176,16 @@ function getCanonicalMimeType(filename: string, fileType?: string): string {
   if (!resolved || !ALLOWED_UPLOAD_MIMES.has(resolved)) {
     throw new BizError('photo.invalidFileType');
   }
+
+  const cleanType = fileType?.split(';')[0]?.trim().toLowerCase();
+  if (cleanType && cleanType !== 'application/octet-stream' && ALLOWED_UPLOAD_MIMES.has(cleanType)) {
+    const extIsVideo = ALLOWED_VIDEO_MIMES.has(resolved);
+    const typeIsVideo = ALLOWED_VIDEO_MIMES.has(cleanType);
+    if (extIsVideo === typeIsVideo) {
+      return cleanType;
+    }
+  }
+
   return resolved;
 }
 
@@ -875,6 +881,9 @@ const photoService = {
     }
 
     const fileType = getCanonicalMimeType(filename, params.fileType);
+    if (!ALLOWED_UPLOAD_MIMES.has(fileType)) {
+      throw new BizError('photo.invalidFileType');
+    }
     let storageList = await storageService.getStorageList();
     let targetStorage: Storage | undefined = params.storageId
       ? storageList.find((s) => s.storageId === params.storageId)
@@ -927,6 +936,9 @@ const photoService = {
     }
 
     const fileType = getCanonicalMimeType(filename, params.fileType);
+    if (!ALLOWED_UPLOAD_MIMES.has(fileType)) {
+      throw new BizError('photo.invalidFileType');
+    }
     let storageList = await storageService.getStorageList();
     let targetStorage: Storage | undefined = params.storageId
       ? storageList.find((s) => s.storageId === params.storageId)
@@ -987,6 +999,9 @@ const photoService = {
     }
 
     const fileType = getCanonicalMimeType(filename, params.fileType);
+    if (!ALLOWED_VIDEO_MIMES.has(fileType)) {
+      throw new BizError('photo.invalidFileType');
+    }
     let storageList = await storageService.getStorageList();
     let targetStorage: Storage | undefined = params.storageId
       ? storageList.find((s) => s.storageId === params.storageId)
@@ -1877,20 +1892,30 @@ const photoService = {
       whereList.push(eq(photoTab.userId, userId));
     }
 
+    const targetPhotos = await orm
+      .select({ photoId: photoTab.photoId })
+      .from(photoTab)
+      .where(and(...whereList));
+    const validPhotoIds = targetPhotos.map((p) => p.photoId);
+
+    if (!validPhotoIds.length) {
+      return;
+    }
+
     await orm.update(photoTab)
       .set({
         status: PhotoStatusEnum.DELETE,
         recycleTime: new Date().toISOString()
       })
-      .where(and(...whereList));
+      .where(inArray(photoTab.photoId, validPhotoIds));
 
     // Automatically unpin recycled photos from any albums so they do not hold pin slots
     await orm.update(albumPhotoTab)
       .set({ isPinned: 0, pinnedAt: null })
-      .where(inArray(albumPhotoTab.photoId, params.photoIds));
+      .where(inArray(albumPhotoTab.photoId, validPhotoIds));
 
     invalidatePhotoFastPathCache();
-    void syncService.bump('photo', -params.photoIds.length);
+    void syncService.bump('photo', -validPhotoIds.length);
   },
 
   // Move all photos of the specified user to the trash, And record the recycling time.
@@ -1942,17 +1967,27 @@ const photoService = {
       whereList.push(eq(photoTab.userId, userId));
     }
 
+    const targetPhotos = await orm
+      .select({ photoId: photoTab.photoId })
+      .from(photoTab)
+      .where(and(...whereList));
+    const validPhotoIds = targetPhotos.map((p) => p.photoId);
+
+    if (!validPhotoIds.length) {
+      return;
+    }
+
     await orm.update(photoTab)
       .set({
         visibility: params.visibility
       })
-      .where(and(...whereList));
+      .where(inArray(photoTab.photoId, validPhotoIds));
 
     // If visibility is hidden from albums (ARCHIVED or GALLERY_ONLY), unpin them from albums
     if (params.visibility === PhotoVisibilityEnum.ARCHIVED || params.visibility === PhotoVisibilityEnum.GALLERY_ONLY) {
       await orm.update(albumPhotoTab)
         .set({ isPinned: 0, pinnedAt: null })
-        .where(inArray(albumPhotoTab.photoId, params.photoIds));
+        .where(inArray(albumPhotoTab.photoId, validPhotoIds));
     }
 
     invalidatePhotoFastPathCache();
@@ -1973,15 +2008,25 @@ const photoService = {
       whereList.push(eq(photoTab.userId, userId));
     }
 
+    const targetPhotos = await orm
+      .select({ photoId: photoTab.photoId })
+      .from(photoTab)
+      .where(and(...whereList));
+    const validPhotoIds = targetPhotos.map((p) => p.photoId);
+
+    if (!validPhotoIds.length) {
+      return;
+    }
+
     await orm.update(photoTab)
       .set({
         status: PhotoStatusEnum.NORMAL,
         recycleTime: null
       })
-      .where(and(...whereList));
+      .where(inArray(photoTab.photoId, validPhotoIds));
 
     invalidatePhotoFastPathCache();
-    void syncService.bump('photo', params.photoIds.length);
+    void syncService.bump('photo', validPhotoIds.length);
   },
 
   // Completely delete the specified photo files and database records of the current user.

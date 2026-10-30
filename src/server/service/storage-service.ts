@@ -299,6 +299,12 @@ const storageService = {
 
       if (!storageList.length && process.env.R2_BUCKET_NAME && process.env.R2_ACCESS_KEY_ID) {
         const mediaGatewayUrl = process.env.R2_MEDIA_GATEWAY_URL || process.env.R2_PUBLIC_URL;
+        const masterKey = getStorageMasterKey();
+        const encryptedAccessKey = await encryptData(process.env.R2_ACCESS_KEY_ID.trim(), masterKey);
+        const encryptedSecretKey = process.env.R2_SECRET_ACCESS_KEY?.trim()
+          ? await encryptData(process.env.R2_SECRET_ACCESS_KEY.trim(), masterKey)
+          : '';
+
         const defaultR2: Storage = {
           storageId: 'r2_default',
           name: 'Cloudflare R2',
@@ -307,8 +313,8 @@ const storageService = {
           bucket: process.env.R2_BUCKET_NAME,
           region: 'auto',
           endpoint: process.env.R2_ACCOUNT_ID ? `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com` : null,
-          accessKey: process.env.R2_ACCESS_KEY_ID,
-          secretKey: process.env.R2_SECRET_ACCESS_KEY || '',
+          accessKey: encryptedAccessKey,
+          secretKey: encryptedSecretKey,
           userId: null,
           sort: 0,
           status: StorageStatusEnum.NORMAL,

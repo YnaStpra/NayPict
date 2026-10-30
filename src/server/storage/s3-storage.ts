@@ -193,7 +193,7 @@ class S3StorageStrategy implements StorageStrategy {
     };
   }
 
-  // from S3 Delete one or more files.
+  // from S3 Delete one or more files in chunks of at most 1000 keys (S3/R2 batch ceiling).
   async delete(key: string | string[], storage: Storage): Promise<void> {
     const keys = Array.isArray(key) ? key : [key];
 
@@ -208,21 +208,23 @@ class S3StorageStrategy implements StorageStrategy {
       throw new BizError('s3.bucketRequired');
     }
 
-    await client.send(new DeleteObjectsCommand({
-      Bucket: bucket,
-      Delete: {
-        Objects: keys.map((item) => ({
-          Key: item
-        })),
-        Quiet: true
-      }
-    }));
+    const CHUNK_SIZE = 1000;
+    for (let i = 0; i < keys.length; i += CHUNK_SIZE) {
+      const chunk = keys.slice(i, i + CHUNK_SIZE);
+      await client.send(new DeleteObjectsCommand({
+        Bucket: bucket,
+        Delete: {
+          Objects: chunk.map((item) => ({
+            Key: item
+          })),
+          Quiet: true
+        }
+      }));
+    }
   }
 
-
-
-  // Generate a presigned PutObject URL for direct-to-storage upload (S3 / Cloudflare R2).
-  async getPresignedPutUrl(key: string, contentType: string, storage: Storage, expiresIn = 3600): Promise<string> {
+  // Generate a presigned PutObject URL for direct-to-storage upload (S3 / Cloudflare R2, default 15 mins).
+  async getPresignedPutUrl(key: string, contentType: string, storage: Storage, expiresIn = 900): Promise<string> {
     const client = this.createClient(storage);
     const bucket = storage.bucket?.trim();
 

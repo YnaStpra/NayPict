@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import { contextStorage } from 'hono/context-storage';
 import { compress } from 'hono/compress';
+import { bodyLimit } from 'hono/body-limit';
 import result from '../model/result';
 import BizError from '../error/biz-error';
 import { security } from '../security/security';
@@ -15,6 +16,12 @@ import type { HonoEnv } from './type';
 export function createHonoApp() {
   const instance = new Hono<HonoEnv>().basePath('/api');
 
+  instance.use('*', bodyLimit({
+    maxSize: 250 * 1024 * 1024,
+    onError: (c) => {
+      return c.json(result.fail('Request payload too large (maximum 250MB allowed).', 413), 413);
+    },
+  }));
   instance.use('*', compress());
   instance.use('*', apiCors);
   instance.use('*', botBlocker);

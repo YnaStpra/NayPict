@@ -1,7 +1,9 @@
 import { and, desc, eq, ilike, inArray, isNotNull, isNull, or, sql } from 'drizzle-orm';
 import { commentTab } from '@/server/entity/comment';
 import { photoTab } from '@/server/entity/photo';
-import { PhotoStatusEnum } from '@/server/enums/photo-enum';
+import { albumPhotoTab } from '@/server/entity/album-photo';
+import { albumTab } from '@/server/entity/album';
+import { PhotoStatusEnum, PhotoVisibilityEnum } from '@/server/enums/photo-enum';
 import { type CommentAddBo, type CommentListAdminBo, type CommentReplyBo } from '@/server/entity/bo/comment';
 import { type CommentAdminPageVo, type CommentVo } from '@/server/entity/vo/comment';
 import BizError from '@/server/error/biz-error';
@@ -206,15 +208,32 @@ const commentService = {
       throw new BizError('comment.contentTooLong');
     }
 
-    // 4. Validate Photo exists in database
+    // 4. Validate Photo exists in database and is publicly active (not archived)
     const [photo] = await orm
-      .select({ photoId: photoTab.photoId })
+      .select({
+        photoId: photoTab.photoId,
+        visibility: photoTab.visibility,
+      })
       .from(photoTab)
       .where(and(eq(photoTab.photoId, photoId), eq(photoTab.status, PhotoStatusEnum.NORMAL)))
       .limit(1);
 
-    if (!photo) {
+    if (!photo || photo.visibility === PhotoVisibilityEnum.ARCHIVED) {
       throw new BizError('photo.notFound');
+    }
+
+    // Reject comments on ALBUM_ONLY photos that belong to an archived album
+    if (photo.visibility === PhotoVisibilityEnum.ALBUM_ONLY) {
+      const [archivedAlbumRel] = await orm
+        .select({ id: albumPhotoTab.id })
+        .from(albumPhotoTab)
+        .innerJoin(albumTab, eq(albumTab.albumId, albumPhotoTab.albumId))
+        .where(and(eq(albumPhotoTab.photoId, photoId), eq(albumTab.isArchived, 1)))
+        .limit(1);
+
+      if (archivedAlbumRel) {
+        throw new BizError('photo.notFound');
+      }
     }
 
     // 4. Duplicate Comment Flood Check (prevent spamming identical text to same photo within 60s)

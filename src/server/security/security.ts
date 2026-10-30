@@ -82,7 +82,7 @@ const PUBLIC_API_PATHS = [
   '/album/list',
   '/storage/select',
   '/media',
-  '/photos',
+  '/photos/map',
   '/photo/comment/list',
   '/photo/comment/add',
   '/photo/reactions',
@@ -114,6 +114,10 @@ function isPathMatched(path: string, target: string) {
 function isPublicApiPath(path: string) {
   if (path === '/photos/untagged' || path.startsWith('/photos/untagged/')) {
     return false;
+  }
+  // Match explicit public photo interaction routes: /photos/:id/comments, /photos/:id/view, /photos/:id/share
+  if (/^\/photos\/[^/]+\/(comments|view|share)(\/.*)?$/.test(path)) {
+    return true;
   }
   return PUBLIC_API_PATHS.some((target) => isPathMatched(path, target));
 }

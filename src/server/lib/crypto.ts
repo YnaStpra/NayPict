@@ -173,22 +173,27 @@ export async function decryptData(cipherText: string, secretKey: string): Promis
   const iv = new Uint8Array(ivHex.match(/.{1,2}/g)?.map((byte) => parseInt(byte, 16)) || []);
   const cipherBytes = new Uint8Array(cipherHex.match(/.{1,2}/g)?.map((byte) => parseInt(byte, 16)) || []);
 
-  const enc = new TextEncoder();
-  const keyDigest = await crypto.subtle.digest('SHA-256', enc.encode(secretKey));
-  const cryptoKey = await crypto.subtle.importKey(
-    'raw',
-    keyDigest,
-    { name: 'AES-GCM' },
-    false,
-    ['decrypt']
-  );
+  try {
+    const enc = new TextEncoder();
+    const keyDigest = await crypto.subtle.digest('SHA-256', enc.encode(secretKey));
+    const cryptoKey = await crypto.subtle.importKey(
+      'raw',
+      keyDigest,
+      { name: 'AES-GCM' },
+      false,
+      ['decrypt']
+    );
 
-  const decryptedBuffer = await crypto.subtle.decrypt(
-    { name: 'AES-GCM', iv },
-    cryptoKey,
-    cipherBytes
-  );
+    const decryptedBuffer = await crypto.subtle.decrypt(
+      { name: 'AES-GCM', iv },
+      cryptoKey,
+      cipherBytes
+    );
 
-  return new TextDecoder().decode(decryptedBuffer);
+    return new TextDecoder().decode(decryptedBuffer);
+  } catch (err) {
+    console.warn('[CRYPTO] AES-256-GCM payload decryption failed (tampered data or wrong key):', err);
+    return cipherText;
+  }
 }
 
