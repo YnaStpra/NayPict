@@ -60,6 +60,8 @@ const nextConfig: NextConfig = {
       { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
       // Cross-Origin Opener Policy: isolate browsing context while allowing legitimate popups (mitigates Spectre & cross-window attacks)
       { key: 'Cross-Origin-Opener-Policy', value: 'same-origin-allow-popups' },
+      // Cross-Origin Resource Policy: protect against cross-origin data disclosure & speculative execution attacks
+      { key: 'Cross-Origin-Resource-Policy', value: 'same-origin' },
       // Prevent Adobe Flash / Acrobat cross-domain policy file inspection
       { key: 'X-Permitted-Cross-Domain-Policies', value: 'none' },
       // Disable browser features not required by this app, while allowing geolocation for self (maps & analytics)

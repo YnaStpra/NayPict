@@ -2,36 +2,34 @@ import type { Context, Next } from 'hono';
 
 // This module provides anti-hotlinking middleware to prevent unauthorized third-party websites from leeching media assets and bandwidth.
 
-// Parse allowed hostnames including current request host, environment variables, and local dev environments.
-function getAllowedHosts(c: Context): Set<string> {
+// Parse approved hostnames from canonical environment configurations and verified domains.
+function getAllowedHosts(): Set<string> {
   const allowed = new Set<string>();
 
-  // Add current request host
-  const reqHost = c.req.header('host');
-  if (reqHost) {
-    allowed.add(reqHost.toLowerCase().split(':')[0]);
-  }
-
-  // Add site URL from environment variables if present
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
-  if (siteUrl) {
+  const addHost = (urlOrHost?: string) => {
+    if (!urlOrHost?.trim()) return;
     try {
-      allowed.add(new URL(siteUrl).hostname.toLowerCase());
+      const h = urlOrHost.includes('://') ? new URL(urlOrHost).hostname : urlOrHost.split(':')[0];
+      if (h) allowed.add(h.toLowerCase().trim());
     } catch {}
-  }
+  };
+
+  addHost(process.env.APP_URL);
+  addHost(process.env.NEXT_PUBLIC_APP_URL);
+  addHost(process.env.NEXT_PUBLIC_SITE_URL);
+  addHost(process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : undefined);
+  addHost(process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : undefined);
+  allowed.add('naypict.my.id');
+  allowed.add('www.naypict.my.id');
+  allowed.add('naypict.vercel.app');
+  allowed.add('localhost');
+  allowed.add('127.0.0.1');
 
   // Add custom whitelisted hotlink domains from env (comma-separated)
   const envAllowed = process.env.ALLOWED_HOTLINK_DOMAINS;
   if (envAllowed) {
-    envAllowed.split(',').forEach((d) => {
-      const trimmed = d.trim().toLowerCase();
-      if (trimmed) allowed.add(trimmed);
-    });
+    envAllowed.split(',').forEach((d) => addHost(d));
   }
-
-  // Always allow local development
-  allowed.add('localhost');
-  allowed.add('127.0.0.1');
 
   return allowed;
 }
@@ -61,7 +59,7 @@ export async function antiHotlink(c: Context, next: Next) {
   if (referer) {
     try {
       const refererHost = new URL(referer).hostname.toLowerCase();
-      const allowedHosts = getAllowedHosts(c);
+      const allowedHosts = getAllowedHosts();
 
       // Check exact match or subdomain of allowed hosts
       const isAllowed = Array.from(allowedHosts).some((allowed) => {

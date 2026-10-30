@@ -382,3 +382,10 @@ export const passwordChangeRateLimiter = new DistributedRateLimiter({
   windowMs: 15 * 60 * 1000, // 15 minutes
 })
 
+// 19. Media Download Rate Limiter: Max 30 downloads per 1 minute per user/IP
+export const mediaDownloadRateLimiter = new DistributedRateLimiter({
+  name: 'media-download',
+  limit: 30,
+  windowMs: 60 * 1000, // 1 minute
+})
+
