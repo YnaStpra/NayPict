@@ -8,4 +8,5 @@ export const runtime = 'nodejs'
 const handler = (req: Request) => media.fetch(req)
 
 export const GET = handler
+export const HEAD = handler
 export const OPTIONS = handler

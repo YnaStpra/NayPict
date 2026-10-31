@@ -128,7 +128,7 @@ function isSystemPath(path: string) {
 }
 
 // Clear login related Cookie.
-function clearLoginCookies(c: Context) {
+export function clearLoginCookies(c: Context) {
   deleteCookie(c, TOKEN_COOKIE_NAME, {
     path: '/',
     secure: process.env.NODE_ENV === 'production',

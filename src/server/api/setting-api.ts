@@ -29,6 +29,15 @@ export function registerSettingApi(app: Hono<HonoEnv>) {
       action: 'SETTING_SET',
       userId: getUserId(),
       clientIp: getClientIp(c),
+      details: {
+        syncDelete: body?.syncDelete,
+        clearLast: body?.clearLast,
+        photoDedup: body?.photoDedup,
+        watermarkEnabled: body?.watermarkEnabled,
+        watermarkText: body?.watermarkText,
+        onThisDay: body?.onThisDay,
+        rightClickGuard: body?.rightClickGuard,
+      },
     });
     return c.json(result.ok());
   });

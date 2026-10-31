@@ -705,16 +705,23 @@ const photoService = {
   // Query photos taken on this day (month & day) in previous years.
   async onThisDay(params: PhotoOnThisDayBo = {}, userId?: string): Promise<PhotoOnThisDayVo> {
     const now = new Date();
-    // If tzOffset (minutes) is provided, calculate client's local date
+    // If tzOffset (minutes) is provided, clamp [-840, 840] and calculate client's local date
     if (typeof params.tzOffset === 'number' && !isNaN(params.tzOffset)) {
+      const clampedOffset = Math.max(-840, Math.min(840, Math.floor(params.tzOffset)));
       const utcMs = now.getTime() + (now.getTimezoneOffset() * 60000);
-      const clientDate = new Date(utcMs + (params.tzOffset * 60000));
+      const clientDate = new Date(utcMs + (clampedOffset * 60000));
       now.setTime(clientDate.getTime());
     }
 
-    const currentYear = params.year ?? now.getFullYear();
-    const currentMonth = params.month ?? (now.getMonth() + 1);
-    const currentDay = params.day ?? now.getDate();
+    const currentYear = typeof params.year === 'number' && !isNaN(params.year)
+      ? Math.max(1900, Math.min(2100, Math.floor(params.year)))
+      : now.getFullYear();
+    const currentMonth = typeof params.month === 'number' && !isNaN(params.month)
+      ? Math.max(1, Math.min(12, Math.floor(params.month)))
+      : (now.getMonth() + 1);
+    const currentDay = typeof params.day === 'number' && !isNaN(params.day)
+      ? Math.max(1, Math.min(31, Math.floor(params.day)))
+      : now.getDate();
 
     const monthStr = String(currentMonth).padStart(2, '0');
     const dayStr = String(currentDay).padStart(2, '0');
@@ -2283,7 +2290,16 @@ const photoService = {
       return;
     }
 
-    const whereList = [inArray(photoTab.photoId, params.photoIds)];
+    const cleanPhotoIds = Array.from(new Set(params.photoIds.map((id) => id?.trim()).filter(Boolean)));
+    if (!cleanPhotoIds.length) {
+      return;
+    }
+
+    if (cleanPhotoIds.length > 500) {
+      throw new BizError('photo.batchLimitExceeded');
+    }
+
+    const whereList = [inArray(photoTab.photoId, cleanPhotoIds)];
     if (userId) {
       whereList.push(eq(photoTab.userId, userId));
     }

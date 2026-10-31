@@ -4,7 +4,7 @@ import { type UserAddBo, type UserDeleteBo, type UserSetAvatarBo, type UserSetBo
 import { getUserId } from '@/server/security/context';
 import { getClientIp } from '@/server/lib/ip';
 import { logSecurityAudit } from '@/server/lib/audit';
-import { passwordChangeRateLimiter } from '@/server/lib/rate-limiter';
+import { avatarUploadRateLimiter, passwordChangeRateLimiter } from '@/server/lib/rate-limiter';
 import { userService } from '@/server/service/user-service';
 import type { HonoEnv } from '../hono/type';
 
@@ -74,8 +74,21 @@ export function registerUserApi(app: Hono<HonoEnv>) {
 
   // Set current user avatar.
   app.post('/user/setAvatar', async (c: Context) => {
+    const currentUserId = getUserId();
+    const clientIp = getClientIp(c);
+    const rateLimit = await avatarUploadRateLimiter.consume(`${currentUserId}:${clientIp}`);
+    if (!rateLimit.allowed) {
+      c.header('Retry-After', String(Math.ceil(rateLimit.resetMs / 1000)));
+      return c.json(result.fail('Avatar upload rate limit exceeded. Please try again later.', 429), 429);
+    }
+
     const params = await c.req.json<UserSetAvatarBo>();
-    const user = await userService.setAvatar(params, getUserId());
+    const user = await userService.setAvatar(params, currentUserId);
+    logSecurityAudit({
+      action: 'USER_SET_AVATAR',
+      userId: currentUserId,
+      clientIp,
+    });
     return c.json(result.ok(user.avatar));
   });
 

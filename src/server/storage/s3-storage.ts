@@ -208,9 +208,19 @@ class S3StorageStrategy implements StorageStrategy {
       throw new BizError('s3.bucketRequired');
     }
 
+    const validKeys = Array.from(new Set(
+      keys
+        .filter((k): k is string => Boolean(k && typeof k === 'string' && k.trim() && !k.includes('..')))
+        .map((k) => k.trim())
+    ));
+
+    if (!validKeys.length) {
+      return;
+    }
+
     const CHUNK_SIZE = 1000;
-    for (let i = 0; i < keys.length; i += CHUNK_SIZE) {
-      const chunk = keys.slice(i, i + CHUNK_SIZE);
+    for (let i = 0; i < validKeys.length; i += CHUNK_SIZE) {
+      const chunk = validKeys.slice(i, i + CHUNK_SIZE);
       await client.send(new DeleteObjectsCommand({
         Bucket: bucket,
         Delete: {
@@ -271,8 +281,8 @@ class S3StorageStrategy implements StorageStrategy {
     return res.UploadId;
   }
 
-  // Generate presigned PUT URL for a specific part in a multipart upload.
-  async getPresignedPartUrl(key: string, uploadId: string, partNumber: number, storage: Storage, expiresIn = 3600): Promise<string> {
+  // Generate presigned PUT URL for a specific part in a multipart upload (default 15 mins).
+  async getPresignedPartUrl(key: string, uploadId: string, partNumber: number, storage: Storage, expiresIn = 900): Promise<string> {
     const client = this.createClient(storage);
     const bucket = storage.bucket?.trim();
 
