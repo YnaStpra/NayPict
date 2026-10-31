@@ -37,11 +37,14 @@ const SENSITIVE_MUTATION_PATHS = [
   '/photo/multipart/partUrl',
   '/photo/multipart/complete',
   '/photo/multipart/abort',
+  '/photo/comment/add',
   '/photo/comment/reply',
   '/photo/comment/reply/delete',
   '/photo/comment/delete',
   '/photo/comment/pin',
   '/photo/comment/heart',
+  '/photo/reaction/add',
+  '/photo/reaction/remove',
   '/album/add',
   '/album/setCover',
   '/album/addPhoto',
@@ -160,7 +163,9 @@ export async function csrfProtection(c: Context, next: Next) {
   const forwardedHost = c.req.header('x-forwarded-host') || '';
 
   // Determine whether this request is targeting a high-risk sensitive mutation
-  const isSensitive = SENSITIVE_MUTATION_PATHS.some((p) => path === p || path.startsWith(`${p}/`));
+  const isSensitive =
+    SENSITIVE_MUTATION_PATHS.some((p) => path === p || path.startsWith(`${p}/`)) ||
+    (/^\/photos\/[^/]+\/comments(\/.*)?$/.test(path) && method === 'POST');
 
   // 1. If Origin header is provided (sent automatically on cross-origin and fetch requests)
   if (origin) {

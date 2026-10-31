@@ -5,6 +5,29 @@ import { orm, readOrm } from '@/server/infra/db';
 
 // This module processes photo Exif reading and writing.
 
+// Validate and sanitize GPS coordinates and altitude against physical earth bounds.
+function sanitizeCoordinates(
+  lat: number | null | undefined,
+  lng: number | null | undefined,
+  alt?: number | null | undefined
+) {
+  let safeLat = lat != null ? Number(lat) : null;
+  let safeLng = lng != null ? Number(lng) : null;
+  let safeAlt = alt != null ? Number(alt) : null;
+
+  if (safeLat != null && (!isFinite(safeLat) || isNaN(safeLat) || safeLat < -90 || safeLat > 90)) {
+    safeLat = null;
+  }
+  if (safeLng != null && (!isFinite(safeLng) || isNaN(safeLng) || safeLng < -180 || safeLng > 180)) {
+    safeLng = null;
+  }
+  if (safeAlt != null && (!isFinite(safeAlt) || isNaN(safeAlt) || safeAlt < -500 || safeAlt > 15000)) {
+    safeAlt = null;
+  }
+
+  return { safeLat, safeLng, safeAlt };
+}
+
 const exifService = {
 
   // Query single photo Exif record by photo ID.
@@ -27,20 +50,21 @@ const exifService = {
     return new Map(rows.map((row) => [row.photoId, row]));
   },
 
-  // Save photo Exif JSON and GPS location metadata.
+  // Save photo Exif JSON and GPS location metadata with physical range validation.
   async save(photoId: string, params: ExifSaveBo): Promise<void> {
     const { exif, latitude, longitude, altitude } = params;
+    const { safeLat, safeLng, safeAlt } = sanitizeCoordinates(latitude, longitude, altitude);
 
-    if (!exif && latitude == null && longitude == null && altitude == null) {
+    if (!exif && safeLat == null && safeLng == null && safeAlt == null) {
       return;
     }
 
     await orm.insert(exifTab).values({
       photoId,
       exif,
-      latitude,
-      longitude,
-      altitude
+      latitude: safeLat,
+      longitude: safeLng,
+      altitude: safeAlt,
     });
   },
 
@@ -53,14 +77,16 @@ const exifService = {
   ): Promise<void> {
     if (!photoIds.length) return;
 
+    const { safeLat, safeLng, safeAlt } = sanitizeCoordinates(latitude, longitude, altitude);
+
     // 1. Fetch all existing records in a single query (eliminates N+1 loop)
     const existingMap = await this.listByPhotoIds(photoIds);
     const existingPhotoIds = photoIds.filter((id) => existingMap.has(id));
     const newPhotoIds = photoIds.filter((id) => !existingMap.has(id));
 
-    const updates: Record<string, any> = { latitude, longitude };
+    const updates: Record<string, any> = { latitude: safeLat, longitude: safeLng };
     if (altitude !== undefined) {
-      updates.altitude = altitude;
+      updates.altitude = safeAlt;
     }
 
     // 2. Bulk update existing records in chunks of 100
@@ -74,12 +100,12 @@ const exifService = {
     }
 
     // 3. Bulk insert new records if coordinates or altitude are present
-    if (newPhotoIds.length && (latitude != null || longitude != null || altitude != null)) {
+    if (newPhotoIds.length && (safeLat != null || safeLng != null || safeAlt != null)) {
       const rows = newPhotoIds.map((photoId) => ({
         photoId,
-        latitude,
-        longitude,
-        altitude: altitude ?? null,
+        latitude: safeLat,
+        longitude: safeLng,
+        altitude: safeAlt,
         exif: null,
       }));
       for (let i = 0; i < rows.length; i += CHUNK_SIZE) {

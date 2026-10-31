@@ -5,6 +5,8 @@ import { analyticsService } from '@/server/service/analytics-service';
 import { insightsService } from '@/server/service/insights-service';
 import result from '@/server/model/result';
 import { timingSafeEqual } from '@/server/lib/crypto';
+import { getClientIp } from '@/server/lib/ip';
+import { logSecurityAudit } from '@/server/lib/audit';
 import type { HonoEnv } from '@/server/hono/type';
 
 // This module exposes scheduled maintenance endpoints for Vercel Cron and external automation triggers.
@@ -26,6 +28,12 @@ export function registerCronApi(app: Hono<HonoEnv>) {
     }
 
     try {
+      const clientIp = getClientIp(c);
+      logSecurityAudit({
+        action: 'CRON_CLEANUP_EXECUTE',
+        clientIp,
+      });
+
       await Promise.all([
         photoService.clearExpired(),
         cache.clearExpired(),

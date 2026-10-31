@@ -2,6 +2,7 @@ import { hashPassword, verifyPasswordDetailed } from '@/server/lib/crypto';
 import { createId } from '@/server/lib/id';
 import { and, count, eq, inArray, ne, sql, sum } from 'drizzle-orm';
 import { userTab } from '@/server/entity/user';
+import { settingTab } from '@/server/entity/setting';
 import { type UserAddBo, type UserSetAvatarBo, type UserSetBo, type UserPasswordBo, type UserToggleStatusBo } from '@/server/entity/bo/user';
 import { photoTab } from '@/server/entity/photo';
 import { type PageVo } from '@/server/entity/vo/common';
@@ -569,11 +570,19 @@ const userService = {
     await photoService.recycleByUserId(deleteUserId);
     await albumService.deleteByUserId(deleteUserId);
 
+    // Purge user's 2FA TOTP configuration if provisioned
+    await orm.delete(settingTab)
+      .where(eq(settingTab.key, `totp_user_${deleteUserId}`))
+      .catch(() => {});
+
     await orm.delete(userTab)
       .where(eq(userTab.userId, deleteUserId));
 
     // Clear login cache after deleting user.
     await cache.delete(AUTH_CACHE_KEY + deleteUserId);
+
+    // Revoke all active sessions immediately across all devices
+    await sessionService.revokeAllSessions(deleteUserId).catch(() => {});
   },
 }
 

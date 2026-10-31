@@ -415,7 +415,8 @@ const albumService = {
       })
       .from(albumPhotoTab)
       .innerJoin(photoTab, eq(albumPhotoTab.photoId, photoTab.photoId))
-      .where(and(...wherePhotoList));
+      .where(and(...wherePhotoList))
+      .limit(500);
 
     const photoIds = albumPhotos.map((p) => p.photoId);
     const fileStorageList = await storageService.list();

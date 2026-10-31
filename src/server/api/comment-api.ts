@@ -4,6 +4,8 @@ import result from '@/server/model/result';
 import { commentService } from '@/server/service/comment-service';
 import { type CommentAddBo, type CommentDeleteBo, type CommentListAdminBo, type CommentReplyBo } from '@/server/entity/bo/comment';
 import { getClientIp } from '@/server/lib/ip';
+import { getUserId } from '@/server/security/context';
+import { logSecurityAudit } from '@/server/lib/audit';
 import { resolveSignedVisitorId } from '@/server/lib/visitor-cookie';
 import type { HonoEnv } from '../hono/type';
 
@@ -75,6 +77,12 @@ export function registerCommentApi(app: Hono<HonoEnv>) {
   app.post('/photo/comment/reply', async (c: Context) => {
     const body = await c.req.json<CommentReplyBo>().catch(() => ({ commentId: '', replyContent: '' }));
     const data = await commentService.reply(body);
+    logSecurityAudit({
+      action: 'COMMENT_REPLY',
+      userId: getUserId(),
+      clientIp: getClientIp(c),
+      targetId: body.commentId,
+    });
     return c.json(result.ok(data));
   });
 
@@ -82,6 +90,12 @@ export function registerCommentApi(app: Hono<HonoEnv>) {
   app.post('/photo/comment/reply/delete', async (c: Context) => {
     const body = await c.req.json<{ commentId: string }>().catch(() => ({ commentId: '' }));
     await commentService.deleteReply(body.commentId);
+    logSecurityAudit({
+      action: 'COMMENT_REPLY_DELETE',
+      userId: getUserId(),
+      clientIp: getClientIp(c),
+      targetId: body.commentId,
+    });
     return c.json(result.ok());
   });
 
@@ -89,6 +103,12 @@ export function registerCommentApi(app: Hono<HonoEnv>) {
   app.post('/photo/comment/delete', async (c: Context) => {
     const body = await c.req.json<CommentDeleteBo>().catch(() => ({ commentId: '' }));
     await commentService.delete(body.commentId);
+    logSecurityAudit({
+      action: 'COMMENT_DELETE',
+      userId: getUserId(),
+      clientIp: getClientIp(c),
+      targetId: body.commentId,
+    });
     return c.json(result.ok());
   });
 
@@ -103,6 +123,12 @@ export function registerCommentApi(app: Hono<HonoEnv>) {
   app.post('/photo/comment/pin', async (c: Context) => {
     const body = await c.req.json<{ commentId: string }>().catch(() => ({ commentId: '' }));
     const isPinned = await commentService.togglePin(body.commentId);
+    logSecurityAudit({
+      action: 'COMMENT_PIN',
+      userId: getUserId(),
+      clientIp: getClientIp(c),
+      targetId: body.commentId,
+    });
     return c.json(result.ok({ isPinned }));
   });
 }

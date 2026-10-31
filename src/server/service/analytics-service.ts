@@ -498,14 +498,17 @@ const analyticsService = {
       conditions.push(eq(visitorSessionTab.isAdmin, 0));
     }
 
-    if (params.device) {
-      conditions.push(eq(visitorSessionTab.device, params.device));
+    if (params.device?.trim()) {
+      const cleanDevice = params.device.trim().slice(0, 32);
+      conditions.push(eq(visitorSessionTab.device, cleanDevice));
     }
-    if (params.browser) {
-      conditions.push(eq(visitorSessionTab.browser, params.browser));
+    if (params.browser?.trim()) {
+      const cleanBrowser = params.browser.trim().slice(0, 32);
+      conditions.push(eq(visitorSessionTab.browser, cleanBrowser));
     }
-    if (params.country) {
-      conditions.push(eq(visitorSessionTab.country, params.country.toUpperCase()));
+    if (params.country?.trim()) {
+      const cleanCountry = params.country.trim().slice(0, 10).toUpperCase();
+      conditions.push(eq(visitorSessionTab.country, cleanCountry));
     }
     if (params.search?.trim()) {
       const cleanSearch = params.search.trim().slice(0, 50).replace(/[%_\\]/g, '\\$&');

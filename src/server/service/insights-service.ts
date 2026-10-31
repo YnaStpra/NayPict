@@ -734,6 +734,27 @@ const insightsService = {
       throw err;
     }
   },
+
+  // Batch delete interaction records associated with specific photo IDs (called on photo deletion).
+  async deleteByPhotoIds(photoIds: string[]): Promise<void> {
+    if (!photoIds || photoIds.length === 0) {
+      return;
+    }
+
+    const cleanIds = Array.from(new Set(photoIds.map((id) => id?.trim()).filter(Boolean)));
+    if (!cleanIds.length) return;
+
+    try {
+      await ensurePhotoViewTable();
+      const CHUNK_SIZE = 100;
+      for (let i = 0; i < cleanIds.length; i += CHUNK_SIZE) {
+        const chunk = cleanIds.slice(i, i + CHUNK_SIZE);
+        await orm.delete(photoViewTab).where(inArray(photoViewTab.photoId, chunk)).catch(() => {});
+      }
+    } catch (err) {
+      console.warn('[INSIGHTS] deleteByPhotoIds error:', err);
+    }
+  },
 };
 
 export { insightsService };

@@ -45,11 +45,40 @@ const commentService = {
     }
 
     try {
+      // Security: verify photo exists, is active and not archived
+      const [photo] = await orm
+        .select({
+          photoId: photoTab.photoId,
+          visibility: photoTab.visibility,
+        })
+        .from(photoTab)
+        .where(and(eq(photoTab.photoId, cleanPhotoId), eq(photoTab.status, PhotoStatusEnum.NORMAL)))
+        .limit(1);
+
+      if (!photo || photo.visibility === PhotoVisibilityEnum.ARCHIVED) {
+        return [];
+      }
+
+      // Reject comments on ALBUM_ONLY photos that belong to an archived album
+      if (photo.visibility === PhotoVisibilityEnum.ALBUM_ONLY) {
+        const [archivedAlbumRel] = await orm
+          .select({ id: albumPhotoTab.id })
+          .from(albumPhotoTab)
+          .innerJoin(albumTab, eq(albumTab.albumId, albumPhotoTab.albumId))
+          .where(and(eq(albumPhotoTab.photoId, cleanPhotoId), eq(albumTab.isArchived, 1)))
+          .limit(1);
+
+        if (archivedAlbumRel) {
+          return [];
+        }
+      }
+
       const rows = await orm
         .select()
         .from(commentTab)
         .where(eq(commentTab.photoId, cleanPhotoId))
-        .orderBy(desc(commentTab.isPinned), desc(commentTab.createTime));
+        .orderBy(desc(commentTab.isPinned), desc(commentTab.createTime))
+        .limit(300);
 
       return rows.map((row) => ({
         commentId: row.commentId,
@@ -475,7 +504,18 @@ const commentService = {
       return;
     }
 
-    await orm.delete(commentTab).where(inArray(commentTab.photoId, photoIds));
+    const cleanIds = Array.from(new Set(photoIds.map((id) => id?.trim()).filter(Boolean)));
+    if (!cleanIds.length) return;
+
+    try {
+      const CHUNK_SIZE = 100;
+      for (let i = 0; i < cleanIds.length; i += CHUNK_SIZE) {
+        const chunk = cleanIds.slice(i, i + CHUNK_SIZE);
+        await orm.delete(commentTab).where(inArray(commentTab.photoId, chunk)).catch(() => {});
+      }
+    } catch (err) {
+      console.warn('[COMMENT] deleteByPhotoIds error:', err);
+    }
   },
 
   // Toggle the official photographer ❤️ heart on a comment (Admin only).

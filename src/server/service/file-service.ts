@@ -39,23 +39,34 @@ const fileService = {
     return map;
   },
 
-  // Write photo file records in batches.
+  // Write photo file records in batches (chunked to 100 to prevent parameter limits).
   async save(files: FileInto[]): Promise<File[]> {
     if (!files.length) {
       return [];
     }
 
-    return orm.insert(fileTab).values(files).returning();
+    const CHUNK_SIZE = 100;
+    const results: File[] = [];
+    for (let i = 0; i < files.length; i += CHUNK_SIZE) {
+      const chunk = files.slice(i, i + CHUNK_SIZE);
+      const inserted = await orm.insert(fileTab).values(chunk).returning();
+      results.push(...inserted);
+    }
+    return results;
   },
 
-  // Delete file records by photo ID list.
+  // Delete file records by photo ID list (chunked to 100 to prevent parameter limits).
   async deleteByPhotoIds(photoIds: string[]): Promise<void> {
     if (!photoIds.length) {
       return;
     }
 
-    await orm.delete(fileTab)
-      .where(inArray(fileTab.photoId, photoIds));
+    const CHUNK_SIZE = 100;
+    for (let i = 0; i < photoIds.length; i += CHUNK_SIZE) {
+      const chunk = photoIds.slice(i, i + CHUNK_SIZE);
+      await orm.delete(fileTab)
+        .where(inArray(fileTab.photoId, chunk));
+    }
   }
 };
 
