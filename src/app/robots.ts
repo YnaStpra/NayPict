@@ -36,6 +36,8 @@ const DISALLOWED_SYSTEM_PATHS = [
   "/duplicates/*",
   "/settings",
   "/settings/*",
+  "/comments",
+  "/comments/*",
 ]
 
 /**

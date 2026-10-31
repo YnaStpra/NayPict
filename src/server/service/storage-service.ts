@@ -264,17 +264,22 @@ const storageService = {
     await this.refreshStorageCache();
   },
 
-  // Delete the specified storage configuration, And leave the storage tags of all associated photos blank..
+  // Delete the specified storage configuration, with active photos protection guard.
   async delete(storageId: string): Promise<void> {
     if (!storageId) {
       throw new BizError('storage.selectRequired');
     }
 
-    await orm.update(photoTab)
-      .set({
-        storageId: 'none'
-      })
-      .where(eq(photoTab.storageId, storageId));
+    // Safety: Prevent deletion if storage currently hosts active or recycle bin photos
+    const [activePhoto] = await readOrm
+      .select({ photoId: photoTab.photoId })
+      .from(photoTab)
+      .where(eq(photoTab.storageId, storageId))
+      .limit(1);
+
+    if (activePhoto) {
+      throw new BizError('storage.hasActivePhotos');
+    }
 
     await orm.delete(storageTab)
       .where(eq(storageTab.storageId, storageId));

@@ -21,6 +21,18 @@ function setAddressCache(key: string, result: ReverseGeocodeResult): void {
   addressCache.set(key, result);
 }
 
+// Sanitize external geocoder address strings against HTML/script injection and control characters
+function sanitizeAddressText(text?: string | null): string {
+  if (!text) return '';
+  return text
+    .replace(/<[^>]*>?/gm, '') // Strip HTML tags
+    .replace(/javascript:/gi, '') // Strip pseudo-protocol
+    .replace(/data:\s*text\/html/gi, '') // Strip data URIs
+    .replace(/[\u0000-\u0008\u000B-\u000C\u000E-\u001F\u007F]/g, '') // Strip control characters
+    .trim()
+    .slice(0, 500);
+}
+
 const locationService = {
 
   // Reverse geocode latitude and longitude into a formatted human-readable address.
@@ -134,21 +146,23 @@ const locationService = {
         formattedAddress = `${latText}, ${lngText}`;
       }
 
+      const safeAddress = sanitizeAddressText(formattedAddress);
+
       const result: ReverseGeocodeResult = {
-        address: formattedAddress,
+        address: safeAddress,
         latitude: lat,
         longitude: lng,
         mapsUrl,
-        city: detectedCity,
-        region: detectedRegion,
-        country: detectedCountry,
+        city: detectedCity ? sanitizeAddressText(detectedCity) : undefined,
+        region: detectedRegion ? sanitizeAddressText(detectedRegion) : undefined,
+        country: detectedCountry ? sanitizeAddressText(detectedCountry) : undefined,
       };
 
       setAddressCache(cacheKey, result);
 
       // Persist to distributed cache (30-day TTL) to survive serverless instance restarts
       void import('@/server/infra/cache').then(({ cache }) => {
-        cache.set(`geo:${cacheKey}`, result as unknown as Record<string, unknown>, { ttl: 86400 * 30 });
+        return cache.set(`geo:${cacheKey}`, result as unknown as Record<string, unknown>, { ttl: 86400 * 30 });
       }).catch(() => {});
 
       return result;

@@ -12,6 +12,7 @@ import { albumTab } from '@/server/entity/album';
 import { albumPhotoTab } from '@/server/entity/album-photo';
 import { commentTab } from '@/server/entity/comment';
 import { photoReactionTab } from '@/server/entity/reaction';
+import { photoViewTab } from '@/server/entity/insights';
 import { settingTab } from '@/server/entity/setting';
 import { storageTab } from '@/server/entity/storage';
 
@@ -112,6 +113,7 @@ const backupService = {
         albumPhotos,
         comments,
         reactions,
+        views,
         settings,
         storages
       ] = await Promise.all([
@@ -123,6 +125,7 @@ const backupService = {
         orm.select().from(albumPhotoTab),
         orm.select().from(commentTab),
         orm.select().from(photoReactionTab).catch(() => []),
+        orm.select().from(photoViewTab).catch(() => []),
         orm.select().from(settingTab),
         orm.select().from(storageTab),
       ]);
@@ -142,6 +145,7 @@ const backupService = {
           albumPhotos,
           comments,
           reactions,
+          views,
           settings,
           storages,
         },

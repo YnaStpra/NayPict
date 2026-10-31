@@ -67,6 +67,8 @@ import { buildPhotoKey, buildPreviewKey, buildThumbnailKey } from '@/server/lib/
 import { type File as PhotoFile, fileTab } from '@/server/entity/file';
 import { fileService } from '@/server/service/file-service';
 import { commentService } from '@/server/service/comment-service';
+import { reactionService } from '@/server/service/reaction-service';
+import { insightsService } from '@/server/service/insights-service';
 import { FileTypeEnum } from '@/server/enums/file-enum';
 import { syncService } from '@/server/service/sync-service';
 
@@ -1651,10 +1653,10 @@ const photoService = {
       VideoCodec: 'H.264 / AVC1',
     };
     let finalExif: string;
-    if (exifJson) {
+    if (exifJson && typeof exifJson === 'string' && exifJson.length <= 65536) {
       try {
         const parsed = JSON.parse(exifJson);
-        finalExif = JSON.stringify({ ...videoMeta, ...parsed });
+        finalExif = JSON.stringify({ ...videoMeta, ...(parsed && typeof parsed === 'object' ? parsed : {}) });
       } catch {
         finalExif = JSON.stringify(videoMeta);
       }
@@ -1833,7 +1835,21 @@ const photoService = {
     const now = new Date().toISOString();
     const finalTakenTime = takenTime || (lastModified > 0 ? new Date(lastModified).toISOString() : now);
     const typeDesc = finalType.split('/').pop()?.toUpperCase() || 'JPEG';
-    const finalPhotoId = photoId || createId();
+
+    // Validate client-provided photoId or generate a fresh secure ID
+    let finalPhotoId = createId();
+    if (photoId && typeof photoId === 'string' && /^[a-zA-Z0-9_\-]{8,64}$/.test(photoId.trim())) {
+      const cleanPhotoId = photoId.trim();
+      const [existing] = await readOrm
+        .select({ id: photoTab.photoId })
+        .from(photoTab)
+        .where(eq(photoTab.photoId, cleanPhotoId))
+        .limit(1);
+
+      if (!existing) {
+        finalPhotoId = cleanPhotoId;
+      }
+    }
 
     const [photo] = await orm.insert(photoTab).values({
       photoId: finalPhotoId,
@@ -1871,8 +1887,20 @@ const photoService = {
     const finalLng = parseCoord(longitude, -180, 180);
     const finalAlt = parseCoord(altitude, -10000, 100000);
 
+    let finalExif: string | null = null;
+    if (typeof exifJson === 'string' && exifJson.trim() && exifJson.length <= 65536) {
+      try {
+        const parsed = JSON.parse(exifJson);
+        if (parsed && typeof parsed === 'object') {
+          finalExif = JSON.stringify(parsed);
+        }
+      } catch {
+        finalExif = null;
+      }
+    }
+
     await exifService.save(finalPhotoId, {
-      exif: exifJson || null,
+      exif: finalExif,
       latitude: finalLat,
       longitude: finalLng,
       altitude: finalAlt,
@@ -2006,11 +2034,15 @@ const photoService = {
       })
       .where(inArray(photoTab.photoId, validPhotoIds));
 
-    // If visibility is hidden from albums (ARCHIVED or GALLERY_ONLY), unpin them from albums
+    // If visibility is hidden from albums (ARCHIVED or GALLERY_ONLY), unpin them from albums and reset cover references
     if (params.visibility === PhotoVisibilityEnum.ARCHIVED || params.visibility === PhotoVisibilityEnum.GALLERY_ONLY) {
       await orm.update(albumPhotoTab)
         .set({ isPinned: 0, pinnedAt: null })
         .where(inArray(albumPhotoTab.photoId, validPhotoIds));
+
+      await orm.update(albumTab)
+        .set({ coverPhotoId: null, isManualCover: 0, updateTime: new Date().toISOString() })
+        .where(inArray(albumTab.coverPhotoId, validPhotoIds));
     }
 
     invalidatePhotoFastPathCache();
@@ -2099,6 +2131,8 @@ const photoService = {
     await fileService.deleteByPhotoIds(photoIds);
     await commentService.deleteByPhotoIds(photoIds);
     await exifService.deleteByPhotoIds(photoIds);
+    await reactionService.deleteByPhotoIds(photoIds);
+    await insightsService.deleteByPhotoIds(photoIds);
 
     await orm.delete(photoTab)
       .where(inArray(photoTab.photoId, photoIds));
@@ -2190,6 +2224,8 @@ const photoService = {
       await fileService.deleteByPhotoIds(photoIds);
       await commentService.deleteByPhotoIds(photoIds);
       await exifService.deleteByPhotoIds(photoIds);
+      await reactionService.deleteByPhotoIds(photoIds);
+      await insightsService.deleteByPhotoIds(photoIds);
 
       await orm.delete(photoTab)
         .where(and(
@@ -2345,6 +2381,10 @@ const photoService = {
         await orm.update(albumPhotoTab)
           .set({ isPinned: 0, pinnedAt: null })
           .where(inArray(albumPhotoTab.photoId, verifiedPhotoIds));
+
+        await orm.update(albumTab)
+          .set({ coverPhotoId: null, isManualCover: 0, updateTime: new Date().toISOString() })
+          .where(inArray(albumTab.coverPhotoId, verifiedPhotoIds));
       }
     }
 
@@ -2353,7 +2393,15 @@ const photoService = {
     }
 
     if (params.takenTime !== undefined) {
-      updates.takenTime = params.takenTime ? params.takenTime : null;
+      if (params.takenTime) {
+        const parsedTime = Date.parse(params.takenTime);
+        if (isNaN(parsedTime)) {
+          throw new BizError('param.invalid');
+        }
+        updates.takenTime = new Date(parsedTime).toISOString();
+      } else {
+        updates.takenTime = null;
+      }
     }
 
     if (Object.keys(updates).length > 0) {
