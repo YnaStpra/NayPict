@@ -3,6 +3,8 @@ import { createId } from '@/server/lib/id';
 import { type Photo, photoTab } from '@/server/entity/photo';
 import { albumPhotoTab } from '@/server/entity/album-photo';
 import { albumTab } from '@/server/entity/album';
+import { userTab } from '@/server/entity/user';
+import { UserTypeEnum } from '@/server/enums/user-enum';
 import { orm, readOrm } from '@/server/infra/db';
 import BizError from '@/server/error/biz-error';
 import { storage } from '@/server/storage/storage';
@@ -576,11 +578,13 @@ const photoService = {
           desc(albumPhotoTab.pinnedAt),
           desc(photoTab.photoId)
         )
+        .limit(5000)
       : await readOrm
         .select({ photoId: photoTab.photoId })
         .from(photoTab)
         .where(and(...whereList))
-        .orderBy(desc(photoTab.photoId));
+        .orderBy(desc(photoTab.photoId))
+        .limit(5000);
 
     const pinnedIds: string[] = [];
     const unpinnedIds: string[] = [];
@@ -647,6 +651,11 @@ const photoService = {
         .where(eq(albumTab.albumId, params.albumId))
         .limit(1);
       isCurrentAlbumArchived = currentAlbum?.isArchived === 1;
+    }
+
+    // Security: Unauthenticated guests cannot query shooting dates for archived albums
+    if (isCurrentAlbumArchived && !userId) {
+      return [];
     }
 
     if (!isCurrentAlbumArchived) {
@@ -2256,6 +2265,20 @@ const photoService = {
       return null;
     }
 
+    // Cross-tenant IDOR guard: Non-admin users cannot access deleted or archived photos belonging to other users
+    if (currentUserId && (photo.status === PhotoStatusEnum.DELETE || photo.visibility === PhotoVisibilityEnum.ARCHIVED)) {
+      if (photo.userId !== currentUserId) {
+        const [currentUser] = await readOrm
+          .select({ type: userTab.type })
+          .from(userTab)
+          .where(eq(userTab.userId, currentUserId))
+          .limit(1);
+        if (currentUser?.type !== UserTypeEnum.ADMIN) {
+          return null;
+        }
+      }
+    }
+
     // Hide photos belonging to any archived album from unauthenticated visitors
     if (!currentUserId) {
       const [archivedAlbumRel] = await readOrm
@@ -2999,7 +3022,8 @@ const photoService = {
       .from(photoTab)
       .innerJoin(exifTab, eq(photoTab.photoId, exifTab.photoId))
       .where(baseWhere)
-      .orderBy(desc(photoTab.takenTime), desc(photoTab.createTime));
+      .orderBy(desc(photoTab.takenTime), desc(photoTab.createTime))
+      .limit(3000);
 
     if (!rows.length) {
       return [];
@@ -3061,7 +3085,8 @@ const photoService = {
       .from(photoTab)
       .leftJoin(exifTab, eq(photoTab.photoId, exifTab.photoId))
       .where(baseWhere)
-      .orderBy(desc(photoTab.takenTime), desc(photoTab.createTime));
+      .orderBy(desc(photoTab.takenTime), desc(photoTab.createTime))
+      .limit(1000);
 
     if (!rows.length) {
       return [];

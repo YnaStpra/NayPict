@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import zlib from 'node:zlib';
+import { count } from 'drizzle-orm';
 import BizError from '@/server/error/biz-error';
 import { orm } from '@/server/infra/db';
 import { userTab } from '@/server/entity/user';
@@ -39,16 +40,21 @@ const backupService = {
   async getDatabaseStats(): Promise<DatabaseStatsVo> {
     try {
       if (process.env.DATABASE_URL) {
-        const [photos, albums, comments, users] = await Promise.all([
-          orm.select().from(photoTab),
-          orm.select().from(albumTab),
-          orm.select().from(commentTab),
-          orm.select().from(userTab),
+        const [[photoCountRow], [albumCountRow], [commentCountRow], [userCountRow]] = await Promise.all([
+          orm.select({ val: count() }).from(photoTab),
+          orm.select({ val: count() }).from(albumTab),
+          orm.select({ val: count() }).from(commentTab),
+          orm.select({ val: count() }).from(userTab),
         ]);
 
+        const photoCount = Number(photoCountRow?.val || 0);
+        const albumCount = Number(albumCountRow?.val || 0);
+        const commentCount = Number(commentCountRow?.val || 0);
+        const userCount = Number(userCountRow?.val || 0);
+
         return {
-          sizeBytes: (photos.length + albums.length + comments.length + users.length) * 1024,
-          sizeFormatted: `${photos.length} photos, ${albums.length} albums, ${comments.length} comments`,
+          sizeBytes: (photoCount + albumCount + commentCount + userCount) * 1024,
+          sizeFormatted: `${photoCount} photos, ${albumCount} albums, ${commentCount} comments`,
           lastModified: Date.now(),
           exists: false,
         };

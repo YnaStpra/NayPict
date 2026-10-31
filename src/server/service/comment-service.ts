@@ -77,7 +77,8 @@ const commentService = {
         .select()
         .from(commentTab)
         .where(eq(commentTab.photoId, cleanPhotoId))
-        .orderBy(desc(commentTab.isPinned), desc(commentTab.createTime));
+        .orderBy(desc(commentTab.isPinned), desc(commentTab.createTime))
+        .limit(300);
 
       return rows.map((row) => ({
         commentId: row.commentId,

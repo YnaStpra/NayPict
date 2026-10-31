@@ -45,11 +45,14 @@ const loginService = {
     const updatedUuids = [...oldUuids.filter((id) => id !== uuid), uuid].slice(-10)
 
     const now = Date.now()
-    const parsedUa = parseUserAgent(clientMeta?.userAgent)
+    const sanitizedUa = (clientMeta?.userAgent || 'Browser')
+      .replace(/[\x00-\x1f\x7f]/g, '')
+      .slice(0, 255) || 'Browser'
+    const parsedUa = parseUserAgent(sanitizedUa)
     const newSession: SessionMeta = {
       uuid,
-      ip: clientMeta?.ip || 'unknown',
-      userAgent: clientMeta?.userAgent || 'Browser',
+      ip: (clientMeta?.ip || 'unknown').slice(0, 45),
+      userAgent: sanitizedUa,
       deviceLabel: parsedUa.label,
       deviceType: parsedUa.deviceType,
       createdAt: now,
