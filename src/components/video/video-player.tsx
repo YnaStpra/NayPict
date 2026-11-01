@@ -15,6 +15,7 @@ import {
   Wifi,
   WifiOff,
   Sparkles,
+  PictureInPicture2,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { formatVideoDuration } from "@/lib/video-compress"
@@ -97,6 +98,42 @@ export const VideoPlayer = memo(function VideoPlayer({
   const [isMuted, setIsMuted] = useState(false)
   const [volume, setVolume] = useState(1)
   const [isFullscreen, setIsFullscreen] = useState(false)
+  const [isPipActive, setIsPipActive] = useState(false)
+
+  // Listen for Picture-in-Picture state transitions
+  useEffect(() => {
+    const video = videoRef.current
+    if (!video) return
+
+    const handleEnterPip = () => setIsPipActive(true)
+    const handleLeavePip = () => setIsPipActive(false)
+
+    video.addEventListener("enterpictureinpicture", handleEnterPip)
+    video.addEventListener("leavepictureinpicture", handleLeavePip)
+
+    return () => {
+      video.removeEventListener("enterpictureinpicture", handleEnterPip)
+      video.removeEventListener("leavepictureinpicture", handleLeavePip)
+    }
+  }, [])
+
+  const togglePip = useCallback(async () => {
+    const video = videoRef.current
+    if (!video) return
+
+    try {
+      if (document.pictureInPictureElement === video) {
+        await document.exitPictureInPicture()
+      } else if (video.requestPictureInPicture) {
+        await video.requestPictureInPicture()
+      } else if ((video as any).webkitSetPresentationMode) {
+        const mode = (video as any).webkitPresentationMode === "picture-in-picture" ? "inline" : "picture-in-picture"
+        ;(video as any).webkitSetPresentationMode(mode)
+      }
+    } catch (err) {
+      console.warn("Picture-in-Picture request failed:", err)
+    }
+  }, [])
   const isControlled = controlsVisibleProp !== undefined
   const [internalShowControls, setInternalShowControls] = useState(true)
   const showControls = isControlled ? controlsVisibleProp : internalShowControls
@@ -1429,6 +1466,24 @@ export const VideoPlayer = memo(function VideoPlayer({
               aria-label="Replay video"
             >
               <RotateCcw className="size-4.5" />
+            </button>
+
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation()
+                togglePip()
+              }}
+              className={cn(
+                "p-1.5 rounded-lg transition-colors cursor-pointer",
+                isPipActive
+                  ? "text-sky-400 bg-sky-500/20 border border-sky-400/40"
+                  : "text-white/80 hover:text-white hover:bg-white/15"
+              )}
+              title={isPipActive ? "Exit Picture-in-Picture" : "Picture-in-Picture"}
+              aria-label="Toggle Picture-in-Picture"
+            >
+              <PictureInPicture2 className="size-4.5" />
             </button>
 
             <button

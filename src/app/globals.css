@@ -912,6 +912,52 @@ a,
   animation: specular-sheen-sweep 0.9s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
+/* ==========================================================================
+   Clean Print & PDF Export Stylesheet (@media print)
+   ========================================================================== */
+@media print {
+  /* Hide navigation, toolbars, sidebars, buttons, dialogs, and decorative chrome */
+  header,
+  nav,
+  aside,
+  [data-sidebar="sidebar"],
+  [data-sidebar="rail"],
+  [data-sidebar="trigger"],
+  button,
+  .no-print,
+  [role="dialog"],
+  .elastic-pop-badge,
+  .radar-pin-halo,
+  .pin-contrast-halo {
+    display: none !important;
+  }
+
+  /* Reset body and background to crisp high-contrast white for paper/PDF */
+  body,
+  html,
+  main {
+    background: #ffffff !important;
+    color: #111111 !important;
+    width: 100% !important;
+    height: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    font-size: 11pt !important;
+  }
+
+  /* Avoid awkward page breaks that slice photos or cards in half */
+  img,
+  video,
+  figure,
+  .photo-card-container,
+  [data-masonry-card] {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+    max-width: 100% !important;
+    box-shadow: none !important;
+  }
+}
+
 
 
 

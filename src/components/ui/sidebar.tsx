@@ -108,6 +108,55 @@ function SidebarProvider({
     return () => window.removeEventListener("keydown", handleKeyDown)
   }, [toggleSidebar])
 
+  // Edge-swipe gesture to open mobile sidebar drawer smoothly on iOS & Android
+  React.useEffect(() => {
+    if (!isMobile || typeof window === "undefined") return
+
+    let touchStartX = 0
+    let touchStartY = 0
+    let isTracking = false
+
+    const handleTouchStart = (e: TouchEvent) => {
+      if (e.touches.length !== 1) return
+      const x = e.touches[0].clientX
+      const y = e.touches[0].clientY
+
+      // Don't trigger if photo lightbox or submodals are open
+      if (document.querySelector("[data-yarl-viewer-open='true']") || document.querySelector("[role='dialog']")) {
+        return
+      }
+
+      // Edge gesture: swipe starts within 28px of screen left edge
+      if (x <= 28) {
+        touchStartX = x
+        touchStartY = y
+        isTracking = true
+      }
+    }
+
+    const handleTouchEnd = (e: TouchEvent) => {
+      if (!isTracking || e.changedTouches.length !== 1) return
+      isTracking = false
+      const endX = e.changedTouches[0].clientX
+      const endY = e.changedTouches[0].clientY
+      const dx = endX - touchStartX
+      const dy = endY - touchStartY
+
+      // Swipe right from left edge opens mobile sidebar: dx > 50px and vertical drift < 40px
+      if (dx > 50 && Math.abs(dy) < 40) {
+        setOpenMobile(true)
+      }
+    }
+
+    window.addEventListener("touchstart", handleTouchStart, { passive: true })
+    window.addEventListener("touchend", handleTouchEnd, { passive: true })
+
+    return () => {
+      window.removeEventListener("touchstart", handleTouchStart)
+      window.removeEventListener("touchend", handleTouchEnd)
+    }
+  }, [isMobile])
+
   // We add a state so that we can do data-state="expanded" or "collapsed".
   // This makes it easier to style the sidebar with Tailwind classes.
   const state = open ? "expanded" : "collapsed"
