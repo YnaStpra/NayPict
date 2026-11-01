@@ -1,8 +1,7 @@
 "use client"
 
 import { Column, ColumnDef } from "@tanstack/react-table"
-import { IconCircleCheckFilled, IconCircleXFilled } from "@tabler/icons-react"
-import { ArrowUpDown, MoreHorizontal } from "lucide-react"
+import { ArrowUpDown, CheckCircle2, MoreHorizontal, XCircle } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -60,12 +59,15 @@ function formatCapacity(size: number) {
 function StorageStatusBadge({ status }: { status: number }) {
   const t = useTranslations("storage")
   const disabled = status === 1
-  const Icon = disabled ? IconCircleXFilled : IconCircleCheckFilled
   const text = disabled ? t("disabled") : t("active")
 
   return (
-    <Badge variant="outline" className="px-1.5 text-muted-foreground">
-      <Icon className={disabled ? "fill-red-500" : "fill-green-500 dark:fill-green-400"} />
+    <Badge variant="outline" className="px-1.5 text-muted-foreground flex items-center gap-1.5">
+      {disabled ? (
+        <XCircle className="h-3.5 w-3.5 text-red-500 fill-red-500/20" />
+      ) : (
+        <CheckCircle2 className="h-3.5 w-3.5 text-green-500 dark:text-green-400 fill-green-500/20" />
+      )}
       {text}
     </Badge>
   )

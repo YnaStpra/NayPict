@@ -27,7 +27,17 @@ const nextConfig: NextConfig = {
   // Always use standalone output for Docker/Render; Vercel ignores this setting.
   output: 'standalone',
   experimental: {
-    optimizePackageImports: ['lucide-react', '@tabler/icons-react', 'recharts', 'framer-motion', 'radix-ui'],
+    optimizePackageImports: [
+      'lucide-react',
+      'recharts',
+      'framer-motion',
+      'radix-ui',
+      '@radix-ui/react-dialog',
+      '@radix-ui/react-dropdown-menu',
+      '@radix-ui/react-tooltip',
+      '@radix-ui/react-popover',
+      'sonner',
+    ],
   },
   images: {
     unoptimized: true,

@@ -129,25 +129,20 @@ export async function processPhotoImages(buffer: Buffer, mimeType?: string): Pro
     .jpeg({ quality: 86, progressive: true, mozjpeg: true, trellisQuantisation: true, overshootDeringing: true })
     .toBuffer()
 
-  // 3. Medium responsive derivative (1280px max bound with high-efficiency WebP)
-  const mediumBuffer = await sharp(orientedBuffer, SHARP_SECURITY_OPTIONS)
-    .resize({ width: 1280, height: 1280, fit: "inside", withoutEnlargement: true })
-    .webp({ quality: 85, effort: 5 })
-    .toBuffer()
-
-  // 4. Crisp gallery grid thumbnail: High-compression AVIF format (25-35% lighter than WebP) with WebP fallback (720px max bound for Retina sharpness)
+  // 3. Crisp gallery grid thumbnail: High-compression AVIF format (25-35% lighter than WebP) with WebP fallback (720px max bound for Retina sharpness)
+  // Generated directly from orientedBuffer to avoid lossy intermediate WebP encoding and eliminate dead CPU waste.
   let thumbnailBuffer: Buffer
   let thumbnailType = "image/avif"
   try {
-    thumbnailBuffer = await sharp(mediumBuffer, SHARP_SECURITY_OPTIONS)
+    thumbnailBuffer = await sharp(orientedBuffer, SHARP_SECURITY_OPTIONS)
       .resize({ width: 720, height: 720, fit: "inside", withoutEnlargement: true })
       .avif({ quality: 80, effort: 4 })
       .toBuffer()
   } catch {
     thumbnailType = "image/webp"
-    thumbnailBuffer = await sharp(mediumBuffer, SHARP_SECURITY_OPTIONS)
+    thumbnailBuffer = await sharp(orientedBuffer, SHARP_SECURITY_OPTIONS)
       .resize({ width: 720, height: 720, fit: "inside", withoutEnlargement: true })
-      .webp({ quality: 84, effort: 6, smartSubsample: true })
+      .webp({ quality: 84, effort: 5, smartSubsample: true })
       .toBuffer()
   }
 
@@ -165,7 +160,6 @@ export async function processPhotoImages(buffer: Buffer, mimeType?: string): Pro
 
   return {
     previewBuffer,
-    mediumBuffer,
     thumbnailBuffer,
     thumbnailType,
     optimizedOriginalBuffer: optimizedOriginal.buffer,
