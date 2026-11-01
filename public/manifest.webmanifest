@@ -1,14 +1,66 @@
 {
+  "id": "/",
   "name": "NayPict - Photo Gallery",
   "short_name": "NayPict",
   "description": "A modern, elegant web-based photo gallery and exhibition.",
   "start_url": "/photos",
   "scope": "/",
   "display": "standalone",
+  "display_override": [
+    "window-controls-overlay",
+    "standalone",
+    "minimal-ui"
+  ],
   "orientation": "any",
   "background_color": "#141414",
   "theme_color": "#141414",
-  "categories": ["photography", "photo", "gallery", "portfolio"],
+  "categories": [
+    "photography",
+    "photo",
+    "gallery",
+    "portfolio"
+  ],
+  "shortcuts": [
+    {
+      "name": "Explore Photos",
+      "short_name": "Gallery",
+      "description": "View the curated photo gallery",
+      "url": "/photos",
+      "icons": [
+        {
+          "src": "/naypict-icon-192x192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "Photo Albums",
+      "short_name": "Albums",
+      "description": "Browse albums and collections",
+      "url": "/albums",
+      "icons": [
+        {
+          "src": "/naypict-icon-192x192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "Photo Map",
+      "short_name": "Map",
+      "description": "Explore photos on the world map",
+      "url": "/map",
+      "icons": [
+        {
+          "src": "/naypict-icon-192x192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    }
+  ],
   "icons": [
     {
       "src": "/naypict-icon-192x192.png",

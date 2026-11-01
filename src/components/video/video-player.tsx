@@ -22,6 +22,7 @@ import { toProxyMediaUrl } from "@/lib/url"
 import { PhotoReactions } from "@/components/photo/photo-reactions"
 import { AnalogFilmStripCompact } from "@/components/photo/analog-film-strip"
 import { getIsOffline, notifyConnectionRestored } from "@/lib/network-status"
+import { useWakeLock } from "@/hooks/use-wake-lock"
 import { VideoAmbientGlow } from "./video-ambient-glow"
 
 // Module-level map to store the exact playback timestamp per media item across view toggles and re-renders
@@ -83,6 +84,9 @@ export const VideoPlayer = memo(function VideoPlayer({
   const seekSafetyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const [isPlaying, setIsPlaying] = useState(false)
+
+  // Hold Screen Wake Lock during active playback to prevent display sleeping on mobile & laptops
+  useWakeLock(isPlaying)
   const [currentTime, setCurrentTime] = useState(0)
   const [scrubTime, setScrubTime] = useState(0)
   const [hoverTime, setHoverTime] = useState<number | null>(null)

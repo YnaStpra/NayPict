@@ -15,6 +15,7 @@ import { usePinch } from "@use-gesture/react"
 import { LayoutGrid } from "lucide-react"
 import { useApp } from "@/app/provider"
 import { useIsMobile } from "@/hooks/use-mobile"
+import { useAdaptivePerformance } from "@/hooks/use-adaptive-performance"
 import { PhotoCard, loadedThumbnails } from "@/components/photo/photo-card"
 import { PhotoSelectionDrawer } from "@/components/photo/photo-selection-drawer"
 import { type PhotoVo } from "@/server/entity/vo/photo"
@@ -292,6 +293,7 @@ const PhotoMasonry = memo(function PhotoMasonry({
   const { sidebarOpen, userInfo } = useApp()
   const isAdmin = userInfo?.type === 1
   const isMobile = useIsMobile()
+  const { isLowEndDevice } = useAdaptivePerformance()
   const wrapRef = useRef<HTMLDivElement | null>(null)
   const onReachBottomRef = useRef(onReachBottom)
   const [windowHeight, setWindowHeight] = useState(() => (typeof window !== "undefined" ? window.innerHeight : 800))
@@ -998,7 +1000,7 @@ const PhotoMasonry = memo(function PhotoMasonry({
             offset={wrapPosition.offset}
             height={windowHeight}
             itemKey={(item) => item?.photoId ?? ''}
-            overscanBy={isMobile ? 2 : 4}
+            overscanBy={isLowEndDevice ? 1 : isMobile ? 2 : 4}
             render={MasonicPhotoCard}
             sidebarOpen={sidebarOpen}
           />
