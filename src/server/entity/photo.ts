@@ -30,6 +30,7 @@ export const photoTab = pgTable(
     index('idx_photo_user_status').on(table.userId, table.status),
     index('idx_photo_checksum').on(table.checksum),
     index('idx_photo_recycle_time').on(table.status, table.recycleTime),
+    index('idx_photo_storage_id').on(table.storageId),
   ]
 );
 

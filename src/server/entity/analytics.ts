@@ -32,6 +32,7 @@ export const visitorSessionTab = pgTable(
     index('idx_visitor_session_visitor_id').on(table.visitorId),
     index('idx_visitor_session_started_at').on(table.startedAt),
     index('idx_visitor_session_last_active').on(table.lastActiveAt),
+    index('idx_visitor_session_admin_started').on(table.isAdmin, table.startedAt),
   ]
 );
 

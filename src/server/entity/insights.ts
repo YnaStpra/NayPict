@@ -18,6 +18,7 @@ export const photoViewTab = pgTable(
   (table) => [
     index('idx_photo_view_photo_type').on(table.photoId, table.type),
     index('idx_photo_view_type_time').on(table.type, table.viewedAt),
+    index('idx_photo_view_photo_type_time').on(table.photoId, table.type, table.viewedAt),
     index('idx_photo_view_dedup').on(table.photoId, table.visitorId, table.type, table.viewedAt),
   ]
 );

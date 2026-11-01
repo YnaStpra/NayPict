@@ -142,5 +142,56 @@ describe('Media Performance & Delivery Optimization Test Suite', () => {
     });
   });
 
+  describe('Deep Performance Sprint: Pipeline, SQL Aggregation & Indexes', () => {
+    it('eliminates dead WebP mediumBuffer compression during photo processing', () => {
+      const processFile = path.resolve(process.cwd(), 'src/server/lib/photo-process.ts');
+      const processContent = fs.readFileSync(processFile, 'utf-8');
+      assert.ok(!processContent.includes('const mediumBuffer ='), 'Dead mediumBuffer WebP generation must be eliminated');
+      assert.ok(processContent.includes('Generated directly from orientedBuffer to avoid lossy intermediate WebP encoding'), 'Thumbnail must generate directly from orientedBuffer');
+    });
+
+    it('consolidates N+1 sequential insight queries into single-roundtrip SQL conditional aggregation', () => {
+      const insightsFile = path.resolve(process.cwd(), 'src/server/service/insights-service.ts');
+      const insightsContent = fs.readFileSync(insightsFile, 'utf-8');
+      assert.ok(insightsContent.includes('COUNT(*) FILTER (WHERE'), 'Must use SQL conditional aggregation for metrics');
+      assert.ok(insightsContent.includes('Promise.all(['), 'Overview metrics must run in parallel');
+    });
+
+    it('lazy-loads EXIF and file metadata only for identified duplicate clusters', () => {
+      const serviceFile = path.resolve(process.cwd(), 'src/server/service/photo-service.ts');
+      const serviceContent = fs.readFileSync(serviceFile, 'utf-8');
+      assert.ok(serviceContent.includes('duplicatePhotoIds = Array.from(new Set(validClusters.flatMap'), 'Must only fetch metadata for duplicate clusters');
+    });
+
+    it('ensures high-traffic columns have dedicated database indexes', () => {
+      const photoEntity = fs.readFileSync(path.resolve(process.cwd(), 'src/server/entity/photo.ts'), 'utf-8');
+      assert.ok(photoEntity.includes('idx_photo_storage_id'), 'photoTab must index storageId');
+
+      const analyticsEntity = fs.readFileSync(path.resolve(process.cwd(), 'src/server/entity/analytics.ts'), 'utf-8');
+      assert.ok(analyticsEntity.includes('idx_visitor_session_admin_started'), 'visitorSessionTab must index (isAdmin, startedAt)');
+
+      const insightsEntity = fs.readFileSync(path.resolve(process.cwd(), 'src/server/entity/insights.ts'), 'utf-8');
+      assert.ok(insightsEntity.includes('idx_photo_view_photo_type_time'), 'photoViewTab must index (photoId, type, viewedAt)');
+    });
+
+    it('pre-caches CSS Houdini paint worklets in PWA service worker', () => {
+      const swFile = path.resolve(process.cwd(), 'public/sw.js');
+      const swContent = fs.readFileSync(swFile, 'utf-8');
+      assert.ok(swContent.includes('/worklets/smooth-corners.js'), 'Must precache smooth corners worklet');
+      assert.ok(swContent.includes('/worklets/skeleton-shimmer.js'), 'Must precache skeleton shimmer worklet');
+    });
+
+    it('tree-shakes @tabler/icons-react and configures Turbopack optimizePackageImports', () => {
+      const pkgFile = path.resolve(process.cwd(), 'package.json');
+      const pkgContent = fs.readFileSync(pkgFile, 'utf-8');
+      assert.ok(!pkgContent.includes('@tabler/icons-react'), '@tabler/icons-react must be removed from package.json');
+
+      const nextConfigFile = path.resolve(process.cwd(), 'next.config.ts');
+      const nextConfigContent = fs.readFileSync(nextConfigFile, 'utf-8');
+      assert.ok(nextConfigContent.includes('@radix-ui/react-dialog'), 'optimizePackageImports must include Radix UI modules');
+      assert.ok(nextConfigContent.includes('sonner'), 'optimizePackageImports must include sonner');
+    });
+  });
+
 });
 
