@@ -449,25 +449,18 @@ describe('Media Performance & Delivery Optimization Test Suite', () => {
     });
   });
 
-  describe('Sprint 8 Cross-Platform Media, Native Sharing & Instagram Calendar Suite', () => {
-    it('implements inline scrollable Instagram-style Photo Archive Calendar view with continuous monthly stream and jump controls', () => {
-      const calendarFile = path.resolve(process.cwd(), 'src/components/photo/photo-calendar-view.tsx');
-      assert.ok(fs.existsSync(calendarFile), 'PhotoCalendarView file must exist');
-      const calendarContent = fs.readFileSync(calendarFile, 'utf-8');
-      assert.ok(calendarContent.includes('photosByDate'), 'Calendar must aggregate photos by date');
-      assert.ok(calendarContent.includes('handleJumpToDate'), 'Calendar must support jump to date');
-      assert.ok(calendarContent.includes('availableYears'), 'Calendar must restrict years between 2018 and current year');
-      assert.ok(calendarContent.includes('contentVisibility: "auto"'), 'Calendar months must use content-visibility for 60fps scrolling');
-
+  describe('Sprint 8 Cross-Platform Media, Native Sharing & Date Grouping Suite', () => {
+    it('restores header calendar button to toggle grouping media by date taken without forcing external calendar view', () => {
       const photosPageFile = path.resolve(process.cwd(), 'src/app/photos/page.tsx');
       const photosPageContent = fs.readFileSync(photosPageFile, 'utf-8');
-      assert.ok(photosPageContent.includes('PhotoCalendarView'), 'photos/page.tsx must mount PhotoCalendarView');
-      assert.ok(photosPageContent.includes('viewMode === "calendar"'), 'Calendar icon must toggle inline calendar view mode');
+      assert.ok(photosPageContent.includes('toggleGroupByDate'), 'photos/page.tsx must provide toggleGroupByDate');
+      assert.ok(photosPageContent.includes('groupByDate'), 'photos/page.tsx must track groupByDate state');
+      assert.ok(photosPageContent.includes('Group Media by Date Taken'), 'Header icon tooltip must indicate Group Media by Date Taken');
 
       const albumPageFile = path.resolve(process.cwd(), 'src/app/albums/[albumId]/page.tsx');
       const albumPageContent = fs.readFileSync(albumPageFile, 'utf-8');
-      assert.ok(albumPageContent.includes('PhotoCalendarView'), 'albumId/page.tsx must mount PhotoCalendarView');
-      assert.ok(albumPageContent.includes('viewMode === "calendar"'), 'Album calendar icon must toggle inline calendar view mode');
+      assert.ok(albumPageContent.includes('toggleGroupByDate'), 'albumId/page.tsx must provide toggleGroupByDate');
+      assert.ok(albumPageContent.includes('groupByDate'), 'albumId/page.tsx must track groupByDate state');
     });
 
     it('enables native Picture-in-Picture on video player across desktop and mobile', () => {
