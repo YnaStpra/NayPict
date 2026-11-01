@@ -450,23 +450,24 @@ describe('Media Performance & Delivery Optimization Test Suite', () => {
   });
 
   describe('Sprint 8 Cross-Platform Media, Native Sharing & Instagram Calendar Suite', () => {
-    it('implements Instagram-style Photo Archive Calendar dialog with thumbnail tiles and date grouping', () => {
-      const calendarFile = path.resolve(process.cwd(), 'src/components/photo/photo-calendar-dialog.tsx');
-      assert.ok(fs.existsSync(calendarFile), 'PhotoCalendarDialog file must exist');
+    it('implements inline scrollable Instagram-style Photo Archive Calendar view with continuous monthly stream and jump controls', () => {
+      const calendarFile = path.resolve(process.cwd(), 'src/components/photo/photo-calendar-view.tsx');
+      assert.ok(fs.existsSync(calendarFile), 'PhotoCalendarView file must exist');
       const calendarContent = fs.readFileSync(calendarFile, 'utf-8');
       assert.ok(calendarContent.includes('photosByDate'), 'Calendar must aggregate photos by date');
-      assert.ok(calendarContent.includes('calendarCells'), 'Calendar must calculate day cells');
-      assert.ok(calendarContent.includes('handleTouchEnd'), 'Calendar must support horizontal swipe between months');
+      assert.ok(calendarContent.includes('handleJumpToDate'), 'Calendar must support jump to date');
+      assert.ok(calendarContent.includes('availableYears'), 'Calendar must restrict years between 2018 and current year');
+      assert.ok(calendarContent.includes('contentVisibility: "auto"'), 'Calendar months must use content-visibility for 60fps scrolling');
 
       const photosPageFile = path.resolve(process.cwd(), 'src/app/photos/page.tsx');
       const photosPageContent = fs.readFileSync(photosPageFile, 'utf-8');
-      assert.ok(photosPageContent.includes('PhotoCalendarDialog'), 'photos/page.tsx must mount PhotoCalendarDialog');
-      assert.ok(photosPageContent.includes('setCalendarOpen(true)'), 'Calendar icon must open calendar dialog');
+      assert.ok(photosPageContent.includes('PhotoCalendarView'), 'photos/page.tsx must mount PhotoCalendarView');
+      assert.ok(photosPageContent.includes('viewMode === "calendar"'), 'Calendar icon must toggle inline calendar view mode');
 
       const albumPageFile = path.resolve(process.cwd(), 'src/app/albums/[albumId]/page.tsx');
       const albumPageContent = fs.readFileSync(albumPageFile, 'utf-8');
-      assert.ok(albumPageContent.includes('PhotoCalendarDialog'), 'albumId/page.tsx must mount PhotoCalendarDialog');
-      assert.ok(albumPageContent.includes('setCalendarOpen(true)'), 'Album calendar icon must open calendar dialog');
+      assert.ok(albumPageContent.includes('PhotoCalendarView'), 'albumId/page.tsx must mount PhotoCalendarView');
+      assert.ok(albumPageContent.includes('viewMode === "calendar"'), 'Album calendar icon must toggle inline calendar view mode');
     });
 
     it('enables native Picture-in-Picture on video player across desktop and mobile', () => {

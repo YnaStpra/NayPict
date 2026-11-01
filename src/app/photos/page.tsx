@@ -38,7 +38,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { PhotoMasonrySkeleton } from "@/components/photo/photo-masonry-skeleton"
-import { PhotoCalendarDialog } from "@/components/photo/photo-calendar-dialog"
+import { PhotoCalendarView } from "@/components/photo/photo-calendar-view"
 import { GalleryBottomStatus } from "@/components/photo/gallery-bottom-status"
 import { BackToTopButton } from "@/components/ui/back-to-top-button"
 import { OdometerCounter } from "@/components/ui/odometer-counter"
@@ -102,10 +102,9 @@ export default function Page() {
   const isAdmin = userInfo?.type === UserTypeEnum.ADMIN
 
   const isBrowser = useSyncExternalStore(emptySubscribe, () => true, () => false)
-  const [viewMode, setViewMode] = useState<"masonry" | "infinite">("masonry")
+  const [viewMode, setViewMode] = useState<"masonry" | "calendar" | "infinite">("masonry")
   const [sortKey, setSortKey] = useState<SortOptionKey>("none")
   const [groupByDate, setGroupByDate] = useState<boolean>(false)
-  const [calendarOpen, setCalendarOpen] = useState<boolean>(false)
   const [isScrolled, setIsScrolled] = useState<boolean>(false)
   const { coords, requestLocation } = useUserLocation()
 
@@ -501,26 +500,26 @@ export default function Page() {
                 </Tooltip>
               </TooltipProvider>
 
-              {/* Photo Archive Calendar (Instagram View) */}
+              {/* Photo Archive Calendar View Toggle */}
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button
                       type="button"
-                      variant={calendarOpen ? "secondary" : "ghost"}
+                      variant={viewMode === "calendar" ? "secondary" : "ghost"}
                       size="icon"
                       className={`size-8 rounded-lg transition-all duration-200 cursor-pointer ${
-                        calendarOpen
+                        viewMode === "calendar"
                           ? "bg-sky-500/15 text-sky-500 dark:text-sky-400 border border-sky-500/30 shadow-2xs"
                           : "text-sky-500 dark:text-sky-400 hover:bg-sky-500/10 hover:text-sky-600 dark:hover:text-sky-300"
                       }`}
-                      onClick={() => setCalendarOpen(true)}
+                      onClick={() => setViewMode((prev) => (prev === "calendar" ? "masonry" : "calendar"))}
                     >
                       <CalendarDays className="size-4 text-sky-500 dark:text-sky-400" />
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent side="bottom">
-                    Photo Archive Calendar (Instagram View)
+                    {viewMode === "calendar" ? "Switch to Gallery Grid" : "Switch to Calendar View"}
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
@@ -597,6 +596,12 @@ export default function Page() {
                     friction={10}
                   />
                 </div>
+              ) : viewMode === "calendar" ? (
+                <PhotoCalendarView
+                  photos={displayPhotos}
+                  minYear={2018}
+                  onPhotoClick={handleCalendarPhotoClick}
+                />
               ) : (
                 <PullToRefresh
                   onRefresh={handlePullRefresh}
@@ -653,12 +658,6 @@ export default function Page() {
         onOpenChange={setAlbumDialogOpen}
         onAlbumSelect={changePhotoAlbum}
         initialSelectedAlbumIds={initialAlbumIds}
-      />
-      <PhotoCalendarDialog
-        open={calendarOpen}
-        onOpenChange={setCalendarOpen}
-        photos={displayPhotos}
-        onPhotoClick={handleCalendarPhotoClick}
       />
       <BackToTopButton />
     </>
