@@ -592,6 +592,61 @@ function RotateButton({
 }
 
 // Render share button.
+// Safely copy media image binary (or fallback to URL) directly to system clipboard via ClipboardItem
+async function copySlideToClipboard(slide?: PhotoSlideType | null, shareUrl?: string): Promise<boolean> {
+  if (typeof window === "undefined") return false
+  const urlToCopy = shareUrl || (slide?.photoId ? `${window.location.origin}${window.location.pathname}?photoId=${slide.photoId}` : window.location.href)
+  const isVideo = Boolean(slide?.mediaType?.startsWith("video/"))
+
+  // For photos on desktop/modern browsers, try copying the actual image binary
+  if (!isVideo && slide?.src && typeof ClipboardItem !== "undefined" && navigator.clipboard?.write) {
+    try {
+      const res = await fetch(slide.src, { cache: "force-cache" })
+      if (res.ok) {
+        const blob = await res.blob()
+        let pngBlob = blob
+        if (blob.type !== "image/png") {
+          const img = new Image()
+          img.crossOrigin = "anonymous"
+          const loadPromise = new Promise<void>((resolve, reject) => {
+            img.onload = () => resolve()
+            img.onerror = () => reject(new Error("Img load failed"))
+          })
+          img.src = URL.createObjectURL(blob)
+          await loadPromise
+          const canvas = document.createElement("canvas")
+          canvas.width = img.naturalWidth || img.width
+          canvas.height = img.naturalHeight || img.height
+          const ctx = canvas.getContext("2d")
+          if (ctx) {
+            ctx.drawImage(img, 0, 0)
+            pngBlob = await new Promise<Blob>((resolve) =>
+              canvas.toBlob((b) => resolve(b || blob), "image/png")
+            )
+          }
+          URL.revokeObjectURL(img.src)
+        }
+
+        await navigator.clipboard.write([new ClipboardItem({ "image/png": pngBlob })])
+        toast.success("Image copied to clipboard! You can paste it directly.")
+        return true
+      }
+    } catch {
+      // Fallback to URL text
+    }
+  }
+
+  // Fallback to copying URL
+  try {
+    await navigator.clipboard.writeText(urlToCopy)
+    toast.success("Link copied to clipboard!")
+    return true
+  } catch {
+    toast.error("Failed to copy to clipboard")
+    return false
+  }
+}
+
 function ShareButton({
   showActions,
   slide,
@@ -620,6 +675,29 @@ function ShareButton({
 
     if (navigator.share) {
       try {
+        // Web Share API Level 2: Native Image File Sharing on iOS & Android
+        if (!isVideo && typeof navigator.canShare === "function" && slide.src) {
+          try {
+            const res = await fetch(slide.src, { cache: "force-cache" })
+            if (res.ok) {
+              const blob = await res.blob()
+              const fileType = blob.type || "image/jpeg"
+              const ext = fileType.split("/")[1]?.replace("+xml", "") || "jpg"
+              const file = new File([blob], `${slide.alt || "photo"}.${ext}`, { type: fileType })
+              if (navigator.canShare({ files: [file] })) {
+                await navigator.share({
+                  files: [file],
+                  title: slide.alt || defaultTitle,
+                  text: `Check out "${slide.alt || defaultTitle}" on NayPict`,
+                })
+                return
+              }
+            }
+          } catch {
+            // Fall through to link share
+          }
+        }
+
         await navigator.share({
           title: slide.alt || defaultTitle,
           text: `Check out "${slide.alt || defaultTitle}" on NayPict`,
@@ -633,12 +711,7 @@ function ShareButton({
       }
     }
 
-    try {
-      await navigator.clipboard.writeText(shareUrl)
-      toast.success(t("copied"))
-    } catch {
-      toast.error(t("copyFailed"))
-    }
+    await copySlideToClipboard(slide, shareUrl)
   }
 
   const tap = useTapAction(handleShare)
@@ -1881,6 +1954,10 @@ export function PhotoViewer({
       } else if (event.key === "i" || event.key === "I") {
         event.preventDefault()
         handleToggleInfo()
+      } else if ((event.metaKey || event.ctrlKey) && (event.key === "c" || event.key === "C")) {
+        event.preventDefault()
+        const currentSlide = slides[viewIndex]
+        void copySlideToClipboard(currentSlide)
       } else if (event.key === "c" || event.key === "C") {
         event.preventDefault()
         handleToggleComments()

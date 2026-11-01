@@ -48,6 +48,7 @@ import { OdometerCounter } from "@/components/ui/odometer-counter"
 import { useAlbumPhotoContext } from "@/app/albums/[albumId]/provider"
 import { useApp } from "@/app/provider"
 import { PhotoMasonrySkeleton } from "@/components/photo/photo-masonry-skeleton"
+import { PhotoCalendarDialog } from "@/components/photo/photo-calendar-dialog"
 import { GalleryBottomStatus } from "@/components/photo/gallery-bottom-status"
 import { BackToTopButton } from "@/components/ui/back-to-top-button"
 import { UserTypeEnum } from "@/server/enums/user-enum"
@@ -100,6 +101,7 @@ export default function Page() {
   const [viewMode, setViewMode] = useState<"masonry" | "infinite">("masonry")
   const [sortKey, setSortKey] = useState<SortOptionKey>("none")
   const [groupByDate, setGroupByDate] = useState(false)
+  const [calendarOpen, setCalendarOpen] = useState(false)
 
   const handleUnarchiveAlbum = useCallback(async () => {
     try {
@@ -413,6 +415,13 @@ export default function Page() {
     return photos.map((p) => ({ ...p, isPinned: false }))
   }, [photos, sortKey])
 
+  const handleCalendarPhotoClick = useCallback((photo: PhotoVo) => {
+    const idx = displayAlbumPhotos.findIndex((p) => p.photoId === photo.photoId)
+    if (idx !== -1) {
+      openPhoto(idx)
+    }
+  }, [displayAlbumPhotos, openPhoto])
+
   return (
     <>
       <SidebarProvider open={sidebarOpen} onOpenChange={setSidebarOpen}>
@@ -497,31 +506,29 @@ export default function Page() {
                 </Tooltip>
               </TooltipProvider>
 
-              {/* Group Photos by Date Taken Toggle */}
-              {viewMode === "masonry" && (
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        type="button"
-                        variant={groupByDate ? "secondary" : "ghost"}
-                        size="icon"
-                        className={`size-8 rounded-lg transition-all duration-200 cursor-pointer ${
-                          groupByDate
-                            ? "bg-sky-500/15 text-sky-500 dark:text-sky-400 border border-sky-500/30 shadow-2xs"
-                            : "text-sky-500 dark:text-sky-400 hover:bg-sky-500/10 hover:text-sky-600 dark:hover:text-sky-300"
-                        }`}
-                        onClick={toggleGroupByDate}
-                      >
-                        <CalendarDays className="size-4 text-sky-500 dark:text-sky-400" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent side="bottom">
-                      {groupByDate ? "Grouped by Date Taken (Click to flatten)" : "Group Media by Date Taken"}
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              )}
+              {/* Photo Archive Calendar (Instagram View) */}
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      type="button"
+                      variant={calendarOpen ? "secondary" : "ghost"}
+                      size="icon"
+                      className={`size-8 rounded-lg transition-all duration-200 cursor-pointer ${
+                        calendarOpen
+                          ? "bg-sky-500/15 text-sky-500 dark:text-sky-400 border border-sky-500/30 shadow-2xs"
+                          : "text-sky-500 dark:text-sky-400 hover:bg-sky-500/10 hover:text-sky-600 dark:hover:text-sky-300"
+                      }`}
+                      onClick={() => setCalendarOpen(true)}
+                    >
+                      <CalendarDays className="size-4 text-sky-500 dark:text-sky-400" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">
+                    Photo Archive Calendar (Instagram View)
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
 
               {/* Sort Dropdown (Icon-only with sort direction indicator) */}
               <DropdownMenu modal={false}>
@@ -694,6 +701,12 @@ export default function Page() {
           albumName={albumDisplayName}
         />
       )}
+      <PhotoCalendarDialog
+        open={calendarOpen}
+        onOpenChange={setCalendarOpen}
+        photos={displayAlbumPhotos}
+        onPhotoClick={handleCalendarPhotoClick}
+      />
       <BackToTopButton />
     </>
   )

@@ -449,5 +449,58 @@ describe('Media Performance & Delivery Optimization Test Suite', () => {
     });
   });
 
+  describe('Sprint 8 Cross-Platform Media, Native Sharing & Instagram Calendar Suite', () => {
+    it('implements Instagram-style Photo Archive Calendar dialog with thumbnail tiles and date grouping', () => {
+      const calendarFile = path.resolve(process.cwd(), 'src/components/photo/photo-calendar-dialog.tsx');
+      assert.ok(fs.existsSync(calendarFile), 'PhotoCalendarDialog file must exist');
+      const calendarContent = fs.readFileSync(calendarFile, 'utf-8');
+      assert.ok(calendarContent.includes('photosByDate'), 'Calendar must aggregate photos by date');
+      assert.ok(calendarContent.includes('calendarCells'), 'Calendar must calculate day cells');
+      assert.ok(calendarContent.includes('handleTouchEnd'), 'Calendar must support horizontal swipe between months');
+
+      const photosPageFile = path.resolve(process.cwd(), 'src/app/photos/page.tsx');
+      const photosPageContent = fs.readFileSync(photosPageFile, 'utf-8');
+      assert.ok(photosPageContent.includes('PhotoCalendarDialog'), 'photos/page.tsx must mount PhotoCalendarDialog');
+      assert.ok(photosPageContent.includes('setCalendarOpen(true)'), 'Calendar icon must open calendar dialog');
+
+      const albumPageFile = path.resolve(process.cwd(), 'src/app/albums/[albumId]/page.tsx');
+      const albumPageContent = fs.readFileSync(albumPageFile, 'utf-8');
+      assert.ok(albumPageContent.includes('PhotoCalendarDialog'), 'albumId/page.tsx must mount PhotoCalendarDialog');
+      assert.ok(albumPageContent.includes('setCalendarOpen(true)'), 'Album calendar icon must open calendar dialog');
+    });
+
+    it('enables native Picture-in-Picture on video player across desktop and mobile', () => {
+      const videoFile = path.resolve(process.cwd(), 'src/components/video/video-player.tsx');
+      const videoContent = fs.readFileSync(videoFile, 'utf-8');
+      assert.ok(videoContent.includes('togglePip'), 'VideoPlayer must define togglePip');
+      assert.ok(videoContent.includes('requestPictureInPicture'), 'VideoPlayer must call requestPictureInPicture');
+      assert.ok(videoContent.includes('webkitSetPresentationMode'), 'VideoPlayer must support WebKit presentation mode');
+    });
+
+    it('upgrades PhotoViewer sharing to Web Share API Level 2 native file sharing and ClipboardItem binary copying', () => {
+      const viewerFile = path.resolve(process.cwd(), 'src/components/photo/photo-viewer.tsx');
+      const viewerContent = fs.readFileSync(viewerFile, 'utf-8');
+      assert.ok(viewerContent.includes('navigator.canShare({ files: [file] })'), 'Must support Web Share API Level 2 file sharing');
+      assert.ok(viewerContent.includes('new ClipboardItem'), 'Must support ClipboardItem binary copying');
+      assert.ok(viewerContent.includes('copySlideToClipboard'), 'Must define copySlideToClipboard');
+      assert.ok(viewerContent.includes('(event.metaKey || event.ctrlKey) && (event.key === "c" || event.key === "C")'), 'Must support Cmd+C/Ctrl+C keyboard shortcut');
+    });
+
+    it('supports edge-swipe gestures on mobile to open navigation drawer', () => {
+      const sidebarFile = path.resolve(process.cwd(), 'src/components/ui/sidebar.tsx');
+      const sidebarContent = fs.readFileSync(sidebarFile, 'utf-8');
+      assert.ok(sidebarContent.includes('x <= 28') || sidebarContent.includes('touchStartX <= 28'), 'Must detect left edge start position');
+      assert.ok(sidebarContent.includes('dx > 50 && Math.abs(dy) < 40'), 'Must verify swipe trajectory');
+      assert.ok(sidebarContent.includes('setOpenMobile(true)'), 'Must open mobile drawer on edge swipe');
+    });
+
+    it('includes clean print stylesheet avoiding image slice breaks', () => {
+      const cssFile = path.resolve(process.cwd(), 'src/app/globals.css');
+      const cssContent = fs.readFileSync(cssFile, 'utf-8');
+      assert.ok(cssContent.includes('@media print'), 'globals.css must define @media print');
+      assert.ok(cssContent.includes('break-inside: avoid !important'), 'Print styles must prevent awkward page breaks');
+    });
+  });
+
 });
 
