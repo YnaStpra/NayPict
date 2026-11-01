@@ -337,10 +337,17 @@ export default function Page() {
     }, 60)
   }, [])
 
-  const handleCalendarPhotoClick = useCallback((photo: PhotoVo) => {
-    const idx = displayPhotos.findIndex((p) => p.photoId === photo.photoId)
-    if (idx !== -1) {
-      openPhoto(idx)
+  const handleCalendarPhotoClick = useCallback((photo: PhotoVo, dayPhotos?: PhotoVo[]) => {
+    if (dayPhotos && dayPhotos.length > 0) {
+      setViewerCustomPhotos(dayPhotos)
+      const idx = dayPhotos.findIndex((p) => p.photoId === photo.photoId)
+      setModelPhotoIndex(idx >= 0 ? idx : 0)
+      setShowPhotoViewer(true)
+    } else {
+      const idx = displayPhotos.findIndex((p) => p.photoId === photo.photoId)
+      if (idx !== -1) {
+        openPhoto(idx)
+      }
     }
   }, [displayPhotos, openPhoto])
 

@@ -199,6 +199,7 @@ export default function Page() {
 
   const [modelPhotoIndex, setModelPhotoIndex] = useState(0)
   const [showPhotoViewer, setShowPhotoViewer] = useState(false)
+  const [viewerCustomPhotos, setViewerCustomPhotos] = useState<PhotoVo[] | null>(null)
   // albumDialogOpen Control the opening status of the add album pop-up box.
   const [albumDialogOpen, setAlbumDialogOpen] = useState(false)
   const [albumDownloadOpen, setAlbumDownloadOpen] = useState(false)
@@ -284,6 +285,7 @@ export default function Page() {
 
   // Open photo details of current album model.
   const openPhoto = useCallback((index: number) => {
+    setViewerCustomPhotos(null)
     setModelPhotoIndex(index)
     setShowPhotoViewer(true)
   }, [])
@@ -291,6 +293,7 @@ export default function Page() {
   // Close photo details model.
   const closePhoto = useCallback(() => {
     setShowPhotoViewer(false)
+    setViewerCustomPhotos(null)
     removePhotoIdFromUrl()
   }, [])
 
@@ -414,10 +417,17 @@ export default function Page() {
     return photos.map((p) => ({ ...p, isPinned: false }))
   }, [photos, sortKey])
 
-  const handleCalendarPhotoClick = useCallback((photo: PhotoVo) => {
-    const idx = displayAlbumPhotos.findIndex((p) => p.photoId === photo.photoId)
-    if (idx !== -1) {
-      openPhoto(idx)
+  const handleCalendarPhotoClick = useCallback((photo: PhotoVo, dayPhotos?: PhotoVo[]) => {
+    if (dayPhotos && dayPhotos.length > 0) {
+      setViewerCustomPhotos(dayPhotos)
+      const idx = dayPhotos.findIndex((p) => p.photoId === photo.photoId)
+      setModelPhotoIndex(idx >= 0 ? idx : 0)
+      setShowPhotoViewer(true)
+    } else {
+      const idx = displayAlbumPhotos.findIndex((p) => p.photoId === photo.photoId)
+      if (idx !== -1) {
+        openPhoto(idx)
+      }
     }
   }, [displayAlbumPhotos, openPhoto])
 
@@ -685,7 +695,7 @@ export default function Page() {
       <PhotoViewer
         open={showPhotoViewer}
         index={modelPhotoIndex}
-        photos={displayAlbumPhotos}
+        photos={viewerCustomPhotos ?? displayAlbumPhotos}
         onBack={closePhoto}
         onBrowserBack={closePhoto}
         onPhotoUpdate={updatePhoto}

@@ -1,19 +1,16 @@
 "use client"
 
-import React, { useState, useMemo, useCallback, useRef, useEffect } from "react"
+import React, { useState, useMemo, useCallback } from "react"
 import {
   CalendarDays,
-  Calendar as CalendarIcon,
   Play,
-  X,
   Layers,
   ArrowRight,
-  RotateCcw,
+  ChevronLeft,
+  ChevronRight,
   Sparkles,
-  Image as ImageIcon,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import {
   Select,
   SelectContent,
@@ -27,7 +24,7 @@ import { cn } from "@/lib/utils"
 interface PhotoCalendarViewProps {
   photos: PhotoVo[]
   minYear?: number
-  onPhotoClick?: (photo: PhotoVo) => void
+  onPhotoClick?: (photo: PhotoVo, dayPhotos: PhotoVo[]) => void
   className?: string
 }
 
@@ -56,19 +53,10 @@ export function PhotoCalendarView({
 }: PhotoCalendarViewProps) {
   const today = useMemo(() => new Date(), [])
   const currentYear = today.getFullYear()
-  const currentMonth = today.getMonth() // 0-indexed
+  const currentMonth = today.getMonth() // 0-indexed (0 = Jan)
   const currentDay = today.getDate()
 
-  // Target Jump-to-Date inputs (Year, Month, Day)
-  const [selectedYear, setSelectedYear] = useState<number>(currentYear)
-  const [selectedMonth, setSelectedMonth] = useState<number>(currentMonth)
-  const [dayInput, setDayInput] = useState<string>(String(currentDay))
-
-  // Actively expanded date for the photo shelf preview
-  const [activeDateKey, setActiveDateKey] = useState<string | null>(null)
-  const [highlightedDateKey, setHighlightedDateKey] = useState<string | null>(null)
-
-  // 1. Group all photos by "YYYY-MM-DD"
+  // Group all photos by "YYYY-MM-DD"
   const photosByDate = useMemo(() => {
     const map = new Map<string, PhotoVo[]>()
     for (const photo of photos) {
@@ -85,7 +73,7 @@ export function PhotoCalendarView({
     return map
   }, [photos])
 
-  // Count photos per month for quick headers: "YYYY-MM" -> count
+  // Count photos per month: "YYYY-MM" -> count
   const photosCountByMonth = useMemo(() => {
     const map = new Map<string, number>()
     for (const photo of photos) {
@@ -106,118 +94,119 @@ export function PhotoCalendarView({
     return years
   }, [currentYear, minYear])
 
-  // Generate list of all months from today down to minYear-01 in reverse chronological order
-  const allMonthsList = useMemo(() => {
-    const list: Array<{ year: number; month: number; monthKey: string }> = []
-    for (let y = currentYear; y >= minYear; y--) {
-      const maxM = y === currentYear ? currentMonth : 11
-      for (let m = maxM; m >= 0; m--) {
-        const monthKey = `${y}-${String(m + 1).padStart(2, "0")}`
-        list.push({ year: y, month: m, monthKey })
-      }
-    }
-    return list
-  }, [currentYear, currentMonth, minYear])
+  // Active displayed Month & Year
+  const [activeYear, setActiveYear] = useState<number>(currentYear)
+  const [activeMonth, setActiveMonth] = useState<number>(currentMonth)
 
-  // Max days in the currently selected Jump Month
-  const maxDaysInSelectedMonth = useMemo(() => {
-    return new Date(selectedYear, selectedMonth + 1, 0).getDate()
+  // Jump toolbar dropdown selections
+  const [selectedYear, setSelectedYear] = useState<number>(currentYear)
+  const [selectedMonth, setSelectedMonth] = useState<number>(currentMonth)
+
+  // Direct Jump Handler: instantly displays selected Year & Month
+  const handleJumpToDate = useCallback(() => {
+    setActiveYear(selectedYear)
+    setActiveMonth(selectedMonth)
   }, [selectedYear, selectedMonth])
 
-  // Jump to specific Date / Month
-  const handleJumpToDate = useCallback(() => {
-    const parsedDay = parseInt(dayInput, 10)
-    const validDay = isNaN(parsedDay)
-      ? 1
-      : Math.max(1, Math.min(parsedDay, maxDaysInSelectedMonth))
-
-    const targetDateKey = `${selectedYear}-${String(selectedMonth + 1).padStart(2, "0")}-${String(validDay).padStart(2, "0")}`
-    const targetMonthId = `calendar-month-${selectedYear}-${selectedMonth}`
-    const targetCellId = `calendar-cell-${targetDateKey}`
-
-    // 1. Scroll month into view smoothly
-    const monthEl = document.getElementById(targetMonthId)
-    if (monthEl) {
-      monthEl.scrollIntoView({ behavior: "smooth", block: "start" })
-    }
-
-    // 2. Set active date to open shelf if it has photos
-    if (photosByDate.has(targetDateKey)) {
-      setActiveDateKey(targetDateKey)
-    }
-
-    // 3. Highlight date cell with glowing pulse
-    setHighlightedDateKey(targetDateKey)
-    setTimeout(() => {
-      const cellEl = document.getElementById(targetCellId)
-      if (cellEl) {
-        cellEl.scrollIntoView({ behavior: "smooth", block: "center" })
-      }
-    }, 250)
-
-    // Clear highlight after 2.8s
-    setTimeout(() => {
-      setHighlightedDateKey(null)
-    }, 2800)
-  }, [dayInput, selectedYear, selectedMonth, maxDaysInSelectedMonth, photosByDate])
-
-  // Jump to Today
+  // Direct Jump Today Handler
   const handleJumpToday = useCallback(() => {
+    setActiveYear(currentYear)
+    setActiveMonth(currentMonth)
     setSelectedYear(currentYear)
     setSelectedMonth(currentMonth)
-    setDayInput(String(currentDay))
+  }, [currentYear, currentMonth])
 
-    const todayMonthId = `calendar-month-${currentYear}-${currentMonth}`
-    const todayCellId = `calendar-cell-${currentYear}-${String(currentMonth + 1).padStart(2, "0")}-${String(currentDay).padStart(2, "0")}`
+  // Navigation boundary checks
+  const canGoPrev = useMemo(() => {
+    if (activeYear > minYear) return true
+    return activeMonth > 0
+  }, [activeYear, activeMonth, minYear])
 
-    const monthEl = document.getElementById(todayMonthId)
-    if (monthEl) {
-      monthEl.scrollIntoView({ behavior: "smooth", block: "start" })
+  const canGoNext = useMemo(() => {
+    if (activeYear < currentYear) return true
+    return activeMonth < currentMonth
+  }, [activeYear, activeMonth, currentYear, currentMonth])
+
+  // Step to previous month
+  const handlePrevMonth = useCallback(() => {
+    if (!canGoPrev) return
+    if (activeMonth === 0) {
+      const newY = activeYear - 1
+      const newM = 11
+      setActiveYear(newY)
+      setActiveMonth(newM)
+      setSelectedYear(newY)
+      setSelectedMonth(newM)
+    } else {
+      const newM = activeMonth - 1
+      setActiveMonth(newM)
+      setSelectedMonth(newM)
+    }
+  }, [canGoPrev, activeYear, activeMonth])
+
+  // Step to next month
+  const handleNextMonth = useCallback(() => {
+    if (!canGoNext) return
+    if (activeMonth === 11) {
+      const newY = activeYear + 1
+      const newM = 0
+      setActiveYear(newY)
+      setActiveMonth(newM)
+      setSelectedYear(newY)
+      setSelectedMonth(newM)
+    } else {
+      const newM = activeMonth + 1
+      setActiveMonth(newM)
+      setSelectedMonth(newM)
+    }
+  }, [canGoNext, activeYear, activeMonth])
+
+  // Key and media count for the active month
+  const activeMonthKey = useMemo(() => {
+    return `${activeYear}-${String(activeMonth + 1).padStart(2, "0")}`
+  }, [activeYear, activeMonth])
+
+  const monthPhotoCount = useMemo(() => {
+    return photosCountByMonth.get(activeMonthKey) || 0
+  }, [photosCountByMonth, activeMonthKey])
+
+  // Compute days for the active month
+  const { cells, firstDayIndex } = useMemo(() => {
+    const firstDay = new Date(activeYear, activeMonth, 1).getDay()
+    const daysInMonth = new Date(activeYear, activeMonth + 1, 0).getDate()
+
+    const monthCells: Array<{
+      day: number
+      dateKey: string
+      photos: PhotoVo[]
+    }> = []
+
+    for (let d = 1; d <= daysInMonth; d++) {
+      const dateKey = `${activeYear}-${String(activeMonth + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`
+      monthCells.push({
+        day: d,
+        dateKey,
+        photos: photosByDate.get(dateKey) || [],
+      })
     }
 
-    const todayDateKey = `${currentYear}-${String(currentMonth + 1).padStart(2, "0")}-${String(currentDay).padStart(2, "0")}`
-    if (photosByDate.has(todayDateKey)) {
-      setActiveDateKey(todayDateKey)
-    }
+    return { cells: monthCells, firstDayIndex: firstDay }
+  }, [activeYear, activeMonth, photosByDate])
 
-    setHighlightedDateKey(todayDateKey)
-    setTimeout(() => {
-      const cellEl = document.getElementById(todayCellId)
-      if (cellEl) {
-        cellEl.scrollIntoView({ behavior: "smooth", block: "center" })
-      }
-    }, 250)
-
-    setTimeout(() => {
-      setHighlightedDateKey(null)
-    }, 2800)
-  }, [currentYear, currentMonth, currentDay, photosByDate])
-
-  // Photos of the actively clicked date
-  const activePhotos = useMemo(() => {
-    if (!activeDateKey) return []
-    return photosByDate.get(activeDateKey) || []
-  }, [activeDateKey, photosByDate])
-
-  const formattedActiveDate = useMemo(() => {
-    if (!activeDateKey) return ""
-    const [y, m, d] = activeDateKey.split("-").map(Number)
-    return new Date(y, m - 1, d).toLocaleDateString("en-US", {
-      weekday: "long",
-      month: "long",
-      day: "numeric",
-      year: "numeric",
-    })
-  }, [activeDateKey])
+  // Trailing blanks to complete the 7-column grid
+  const trailingBlanksCount = useMemo(() => {
+    const totalSlots = firstDayIndex + cells.length
+    return (7 - (totalSlots % 7)) % 7
+  }, [firstDayIndex, cells.length])
 
   return (
-    <div className={cn("w-full max-w-5xl mx-auto px-3 sm:px-6 py-4 space-y-6 select-none", className)}>
+    <div className={cn("w-full px-2 sm:px-4 md:px-6 py-4 space-y-4 select-none", className)}>
       {/* =========================================================================
-          Sticky Jump-to-Date Toolbar (Year 2018-Today, Month, Typable Day Input)
+          Sticky Jump-to-Date Toolbar (Year 2018-Today, Month, Direct Jump & Today)
           ========================================================================= */}
-      <div className="sticky top-12 z-20 -mx-3 sm:-mx-6 px-3 sm:px-6 py-2.5 bg-background/90 backdrop-blur-xl border-b border-border/60 shadow-xs">
+      <div className="sticky top-12 z-20 -mx-2 sm:-mx-4 md:-mx-6 px-2 sm:px-4 md:px-6 py-2.5 bg-background/90 backdrop-blur-xl border-b border-border/60 shadow-xs">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          {/* Title & Date Range Indicator */}
+          {/* Title & Range Indicator */}
           <div className="flex items-center gap-2">
             <div className="flex size-8 items-center justify-center rounded-lg bg-sky-500/15 text-sky-500 border border-sky-500/30">
               <CalendarDays className="size-4" />
@@ -233,7 +222,7 @@ export function PhotoCalendarView({
           </div>
 
           {/* Jump Controls */}
-          <div className="flex flex-wrap items-center gap-1.5 text-xs">
+          <div className="flex flex-wrap items-center gap-2 text-xs">
             {/* Year Select (2018 to Current Year) */}
             <Select
               value={String(selectedYear)}
@@ -245,12 +234,15 @@ export function PhotoCalendarView({
                 }
               }}
             >
-              <SelectTrigger className="h-8 w-[88px] text-xs font-medium rounded-lg border-border/70 bg-muted/40">
+              <SelectTrigger
+                aria-label="Select Year"
+                className="h-8 w-[92px] text-xs font-medium rounded-lg border-border/70 bg-muted/40 cursor-pointer"
+              >
                 <SelectValue placeholder="Year" />
               </SelectTrigger>
               <SelectContent className="max-h-56">
                 {availableYears.map((y) => (
-                  <SelectItem key={y} value={String(y)} className="text-xs">
+                  <SelectItem key={y} value={String(y)} className="text-xs cursor-pointer">
                     {y}
                   </SelectItem>
                 ))}
@@ -262,7 +254,10 @@ export function PhotoCalendarView({
               value={String(selectedMonth)}
               onValueChange={(val) => setSelectedMonth(Number(val))}
             >
-              <SelectTrigger className="h-8 w-[112px] text-xs font-medium rounded-lg border-border/70 bg-muted/40">
+              <SelectTrigger
+                aria-label="Select Month"
+                className="h-8 w-[118px] text-xs font-medium rounded-lg border-border/70 bg-muted/40 cursor-pointer"
+              >
                 <SelectValue placeholder="Month" />
               </SelectTrigger>
               <SelectContent className="max-h-56">
@@ -273,7 +268,7 @@ export function PhotoCalendarView({
                       key={idx}
                       value={String(idx)}
                       disabled={isDisabled}
-                      className="text-xs"
+                      className="text-xs cursor-pointer"
                     >
                       {m}
                     </SelectItem>
@@ -281,20 +276,6 @@ export function PhotoCalendarView({
                 })}
               </SelectContent>
             </Select>
-
-            {/* Day Input (Typable Number) */}
-            <div className="flex items-center gap-1">
-              <Input
-                type="number"
-                min={1}
-                max={maxDaysInSelectedMonth}
-                value={dayInput}
-                onChange={(e) => setDayInput(e.target.value)}
-                placeholder="Day"
-                className="h-8 w-[58px] text-xs font-medium rounded-lg text-center border-border/70 bg-muted/40 px-1 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                aria-label="Day of month"
-              />
-            </div>
 
             {/* Jump Button */}
             <Button
@@ -323,224 +304,191 @@ export function PhotoCalendarView({
       </div>
 
       {/* =========================================================================
-          Selected Date Preview Shelf (Instagram Photo Drawer)
+          Direct Active Month View (Full Width, 7-Column Responsive Grid)
           ========================================================================= */}
-      {activeDateKey && activePhotos.length > 0 && (
-        <div className="sticky top-26 z-15 rounded-2xl border border-primary/30 bg-background/95 backdrop-blur-2xl p-3.5 shadow-xl animate-in fade-in slide-in-from-top-2 duration-300">
-          <div className="flex items-center justify-between pb-2 mb-2 border-b border-border/50">
-            <div className="flex items-center gap-2">
-              <div className="flex size-6 items-center justify-center rounded-md bg-primary/10 text-primary">
-                <CalendarIcon className="size-3.5" />
-              </div>
-              <span className="text-xs sm:text-sm font-semibold text-foreground">
-                {formattedActiveDate}
-              </span>
-              <span className="text-[11px] px-2 py-0.5 rounded-full bg-muted font-medium text-muted-foreground">
-                {activePhotos.length} {activePhotos.length === 1 ? "moment" : "moments"}
-              </span>
-            </div>
+      <section
+        style={{
+          contentVisibility: "auto",
+        }}
+        className="w-full rounded-2xl border border-border/60 bg-card/60 p-3 sm:p-5 md:p-6 shadow-xs space-y-4"
+      >
+        {/* Month Navigation & Header */}
+        <div className="flex items-center justify-between px-1 py-2 border-b border-border/40">
+          <div className="flex items-center gap-2 sm:gap-3">
             <Button
               type="button"
               variant="ghost"
-              size="sm"
-              onClick={() => setActiveDateKey(null)}
-              className="size-7 p-0 rounded-lg text-muted-foreground hover:text-foreground"
-              aria-label="Close date preview"
+              size="icon"
+              disabled={!canGoPrev}
+              onClick={handlePrevMonth}
+              className="size-8 sm:size-9 rounded-lg hover:bg-muted text-foreground/80 hover:text-foreground disabled:opacity-30 cursor-pointer"
+              aria-label="Previous month"
             >
-              <X className="size-4" />
+              <ChevronLeft className="size-4 sm:size-5" />
+            </Button>
+
+            <h3 className="text-base sm:text-xl md:text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
+              <span>
+                {MONTH_NAMES[activeMonth]} {activeYear}
+              </span>
+            </h3>
+
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              disabled={!canGoNext}
+              onClick={handleNextMonth}
+              className="size-8 sm:size-9 rounded-lg hover:bg-muted text-foreground/80 hover:text-foreground disabled:opacity-30 cursor-pointer"
+              aria-label="Next month"
+            >
+              <ChevronRight className="size-4 sm:size-5" />
             </Button>
           </div>
 
-          {/* Horizontal Scrollable Thumbnails Strip */}
-          <div className="flex gap-2.5 overflow-x-auto pb-1 no-scrollbar scroll-smooth">
-            {activePhotos.map((photo) => {
-              const isVid = Boolean(photo.type?.startsWith("video/"))
-              const thumb = photo.thumbnail || photo.preview || photo.key
-
-              return (
-                <div
-                  key={photo.photoId}
-                  onClick={() => onPhotoClick?.(photo)}
-                  className="relative shrink-0 size-22 sm:size-26 rounded-xl overflow-hidden cursor-pointer group border border-border/80 hover:border-primary transition-all duration-200 active:scale-95 shadow-sm"
-                  title={photo.name}
-                >
-                  {thumb ? (
-                    <img
-                      src={thumb}
-                      alt={photo.name}
-                      loading="lazy"
-                      draggable={false}
-                      className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-                    />
-                  ) : (
-                    <div className="flex h-full w-full items-center justify-center bg-muted">
-                      <ImageIcon className="size-6 text-muted-foreground" />
-                    </div>
-                  )}
-
-                  {isVid && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-black/35 group-hover:bg-black/20 transition-colors">
-                      <div className="flex size-7 items-center justify-center rounded-full bg-black/70 text-white">
-                        <Play className="size-3.5 fill-white ml-0.5" />
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )
-            })}
+          <div>
+            {monthPhotoCount > 0 ? (
+              <span className="text-xs sm:text-sm font-semibold px-2.5 sm:px-3 py-1 rounded-full bg-sky-500/15 text-sky-500 dark:text-sky-400 border border-sky-500/30 tabular-nums">
+                {monthPhotoCount} {monthPhotoCount === 1 ? "media" : "media"}
+              </span>
+            ) : (
+              <span className="text-xs sm:text-sm text-muted-foreground/60 font-medium px-2 py-0.5">
+                No media
+              </span>
+            )}
           </div>
         </div>
-      )}
 
-      {/* =========================================================================
-          Continuous Vertical Monthly Calendar Stream (From Today down to 2018)
-          ========================================================================= */}
-      <div className="space-y-10">
-        {allMonthsList.map(({ year, month, monthKey }) => {
-          const monthPhotoCount = photosCountByMonth.get(monthKey) || 0
-          const firstDayIndex = new Date(year, month, 1).getDay()
-          const daysInMonth = new Date(year, month + 1, 0).getDate()
+        {/* Day of Week Headers */}
+        <div className="grid grid-cols-7 gap-1 sm:gap-2 md:gap-3 text-center font-semibold text-[11px] sm:text-xs text-muted-foreground uppercase tracking-wider">
+          {DAYS_OF_WEEK.map((dw) => (
+            <div key={dw} className="py-1">
+              {dw}
+            </div>
+          ))}
+        </div>
 
-          // Precompute cells for this month
-          const cells: Array<{
-            day: number
-            dateKey: string
-            photos: PhotoVo[]
-          }> = []
+        {/* 7-Column Date Grid */}
+        <div className="grid grid-cols-7 gap-1.5 sm:gap-2.5 md:gap-3.5">
+          {/* Blank Leading Days */}
+          {Array.from({ length: firstDayIndex }).map((_, idx) => (
+            <div
+              key={`blank-lead-${idx}`}
+              className="aspect-square rounded-xl sm:rounded-2xl bg-muted/5 border border-dashed border-border/20 opacity-25 pointer-events-none"
+            />
+          ))}
 
-          for (let d = 1; d <= daysInMonth; d++) {
-            const dateKey = `${year}-${String(month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`
-            cells.push({
-              day: d,
-              dateKey,
-              photos: photosByDate.get(dateKey) || [],
-            })
-          }
+          {/* Actual Days in Active Month */}
+          {cells.map((cell) => {
+            const hasPhotos = cell.photos.length > 0
+            const coverPhoto = cell.photos[0]
+            const isVideo = Boolean(coverPhoto?.type?.startsWith("video/"))
+            const coverSrc = coverPhoto?.thumbnail || coverPhoto?.preview || coverPhoto?.key
+            const isTodayCell =
+              cell.day === currentDay &&
+              activeMonth === currentMonth &&
+              activeYear === currentYear
 
-          return (
-            <section
-              key={monthKey}
-              id={`calendar-month-${year}-${month}`}
-              style={{
-                contentVisibility: "auto",
-                containIntrinsicSize: "360px",
-              }}
-              className="rounded-2xl border border-border/60 bg-card/60 p-3 sm:p-5 shadow-xs scroll-mt-28"
-            >
-              {/* Sticky Month Header */}
-              <div className="sticky top-24 z-10 -mx-3 sm:-mx-5 px-3 sm:px-5 py-2 mb-3 bg-card/95 backdrop-blur-md border-b border-border/40 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <h3 className="text-base sm:text-lg font-bold tracking-tight text-foreground">
-                    {MONTH_NAMES[month]} {year}
-                  </h3>
-                </div>
-                {monthPhotoCount > 0 ? (
-                  <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-sky-500/10 text-sky-500 border border-sky-500/20 tabular-nums">
-                    {monthPhotoCount} {monthPhotoCount === 1 ? "media" : "medias"}
+            return (
+              <div
+                key={cell.dateKey}
+                id={`calendar-cell-${cell.dateKey}`}
+                role={hasPhotos ? "button" : undefined}
+                tabIndex={hasPhotos ? 0 : -1}
+                onClick={() => {
+                  if (hasPhotos) {
+                    onPhotoClick?.(cell.photos[0], cell.photos)
+                  }
+                }}
+                onKeyDown={(e) => {
+                  if (hasPhotos && (e.key === "Enter" || e.key === " ")) {
+                    e.preventDefault()
+                    onPhotoClick?.(cell.photos[0], cell.photos)
+                  }
+                }}
+                aria-label={`${MONTH_NAMES[activeMonth]} ${cell.day}, ${activeYear}${
+                  hasPhotos ? `: ${cell.photos.length} media` : ": No media"
+                }`}
+                className={cn(
+                  "relative aspect-square rounded-xl sm:rounded-2xl overflow-hidden transition-all duration-200 select-none flex flex-col justify-between p-1.5 sm:p-2.5",
+                  hasPhotos
+                    ? "cursor-pointer group hover:scale-[1.03] active:scale-95 border border-white/20 hover:border-sky-400 hover:ring-2 hover:ring-sky-400/50 shadow-sm"
+                    : "bg-muted/15 border border-border/30 cursor-default",
+                  isTodayCell && "ring-2 ring-primary ring-offset-2 ring-offset-background"
+                )}
+              >
+                {/* Photo Background Tile */}
+                {hasPhotos && coverSrc && (
+                  <>
+                    <img
+                      src={coverSrc}
+                      alt=""
+                      loading="lazy"
+                      draggable={false}
+                      className="absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                    />
+                    {/* Contrast Gradient Overlay */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-black/45 pointer-events-none" />
+                  </>
+                )}
+
+                {/* Day Number Header */}
+                <div className="relative z-10 flex items-center justify-between w-full">
+                  <span
+                    className={cn(
+                      "text-xs sm:text-sm md:text-base font-bold leading-none",
+                      hasPhotos
+                        ? "text-white drop-shadow-[0_1px_3px_rgba(0,0,0,0.9)]"
+                        : "text-muted-foreground/60"
+                    )}
+                  >
+                    {cell.day}
                   </span>
-                ) : (
-                  <span className="text-xs text-muted-foreground/60">No media</span>
+                  {isTodayCell && (
+                    <span className="text-[9px] sm:text-[10px] font-semibold px-1.5 py-0.2 rounded-full bg-primary text-primary-foreground shadow-xs">
+                      Today
+                    </span>
+                  )}
+                </div>
+
+                {/* Media Indicators (Multi-photo count & video badge) */}
+                {hasPhotos && (
+                  <div className="relative z-10 flex items-center justify-between w-full mt-auto pt-1">
+                    {isVideo ? (
+                      <span
+                        className="flex size-4 sm:size-5 items-center justify-center rounded-full bg-black/60 text-white backdrop-blur-xs shadow-xs"
+                        title="Video"
+                      >
+                        <Play className="size-2 sm:size-2.5 fill-white ml-0.5" />
+                      </span>
+                    ) : (
+                      <span />
+                    )}
+
+                    {cell.photos.length > 1 && (
+                      <span
+                        className="flex items-center gap-0.5 sm:gap-1 px-1.5 py-0.5 rounded-md bg-black/70 backdrop-blur-md text-[10px] sm:text-xs font-bold text-white border border-white/20 tabular-nums shadow-xs"
+                        title={`${cell.photos.length} media`}
+                      >
+                        <Layers className="size-2.5 sm:size-3" />
+                        <span>{cell.photos.length}</span>
+                      </span>
+                    )}
+                  </div>
                 )}
               </div>
+            )
+          })}
 
-              {/* Day of Week Labels */}
-              <div className="grid grid-cols-7 gap-1 sm:gap-2 text-center font-medium text-[11px] sm:text-xs text-muted-foreground uppercase tracking-wider mb-2">
-                {DAYS_OF_WEEK.map((dw) => (
-                  <div key={dw} className="py-1">
-                    {dw}
-                  </div>
-                ))}
-              </div>
-
-              {/* 7-Column Day Grid */}
-              <div className="grid grid-cols-7 gap-1.5 sm:gap-2.5">
-                {/* Blank Leading Days */}
-                {Array.from({ length: firstDayIndex }).map((_, idx) => (
-                  <div key={`blank-${idx}`} className="aspect-square rounded-xl bg-muted/5 opacity-25" />
-                ))}
-
-                {/* Actual Days */}
-                {cells.map((cell) => {
-                  const hasPhotos = cell.photos.length > 0
-                  const isSelected = activeDateKey === cell.dateKey
-                  const isHighlighted = highlightedDateKey === cell.dateKey
-                  const coverPhoto = cell.photos[0]
-                  const isVideo = Boolean(coverPhoto?.type?.startsWith("video/"))
-                  const coverSrc = coverPhoto?.thumbnail || coverPhoto?.preview || coverPhoto?.key
-
-                  return (
-                    <div
-                      key={cell.dateKey}
-                      id={`calendar-cell-${cell.dateKey}`}
-                      onClick={() => {
-                        if (hasPhotos) {
-                          setActiveDateKey((prev) => (prev === cell.dateKey ? null : cell.dateKey))
-                        }
-                      }}
-                      className={cn(
-                        "relative aspect-square rounded-xl overflow-hidden transition-all duration-200 select-none flex flex-col justify-between p-1 sm:p-1.5",
-                        hasPhotos
-                          ? "cursor-pointer group hover:scale-[1.04] active:scale-95 border border-white/20 shadow-xs"
-                          : "bg-muted/15 border border-transparent cursor-default",
-                        isSelected && "ring-2 ring-primary ring-offset-2 ring-offset-background scale-[1.03] shadow-md z-10",
-                        isHighlighted && "ring-4 ring-sky-400 ring-offset-2 ring-offset-background scale-[1.05] shadow-lg animate-pulse z-10"
-                      )}
-                    >
-                      {/* Instagram-Style Photo Background Tile */}
-                      {hasPhotos && coverSrc && (
-                        <>
-                          <img
-                            src={coverSrc}
-                            alt=""
-                            loading="lazy"
-                            draggable={false}
-                            className="absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-                          />
-                          {/* Contrast gradient overlay */}
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/20 to-black/40" />
-                        </>
-                      )}
-
-                      {/* Day Number */}
-                      <span
-                        className={cn(
-                          "relative z-10 text-[11px] sm:text-xs font-semibold leading-none",
-                          hasPhotos
-                            ? "text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]"
-                            : "text-muted-foreground/60"
-                        )}
-                      >
-                        {cell.day}
-                      </span>
-
-                      {/* Media Indicators (Multi-photo count & video badge) */}
-                      {hasPhotos && (
-                        <div className="relative z-10 flex items-center justify-between w-full mt-auto">
-                          {isVideo ? (
-                            <span className="flex size-4 items-center justify-center rounded-full bg-black/60 text-white backdrop-blur-xs">
-                              <Play className="size-2 fill-white ml-0.5" />
-                            </span>
-                          ) : (
-                            <span />
-                          )}
-
-                          {cell.photos.length > 1 && (
-                            <span className="flex items-center gap-0.5 px-1 py-0.5 rounded-md bg-black/65 backdrop-blur-md text-[10px] font-bold text-white border border-white/20 tabular-nums">
-                              <Layers className="size-2.5" />
-                              <span>{cell.photos.length}</span>
-                            </span>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  )
-                })}
-              </div>
-            </section>
-          )
-        })}
-      </div>
+          {/* Blank Trailing Days */}
+          {Array.from({ length: trailingBlanksCount }).map((_, idx) => (
+            <div
+              key={`blank-trail-${idx}`}
+              className="aspect-square rounded-xl sm:rounded-2xl bg-muted/5 border border-dashed border-border/20 opacity-25 pointer-events-none"
+            />
+          ))}
+        </div>
+      </section>
     </div>
   )
 }
-
