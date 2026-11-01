@@ -7,6 +7,18 @@ import { schema } from '@/server/infra/schema';
 // Enable HTTP connection reuse across serverless function invocations to eliminate cold-start TCP/TLS handshake latency
 neonConfig.poolQueryViaFetch = true;
 
+// Wrap serverless fetch with an 8,000ms query timeout to prevent hanging lambdas and protect Vercel function runtime
+const originalFetch = globalThis.fetch;
+if (typeof originalFetch === 'function') {
+  neonConfig.fetchFunction = (input: any, init?: any) => {
+    const timeoutSignal = AbortSignal.timeout(8000);
+    const combinedSignal = init?.signal
+      ? (typeof AbortSignal.any === 'function' ? AbortSignal.any([init.signal, timeoutSignal]) : timeoutSignal)
+      : timeoutSignal;
+    return originalFetch(input, { ...init, signal: combinedSignal });
+  };
+}
+
 const connectionString = process.env.DATABASE_URL || 'postgresql://placeholder:placeholder@localhost:5432/placeholder';
 
 if (!process.env.DATABASE_URL) {

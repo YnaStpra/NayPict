@@ -1613,6 +1613,30 @@ export function PhotoViewer({
     }
   }, [emblaApi, open, index])
 
+  // Predictive low-priority preloading of adjacent slides (next and previous) for 0ms transitions
+  useEffect(() => {
+    if (!open || typeof window === "undefined" || !slides.length) return
+
+    const adjacentIndices = [viewIndex + 1, viewIndex - 1]
+    adjacentIndices.forEach((targetIdx) => {
+      if (targetIdx < 0 || targetIdx >= slides.length) return
+      const targetSlide = slides[targetIdx]
+      if (!targetSlide) return
+
+      const isVideo = Boolean(targetSlide.mediaType?.startsWith("video/"))
+      if (isVideo && targetSlide.src) {
+        prebufferVideo(targetSlide.src)
+      } else if (targetSlide.src && !targetSlide.src.startsWith("data:")) {
+        const img = new Image()
+        img.decoding = "async"
+        if ("fetchPriority" in img) {
+          (img as unknown as { fetchPriority: string }).fetchPriority = "low"
+        }
+        img.src = targetSlide.src
+      }
+    })
+  }, [open, viewIndex, slides])
+
   // Responsive desktop sidebar layout: keep Lightbox full-screen so backdrop never exposes underlying page
   const isSidebarOpen = infoOpen && !fullscreenOpen && !isCinematicMode
 

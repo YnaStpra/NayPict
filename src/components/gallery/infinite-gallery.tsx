@@ -300,13 +300,16 @@ export function InfiniteGallery(props: InfiniteGalleryProps) {
 
     let cW = container ? container.clientWidth || 900 : 900
     let cH = container ? container.clientHeight || 600 : 600
-    const ro = new ResizeObserver(() => {
+    const handleOrientationOrResize = () => {
       if (container) {
         cW = container.clientWidth || cW
         cH = container.clientHeight || cH
       }
-    })
+    }
+    const ro = new ResizeObserver(handleOrientationOrResize)
     if (container) ro.observe(container)
+    window.addEventListener("resize", handleOrientationOrResize, { passive: true })
+    window.addEventListener("orientationchange", handleOrientationOrResize, { passive: true })
 
     const layerPools = new Map<
       number,
@@ -611,6 +614,8 @@ export function InfiniteGallery(props: InfiniteGalleryProps) {
 
     project()
     if (isStatic) {
+      window.removeEventListener("resize", handleOrientationOrResize)
+      window.removeEventListener("orientationchange", handleOrientationOrResize)
       ro.disconnect()
       return
     }
@@ -689,6 +694,8 @@ export function InfiniteGallery(props: InfiniteGalleryProps) {
       isLoopRunning = false
       cancelAnimationFrame(raf)
       document.removeEventListener("visibilitychange", handleVisibility)
+      window.removeEventListener("resize", handleOrientationOrResize)
+      window.removeEventListener("orientationchange", handleOrientationOrResize)
       ro.disconnect()
       Array.from(layerPools.keys()).forEach(disposeLayer)
     }

@@ -233,9 +233,16 @@ function Provider({ children, defaultTheme, defaultSidebarOpen, initialUserInfo,
     }
   }, [])
 
-  // Switch between light and dark themes.
+  // Switch between light and dark themes with buttery-smooth View Transitions API support.
   const toggleTheme = React.useCallback(() => {
-    setTheme(theme === "dark" ? "light" : "dark")
+    const nextTheme = theme === "dark" ? "light" : "dark"
+    if (typeof document !== "undefined" && "startViewTransition" in document) {
+      (document as unknown as { startViewTransition: (callback: () => void) => void }).startViewTransition(() => {
+        setTheme(nextTheme)
+      })
+    } else {
+      setTheme(nextTheme)
+    }
   }, [setTheme, theme])
 
   // Requery normal storage configuration and write global storage options, The login page does not send a request.

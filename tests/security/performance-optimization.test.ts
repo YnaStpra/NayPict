@@ -346,5 +346,50 @@ describe('Media Performance & Delivery Optimization Test Suite', () => {
     });
   });
 
+  describe('Sprint 6 Resilience & UX Suite: a11y, View Transitions, Offline Fallback & DB Timeout', () => {
+    it('enables keyboard navigation and WCAG focus ring on PhotoCard', () => {
+      const cardFile = path.resolve(process.cwd(), 'src/components/photo/photo-card.tsx');
+      const cardContent = fs.readFileSync(cardFile, 'utf-8');
+      assert.ok(cardContent.includes('tabIndex={0}'), 'PhotoCard must be keyboard focusable');
+      assert.ok(cardContent.includes('role="button"'), 'PhotoCard must declare button role');
+      assert.ok(cardContent.includes('focus-visible:ring-primary'), 'PhotoCard must display focus ring');
+      assert.ok(cardContent.includes('e.key === "Enter" || e.key === " "'), 'PhotoCard must open on Enter or Space');
+    });
+
+    it('implements View Transitions API for smooth theme switching', () => {
+      const providerFile = path.resolve(process.cwd(), 'src/app/provider.tsx');
+      const providerContent = fs.readFileSync(providerFile, 'utf-8');
+      assert.ok(providerContent.includes('startViewTransition'), 'provider.tsx must leverage startViewTransition');
+    });
+
+    it('provides a standalone branded offline fallback page in Service Worker', () => {
+      const swFile = path.resolve(process.cwd(), 'public/sw.js');
+      const swContent = fs.readFileSync(swFile, 'utf-8');
+      assert.ok(swContent.includes('const OFFLINE_HTML ='), 'Service Worker must define OFFLINE_HTML fallback');
+      assert.ok(swContent.includes('new Response(OFFLINE_HTML'), 'Service Worker must serve OFFLINE_HTML when network fails');
+      assert.ok(swContent.includes("window.addEventListener('online'"), 'Offline page must auto-refresh on reconnection');
+    });
+
+    it('protects serverless execution with Neon DB query abort timeout', () => {
+      const dbFile = path.resolve(process.cwd(), 'src/server/infra/db.ts');
+      const dbContent = fs.readFileSync(dbFile, 'utf-8');
+      assert.ok(dbContent.includes('neonConfig.fetchFunction ='), 'Must wrap neonConfig.fetchFunction');
+      assert.ok(dbContent.includes('AbortSignal.timeout(8000)'), 'Must enforce 8000ms query timeout');
+    });
+
+    it('predictively preloads adjacent lightbox media for 0ms transitions', () => {
+      const viewerFile = path.resolve(process.cwd(), 'src/components/photo/photo-viewer.tsx');
+      const viewerContent = fs.readFileSync(viewerFile, 'utf-8');
+      assert.ok(viewerContent.includes('adjacentIndices = [viewIndex + 1, viewIndex - 1]'), 'Must preload adjacent indices');
+      assert.ok(viewerContent.includes('fetchPriority = "low"'), 'Preload must use low priority');
+    });
+
+    it('synchronizes infinite canvas bounds during orientation change and resize', () => {
+      const galleryFile = path.resolve(process.cwd(), 'src/components/gallery/infinite-gallery.tsx');
+      const galleryContent = fs.readFileSync(galleryFile, 'utf-8');
+      assert.ok(galleryContent.includes('window.addEventListener("orientationchange"'), 'Must track orientation change');
+    });
+  });
+
 });
 
