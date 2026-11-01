@@ -138,7 +138,23 @@ const albumService = {
       );
     }
 
-    const allAlbumPhotos = await readOrm
+    // 1. Efficient SQL group-by count for all albums (zero full-catalog row transfers)
+    const albumCountRows = await readOrm
+      .select({
+        albumId: albumPhotoTab.albumId,
+        count: count(photoTab.photoId),
+      })
+      .from(albumPhotoTab)
+      .innerJoin(photoTab, eq(albumPhotoTab.photoId, photoTab.photoId))
+      .where(and(...wherePhotoList))
+      .groupBy(albumPhotoTab.albumId);
+
+    const albumCountMap = new Map<string, number>(
+      albumCountRows.map((r) => [r.albumId, Number(r.count || 0)])
+    );
+
+    // 2. Query cover candidates with an efficient bound (up to 500 candidate photos total, prioritized by pin & date)
+    const coverCandidates = await readOrm
       .select({
         albumId: albumPhotoTab.albumId,
         photoId: photoTab.photoId,
@@ -152,20 +168,52 @@ const albumService = {
       })
       .from(albumPhotoTab)
       .innerJoin(photoTab, eq(albumPhotoTab.photoId, photoTab.photoId))
-      .where(and(...wherePhotoList));
+      .where(and(...wherePhotoList))
+      .orderBy(desc(albumPhotoTab.isPinned), desc(photoTab.takenTime), desc(photoTab.photoId))
+      .limit(500);
 
-    const photosByAlbum = new Map<string, typeof allAlbumPhotos>();
-    for (const row of allAlbumPhotos) {
+    const photosByAlbum = new Map<string, typeof coverCandidates>();
+    for (const row of coverCandidates) {
       const existing = photosByAlbum.get(row.albumId) ?? [];
       existing.push(row);
       photosByAlbum.set(row.albumId, existing);
     }
 
+    // 3. Ensure manual cover photos are resolved even if outside the 500 candidate window
+    const missingManualCoverIds = albumList
+      .filter((a) => a.isManualCover === 1 && a.coverPhotoId && !coverCandidates.some((p) => p.photoId === a.coverPhotoId))
+      .map((a) => a.coverPhotoId!)
+      .filter(Boolean);
+
+    if (missingManualCoverIds.length > 0) {
+      const manualCoverPhotos = await readOrm
+        .select({
+          albumId: albumPhotoTab.albumId,
+          photoId: photoTab.photoId,
+          name: photoTab.name,
+          width: photoTab.width,
+          height: photoTab.height,
+          size: photoTab.size,
+          thumbHash: photoTab.thumbHash,
+          storageId: photoTab.storageId,
+          takenTime: photoTab.takenTime
+        })
+        .from(albumPhotoTab)
+        .innerJoin(photoTab, eq(albumPhotoTab.photoId, photoTab.photoId))
+        .where(inArray(photoTab.photoId, missingManualCoverIds));
+
+      for (const row of manualCoverPhotos) {
+        const existing = photosByAlbum.get(row.albumId) ?? [];
+        existing.push(row);
+        photosByAlbum.set(row.albumId, existing);
+      }
+    }
+
     const albumCoverMap = new Map<
       string,
       {
-        selectedCoverPhoto: (typeof allAlbumPhotos)[0] | null;
-        suggestedCoverPhoto: (typeof allAlbumPhotos)[0] | null;
+        selectedCoverPhoto: (typeof coverCandidates)[0] | null;
+        suggestedCoverPhoto: (typeof coverCandidates)[0] | null;
         photoTotal: number;
       }
     >();
@@ -173,13 +221,13 @@ const albumService = {
     for (const album of albumList) {
       const albumPhotos = photosByAlbum.get(album.albumId) ?? [];
 
-      let suggestedCoverPhoto: (typeof albumPhotos)[0] | null = null;
+      let suggestedCoverPhoto: (typeof coverCandidates)[0] | null = null;
       if (albumPhotos.length) {
         const sorted = albumPhotos.slice().sort((a, b) => calculateAlbumCoverScore(b) - calculateAlbumCoverScore(a));
         suggestedCoverPhoto = sorted[0] ?? null;
       }
 
-      let selectedCoverPhoto: (typeof albumPhotos)[0] | null = null;
+      let selectedCoverPhoto: (typeof coverCandidates)[0] | null = null;
       if (album.isManualCover === 1 && album.coverPhotoId) {
         selectedCoverPhoto = albumPhotos.find((p) => p.photoId === album.coverPhotoId) ?? suggestedCoverPhoto;
       } else {
@@ -189,7 +237,7 @@ const albumService = {
       albumCoverMap.set(album.albumId, {
         selectedCoverPhoto,
         suggestedCoverPhoto,
-        photoTotal: albumPhotos.length,
+        photoTotal: albumCountMap.get(album.albumId) ?? 0,
       });
     }
 

@@ -191,6 +191,40 @@ describe('Media Performance & Delivery Optimization Test Suite', () => {
       assert.ok(nextConfigContent.includes('@radix-ui/react-dialog'), 'optimizePackageImports must include Radix UI modules');
       assert.ok(nextConfigContent.includes('sonner'), 'optimizePackageImports must include sonner');
     });
+
+    it('consolidates analytics overview queries into parallel single-roundtrip queries', () => {
+      const analyticsFile = path.resolve(process.cwd(), 'src/server/service/analytics-service.ts');
+      const analyticsContent = fs.readFileSync(analyticsFile, 'utf-8');
+      assert.ok(analyticsContent.includes('Consolidate overview metrics and distributions into parallel single-roundtrip queries'), 'Must use parallel consolidation');
+      assert.ok(analyticsContent.includes('liveThresholdIso'), 'Must compute liveThresholdIso');
+    });
+
+    it('uses SQL GROUP BY aggregation for album photo counts and bounded cover candidates', () => {
+      const albumFile = path.resolve(process.cwd(), 'src/server/service/album-service.ts');
+      const albumContent = fs.readFileSync(albumFile, 'utf-8');
+      assert.ok(albumContent.includes('.groupBy(albumPhotoTab.albumId)'), 'Must aggregate album counts via SQL GROUP BY');
+      assert.ok(albumContent.includes('.limit(500)'), 'Cover candidates query must be bounded');
+    });
+
+    it('bypasses ThumbHash decoding for cached thumbnails and preloads PhotoViewer on hover', () => {
+      const cardFile = path.resolve(process.cwd(), 'src/components/photo/photo-card.tsx');
+      const cardContent = fs.readFileSync(cardFile, 'utf-8');
+      assert.ok(cardContent.includes('!initialLoaded && !isDummyThumbHash'), 'Must bypass ThumbHash decoding if initialLoaded is true');
+      assert.ok(cardContent.includes('prefetchPhotoViewer()'), 'Must prefetch photo viewer chunk on hover and touchstart');
+    });
+
+    it('optimizes location reverse geocoding precision and caches fallback coordinates', () => {
+      const locationFile = path.resolve(process.cwd(), 'src/server/service/location-service.ts');
+      const locationContent = fs.readFileSync(locationFile, 'utf-8');
+      assert.ok(locationContent.includes('lat.toFixed(4)'), 'Must use 4-decimal precision for street/venue clustering');
+      assert.ok(locationContent.includes('setAddressCache(cacheKey, fallbackResult)'), 'Must cache fallback result to prevent timeout storms');
+    });
+
+    it('scopes storage cleaner file queries when target storage is specified', () => {
+      const cleanerFile = path.resolve(process.cwd(), 'src/server/service/storage-cleaner-service.ts');
+      const cleanerContent = fs.readFileSync(cleanerFile, 'utf-8');
+      assert.ok(cleanerContent.includes('dbFilesQuery.where(eq(photoTab.storageId, targetStorageId))'), 'Must scope files to targetStorageId');
+    });
   });
 
 });

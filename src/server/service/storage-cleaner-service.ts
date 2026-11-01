@@ -34,8 +34,8 @@ class StorageCleanerService {
       throw new BizError('storage.notFound');
     }
 
-    // 1. Fetch all DB file records joined with photo info
-    const dbFiles = await orm
+    // 1. Fetch DB file records joined with photo info (scoped to target storage if specified to leverage index)
+    const dbFilesQuery = orm
       .select({
         key: fileTab.key,
         fileId: fileTab.fileId,
@@ -46,6 +46,10 @@ class StorageCleanerService {
       })
       .from(fileTab)
       .leftJoin(photoTab, eq(fileTab.photoId, photoTab.photoId));
+
+    const dbFiles = targetStorageId
+      ? await dbFilesQuery.where(eq(photoTab.storageId, targetStorageId))
+      : await dbFilesQuery;
 
     // 2. Fetch all active user avatars to protect profile images from being marked as orphans
     const users = await orm

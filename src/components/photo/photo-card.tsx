@@ -76,6 +76,16 @@ const prefetchedPreviewUrls = new Set<string>()
 // Session-level memory cache of successfully loaded and painted thumbnail URLs
 export const loadedThumbnails = new Set<string>()
 
+// Track lazy chunk prefetch for instant zero-delay PhotoViewer launch
+let isViewerPrefetched = false
+function prefetchPhotoViewer() {
+  if (isViewerPrefetched || typeof window === "undefined") return
+  isViewerPrefetched = true
+  import("@/components/photo/photo-viewer").catch(() => {
+    isViewerPrefetched = false
+  })
+}
+
 // Session-level set of photos that have already played their entrance reveal animation
 const revealedPhotoIds = new Set<string>()
 
@@ -187,15 +197,22 @@ export const PhotoCard = memo(function PhotoCard({
   const locale = useLocale()
   const src = data.thumbnail || data.preview || data.key
   const ratio = data.width && data.height ? data.height / data.width : 1
+  const isVideo = Boolean(data.type?.startsWith("video/"))
+  // Multi-tier fallback src state: thumbnail -> preview -> (photos only: original key)
+  const [imageSrc, setImageSrc] = useState<string | null>(() => data.thumbnail || data.preview || (isVideo ? null : data.key) || null)
+  // isImageLoaded: Once the high-res image paints, clear the base64 placeholder from DOM styles to free memory
+  const initialLoaded = Boolean(imageSrc && loadedThumbnails.has(imageSrc))
+  const [isImageLoaded, setIsImageLoaded] = useState(initialLoaded)
   const isDummyThumbHash = !data.thumbHash || data.thumbHash.startsWith("00080204") || data.thumbHash.startsWith("00080205")
-  const placeholder = useMemo(() => (isDummyThumbHash ? undefined : getThumbHashUrl(data.thumbHash)), [data.thumbHash, isDummyThumbHash])
+  // Bypass ThumbHash hex decoding and canvas drawing if the thumbnail is already painted from memory cache
+  const placeholder = useMemo(
+    () => (!initialLoaded && !isDummyThumbHash ? getThumbHashUrl(data.thumbHash) : undefined),
+    [initialLoaded, data.thumbHash, isDummyThumbHash]
+  )
   // showTouchHover Record whether floating information is displayed after long pressing on the mobile terminal.
   const [showTouchHover, setShowTouchHover] = useState(false)
   // holdHover Momentarily lock hover information when clicking to open viewer, Avoid instant retraction of zoom animation.
   const [holdHover, setHoldHover] = useState(false)
-  const isVideo = Boolean(data.type?.startsWith("video/"))
-  // Multi-tier fallback src state: thumbnail -> preview -> (photos only: original key)
-  const [imageSrc, setImageSrc] = useState<string | null>(() => data.thumbnail || data.preview || (isVideo ? null : data.key) || null)
   // Clean sequential streaming URL for fast, instant autoplay without fragment seeking penalty
   // Priority: dedicated 360p video preview -> fallback to full original key
   const videoStreamUrl = useMemo(() => {
@@ -208,9 +225,6 @@ export const PhotoCard = memo(function PhotoCard({
   }, [isVideo, data.videoPreview, data.key])
   // imageError Record whether all photo URLs failed to load.
   const [imageError, setImageError] = useState(false)
-  // isImageLoaded: Once the high-res image paints, clear the base64 placeholder from DOM styles to free memory
-  const initialLoaded = Boolean(imageSrc && loadedThumbnails.has(imageSrc))
-  const [isImageLoaded, setIsImageLoaded] = useState(initialLoaded)
   // isMobile Determine whether the current viewport is the mobile terminal.
   const isMobile = useIsMobile()
   const videoDuration = useMemo(() => {
@@ -372,6 +386,7 @@ export const PhotoCard = memo(function PhotoCard({
   function handleMouseEnter() {
     if (isMobile) return
     prefetchPhotoHighRes(data.preview || data.key)
+    prefetchPhotoViewer()
     if (isVideo) {
       if (videoStreamUrl) {
         prebufferVideo(videoStreamUrl)
@@ -403,6 +418,7 @@ export const PhotoCard = memo(function PhotoCard({
   // Predictive touch-start prefetching and gesture initiation
   function handleTouchStart(e: React.TouchEvent<HTMLDivElement>) {
     prefetchPhotoHighRes(data.preview || data.key)
+    prefetchPhotoViewer()
     if (isVideo && videoStreamUrl) {
       prebufferVideo(videoStreamUrl)
     }

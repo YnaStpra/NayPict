@@ -60,8 +60,8 @@ const locationService = {
       };
     }
 
-    // Cache key rounded to ~5 decimal places (approx. 1 meter precision)
-    const cacheKey = `${lat.toFixed(5)},${lng.toFixed(5)}`;
+    // Cache key rounded to ~4 decimal places (approx. 11 meter precision, street & venue resolution)
+    const cacheKey = `${lat.toFixed(4)},${lng.toFixed(4)}`;
     if (addressCache.has(cacheKey)) {
       return addressCache.get(cacheKey)!;
     }
@@ -171,12 +171,20 @@ const locationService = {
       const latText = `${Math.abs(lat).toFixed(4)}°${lat >= 0 ? 'N' : 'S'}`;
       const lngText = `${Math.abs(lng).toFixed(4)}°${lng >= 0 ? 'E' : 'W'}`;
       const fallback = `${latText}, ${lngText}`;
-      return {
+      const fallbackResult: ReverseGeocodeResult = {
         address: fallback,
         latitude: lat,
         longitude: lng,
         mapsUrl,
       };
+
+      // Cache fallback result with short 10-minute TTL to prevent repeated timeout storms during rate limits
+      setAddressCache(cacheKey, fallbackResult);
+      void import('@/server/infra/cache').then(({ cache }) => {
+        return cache.set(`geo:${cacheKey}`, fallbackResult as unknown as Record<string, unknown>, { ttl: 600 });
+      }).catch(() => {});
+
+      return fallbackResult;
     }
   },
 };
