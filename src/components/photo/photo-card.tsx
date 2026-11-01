@@ -703,14 +703,21 @@ export const PhotoCard = memo(function PhotoCard({
   return (
     <div
       ref={cardRef}
-      role="img"
+      role="button"
+      tabIndex={0}
       aria-label={data.name || (isVideo ? "Video" : "Photo")}
       className={[
-        "group relative overflow-hidden houdini-smooth-card touch-press-feedback [content-visibility:auto] touch-manipulation cursor-pointer",
+        "group relative overflow-hidden houdini-smooth-card touch-press-feedback [content-visibility:auto] touch-manipulation cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
         isTouchPressed ? "scale-[0.98] brightness-95" : "",
         shouldAnimateReveal ? "cascade-wave-card" : "",
       ].join(" ")}
       onClick={handlePhotoClick}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault()
+          triggerOpen()
+        }
+      }}
       onContextMenu={handlePhotoContextMenu}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}

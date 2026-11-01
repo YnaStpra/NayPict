@@ -255,13 +255,91 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+const OFFLINE_HTML = `<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Offline • NayPict</title>
+  <style>
+    :root { color-scheme: dark; }
+    body {
+      margin: 0;
+      padding: 0;
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: #141414;
+      color: #f5f5f5;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      text-align: center;
+      padding: 24px;
+      box-sizing: border-box;
+    }
+    .card {
+      max-width: 420px;
+      padding: 32px 24px;
+      border-radius: 20px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+    }
+    .icon {
+      width: 48px;
+      height: 48px;
+      margin: 0 auto 16px;
+      padding: 12px;
+      border-radius: 16px;
+      background: rgba(239, 68, 68, 0.15);
+      color: #f87171;
+    }
+    h1 { font-size: 20px; margin: 0 0 8px; font-weight: 600; }
+    p { font-size: 14px; color: #a3a3a3; margin: 0 0 24px; line-height: 1.5; }
+    button {
+      background: #fafafa;
+      color: #171717;
+      border: none;
+      padding: 10px 24px;
+      border-radius: 12px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.15s, opacity 0.15s;
+    }
+    button:active { transform: scale(0.96); opacity: 0.9; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="icon">
+      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M18.364 5.636a9 9 0 010 12.728m0 0l-2.829-2.829m2.829 2.829L21 21M15.536 8.464a5 5 0 010 7.072m0 0l-2.829-2.829m-4.243 4.243a9 9 0 01-2.828-6.364m0 0a9 9 0 012.828-6.364m2.828 2.828a5 5 0 000 7.072M3 3l18 18" />
+      </svg>
+    </div>
+    <h1>You're Offline</h1>
+    <p>NayPict couldn't reach the server. Check your connection or retry once you're back online.</p>
+    <button onclick="window.location.reload()">Retry Connection</button>
+  </div>
+  <script>
+    window.addEventListener('online', function() { window.location.reload(); });
+  </script>
+</body>
+</html>`;
+
   // 3. Navigation / Page Requests: Network-First with quick retry then offline fallback
   if (request.mode === 'navigate') {
     event.respondWith(
       fetchWithExponentialRetry(request, 2, [500, 1000]).catch(async () => {
         const cache = await caches.open(CACHE_NAME);
         const cachedPage = await cache.match(request);
-        return cachedPage || (await cache.match('/photos')) || (await cache.match('/'));
+        const shell = cachedPage || (await cache.match('/photos')) || (await cache.match('/'));
+        if (shell) return shell;
+        return new Response(OFFLINE_HTML, {
+          status: 200,
+          headers: { 'Content-Type': 'text/html; charset=utf-8' }
+        });
       })
     );
     return;
