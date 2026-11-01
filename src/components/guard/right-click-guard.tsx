@@ -94,7 +94,6 @@ export function RightClickGuard({ enabled }: RightClickGuardProps) {
         (target.tagName === "IMG" ||
           target.tagName === "VIDEO" ||
           target.closest(".photo-viewer") ||
-          target.closest(".yet-another-react-lightbox") ||
           target.closest("[data-photo-item]"))
       ) {
         // Do not block interactive controls in sidebars or dialogs (e.g. comment input, links)

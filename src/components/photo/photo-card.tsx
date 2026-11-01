@@ -703,7 +703,7 @@ export const PhotoCard = memo(function PhotoCard({
       role="img"
       aria-label={data.name || (isVideo ? "Video" : "Photo")}
       className={[
-        "group relative overflow-hidden houdini-smooth-card touch-press-feedback touch-manipulation cursor-pointer",
+        "group relative overflow-hidden houdini-smooth-card touch-press-feedback [content-visibility:auto] touch-manipulation cursor-pointer",
         isTouchPressed ? "scale-[0.98] brightness-95" : "",
         shouldAnimateReveal ? "cascade-wave-card" : "",
       ].join(" ")}
@@ -720,6 +720,7 @@ export const PhotoCard = memo(function PhotoCard({
         width,
         height: cardHeight,
         contain: "paint layout",
+        contentVisibility: "auto",
         ["containIntrinsicSize" as string]: `auto ${width}px ${cardHeight}px`,
         transform: "translateZ(0)",
         willChange: "auto",

@@ -1,7 +1,7 @@
 // NayPict Progressive Web App (PWA) Service Worker with intelligent offline caching.
 // Provides Google Photos / iCloud-style 0ms media caching, background revalidation, and offline resilience.
 
-const CACHE_NAME = 'naypict-static-v4';
+const CACHE_NAME = 'naypict-static-v5';
 const MEDIA_CACHE_NAME = 'naypict-media-v4';
 const API_CACHE_NAME = 'naypict-api-v2';
 
@@ -12,6 +12,8 @@ const PRECACHE_ASSETS = [
   '/naypict-icon.svg',
   '/favicon.ico',
   '/manifest.webmanifest',
+  '/naypict-icon-192x192.png',
+  '/naypict-icon-512x512.png',
   '/worklets/smooth-corners.js',
   '/worklets/skeleton-shimmer.js',
 ];

@@ -227,5 +227,67 @@ describe('Media Performance & Delivery Optimization Test Suite', () => {
     });
   });
 
+  describe('Sprint 4 Performance: Content-Visibility, ETag, Preconnect & Tree-Shaking', () => {
+    it('applies content-visibility: auto to PhotoCard for off-screen rendering optimization', () => {
+      const cardFile = path.resolve(process.cwd(), 'src/components/photo/photo-card.tsx');
+      const cardContent = fs.readFileSync(cardFile, 'utf-8');
+      assert.ok(cardContent.includes('[content-visibility:auto]'), 'PhotoCard must include [content-visibility:auto] className');
+      assert.ok(cardContent.includes('contentVisibility: "auto"'), 'PhotoCard must set contentVisibility in inline style');
+    });
+
+    it('enables dynamic HTTP ETag generation and 304 Not Modified validation in Hono', () => {
+      const honoFile = path.resolve(process.cwd(), 'src/server/hono/hono.ts');
+      const honoContent = fs.readFileSync(honoFile, 'utf-8');
+      assert.ok(honoContent.includes("import { etag } from 'hono/etag'"), 'Must import etag middleware');
+      assert.ok(honoContent.includes("instance.use('*', etag())"), 'Must register etag middleware');
+    });
+
+    it('pre-connects to media gateway and storage origins in root layout', () => {
+      const layoutFile = path.resolve(process.cwd(), 'src/app/layout.tsx');
+      const layoutContent = fs.readFileSync(layoutFile, 'utf-8');
+      assert.ok(layoutContent.includes('process.env.S3_ENDPOINT'), 'Must check S3_ENDPOINT for preconnect');
+      assert.ok(layoutContent.includes('preconnectOrigins.add(new URL(formatted).origin)'), 'Must register origins for preconnect');
+    });
+
+    it('tree-shakes yet-another-react-lightbox from package.json and globals.css', () => {
+      const pkgFile = path.resolve(process.cwd(), 'package.json');
+      const pkgContent = fs.readFileSync(pkgFile, 'utf-8');
+      assert.ok(!pkgContent.includes('yet-another-react-lightbox'), 'yet-another-react-lightbox must be uninstalled');
+
+      const cssFile = path.resolve(process.cwd(), 'src/app/globals.css');
+      const cssContent = fs.readFileSync(cssFile, 'utf-8');
+      assert.ok(!cssContent.includes('yet-another-react-lightbox'), 'Dead lightbox CSS imports must be removed from globals.css');
+    });
+
+    it('configures adaptive virtual overscan on mobile in PhotoMasonry', () => {
+      const masonryFile = path.resolve(process.cwd(), 'src/components/photo/photo-masonry.tsx');
+      const masonryContent = fs.readFileSync(masonryFile, 'utf-8');
+      assert.ok(masonryContent.includes('overscanBy={isMobile ? 2 : 4}'), 'Must use 2 screens overscan on mobile and 4 on desktop');
+    });
+
+    it('precaches PWA application icons in service worker', () => {
+      const swFile = path.resolve(process.cwd(), 'public/sw.js');
+      const swContent = fs.readFileSync(swFile, 'utf-8');
+      assert.ok(swContent.includes('/naypict-icon-192x192.png'), 'Must precache 192x192 icon');
+      assert.ok(swContent.includes('/naypict-icon-512x512.png'), 'Must precache 512x512 icon');
+    });
+
+    it('uses read-replica database pool for setting queries', () => {
+      const settingFile = path.resolve(process.cwd(), 'src/server/service/setting-service.ts');
+      const settingContent = fs.readFileSync(settingFile, 'utf-8');
+      assert.ok(settingContent.includes('readOrm\n        .select()'), 'settingService.get must use readOrm');
+    });
+
+    it('isolates react-easy-crop CSS to avatar-upload component', () => {
+      const cssFile = path.resolve(process.cwd(), 'src/app/globals.css');
+      const cssContent = fs.readFileSync(cssFile, 'utf-8');
+      assert.ok(!cssContent.includes('react-easy-crop'), 'globals.css must not import react-easy-crop');
+
+      const avatarFile = path.resolve(process.cwd(), 'src/components/layout/avatar-upload.tsx');
+      const avatarContent = fs.readFileSync(avatarFile, 'utf-8');
+      assert.ok(avatarContent.includes('react-easy-crop/react-easy-crop.css'), 'avatar-upload.tsx must import its own CSS');
+    });
+  });
+
 });
 

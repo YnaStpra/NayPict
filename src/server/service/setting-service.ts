@@ -8,7 +8,7 @@ import {
   SettingWatermarkEnum,
   SettingRightClickGuardEnum,
 } from '@/server/enums/setting-enum';
-import { orm } from '@/server/infra/db';
+import { orm, readOrm } from '@/server/infra/db';
 
 // This module handles system settings configuration query and update operations.
 
@@ -34,7 +34,7 @@ const settingService = {
       return cachedSetting;
     }
     try {
-      const [row] = await orm
+      const [row] = await readOrm
         .select()
         .from(settingTab)
         .where(eq(settingTab.key, SETTING_KEY))
