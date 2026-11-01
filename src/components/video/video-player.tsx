@@ -647,6 +647,104 @@ export const VideoPlayer = memo(function VideoPlayer({
     }
   }, [])
 
+  // 1. MediaSession API integration for OS-level media controls (macOS, iOS, Android, Windows)
+  useEffect(() => {
+    if (typeof navigator === "undefined" || !("mediaSession" in navigator)) return
+    if (!videoRef.current || !isActive) return
+
+    const video = videoRef.current
+    const title = alt || "NayPict Video"
+
+    try {
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title,
+        artist: "NayPict Media Player",
+        album: "NayPict Collection",
+        artwork: poster
+          ? [
+              { src: poster, sizes: "512x512", type: "image/jpeg" },
+              { src: poster, sizes: "256x256", type: "image/jpeg" },
+            ]
+          : [],
+      })
+
+      navigator.mediaSession.setActionHandler("play", () => {
+        video.play().catch(() => {})
+      })
+      navigator.mediaSession.setActionHandler("pause", () => {
+        video.pause()
+      })
+      navigator.mediaSession.setActionHandler("seekbackward", (details) => {
+        const offset = details.seekOffset || 10
+        video.currentTime = Math.max(0, video.currentTime - offset)
+      })
+      navigator.mediaSession.setActionHandler("seekforward", (details) => {
+        const offset = details.seekOffset || 10
+        video.currentTime = Math.min(video.duration || 0, video.currentTime + offset)
+      })
+      navigator.mediaSession.setActionHandler("seekto", (details) => {
+        if (details.seekTime !== undefined && details.seekTime !== null) {
+          video.currentTime = details.seekTime
+        }
+      })
+    } catch (err) {
+      console.warn("[MediaSession] Error registering media session:", err)
+    }
+
+    return () => {
+      try {
+        navigator.mediaSession.setActionHandler("play", null)
+        navigator.mediaSession.setActionHandler("pause", null)
+        navigator.mediaSession.setActionHandler("seekbackward", null)
+        navigator.mediaSession.setActionHandler("seekforward", null)
+        navigator.mediaSession.setActionHandler("seekto", null)
+      } catch {}
+    }
+  }, [alt, poster, isActive])
+
+  // Sync mediaSession playback state and position state
+  useEffect(() => {
+    if (typeof navigator === "undefined" || !("mediaSession" in navigator)) return
+    try {
+      navigator.mediaSession.playbackState = isPlaying ? "playing" : "paused"
+      if ("setPositionState" in navigator.mediaSession && duration > 0) {
+        navigator.mediaSession.setPositionState({
+          duration: Math.max(0, duration),
+          playbackRate: videoRef.current?.playbackRate || 1,
+          position: Math.max(0, Math.min(duration, currentTime)),
+        })
+      }
+    } catch {}
+  }, [isPlaying, duration, currentTime])
+
+  // 7. Auto-pause video when user switches browser tabs or minimizes window
+  const wasPlayingBeforeTabHiddenRef = useRef(false)
+  useEffect(() => {
+    if (typeof document === "undefined") return
+
+    const handleVisibilityChange = () => {
+      const video = videoRef.current
+      if (!video) return
+
+      if (document.hidden) {
+        if (!video.paused) {
+          wasPlayingBeforeTabHiddenRef.current = true
+          video.pause()
+        }
+      } else {
+        if (wasPlayingBeforeTabHiddenRef.current && isActive) {
+          wasPlayingBeforeTabHiddenRef.current = false
+          video.play().catch(() => {})
+        }
+      }
+    }
+
+    document.addEventListener("visibilitychange", handleVisibilityChange)
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange)
+    }
+  }, [isActive])
+
   // Dedicated helper to commit seeking on video element safely
   const seekVideo = useCallback((targetTime: number) => {
     const video = videoRef.current

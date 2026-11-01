@@ -34,7 +34,9 @@ async function getCroppedAvatar(src: string, crop: Area) {
   const image = await loadImage(src)
   const canvas = document.createElement("canvas")
   const context = canvas.getContext("2d")
-  const size = 128
+  // Physical Retina Canvas Sharpness: scale avatar dimensions according to devicePixelRatio
+  const dpr = typeof window !== "undefined" ? Math.max(1, Math.min(window.devicePixelRatio || 1, 3)) : 1
+  const size = Math.round(128 * dpr)
 
   if (!context || !crop.width || !crop.height) {
     return ""
@@ -42,6 +44,8 @@ async function getCroppedAvatar(src: string, crop: Area) {
 
   canvas.width = size
   canvas.height = size
+  context.imageSmoothingEnabled = true
+  context.imageSmoothingQuality = "high"
   context.drawImage(
     image,
     crop.x,
@@ -54,7 +58,7 @@ async function getCroppedAvatar(src: string, crop: Area) {
     size
   )
 
-  return canvas.toDataURL("image/webp", 0.9)
+  return canvas.toDataURL("image/webp", 0.92)
 }
 
 // Render avatar upload and crop pop-up frame.

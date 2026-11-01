@@ -1,10 +1,10 @@
 'use client'
 
-import { useEffect, useState, useRef, useTransition, useCallback, useMemo } from 'react'
+import { useEffect, useState, useRef, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
-import { FolderHeart, Image as ImageIcon, ArrowRight, Loader2, MapPin } from 'lucide-react'
+import { FolderHeart, Image as ImageIcon, ArrowRight, MapPin } from 'lucide-react'
 import { NaypictLogo } from '@/components/icons/naypict-logo'
 import { type PhotoVo } from '@/server/entity/vo/photo'
 import { photoList } from '@/request/photo'
@@ -21,8 +21,14 @@ interface LandingClientProps {
 
 export function LandingClient({ initialPhotos }: LandingClientProps) {
   const router = useRouter()
-  const [isPending, startTransition] = useTransition()
   const [photos, setPhotos] = useState<PhotoVo[]>(initialPhotos || [])
+
+  // Instantly prefetch primary gallery routes as soon as landing mounts
+  useEffect(() => {
+    router.prefetch('/photos')
+    router.prefetch('/albums')
+    router.prefetch('/map')
+  }, [router])
 
   // Direct DOM Refs for Zero-Overhead 120 FPS Spotlight & 3D Tilt without React re-renders
   const cardRef = useRef<HTMLDivElement>(null)
@@ -112,12 +118,6 @@ export function LandingClient({ initialPhotos }: LandingClientProps) {
     }
   }, [])
 
-  const handleNavigate = (href: string) => {
-    startTransition(() => {
-      router.replace(href)
-    })
-  }
-
   const displayPhotos = useMemo(() => {
     const list = photos.length > 0 ? photos : initialPhotos
     return list.filter((p) => !p.type?.startsWith("video/"))
@@ -204,14 +204,7 @@ export function LandingClient({ initialPhotos }: LandingClientProps) {
             <div className="flex flex-col gap-2.5 sm:gap-3 w-full pt-1">
               <Link
                 href="/photos"
-                replace
                 prefetch={true}
-                onMouseEnter={() => router.prefetch('/photos')}
-                onPointerDown={() => router.prefetch('/photos')}
-                onClick={(e) => {
-                  e.preventDefault()
-                  handleNavigate('/photos')
-                }}
                 className="btn-shimmer-interactive group relative flex items-center justify-between w-full h-11 sm:h-12 px-4 sm:px-5 rounded-2xl bg-white/10 hover:bg-white/20 active:bg-white/25 border border-white/25 text-white font-bold text-sm sm:text-base backdrop-blur-md hover:scale-[1.02] active:scale-[0.98] cursor-pointer shadow-lg transition-all"
               >
                 <div className="flex items-center gap-3">
@@ -219,24 +212,13 @@ export function LandingClient({ initialPhotos }: LandingClientProps) {
                   <span>Explore Gallery</span>
                 </div>
                 <div className="flex items-center">
-                  {isPending ? (
-                    <Loader2 className="size-4 animate-spin opacity-80" />
-                  ) : (
-                    <ArrowRight className="size-4 opacity-75 group-hover:translate-x-1 transition-transform" />
-                  )}
+                  <ArrowRight className="size-4 opacity-75 group-hover:translate-x-1 transition-transform" />
                 </div>
               </Link>
 
               <Link
                 href="/albums"
-                replace
                 prefetch={true}
-                onMouseEnter={() => router.prefetch('/albums')}
-                onPointerDown={() => router.prefetch('/albums')}
-                onClick={(e) => {
-                  e.preventDefault()
-                  handleNavigate('/albums')
-                }}
                 className="btn-shimmer-interactive group relative flex items-center justify-between w-full h-11 sm:h-12 px-4 sm:px-5 rounded-2xl bg-white/10 hover:bg-white/20 active:bg-white/25 border border-white/25 text-white font-bold text-sm sm:text-base backdrop-blur-md hover:scale-[1.02] active:scale-[0.98] cursor-pointer shadow-lg transition-all"
               >
                 <div className="flex items-center gap-3">
@@ -244,24 +226,13 @@ export function LandingClient({ initialPhotos }: LandingClientProps) {
                   <span>Browse Albums</span>
                 </div>
                 <div className="flex items-center">
-                  {isPending ? (
-                    <Loader2 className="size-4 animate-spin opacity-80" />
-                  ) : (
-                    <ArrowRight className="size-4 opacity-75 group-hover:translate-x-1 transition-transform" />
-                  )}
+                  <ArrowRight className="size-4 opacity-75 group-hover:translate-x-1 transition-transform" />
                 </div>
               </Link>
 
               <Link
                 href="/map"
-                replace
                 prefetch={true}
-                onMouseEnter={() => router.prefetch('/map')}
-                onPointerDown={() => router.prefetch('/map')}
-                onClick={(e) => {
-                  e.preventDefault()
-                  handleNavigate('/map')
-                }}
                 className="btn-shimmer-interactive group relative flex items-center justify-between w-full h-11 sm:h-12 px-4 sm:px-5 rounded-2xl bg-white/10 hover:bg-white/20 active:bg-white/25 border border-white/25 text-white font-bold text-sm sm:text-base backdrop-blur-md hover:scale-[1.02] active:scale-[0.98] cursor-pointer shadow-lg transition-all"
               >
                 <div className="flex items-center gap-3">
@@ -269,11 +240,7 @@ export function LandingClient({ initialPhotos }: LandingClientProps) {
                   <span>Interactive Map Explorer</span>
                 </div>
                 <div className="flex items-center">
-                  {isPending ? (
-                    <Loader2 className="size-4 animate-spin opacity-80" />
-                  ) : (
-                    <ArrowRight className="size-4 opacity-75 group-hover:translate-x-1 transition-transform" />
-                  )}
+                  <ArrowRight className="size-4 opacity-75 group-hover:translate-x-1 transition-transform" />
                 </div>
               </Link>
             </div>

@@ -122,6 +122,25 @@
   --scrollbar-color: oklch(0.4 0 0);
 }
 
+/* True Pitch-Black OLED Mode (#000000) for mobile & desktop OLED battery conservation */
+.oled,
+[data-theme="oled"],
+.dark.oled,
+.dark[data-theme="oled"] {
+  --background: #000000;
+  --card: #000000;
+  --popover: #000000;
+  --sidebar: #000000;
+  --sidebar-accent: #0d0d0d;
+  --muted: #0d0d0d;
+  --muted-foreground: #8e8e93;
+  --border: #1a1a1a;
+  --input: #1a1a1a;
+  --ring: #333333;
+  --card-foreground: #ffffff;
+  --foreground: #ffffff;
+}
+
 @utility pt-safe {
   padding-top: env(safe-area-inset-top, 0px);
 }

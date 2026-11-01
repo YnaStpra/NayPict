@@ -78,7 +78,53 @@ class ReactionSyncManager {
         this.pollTimers.clear();
       });
       document.addEventListener("resume", handleVisibilityChange);
+
+      // Offline-resilient queue sync: automatically drain pending reactions when connection is restored
+      window.addEventListener("online", () => {
+        void this.drainOfflineQueue();
+      });
+      // Drain queue on startup if online
+      if (typeof navigator !== "undefined" && navigator.onLine) {
+        void this.drainOfflineQueue();
+      }
     }
+  }
+
+  // Queue offline reaction mutations in persistent storage
+  private queueOfflineReaction(photoId: string, reactionType: ReactionType): void {
+    if (typeof window === "undefined") return;
+    try {
+      const raw = localStorage.getItem("naypict_offline_reactions_queue");
+      const list: Array<{ photoId: string; reactionType: ReactionType; timestamp: number }> = raw ? JSON.parse(raw) : [];
+      list.push({ photoId, reactionType, timestamp: Date.now() });
+      localStorage.setItem("naypict_offline_reactions_queue", JSON.stringify(list.slice(-100)));
+    } catch {}
+  }
+
+  // Drain and commit offline reactions to server once back online
+  public async drainOfflineQueue(): Promise<void> {
+    if (typeof window === "undefined" || (typeof navigator !== "undefined" && !navigator.onLine)) return;
+    try {
+      const raw = localStorage.getItem("naypict_offline_reactions_queue");
+      if (!raw) return;
+      const list: Array<{ photoId: string; reactionType: ReactionType; timestamp: number }> = JSON.parse(raw);
+      if (!list || !list.length) return;
+
+      localStorage.removeItem("naypict_offline_reactions_queue");
+
+      for (const item of list) {
+        try {
+          await photoReactionAdd({
+            photoId: item.photoId,
+            visitorId: getClientVisitorId(),
+            reactionType: item.reactionType,
+            count: 1,
+          });
+        } catch (err) {
+          console.warn("[REACTION-SYNC] Retry offline reaction item failed:", item.photoId, err);
+        }
+      }
+    } catch {}
   }
 
   // Retrieve cached reactions for photoId if available
@@ -282,9 +328,9 @@ class ReactionSyncManager {
         return confirmed;
       }
     } catch (err) {
-      console.error("[REACTION-SYNC] Rollback reaction mutation:", cleanId, err);
-      // Rollback on network failure
-      this.setCacheAndNotify(cleanId, previousState, true);
+      console.warn("[REACTION-SYNC] Network request failed, queueing reaction for offline sync:", cleanId, err);
+      // Keep optimistic reaction active and queue for background retry when connection returns
+      this.queueOfflineReaction(cleanId, type);
     }
 
     return this.cache.get(cleanId) || optimistic;
