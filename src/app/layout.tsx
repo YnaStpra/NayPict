@@ -62,13 +62,20 @@ export default async function RootLayout({ children }: RootLayoutProps) {
   const title = process.env.TITLE || "NayPict"
   const [locale, messages] = await Promise.all([getLocale(), getMessages()])
 
-  // Extract media gateway origin for DNS prefetch and preconnect acceleration without DB overhead.
-  const rawGatewayUrl = process.env.NEXT_PUBLIC_MEDIA_GATEWAY_URL || process.env.R2_MEDIA_GATEWAY_URL || ""
+  // Extract media gateway and storage origins for DNS prefetch and preconnect acceleration without DB overhead.
+  const candidateUrls = [
+    process.env.NEXT_PUBLIC_MEDIA_GATEWAY_URL,
+    process.env.R2_MEDIA_GATEWAY_URL,
+    process.env.S3_ENDPOINT,
+    process.env.NEXT_PUBLIC_S3_ENDPOINT,
+    process.env.STORAGE_DOMAIN,
+  ]
   const preconnectOrigins = new Set<string>()
 
-  if (rawGatewayUrl) {
+  for (const rawUrl of candidateUrls) {
+    if (!rawUrl) continue
     try {
-      const formatted = rawGatewayUrl.startsWith("http") ? rawGatewayUrl : `https://${rawGatewayUrl}`
+      const formatted = rawUrl.startsWith("http") ? rawUrl : `https://${rawUrl}`
       preconnectOrigins.add(new URL(formatted).origin)
     } catch {}
   }

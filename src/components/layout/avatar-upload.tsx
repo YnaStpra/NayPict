@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import Cropper, { type Area, type Point } from "react-easy-crop"
+import "react-easy-crop/react-easy-crop.css"
 
 import { Dialog } from "@/components/common/dialog"
 import { Slider } from "@/components/ui/slider"

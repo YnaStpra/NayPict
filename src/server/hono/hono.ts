@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { contextStorage } from 'hono/context-storage';
 import { compress } from 'hono/compress';
 import { bodyLimit } from 'hono/body-limit';
+import { etag } from 'hono/etag';
 import result from '../model/result';
 import BizError from '../error/biz-error';
 import { security } from '../security/security';
@@ -23,6 +24,7 @@ export function createHonoApp() {
     },
   }));
   instance.use('*', compress());
+  instance.use('*', etag());
   instance.use('*', apiCors);
   instance.use('*', botBlocker);
   instance.use('*', contextStorage());

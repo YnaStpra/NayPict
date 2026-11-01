@@ -196,7 +196,7 @@ const StableMasonryScroller = memo(function StableMasonryScroller({
   positioner,
   offset,
   height,
-  overscanBy = 8,
+  overscanBy = 4,
   itemKey,
   render,
   className,
@@ -998,7 +998,7 @@ const PhotoMasonry = memo(function PhotoMasonry({
             offset={wrapPosition.offset}
             height={windowHeight}
             itemKey={(item) => item?.photoId ?? ''}
-            overscanBy={isMobile ? 8 : 8}
+            overscanBy={isMobile ? 2 : 4}
             render={MasonicPhotoCard}
             sidebarOpen={sidebarOpen}
           />

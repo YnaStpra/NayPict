@@ -1,10 +1,6 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
-@import "react-easy-crop/react-easy-crop.css";
-@import "yet-another-react-lightbox/styles.css";
-@import "yet-another-react-lightbox/plugins/counter.css";
-@import "yet-another-react-lightbox/plugins/thumbnails.css";
 @import "lenis/dist/lenis.css";
 
 @custom-variant dark (&:is(.dark *));
