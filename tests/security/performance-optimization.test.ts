@@ -262,7 +262,11 @@ describe('Media Performance & Delivery Optimization Test Suite', () => {
     it('configures adaptive virtual overscan on mobile in PhotoMasonry', () => {
       const masonryFile = path.resolve(process.cwd(), 'src/components/photo/photo-masonry.tsx');
       const masonryContent = fs.readFileSync(masonryFile, 'utf-8');
-      assert.ok(masonryContent.includes('overscanBy={isMobile ? 2 : 4}'), 'Must use 2 screens overscan on mobile and 4 on desktop');
+      assert.ok(
+        masonryContent.includes('overscanBy={isLowEndDevice ? 1 : isMobile ? 2 : 4}') ||
+        masonryContent.includes('overscanBy={isMobile ? 2 : 4}'),
+        'Must use adaptive screens overscan on mobile and desktop'
+      );
     });
 
     it('precaches PWA application icons in service worker', () => {
@@ -388,6 +392,60 @@ describe('Media Performance & Delivery Optimization Test Suite', () => {
       const galleryFile = path.resolve(process.cwd(), 'src/components/gallery/infinite-gallery.tsx');
       const galleryContent = fs.readFileSync(galleryFile, 'utf-8');
       assert.ok(galleryContent.includes('window.addEventListener("orientationchange"'), 'Must track orientation change');
+    });
+  });
+
+  describe('Sprint 7 Cross-Platform Multi-Device Suite: Screen Wake Lock, Hardware Profiling & PWA Shortcuts', () => {
+    it('implements Screen Wake Lock hook and binds to video playback and photo slideshow', () => {
+      const wakeLockFile = path.resolve(process.cwd(), 'src/hooks/use-wake-lock.ts');
+      assert.ok(fs.existsSync(wakeLockFile), 'useWakeLock hook file must exist');
+      const wakeLockContent = fs.readFileSync(wakeLockFile, 'utf-8');
+      assert.ok(wakeLockContent.includes('wakeLock.request("screen")'), 'Hook must request screen wake lock');
+      assert.ok(wakeLockContent.includes('document.addEventListener("visibilitychange"'), 'Hook must handle visibility change');
+
+      const videoPlayerFile = path.resolve(process.cwd(), 'src/components/video/video-player.tsx');
+      const videoPlayerContent = fs.readFileSync(videoPlayerFile, 'utf-8');
+      assert.ok(videoPlayerContent.includes('useWakeLock(isPlaying)'), 'VideoPlayer must hold wake lock while playing');
+
+      const viewerFile = path.resolve(process.cwd(), 'src/components/photo/photo-viewer.tsx');
+      const viewerContent = fs.readFileSync(viewerFile, 'utf-8');
+      assert.ok(viewerContent.includes('useWakeLock(isSlideshowActive)'), 'PhotoViewer must hold wake lock during slideshow');
+    });
+
+    it('detects constrained hardware profiles and throttles virtual masonry overscan for low-RAM devices', () => {
+      const adaptiveFile = path.resolve(process.cwd(), 'src/hooks/use-adaptive-performance.ts');
+      const adaptiveContent = fs.readFileSync(adaptiveFile, 'utf-8');
+      assert.ok(adaptiveContent.includes('isLowEndDevice'), 'Adaptive performance hook must export isLowEndDevice');
+      assert.ok(adaptiveContent.includes('deviceMemory'), 'Hook must inspect navigator.deviceMemory');
+      assert.ok(adaptiveContent.includes('hardwareConcurrency'), 'Hook must inspect navigator.hardwareConcurrency');
+
+      const masonryFile = path.resolve(process.cwd(), 'src/components/photo/photo-masonry.tsx');
+      const masonryContent = fs.readFileSync(masonryFile, 'utf-8');
+      assert.ok(masonryContent.includes('overscanBy={isLowEndDevice ? 1 : isMobile ? 2 : 4}'), 'PhotoMasonry must dynamically throttle overscan for low-end devices');
+    });
+
+    it('enriches PWA manifest with native App Shortcuts, display_override, and W3C ID', () => {
+      const manifestFile = path.resolve(process.cwd(), 'public/manifest.webmanifest');
+      const manifest = JSON.parse(fs.readFileSync(manifestFile, 'utf-8'));
+      assert.strictEqual(manifest.id, '/', 'Manifest must have stable root ID');
+      assert.ok(Array.isArray(manifest.display_override) && manifest.display_override.includes('window-controls-overlay'), 'Manifest must declare display_override');
+      assert.ok(Array.isArray(manifest.shortcuts) && manifest.shortcuts.length >= 3, 'Manifest must provide quick action shortcuts');
+      assert.ok(manifest.shortcuts.some((s: { url: string }) => s.url === '/photos'), 'Must have photos shortcut');
+      assert.ok(manifest.shortcuts.some((s: { url: string }) => s.url === '/albums'), 'Must have albums shortcut');
+      assert.ok(manifest.shortcuts.some((s: { url: string }) => s.url === '/map'), 'Must have map shortcut');
+    });
+
+    it('provides universal PWA installation handling for Android/Chromium and iOS Safari', () => {
+      const pwaHookFile = path.resolve(process.cwd(), 'src/hooks/use-pwa-install.ts');
+      assert.ok(fs.existsSync(pwaHookFile), 'usePwaInstall hook must exist');
+      const pwaHookContent = fs.readFileSync(pwaHookFile, 'utf-8');
+      assert.ok(pwaHookContent.includes('beforeinstallprompt'), 'Hook must intercept beforeinstallprompt');
+      assert.ok(pwaHookContent.includes('display-mode: standalone'), 'Hook must check standalone display mode');
+
+      const pwaIosDialogFile = path.resolve(process.cwd(), 'src/components/pwa/pwa-ios-dialog.tsx');
+      assert.ok(fs.existsSync(pwaIosDialogFile), 'PwaIosDialog file must exist');
+      const pwaIosDialogContent = fs.readFileSync(pwaIosDialogFile, 'utf-8');
+      assert.ok(pwaIosDialogContent.includes('Add to Home Screen'), 'Dialog must instruct users to Add to Home Screen');
     });
   });
 

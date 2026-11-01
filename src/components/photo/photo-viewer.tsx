@@ -83,6 +83,7 @@ import { useApp } from "@/app/provider"
 import { UserTypeEnum } from "@/server/enums/user-enum"
 import { useTranslations } from "next-intl"
 import { useModalBackHandler } from "@/hooks/use-modal-back-handler"
+import { useWakeLock } from "@/hooks/use-wake-lock"
 
 interface PhotoViewerProps {
   // Controls viewer visibility.
@@ -1709,6 +1710,9 @@ export function PhotoViewer({
 
   const [slideshowRequested, setSlideshowRequested] = useState(false)
   const isSlideshowActive = open && !isCurrentVideo && slideshowRequested
+
+  // Maintain Screen Wake Lock during active slideshow to prevent screen from sleeping on tablets & mobile
+  useWakeLock(isSlideshowActive)
 
   const toggleSlideshow = useCallback(() => {
     setSlideshowRequested((prev) => {

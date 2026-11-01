@@ -32,6 +32,7 @@ import { logout } from "@/request/login"
 import { useApp } from "@/app/provider"
 import { useShortcutsStore } from "@/store/shortcuts-store"
 import { useTranslations } from "next-intl"
+import { PwaInstallButton, PwaInstallMenuItem } from "@/components/pwa/pwa-install-button"
 
 const AvatarUpload = dynamic(
   () => import("@/components/layout/avatar-upload").then((mod) => mod.AvatarUpload),
@@ -164,6 +165,7 @@ export function NavUser({
               </TooltipTrigger>
               <TooltipContent side="right">Shortcuts (?)</TooltipContent>
             </Tooltip>
+            <PwaInstallButton iconOnly />
             <Tooltip>
               <TooltipTrigger asChild>
                 <Link
@@ -195,6 +197,7 @@ export function NavUser({
           </span>
           <kbd className="text-[10px] font-mono px-1 py-0.5 rounded bg-muted border border-border">?</kbd>
         </button>
+        <PwaInstallButton />
         <Link
           href="/login"
           className="flex items-center justify-center gap-1.5 w-full py-1.5 px-3 rounded-lg bg-primary text-primary-foreground font-medium hover:bg-primary/90 transition-colors shadow-2xs cursor-pointer"
@@ -266,6 +269,7 @@ export function NavUser({
                   <span>Shortcuts</span>
                   <kbd className="ml-auto text-[10px] font-mono px-1 py-0.5 rounded bg-muted border border-border">?</kbd>
                 </DropdownMenuItem>
+                <PwaInstallMenuItem />
                 <DropdownMenuItem>
                   <BookOpen />
                   {t("documentation")}
