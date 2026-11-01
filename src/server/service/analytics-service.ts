@@ -368,55 +368,58 @@ const analyticsService = {
     await ensureAnalyticsTables();
     const liveThresholdIso = new Date(Date.now() - LIVE_THRESHOLD_MINUTES * 60 * 1000).toISOString();
 
-    // 1. Overall sessions and unique visitors
-    const [overallCounts] = await readOrm
-      .select({
-        totalSessions: count(),
-        totalVisitors: countDistinct(visitorSessionTab.visitorId),
-        avgDuration: avg(visitorSessionTab.durationSeconds),
-      })
-      .from(visitorSessionTab);
-
-    // 2. Public vs Admin breakdown
-    const [publicCounts] = await readOrm
-      .select({
-        publicVisitors: countDistinct(visitorSessionTab.visitorId),
-      })
-      .from(visitorSessionTab)
-      .where(eq(visitorSessionTab.isAdmin, 0));
-
-    const [adminCounts] = await readOrm
-      .select({
-        adminSessions: count(),
-      })
-      .from(visitorSessionTab)
-      .where(eq(visitorSessionTab.isAdmin, 1));
-
-    // 3. Active now visitors: public vs admin
-    const [livePublic] = await readOrm
-      .select({ liveCount: countDistinct(visitorSessionTab.visitorId) })
-      .from(visitorSessionTab)
-      .where(
-        and(
-          eq(visitorSessionTab.isAdmin, 0),
-          gte(visitorSessionTab.lastActiveAt, liveThresholdIso)
-        )
-      );
-
-    const [liveAdmins] = await readOrm
-      .select({ liveCount: countDistinct(visitorSessionTab.visitorId) })
-      .from(visitorSessionTab)
-      .where(
-        and(
-          eq(visitorSessionTab.isAdmin, 1),
-          gte(visitorSessionTab.lastActiveAt, liveThresholdIso)
-        )
-      );
-
-    // 4. Total media interactions
-    const [mediaInteractions] = await readOrm
-      .select({ total: count() })
-      .from(visitorActivityTab);
+    // Consolidate overview metrics and distributions into parallel single-roundtrip queries
+    const [
+      [overallCounts],
+      [mediaInteractions],
+      browserRows,
+      deviceRows,
+      countryRows,
+      referrerRows,
+    ] = await Promise.all([
+      readOrm
+        .select({
+          totalSessions: count(),
+          totalVisitors: countDistinct(visitorSessionTab.visitorId),
+          avgDuration: avg(visitorSessionTab.durationSeconds),
+          publicVisitors: sql<number>`COALESCE(COUNT(DISTINCT CASE WHEN ${visitorSessionTab.isAdmin} = 0 THEN ${visitorSessionTab.visitorId} END), 0)::int`,
+          adminSessions: sql<number>`COALESCE(COUNT(*) FILTER (WHERE ${visitorSessionTab.isAdmin} = 1), 0)::int`,
+          livePublic: sql<number>`COALESCE(COUNT(DISTINCT CASE WHEN ${visitorSessionTab.isAdmin} = 0 AND ${visitorSessionTab.lastActiveAt} >= ${liveThresholdIso} THEN ${visitorSessionTab.visitorId} END), 0)::int`,
+          liveAdmins: sql<number>`COALESCE(COUNT(DISTINCT CASE WHEN ${visitorSessionTab.isAdmin} = 1 AND ${visitorSessionTab.lastActiveAt} >= ${liveThresholdIso} THEN ${visitorSessionTab.visitorId} END), 0)::int`,
+        })
+        .from(visitorSessionTab),
+      readOrm
+        .select({ total: count() })
+        .from(visitorActivityTab),
+      readOrm
+        .select({ name: visitorSessionTab.browser, cnt: count() })
+        .from(visitorSessionTab)
+        .where(eq(visitorSessionTab.isAdmin, 0))
+        .groupBy(visitorSessionTab.browser)
+        .orderBy(desc(count()))
+        .limit(5),
+      readOrm
+        .select({ name: visitorSessionTab.device, cnt: count() })
+        .from(visitorSessionTab)
+        .where(eq(visitorSessionTab.isAdmin, 0))
+        .groupBy(visitorSessionTab.device)
+        .orderBy(desc(count()))
+        .limit(5),
+      readOrm
+        .select({ name: visitorSessionTab.country, cnt: count() })
+        .from(visitorSessionTab)
+        .where(eq(visitorSessionTab.isAdmin, 0))
+        .groupBy(visitorSessionTab.country)
+        .orderBy(desc(count()))
+        .limit(5),
+      readOrm
+        .select({ name: visitorSessionTab.referrer, cnt: count() })
+        .from(visitorSessionTab)
+        .where(eq(visitorSessionTab.isAdmin, 0))
+        .groupBy(visitorSessionTab.referrer)
+        .orderBy(desc(count()))
+        .limit(5),
+    ]);
 
     const totalSessionsNum = overallCounts?.totalSessions || 0;
 
@@ -429,49 +432,13 @@ const analyticsService = {
       }));
     };
 
-    // 5. Top Browsers (Public visitors)
-    const browserRows = await readOrm
-      .select({ name: visitorSessionTab.browser, cnt: count() })
-      .from(visitorSessionTab)
-      .where(eq(visitorSessionTab.isAdmin, 0))
-      .groupBy(visitorSessionTab.browser)
-      .orderBy(desc(count()))
-      .limit(5);
-
-    // 6. Top Devices (Public visitors)
-    const deviceRows = await readOrm
-      .select({ name: visitorSessionTab.device, cnt: count() })
-      .from(visitorSessionTab)
-      .where(eq(visitorSessionTab.isAdmin, 0))
-      .groupBy(visitorSessionTab.device)
-      .orderBy(desc(count()))
-      .limit(5);
-
-    // 7. Top Countries (Public visitors)
-    const countryRows = await readOrm
-      .select({ name: visitorSessionTab.country, cnt: count() })
-      .from(visitorSessionTab)
-      .where(eq(visitorSessionTab.isAdmin, 0))
-      .groupBy(visitorSessionTab.country)
-      .orderBy(desc(count()))
-      .limit(5);
-
-    // 8. Top Referrers (Public visitors)
-    const referrerRows = await readOrm
-      .select({ name: visitorSessionTab.referrer, cnt: count() })
-      .from(visitorSessionTab)
-      .where(eq(visitorSessionTab.isAdmin, 0))
-      .groupBy(visitorSessionTab.referrer)
-      .orderBy(desc(count()))
-      .limit(5);
-
     return {
       totalVisitors: overallCounts?.totalVisitors || 0,
       totalSessions: totalSessionsNum,
-      publicVisitors: publicCounts?.publicVisitors || 0,
-      adminSessions: adminCounts?.adminSessions || 0,
-      liveVisitors: livePublic?.liveCount || 0,
-      liveAdmins: liveAdmins?.liveCount || 0,
+      publicVisitors: Number(overallCounts?.publicVisitors || 0),
+      adminSessions: Number(overallCounts?.adminSessions || 0),
+      liveVisitors: Number(overallCounts?.livePublic || 0),
+      liveAdmins: Number(overallCounts?.liveAdmins || 0),
       avgDurationSeconds: Math.round(Number(overallCounts?.avgDuration) || 0),
       totalMediaInteractions: mediaInteractions?.total || 0,
       topBrowsers: calcDist(browserRows),
