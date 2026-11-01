@@ -208,14 +208,6 @@ export const PhotoCard = memo(function PhotoCard({
   }, [isVideo, data.videoPreview, data.key])
   // imageError Record whether all photo URLs failed to load.
   const [imageError, setImageError] = useState(false)
-  // Tiered responsive srcset: 480w thumbnail (mobile 2-column) vs 1280w preview (Retina desktop)
-  const responsiveSrcSet = useMemo(() => {
-    if (data.thumbnail && data.preview && data.thumbnail !== data.preview) {
-      return `${data.thumbnail} 480w, ${data.preview} 1280w`
-    }
-    return undefined
-  }, [data.thumbnail, data.preview])
-  const responsiveSizes = "(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
   // isImageLoaded: Once the high-res image paints, clear the base64 placeholder from DOM styles to free memory
   const initialLoaded = Boolean(imageSrc && loadedThumbnails.has(imageSrc))
   const [isImageLoaded, setIsImageLoaded] = useState(initialLoaded)
@@ -242,13 +234,9 @@ export const PhotoCard = memo(function PhotoCard({
   const [isTouchPressed, setIsTouchPressed] = useState(false)
   // Adaptive above-the-fold LCP prioritization:
   // Mobile (2-column): first 6 photos load eager & high priority.
-  // Desktop (multi-column): first 12 photos load eager.
+  // Desktop (multi-column): first 12 photos load eager & high priority.
   const priorityLimit = isMobile ? 6 : 12
   const isPriority = typeof index === "number" && index < priorityLimit
-
-  // All cards mounted by Masonic are already within the bounded virtual viewport window.
-  // Set eager loading with async GPU decoding to completely eliminate mobile scroll black gaps and blur
-  const isInPreloadWindow = true
 
   // Unified adaptive performance: respects Data Saver, weak cellular (2G/3G), and low battery
   const { isEcoMode, canAutoplayVideo } = useAdaptivePerformance()
@@ -768,10 +756,8 @@ export const PhotoCard = memo(function PhotoCard({
             <img
               ref={setImgRef}
               src={imageSrc}
-              srcSet={imageSrc === data.thumbnail ? responsiveSrcSet : undefined}
-              sizes={responsiveSizes}
-              loading={isPriority || isInPreloadWindow ? "eager" : "lazy"}
-              fetchPriority={isPriority ? "high" : "auto"}
+              loading={isPriority ? "eager" : "lazy"}
+              fetchPriority={isPriority ? "high" : "low"}
               decoding={isImageLoaded ? "sync" : "async"}
               alt=""
               draggable={false}
@@ -795,10 +781,8 @@ export const PhotoCard = memo(function PhotoCard({
         <img
           ref={setImgRef}
           src={imageSrc ?? undefined}
-          srcSet={imageSrc === data.thumbnail ? responsiveSrcSet : undefined}
-          sizes={responsiveSizes}
-          loading={isPriority || isInPreloadWindow ? "eager" : "lazy"}
-          fetchPriority={isPriority ? "high" : "auto"}
+          loading={isPriority ? "eager" : "lazy"}
+          fetchPriority={isPriority ? "high" : "low"}
           decoding={isImageLoaded ? "sync" : "async"}
           alt=""
           draggable={false}

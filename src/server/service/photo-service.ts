@@ -451,7 +451,8 @@ const photoService = {
         exifMap.get(photo.photoId) ?? null,
         userId,
         albumMap.get(photo.photoId) ?? [],
-        Boolean(photo.isPinned === 1)
+        Boolean(photo.isPinned === 1),
+        true // isGridList: lightweight EXIF payload
       );
     });
 
@@ -1388,30 +1389,30 @@ const photoService = {
     const thumbnailExt = images.thumbnailType?.includes('avif') ? '.avif' : '.webp';
     const thumbnail = buildThumbnailKey(checksum, photoId, thumbnailExt);
 
-    const cacheMetadata = [['Cache-Control', 'private, max-age=604800']];
-    const keyMetadata = [
-      ...cacheMetadata,
+    const originalMetadata = [
+      ['Cache-Control', 'private, max-age=604800'],
       ['Content-Disposition', buildContentDisposition(name)]
     ];
+    const derivativeCacheMetadata = [['Cache-Control', 'public, max-age=31536000, immutable']];
 
     await storage.put([
       {
         key,
         body: finalBuffer,
         type: finalType,
-        metadata: keyMetadata,
+        metadata: originalMetadata,
       },
       {
         key: preview,
         body: images.previewBuffer,
         type: 'image/jpeg',
-        metadata: cacheMetadata,
+        metadata: derivativeCacheMetadata,
       },
       {
         key: thumbnail,
         body: images.thumbnailBuffer,
         type: images.thumbnailType || 'image/avif',
-        metadata: cacheMetadata,
+        metadata: derivativeCacheMetadata,
       },
     ], activeStorageId);
 
@@ -1577,19 +1578,19 @@ const photoService = {
         previewKey = buildPreviewKey(checksum, photoId);
         thumbnailKey = buildThumbnailKey(checksum, photoId);
 
-        const cacheMetadata = [['Cache-Control', 'private, max-age=604800']];
+        const derivativeCacheMetadata = [['Cache-Control', 'public, max-age=31536000, immutable']];
         await storage.put([
           {
             key: previewKey,
             body: images.previewBuffer,
             type: 'image/jpeg',
-            metadata: cacheMetadata,
+            metadata: derivativeCacheMetadata,
           },
           {
             key: thumbnailKey,
             body: images.thumbnailBuffer,
             type: 'image/webp',
-            metadata: cacheMetadata,
+            metadata: derivativeCacheMetadata,
           },
         ], videoStorage.storageId);
       } catch (err) {
@@ -2535,7 +2536,8 @@ const photoService = {
     exifRow: Exif | null = null,
     currentUserId?: string,
     albums?: { albumId: string; name: string }[],
-    isPinned?: boolean
+    isPinned?: boolean,
+    isGridList = false
   ): PhotoVo {
     const rawKey = this.getFileKey(files, FileTypeEnum.ORIGINAL) ?? '';
     const preview = this.getFileKey(files, FileTypeEnum.PREVIEW) ?? '';
@@ -2569,13 +2571,15 @@ const photoService = {
           // Whitelist essential viewer/display keys to eliminate bloated vendor maker notes,
           // ICC profile binary dumps, and redundant metadata, cutting API JSON payload by 50-70%.
           const leanExif: Record<string, unknown> = {};
-          const ALLOWED_EXIF_KEYS = [
-            'Make', 'Model', 'LensMake', 'LensModel', 'Software',
-            'ExposureTime', 'FNumber', 'FocalLength', 'ISO',
-            'TimeZoneOffset', 'OffsetTimeOriginal', 'OffsetTime', 'OffsetTimeDigitized',
-            'Duration', 'DateTimeOriginal', 'CreateDate',
-            'ColorSpace', 'ProfileDescription',
-          ];
+          const ALLOWED_EXIF_KEYS = isGridList
+            ? (isVideo ? ['Duration'] : [])
+            : [
+                'Make', 'Model', 'LensMake', 'LensModel', 'Software',
+                'ExposureTime', 'FNumber', 'FocalLength', 'ISO',
+                'TimeZoneOffset', 'OffsetTimeOriginal', 'OffsetTime', 'OffsetTimeDigitized',
+                'Duration', 'DateTimeOriginal', 'CreateDate',
+                'ColorSpace', 'ProfileDescription',
+              ];
 
           for (const k of ALLOWED_EXIF_KEYS) {
             if (parsed[k] !== undefined && parsed[k] !== null && parsed[k] !== '') {
@@ -2584,7 +2588,7 @@ const photoService = {
           }
 
           // If location is not ignored, preserve GPS coordinates in EXIF payload
-          if (!isLocationIgnored) {
+          if (!isLocationIgnored && !isGridList) {
             if (parsed.GPSLatitude !== undefined) leanExif.GPSLatitude = parsed.GPSLatitude;
             if (parsed.GPSLongitude !== undefined) leanExif.GPSLongitude = parsed.GPSLongitude;
             if (parsed.GPSAltitude !== undefined) leanExif.GPSAltitude = parsed.GPSAltitude;
