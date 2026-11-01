@@ -289,5 +289,62 @@ describe('Media Performance & Delivery Optimization Test Suite', () => {
     });
   });
 
+  describe('Sprint 5 Multi-Device & Cross-Platform Suite (iOS, Android, Tablet, macOS, Windows, Linux)', () => {
+    it('implements dynamic viewport height (100dvh) for mobile URL bar stability', () => {
+      const cssFile = path.resolve(process.cwd(), 'src/app/globals.css');
+      const cssContent = fs.readFileSync(cssFile, 'utf-8');
+      assert.ok(cssContent.includes('min-height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px))'), 'globals.css must use 100dvh for safe viewport');
+
+      const photosFile = path.resolve(process.cwd(), 'src/app/photos/page.tsx');
+      const photosContent = fs.readFileSync(photosFile, 'utf-8');
+      assert.ok(photosContent.includes('h-[calc(100dvh-3.5rem)]'), 'photos page must use 100dvh');
+
+      const albumsFile = path.resolve(process.cwd(), 'src/app/albums/[albumId]/page.tsx');
+      const albumsContent = fs.readFileSync(albumsFile, 'utf-8');
+      assert.ok(albumsContent.includes('h-[calc(100dvh-3.5rem)]'), 'albums page must use 100dvh');
+    });
+
+    it('configures interactiveWidget resizes-visual for Android virtual keyboard stability', () => {
+      const layoutFile = path.resolve(process.cwd(), 'src/app/layout.tsx');
+      const layoutContent = fs.readFileSync(layoutFile, 'utf-8');
+      assert.ok(layoutContent.includes('interactiveWidget: "resizes-visual"'), 'layout.tsx must configure interactiveWidget');
+    });
+
+    it('enforces scrollbar-gutter: stable to eliminate 16px CLS jumps on Windows and Linux', () => {
+      const cssFile = path.resolve(process.cwd(), 'src/app/globals.css');
+      const cssContent = fs.readFileSync(cssFile, 'utf-8');
+      assert.ok(cssContent.includes('scrollbar-gutter: stable'), 'html element must reserve stable scrollbar gutter');
+    });
+
+    it('suppresses iOS native context action sheet on lightbox images', () => {
+      const viewerFile = path.resolve(process.cwd(), 'src/components/photo/photo-viewer.tsx');
+      const viewerContent = fs.readFileSync(viewerFile, 'utf-8');
+      assert.ok(viewerContent.includes('["WebkitTouchCallout" as string]: "none"'), 'PhotoViewer must suppress webkit touch callout');
+
+      const cssFile = path.resolve(process.cwd(), 'src/app/globals.css');
+      const cssContent = fs.readFileSync(cssFile, 'utf-8');
+      assert.ok(cssContent.includes('-webkit-touch-callout: none !important'), 'globals.css must suppress touch callout on viewer media');
+    });
+
+    it('protects tablets and touch laptops from double-trigger clicks and synthetic tap conflicts', () => {
+      const cardFile = path.resolve(process.cwd(), 'src/components/photo/photo-card.tsx');
+      const cardContent = fs.readFileSync(cardFile, 'utf-8');
+      assert.ok(cardContent.includes('lastTouchEndTimeRef.current = Date.now()'), 'handleTouchEnd must record touch timestamp');
+      assert.ok(cardContent.includes('Date.now() - lastTouchEndTimeRef.current < 450'), 'handlePhotoClick must filter recent touch taps');
+    });
+
+    it('eliminates sticky hover artifacts on touch-only devices', () => {
+      const cssFile = path.resolve(process.cwd(), 'src/app/globals.css');
+      const cssContent = fs.readFileSync(cssFile, 'utf-8');
+      assert.ok(cssContent.includes('@media (hover: none) and (pointer: coarse)'), 'Must restrict hover effects on coarse pointer devices');
+    });
+
+    it('dynamically displays platform-appropriate modifier key (Cmd for Mac vs Ctrl for Windows/Linux)', () => {
+      const shortcutsFile = path.resolve(process.cwd(), 'src/components/common/keyboard-shortcuts-dialog.tsx');
+      const shortcutsContent = fs.readFileSync(shortcutsFile, 'utf-8');
+      assert.ok(shortcutsContent.includes('isApple ? "⌘" : "Ctrl"'), 'Must adapt modifier key for Apple vs Windows/Linux');
+    });
+  });
+
 });
 

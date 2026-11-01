@@ -935,7 +935,7 @@ export const VideoPlayer = memo(function VideoPlayer({
               position: "fixed",
               inset: 0,
               width: "100vw",
-              height: "100vh",
+              height: "100dvh",
               zIndex: 99999,
               background: "#000",
             }
@@ -952,7 +952,7 @@ export const VideoPlayer = memo(function VideoPlayer({
                 position: "absolute",
                 top: "50%",
                 left: "50%",
-                width: typeof window !== "undefined" ? `${window.innerHeight}px` : "100vh",
+                width: typeof window !== "undefined" ? `${window.innerHeight}px` : "100dvh",
                 height: typeof window !== "undefined" ? `${window.innerWidth}px` : "100vw",
                 transform: "translate(-50%, -50%) rotate(90deg)",
                 transformOrigin: "center center",
