@@ -26,7 +26,8 @@
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:production": "cross-env TEST_BASE_URL=https://naypict.vercel.app playwright test",
-    "bundle:win": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/bundle-win.ps1"
+    "bundle:win": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/bundle-win.ps1",
+    "clean:deployments": "node scripts/clean-deployments.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "3.984.0",
