@@ -1394,7 +1394,7 @@ function PhotoSlideImage({
         draggable={false}
         fetchPriority={isActive ? "high" : "low"}
         decoding="async"
-        className="select-none max-w-none object-contain transition-opacity duration-200"
+        className="photo-slide-img select-none max-w-none object-contain transition-opacity duration-200"
         onLoad={handleImageLoaded}
         ref={(el) => {
           if (el && el.complete && el.naturalWidth > 0 && !loaded) {
@@ -1418,6 +1418,7 @@ function PhotoSlideImage({
           willChange: scale > 1 ? "transform" : "auto",
           opacity: loaded ? 1 : 0,
           cursor: scale > 1 ? "grab" : "default",
+          ["WebkitTouchCallout" as string]: "none",
         }}
       />
     </div>

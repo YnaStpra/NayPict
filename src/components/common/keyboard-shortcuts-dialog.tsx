@@ -64,6 +64,13 @@ function ShortcutItem({ keys, label, description, icon }: ShortcutItemProps) {
 export function KeyboardShortcutsDialog() {
   const { open, setOpen, toggleShortcuts } = useShortcutsStore()
   const { toggleTheme, setSidebarOpen } = useApp()
+  const [isApple, setIsApple] = React.useState(false)
+
+  useEffect(() => {
+    if (typeof navigator !== "undefined") {
+      setIsApple(/(Mac|iPhone|iPod|iPad)/i.test(navigator.userAgent || navigator.platform))
+    }
+  }, [])
 
   // Global keyboard shortcuts listener for gallery navigation
   useEffect(() => {
@@ -205,7 +212,7 @@ export function KeyboardShortcutsDialog() {
                 icon={<SunMoon className="size-3.5 text-amber-500" />}
               />
               <ShortcutItem
-                keys={["B"]}
+                keys={[isApple ? "⌘" : "Ctrl", "B"]}
                 label="Toggle Navigation Sidebar"
                 description="Expand or collapse the main app sidebar"
                 icon={<PanelLeft className="size-3.5 text-sky-500" />}

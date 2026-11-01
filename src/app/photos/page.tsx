@@ -577,7 +577,7 @@ export default function Page() {
             )}
             {isBrowser ? (
               viewMode === "infinite" ? (
-                <div className="relative w-full h-[calc(100vh-3.5rem)] rounded-xl overflow-hidden border bg-background/50">
+                <div className="relative w-full h-[calc(100dvh-3.5rem)] rounded-xl overflow-hidden border bg-background/50">
                   <InfiniteGallery
                     photos={displayPhotos}
                     onPhotoClick={(index) => openPhoto(index)}

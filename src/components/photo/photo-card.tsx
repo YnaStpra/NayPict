@@ -242,6 +242,7 @@ export const PhotoCard = memo(function PhotoCard({
   const imgRef = useRef<HTMLImageElement | null>(null)
   const cardRef = useRef<HTMLDivElement | null>(null)
   const videoRef = useRef<HTMLVideoElement | null>(null)
+  const lastTouchEndTimeRef = useRef<number>(0)
   const [isVideoPlaying, setIsVideoPlaying] = useState(false)
   const [isVideoFrameReady, setIsVideoFrameReady] = useState(false)
   const [currentSeconds, setCurrentSeconds] = useState(0)
@@ -476,6 +477,7 @@ export const PhotoCard = memo(function PhotoCard({
 
   // Process tap, double-tap, or long-press release with optimized 160ms opening latency
   function handleTouchEnd(e: React.TouchEvent<HTMLDivElement>) {
+    lastTouchEndTimeRef.current = Date.now()
     setIsTouchPressed(false)
     if (longPressTimerRef.current) {
       clearTimeout(longPressTimerRef.current)
@@ -569,6 +571,7 @@ export const PhotoCard = memo(function PhotoCard({
 
   // Handle touch cancellation (e.g. system alert or interruption)
   function handleTouchCancel() {
+    lastTouchEndTimeRef.current = Date.now()
     setIsTouchPressed(false)
     if (longPressTimerRef.current) {
       clearTimeout(longPressTimerRef.current)
@@ -619,8 +622,8 @@ export const PhotoCard = memo(function PhotoCard({
       return
     }
 
-    // On touch mobile devices, handleTouchEnd processes taps
-    if (isMobile) {
+    // On touch devices (phones, tablets, iPads, touchscreen laptops), handleTouchEnd processes taps
+    if (isMobile || Date.now() - lastTouchEndTimeRef.current < 450) {
       return
     }
 
