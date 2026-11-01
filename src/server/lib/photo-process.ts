@@ -135,18 +135,18 @@ export async function processPhotoImages(buffer: Buffer, mimeType?: string): Pro
     .webp({ quality: 85, effort: 5 })
     .toBuffer()
 
-  // 4. Crisp gallery grid thumbnail: High-compression AVIF format (25-35% lighter than WebP) with WebP fallback
+  // 4. Crisp gallery grid thumbnail: High-compression AVIF format (25-35% lighter than WebP) with WebP fallback (720px max bound for Retina sharpness)
   let thumbnailBuffer: Buffer
   let thumbnailType = "image/avif"
   try {
     thumbnailBuffer = await sharp(mediumBuffer, SHARP_SECURITY_OPTIONS)
-      .resize({ width: 480, height: 480, fit: "inside", withoutEnlargement: true })
+      .resize({ width: 720, height: 720, fit: "inside", withoutEnlargement: true })
       .avif({ quality: 80, effort: 4 })
       .toBuffer()
   } catch {
     thumbnailType = "image/webp"
     thumbnailBuffer = await sharp(mediumBuffer, SHARP_SECURITY_OPTIONS)
-      .resize({ width: 480, height: 480, fit: "inside", withoutEnlargement: true })
+      .resize({ width: 720, height: 720, fit: "inside", withoutEnlargement: true })
       .webp({ quality: 84, effort: 6, smartSubsample: true })
       .toBuffer()
   }

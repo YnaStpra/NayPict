@@ -38,12 +38,20 @@ function toMediaUrl(key: string, domain?: string | null) {
 
   const cleanKey = safeDecodeKey(key.trim());
   const encodedKey = cleanKey.split('/').map((segment) => encodeURIComponent(segment)).join('/');
-  const base = formatHttpUrl(domain || process.env.NEXT_PUBLIC_MEDIA_GATEWAY_URL || process.env.R2_MEDIA_GATEWAY_URL || MEDIA_GATEWAY_DEFAULT);
 
-  // If public CDN domain is configured (e.g. *.r2.dev or custom media domain), deliver directly via global CDN edge
-  // Only route via /media server proxy if domain is empty or points to private S3 API endpoint (r2.cloudflarestorage.com)
-  if (base && !base.includes('r2.cloudflarestorage.com')) {
-    return `${base}/${encodedKey}`;
+  const isDerivative = cleanKey.startsWith('previews/') || cleanKey.startsWith('thumbnails/');
+  const isVideo = Boolean(cleanKey.match(/\.(mp4|webm|mov|m4v|mkv)$/i));
+
+  // If public media gateway is configured, deliver cacheable derivatives & videos directly from edge CDN (eliminates 307 redirect RTT)
+  const gatewayBase = formatHttpUrl(process.env.NEXT_PUBLIC_MEDIA_GATEWAY_URL || process.env.R2_MEDIA_GATEWAY_URL || MEDIA_GATEWAY_DEFAULT);
+  if ((isDerivative || isVideo) && gatewayBase && !gatewayBase.includes('r2.cloudflarestorage.com')) {
+    return `${gatewayBase}/${encodedKey}`;
+  }
+
+  // If public custom domain is configured on storage (e.g. *.r2.dev or custom CDN), deliver directly via global CDN edge
+  const directBase = formatHttpUrl(domain);
+  if (directBase && !directBase.includes('r2.cloudflarestorage.com')) {
+    return `${directBase}/${encodedKey}`;
   }
 
   return `/media/${encodedKey}`;
