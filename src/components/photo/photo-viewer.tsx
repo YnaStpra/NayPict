@@ -1152,6 +1152,73 @@ function PhotoSlideImage({
     }
   }, [isActive, onZoomChange])
 
+  // Keyboard Zoom & Pan (+, -, 0, and Arrow keys when zoomed in)
+  useEffect(() => {
+    if (!isActive || typeof window === "undefined") return
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null
+      if (
+        target &&
+        (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)
+      ) {
+        return
+      }
+
+      if (e.key === "+" || e.key === "=") {
+        e.preventDefault()
+        e.stopPropagation()
+        setScale((prev) => {
+          const next = Math.min(prev + 0.75, 4)
+          onZoomChange(next > 1)
+          return next
+        })
+      } else if (e.key === "-" || e.key === "_") {
+        e.preventDefault()
+        e.stopPropagation()
+        setScale((prev) => {
+          const next = Math.max(prev - 0.75, 1)
+          if (next === 1) {
+            setPosition({ x: 0, y: 0 })
+            onZoomChange(false)
+          }
+          return next
+        })
+      } else if (e.key === "0") {
+        e.preventDefault()
+        e.stopPropagation()
+        setScale(1)
+        setPosition({ x: 0, y: 0 })
+        onZoomChange(false)
+      } else if (scale > 1) {
+        // When zoomed in, arrow keys pan the high-res image view
+        const panStep = 50
+        if (e.key === "ArrowLeft") {
+          e.preventDefault()
+          e.stopPropagation()
+          setPosition((prev) => ({ ...prev, x: prev.x + panStep }))
+        } else if (e.key === "ArrowRight") {
+          e.preventDefault()
+          e.stopPropagation()
+          setPosition((prev) => ({ ...prev, x: prev.x - panStep }))
+        } else if (e.key === "ArrowUp") {
+          e.preventDefault()
+          e.stopPropagation()
+          setPosition((prev) => ({ ...prev, y: prev.y + panStep }))
+        } else if (e.key === "ArrowDown") {
+          e.preventDefault()
+          e.stopPropagation()
+          setPosition((prev) => ({ ...prev, y: prev.y - panStep }))
+        }
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown, true)
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown, true)
+    }
+  }, [isActive, scale, onZoomChange])
+
   useEffect(() => {
     if (typeof window === "undefined") return
 

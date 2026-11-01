@@ -17,7 +17,10 @@ interface PhotoState {
   infoOpen: boolean
   uploadedPhotos: UploadedPhoto[]
   photoCache: Map<string, string>
+  pendingFiles: File[] | null
   openUpload: (albumId: string | null) => void
+  openUploadWithFiles: (files: File[], albumId?: string | null) => void
+  clearPendingFiles: () => void
   closeUpload: () => void
   setInfoOpen: (open: boolean) => void
   toggleInfoOpen: () => void
@@ -34,12 +37,22 @@ const usePhotoStore = create<PhotoState>()(persist((set, get) => ({
   infoOpen: true,
   uploadedPhotos: [],
   photoCache: new Map(),
+  pendingFiles: null,
 
   // Open the upload pop-up window, And record the album used when adding new photos this time id.
   openUpload: (albumId) => set({
     uploadOpen: true,
     uploadAlbumId: albumId,
   }),
+
+  // Open the upload pop-up window and queue files dropped from OS file manager
+  openUploadWithFiles: (files, albumId = null) => set({
+    uploadOpen: true,
+    uploadAlbumId: albumId,
+    pendingFiles: files,
+  }),
+
+  clearPendingFiles: () => set({ pendingFiles: null }),
 
   // Close upload pop-up window, Keep local status in upload list.
   closeUpload: () => set({ uploadOpen: false }),

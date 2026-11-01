@@ -677,6 +677,17 @@ export function PhotoUploadDialog() {
     }
   }
 
+  const pendingFiles = usePhotoStore((state) => state.pendingFiles)
+  const clearPendingFiles = usePhotoStore((state) => state.clearPendingFiles)
+
+  // Automatically enqueue files dropped directly from OS File Explorer into the modal
+  useEffect(() => {
+    if (open && pendingFiles && pendingFiles.length > 0) {
+      void addFilesToPreviews(pendingFiles)
+      clearPendingFiles()
+    }
+  }, [open, pendingFiles, clearPendingFiles])
+
   async function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
     const files = Array.from(event.target.files ?? [])
     await addFilesToPreviews(files)

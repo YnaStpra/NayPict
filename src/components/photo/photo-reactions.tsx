@@ -162,6 +162,13 @@ export function PhotoReactions({ photoId, className = "", compact = false }: Pho
       trackVisitorMedia(photoId, "reaction")
     }
 
+    // Haptic micro-tick tactile feedback on mobile devices
+    try {
+      if (typeof navigator !== "undefined" && navigator.vibrate) {
+        navigator.vibrate(8)
+      }
+    } catch {}
+
     // Exclude Admin reactions from modifying public insight metrics
     if (isAdmin) {
       toast.info("Admin reactions are excluded from public stats.")

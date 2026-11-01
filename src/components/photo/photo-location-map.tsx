@@ -2,10 +2,11 @@
 
 import { useEffect, useState, useMemo } from "react"
 import { getReverseGeocode, type LocationReverseVo } from "@/request/location"
-import { ExternalLink, MapPin, Navigation } from "lucide-react"
+import { ExternalLink, MapPin, Navigation, Copy, Check } from "lucide-react"
 import { toProxyMediaUrl } from "@/lib/url"
 import { useUserLocation } from "@/hooks/use-user-location"
 import { calculateDistance, formatDistancePerspective, getDirectionsUrl } from "@/lib/geo"
+import { toast } from "sonner"
 
 // This component renders a Google Maps preview card with a photo thumbnail pin and full reverse-geocoded address.
 
@@ -122,24 +123,56 @@ export function PhotoLocationMap({
     return null
   }
 
-  const mapsUrl = `https://www.google.com/maps?q=${latNum},${lngNum}`
+  // Detect Apple OS (iOS / macOS / iPadOS) for native Apple Maps deeplinking
+  const isAppleDevice = useMemo(() => {
+    if (typeof navigator === "undefined") return false
+    const ua = navigator.userAgent || ""
+    const platform = (navigator as any).userAgentData?.platform || navigator.platform || ""
+    return /Mac|iPhone|iPad|iPod/.test(platform) || /iPhone|iPad|iPod|Macintosh/.test(ua)
+  }, [])
+
+  const mapsUrl = useMemo(() => {
+    if (isAppleDevice) {
+      return `maps://?q=${latNum},${lngNum}`
+    }
+    return `https://www.google.com/maps/search/?api=1&query=${latNum},${lngNum}`
+  }, [isAppleDevice, latNum, lngNum])
+
   const [currentImgSrc, setCurrentImgSrc] = useState<string>(() => thumbnail || preview || "")
+  const [copiedCoords, setCopiedCoords] = useState(false)
 
   useEffect(() => {
     setCurrentImgSrc(thumbnail || preview || "")
   }, [thumbnail, preview])
 
-  const handleOpenGoogleMaps = () => {
+  const handleOpenMaps = () => {
     if (typeof window !== "undefined") {
-      window.open(mapsUrl, "_blank", "noopener,noreferrer")
+      if (isAppleDevice) {
+        window.location.href = `maps://?q=${latNum},${lngNum}`
+        setTimeout(() => {
+          window.open(`https://maps.apple.com/?q=${latNum},${lngNum}`, "_blank", "noopener,noreferrer")
+        }, 500)
+      } else {
+        window.open(`https://www.google.com/maps/search/?api=1&query=${latNum},${lngNum}`, "_blank", "noopener,noreferrer")
+      }
+    }
+  }
+
+  const handleCopyCoords = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (typeof navigator !== "undefined" && navigator.clipboard) {
+      navigator.clipboard.writeText(`${latNum.toFixed(6)}, ${lngNum.toFixed(6)}`)
+      setCopiedCoords(true)
+      toast.success("GPS coordinates copied to clipboard!")
+      setTimeout(() => setCopiedCoords(false), 2000)
     }
   }
 
   return (
     <div
-      onClick={handleOpenGoogleMaps}
+      onClick={handleOpenMaps}
       className={`group relative overflow-hidden rounded-xl border border-white/15 bg-zinc-900/90 shadow-md cursor-pointer transition-all duration-200 hover:border-white/30 hover:shadow-lg ${className}`}
-      title="Open location in Google Maps"
+      title={isAppleDevice ? "Open location in Apple Maps" : "Open location in Google Maps"}
     >
       {/* Top Map View */}
       <div className="relative h-32 w-full overflow-hidden bg-[#e5e3df]">
@@ -231,9 +264,21 @@ export function PhotoLocationMap({
           </p>
         )}
         <div className="flex items-center justify-between pt-1 border-t border-white/10 text-[10px] text-white/60">
-          <span className="font-mono">
-            {latNum.toFixed(4)}°, {lngNum.toFixed(4)}°
-          </span>
+          <button
+            type="button"
+            onClick={handleCopyCoords}
+            className="font-mono hover:text-white flex items-center gap-1 cursor-pointer transition-colors"
+            title="Click to copy GPS coordinates"
+          >
+            {copiedCoords ? (
+              <Check className="size-2.5 text-emerald-400" />
+            ) : (
+              <Copy className="size-2.5 opacity-70" />
+            )}
+            <span>
+              {latNum.toFixed(4)}°, {lngNum.toFixed(4)}°
+            </span>
+          </button>
           <div className="flex items-center gap-3">
             <button
               type="button"
@@ -248,7 +293,7 @@ export function PhotoLocationMap({
               <span>Directions</span>
             </button>
             <span className="text-emerald-400 group-hover:underline flex items-center gap-1">
-              <span>Open Maps</span>
+              <span>{isAppleDevice ? "Apple Maps" : "Google Maps"}</span>
               <ExternalLink className="size-2.5" />
             </span>
           </div>

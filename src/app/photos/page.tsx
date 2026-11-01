@@ -224,7 +224,63 @@ export default function Page() {
   const [albumDialogOpen, setAlbumDialogOpen] = useState(false)
   const [albumPhotoIds, setAlbumPhotoIds] = useState<string[]>([])
   const openUpload = usePhotoStore((state) => state.openUpload)
+  const openUploadWithFiles = usePhotoStore((state) => state.openUploadWithFiles)
   const uploadedPhotos = usePhotoStore((state) => state.uploadedPhotos)
+
+  // Drag and drop directly from OS File Explorer (Finder, Explorer, Nautilus)
+  const [isWindowDragging, setIsWindowDragging] = useState(false)
+  const dragCounterRef = useRef(0)
+
+  useEffect(() => {
+    if (!isAdmin) return
+
+    const handleDragEnter = (e: DragEvent) => {
+      e.preventDefault()
+      dragCounterRef.current++
+      if (e.dataTransfer?.types?.includes("Files")) {
+        setIsWindowDragging(true)
+      }
+    }
+
+    const handleDragLeave = (e: DragEvent) => {
+      e.preventDefault()
+      dragCounterRef.current--
+      if (dragCounterRef.current <= 0) {
+        dragCounterRef.current = 0
+        setIsWindowDragging(false)
+      }
+    }
+
+    const handleDragOver = (e: DragEvent) => {
+      e.preventDefault()
+    }
+
+    const handleDrop = (e: DragEvent) => {
+      e.preventDefault()
+      dragCounterRef.current = 0
+      setIsWindowDragging(false)
+
+      const files = Array.from(e.dataTransfer?.files || []).filter(
+        (f) => f.type.startsWith("image/") || f.type.startsWith("video/")
+      )
+      if (files.length > 0) {
+        openUploadWithFiles(files)
+        toast.info(`Queued ${files.length} ${files.length === 1 ? "file" : "files"} for upload`)
+      }
+    }
+
+    window.addEventListener("dragenter", handleDragEnter)
+    window.addEventListener("dragleave", handleDragLeave)
+    window.addEventListener("dragover", handleDragOver)
+    window.addEventListener("drop", handleDrop)
+
+    return () => {
+      window.removeEventListener("dragenter", handleDragEnter)
+      window.removeEventListener("dragleave", handleDragLeave)
+      window.removeEventListener("dragover", handleDragOver)
+      window.removeEventListener("drop", handleDrop)
+    }
+  }, [isAdmin, openUploadWithFiles])
 
   // Compute display photos (sorted by proximity if 'nearby' sort mode is active)
   const displayPhotos = useMemo(() => {
@@ -647,6 +703,20 @@ export default function Page() {
         onAlbumSelect={changePhotoAlbum}
         initialSelectedAlbumIds={initialAlbumIds}
       />
+      {/* Full-Screen OS Drag-and-Drop Hologram Overlay (Admin Only) */}
+      {isWindowDragging && (
+        <div className="fixed inset-0 z-[100080] flex flex-col items-center justify-center bg-black/85 backdrop-blur-md border-4 border-dashed border-sky-400 p-6 pointer-events-none animate-in fade-in zoom-in-95 duration-200">
+          <div className="flex size-20 items-center justify-center rounded-3xl bg-sky-500/20 border border-sky-500/40 text-sky-400 shadow-2xl mb-4 animate-bounce">
+            <Plus className="size-10" />
+          </div>
+          <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight text-center">
+            Drop Photos or Videos to Upload
+          </h2>
+          <p className="text-sm text-slate-300 mt-1.5 text-center max-w-sm">
+            Release your files anywhere on the screen to queue them directly into the uploader
+          </p>
+        </div>
+      )}
       <BackToTopButton />
     </>
   )

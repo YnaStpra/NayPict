@@ -496,5 +496,71 @@ describe('Media Performance & Delivery Optimization Test Suite', () => {
     });
   });
 
+  describe('Sprint 9 Multi-Device, Multi-OS & Instant Route Transitions Suite', () => {
+    it('eliminates landing navigation latency with instant prefetching and photos loading skeleton', () => {
+      const landingFile = path.resolve(process.cwd(), 'src/components/landing/landing-client.tsx');
+      const landingContent = fs.readFileSync(landingFile, 'utf-8');
+      assert.ok(landingContent.includes("router.prefetch('/photos')"), 'Landing must prefetch photos route');
+      assert.ok(landingContent.includes("router.prefetch('/albums')"), 'Landing must prefetch albums route');
+      assert.ok(landingContent.includes("router.prefetch('/map')"), 'Landing must prefetch map route');
+
+      const photosLoadingFile = path.resolve(process.cwd(), 'src/app/photos/loading.tsx');
+      assert.ok(fs.existsSync(photosLoadingFile), 'src/app/photos/loading.tsx must exist for 0ms transitions');
+    });
+
+    it('integrates OS MediaSession API and tab visibility auto-pause in video player', () => {
+      const videoFile = path.resolve(process.cwd(), 'src/components/video/video-player.tsx');
+      const videoContent = fs.readFileSync(videoFile, 'utf-8');
+      assert.ok(videoContent.includes('navigator.mediaSession'), 'VideoPlayer must integrate with MediaSession API');
+      assert.ok(videoContent.includes('visibilitychange'), 'VideoPlayer must listen to visibilitychange to auto-pause');
+      assert.ok(videoContent.includes('document.hidden'), 'VideoPlayer must check document.hidden');
+    });
+
+    it('enables OS-aware map deeplinking and GPS coordinates clipboard copying', () => {
+      const mapFile = path.resolve(process.cwd(), 'src/components/photo/photo-location-map.tsx');
+      const mapContent = fs.readFileSync(mapFile, 'utf-8');
+      assert.ok(mapContent.includes('maps://?q='), 'Must support Apple Maps deeplinking');
+      assert.ok(mapContent.includes('google.com/maps/search'), 'Must support Google Maps search');
+      assert.ok(mapContent.includes('handleCopyCoords'), 'Must provide handleCopyCoords');
+    });
+
+    it('supports OS desktop file manager drag-and-drop file queueing for admin', () => {
+      const photosPageFile = path.resolve(process.cwd(), 'src/app/photos/page.tsx');
+      const photosContent = fs.readFileSync(photosPageFile, 'utf-8');
+      assert.ok(photosContent.includes('isWindowDragging'), 'Must track window drag state');
+      assert.ok(photosContent.includes('openUploadWithFiles'), 'Must queue dropped files into uploader');
+    });
+
+    it('enables keyboard zoom (+, -, 0) and high-res panning in PhotoViewer', () => {
+      const viewerFile = path.resolve(process.cwd(), 'src/components/photo/photo-viewer.tsx');
+      const viewerContent = fs.readFileSync(viewerFile, 'utf-8');
+      assert.ok(viewerContent.includes('e.key === "+" || e.key === "="'), 'Must support + zoom-in shortcut');
+      assert.ok(viewerContent.includes('e.key === "-" || e.key === "_"'), 'Must support - zoom-out shortcut');
+      assert.ok(viewerContent.includes('e.key === "0"'), 'Must support 0 reset-zoom shortcut');
+      assert.ok(viewerContent.includes('scale > 1'), 'Must enable panning when zoomed in');
+    });
+
+    it('provides offline-resilient reaction sync queue and pure pitch-black OLED theme', () => {
+      const reactionFile = path.resolve(process.cwd(), 'src/lib/reaction-sync.ts');
+      const reactionContent = fs.readFileSync(reactionFile, 'utf-8');
+      assert.ok(reactionContent.includes('naypict_offline_reactions_queue'), 'Must store offline reactions queue');
+      assert.ok(reactionContent.includes('drainOfflineQueue'), 'Must define drainOfflineQueue');
+
+      const cssFile = path.resolve(process.cwd(), 'src/app/globals.css');
+      const cssContent = fs.readFileSync(cssFile, 'utf-8');
+      assert.ok(cssContent.includes('.oled') && cssContent.includes('#000000'), 'Must define true pitch-black OLED styles');
+    });
+
+    it('scales canvas rendering by devicePixelRatio for Retina clarity and triggers tactile haptics', () => {
+      const avatarFile = path.resolve(process.cwd(), 'src/components/layout/avatar-upload.tsx');
+      const avatarContent = fs.readFileSync(avatarFile, 'utf-8');
+      assert.ok(avatarContent.includes('window.devicePixelRatio'), 'Must scale avatar by devicePixelRatio for Retina');
+
+      const reactionsFile = path.resolve(process.cwd(), 'src/components/photo/photo-reactions.tsx');
+      const reactionsContent = fs.readFileSync(reactionsFile, 'utf-8');
+      assert.ok(reactionsContent.includes('navigator.vibrate'), 'Must trigger tactile haptic micro-tick');
+    });
+  });
+
 });
 
