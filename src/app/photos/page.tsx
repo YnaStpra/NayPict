@@ -38,7 +38,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { PhotoMasonrySkeleton } from "@/components/photo/photo-masonry-skeleton"
-import { PhotoCalendarView } from "@/components/photo/photo-calendar-view"
 import { GalleryBottomStatus } from "@/components/photo/gallery-bottom-status"
 import { BackToTopButton } from "@/components/ui/back-to-top-button"
 import { OdometerCounter } from "@/components/ui/odometer-counter"
@@ -102,7 +101,7 @@ export default function Page() {
   const isAdmin = userInfo?.type === UserTypeEnum.ADMIN
 
   const isBrowser = useSyncExternalStore(emptySubscribe, () => true, () => false)
-  const [viewMode, setViewMode] = useState<"masonry" | "calendar" | "infinite">("masonry")
+  const [viewMode, setViewMode] = useState<"masonry" | "infinite">("masonry")
   const [sortKey, setSortKey] = useState<SortOptionKey>("none")
   const [groupByDate, setGroupByDate] = useState<boolean>(false)
   const [isScrolled, setIsScrolled] = useState<boolean>(false)
@@ -337,20 +336,6 @@ export default function Page() {
     }, 60)
   }, [])
 
-  const handleCalendarPhotoClick = useCallback((photo: PhotoVo, dayPhotos?: PhotoVo[]) => {
-    if (dayPhotos && dayPhotos.length > 0) {
-      setViewerCustomPhotos(dayPhotos)
-      const idx = dayPhotos.findIndex((p) => p.photoId === photo.photoId)
-      setModelPhotoIndex(idx >= 0 ? idx : 0)
-      setShowPhotoViewer(true)
-    } else {
-      const idx = displayPhotos.findIndex((p) => p.photoId === photo.photoId)
-      if (idx !== -1) {
-        openPhoto(idx)
-      }
-    }
-  }, [displayPhotos, openPhoto])
-
   const handlePullRefresh = useCallback(async () => {
     refreshPhotoList()
     await new Promise((resolve) => setTimeout(resolve, 750))
@@ -507,29 +492,31 @@ export default function Page() {
                 </Tooltip>
               </TooltipProvider>
 
-              {/* Photo Archive Calendar View Toggle */}
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      type="button"
-                      variant={viewMode === "calendar" ? "secondary" : "ghost"}
-                      size="icon"
-                      className={`size-8 rounded-lg transition-all duration-200 cursor-pointer ${
-                        viewMode === "calendar"
-                          ? "bg-sky-500/15 text-sky-500 dark:text-sky-400 border border-sky-500/30 shadow-2xs"
-                          : "text-sky-500 dark:text-sky-400 hover:bg-sky-500/10 hover:text-sky-600 dark:hover:text-sky-300"
-                      }`}
-                      onClick={() => setViewMode((prev) => (prev === "calendar" ? "masonry" : "calendar"))}
-                    >
-                      <CalendarDays className="size-4 text-sky-500 dark:text-sky-400" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom">
-                    {viewMode === "calendar" ? "Switch to Gallery Grid" : "Switch to Calendar View"}
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+              {/* Group Photos by Date Taken Toggle */}
+              {viewMode === "masonry" && (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        type="button"
+                        variant={groupByDate ? "secondary" : "ghost"}
+                        size="icon"
+                        className={`size-8 rounded-lg transition-all duration-200 cursor-pointer ${
+                          groupByDate
+                            ? "bg-sky-500/15 text-sky-500 dark:text-sky-400 border border-sky-500/30 shadow-2xs"
+                            : "text-sky-500 dark:text-sky-400 hover:bg-sky-500/10 hover:text-sky-600 dark:hover:text-sky-300"
+                        }`}
+                        onClick={toggleGroupByDate}
+                      >
+                        <CalendarDays className="size-4 text-sky-500 dark:text-sky-400" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom">
+                      {groupByDate ? "Grouped by Date Taken (Click to flatten)" : "Group Media by Date Taken"}
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
 
               {/* Sort By Dropdown Menu (Icon-only with sort direction indicator) */}
               <DropdownMenu modal={false}>
@@ -603,12 +590,6 @@ export default function Page() {
                     friction={10}
                   />
                 </div>
-              ) : viewMode === "calendar" ? (
-                <PhotoCalendarView
-                  photos={displayPhotos}
-                  minYear={2018}
-                  onPhotoClick={handleCalendarPhotoClick}
-                />
               ) : (
                 <PullToRefresh
                   onRefresh={handlePullRefresh}

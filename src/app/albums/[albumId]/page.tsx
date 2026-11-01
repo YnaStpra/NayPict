@@ -48,7 +48,6 @@ import { OdometerCounter } from "@/components/ui/odometer-counter"
 import { useAlbumPhotoContext } from "@/app/albums/[albumId]/provider"
 import { useApp } from "@/app/provider"
 import { PhotoMasonrySkeleton } from "@/components/photo/photo-masonry-skeleton"
-import { PhotoCalendarView } from "@/components/photo/photo-calendar-view"
 import { GalleryBottomStatus } from "@/components/photo/gallery-bottom-status"
 import { BackToTopButton } from "@/components/ui/back-to-top-button"
 import { UserTypeEnum } from "@/server/enums/user-enum"
@@ -98,7 +97,7 @@ export default function Page() {
   const albumDisplayName = album?.name || currentAlbumName || "Album"
   const [isArchived, setIsArchived] = useState(album?.isArchived === 1)
   const albumIdRef = useRef(albumId)
-  const [viewMode, setViewMode] = useState<"masonry" | "calendar" | "infinite">("masonry")
+  const [viewMode, setViewMode] = useState<"masonry" | "infinite">("masonry")
   const [sortKey, setSortKey] = useState<SortOptionKey>("none")
   const [groupByDate, setGroupByDate] = useState(false)
 
@@ -199,7 +198,6 @@ export default function Page() {
 
   const [modelPhotoIndex, setModelPhotoIndex] = useState(0)
   const [showPhotoViewer, setShowPhotoViewer] = useState(false)
-  const [viewerCustomPhotos, setViewerCustomPhotos] = useState<PhotoVo[] | null>(null)
   // albumDialogOpen Control the opening status of the add album pop-up box.
   const [albumDialogOpen, setAlbumDialogOpen] = useState(false)
   const [albumDownloadOpen, setAlbumDownloadOpen] = useState(false)
@@ -285,7 +283,6 @@ export default function Page() {
 
   // Open photo details of current album model.
   const openPhoto = useCallback((index: number) => {
-    setViewerCustomPhotos(null)
     setModelPhotoIndex(index)
     setShowPhotoViewer(true)
   }, [])
@@ -293,7 +290,6 @@ export default function Page() {
   // Close photo details model.
   const closePhoto = useCallback(() => {
     setShowPhotoViewer(false)
-    setViewerCustomPhotos(null)
     removePhotoIdFromUrl()
   }, [])
 
@@ -417,20 +413,6 @@ export default function Page() {
     return photos.map((p) => ({ ...p, isPinned: false }))
   }, [photos, sortKey])
 
-  const handleCalendarPhotoClick = useCallback((photo: PhotoVo, dayPhotos?: PhotoVo[]) => {
-    if (dayPhotos && dayPhotos.length > 0) {
-      setViewerCustomPhotos(dayPhotos)
-      const idx = dayPhotos.findIndex((p) => p.photoId === photo.photoId)
-      setModelPhotoIndex(idx >= 0 ? idx : 0)
-      setShowPhotoViewer(true)
-    } else {
-      const idx = displayAlbumPhotos.findIndex((p) => p.photoId === photo.photoId)
-      if (idx !== -1) {
-        openPhoto(idx)
-      }
-    }
-  }, [displayAlbumPhotos, openPhoto])
-
   return (
     <>
       <SidebarProvider open={sidebarOpen} onOpenChange={setSidebarOpen}>
@@ -515,29 +497,31 @@ export default function Page() {
                 </Tooltip>
               </TooltipProvider>
 
-              {/* Photo Archive Calendar View Toggle */}
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      type="button"
-                      variant={viewMode === "calendar" ? "secondary" : "ghost"}
-                      size="icon"
-                      className={`size-8 rounded-lg transition-all duration-200 cursor-pointer ${
-                        viewMode === "calendar"
-                          ? "bg-sky-500/15 text-sky-500 dark:text-sky-400 border border-sky-500/30 shadow-2xs"
-                          : "text-sky-500 dark:text-sky-400 hover:bg-sky-500/10 hover:text-sky-600 dark:hover:text-sky-300"
-                      }`}
-                      onClick={() => setViewMode((prev) => (prev === "calendar" ? "masonry" : "calendar"))}
-                    >
-                      <CalendarDays className="size-4 text-sky-500 dark:text-sky-400" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom">
-                    {viewMode === "calendar" ? "Switch to Gallery Grid" : "Switch to Calendar View"}
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+              {/* Group Photos by Date Taken Toggle */}
+              {viewMode === "masonry" && (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        type="button"
+                        variant={groupByDate ? "secondary" : "ghost"}
+                        size="icon"
+                        className={`size-8 rounded-lg transition-all duration-200 cursor-pointer ${
+                          groupByDate
+                            ? "bg-sky-500/15 text-sky-500 dark:text-sky-400 border border-sky-500/30 shadow-2xs"
+                            : "text-sky-500 dark:text-sky-400 hover:bg-sky-500/10 hover:text-sky-600 dark:hover:text-sky-300"
+                        }`}
+                        onClick={toggleGroupByDate}
+                      >
+                        <CalendarDays className="size-4 text-sky-500 dark:text-sky-400" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom">
+                      {groupByDate ? "Grouped by Date Taken (Click to flatten)" : "Group Media by Date Taken"}
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
 
               {/* Sort Dropdown (Icon-only with sort direction indicator) */}
               <DropdownMenu modal={false}>
@@ -652,12 +636,6 @@ export default function Page() {
                     friction={10}
                   />
                 </div>
-              ) : viewMode === "calendar" ? (
-                <PhotoCalendarView
-                  photos={displayAlbumPhotos}
-                  minYear={2018}
-                  onPhotoClick={handleCalendarPhotoClick}
-                />
               ) : (
                 <>
                   <PhotoMasonry
@@ -695,7 +673,7 @@ export default function Page() {
       <PhotoViewer
         open={showPhotoViewer}
         index={modelPhotoIndex}
-        photos={viewerCustomPhotos ?? displayAlbumPhotos}
+        photos={displayAlbumPhotos}
         onBack={closePhoto}
         onBrowserBack={closePhoto}
         onPhotoUpdate={updatePhoto}
