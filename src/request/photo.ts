@@ -138,7 +138,7 @@ export function photoDelete(params: PhotoDeleteBo) {
 
 // Empty Recycle Bin Photos.
 export function photoClear() {
-  return http.post<void>('/photo/clear');
+  return http.post<void>('/photo/clear', {});
 }
 
 // Auto-detect duplicate photo groups (Admin only).

@@ -18,7 +18,7 @@ export function invalidateStorageCache() {
 
 // Query the list of all storage configurations.
 export function storageList() {
-  return http.post<PageVo<StorageVo>>('/storage/list');
+  return http.post<PageVo<StorageVo>>('/storage/list', {});
 }
 
 // Query normal storage configuration options with SWR in-memory caching (60s stale window).

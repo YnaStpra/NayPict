@@ -1,4 +1,5 @@
 import { and, desc, eq, inArray, sql } from 'drizzle-orm';
+import { neon } from '@neondatabase/serverless';
 import { orm, readOrm } from '@/server/infra/db';
 import { photoReactionTab } from '@/server/entity/reaction';
 import { photoTab } from '@/server/entity/photo';
@@ -418,9 +419,25 @@ const reactionService = {
   // Reset all reactions across the entire gallery (Admin only).
   async resetAllReactions(): Promise<{ success: boolean }> {
     try {
+      if (process.env.DATABASE_URL) {
+        const rawSql = neon(process.env.DATABASE_URL);
+        await rawSql`TRUNCATE TABLE "photo_reaction" CASCADE;`;
+        return { success: true };
+      }
+    } catch (err: any) {
+      if (String(err?.message || err).includes('does not exist')) {
+        return { success: true };
+      }
+      console.warn('[REACTION] TRUNCATE CASCADE failed, falling back to DELETE:', err);
+    }
+
+    try {
       await orm.delete(photoReactionTab);
       return { success: true };
-    } catch (err) {
+    } catch (err: any) {
+      if (String(err?.message || err).includes('does not exist')) {
+        return { success: true };
+      }
       console.error('[REACTION] Error resetting all gallery reactions:', err);
       throw err;
     }

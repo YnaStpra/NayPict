@@ -268,9 +268,11 @@ export default function AdminInsightsPage() {
       await resetInsights()
       toast.success("Insights statistics have been reset successfully.")
       loadAllData()
-    } catch (err) {
+    } catch (err: any) {
       console.error("Failed to reset insights:", err)
-      toast.error("Failed to reset insights. Please try again.")
+      if (!err?.__toastShown) {
+        toast.error("Failed to reset insights. Please try again.")
+      }
     } finally {
       setResetting(false)
     }
@@ -286,9 +288,11 @@ export default function AdminInsightsPage() {
       await resetPhotoReactions(photoId)
       toast.success(`Reactions for "${photoName}" have been reset.`)
       loadAllData()
-    } catch (err) {
+    } catch (err: any) {
       console.error("Failed to reset photo reactions:", err)
-      toast.error("Failed to reset reactions for this item.")
+      if (!err?.__toastShown) {
+        toast.error("Failed to reset reactions for this item.")
+      }
     }
   }
 
@@ -301,9 +305,11 @@ export default function AdminInsightsPage() {
       await resetAllReactions()
       toast.success("All gallery reactions have been reset successfully.")
       loadAllData()
-    } catch (err) {
+    } catch (err: any) {
       console.error("Failed to reset all gallery reactions:", err)
-      toast.error("Failed to reset all gallery reactions.")
+      if (!err?.__toastShown) {
+        toast.error("Failed to reset all gallery reactions.")
+      }
     }
   }
 

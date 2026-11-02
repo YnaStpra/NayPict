@@ -83,9 +83,9 @@ async function post<T = unknown>(url: string, params: RequestParams = null, opti
 
   if (params instanceof FormData) {
     body = params;
-  } else if (params) {
+  } else {
     headers.set('Content-Type', 'application/json');
-    body = JSON.stringify(params);
+    body = JSON.stringify(params ?? {});
   }
 
   await sleep(MOCK_REQUEST_DELAY);

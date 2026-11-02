@@ -11,7 +11,7 @@ export function getTotpStatus() {
 
 // Setup / Generate QR Code for Google Authenticator
 export function setupTotp() {
-  return http.post<TotpSetupVo>('/totp/setup');
+  return http.post<TotpSetupVo>('/totp/setup', {});
 }
 
 // Verify code and enable 2FA
