@@ -83,12 +83,12 @@ export function getInsightsTopReactions(limit = 50): Promise<InsightsTopReaction
 
 // Reset public reactions for a single photo (Admin only).
 export function resetPhotoReactions(photoId: string): Promise<{ success: boolean }> {
-  return http.post<{ success: boolean }>(`/admin/insights/photo/${encodeURIComponent(photoId)}/reactions/reset`);
+  return http.post<{ success: boolean }>(`/admin/insights/photo/${encodeURIComponent(photoId)}/reactions/reset`, {});
 }
 
 // Reset all public reactions across the entire gallery (Admin only).
 export function resetAllReactions(): Promise<{ success: boolean }> {
-  return http.post<{ success: boolean }>('/admin/insights/reactions/reset');
+  return http.post<{ success: boolean }>('/admin/insights/reactions/reset', {});
 }
 
 // Fetch individual photo insights metrics and 30-day views trend (Admin only).
@@ -98,6 +98,6 @@ export function getPhotoInsightsDetail(photoId: string): Promise<PhotoInsightsDe
 
 // Reset all gallery insights and view records (Admin only).
 export function resetInsights(): Promise<{ success: boolean }> {
-  return http.post<{ success: boolean }>('/admin/insights/reset');
+  return http.post<{ success: boolean }>('/admin/insights/reset', {});
 }
 

@@ -35,84 +35,81 @@ import { sanitizeGeoRecord } from '@/server/lib/geo-normalizer';
 const LIVE_THRESHOLD_MINUTES = 5;
 
 let tablesEnsured = false;
+let ensureTablesPromise: Promise<void> | null = null;
 
 // Ensure visitor_session and visitor_activity tables exist before any analytics operations.
 async function ensureAnalyticsTables(): Promise<void> {
   if (tablesEnsured || !process.env.DATABASE_URL) return;
-  try {
-    const rawSql = neon(process.env.DATABASE_URL);
-    await rawSql`
-      CREATE TABLE IF NOT EXISTS "visitor_session" (
-        "id" text PRIMARY KEY NOT NULL,
-        "visitor_id" text NOT NULL,
-        "ip" text DEFAULT '' NOT NULL,
-        "country" text DEFAULT '' NOT NULL,
-        "city" text DEFAULT '' NOT NULL,
-        "region" text DEFAULT '' NOT NULL,
-        "browser" text DEFAULT '' NOT NULL,
-        "browser_version" text DEFAULT '' NOT NULL,
-        "os" text DEFAULT '' NOT NULL,
-        "device" text DEFAULT 'Desktop' NOT NULL,
-        "referrer" text DEFAULT 'Direct' NOT NULL,
-        "landing_path" text DEFAULT '/' NOT NULL,
-        "started_at" timestamptz DEFAULT now() NOT NULL,
-        "last_active_at" timestamptz DEFAULT now() NOT NULL,
-        "duration_seconds" integer DEFAULT 0 NOT NULL,
-        "media_count" integer DEFAULT 0 NOT NULL,
-        "is_admin" integer DEFAULT 0 NOT NULL,
-        "user_lat" text DEFAULT '' NOT NULL,
-        "user_lng" text DEFAULT '' NOT NULL,
-        "user_location_name" text DEFAULT '' NOT NULL
-      );
-    `;
-    await rawSql`CREATE INDEX IF NOT EXISTS "visitor_session_started_at_idx" ON "visitor_session" ("started_at");`;
-    await rawSql`CREATE INDEX IF NOT EXISTS "visitor_session_last_active_idx" ON "visitor_session" ("last_active_at");`;
-    await rawSql`CREATE INDEX IF NOT EXISTS "visitor_session_visitor_id_idx" ON "visitor_session" ("visitor_id");`;
-    await rawSql`CREATE INDEX IF NOT EXISTS "visitor_session_ip_idx" ON "visitor_session" ("ip");`;
-
-    await rawSql`ALTER TABLE "visitor_session" ADD COLUMN IF NOT EXISTS "user_lat" text DEFAULT '';`;
-    await rawSql`ALTER TABLE "visitor_session" ADD COLUMN IF NOT EXISTS "user_lng" text DEFAULT '';`;
-    await rawSql`ALTER TABLE "visitor_session" ADD COLUMN IF NOT EXISTS "user_location_name" text DEFAULT '';`;
-
-    await rawSql`
-      CREATE TABLE IF NOT EXISTS "visitor_activity" (
-        "id" text PRIMARY KEY NOT NULL,
-        "session_id" text NOT NULL REFERENCES "visitor_session"("id") ON DELETE CASCADE,
-        "photo_id" text NOT NULL REFERENCES "photo"("photo_id") ON DELETE CASCADE,
-        "action" text DEFAULT 'view' NOT NULL,
-        "created_at" timestamptz DEFAULT now() NOT NULL
-      );
-    `;
-    await rawSql`CREATE INDEX IF NOT EXISTS "visitor_activity_session_id_idx" ON "visitor_activity" ("session_id");`;
-    await rawSql`CREATE INDEX IF NOT EXISTS "visitor_activity_photo_id_idx" ON "visitor_activity" ("photo_id");`;
-
-    // Ensure comment table has visitor tracking columns for session inspection
-    try {
-      await rawSql`ALTER TABLE "comment" ADD COLUMN IF NOT EXISTS "visitor_id" text DEFAULT '';`;
-      await rawSql`ALTER TABLE "comment" ADD COLUMN IF NOT EXISTS "session_id" text DEFAULT '';`;
-      await rawSql`ALTER TABLE "comment" ADD COLUMN IF NOT EXISTS "ip" text DEFAULT '';`;
-      await rawSql`CREATE INDEX IF NOT EXISTS "idx_comment_session_id" ON "comment" ("session_id");`;
-      await rawSql`CREATE INDEX IF NOT EXISTS "idx_comment_visitor_id" ON "comment" ("visitor_id");`;
-    } catch {}
-
-    // Self-healing database calibration for edge GeoIP anomalies
-    try {
-      await rawSql`
-        UPDATE "visitor_session"
-        SET "city" = 'Wuhan', "region" = 'Hubei', "country" = 'CN'
-        WHERE "ip" = '221.232.249.221' OR ("country" = 'CN' AND ("city" ILIKE '%amsterdam%' OR "region" = 'NH'));
-      `;
-      await rawSql`
-        UPDATE "visitor_session"
-        SET "city" = 'Denpasar', "region" = 'Bali'
-        WHERE "country" = 'ID' AND ("city" ILIKE '%paris%' OR "region" = 'IDF');
-      `;
-    } catch {}
-
-    tablesEnsured = true;
-  } catch (err) {
-    console.warn('[ANALYTICS] Failed to ensure analytics tables:', err);
+  if (ensureTablesPromise) {
+    return ensureTablesPromise;
   }
+
+  ensureTablesPromise = (async () => {
+    try {
+      const rawSql = neon(process.env.DATABASE_URL!);
+      await rawSql`
+        CREATE TABLE IF NOT EXISTS "visitor_session" (
+          "id" text PRIMARY KEY NOT NULL,
+          "visitor_id" text NOT NULL,
+          "ip" text DEFAULT '' NOT NULL,
+          "country" text DEFAULT '' NOT NULL,
+          "city" text DEFAULT '' NOT NULL,
+          "region" text DEFAULT '' NOT NULL,
+          "browser" text DEFAULT '' NOT NULL,
+          "browser_version" text DEFAULT '' NOT NULL,
+          "os" text DEFAULT '' NOT NULL,
+          "device" text DEFAULT 'Desktop' NOT NULL,
+          "referrer" text DEFAULT 'Direct' NOT NULL,
+          "landing_path" text DEFAULT '/' NOT NULL,
+          "started_at" timestamptz DEFAULT now() NOT NULL,
+          "last_active_at" timestamptz DEFAULT now() NOT NULL,
+          "duration_seconds" integer DEFAULT 0 NOT NULL,
+          "media_count" integer DEFAULT 0 NOT NULL,
+          "is_admin" integer DEFAULT 0 NOT NULL,
+          "user_lat" text DEFAULT '' NOT NULL,
+          "user_lng" text DEFAULT '' NOT NULL,
+          "user_location_name" text DEFAULT '' NOT NULL
+        );
+      `;
+      await rawSql`CREATE INDEX IF NOT EXISTS "visitor_session_started_at_idx" ON "visitor_session" ("started_at");`;
+      await rawSql`CREATE INDEX IF NOT EXISTS "visitor_session_last_active_idx" ON "visitor_session" ("last_active_at");`;
+      await rawSql`CREATE INDEX IF NOT EXISTS "visitor_session_visitor_id_idx" ON "visitor_session" ("visitor_id");`;
+      await rawSql`CREATE INDEX IF NOT EXISTS "visitor_session_ip_idx" ON "visitor_session" ("ip");`;
+
+      await rawSql`ALTER TABLE "visitor_session" ADD COLUMN IF NOT EXISTS "user_lat" text DEFAULT '';`;
+      await rawSql`ALTER TABLE "visitor_session" ADD COLUMN IF NOT EXISTS "user_lng" text DEFAULT '';`;
+      await rawSql`ALTER TABLE "visitor_session" ADD COLUMN IF NOT EXISTS "user_location_name" text DEFAULT '';`;
+
+      await rawSql`
+        CREATE TABLE IF NOT EXISTS "visitor_activity" (
+          "id" text PRIMARY KEY NOT NULL,
+          "session_id" text NOT NULL REFERENCES "visitor_session"("id") ON DELETE CASCADE,
+          "photo_id" text NOT NULL REFERENCES "photo"("photo_id") ON DELETE CASCADE,
+          "action" text DEFAULT 'view' NOT NULL,
+          "created_at" timestamptz DEFAULT now() NOT NULL
+        );
+      `;
+      await rawSql`CREATE INDEX IF NOT EXISTS "visitor_activity_session_id_idx" ON "visitor_activity" ("session_id");`;
+      await rawSql`CREATE INDEX IF NOT EXISTS "visitor_activity_photo_id_idx" ON "visitor_activity" ("photo_id");`;
+
+      // Ensure comment table has visitor tracking columns for session inspection
+      try {
+        await rawSql`ALTER TABLE "comment" ADD COLUMN IF NOT EXISTS "visitor_id" text DEFAULT '';`;
+        await rawSql`ALTER TABLE "comment" ADD COLUMN IF NOT EXISTS "session_id" text DEFAULT '';`;
+        await rawSql`ALTER TABLE "comment" ADD COLUMN IF NOT EXISTS "ip" text DEFAULT '';`;
+        await rawSql`CREATE INDEX IF NOT EXISTS "idx_comment_session_id" ON "comment" ("session_id");`;
+        await rawSql`CREATE INDEX IF NOT EXISTS "idx_comment_visitor_id" ON "comment" ("visitor_id");`;
+      } catch {}
+
+      tablesEnsured = true;
+    } catch (err) {
+      console.warn('[ANALYTICS] Failed to ensure analytics tables:', err);
+    } finally {
+      ensureTablesPromise = null;
+    }
+  })();
+
+  return ensureTablesPromise;
 }
 
 // Safely convert date string or Date object into standard UTC ISO string ending with Z
@@ -753,10 +750,31 @@ const analyticsService = {
 
   // Wipe all visitor sessions and activity tracking records (admin-only).
   async resetAnalytics(): Promise<boolean> {
-    await ensureAnalyticsTables();
-    await orm.delete(visitorActivityTab);
-    await orm.delete(visitorSessionTab);
-    return true;
+    try {
+      if (process.env.DATABASE_URL) {
+        const rawSql = neon(process.env.DATABASE_URL);
+        // Instant cascade truncation in a single roundtrip (O(1) table reset)
+        await rawSql`TRUNCATE TABLE "visitor_activity", "visitor_session" CASCADE;`;
+        return true;
+      }
+    } catch (err: any) {
+      if (String(err?.message || err).includes('does not exist')) {
+        return true;
+      }
+      console.warn('[ANALYTICS] TRUNCATE CASCADE failed, falling back to DELETE:', err);
+    }
+
+    try {
+      await orm.delete(visitorActivityTab);
+      await orm.delete(visitorSessionTab);
+      return true;
+    } catch (err: any) {
+      if (String(err?.message || err).includes('does not exist')) {
+        return true;
+      }
+      console.error('[ANALYTICS] Reset analytics failed:', err);
+      throw err;
+    }
   },
 };
 

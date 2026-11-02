@@ -32,28 +32,39 @@ import {
 const VIEW_COOLDOWN_SECONDS = 60;
 
 let tableEnsured = false;
+let ensureTablePromise: Promise<void> | null = null;
 
 // Ensure photo_view table and its indexes exist before any analytics operations.
 async function ensurePhotoViewTable(): Promise<void> {
   if (tableEnsured || !process.env.DATABASE_URL) return;
-  try {
-    const rawSql = neon(process.env.DATABASE_URL);
-    await rawSql`
-      CREATE TABLE IF NOT EXISTS "photo_view" (
-        "id" text PRIMARY KEY NOT NULL,
-        "photo_id" text NOT NULL REFERENCES "photo"("photo_id") ON DELETE CASCADE,
-        "visitor_id" text NOT NULL,
-        "type" text DEFAULT 'view' NOT NULL,
-        "viewed_at" timestamptz DEFAULT now() NOT NULL
-      );
-    `;
-    await rawSql`CREATE INDEX IF NOT EXISTS "photo_view_photo_id_idx" ON "photo_view" ("photo_id");`;
-    await rawSql`CREATE INDEX IF NOT EXISTS "photo_view_viewed_at_idx" ON "photo_view" ("viewed_at");`;
-    await rawSql`CREATE INDEX IF NOT EXISTS "photo_view_dedup_idx" ON "photo_view" ("photo_id", "visitor_id", "type", "viewed_at");`;
-    tableEnsured = true;
-  } catch (err) {
-    console.warn('[INSIGHTS] Failed to ensure photo_view table:', err);
+  if (ensureTablePromise) {
+    return ensureTablePromise;
   }
+
+  ensureTablePromise = (async () => {
+    try {
+      const rawSql = neon(process.env.DATABASE_URL!);
+      await rawSql`
+        CREATE TABLE IF NOT EXISTS "photo_view" (
+          "id" text PRIMARY KEY NOT NULL,
+          "photo_id" text NOT NULL REFERENCES "photo"("photo_id") ON DELETE CASCADE,
+          "visitor_id" text NOT NULL,
+          "type" text DEFAULT 'view' NOT NULL,
+          "viewed_at" timestamptz DEFAULT now() NOT NULL
+        );
+      `;
+      await rawSql`CREATE INDEX IF NOT EXISTS "photo_view_photo_id_idx" ON "photo_view" ("photo_id");`;
+      await rawSql`CREATE INDEX IF NOT EXISTS "photo_view_viewed_at_idx" ON "photo_view" ("viewed_at");`;
+      await rawSql`CREATE INDEX IF NOT EXISTS "photo_view_dedup_idx" ON "photo_view" ("photo_id", "visitor_id", "type", "viewed_at");`;
+      tableEnsured = true;
+    } catch (err) {
+      console.warn('[INSIGHTS] Failed to ensure photo_view table:', err);
+    } finally {
+      ensureTablePromise = null;
+    }
+  })();
+
+  return ensureTablePromise;
 }
 
 const insightsService = {
@@ -663,10 +674,26 @@ const insightsService = {
   // Reset all insights statistics and interaction records (Admin only).
   async resetInsights(): Promise<{ success: boolean }> {
     try {
+      if (process.env.DATABASE_URL) {
+        const rawSql = neon(process.env.DATABASE_URL);
+        await rawSql`TRUNCATE TABLE "photo_view" CASCADE;`;
+        return { success: true };
+      }
+    } catch (err: any) {
+      if (String(err?.message || err).includes('does not exist')) {
+        return { success: true };
+      }
+      console.warn('[INSIGHTS] TRUNCATE CASCADE failed, falling back to DELETE:', err);
+    }
+
+    try {
       await ensurePhotoViewTable();
       await orm.delete(photoViewTab);
       return { success: true };
-    } catch (err) {
+    } catch (err: any) {
+      if (String(err?.message || err).includes('does not exist')) {
+        return { success: true };
+      }
       console.error('[INSIGHTS] Error resetting insights statistics:', err);
       throw err;
     }

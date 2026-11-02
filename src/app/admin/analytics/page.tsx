@@ -447,8 +447,10 @@ export default function VisitorAnalyticsPage() {
       setResetDialogOpen(false)
       await Promise.all([loadOverview(), loadSessions(1)])
       setPage(1)
-    } catch {
-      toast.error("Failed to reset visitor analytics")
+    } catch (err: any) {
+      if (!err?.__toastShown) {
+        toast.error("Failed to reset visitor analytics")
+      }
     } finally {
       setIsResetting(false)
     }

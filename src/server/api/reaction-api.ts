@@ -10,6 +10,10 @@ import { reactionRateLimiter } from '@/server/lib/rate-limiter';
 import { getLoginInfo } from '@/lib/cookie';
 import { userService } from '@/server/service/user-service';
 import { UserTypeEnum } from '@/server/enums/user-enum';
+import { getUserId } from '@/server/security/context';
+import { cache } from '@/server/infra/cache';
+import { AUTH_CACHE_KEY } from '@/server/const/cache';
+import { type AuthInfo } from '@/server/entity/vo/auth';
 import type { HonoEnv } from '../hono/type';
 
 // This module registers endpoints for photo micro-reactions and public likes.
@@ -19,9 +23,20 @@ import { resolveSignedVisitorId } from '@/server/lib/visitor-cookie';
 // Verify if the current request belongs to an authenticated Admin session.
 async function checkIsAdmin(c: Context): Promise<boolean> {
   try {
+    const currentUserId = getUserId();
+    if (currentUserId) {
+      const authInfo = await cache.get<AuthInfo>(AUTH_CACHE_KEY + currentUserId);
+      if (authInfo) return authInfo.type === UserTypeEnum.ADMIN;
+      const user = await userService.getById(currentUserId);
+      return user?.type === UserTypeEnum.ADMIN;
+    }
+
     const rawCookie = c.req.header('cookie') ?? null;
     const { userId } = await getLoginInfo(rawCookie);
     if (!userId) return false;
+
+    const authInfo = await cache.get<AuthInfo>(AUTH_CACHE_KEY + userId);
+    if (authInfo) return authInfo.type === UserTypeEnum.ADMIN;
 
     const user = await userService.getById(userId);
     return user?.type === UserTypeEnum.ADMIN;

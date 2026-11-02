@@ -24,6 +24,9 @@ import {
 import { getClientIp, isPublicIp } from '@/server/lib/ip';
 import { logSecurityAudit } from '@/server/lib/audit';
 import { getUserId } from '@/server/security/context';
+import { cache } from '@/server/infra/cache';
+import { AUTH_CACHE_KEY } from '@/server/const/cache';
+import { type AuthInfo } from '@/server/entity/vo/auth';
 import {
   telemetryInitRateLimiter,
   telemetryLocationRateLimiter,
@@ -37,9 +40,20 @@ import { resolveSignedVisitorId } from '@/server/lib/visitor-cookie';
 // Verify if the current request belongs to an authenticated Admin session.
 async function checkIsAdmin(c: Context): Promise<boolean> {
   try {
+    const currentUserId = getUserId();
+    if (currentUserId) {
+      const authInfo = await cache.get<AuthInfo>(AUTH_CACHE_KEY + currentUserId);
+      if (authInfo) return authInfo.type === UserTypeEnum.ADMIN;
+      const user = await userService.getById(currentUserId);
+      return user?.type === UserTypeEnum.ADMIN;
+    }
+
     const rawCookie = c.req.header('cookie') ?? null;
     const { userId } = await getLoginInfo(rawCookie);
     if (!userId) return false;
+
+    const authInfo = await cache.get<AuthInfo>(AUTH_CACHE_KEY + userId);
+    if (authInfo) return authInfo.type === UserTypeEnum.ADMIN;
 
     const user = await userService.getById(userId);
     return user?.type === UserTypeEnum.ADMIN;
@@ -548,7 +562,13 @@ export function registerAnalyticsApi(app: Hono<HonoEnv>) {
       throw new BizError('auth.failed', 403);
     }
 
-    await analyticsService.resetAnalytics();
+    try {
+      await analyticsService.resetAnalytics();
+    } catch (err) {
+      console.error('[ANALYTICS_RESET] Failed to wipe analytics history:', err);
+      throw new BizError('system.internalError', 500);
+    }
+
     logSecurityAudit({
       action: 'ANALYTICS_RESET',
       userId: getUserId(),
