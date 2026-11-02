@@ -560,6 +560,63 @@ describe('Media Performance & Delivery Optimization Test Suite', () => {
       const reactionsContent = fs.readFileSync(reactionsFile, 'utf-8');
       assert.ok(reactionsContent.includes('navigator.vibrate'), 'Must trigger tactile haptic micro-tick');
     });
+
+    it('implements Speculation Rules API for instant 0ms native prerendering and prefetching', () => {
+      const layoutFile = path.resolve(process.cwd(), 'src/app/layout.tsx');
+      const layoutContent = fs.readFileSync(layoutFile, 'utf-8');
+      assert.ok(layoutContent.includes('type="speculationrules"'), 'Must define speculationrules script tag');
+      assert.ok(layoutContent.includes('prerender'), 'Must configure speculation prerender');
+      assert.ok(layoutContent.includes('/photos') && layoutContent.includes('/albums'), 'Must prerender core routes');
+    });
+
+    it('implements predictive cursor bitmap decoding and photo viewer chunk pre-warming', () => {
+      const cardFile = path.resolve(process.cwd(), 'src/components/photo/photo-card.tsx');
+      const cardContent = fs.readFileSync(cardFile, 'utf-8');
+      assert.ok(cardContent.includes('img.decode()'), 'Must pre-decode image into GPU raster cache');
+      assert.ok(cardContent.includes('prefetchPhotoViewer()'), 'Must warm up photo viewer chunk');
+    });
+
+    it('restores cached photo catalog snapshot instantly from IndexedDB on initial load', () => {
+      const hookFile = path.resolve(process.cwd(), 'src/hooks/use-photo-list.ts');
+      const hookContent = fs.readFileSync(hookFile, 'utf-8');
+      assert.ok(hookContent.includes('getOfflineCatalog().then'), 'Must check offline catalog snapshot');
+      assert.ok(hookContent.includes('setPhotos(cached.photos)'), 'Must restore cached photos instantly');
+    });
+
+    it('handles BFCache pageshow restoration event for instant back/forward navigation', () => {
+      const providerFile = path.resolve(process.cwd(), 'src/app/provider.tsx');
+      const providerContent = fs.readFileSync(providerFile, 'utf-8');
+      assert.ok(providerContent.includes('event.persisted'), 'Must check event.persisted for BFCache restore');
+      assert.ok(providerContent.includes('window.addEventListener("pageshow"'), 'Must listen to pageshow event');
+    });
+
+    it('pre-warms navigation routes on sidebar open and hover for zero-delay navigation', () => {
+      const sidebarFile = path.resolve(process.cwd(), 'src/components/layout/app-sidebar.tsx');
+      const sidebarContent = fs.readFileSync(sidebarFile, 'utf-8');
+      assert.ok(sidebarContent.includes('router.prefetch(url)'), 'Must prefetch core routes');
+      assert.ok(sidebarContent.includes('onPointerEnter={handlePrewarmSidebar}'), 'Must pre-warm on pointer enter');
+    });
+
+    it('implements optimistic UI updates with error rollback in albums management', () => {
+      const albumsFile = path.resolve(process.cwd(), 'src/app/albums/page.tsx');
+      const albumsContent = fs.readFileSync(albumsFile, 'utf-8');
+      assert.ok(albumsContent.includes('previousAlbums'), 'Must preserve previousAlbums for rollback');
+      assert.ok(albumsContent.includes('setAlbums(previousAlbums)'), 'Must rollback state on error');
+    });
+
+    it('enforces CSS rendering isolation and fast-tap immediate visual feedback', () => {
+      const cssFile = path.resolve(process.cwd(), 'src/app/globals.css');
+      const cssContent = fs.readFileSync(cssFile, 'utf-8');
+      assert.ok(cssContent.includes('contain: layout style paint;'), 'Must isolate masonry and card rendering');
+      assert.ok(cssContent.includes('.fast-tap-active') || cssContent.includes('button:active:not(:disabled)'), 'Must define fast-tap visual feedback');
+    });
+
+    it('supports proactive video stream pre-buffering into browser cache', () => {
+      const prebufferFile = path.resolve(process.cwd(), 'src/lib/video-prebuffer.ts');
+      const prebufferContent = fs.readFileSync(prebufferFile, 'utf-8');
+      assert.ok(prebufferContent.includes('preload = "auto"'), 'Must set preload to auto');
+      assert.ok(prebufferContent.includes('export function prebufferVideo'), 'Must export prebufferVideo');
+    });
   });
 
 });

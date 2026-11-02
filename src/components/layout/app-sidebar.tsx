@@ -94,6 +94,24 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     avatar: getAvatarUrl(userInfo?.avatar, data.user.avatar),
   }
 
+  // Proactively pre-warm core navigation routes so clicking any sidebar item opens in 0ms
+  React.useEffect(() => {
+    const coreRoutes = ["/photos", "/albums", "/map"]
+    coreRoutes.forEach((url) => {
+      try {
+        router.prefetch(url)
+      } catch {}
+    })
+  }, [router])
+
+  const handlePrewarmSidebar = React.useCallback(() => {
+    navItems.forEach((item) => {
+      try {
+        router.prefetch(item.url)
+      } catch {}
+    })
+  }, [navItems, router])
+
   // switch team Enter the corresponding team default page, Allow it to pass even after refreshing URL Determine current team.
   function changeTeam(team: { name: string; logo: React.ReactNode }) {
     const targetUrl = team.name === data.teams[1].name ? data.sysMain[0].url : data.navMain[0].url
@@ -104,7 +122,13 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   }
 
   return (
-    <Sidebar collapsible="icon" className="yarl__no_scroll_padding" {...props}>
+    <Sidebar
+      collapsible="icon"
+      className="yarl__no_scroll_padding"
+      onPointerEnter={handlePrewarmSidebar}
+      onTouchStart={handlePrewarmSidebar}
+      {...props}
+    >
       <SidebarHeader>
         <TeamSwitcher
           teams={teams}

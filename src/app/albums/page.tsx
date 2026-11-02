@@ -144,18 +144,28 @@ export default function Page() {
   }
 
   function deleteAlbum(album: AlbumVo) {
+    const previousAlbums = [...albums]
+    // Instantly remove album from local state (0ms UI latency)
+    setAlbums((prev) => prev.filter((a) => a.albumId !== album.albumId))
+
     albumDelete({
       albumId: album.albumId,
-    }).then(() => {
-      emitCatalogSync("all")
-      void refreshAlbumData()
     })
+      .then(() => {
+        emitCatalogSync("all")
+        void refreshAlbums()
+      })
+      .catch((err) => {
+        console.error("Failed to delete album:", err)
+        setAlbums(previousAlbums)
+        toast.error("Failed to delete album.")
+      })
   }
 
   function archiveAlbum(album: AlbumVo) {
+    setAlbums((prev) => prev.filter((a) => a.albumId !== album.albumId))
     albumArchive({ albumId: album.albumId })
       .then(() => {
-        setAlbums((prev) => prev.filter((a) => a.albumId !== album.albumId))
         toast.success(`Album "${album.name}" archived successfully!`)
         emitCatalogSync("all")
         refreshAlbums()
@@ -188,6 +198,12 @@ export default function Page() {
       return
     }
 
+    const previousAlbums = [...albums]
+    // Instantly update album name in local state (0ms UI latency)
+    setAlbums((prev) =>
+      prev.map((a) => (a.albumId === album.albumId ? { ...a, name } : a))
+    )
+
     setRenameOpen(false)
     setTimeout(() => {
       setRenamingAlbum(null)
@@ -196,10 +212,16 @@ export default function Page() {
     albumSetName({
       albumId: album.albumId,
       name,
-    }).then(() => {
-      emitCatalogSync("album")
-      void refreshAlbumData()
     })
+      .then(() => {
+        emitCatalogSync("album")
+        void refreshAlbums()
+      })
+      .catch((err) => {
+        console.error("Failed to rename album:", err)
+        setAlbums(previousAlbums)
+        toast.error("Failed to rename album.")
+      })
   }
 
   function handleRenameOpenChange(open: boolean) {

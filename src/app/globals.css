@@ -327,11 +327,19 @@ body {
 /* Hardware-Accelerated Smooth Photo Card Corners & Elevation */
 .houdini-smooth-card {
   border-radius: var(--radius);
-  contain: layout paint;
+  contain: layout style paint;
   content-visibility: auto;
   contain-intrinsic-size: auto 240px;
   box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.08), 0 1px 2px -1px rgb(0 0 0 / 0.08);
   transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease-out;
+}
+
+/* Fast-Tap Instant Visual Feedback (Zero touch lag active state) */
+.fast-tap-active,
+button:active:not(:disabled),
+a:active:not(:disabled) {
+  transform: scale(0.985);
+  transition: transform 0.04s ease-out !important;
 }
 
 /* Suppress browser native broken image icons and alt text artifacts during media loading */

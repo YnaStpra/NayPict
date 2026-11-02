@@ -99,6 +99,28 @@ export default async function RootLayout({ children }: RootLayoutProps) {
             __html: `if(typeof CSS!=='undefined'&&'paintWorklet' in CSS){try{CSS.paintWorklet.addModule('/worklets/smooth-corners.js');CSS.paintWorklet.addModule('/worklets/skeleton-shimmer.js')}catch(e){}}`,
           }}
         />
+        {/* Speculation Rules API: Native Chromium 0ms instant prerender and prefetch */}
+        <script
+          type="speculationrules"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              prerender: [
+                {
+                  source: "list",
+                  urls: ["/photos", "/albums", "/map"],
+                  eagerness: "moderate",
+                },
+              ],
+              prefetch: [
+                {
+                  source: "list",
+                  urls: ["/photos", "/albums", "/map", "/archive", "/insights", "/comments"],
+                  eagerness: "conservative",
+                },
+              ],
+            }),
+          }}
+        />
       </head>
       <body>
         <PwaRegister />

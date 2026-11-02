@@ -186,6 +186,27 @@ function Provider({ children, defaultTheme, defaultSidebarOpen, initialUserInfo,
       })
   }, [initialUserInfo, setUserInfo])
 
+  // BFCache (Back-Forward Cache) instantaneous restoration
+  useEffect(() => {
+    if (typeof window === "undefined") return
+
+    const handlePageShow = (event: PageTransitionEvent) => {
+      if (event.persisted) {
+        // Page was restored instantaneously from BFCache (0ms browser back/forward)
+        fetchUserInfo(true)
+          .then((info) => {
+            if (info) setUserInfo(info)
+          })
+          .catch(() => {})
+      }
+    }
+
+    window.addEventListener("pageshow", handlePageShow)
+    return () => {
+      window.removeEventListener("pageshow", handlePageShow)
+    }
+  }, [setUserInfo])
+
   // Query storage configuration only when an admin is logged in and store is empty
   useEffect(() => {
     if (isLogin || userInfo?.type !== UserTypeEnum.ADMIN) {

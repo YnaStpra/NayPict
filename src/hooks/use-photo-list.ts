@@ -89,16 +89,18 @@ function usePhotoList(
       // Offset starts at how many SSR photos we already have
       pageOffsetRef.current = initialPhotoList.length
 
-      // Save initial page to offline IndexedDB catalog
+      // Save initial page to offline IndexedDB catalog or restore cached snapshot instantly
       if (initialPhotoList.length > 0 && !initialParams.albumId && !initialParams.status) {
         saveOfflineCatalog(initialPhotoList, initialTotal ?? initialPhotoList.length)
-      } else if (initialPhotoList.length === 0 && typeof navigator !== "undefined" && !navigator.onLine) {
+      } else if (initialPhotoList.length === 0 && !initialParams.albumId && !initialParams.status) {
         getOfflineCatalog().then((cached) => {
           if (cached && cached.photos.length > 0) {
             photosRef.current = cached.photos
             setPhotos(cached.photos)
             setTotalCount(cached.totalCount)
-            setIsOffline(true)
+            if (typeof navigator !== "undefined" && !navigator.onLine) {
+              setIsOffline(true)
+            }
           }
         })
       }
