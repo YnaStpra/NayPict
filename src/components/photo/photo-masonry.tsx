@@ -51,6 +51,7 @@ interface PhotoMasonryProps {
 
 interface PhotoMasonryContextValue {
   selectedPhotoIds: string[]
+  selectedPhotoSet: Set<string>
   selectionActive: boolean
   onPhotoOpen?: (index: number, origin?: HeroTransitionOrigin) => void
   onSelectedChange?: (photoId: string, selected: boolean) => void
@@ -67,7 +68,7 @@ const MasonicPhotoCard = memo(function MasonicPhotoCard({
   width,
 }: RenderComponentProps<PhotoVo>) {
   const ctx = useContext(PhotoMasonryContext)
-  const isSelected = Boolean(ctx?.selectedPhotoIds.includes(data.photoId))
+  const isSelected = Boolean(ctx?.selectedPhotoSet ? ctx.selectedPhotoSet.has(data.photoId) : ctx?.selectedPhotoIds.includes(data.photoId))
   const handleOpen = useCallback((origin?: HeroTransitionOrigin) => {
     ctx?.onPhotoOpen?.(index, origin)
   }, [ctx, index])
@@ -789,16 +790,19 @@ const PhotoMasonry = memo(function PhotoMasonry({
   }
 
 
+  const selectedPhotoSet = useMemo(() => new Set(visibleSelectedPhotoIds), [visibleSelectedPhotoIds])
+
   const masonryContextValue = useMemo<PhotoMasonryContextValue>(
     () => ({
       selectedPhotoIds: visibleSelectedPhotoIds,
+      selectedPhotoSet,
       selectionActive: visibleSelectedPhotoIds.length > 0,
       onPhotoOpen,
       onSelectedChange: changePhotoSelected,
       onPhotoPin,
       touchHoverCloseRef,
     }),
-    [visibleSelectedPhotoIds, onPhotoOpen, onPhotoPin]
+    [visibleSelectedPhotoIds, selectedPhotoSet, onPhotoOpen, onPhotoPin]
   )
 
   return (

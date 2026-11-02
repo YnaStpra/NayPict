@@ -106,6 +106,20 @@ function usePhotoList(
       }
       return
     }
+
+    // Hydrate streamed server photos if client started with empty/snapshot state
+    if (initialPhotoList.length > 0 && photosRef.current.length === 0) {
+      photosRef.current = initialPhotoList
+      setPhotos(initialPhotoList)
+      setTotalCount(initialTotal ?? initialPhotoList.length)
+      const moreAvailable = initialPhotoList.length === pageSize
+      hasMoreRef.current = moreAvailable
+      setHasMore(moreAvailable)
+      pageOffsetRef.current = initialPhotoList.length
+      if (!initialParams.albumId && !initialParams.status) {
+        saveOfflineCatalog(initialPhotoList, initialTotal ?? initialPhotoList.length)
+      }
+    }
   }, [initialPhotos, pageSize, initialPhotoList, initialTotal, initialParams.albumId, initialParams.status])
 
   // Refresh waterfall layout calculations.

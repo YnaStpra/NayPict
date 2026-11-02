@@ -237,13 +237,20 @@ self.addEventListener('fetch', (event) => {
   if (url.pathname === '/api/photo/list' || url.pathname === '/api/album/list') {
     event.respondWith(
       caches.open(API_CACHE_NAME).then(async (cache) => {
-        const cachedResponse = await cache.match(request);
+        let cachedResponse = await cache.match(request);
+        // Fallback matching for initial public catalog requests to provide instant 0ms first screen
+        if (!cachedResponse && url.pathname === '/api/photo/list' && !url.searchParams.has('cursorPhotoId') && !url.searchParams.has('offset')) {
+          cachedResponse = await cache.match('/api/photo/list');
+        }
 
         const fetchPromise = fetchWithExponentialRetry(request, 3, [1000, 2000, 4000])
           .then((networkResponse) => {
             if (networkResponse && networkResponse.status === 200) {
               const responseToCache = networkResponse.clone();
               cache.put(request, responseToCache);
+              if (url.pathname === '/api/photo/list' && !url.searchParams.has('cursorPhotoId') && !url.searchParams.has('offset')) {
+                cache.put('/api/photo/list', responseToCache.clone());
+              }
             }
             return networkResponse;
           })

@@ -617,6 +617,69 @@ describe('Media Performance & Delivery Optimization Test Suite', () => {
       assert.ok(prebufferContent.includes('preload = "auto"'), 'Must set preload to auto');
       assert.ok(prebufferContent.includes('export function prebufferVideo'), 'Must export prebufferVideo');
     });
+
+    it('unblocks photo layout with Suspense streaming SSR for 0ms shell delivery', () => {
+      const layoutFile = path.resolve(process.cwd(), 'src/app/photos/layout.tsx');
+      const layoutContent = fs.readFileSync(layoutFile, 'utf-8');
+      assert.ok(layoutContent.includes('Suspense'), 'PhotoLayout must wrap with Suspense for unblocked streaming');
+      assert.ok(layoutContent.includes('PhotoDataProvider'), 'PhotoLayout must stream data via PhotoDataProvider');
+    });
+
+    it('decouples exifr library into dynamic import to prevent bundle bloat', () => {
+      const exifFile = path.resolve(process.cwd(), 'src/lib/photo-client-exif.ts');
+      const exifContent = fs.readFileSync(exifFile, 'utf-8');
+      assert.ok(!exifContent.includes("import exifr from 'exifr'"), 'exifr must not be statically imported at top level');
+      assert.ok(exifContent.includes("import('exifr')"), 'exifr must be dynamically loaded');
+    });
+
+    it('optimizes random photo sampling with in-memory Fisher-Yates shuffle', () => {
+      const serviceFile = path.resolve(process.cwd(), 'src/server/service/photo-service.ts');
+      const serviceContent = fs.readFileSync(serviceFile, 'utf-8');
+      assert.ok(serviceContent.includes('shuffledTotalCount'), 'Must use in-memory Fisher-Yates cached random IDs');
+      assert.ok(serviceContent.includes('randomIdList'), 'Must delegate shuffle to randomIdList');
+    });
+
+    it('implements O(1) Set lookup for photo selection in Masonic grid', () => {
+      const masonryFile = path.resolve(process.cwd(), 'src/components/photo/photo-masonry.tsx');
+      const masonryContent = fs.readFileSync(masonryFile, 'utf-8');
+      assert.ok(masonryContent.includes('selectedPhotoSet'), 'Must define selectedPhotoSet for O(1) checks');
+      assert.ok(masonryContent.includes('selectedPhotoSet.has'), 'Must use Set.has for card selection check');
+    });
+
+    it('uses client-side router navigation on landing page redirect without full reload', () => {
+      const landingFile = path.resolve(process.cwd(), 'src/components/landing/landing-client.tsx');
+      const landingContent = fs.readFileSync(landingFile, 'utf-8');
+      assert.ok(landingContent.includes('router.replace('), 'Must use router.replace instead of window.location.href');
+      assert.ok(!landingContent.includes('window.location.href = `/photos?photoId='), 'Must not trigger hard window reload');
+    });
+
+    it('bypasses session database queries on cold-start for public paths in middleware', () => {
+      const proxyFile = path.resolve(process.cwd(), 'src/proxy.ts');
+      const proxyContent = fs.readFileSync(proxyFile, 'utf-8');
+      assert.ok(proxyContent.includes('Fast-path: public browsing routes never stall'), 'Must fast-path public routes');
+      assert.ok(proxyContent.includes('isPublicPath(pathname)'), 'Must check public paths in middleware');
+    });
+
+    it('recycles singleton OffscreenCanvas to prevent GC spikes during ThumbHash generation', () => {
+      const thumbFile = path.resolve(process.cwd(), 'src/lib/thumb-hash.ts');
+      const thumbContent = fs.readFileSync(thumbFile, 'utf-8');
+      assert.ok(thumbContent.includes('sharedOffscreenCanvas'), 'Must maintain sharedOffscreenCanvas singleton');
+      assert.ok(thumbContent.includes('willReadFrequently: true'), 'Must enable willReadFrequently for fast pixel reading');
+    });
+
+    it('defines declarative immutable edge cache headers for media derivatives', () => {
+      const nextFile = path.resolve(process.cwd(), 'next.config.ts');
+      const nextContent = fs.readFileSync(nextFile, 'utf-8');
+      assert.ok(nextContent.includes('/media/thumbnails/:path*'), 'Must define declarative cache for thumbnails');
+      assert.ok(nextContent.includes('/media/previews/:path*'), 'Must define declarative cache for previews');
+    });
+
+    it('enforces Stale-While-Revalidate fallback for paged catalog API in Service Worker', () => {
+      const swFile = path.resolve(process.cwd(), 'public/sw.js');
+      const swContent = fs.readFileSync(swFile, 'utf-8');
+      assert.ok(swContent.includes('Fallback matching for initial public catalog requests'), 'Must implement SWR catalog fallback');
+      assert.ok(swContent.includes('cache.match(\'/api/photo/list\')'), 'Must match catalog fallback in cache');
+    });
   });
 
 });

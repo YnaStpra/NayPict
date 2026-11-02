@@ -1,7 +1,5 @@
 // This module provides browser-side EXIF and GPS extraction directly from original uncompressed file buffers.
 
-import exifr from 'exifr';
-
 export interface ClientExifResult {
   latitude: number | null;
   longitude: number | null;
@@ -159,6 +157,9 @@ export function getAltitude(value: unknown, ref?: unknown): number | null {
  */
 export async function extractClientExif(file: File): Promise<ClientExifResult> {
   try {
+    const exifrModule: any = await import('exifr');
+    const exifr = exifrModule.default || exifrModule;
+
     const rawTags = (await exifr.parse(file, {
       tiff: true,
       exif: true,
