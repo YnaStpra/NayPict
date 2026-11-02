@@ -36,18 +36,24 @@ const exifService = {
     return map.get(photoId) ?? null;
   },
 
-  // Batch query Exif records by multiple photo IDs.
-  async listByPhotoIds(photoIds: string[]): Promise<Map<string, Exif>> {
+  // Batch query Exif records by multiple photo IDs with optional raw EXIF pruning for gallery grids.
+  async listByPhotoIds(photoIds: string[], includeRawExif = true): Promise<Map<string, Exif>> {
     if (!photoIds.length) {
       return new Map();
     }
 
     const rows = await readOrm
-      .select()
+      .select({
+        photoId: exifTab.photoId,
+        latitude: exifTab.latitude,
+        longitude: exifTab.longitude,
+        altitude: exifTab.altitude,
+        ...(includeRawExif ? { exif: exifTab.exif } : {}),
+      })
       .from(exifTab)
       .where(inArray(exifTab.photoId, photoIds));
 
-    return new Map(rows.map((row) => [row.photoId, row]));
+    return new Map(rows.map((row) => [row.photoId, row as Exif]));
   },
 
   // Save photo Exif JSON and GPS location metadata with physical range validation.

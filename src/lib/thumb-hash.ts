@@ -76,6 +76,32 @@ function clearThumbHashCache(): void {
   thumbHashCache.clear();
 }
 
+let sharedOffscreenCanvas: OffscreenCanvas | null = null;
+let sharedDomCanvas: HTMLCanvasElement | null = null;
+
+function getSharedOffscreenCanvas(w: number, h: number): { canvas: OffscreenCanvas; ctx: OffscreenCanvasRenderingContext2D | null } {
+  if (!sharedOffscreenCanvas) {
+    sharedOffscreenCanvas = new OffscreenCanvas(w, h);
+  } else {
+    sharedOffscreenCanvas.width = w;
+    sharedOffscreenCanvas.height = h;
+  }
+  const ctx = sharedOffscreenCanvas.getContext("2d", { willReadFrequently: true });
+  ctx?.clearRect(0, 0, w, h);
+  return { canvas: sharedOffscreenCanvas, ctx };
+}
+
+function getSharedDomCanvas(w: number, h: number): { canvas: HTMLCanvasElement; ctx: CanvasRenderingContext2D | null } {
+  if (!sharedDomCanvas) {
+    sharedDomCanvas = document.createElement("canvas");
+  }
+  sharedDomCanvas.width = w;
+  sharedDomCanvas.height = h;
+  const ctx = sharedDomCanvas.getContext("2d", { willReadFrequently: true });
+  ctx?.clearRect(0, 0, w, h);
+  return { canvas: sharedDomCanvas, ctx };
+}
+
 /**
  * Generates client-side ThumbHash and extracts natural dimensions from image File or Blob.
  * Runs in < 15ms via createImageBitmap and 100x100 canvas.
@@ -102,17 +128,13 @@ async function generateClientImageThumbHash(
       targetH = Math.max(1, Math.round(height * scale));
 
       if (typeof OffscreenCanvas !== "undefined") {
-        const canvas = new OffscreenCanvas(targetW, targetH);
-        const ctx = canvas.getContext("2d");
+        const { ctx } = getSharedOffscreenCanvas(targetW, targetH);
         if (ctx) {
           ctx.drawImage(bmp, 0, 0, targetW, targetH);
           rgbaData = ctx.getImageData(0, 0, targetW, targetH).data;
         }
       } else {
-        const canvas = document.createElement("canvas");
-        canvas.width = targetW;
-        canvas.height = targetH;
-        const ctx = canvas.getContext("2d");
+        const { ctx } = getSharedDomCanvas(targetW, targetH);
         if (ctx) {
           ctx.drawImage(bmp, 0, 0, targetW, targetH);
           rgbaData = ctx.getImageData(0, 0, targetW, targetH).data;
@@ -130,10 +152,7 @@ async function generateClientImageThumbHash(
           const scale = Math.min(1, maxDim / Math.max(width, height));
           targetW = Math.max(1, Math.round(width * scale));
           targetH = Math.max(1, Math.round(height * scale));
-          const canvas = document.createElement("canvas");
-          canvas.width = targetW;
-          canvas.height = targetH;
-          const ctx = canvas.getContext("2d");
+          const { ctx } = getSharedDomCanvas(targetW, targetH);
           if (ctx) {
             ctx.drawImage(img, 0, 0, targetW, targetH);
             rgbaData = ctx.getImageData(0, 0, targetW, targetH).data;

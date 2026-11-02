@@ -107,6 +107,30 @@ export async function proxy(req: NextRequest) {
   }
 
   if (!authInfo) {
+    // Fast-path: public browsing routes never stall on cold-start database queries
+    if (isPublicPath(pathname)) {
+      void (async () => {
+        try {
+          const user = await userService.getById(userId);
+          if (user && user.status !== UserStatusEnum.DISABLE) {
+            const revokedUuids = await sessionService.getRevokedUuids(userId);
+            if (!revokedUuids.includes(uuid)) {
+              await cache.set(AUTH_CACHE_KEY + userId, {
+                userId: user.userId,
+                username: user.username,
+                avatar: user.avatar,
+                type: user.type,
+                status: user.status,
+                tokenVersion,
+                uuidList: [uuid],
+              }).catch(() => {});
+            }
+          }
+        } catch {}
+      })();
+      return NextResponse.next();
+    }
+
     try {
       const user = await userService.getById(userId);
       if (user) {

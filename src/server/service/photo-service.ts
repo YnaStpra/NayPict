@@ -239,6 +239,27 @@ const photoService = {
       ? sql<number>`(CASE WHEN ${isVideoSql} = 1 THEN 0 ELSE 1 END)`
       : sql<number>`(CASE WHEN ${isVideoSql} = 1 THEN 1 ELSE 0 END)`;
 
+    // High-performance random sampling: replace PostgreSQL ORDER BY RANDOM() with in-memory Fisher-Yates cached IDs
+    let shuffledTotalCount: number | undefined = undefined;
+    if (params.shuffle && !params.sortBy && !params.cursorPhotoId && (!params.photoIds || params.photoIds.length === 0)) {
+      const allShuffledIds = await this.randomIdList({
+        status: params.status ?? null,
+        albumId: params.albumId ?? null,
+        startTakenTime: params.startTakenTime ?? null,
+        endTakenTime: params.endTakenTime ?? null,
+        visibility: params.visibility ?? null,
+      }, userId);
+
+      shuffledTotalCount = allShuffledIds.length;
+      const offset = params.offset && params.offset > 0 ? params.offset : 0;
+      const targetIds = allShuffledIds.slice(offset, offset + size);
+      if (!targetIds.length) {
+        return { list: [], total: allShuffledIds.length };
+      }
+
+      params.photoIds = targetIds;
+    }
+
     const baseWhereList = [
       eq(photoTab.status, status)
     ];
@@ -434,7 +455,7 @@ const photoService = {
     const fileStorageList = await storageService.getStorageList();
     const photoIds = list.map((photo: any) => photo.photoId);
     const [exifMap, fileMap, albumMap] = await Promise.all([
-      exifService.listByPhotoIds(photoIds),
+      exifService.listByPhotoIds(photoIds, false),
       fileService.listByPhotoIds(photoIds),
       albumService.listAlbumMapByPhotoIds(photoIds),
     ]);
@@ -457,10 +478,10 @@ const photoService = {
     });
 
     // Skip redundant count query during cursor pagination or ID-based infinite scrolling (saves 30-80ms Neon DB round-trip)
-    const isSubsequentPage = Boolean(params.cursorPhotoId || (params.offset && params.offset > 0) || params.photoIds?.length);
+    const isSubsequentPage = Boolean(params.cursorPhotoId || (params.offset && params.offset > 0) || (params.photoIds?.length && shuffledTotalCount === undefined));
 
-    let totalCount: number | undefined = undefined;
-    if (!isSubsequentPage) {
+    let totalCount: number | undefined = shuffledTotalCount;
+    if (!isSubsequentPage && totalCount === undefined) {
       const [totalRow] = params.albumId
         ? await readOrm
           .select({ total: count() })

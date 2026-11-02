@@ -41,11 +41,11 @@ export function LandingClient({ initialPhotos }: LandingClientProps) {
     if (typeof window !== 'undefined') {
       const photoId = new URLSearchParams(window.location.search).get('photoId')
       if (photoId) {
-        window.location.href = `/photos?photoId=${photoId}`
+        router.replace(`/photos?photoId=${photoId}`)
         return
       }
     }
-  }, [])
+  }, [router])
 
   // Fetch client-side if initialPhotos was empty
   useEffect(() => {
