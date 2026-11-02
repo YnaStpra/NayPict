@@ -110,8 +110,12 @@ function prefetchPhotoHighRes(previewUrl?: string | null) {
       ;(img as any).fetchPriority = "high"
     }
     img.src = previewUrl
+    // Pre-decode directly into GPU raster cache so opening the photo in Lightbox is 0ms instant
+    if ("decode" in img) {
+      img.decode().catch(() => {})
+    }
     // Also warm up PhotoViewer chunk
-    import("@/components/photo/photo-viewer").catch(() => {})
+    prefetchPhotoViewer()
     // Also warm up Service Worker CacheStorage
     prefetchMediaInSw([previewUrl])
   }
