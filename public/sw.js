@@ -123,9 +123,27 @@ self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
-  // Invalidate read-only API cache on mutations (POST, PUT, DELETE, PATCH)
+  // Invalidate read-only API cache ONLY on true catalog mutations.
+  // Harmless visitor tracking, reaction pings, comments, and session beacons must NEVER flush photo/album caches!
   if (request.method !== 'GET') {
-    if (url.pathname.startsWith('/api/')) {
+    const isCatalogMutation =
+      url.pathname.includes('/photo/add') ||
+      url.pathname.includes('/photo/edit') ||
+      url.pathname.includes('/photo/batchEdit') ||
+      url.pathname.includes('/photo/delete') ||
+      url.pathname.includes('/photo/recycle') ||
+      url.pathname.includes('/photo/restore') ||
+      url.pathname.includes('/photo/clear') ||
+      url.pathname.includes('/photo/setVisibility') ||
+      url.pathname.includes('/photo/syncDelete') ||
+      url.pathname.includes('/album/add') ||
+      url.pathname.includes('/album/edit') ||
+      url.pathname.includes('/album/delete') ||
+      url.pathname.includes('/album/addPhoto') ||
+      url.pathname.includes('/album/removePhoto') ||
+      url.pathname.includes('/album/sort');
+
+    if (isCatalogMutation) {
       caches.delete(API_CACHE_NAME).catch(() => {});
     }
     return;

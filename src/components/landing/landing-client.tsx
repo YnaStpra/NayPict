@@ -8,6 +8,7 @@ import { FolderHeart, Image as ImageIcon, ArrowRight, MapPin } from 'lucide-reac
 import { NaypictLogo } from '@/components/icons/naypict-logo'
 import { type PhotoVo } from '@/server/entity/vo/photo'
 import { photoList } from '@/request/photo'
+import { saveOfflineCatalog } from '@/lib/offline-catalog'
 
 // Dynamic import InfiniteGallery with ssr: false for smooth client canvas initialization
 const InfiniteGallery = dynamic(
@@ -22,6 +23,26 @@ interface LandingClientProps {
 export function LandingClient({ initialPhotos }: LandingClientProps) {
   const router = useRouter()
   const [photos, setPhotos] = useState<PhotoVo[]>(initialPhotos || [])
+  const [isNavigating, setIsNavigating] = useState(false)
+
+  // Seed gallery catalog cache with landing photos for 0ms zero-skeleton transition into /photos
+  useEffect(() => {
+    if (photos && photos.length > 0) {
+      saveOfflineCatalog(photos, photos.length)
+    }
+  }, [photos])
+
+  // Freeze intensive 120 FPS render loops the instant user begins navigating away
+  const handleNavigationStart = useCallback(() => {
+    setIsNavigating(true)
+    if (rafTiltRef.current !== null) {
+      cancelAnimationFrame(rafTiltRef.current)
+      rafTiltRef.current = null
+    }
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('naypict:navigation-started'))
+    }
+  }, [])
 
   // Instantly prefetch primary gallery routes as soon as landing mounts
   useEffect(() => {
@@ -149,6 +170,7 @@ export function LandingClient({ initialPhotos }: LandingClientProps) {
           driftAmount={14}
           dragSpeed={18}
           friction={10}
+          isPaused={isNavigating}
           className="w-full h-full"
         />
         {/* Subtle Multi-Layer Dark Vignette */}
@@ -205,6 +227,8 @@ export function LandingClient({ initialPhotos }: LandingClientProps) {
               <Link
                 href="/photos"
                 prefetch={true}
+                onPointerDown={handleNavigationStart}
+                onClick={handleNavigationStart}
                 className="btn-shimmer-interactive group relative flex items-center justify-between w-full h-11 sm:h-12 px-4 sm:px-5 rounded-2xl bg-white/10 hover:bg-white/20 active:bg-white/25 border border-white/25 text-white font-bold text-sm sm:text-base backdrop-blur-md hover:scale-[1.02] active:scale-[0.98] cursor-pointer shadow-lg transition-all"
               >
                 <div className="flex items-center gap-3">
@@ -219,6 +243,8 @@ export function LandingClient({ initialPhotos }: LandingClientProps) {
               <Link
                 href="/albums"
                 prefetch={true}
+                onPointerDown={handleNavigationStart}
+                onClick={handleNavigationStart}
                 className="btn-shimmer-interactive group relative flex items-center justify-between w-full h-11 sm:h-12 px-4 sm:px-5 rounded-2xl bg-white/10 hover:bg-white/20 active:bg-white/25 border border-white/25 text-white font-bold text-sm sm:text-base backdrop-blur-md hover:scale-[1.02] active:scale-[0.98] cursor-pointer shadow-lg transition-all"
               >
                 <div className="flex items-center gap-3">
@@ -233,6 +259,8 @@ export function LandingClient({ initialPhotos }: LandingClientProps) {
               <Link
                 href="/map"
                 prefetch={true}
+                onPointerDown={handleNavigationStart}
+                onClick={handleNavigationStart}
                 className="btn-shimmer-interactive group relative flex items-center justify-between w-full h-11 sm:h-12 px-4 sm:px-5 rounded-2xl bg-white/10 hover:bg-white/20 active:bg-white/25 border border-white/25 text-white font-bold text-sm sm:text-base backdrop-blur-md hover:scale-[1.02] active:scale-[0.98] cursor-pointer shadow-lg transition-all"
               >
                 <div className="flex items-center gap-3">

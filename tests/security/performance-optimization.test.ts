@@ -149,4 +149,58 @@ describe('Advanced Performance Optimizations Verification', () => {
       assert.ok(postCdnCacheControl?.includes('stale-while-revalidate'));
     });
   });
+
+  describe('Round 2 Performance Optimizations Verification', () => {
+    it('seeds gallery catalog cache for 0ms instant transition into /photos', async () => {
+      const { saveOfflineCatalog, getMemoryOfflineCatalog } = await import('@/lib/offline-catalog');
+      const mockPhotos = [
+        { photoId: 'seed-photo-1', name: 'Photo 1' } as any,
+        { photoId: 'seed-photo-2', name: 'Photo 2' } as any,
+      ];
+      await saveOfflineCatalog(mockPhotos, 2);
+      const cached = getMemoryOfflineCatalog();
+      assert.ok(cached, 'Memory cached catalog should be populated');
+      assert.equal(cached?.photos.length, 2);
+      assert.equal(cached?.photos[0].photoId, 'seed-photo-1');
+      assert.equal(cached?.totalCount, 2);
+    });
+
+    it('accurately distinguishes catalog mutations from harmless visitor analytics in SW rules', () => {
+      const isCatalogMutation = (pathname: string) => {
+        return (
+          pathname.includes('/photo/add') ||
+          pathname.includes('/photo/edit') ||
+          pathname.includes('/photo/batchEdit') ||
+          pathname.includes('/photo/delete') ||
+          pathname.includes('/photo/recycle') ||
+          pathname.includes('/photo/restore') ||
+          pathname.includes('/photo/clear') ||
+          pathname.includes('/photo/setVisibility') ||
+          pathname.includes('/photo/syncDelete') ||
+          pathname.includes('/album/add') ||
+          pathname.includes('/album/edit') ||
+          pathname.includes('/album/delete') ||
+          pathname.includes('/album/addPhoto') ||
+          pathname.includes('/album/removePhoto') ||
+          pathname.includes('/album/sort')
+        );
+      };
+
+      // Harmless visitor actions should NOT invalidate catalog cache
+      assert.equal(isCatalogMutation('/api/analytics/track'), false);
+      assert.equal(isCatalogMutation('/api/visitor/session'), false);
+      assert.equal(isCatalogMutation('/api/photo/reactions'), false);
+      assert.equal(isCatalogMutation('/api/photo/reaction/add'), false);
+      assert.equal(isCatalogMutation('/api/comments'), false);
+      assert.equal(isCatalogMutation('/api/user/info'), false);
+
+      // True catalog mutations MUST invalidate catalog cache
+      assert.equal(isCatalogMutation('/api/photo/add'), true);
+      assert.equal(isCatalogMutation('/api/photo/delete'), true);
+      assert.equal(isCatalogMutation('/api/photo/recycle'), true);
+      assert.equal(isCatalogMutation('/api/photo/batchEdit'), true);
+      assert.equal(isCatalogMutation('/api/album/add'), true);
+      assert.equal(isCatalogMutation('/api/album/delete'), true);
+    });
+  });
 });

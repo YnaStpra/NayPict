@@ -15,6 +15,13 @@ export interface OfflineCatalogData {
   savedAt: number
 }
 
+// In-memory zero-latency cache across client page navigations
+let memoryCachedCatalog: OfflineCatalogData | null = null
+
+export function getMemoryOfflineCatalog(): OfflineCatalogData | null {
+  return memoryCachedCatalog
+}
+
 function openDatabase(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     if (typeof window === "undefined" || !("indexedDB" in window)) {
@@ -37,19 +44,23 @@ function openDatabase(): Promise<IDBDatabase> {
 
 // Persist the first page of gallery photos into local IndexedDB storage.
 export async function saveOfflineCatalog(photos: PhotoVo[], totalCount: number): Promise<void> {
-  if (!photos || photos.length === 0 || typeof window === "undefined") return
+  if (!photos || photos.length === 0) return
+
+  // Store up to 60 photos for initial offline display
+  const payload: OfflineCatalogData = {
+    photos: photos.slice(0, 60),
+    totalCount,
+    savedAt: Date.now(),
+  }
+
+  memoryCachedCatalog = payload
+
+  if (typeof window === "undefined" || !("indexedDB" in window)) return
 
   try {
     const db = await openDatabase()
     const tx = db.transaction(STORE_NAME, "readwrite")
     const store = tx.objectStore(STORE_NAME)
-
-    // Store up to 60 photos for initial offline display
-    const payload: OfflineCatalogData = {
-      photos: photos.slice(0, 60),
-      totalCount,
-      savedAt: Date.now(),
-    }
 
     store.put(payload, KEY_INITIAL_PAGE)
 
@@ -64,6 +75,9 @@ export async function saveOfflineCatalog(photos: PhotoVo[], totalCount: number):
 
 // Retrieve cached gallery catalog from local IndexedDB storage when offline or network fails.
 export async function getOfflineCatalog(): Promise<OfflineCatalogData | null> {
+  if (memoryCachedCatalog && memoryCachedCatalog.photos.length > 0) {
+    return memoryCachedCatalog
+  }
   if (typeof window === "undefined" || !("indexedDB" in window)) return null
 
   try {

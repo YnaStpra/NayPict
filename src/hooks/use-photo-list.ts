@@ -7,7 +7,7 @@ import { PHOTO_LIST_PAGE_SIZE } from "@/server/const/global"
 import { type PhotoListBo } from "@/server/entity/bo/photo"
 import { PhotoStatusEnum, PhotoVisibilityEnum } from "@/server/enums/photo-enum"
 import { type PhotoVo } from "@/server/entity/vo/photo"
-import { saveOfflineCatalog, getOfflineCatalog } from "@/lib/offline-catalog"
+import { saveOfflineCatalog, getOfflineCatalog, getMemoryOfflineCatalog } from "@/lib/offline-catalog"
 
 type PhotoSortField = "takenTime" | "recycleTime"
 
@@ -49,16 +49,28 @@ function usePhotoList(
   // Tracks the current offset into allShuffledIdsRef for the next page fetch.
   const pageOffsetRef = useRef(0)
 
-  // Initial photos from SSR, used as-is (server returns random order when shuffle=true).
-  const initialPhotoList = useMemo(() => initialPhotos ?? [], [initialPhotos])
+  // Initial photos from SSR, or seeded from landing page in-memory cache for instant 0ms paint
+  const seededCatalog = useMemo(() => {
+    if (initialPhotos && initialPhotos.length > 0) return null
+    if (!initialParams.albumId && !initialParams.status) {
+      return getMemoryOfflineCatalog()
+    }
+    return null
+  }, [initialPhotos, initialParams.albumId, initialParams.status])
+
+  const initialPhotoList = useMemo(() => {
+    if (initialPhotos && initialPhotos.length > 0) return initialPhotos
+    if (seededCatalog && seededCatalog.photos.length > 0) return seededCatalog.photos
+    return []
+  }, [initialPhotos, seededCatalog])
 
   const photosRef = useRef<PhotoVo[]>(initialPhotoList) // Save latest photo list.
-  const hasMoreRef = useRef(initialPhotos ? initialPhotos.length === pageSize : true) // Tracks if more pages are available.
-  const [hasMore, setHasMore] = useState<boolean>(() => initialPhotos ? initialPhotos.length === pageSize : true)
+  const hasMoreRef = useRef(initialPhotos ? initialPhotos.length === pageSize : (seededCatalog ? true : true)) // Tracks if more pages are available.
+  const [hasMore, setHasMore] = useState<boolean>(() => (initialPhotos ? initialPhotos.length === pageSize : true))
   const [photos, setPhotos] = useState<PhotoVo[]>(initialPhotoList) // Store the list of photos displayed on the current page.
   const [masonryKey, setMasonryKey] = useState(0) // Control waterfall flow to recalculate layout after list structure changes.
 
-  const [totalCount, setTotalCount] = useState<number>(() => initialTotal ?? (initialPhotos ? initialPhotos.length : 0))
+  const [totalCount, setTotalCount] = useState<number>(() => initialTotal ?? (seededCatalog?.totalCount ?? (initialPhotos ? initialPhotos.length : 0)))
   const [loadingMore, setLoadingMore] = useState(false)
   const [loadMoreError, setLoadMoreError] = useState(false)
   const [isOffline, setIsOffline] = useState(false)
@@ -107,20 +119,20 @@ function usePhotoList(
       return
     }
 
-    // Hydrate streamed server photos if client started with empty/snapshot state
-    if (initialPhotoList.length > 0 && photosRef.current.length === 0) {
-      photosRef.current = initialPhotoList
-      setPhotos(initialPhotoList)
-      setTotalCount(initialTotal ?? initialPhotoList.length)
-      const moreAvailable = initialPhotoList.length === pageSize
+    // Hydrate streamed server photos if client started with empty/snapshot state or seeded cache
+    if (initialPhotos && initialPhotos.length > 0 && (photosRef.current.length === 0 || seededCatalog)) {
+      photosRef.current = initialPhotos
+      setPhotos(initialPhotos)
+      setTotalCount(initialTotal ?? initialPhotos.length)
+      const moreAvailable = initialPhotos.length === pageSize
       hasMoreRef.current = moreAvailable
       setHasMore(moreAvailable)
-      pageOffsetRef.current = initialPhotoList.length
+      pageOffsetRef.current = initialPhotos.length
       if (!initialParams.albumId && !initialParams.status) {
-        saveOfflineCatalog(initialPhotoList, initialTotal ?? initialPhotoList.length)
+        saveOfflineCatalog(initialPhotos, initialTotal ?? initialPhotos.length)
       }
     }
-  }, [initialPhotos, pageSize, initialPhotoList, initialTotal, initialParams.albumId, initialParams.status])
+  }, [initialPhotos, pageSize, initialPhotoList, initialTotal, initialParams.albumId, initialParams.status, seededCatalog])
 
   // Refresh waterfall layout calculations.
   const refreshMasonry = useCallback(() => {

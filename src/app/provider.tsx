@@ -166,6 +166,19 @@ function Provider({ children, defaultTheme, defaultSidebarOpen, initialUserInfo,
       return
     }
 
+    // Fast-path bypass for unauthenticated public visitors:
+    // If no session cookie or saved user exists in browser, skip the /api/user/info network round-trip completely.
+    const hasSessionIndicator =
+      typeof document !== "undefined" &&
+      (document.cookie.includes("naypict_session") ||
+       document.cookie.includes("token") ||
+       Boolean(localStorage.getItem("naypict_user")));
+
+    if (!hasSessionIndicator) {
+      setUserInfo(null)
+      return
+    }
+
     fetchUserInfo(true)
       .then((info) => {
         if (info) {
@@ -193,6 +206,17 @@ function Provider({ children, defaultTheme, defaultSidebarOpen, initialUserInfo,
     const handlePageShow = (event: PageTransitionEvent) => {
       if (event.persisted) {
         // Page was restored instantaneously from BFCache (0ms browser back/forward)
+        const hasSessionIndicator =
+          typeof document !== "undefined" &&
+          (document.cookie.includes("naypict_session") ||
+           document.cookie.includes("token") ||
+           Boolean(localStorage.getItem("naypict_user")));
+
+        if (!hasSessionIndicator) {
+          setUserInfo(null)
+          return
+        }
+
         fetchUserInfo(true)
           .then((info) => {
             if (info) setUserInfo(info)
