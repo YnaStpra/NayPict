@@ -163,8 +163,8 @@ const albumService = {
       if (archivedIds.length > 0) {
         wherePhotoList.push(
           sql`NOT EXISTS (
-            SELECT 1 FROM ${albumPhotoTab} ap_archived
-            WHERE ap_archived.photo_id = ${photoTab.photoId}
+            SELECT 1 FROM ${albumPhotoTab}
+            WHERE ${albumPhotoTab.photoId} = ${photoTab.photoId}
             AND ${inArray(albumPhotoTab.albumId, archivedIds)}
           )`
         );

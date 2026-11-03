@@ -513,17 +513,10 @@ const PhotoMasonry = memo(function PhotoMasonry({
     const containerEl = container
     let rAFId: number | null = null
 
-    // Calculate the distance between the outer layer of the waterfall and the top of the page.
+    // Calculate the distance between the outer layer of the waterfall and the top of the page without layout thrashing.
     function getOffset() {
-      let offset = 0
-      let el: HTMLElement | null = containerEl
-
-      while (el) {
-        offset += el.offsetTop
-        el = el.offsetParent as HTMLElement | null
-      }
-
-      return offset
+      const rect = containerEl.getBoundingClientRect()
+      return Math.round(rect.top + window.scrollY)
     }
 
     // Get the current position and width of the outer layer of the waterfall flow.

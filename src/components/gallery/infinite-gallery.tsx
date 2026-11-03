@@ -48,6 +48,7 @@ export interface InfiniteGalleryProps {
   dragSpeed?: number
   driftAmount?: number
   friction?: number
+  isPaused?: boolean
   backgroundColor?: string
   style?: React.CSSProperties
 }
@@ -134,6 +135,7 @@ export function InfiniteGallery(props: InfiniteGalleryProps) {
     backgroundColor,
     style,
   } = mergedProps
+  const isPaused = Boolean(props.isPaused)
 
   const containerRef = useRef<HTMLDivElement | null>(null)
   const sceneRef = useRef<HTMLDivElement | null>(null)
@@ -668,7 +670,13 @@ export function InfiniteGallery(props: InfiniteGalleryProps) {
       raf = requestAnimationFrame(loop)
     }
 
+    const stopLoop = () => {
+      isLoopRunning = false
+      cancelAnimationFrame(raf)
+    }
+
     const startLoop = () => {
+      if (isPaused) return
       if (!isLoopRunning && (typeof document === "undefined" || !document.hidden)) {
         isLoopRunning = true
         cancelAnimationFrame(raf)
@@ -678,28 +686,36 @@ export function InfiniteGallery(props: InfiniteGalleryProps) {
 
     const handleVisibility = () => {
       if (typeof document !== "undefined") {
-        if (document.hidden) {
-          isLoopRunning = false
-          cancelAnimationFrame(raf)
+        if (document.hidden || isPaused) {
+          stopLoop()
         } else {
           startLoop()
         }
       }
     }
 
-    startLoop()
+    // Freeze render loop immediately when user begins navigating away to release 100% main thread CPU
+    const handleNavStart = () => {
+      stopLoop()
+    }
+
+    if (!isPaused) {
+      startLoop()
+    }
     document.addEventListener("visibilitychange", handleVisibility)
+    window.addEventListener("naypict:navigation-started", handleNavStart)
 
     return () => {
-      isLoopRunning = false
-      cancelAnimationFrame(raf)
+      stopLoop()
       document.removeEventListener("visibilitychange", handleVisibility)
+      window.removeEventListener("naypict:navigation-started", handleNavStart)
       window.removeEventListener("resize", handleOrientationOrResize)
       window.removeEventListener("orientationchange", handleOrientationOrResize)
       ro.disconnect()
       Array.from(layerPools.keys()).forEach(disposeLayer)
     }
   }, [
+    isPaused,
     generateCell,
     safeFriction,
     safeDriftAmount,
