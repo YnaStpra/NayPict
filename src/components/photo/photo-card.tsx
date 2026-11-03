@@ -73,8 +73,17 @@ function formatPhotoName(name: string) {
 // Global set of prefetched high-res preview URLs to prevent duplicate background downloads
 const prefetchedPreviewUrls = new Set<string>()
 
-// Session-level memory cache of successfully loaded and painted thumbnail URLs
+// Session-level memory cache of successfully loaded and painted thumbnail URLs (LRU bounded to 800 items to protect mobile RAM)
 export const loadedThumbnails = new Set<string>()
+
+export function markThumbnailLoaded(url?: string | null): void {
+  if (!url) return
+  if (loadedThumbnails.size >= 800) {
+    const oldest = loadedThumbnails.values().next().value
+    if (oldest) loadedThumbnails.delete(oldest)
+  }
+  loadedThumbnails.add(url)
+}
 
 // Track lazy chunk prefetch for instant zero-delay PhotoViewer launch
 let isViewerPrefetched = false
@@ -330,11 +339,7 @@ export const PhotoCard = memo(function PhotoCard({
   // Mark image as loaded and memoize in session loadedThumbnails set
   const handleImageLoad = useCallback(() => {
     if (imageSrc) {
-      loadedThumbnails.add(imageSrc)
-      if (loadedThumbnails.size > 1500) {
-        const oldest = loadedThumbnails.values().next().value
-        if (oldest) loadedThumbnails.delete(oldest)
-      }
+      markThumbnailLoaded(imageSrc)
     }
     setIsImageLoaded(true)
     if (getIsOffline()) {
@@ -347,7 +352,7 @@ export const PhotoCard = memo(function PhotoCard({
     imgRef.current = el
     if (el && el.complete && el.naturalWidth > 0) {
       if (imageSrc) {
-        loadedThumbnails.add(imageSrc)
+        markThumbnailLoaded(imageSrc)
       }
       setIsImageLoaded(true)
     }

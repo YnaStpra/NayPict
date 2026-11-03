@@ -174,6 +174,9 @@ export async function migrate(): Promise<void> {
       await sql`
         ALTER TABLE "album_photo" ALTER COLUMN "pinned_at" TYPE timestamptz;
       `;
+      await sql`
+        CREATE INDEX IF NOT EXISTS "idx_album_photo_album_pinned_cov" ON "album_photo" ("album_id", "is_pinned", "pinned_at", "photo_id");
+      `;
     } catch (albumPhotoErr) {
       console.warn('[MIGRATE] Error updating album_photo columns:', albumPhotoErr);
     }

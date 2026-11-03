@@ -48,7 +48,7 @@ import {
 import { type Storage } from '@/server/entity/storage';
 import { storageService } from '@/server/service/storage-service';
 import { buildContentDisposition, formatFileTimestamp, splitFileName } from '@/server/lib/file';
-import { albumService } from '@/server/service/album-service';
+import { albumService, getArchivedAlbumIds } from '@/server/service/album-service';
 import { settingService } from '@/server/service/setting-service';
 import { SettingOnThisDayEnum, SettingPhotoDedupEnum, SettingSyncDeleteEnum } from '@/server/enums/setting-enum';
 import { formatHttpUrl, toMediaUrl, toProxyMediaUrl } from '@/lib/url';
@@ -328,14 +328,16 @@ const photoService = {
     }
 
     if (!isCurrentAlbumArchived && status === PhotoStatusEnum.NORMAL) {
-      baseWhereList.push(
-        sql`NOT EXISTS (
-          SELECT 1 FROM ${albumPhotoTab}
-          INNER JOIN ${albumTab} ON ${albumTab.albumId} = ${albumPhotoTab.albumId}
-          WHERE ${albumPhotoTab.photoId} = ${photoTab.photoId}
-          AND ${albumTab.isArchived} = 1
-        )`
-      );
+      const archivedIds = await getArchivedAlbumIds();
+      if (archivedIds.length > 0) {
+        baseWhereList.push(
+          sql`NOT EXISTS (
+            SELECT 1 FROM ${albumPhotoTab}
+            WHERE ${albumPhotoTab.photoId} = ${photoTab.photoId}
+            AND ${inArray(albumPhotoTab.albumId, archivedIds)}
+          )`
+        );
+      }
     }
 
     const whereList = [...baseWhereList];
@@ -389,8 +391,23 @@ const photoService = {
 
     const offset = params.offset && params.offset > 0 ? params.offset : 0;
 
-    const list = params.albumId
-      ? await readOrm
+    // Parallel latency optimization: initiate count query concurrently with list query on first page
+    const isSubsequentPage = Boolean(params.cursorPhotoId || (params.offset && params.offset > 0) || (params.photoIds?.length && shuffledTotalCount === undefined));
+    const countQueryPromise = (!isSubsequentPage && shuffledTotalCount === undefined)
+      ? (params.albumId
+          ? readOrm
+            .select({ total: count() })
+            .from(photoTab)
+            .innerJoin(albumPhotoTab, eq(photoTab.photoId, albumPhotoTab.photoId))
+            .where(and(...baseWhereList, eq(albumPhotoTab.albumId, params.albumId)))
+          : readOrm
+            .select({ total: count() })
+            .from(photoTab)
+            .where(and(...baseWhereList)))
+      : null;
+
+    const listQueryPromise = params.albumId
+      ? readOrm
         .select({
           ...getTableColumns(photoTab),
           isPinned: params.sortBy ? sql<number>`0` : albumPhotoTab.isPinned,
@@ -424,7 +441,7 @@ const photoService = {
         )
         .offset(offset)
         .limit(size)
-      : await readOrm
+      : readOrm
         .select()
         .from(photoTab)
         .where(and(...whereList))
@@ -444,6 +461,11 @@ const photoService = {
         )
         .offset(offset)
         .limit(size);
+
+    const [list, countResult] = await Promise.all([
+      listQueryPromise,
+      countQueryPromise ? countQueryPromise.catch(() => [{ total: 0 }]) : Promise.resolve(null),
+    ]);
 
     if (!list.length) {
       return {
@@ -477,23 +499,9 @@ const photoService = {
       );
     });
 
-    // Skip redundant count query during cursor pagination or ID-based infinite scrolling (saves 30-80ms Neon DB round-trip)
-    const isSubsequentPage = Boolean(params.cursorPhotoId || (params.offset && params.offset > 0) || (params.photoIds?.length && shuffledTotalCount === undefined));
-
     let totalCount: number | undefined = shuffledTotalCount;
-    if (!isSubsequentPage && totalCount === undefined) {
-      const [totalRow] = params.albumId
-        ? await readOrm
-          .select({ total: count() })
-          .from(photoTab)
-          .innerJoin(albumPhotoTab, eq(photoTab.photoId, albumPhotoTab.photoId))
-          .where(and(...baseWhereList, eq(albumPhotoTab.albumId, params.albumId)))
-        : await readOrm
-          .select({ total: count() })
-          .from(photoTab)
-          .where(and(...baseWhereList));
-
-      totalCount = Number(totalRow?.total ?? 0);
+    if (countResult && countResult[0]) {
+      totalCount = Number(countResult[0].total ?? 0);
     }
 
     const output: PageVo<PhotoVo> = {
@@ -568,14 +576,16 @@ const photoService = {
     }
 
     if (!isCurrentAlbumArchived && status === PhotoStatusEnum.NORMAL) {
-      whereList.push(
-        sql`NOT EXISTS (
-          SELECT 1 FROM ${albumPhotoTab}
-          INNER JOIN ${albumTab} ON ${albumTab.albumId} = ${albumPhotoTab.albumId}
-          WHERE ${albumPhotoTab.photoId} = ${photoTab.photoId}
-          AND ${albumTab.isArchived} = 1
-        )`
-      );
+      const archivedIds = await getArchivedAlbumIds();
+      if (archivedIds.length > 0) {
+        whereList.push(
+          sql`NOT EXISTS (
+            SELECT 1 FROM ${albumPhotoTab}
+            WHERE ${albumPhotoTab.photoId} = ${photoTab.photoId}
+            AND ${inArray(albumPhotoTab.albumId, archivedIds)}
+          )`
+        );
+      }
     }
 
     // In-memory Fisher-Yates shuffle replaces database ORDER BY RANDOM(), eliminating heavy table scans and sort overhead in PostgreSQL

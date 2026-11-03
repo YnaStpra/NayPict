@@ -48,6 +48,8 @@ async function checkIsAdmin(c: Context): Promise<boolean> {
 export function registerReactionApi(app: Hono<HonoEnv>) {
   // Query photo reactions and visitor state (Public).
   app.post('/photo/reactions', async (c: Context) => {
+    c.header('Cache-Control', 'public, max-age=5, s-maxage=15, stale-while-revalidate=60');
+    c.header('CDN-Cache-Control', 'public, s-maxage=15, stale-while-revalidate=60');
     const body = await c.req.json<PhotoReactionsQueryBo>().catch(() => ({ photoId: '' } as PhotoReactionsQueryBo));
     const visitorId = resolveSignedVisitorId(c, body.visitorId);
     const data = await reactionService.getPhotoReactions(body.photoId, visitorId);

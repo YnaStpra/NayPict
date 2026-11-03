@@ -71,6 +71,23 @@ export async function proxy(req: NextRequest) {
 
   const { pathname } = req.nextUrl;
 
+  // 1. Instant zero-overhead bypass for Next.js internal chunks, static assets, media gateway, and PWA manifest
+  if (
+    pathname.startsWith('/_next') ||
+    pathname.startsWith('/media') ||
+    pathname === '/favicon.ico' ||
+    pathname === '/robots.txt' ||
+    pathname === '/manifest.webmanifest' ||
+    PUBLIC_FILE_REG.test(pathname)
+  ) {
+    return NextResponse.next();
+  }
+
+  // 2. Instant bypass for API routes: Hono backend handles its own CSRF, context, and security authentication
+  if (pathname.startsWith('/api')) {
+    return NextResponse.next();
+  }
+
   const cookie = req.headers.get('cookie');
   let userId: string | null = null;
   let uuid: string | null = null;
