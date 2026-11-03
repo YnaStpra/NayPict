@@ -21,6 +21,8 @@ export function registerCommentApi(app: Hono<HonoEnv>) {
 
   // Query comments for a specific photo (RESTful route).
   app.get('/photos/:photoId/comments', async (c: Context) => {
+    c.header('Cache-Control', 'public, max-age=5, s-maxage=15, stale-while-revalidate=60');
+    c.header('CDN-Cache-Control', 'public, s-maxage=15, stale-while-revalidate=60');
     const photoId = c.req.param('photoId') ?? '';
     const data = await commentService.listByPhotoId(photoId);
     return c.json(result.ok(data));
@@ -28,6 +30,8 @@ export function registerCommentApi(app: Hono<HonoEnv>) {
 
   // Query comments for a specific photo (RPC style POST route).
   app.post('/photo/comment/list', async (c: Context) => {
+    c.header('Cache-Control', 'public, max-age=5, s-maxage=15, stale-while-revalidate=60');
+    c.header('CDN-Cache-Control', 'public, s-maxage=15, stale-while-revalidate=60');
     const { photoId } = await c.req.json<{ photoId: string }>().catch(() => ({ photoId: '' }));
     const data = await commentService.listByPhotoId(photoId);
     return c.json(result.ok(data));

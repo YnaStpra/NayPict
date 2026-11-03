@@ -79,8 +79,39 @@ function calculateAlbumCoverScore(photo: {
 // In-memory fast-path cache for public album lists (60s TTL)
 const publicAlbumListCache = new Map<string, { data: AlbumVo[]; expires: number }>();
 
+// In-memory cache for archived album IDs (60s TTL) to eliminate heavy correlated subqueries
+let cachedArchivedAlbumIds: string[] | null = null;
+let cachedArchivedAlbumIdsExpires = 0;
+
+export async function getArchivedAlbumIds(): Promise<string[]> {
+  if (cachedArchivedAlbumIds && Date.now() < cachedArchivedAlbumIdsExpires) {
+    return cachedArchivedAlbumIds;
+  }
+  try {
+    const rows = await readOrm
+      .select({ albumId: albumTab.albumId })
+      .from(albumTab)
+      .where(eq(albumTab.isArchived, 1));
+    cachedArchivedAlbumIds = rows.map((r) => r.albumId);
+    cachedArchivedAlbumIdsExpires = Date.now() + 60_000;
+    return cachedArchivedAlbumIds;
+  } catch {
+    if (!cachedArchivedAlbumIds) {
+      cachedArchivedAlbumIds = [];
+      cachedArchivedAlbumIdsExpires = Date.now() + 10_000;
+    }
+    return cachedArchivedAlbumIds;
+  }
+}
+
+export function invalidateArchivedAlbumsCache(): void {
+  cachedArchivedAlbumIds = null;
+  cachedArchivedAlbumIdsExpires = 0;
+}
+
 function invalidateAlbumFastPathCache(): void {
   publicAlbumListCache.clear();
+  invalidateArchivedAlbumsCache();
 }
 
 const albumService = {
@@ -128,14 +159,16 @@ const albumService = {
 
     // For active albums (isArchived === 0), exclude photos that belong to any archived album
     if (isArchived === 0) {
-      wherePhotoList.push(
-        sql`NOT EXISTS (
-          SELECT 1 FROM ${albumPhotoTab} ap_archived
-          INNER JOIN ${albumTab} a_archived ON a_archived.album_id = ap_archived.album_id
-          WHERE ap_archived.photo_id = ${photoTab.photoId}
-          AND a_archived.is_archived = 1
-        )`
-      );
+      const archivedIds = await getArchivedAlbumIds();
+      if (archivedIds.length > 0) {
+        wherePhotoList.push(
+          sql`NOT EXISTS (
+            SELECT 1 FROM ${albumPhotoTab} ap_archived
+            WHERE ap_archived.photo_id = ${photoTab.photoId}
+            AND ${inArray(albumPhotoTab.albumId, archivedIds)}
+          )`
+        );
+      }
     }
 
     // 1. Efficient SQL group-by count for all albums (zero full-catalog row transfers)
@@ -441,14 +474,16 @@ const albumService = {
       .limit(1);
 
     if (targetAlbum?.isArchived === 0) {
-      wherePhotoList.push(
-        sql`NOT EXISTS (
-          SELECT 1 FROM ${albumPhotoTab} ap_archived
-          INNER JOIN ${albumTab} a_archived ON a_archived.album_id = ap_archived.album_id
-          WHERE ap_archived.photo_id = ${photoTab.photoId}
-          AND a_archived.is_archived = 1
-        )`
-      );
+      const archivedIds = await getArchivedAlbumIds();
+      if (archivedIds.length > 0) {
+        wherePhotoList.push(
+          sql`NOT EXISTS (
+            SELECT 1 FROM ${albumPhotoTab} ap_archived
+            WHERE ap_archived.photo_id = ${photoTab.photoId}
+            AND ${inArray(albumPhotoTab.albumId, archivedIds)}
+          )`
+        );
+      }
     }
 
     const albumPhotos = await readOrm

@@ -48,7 +48,7 @@ import { AnalogFilmStripCompact } from "@/components/photo/analog-film-strip"
 import { PhotoReactions } from "@/components/photo/photo-reactions"
 import { VideoPlayer } from "@/components/video/video-player"
 import { prebufferVideo } from "@/lib/video-prebuffer"
-import { loadedThumbnails } from "@/components/photo/photo-card"
+import { loadedThumbnails, markThumbnailLoaded } from "@/components/photo/photo-card"
 import { getIsOffline, notifyConnectionRestored } from "@/lib/network-status"
 import { useShortcutsStore } from "@/store/shortcuts-store"
 
@@ -293,7 +293,7 @@ function loadPreviewImage(
   }
 
   img.onload = () => {
-    loadedThumbnails.add(src)
+    markThumbnailLoaded(src)
     setPhotoCache(photoId, src)
     if (currentPhotoIdRef.current === photoId) {
       onLoaded?.()
@@ -1277,7 +1277,7 @@ function PhotoSlideImage({
 
   const handleImageLoaded = () => {
     if (currentSrc) {
-      loadedThumbnails.add(currentSrc)
+      markThumbnailLoaded(currentSrc)
     }
     setLoaded(true)
     setShowHdBadge(true)
@@ -1907,7 +1907,7 @@ export function PhotoViewer({
               ;(img as any).fetchPriority = "high"
             }
             img.onload = () => {
-              loadedThumbnails.add(url)
+              markThumbnailLoaded(url)
             }
             img.src = url
           }

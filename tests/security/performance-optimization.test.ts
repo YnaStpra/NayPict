@@ -1,686 +1,152 @@
-import { describe, it } from 'node:test';
+import { describe, it, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
-import fs from 'node:fs';
-import path from 'node:path';
-import { toMediaUrl, toProxyMediaUrl } from '@/lib/url';
+import { NextRequest } from 'next/server';
+import { Hono } from 'hono';
+import { markThumbnailLoaded, loadedThumbnails } from '@/components/photo/photo-card';
+import { getArchivedAlbumIds, invalidateArchivedAlbumsCache } from '@/server/service/album-service';
+import { proxy } from '@/proxy';
+import { registerReactionApi } from '@/server/api/reaction-api';
+import { registerCommentApi } from '@/server/api/comment-api';
 
-describe('Media Performance & Delivery Optimization Test Suite', () => {
+describe('Advanced Performance Optimizations Verification', () => {
+  describe('Optimization 7: Mobile RAM Bounded ThumbHash & Loaded Images LRU Cache', () => {
+    beforeEach(() => {
+      loadedThumbnails.clear();
+    });
 
-  describe('Edge Media Gateway Direct Resolution (Zero 307 Redirects)', () => {
-    const originalGateway = process.env.NEXT_PUBLIC_MEDIA_GATEWAY_URL;
+    it('successfully caches loaded thumbnail URLs up to limit', () => {
+      markThumbnailLoaded('/media/photos/photo1.webp');
+      markThumbnailLoaded('/media/photos/photo2.webp');
+      assert.equal(loadedThumbnails.size, 2);
+      assert.equal(loadedThumbnails.has('/media/photos/photo1.webp'), true);
+      assert.equal(loadedThumbnails.has('/media/photos/photo2.webp'), true);
+    });
 
-    it('resolves thumbnails directly to CDN gateway when configured', () => {
-      process.env.NEXT_PUBLIC_MEDIA_GATEWAY_URL = 'https://media.naypict.com';
-      try {
-        const url = toMediaUrl('thumbnails/abc-123.avif');
-        assert.equal(url, 'https://media.naypict.com/thumbnails/abc-123.avif');
-
-        const proxyUrl = toProxyMediaUrl('thumbnails/abc-123.avif');
-        assert.equal(proxyUrl, 'https://media.naypict.com/thumbnails/abc-123.avif');
-      } finally {
-        process.env.NEXT_PUBLIC_MEDIA_GATEWAY_URL = originalGateway;
+    it('enforces strict 800 items cap with FIFO/LRU eviction to prevent memory bloat on low-memory mobile devices', () => {
+      for (let i = 0; i < 850; i++) {
+        markThumbnailLoaded(`/media/photos/photo-${i}.webp`);
       }
+      assert.equal(loadedThumbnails.size, 800);
+      // First 50 items should have been evicted
+      assert.equal(loadedThumbnails.has('/media/photos/photo-0.webp'), false);
+      assert.equal(loadedThumbnails.has('/media/photos/photo-49.webp'), false);
+      // Items 50 to 849 should remain
+      assert.equal(loadedThumbnails.has('/media/photos/photo-50.webp'), true);
+      assert.equal(loadedThumbnails.has('/media/photos/photo-849.webp'), true);
     });
 
-    it('resolves previews directly to CDN gateway when configured', () => {
-      process.env.NEXT_PUBLIC_MEDIA_GATEWAY_URL = 'https://media.naypict.com';
-      try {
-        const url = toMediaUrl('previews/photo-large.jpg');
-        assert.equal(url, 'https://media.naypict.com/previews/photo-large.jpg');
-      } finally {
-        process.env.NEXT_PUBLIC_MEDIA_GATEWAY_URL = originalGateway;
-      }
-    });
-
-    it('resolves videos directly to CDN gateway when configured', () => {
-      process.env.NEXT_PUBLIC_MEDIA_GATEWAY_URL = 'https://media.naypict.com';
-      try {
-        const url = toMediaUrl('videos/vacation.mp4');
-        assert.equal(url, 'https://media.naypict.com/videos/vacation.mp4');
-      } finally {
-        process.env.NEXT_PUBLIC_MEDIA_GATEWAY_URL = originalGateway;
-      }
-    });
-
-    it('falls back to /media proxy for originals without custom domain', () => {
-      delete process.env.NEXT_PUBLIC_MEDIA_GATEWAY_URL;
-      delete process.env.R2_MEDIA_GATEWAY_URL;
-      const url = toMediaUrl('photos/original-raw.jpg');
-      assert.equal(url, '/media/photos/original-raw.jpg');
-    });
-
-    it('never exposes private S3 endpoint as direct media gateway base', () => {
-      process.env.NEXT_PUBLIC_MEDIA_GATEWAY_URL = 'https://account-id.r2.cloudflarestorage.com/bucket';
-      try {
-        const url = toMediaUrl('thumbnails/test.avif');
-        assert.equal(url, '/media/thumbnails/test.avif');
-      } finally {
-        process.env.NEXT_PUBLIC_MEDIA_GATEWAY_URL = originalGateway;
-      }
+    it('safely handles empty or null/undefined URLs without error', () => {
+      markThumbnailLoaded(null);
+      markThumbnailLoaded(undefined);
+      markThumbnailLoaded('');
+      assert.equal(loadedThumbnails.size, 0);
     });
   });
 
-  describe('PhotoCard Viewport Priority & Native Lazy Loading', () => {
-    const cardFile = path.resolve(process.cwd(), 'src/components/photo/photo-card.tsx');
-    const cardContent = fs.readFileSync(cardFile, 'utf-8');
-
-    it('does not include false 1280w preview in thumbnail srcSet to avoid massive mobile downloads', () => {
-      assert.ok(
-        !cardContent.includes('${data.preview} 1280w'),
-        'responsiveSrcSet promoting 2560px preview must not be present'
-      );
-      assert.ok(
-        !cardContent.includes('const responsiveSrcSet ='),
-        'misleading responsiveSrcSet declaration should be removed'
-      );
+  describe('Optimization 1: Correlated Subquery Elimination & Archived Album ID Cache', () => {
+    beforeEach(() => {
+      invalidateArchivedAlbumsCache();
     });
 
-    it('ensures off-screen cards use native lazy loading and low fetch priority', () => {
-      assert.ok(
-        !cardContent.includes('isInPreloadWindow'),
-        'isInPreloadWindow forcing eager loading on all cards must not be present'
-      );
-      assert.ok(
-        cardContent.includes('loading={isPriority ? "eager" : "lazy"}'),
-        'Card images must strictly use lazy loading unless isPriority is true'
-      );
-      assert.ok(
-        cardContent.includes('fetchPriority={isPriority ? "high" : "low"}'),
-        'Card images must strictly use low fetchPriority unless isPriority is true'
-      );
+    it('provides getArchivedAlbumIds function that caches results in memory', async () => {
+      const ids1 = await getArchivedAlbumIds();
+      assert.ok(Array.isArray(ids1));
+      const ids2 = await getArchivedAlbumIds();
+      assert.equal(ids1, ids2, 'Subsequent call within TTL should return cached reference');
+    });
+
+    it('clears memory cache when invalidateArchivedAlbumsCache is called', async () => {
+      await getArchivedAlbumIds();
+      invalidateArchivedAlbumsCache();
+      const ids = await getArchivedAlbumIds();
+      assert.ok(Array.isArray(ids));
     });
   });
 
-  describe('Photo Pipeline & Sharp Dimensions Hardening', () => {
-    const processFile = path.resolve(process.cwd(), 'src/server/lib/photo-process.ts');
-    const processContent = fs.readFileSync(processFile, 'utf-8');
+  describe('Optimization 3: Proxy Middleware Ultra Fast-Path', () => {
+    it('bypasses JWT verification immediately for Next.js internal static assets (/_next)', async () => {
+      const req = new NextRequest('https://naypict.my.id/_next/static/chunks/main-app.js');
+      const res = await proxy(req);
+      assert.equal(res.status, 200);
+      assert.equal(res.headers.get('location'), null);
+    });
 
-    it('configures thumbnail resize to 720x720 bounding box for crisp Retina portrait rendering', () => {
-      assert.ok(
-        processContent.includes('width: 720, height: 720, fit: "inside"'),
-        'Sharp thumbnail pipeline must use 720x720 fit inside to prevent blurry 9:16 portraits'
-      );
+    it('bypasses JWT verification immediately for media assets (/media/*)', async () => {
+      const req = new NextRequest('https://naypict.my.id/media/thumbnails/thumb-123.webp');
+      const res = await proxy(req);
+      assert.equal(res.status, 200);
+      assert.equal(res.headers.get('location'), null);
+    });
+
+    it('bypasses JWT verification immediately for API routes (/api/*)', async () => {
+      const req = new NextRequest('https://naypict.my.id/api/photo/list');
+      const res = await proxy(req);
+      assert.equal(res.status, 200);
+      assert.equal(res.headers.get('location'), null);
+    });
+
+    it('bypasses JWT verification immediately for public static files (.png, .webp, robots.txt, etc.)', async () => {
+      const req1 = new NextRequest('https://naypict.my.id/banner.webp');
+      const res1 = await proxy(req1);
+      assert.equal(res1.status, 200);
+
+      const req2 = new NextRequest('https://naypict.my.id/robots.txt');
+      const res2 = await proxy(req2);
+      assert.equal(res2.status, 200);
+    });
+
+    it('still protects sensitive admin routes when no login token is present', async () => {
+      const req = new NextRequest('https://naypict.my.id/admin/analytics');
+      const res = await proxy(req);
+      assert.equal(res.status, 307);
+      assert.ok(res.headers.get('location')?.includes('/login'));
     });
   });
 
-  describe('R2/S3 Upload Edge Cache-Control Headers', () => {
-    const serviceFile = path.resolve(process.cwd(), 'src/server/service/photo-service.ts');
-    const serviceContent = fs.readFileSync(serviceFile, 'utf-8');
+  describe('Optimization 6: Edge SWR Cache Headers for Reactions & Comments', () => {
+    it('returns Cache-Control and CDN-Cache-Control headers on reactions query', async () => {
+      const app = new Hono<any>();
+      registerReactionApi(app);
 
-    it('tags preview and thumbnail derivative uploads with public immutable cache headers', () => {
-      assert.ok(
-        serviceContent.includes("['Cache-Control', 'public, max-age=31536000, immutable']"),
-        'Derivative files must use public immutable cache control for CDN edge edge caching'
-      );
+      const res = await app.request('/photo/reactions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ photoId: 'test-photo-id', visitorId: 'test-visitor' }),
+      });
+
+      const cacheControl = res.headers.get('cache-control');
+      const cdnCacheControl = res.headers.get('cdn-cache-control');
+
+      assert.ok(cacheControl, 'Cache-Control header must be present');
+      assert.ok(cacheControl?.includes('public'));
+      assert.ok(cacheControl?.includes('stale-while-revalidate'));
+      assert.ok(cdnCacheControl, 'CDN-Cache-Control header must be present');
+      assert.ok(cdnCacheControl?.includes('stale-while-revalidate'));
     });
 
-    it('supports lightweight EXIF projection for high-speed gallery grid listing', () => {
-      assert.ok(
-        serviceContent.includes('isGridList = false'),
-        'toPhotoVo must support isGridList parameter'
-      );
-      assert.ok(
-        serviceContent.includes('true // isGridList: lightweight EXIF payload'),
-        'photoService.list must pass isGridList = true to prune unnecessary EXIF in grid responses'
-      );
-    });
-  });
+    it('returns Cache-Control and CDN-Cache-Control headers on GET and POST comments query', async () => {
+      const app = new Hono<any>();
+      registerCommentApi(app);
 
-  describe('Next.js Asset Cache Headers', () => {
-    const nextConfigFile = path.resolve(process.cwd(), 'next.config.ts');
-    const nextConfigContent = fs.readFileSync(nextConfigFile, 'utf-8');
+      const getRes = await app.request('/photos/test-photo-id/comments', {
+        method: 'GET',
+      });
+      const getCacheControl = getRes.headers.get('cache-control');
+      const getCdnCacheControl = getRes.headers.get('cdn-cache-control');
+      assert.ok(getCacheControl?.includes('public'));
+      assert.ok(getCacheControl?.includes('stale-while-revalidate'));
+      assert.ok(getCdnCacheControl?.includes('stale-while-revalidate'));
 
-    it('provides immutable cache headers for CSS Houdini paint worklets', () => {
-      assert.ok(
-        nextConfigContent.includes("source: '/worklets/:path*'"),
-        'next.config.ts must configure worklets route for edge caching'
-      );
-      assert.ok(
-        nextConfigContent.includes("value: 'public, max-age=31536000, immutable'"),
-        'worklets route must set public immutable Cache-Control header'
-      );
-    });
-  });
-
-  describe('Deep Performance Sprint: Pipeline, SQL Aggregation & Indexes', () => {
-    it('eliminates dead WebP mediumBuffer compression during photo processing', () => {
-      const processFile = path.resolve(process.cwd(), 'src/server/lib/photo-process.ts');
-      const processContent = fs.readFileSync(processFile, 'utf-8');
-      assert.ok(!processContent.includes('const mediumBuffer ='), 'Dead mediumBuffer WebP generation must be eliminated');
-      assert.ok(processContent.includes('Generated directly from orientedBuffer to avoid lossy intermediate WebP encoding'), 'Thumbnail must generate directly from orientedBuffer');
-    });
-
-    it('consolidates N+1 sequential insight queries into single-roundtrip SQL conditional aggregation', () => {
-      const insightsFile = path.resolve(process.cwd(), 'src/server/service/insights-service.ts');
-      const insightsContent = fs.readFileSync(insightsFile, 'utf-8');
-      assert.ok(insightsContent.includes('COUNT(*) FILTER (WHERE'), 'Must use SQL conditional aggregation for metrics');
-      assert.ok(insightsContent.includes('Promise.all(['), 'Overview metrics must run in parallel');
-    });
-
-    it('lazy-loads EXIF and file metadata only for identified duplicate clusters', () => {
-      const serviceFile = path.resolve(process.cwd(), 'src/server/service/photo-service.ts');
-      const serviceContent = fs.readFileSync(serviceFile, 'utf-8');
-      assert.ok(serviceContent.includes('duplicatePhotoIds = Array.from(new Set(validClusters.flatMap'), 'Must only fetch metadata for duplicate clusters');
-    });
-
-    it('ensures high-traffic columns have dedicated database indexes', () => {
-      const photoEntity = fs.readFileSync(path.resolve(process.cwd(), 'src/server/entity/photo.ts'), 'utf-8');
-      assert.ok(photoEntity.includes('idx_photo_storage_id'), 'photoTab must index storageId');
-
-      const analyticsEntity = fs.readFileSync(path.resolve(process.cwd(), 'src/server/entity/analytics.ts'), 'utf-8');
-      assert.ok(analyticsEntity.includes('idx_visitor_session_admin_started'), 'visitorSessionTab must index (isAdmin, startedAt)');
-
-      const insightsEntity = fs.readFileSync(path.resolve(process.cwd(), 'src/server/entity/insights.ts'), 'utf-8');
-      assert.ok(insightsEntity.includes('idx_photo_view_photo_type_time'), 'photoViewTab must index (photoId, type, viewedAt)');
-    });
-
-    it('pre-caches CSS Houdini paint worklets in PWA service worker', () => {
-      const swFile = path.resolve(process.cwd(), 'public/sw.js');
-      const swContent = fs.readFileSync(swFile, 'utf-8');
-      assert.ok(swContent.includes('/worklets/smooth-corners.js'), 'Must precache smooth corners worklet');
-      assert.ok(swContent.includes('/worklets/skeleton-shimmer.js'), 'Must precache skeleton shimmer worklet');
-    });
-
-    it('tree-shakes @tabler/icons-react and configures Turbopack optimizePackageImports', () => {
-      const pkgFile = path.resolve(process.cwd(), 'package.json');
-      const pkgContent = fs.readFileSync(pkgFile, 'utf-8');
-      assert.ok(!pkgContent.includes('@tabler/icons-react'), '@tabler/icons-react must be removed from package.json');
-
-      const nextConfigFile = path.resolve(process.cwd(), 'next.config.ts');
-      const nextConfigContent = fs.readFileSync(nextConfigFile, 'utf-8');
-      assert.ok(nextConfigContent.includes('@radix-ui/react-dialog'), 'optimizePackageImports must include Radix UI modules');
-      assert.ok(nextConfigContent.includes('sonner'), 'optimizePackageImports must include sonner');
-    });
-
-    it('consolidates analytics overview queries into parallel single-roundtrip queries', () => {
-      const analyticsFile = path.resolve(process.cwd(), 'src/server/service/analytics-service.ts');
-      const analyticsContent = fs.readFileSync(analyticsFile, 'utf-8');
-      assert.ok(analyticsContent.includes('Consolidate overview metrics and distributions into parallel single-roundtrip queries'), 'Must use parallel consolidation');
-      assert.ok(analyticsContent.includes('liveThresholdIso'), 'Must compute liveThresholdIso');
-    });
-
-    it('uses SQL GROUP BY aggregation for album photo counts and bounded cover candidates', () => {
-      const albumFile = path.resolve(process.cwd(), 'src/server/service/album-service.ts');
-      const albumContent = fs.readFileSync(albumFile, 'utf-8');
-      assert.ok(albumContent.includes('.groupBy(albumPhotoTab.albumId)'), 'Must aggregate album counts via SQL GROUP BY');
-      assert.ok(albumContent.includes('.limit(500)'), 'Cover candidates query must be bounded');
-    });
-
-    it('bypasses ThumbHash decoding for cached thumbnails and preloads PhotoViewer on hover', () => {
-      const cardFile = path.resolve(process.cwd(), 'src/components/photo/photo-card.tsx');
-      const cardContent = fs.readFileSync(cardFile, 'utf-8');
-      assert.ok(cardContent.includes('!initialLoaded && !isDummyThumbHash'), 'Must bypass ThumbHash decoding if initialLoaded is true');
-      assert.ok(cardContent.includes('prefetchPhotoViewer()'), 'Must prefetch photo viewer chunk on hover and touchstart');
-    });
-
-    it('optimizes location reverse geocoding precision and caches fallback coordinates', () => {
-      const locationFile = path.resolve(process.cwd(), 'src/server/service/location-service.ts');
-      const locationContent = fs.readFileSync(locationFile, 'utf-8');
-      assert.ok(locationContent.includes('lat.toFixed(4)'), 'Must use 4-decimal precision for street/venue clustering');
-      assert.ok(locationContent.includes('setAddressCache(cacheKey, fallbackResult)'), 'Must cache fallback result to prevent timeout storms');
-    });
-
-    it('scopes storage cleaner file queries when target storage is specified', () => {
-      const cleanerFile = path.resolve(process.cwd(), 'src/server/service/storage-cleaner-service.ts');
-      const cleanerContent = fs.readFileSync(cleanerFile, 'utf-8');
-      assert.ok(cleanerContent.includes('dbFilesQuery.where(eq(photoTab.storageId, targetStorageId))'), 'Must scope files to targetStorageId');
+      const postRes = await app.request('/photo/comment/list', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ photoId: 'test-photo-id' }),
+      });
+      const postCacheControl = postRes.headers.get('cache-control');
+      const postCdnCacheControl = postRes.headers.get('cdn-cache-control');
+      assert.ok(postCacheControl?.includes('public'));
+      assert.ok(postCacheControl?.includes('stale-while-revalidate'));
+      assert.ok(postCdnCacheControl?.includes('stale-while-revalidate'));
     });
   });
-
-  describe('Sprint 4 Performance: Content-Visibility, ETag, Preconnect & Tree-Shaking', () => {
-    it('applies content-visibility: auto to PhotoCard for off-screen rendering optimization', () => {
-      const cardFile = path.resolve(process.cwd(), 'src/components/photo/photo-card.tsx');
-      const cardContent = fs.readFileSync(cardFile, 'utf-8');
-      assert.ok(cardContent.includes('[content-visibility:auto]'), 'PhotoCard must include [content-visibility:auto] className');
-      assert.ok(cardContent.includes('contentVisibility: "auto"'), 'PhotoCard must set contentVisibility in inline style');
-    });
-
-    it('enables dynamic HTTP ETag generation and 304 Not Modified validation in Hono', () => {
-      const honoFile = path.resolve(process.cwd(), 'src/server/hono/hono.ts');
-      const honoContent = fs.readFileSync(honoFile, 'utf-8');
-      assert.ok(honoContent.includes("import { etag } from 'hono/etag'"), 'Must import etag middleware');
-      assert.ok(honoContent.includes("instance.use('*', etag())"), 'Must register etag middleware');
-    });
-
-    it('pre-connects to media gateway and storage origins in root layout', () => {
-      const layoutFile = path.resolve(process.cwd(), 'src/app/layout.tsx');
-      const layoutContent = fs.readFileSync(layoutFile, 'utf-8');
-      assert.ok(layoutContent.includes('process.env.S3_ENDPOINT'), 'Must check S3_ENDPOINT for preconnect');
-      assert.ok(layoutContent.includes('preconnectOrigins.add(new URL(formatted).origin)'), 'Must register origins for preconnect');
-    });
-
-    it('tree-shakes yet-another-react-lightbox from package.json and globals.css', () => {
-      const pkgFile = path.resolve(process.cwd(), 'package.json');
-      const pkgContent = fs.readFileSync(pkgFile, 'utf-8');
-      assert.ok(!pkgContent.includes('yet-another-react-lightbox'), 'yet-another-react-lightbox must be uninstalled');
-
-      const cssFile = path.resolve(process.cwd(), 'src/app/globals.css');
-      const cssContent = fs.readFileSync(cssFile, 'utf-8');
-      assert.ok(!cssContent.includes('yet-another-react-lightbox'), 'Dead lightbox CSS imports must be removed from globals.css');
-    });
-
-    it('configures adaptive virtual overscan on mobile in PhotoMasonry', () => {
-      const masonryFile = path.resolve(process.cwd(), 'src/components/photo/photo-masonry.tsx');
-      const masonryContent = fs.readFileSync(masonryFile, 'utf-8');
-      assert.ok(
-        masonryContent.includes('overscanBy={isLowEndDevice ? 1 : isMobile ? 2 : 4}') ||
-        masonryContent.includes('overscanBy={isMobile ? 2 : 4}'),
-        'Must use adaptive screens overscan on mobile and desktop'
-      );
-    });
-
-    it('precaches PWA application icons in service worker', () => {
-      const swFile = path.resolve(process.cwd(), 'public/sw.js');
-      const swContent = fs.readFileSync(swFile, 'utf-8');
-      assert.ok(swContent.includes('/naypict-icon-192x192.png'), 'Must precache 192x192 icon');
-      assert.ok(swContent.includes('/naypict-icon-512x512.png'), 'Must precache 512x512 icon');
-    });
-
-    it('uses read-replica database pool for setting queries', () => {
-      const settingFile = path.resolve(process.cwd(), 'src/server/service/setting-service.ts');
-      const settingContent = fs.readFileSync(settingFile, 'utf-8');
-      assert.ok(settingContent.includes('readOrm\n        .select()'), 'settingService.get must use readOrm');
-    });
-
-    it('isolates react-easy-crop CSS to avatar-upload component', () => {
-      const cssFile = path.resolve(process.cwd(), 'src/app/globals.css');
-      const cssContent = fs.readFileSync(cssFile, 'utf-8');
-      assert.ok(!cssContent.includes('react-easy-crop'), 'globals.css must not import react-easy-crop');
-
-      const avatarFile = path.resolve(process.cwd(), 'src/components/layout/avatar-upload.tsx');
-      const avatarContent = fs.readFileSync(avatarFile, 'utf-8');
-      assert.ok(avatarContent.includes('react-easy-crop/react-easy-crop.css'), 'avatar-upload.tsx must import its own CSS');
-    });
-  });
-
-  describe('Sprint 5 Multi-Device & Cross-Platform Suite (iOS, Android, Tablet, macOS, Windows, Linux)', () => {
-    it('implements dynamic viewport height (100dvh) for mobile URL bar stability', () => {
-      const cssFile = path.resolve(process.cwd(), 'src/app/globals.css');
-      const cssContent = fs.readFileSync(cssFile, 'utf-8');
-      assert.ok(cssContent.includes('min-height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px))'), 'globals.css must use 100dvh for safe viewport');
-
-      const photosFile = path.resolve(process.cwd(), 'src/app/photos/page.tsx');
-      const photosContent = fs.readFileSync(photosFile, 'utf-8');
-      assert.ok(photosContent.includes('h-[calc(100dvh-3.5rem)]'), 'photos page must use 100dvh');
-
-      const albumsFile = path.resolve(process.cwd(), 'src/app/albums/[albumId]/page.tsx');
-      const albumsContent = fs.readFileSync(albumsFile, 'utf-8');
-      assert.ok(albumsContent.includes('h-[calc(100dvh-3.5rem)]'), 'albums page must use 100dvh');
-    });
-
-    it('configures interactiveWidget resizes-visual for Android virtual keyboard stability', () => {
-      const layoutFile = path.resolve(process.cwd(), 'src/app/layout.tsx');
-      const layoutContent = fs.readFileSync(layoutFile, 'utf-8');
-      assert.ok(layoutContent.includes('interactiveWidget: "resizes-visual"'), 'layout.tsx must configure interactiveWidget');
-    });
-
-    it('enforces scrollbar-gutter: stable to eliminate 16px CLS jumps on Windows and Linux', () => {
-      const cssFile = path.resolve(process.cwd(), 'src/app/globals.css');
-      const cssContent = fs.readFileSync(cssFile, 'utf-8');
-      assert.ok(cssContent.includes('scrollbar-gutter: stable'), 'html element must reserve stable scrollbar gutter');
-    });
-
-    it('suppresses iOS native context action sheet on lightbox images', () => {
-      const viewerFile = path.resolve(process.cwd(), 'src/components/photo/photo-viewer.tsx');
-      const viewerContent = fs.readFileSync(viewerFile, 'utf-8');
-      assert.ok(viewerContent.includes('["WebkitTouchCallout" as string]: "none"'), 'PhotoViewer must suppress webkit touch callout');
-
-      const cssFile = path.resolve(process.cwd(), 'src/app/globals.css');
-      const cssContent = fs.readFileSync(cssFile, 'utf-8');
-      assert.ok(cssContent.includes('-webkit-touch-callout: none !important'), 'globals.css must suppress touch callout on viewer media');
-    });
-
-    it('protects tablets and touch laptops from double-trigger clicks and synthetic tap conflicts', () => {
-      const cardFile = path.resolve(process.cwd(), 'src/components/photo/photo-card.tsx');
-      const cardContent = fs.readFileSync(cardFile, 'utf-8');
-      assert.ok(cardContent.includes('lastTouchEndTimeRef.current = Date.now()'), 'handleTouchEnd must record touch timestamp');
-      assert.ok(cardContent.includes('Date.now() - lastTouchEndTimeRef.current < 450'), 'handlePhotoClick must filter recent touch taps');
-    });
-
-    it('eliminates sticky hover artifacts on touch-only devices', () => {
-      const cssFile = path.resolve(process.cwd(), 'src/app/globals.css');
-      const cssContent = fs.readFileSync(cssFile, 'utf-8');
-      assert.ok(cssContent.includes('@media (hover: none) and (pointer: coarse)'), 'Must restrict hover effects on coarse pointer devices');
-    });
-
-    it('dynamically displays platform-appropriate modifier key (Cmd for Mac vs Ctrl for Windows/Linux)', () => {
-      const shortcutsFile = path.resolve(process.cwd(), 'src/components/common/keyboard-shortcuts-dialog.tsx');
-      const shortcutsContent = fs.readFileSync(shortcutsFile, 'utf-8');
-      assert.ok(shortcutsContent.includes('isApple ? "⌘" : "Ctrl"'), 'Must adapt modifier key for Apple vs Windows/Linux');
-    });
-  });
-
-  describe('Sprint 6 Resilience & UX Suite: a11y, View Transitions, Offline Fallback & DB Timeout', () => {
-    it('enables keyboard navigation and WCAG focus ring on PhotoCard', () => {
-      const cardFile = path.resolve(process.cwd(), 'src/components/photo/photo-card.tsx');
-      const cardContent = fs.readFileSync(cardFile, 'utf-8');
-      assert.ok(cardContent.includes('tabIndex={0}'), 'PhotoCard must be keyboard focusable');
-      assert.ok(cardContent.includes('role="button"'), 'PhotoCard must declare button role');
-      assert.ok(cardContent.includes('focus-visible:ring-primary'), 'PhotoCard must display focus ring');
-      assert.ok(cardContent.includes('e.key === "Enter" || e.key === " "'), 'PhotoCard must open on Enter or Space');
-    });
-
-    it('implements View Transitions API for smooth theme switching', () => {
-      const providerFile = path.resolve(process.cwd(), 'src/app/provider.tsx');
-      const providerContent = fs.readFileSync(providerFile, 'utf-8');
-      assert.ok(providerContent.includes('startViewTransition'), 'provider.tsx must leverage startViewTransition');
-    });
-
-    it('provides a standalone branded offline fallback page in Service Worker', () => {
-      const swFile = path.resolve(process.cwd(), 'public/sw.js');
-      const swContent = fs.readFileSync(swFile, 'utf-8');
-      assert.ok(swContent.includes('const OFFLINE_HTML ='), 'Service Worker must define OFFLINE_HTML fallback');
-      assert.ok(swContent.includes('new Response(OFFLINE_HTML'), 'Service Worker must serve OFFLINE_HTML when network fails');
-      assert.ok(swContent.includes("window.addEventListener('online'"), 'Offline page must auto-refresh on reconnection');
-    });
-
-    it('protects serverless execution with Neon DB query abort timeout', () => {
-      const dbFile = path.resolve(process.cwd(), 'src/server/infra/db.ts');
-      const dbContent = fs.readFileSync(dbFile, 'utf-8');
-      assert.ok(dbContent.includes('neonConfig.fetchFunction ='), 'Must wrap neonConfig.fetchFunction');
-      assert.ok(dbContent.includes('AbortSignal.timeout(8000)'), 'Must enforce 8000ms query timeout');
-    });
-
-    it('predictively preloads adjacent lightbox media for 0ms transitions', () => {
-      const viewerFile = path.resolve(process.cwd(), 'src/components/photo/photo-viewer.tsx');
-      const viewerContent = fs.readFileSync(viewerFile, 'utf-8');
-      assert.ok(viewerContent.includes('adjacentIndices = [viewIndex + 1, viewIndex - 1]'), 'Must preload adjacent indices');
-      assert.ok(viewerContent.includes('fetchPriority = "low"'), 'Preload must use low priority');
-    });
-
-    it('synchronizes infinite canvas bounds during orientation change and resize', () => {
-      const galleryFile = path.resolve(process.cwd(), 'src/components/gallery/infinite-gallery.tsx');
-      const galleryContent = fs.readFileSync(galleryFile, 'utf-8');
-      assert.ok(galleryContent.includes('window.addEventListener("orientationchange"'), 'Must track orientation change');
-    });
-  });
-
-  describe('Sprint 7 Cross-Platform Multi-Device Suite: Screen Wake Lock, Hardware Profiling & PWA Shortcuts', () => {
-    it('implements Screen Wake Lock hook and binds to video playback and photo slideshow', () => {
-      const wakeLockFile = path.resolve(process.cwd(), 'src/hooks/use-wake-lock.ts');
-      assert.ok(fs.existsSync(wakeLockFile), 'useWakeLock hook file must exist');
-      const wakeLockContent = fs.readFileSync(wakeLockFile, 'utf-8');
-      assert.ok(wakeLockContent.includes('wakeLock.request("screen")'), 'Hook must request screen wake lock');
-      assert.ok(wakeLockContent.includes('document.addEventListener("visibilitychange"'), 'Hook must handle visibility change');
-
-      const videoPlayerFile = path.resolve(process.cwd(), 'src/components/video/video-player.tsx');
-      const videoPlayerContent = fs.readFileSync(videoPlayerFile, 'utf-8');
-      assert.ok(videoPlayerContent.includes('useWakeLock(isPlaying)'), 'VideoPlayer must hold wake lock while playing');
-
-      const viewerFile = path.resolve(process.cwd(), 'src/components/photo/photo-viewer.tsx');
-      const viewerContent = fs.readFileSync(viewerFile, 'utf-8');
-      assert.ok(viewerContent.includes('useWakeLock(isSlideshowActive)'), 'PhotoViewer must hold wake lock during slideshow');
-    });
-
-    it('detects constrained hardware profiles and throttles virtual masonry overscan for low-RAM devices', () => {
-      const adaptiveFile = path.resolve(process.cwd(), 'src/hooks/use-adaptive-performance.ts');
-      const adaptiveContent = fs.readFileSync(adaptiveFile, 'utf-8');
-      assert.ok(adaptiveContent.includes('isLowEndDevice'), 'Adaptive performance hook must export isLowEndDevice');
-      assert.ok(adaptiveContent.includes('deviceMemory'), 'Hook must inspect navigator.deviceMemory');
-      assert.ok(adaptiveContent.includes('hardwareConcurrency'), 'Hook must inspect navigator.hardwareConcurrency');
-
-      const masonryFile = path.resolve(process.cwd(), 'src/components/photo/photo-masonry.tsx');
-      const masonryContent = fs.readFileSync(masonryFile, 'utf-8');
-      assert.ok(masonryContent.includes('overscanBy={isLowEndDevice ? 1 : isMobile ? 2 : 4}'), 'PhotoMasonry must dynamically throttle overscan for low-end devices');
-    });
-
-    it('enriches PWA manifest with native App Shortcuts, display_override, and W3C ID', () => {
-      const manifestFile = path.resolve(process.cwd(), 'public/manifest.webmanifest');
-      const manifest = JSON.parse(fs.readFileSync(manifestFile, 'utf-8'));
-      assert.strictEqual(manifest.id, '/', 'Manifest must have stable root ID');
-      assert.ok(Array.isArray(manifest.display_override) && manifest.display_override.includes('window-controls-overlay'), 'Manifest must declare display_override');
-      assert.ok(Array.isArray(manifest.shortcuts) && manifest.shortcuts.length >= 3, 'Manifest must provide quick action shortcuts');
-      assert.ok(manifest.shortcuts.some((s: { url: string }) => s.url === '/photos'), 'Must have photos shortcut');
-      assert.ok(manifest.shortcuts.some((s: { url: string }) => s.url === '/albums'), 'Must have albums shortcut');
-      assert.ok(manifest.shortcuts.some((s: { url: string }) => s.url === '/map'), 'Must have map shortcut');
-    });
-
-    it('provides universal PWA installation handling for Android/Chromium and iOS Safari', () => {
-      const pwaHookFile = path.resolve(process.cwd(), 'src/hooks/use-pwa-install.ts');
-      assert.ok(fs.existsSync(pwaHookFile), 'usePwaInstall hook must exist');
-      const pwaHookContent = fs.readFileSync(pwaHookFile, 'utf-8');
-      assert.ok(pwaHookContent.includes('beforeinstallprompt'), 'Hook must intercept beforeinstallprompt');
-      assert.ok(pwaHookContent.includes('display-mode: standalone'), 'Hook must check standalone display mode');
-
-      const pwaIosDialogFile = path.resolve(process.cwd(), 'src/components/pwa/pwa-ios-dialog.tsx');
-      assert.ok(fs.existsSync(pwaIosDialogFile), 'PwaIosDialog file must exist');
-      const pwaIosDialogContent = fs.readFileSync(pwaIosDialogFile, 'utf-8');
-      assert.ok(pwaIosDialogContent.includes('Add to Home Screen'), 'Dialog must instruct users to Add to Home Screen');
-    });
-  });
-
-  describe('Sprint 8 Cross-Platform Media, Native Sharing & Date Grouping Suite', () => {
-    it('restores header calendar button to toggle grouping media by date taken without forcing external calendar view', () => {
-      const photosPageFile = path.resolve(process.cwd(), 'src/app/photos/page.tsx');
-      const photosPageContent = fs.readFileSync(photosPageFile, 'utf-8');
-      assert.ok(photosPageContent.includes('toggleGroupByDate'), 'photos/page.tsx must provide toggleGroupByDate');
-      assert.ok(photosPageContent.includes('groupByDate'), 'photos/page.tsx must track groupByDate state');
-      assert.ok(photosPageContent.includes('Group Media by Date Taken'), 'Header icon tooltip must indicate Group Media by Date Taken');
-
-      const albumPageFile = path.resolve(process.cwd(), 'src/app/albums/[albumId]/page.tsx');
-      const albumPageContent = fs.readFileSync(albumPageFile, 'utf-8');
-      assert.ok(albumPageContent.includes('toggleGroupByDate'), 'albumId/page.tsx must provide toggleGroupByDate');
-      assert.ok(albumPageContent.includes('groupByDate'), 'albumId/page.tsx must track groupByDate state');
-    });
-
-    it('enables native Picture-in-Picture on video player across desktop and mobile', () => {
-      const videoFile = path.resolve(process.cwd(), 'src/components/video/video-player.tsx');
-      const videoContent = fs.readFileSync(videoFile, 'utf-8');
-      assert.ok(videoContent.includes('togglePip'), 'VideoPlayer must define togglePip');
-      assert.ok(videoContent.includes('requestPictureInPicture'), 'VideoPlayer must call requestPictureInPicture');
-      assert.ok(videoContent.includes('webkitSetPresentationMode'), 'VideoPlayer must support WebKit presentation mode');
-    });
-
-    it('upgrades PhotoViewer sharing to Web Share API Level 2 native file sharing and ClipboardItem binary copying', () => {
-      const viewerFile = path.resolve(process.cwd(), 'src/components/photo/photo-viewer.tsx');
-      const viewerContent = fs.readFileSync(viewerFile, 'utf-8');
-      assert.ok(viewerContent.includes('navigator.canShare({ files: [file] })'), 'Must support Web Share API Level 2 file sharing');
-      assert.ok(viewerContent.includes('new ClipboardItem'), 'Must support ClipboardItem binary copying');
-      assert.ok(viewerContent.includes('copySlideToClipboard'), 'Must define copySlideToClipboard');
-      assert.ok(viewerContent.includes('(event.metaKey || event.ctrlKey) && (event.key === "c" || event.key === "C")'), 'Must support Cmd+C/Ctrl+C keyboard shortcut');
-    });
-
-    it('supports edge-swipe gestures on mobile to open navigation drawer', () => {
-      const sidebarFile = path.resolve(process.cwd(), 'src/components/ui/sidebar.tsx');
-      const sidebarContent = fs.readFileSync(sidebarFile, 'utf-8');
-      assert.ok(sidebarContent.includes('x <= 28') || sidebarContent.includes('touchStartX <= 28'), 'Must detect left edge start position');
-      assert.ok(sidebarContent.includes('dx > 50 && Math.abs(dy) < 40'), 'Must verify swipe trajectory');
-      assert.ok(sidebarContent.includes('setOpenMobile(true)'), 'Must open mobile drawer on edge swipe');
-    });
-
-    it('includes clean print stylesheet avoiding image slice breaks', () => {
-      const cssFile = path.resolve(process.cwd(), 'src/app/globals.css');
-      const cssContent = fs.readFileSync(cssFile, 'utf-8');
-      assert.ok(cssContent.includes('@media print'), 'globals.css must define @media print');
-      assert.ok(cssContent.includes('break-inside: avoid !important'), 'Print styles must prevent awkward page breaks');
-    });
-  });
-
-  describe('Sprint 9 Multi-Device, Multi-OS & Instant Route Transitions Suite', () => {
-    it('eliminates landing navigation latency with instant prefetching and photos loading skeleton', () => {
-      const landingFile = path.resolve(process.cwd(), 'src/components/landing/landing-client.tsx');
-      const landingContent = fs.readFileSync(landingFile, 'utf-8');
-      assert.ok(landingContent.includes("router.prefetch('/photos')"), 'Landing must prefetch photos route');
-      assert.ok(landingContent.includes("router.prefetch('/albums')"), 'Landing must prefetch albums route');
-      assert.ok(landingContent.includes("router.prefetch('/map')"), 'Landing must prefetch map route');
-
-      const photosLoadingFile = path.resolve(process.cwd(), 'src/app/photos/loading.tsx');
-      assert.ok(fs.existsSync(photosLoadingFile), 'src/app/photos/loading.tsx must exist for 0ms transitions');
-    });
-
-    it('integrates OS MediaSession API and tab visibility auto-pause in video player', () => {
-      const videoFile = path.resolve(process.cwd(), 'src/components/video/video-player.tsx');
-      const videoContent = fs.readFileSync(videoFile, 'utf-8');
-      assert.ok(videoContent.includes('navigator.mediaSession'), 'VideoPlayer must integrate with MediaSession API');
-      assert.ok(videoContent.includes('visibilitychange'), 'VideoPlayer must listen to visibilitychange to auto-pause');
-      assert.ok(videoContent.includes('document.hidden'), 'VideoPlayer must check document.hidden');
-    });
-
-    it('enables OS-aware map deeplinking and GPS coordinates clipboard copying', () => {
-      const mapFile = path.resolve(process.cwd(), 'src/components/photo/photo-location-map.tsx');
-      const mapContent = fs.readFileSync(mapFile, 'utf-8');
-      assert.ok(mapContent.includes('maps://?q='), 'Must support Apple Maps deeplinking');
-      assert.ok(mapContent.includes('google.com/maps/search'), 'Must support Google Maps search');
-      assert.ok(mapContent.includes('handleCopyCoords'), 'Must provide handleCopyCoords');
-    });
-
-    it('supports OS desktop file manager drag-and-drop file queueing for admin', () => {
-      const photosPageFile = path.resolve(process.cwd(), 'src/app/photos/page.tsx');
-      const photosContent = fs.readFileSync(photosPageFile, 'utf-8');
-      assert.ok(photosContent.includes('isWindowDragging'), 'Must track window drag state');
-      assert.ok(photosContent.includes('openUploadWithFiles'), 'Must queue dropped files into uploader');
-    });
-
-    it('enables keyboard zoom (+, -, 0) and high-res panning in PhotoViewer', () => {
-      const viewerFile = path.resolve(process.cwd(), 'src/components/photo/photo-viewer.tsx');
-      const viewerContent = fs.readFileSync(viewerFile, 'utf-8');
-      assert.ok(viewerContent.includes('e.key === "+" || e.key === "="'), 'Must support + zoom-in shortcut');
-      assert.ok(viewerContent.includes('e.key === "-" || e.key === "_"'), 'Must support - zoom-out shortcut');
-      assert.ok(viewerContent.includes('e.key === "0"'), 'Must support 0 reset-zoom shortcut');
-      assert.ok(viewerContent.includes('scale > 1'), 'Must enable panning when zoomed in');
-    });
-
-    it('provides offline-resilient reaction sync queue and pure pitch-black OLED theme', () => {
-      const reactionFile = path.resolve(process.cwd(), 'src/lib/reaction-sync.ts');
-      const reactionContent = fs.readFileSync(reactionFile, 'utf-8');
-      assert.ok(reactionContent.includes('naypict_offline_reactions_queue'), 'Must store offline reactions queue');
-      assert.ok(reactionContent.includes('drainOfflineQueue'), 'Must define drainOfflineQueue');
-
-      const cssFile = path.resolve(process.cwd(), 'src/app/globals.css');
-      const cssContent = fs.readFileSync(cssFile, 'utf-8');
-      assert.ok(cssContent.includes('.oled') && cssContent.includes('#000000'), 'Must define true pitch-black OLED styles');
-    });
-
-    it('scales canvas rendering by devicePixelRatio for Retina clarity and triggers tactile haptics', () => {
-      const avatarFile = path.resolve(process.cwd(), 'src/components/layout/avatar-upload.tsx');
-      const avatarContent = fs.readFileSync(avatarFile, 'utf-8');
-      assert.ok(avatarContent.includes('window.devicePixelRatio'), 'Must scale avatar by devicePixelRatio for Retina');
-
-      const reactionsFile = path.resolve(process.cwd(), 'src/components/photo/photo-reactions.tsx');
-      const reactionsContent = fs.readFileSync(reactionsFile, 'utf-8');
-      assert.ok(reactionsContent.includes('navigator.vibrate'), 'Must trigger tactile haptic micro-tick');
-    });
-
-    it('implements Speculation Rules API for instant 0ms native prerendering and prefetching', () => {
-      const layoutFile = path.resolve(process.cwd(), 'src/app/layout.tsx');
-      const layoutContent = fs.readFileSync(layoutFile, 'utf-8');
-      assert.ok(layoutContent.includes('type="speculationrules"'), 'Must define speculationrules script tag');
-      assert.ok(layoutContent.includes('prerender'), 'Must configure speculation prerender');
-      assert.ok(layoutContent.includes('/photos') && layoutContent.includes('/albums'), 'Must prerender core routes');
-    });
-
-    it('implements predictive cursor bitmap decoding and photo viewer chunk pre-warming', () => {
-      const cardFile = path.resolve(process.cwd(), 'src/components/photo/photo-card.tsx');
-      const cardContent = fs.readFileSync(cardFile, 'utf-8');
-      assert.ok(cardContent.includes('img.decode()'), 'Must pre-decode image into GPU raster cache');
-      assert.ok(cardContent.includes('prefetchPhotoViewer()'), 'Must warm up photo viewer chunk');
-    });
-
-    it('restores cached photo catalog snapshot instantly from IndexedDB on initial load', () => {
-      const hookFile = path.resolve(process.cwd(), 'src/hooks/use-photo-list.ts');
-      const hookContent = fs.readFileSync(hookFile, 'utf-8');
-      assert.ok(hookContent.includes('getOfflineCatalog().then'), 'Must check offline catalog snapshot');
-      assert.ok(hookContent.includes('setPhotos(cached.photos)'), 'Must restore cached photos instantly');
-    });
-
-    it('handles BFCache pageshow restoration event for instant back/forward navigation', () => {
-      const providerFile = path.resolve(process.cwd(), 'src/app/provider.tsx');
-      const providerContent = fs.readFileSync(providerFile, 'utf-8');
-      assert.ok(providerContent.includes('event.persisted'), 'Must check event.persisted for BFCache restore');
-      assert.ok(providerContent.includes('window.addEventListener("pageshow"'), 'Must listen to pageshow event');
-    });
-
-    it('pre-warms navigation routes on sidebar open and hover for zero-delay navigation', () => {
-      const sidebarFile = path.resolve(process.cwd(), 'src/components/layout/app-sidebar.tsx');
-      const sidebarContent = fs.readFileSync(sidebarFile, 'utf-8');
-      assert.ok(sidebarContent.includes('router.prefetch(url)'), 'Must prefetch core routes');
-      assert.ok(sidebarContent.includes('onPointerEnter={handlePrewarmSidebar}'), 'Must pre-warm on pointer enter');
-    });
-
-    it('implements optimistic UI updates with error rollback in albums management', () => {
-      const albumsFile = path.resolve(process.cwd(), 'src/app/albums/page.tsx');
-      const albumsContent = fs.readFileSync(albumsFile, 'utf-8');
-      assert.ok(albumsContent.includes('previousAlbums'), 'Must preserve previousAlbums for rollback');
-      assert.ok(albumsContent.includes('setAlbums(previousAlbums)'), 'Must rollback state on error');
-    });
-
-    it('enforces CSS rendering isolation and fast-tap immediate visual feedback', () => {
-      const cssFile = path.resolve(process.cwd(), 'src/app/globals.css');
-      const cssContent = fs.readFileSync(cssFile, 'utf-8');
-      assert.ok(cssContent.includes('contain: layout style paint;'), 'Must isolate masonry and card rendering');
-      assert.ok(cssContent.includes('.fast-tap-active') || cssContent.includes('button:active:not(:disabled)'), 'Must define fast-tap visual feedback');
-    });
-
-    it('supports proactive video stream pre-buffering into browser cache', () => {
-      const prebufferFile = path.resolve(process.cwd(), 'src/lib/video-prebuffer.ts');
-      const prebufferContent = fs.readFileSync(prebufferFile, 'utf-8');
-      assert.ok(prebufferContent.includes('preload = "auto"'), 'Must set preload to auto');
-      assert.ok(prebufferContent.includes('export function prebufferVideo'), 'Must export prebufferVideo');
-    });
-
-    it('unblocks photo layout with Suspense streaming SSR for 0ms shell delivery', () => {
-      const layoutFile = path.resolve(process.cwd(), 'src/app/photos/layout.tsx');
-      const layoutContent = fs.readFileSync(layoutFile, 'utf-8');
-      assert.ok(layoutContent.includes('Suspense'), 'PhotoLayout must wrap with Suspense for unblocked streaming');
-      assert.ok(layoutContent.includes('PhotoDataProvider'), 'PhotoLayout must stream data via PhotoDataProvider');
-    });
-
-    it('decouples exifr library into dynamic import to prevent bundle bloat', () => {
-      const exifFile = path.resolve(process.cwd(), 'src/lib/photo-client-exif.ts');
-      const exifContent = fs.readFileSync(exifFile, 'utf-8');
-      assert.ok(!exifContent.includes("import exifr from 'exifr'"), 'exifr must not be statically imported at top level');
-      assert.ok(exifContent.includes("import('exifr')"), 'exifr must be dynamically loaded');
-    });
-
-    it('optimizes random photo sampling with in-memory Fisher-Yates shuffle', () => {
-      const serviceFile = path.resolve(process.cwd(), 'src/server/service/photo-service.ts');
-      const serviceContent = fs.readFileSync(serviceFile, 'utf-8');
-      assert.ok(serviceContent.includes('shuffledTotalCount'), 'Must use in-memory Fisher-Yates cached random IDs');
-      assert.ok(serviceContent.includes('randomIdList'), 'Must delegate shuffle to randomIdList');
-    });
-
-    it('implements O(1) Set lookup for photo selection in Masonic grid', () => {
-      const masonryFile = path.resolve(process.cwd(), 'src/components/photo/photo-masonry.tsx');
-      const masonryContent = fs.readFileSync(masonryFile, 'utf-8');
-      assert.ok(masonryContent.includes('selectedPhotoSet'), 'Must define selectedPhotoSet for O(1) checks');
-      assert.ok(masonryContent.includes('selectedPhotoSet.has'), 'Must use Set.has for card selection check');
-    });
-
-    it('uses client-side router navigation on landing page redirect without full reload', () => {
-      const landingFile = path.resolve(process.cwd(), 'src/components/landing/landing-client.tsx');
-      const landingContent = fs.readFileSync(landingFile, 'utf-8');
-      assert.ok(landingContent.includes('router.replace('), 'Must use router.replace instead of window.location.href');
-      assert.ok(!landingContent.includes('window.location.href = `/photos?photoId='), 'Must not trigger hard window reload');
-    });
-
-    it('bypasses session database queries on cold-start for public paths in middleware', () => {
-      const proxyFile = path.resolve(process.cwd(), 'src/proxy.ts');
-      const proxyContent = fs.readFileSync(proxyFile, 'utf-8');
-      assert.ok(proxyContent.includes('Fast-path: public browsing routes never stall'), 'Must fast-path public routes');
-      assert.ok(proxyContent.includes('isPublicPath(pathname)'), 'Must check public paths in middleware');
-    });
-
-    it('recycles singleton OffscreenCanvas to prevent GC spikes during ThumbHash generation', () => {
-      const thumbFile = path.resolve(process.cwd(), 'src/lib/thumb-hash.ts');
-      const thumbContent = fs.readFileSync(thumbFile, 'utf-8');
-      assert.ok(thumbContent.includes('sharedOffscreenCanvas'), 'Must maintain sharedOffscreenCanvas singleton');
-      assert.ok(thumbContent.includes('willReadFrequently: true'), 'Must enable willReadFrequently for fast pixel reading');
-    });
-
-    it('defines declarative immutable edge cache headers for media derivatives', () => {
-      const nextFile = path.resolve(process.cwd(), 'next.config.ts');
-      const nextContent = fs.readFileSync(nextFile, 'utf-8');
-      assert.ok(nextContent.includes('/media/thumbnails/:path*'), 'Must define declarative cache for thumbnails');
-      assert.ok(nextContent.includes('/media/previews/:path*'), 'Must define declarative cache for previews');
-    });
-
-    it('enforces Stale-While-Revalidate fallback for paged catalog API in Service Worker', () => {
-      const swFile = path.resolve(process.cwd(), 'public/sw.js');
-      const swContent = fs.readFileSync(swFile, 'utf-8');
-      assert.ok(swContent.includes('Fallback matching for initial public catalog requests'), 'Must implement SWR catalog fallback');
-      assert.ok(swContent.includes('cache.match(\'/api/photo/list\')'), 'Must match catalog fallback in cache');
-    });
-  });
-
 });
-

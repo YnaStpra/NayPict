@@ -16,7 +16,7 @@ import { LayoutGrid } from "lucide-react"
 import { useApp } from "@/app/provider"
 import { useIsMobile } from "@/hooks/use-mobile"
 import { useAdaptivePerformance } from "@/hooks/use-adaptive-performance"
-import { PhotoCard, loadedThumbnails } from "@/components/photo/photo-card"
+import { PhotoCard, loadedThumbnails, markThumbnailLoaded } from "@/components/photo/photo-card"
 import { PhotoSelectionDrawer } from "@/components/photo/photo-selection-drawer"
 import { type PhotoVo } from "@/server/entity/vo/photo"
 import { parseTime } from "@/lib/date"
@@ -648,11 +648,7 @@ const PhotoMasonry = memo(function PhotoMasonry({
       const img = new Image()
       img.decoding = "async"
       img.onload = () => {
-        loadedThumbnails.add(url)
-        if (loadedThumbnails.size > 2000) {
-          const oldest = loadedThumbnails.values().next().value
-          if (oldest) loadedThumbnails.delete(oldest)
-        }
+        markThumbnailLoaded(url)
       }
       img.src = url
     }

@@ -12,6 +12,7 @@ export const albumPhotoTab = pgTable(
   },
   (table) => [
     index('idx_album_photo_album_pinned').on(table.albumId, table.isPinned, table.pinnedAt),
+    index('idx_album_photo_album_pinned_cov').on(table.albumId, table.isPinned, table.pinnedAt, table.photoId),
     index('idx_album_photo_photo').on(table.photoId),
   ]
 );
