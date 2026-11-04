@@ -27,6 +27,7 @@ type AlbumCardProps = Partial<RenderComponentProps<AlbumVo>> & {
 export const AlbumCard = memo(function AlbumCard({
   data,
   width,
+  index,
   href,
   isArchived,
   onRename,
@@ -55,6 +56,23 @@ export const AlbumCard = memo(function AlbumCard({
     }, 8000)
     return () => clearTimeout(timeout)
   }, [isOpening])
+
+  // Proactively prefetch top-of-the-fold album routes during idle time for 0ms click navigation
+  useEffect(() => {
+    if (typeof index === "number" && index < 6) {
+      if (typeof window !== "undefined" && "requestIdleCallback" in window) {
+        const handle = (window as any).requestIdleCallback(() => {
+          router.prefetch(targetHref)
+        }, { timeout: 2000 })
+        return () => (window as any).cancelIdleCallback(handle)
+      } else {
+        const timer = setTimeout(() => {
+          router.prefetch(targetHref)
+        }, 300)
+        return () => clearTimeout(timer)
+      }
+    }
+  }, [index, router, targetHref])
 
   // Speculative prefetch route chunk and album cover media on cursor hover or finger touch
   function handlePrefetch() {

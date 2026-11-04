@@ -165,50 +165,70 @@ export function PhotoComments({ photoId }: PhotoCommentsProps) {
       }),
     ];
 
-    // Adaptive near-realtime heartbeat while comments drawer is actively open (5s interval, only when tab is visible)
-    const COMMENT_POLL_INTERVAL_MS = 5000;
+    // Adaptive near-realtime heartbeat with exponential backoff on idle (5s -> 12s -> 25s)
+    let currentInterval = 5000;
+    let pollTimer: ReturnType<typeof setTimeout> | null = null;
     let isFetchingPoll = false;
+
+    const scheduleNextPoll = (delay: number) => {
+      if (!isMounted) return;
+      if (pollTimer) clearTimeout(pollTimer);
+      pollTimer = setTimeout(pollFreshComments, delay);
+    };
 
     const pollFreshComments = async () => {
       if (!isMounted || isFetchingPoll) return;
-      if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
+      if (typeof document !== "undefined" && document.visibilityState !== "visible") {
+        scheduleNextPoll(currentInterval);
+        return;
+      }
 
       isFetchingPoll = true;
       try {
         const data = await commentList(photoId);
         if (isMounted && Array.isArray(data)) {
+          let hasChange = false;
           setComments((prev) => {
-            if (prev.length === data.length) {
-              let hasChange = false;
-              for (let i = 0; i < prev.length; i++) {
-                if (
-                  prev[i].commentId !== data[i].commentId ||
-                  prev[i].content !== data[i].content ||
-                  prev[i].replyContent !== data[i].replyContent ||
-                  prev[i].replyTime !== data[i].replyTime ||
-                  prev[i].isHearted !== data[i].isHearted ||
-                  prev[i].isPinned !== data[i].isPinned
-                ) {
-                  hasChange = true;
-                  break;
-                }
-              }
-              if (!hasChange) return prev;
+            if (prev.length !== data.length) {
+              hasChange = true;
+              return data;
             }
-            return data;
+            for (let i = 0; i < prev.length; i++) {
+              if (
+                prev[i].commentId !== data[i].commentId ||
+                prev[i].content !== data[i].content ||
+                prev[i].replyContent !== data[i].replyContent ||
+                prev[i].replyTime !== data[i].replyTime ||
+                prev[i].isHearted !== data[i].isHearted ||
+                prev[i].isPinned !== data[i].isPinned
+              ) {
+                hasChange = true;
+                return data;
+              }
+            }
+            return prev;
           });
+
+          if (hasChange) {
+            currentInterval = 5000;
+          } else {
+            // Adaptive idle backoff: 5s -> 12s -> 25s
+            currentInterval = Math.min(25000, Math.round(currentInterval * 1.8));
+          }
         }
       } catch {
         // Silent catch to prevent UI disruptions
       } finally {
         isFetchingPoll = false;
+        scheduleNextPoll(currentInterval);
       }
     };
 
-    const pollInterval = setInterval(pollFreshComments, COMMENT_POLL_INTERVAL_MS);
+    scheduleNextPoll(5000);
 
     const handleFocusResume = () => {
       if (typeof document !== "undefined" && document.visibilityState === "visible") {
+        currentInterval = 5000;
         pollFreshComments();
       }
     };
@@ -218,7 +238,7 @@ export function PhotoComments({ photoId }: PhotoCommentsProps) {
 
     return () => {
       isMounted = false;
-      clearInterval(pollInterval);
+      if (pollTimer) clearTimeout(pollTimer);
       window.removeEventListener("focus", handleFocusResume);
       document.removeEventListener("visibilitychange", handleFocusResume);
       unsubs.forEach((unsub) => unsub());

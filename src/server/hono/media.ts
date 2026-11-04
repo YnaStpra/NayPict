@@ -119,14 +119,18 @@ media.get('*', async (c: Context, next: Next) => {
 
   // If photo is ALBUM_ONLY, only allow unauthenticated visitors if it belongs to at least one active public album
   if (photoFile.visibility === PhotoVisibilityEnum.ALBUM_ONLY && !userId) {
-    const [activeAlbumRel] = await readOrm
-      .select({ id: albumPhotoTab.id })
-      .from(albumPhotoTab)
-      .innerJoin(albumTab, eq(albumTab.albumId, albumPhotoTab.albumId))
-      .where(and(eq(albumPhotoTab.photoId, photoFile.photoId), eq(albumTab.isArchived, 0)))
-      .limit(1);
+    if (photoFile.hasActiveAlbum === undefined) {
+      const [activeAlbumRel] = await readOrm
+        .select({ id: albumPhotoTab.id })
+        .from(albumPhotoTab)
+        .innerJoin(albumTab, eq(albumTab.albumId, albumPhotoTab.albumId))
+        .where(and(eq(albumPhotoTab.photoId, photoFile.photoId), eq(albumTab.isArchived, 0)))
+        .limit(1);
 
-    if (!activeAlbumRel) {
+      photoFile.hasActiveAlbum = Boolean(activeAlbumRel);
+    }
+
+    if (!photoFile.hasActiveAlbum) {
       return next();
     }
   }
