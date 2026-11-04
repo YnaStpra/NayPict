@@ -64,13 +64,18 @@ function usePhotoList(
     return []
   }, [initialPhotos, seededCatalog])
 
+  const isSeededRef = useRef(Boolean(seededCatalog && seededCatalog.photos.length > 0))
   const photosRef = useRef<PhotoVo[]>(initialPhotoList) // Save latest photo list.
-  const hasMoreRef = useRef(initialPhotos ? initialPhotos.length === pageSize : (seededCatalog ? true : true)) // Tracks if more pages are available.
-  const [hasMore, setHasMore] = useState<boolean>(() => (initialPhotos ? initialPhotos.length === pageSize : true))
+  const hasInitialPhotos = Array.isArray(initialPhotos) && initialPhotos.length > 0
+  const initialMoreAvailable = hasInitialPhotos
+    ? initialPhotos.length === pageSize
+    : true
+  const hasMoreRef = useRef(initialMoreAvailable) // Tracks if more pages are available.
+  const [hasMore, setHasMore] = useState<boolean>(initialMoreAvailable)
   const [photos, setPhotos] = useState<PhotoVo[]>(initialPhotoList) // Store the list of photos displayed on the current page.
   const [masonryKey, setMasonryKey] = useState(0) // Control waterfall flow to recalculate layout after list structure changes.
 
-  const [totalCount, setTotalCount] = useState<number>(() => initialTotal ?? (seededCatalog?.totalCount ?? (initialPhotos ? initialPhotos.length : 0)))
+  const [totalCount, setTotalCount] = useState<number>(() => initialTotal || (seededCatalog?.totalCount ?? (hasInitialPhotos ? initialPhotos.length : 0)))
   const [loadingMore, setLoadingMore] = useState(false)
   const [loadMoreError, setLoadMoreError] = useState(false)
   const [isOffline, setIsOffline] = useState(false)
@@ -94,8 +99,9 @@ function usePhotoList(
       initialUsedRef.current = true
       photosRef.current = initialPhotoList
       setPhotos(initialPhotoList)
-      setTotalCount(initialTotal ?? initialPhotoList.length)
-      const moreAvailable = initialPhotos ? initialPhotos.length === pageSize : true
+      setTotalCount(initialTotal || (seededCatalog?.totalCount ?? initialPhotoList.length))
+      const hasInitialPhotos = Array.isArray(initialPhotos) && initialPhotos.length > 0
+      const moreAvailable = hasInitialPhotos ? initialPhotos.length === pageSize : true
       hasMoreRef.current = moreAvailable
       setHasMore(moreAvailable)
       // Offset starts at how many SSR photos we already have
@@ -103,7 +109,7 @@ function usePhotoList(
 
       // Save initial page to offline IndexedDB catalog or restore cached snapshot instantly
       if (initialPhotoList.length > 0 && !initialParams.albumId && !initialParams.status) {
-        saveOfflineCatalog(initialPhotoList, initialTotal ?? initialPhotoList.length)
+        saveOfflineCatalog(initialPhotoList, initialTotal || (seededCatalog?.totalCount ?? initialPhotoList.length))
       } else if (initialPhotoList.length === 0 && !initialParams.albumId && !initialParams.status) {
         getOfflineCatalog().then((cached) => {
           if (cached && cached.photos.length > 0) {
@@ -120,7 +126,8 @@ function usePhotoList(
     }
 
     // Hydrate streamed server photos if client started with empty/snapshot state or seeded cache
-    if (initialPhotos && initialPhotos.length > 0 && (photosRef.current.length === 0 || seededCatalog)) {
+    if (initialPhotos && initialPhotos.length > 0 && (photosRef.current.length === 0 || isSeededRef.current)) {
+      isSeededRef.current = false
       photosRef.current = initialPhotos
       setPhotos(initialPhotos)
       setTotalCount(initialTotal ?? initialPhotos.length)
@@ -153,7 +160,7 @@ function usePhotoList(
         .then((allIds) => {
           if (!allShuffledIdsRef.current && Array.isArray(allIds) && allIds.length > 0) {
             allShuffledIdsRef.current = allIds
-            setTotalCount((prev) => (prev > 0 ? prev : allIds.length))
+            setTotalCount(allIds.length)
             const lastShownPhoto = photosRef.current[photosRef.current.length - 1]
             if (lastShownPhoto) {
               const idx = allIds.indexOf(lastShownPhoto.photoId)
@@ -161,6 +168,9 @@ function usePhotoList(
                 pageOffsetRef.current = idx + 1
               }
             }
+            const more = pageOffsetRef.current < allIds.length
+            hasMoreRef.current = more
+            setHasMore(more)
           }
         })
         .catch(() => {})

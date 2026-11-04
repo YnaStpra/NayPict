@@ -8,6 +8,7 @@ export const revalidate = 300
 // Server-side Landing Page: Pre-fetches random gallery photos to eliminate loading flash and enable instant rendering
 export default async function Home() {
   let initialPhotos: PhotoVo[] = []
+  let initialTotal = 0
   try {
     const data = await photoService.list({
       size: 40,
@@ -19,9 +20,10 @@ export default async function Home() {
     })
 
     initialPhotos = data.list || []
+    initialTotal = data.total ?? initialPhotos.length
   } catch (err) {
     console.warn("[Landing] Failed to fetch server photos, fallback to empty list:", err)
   }
 
-  return <LandingClient initialPhotos={initialPhotos} />
+  return <LandingClient initialPhotos={initialPhotos} initialTotal={initialTotal} />
 }

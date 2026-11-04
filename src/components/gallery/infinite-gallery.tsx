@@ -190,6 +190,11 @@ export function InfiniteGallery(props: InfiniteGalleryProps) {
   const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const lastUserInteractionTimeRef = useRef<number>(0)
 
+  // Dedicated zero-overhead RAF loop controls without triggering full WebGL / DOM layer recreation
+  const isPausedRef = useRef(isPaused)
+  const startLoopRef = useRef<(() => void) | null>(null)
+  const stopLoopRef = useRef<(() => void) | null>(null)
+
   const resetIdleTimer = useCallback(() => {
     isAutoAnimatingRef.current = false
     lastUserInteractionTimeRef.current = Date.now()
@@ -676,7 +681,7 @@ export function InfiniteGallery(props: InfiniteGalleryProps) {
     }
 
     const startLoop = () => {
-      if (isPaused) return
+      if (isPausedRef.current) return
       if (!isLoopRunning && (typeof document === "undefined" || !document.hidden)) {
         isLoopRunning = true
         cancelAnimationFrame(raf)
@@ -684,9 +689,12 @@ export function InfiniteGallery(props: InfiniteGalleryProps) {
       }
     }
 
+    startLoopRef.current = startLoop
+    stopLoopRef.current = stopLoop
+
     const handleVisibility = () => {
       if (typeof document !== "undefined") {
-        if (document.hidden || isPaused) {
+        if (document.hidden || isPausedRef.current) {
           stopLoop()
         } else {
           startLoop()
@@ -699,7 +707,7 @@ export function InfiniteGallery(props: InfiniteGalleryProps) {
       stopLoop()
     }
 
-    if (!isPaused) {
+    if (!isPausedRef.current) {
       startLoop()
     }
     document.addEventListener("visibilitychange", handleVisibility)
@@ -713,9 +721,10 @@ export function InfiniteGallery(props: InfiniteGalleryProps) {
       window.removeEventListener("orientationchange", handleOrientationOrResize)
       ro.disconnect()
       Array.from(layerPools.keys()).forEach(disposeLayer)
+      startLoopRef.current = null
+      stopLoopRef.current = null
     }
   }, [
-    isPaused,
     generateCell,
     safeFriction,
     safeDriftAmount,
@@ -738,6 +747,16 @@ export function InfiniteGallery(props: InfiniteGalleryProps) {
     driftTX,
     driftTY,
   ])
+
+  // Dedicated lightweight loop toggle: pausing/resuming avoids teardown of GPU tiles or DOM thrashing
+  useEffect(() => {
+    isPausedRef.current = isPaused
+    if (isPaused) {
+      stopLoopRef.current?.()
+    } else {
+      startLoopRef.current?.()
+    }
+  }, [isPaused])
 
   useEffect(() => {
     const el = containerRef.current
