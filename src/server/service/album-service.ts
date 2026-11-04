@@ -144,8 +144,6 @@ const albumService = {
       return [];
     }
 
-    const fileStorageList = await storageService.getStorageList();
-
     const wherePhotoList = [
       eq(photoTab.status, PhotoStatusEnum.NORMAL),
       or(
@@ -171,39 +169,42 @@ const albumService = {
       }
     }
 
-    // 1. Efficient SQL group-by count for all albums (zero full-catalog row transfers)
-    const albumCountRows = await readOrm
-      .select({
-        albumId: albumPhotoTab.albumId,
-        count: count(photoTab.photoId),
-      })
-      .from(albumPhotoTab)
-      .innerJoin(photoTab, eq(albumPhotoTab.photoId, photoTab.photoId))
-      .where(and(...wherePhotoList))
-      .groupBy(albumPhotoTab.albumId);
+    // Parallel execution of album photo counts, cover candidates, and storage configuration
+    const [albumCountRows, coverCandidates, fileStorageList] = await Promise.all([
+      readOrm
+        .select({
+          albumId: albumPhotoTab.albumId,
+          count: count(photoTab.photoId),
+        })
+        .from(albumPhotoTab)
+        .innerJoin(photoTab, eq(albumPhotoTab.photoId, photoTab.photoId))
+        .where(and(...wherePhotoList))
+        .groupBy(albumPhotoTab.albumId),
+
+      readOrm
+        .select({
+          albumId: albumPhotoTab.albumId,
+          photoId: photoTab.photoId,
+          name: photoTab.name,
+          width: photoTab.width,
+          height: photoTab.height,
+          size: photoTab.size,
+          thumbHash: photoTab.thumbHash,
+          storageId: photoTab.storageId,
+          takenTime: photoTab.takenTime
+        })
+        .from(albumPhotoTab)
+        .innerJoin(photoTab, eq(albumPhotoTab.photoId, photoTab.photoId))
+        .where(and(...wherePhotoList))
+        .orderBy(desc(albumPhotoTab.isPinned), desc(photoTab.takenTime), desc(photoTab.photoId))
+        .limit(500),
+
+      storageService.getStorageList(),
+    ]);
 
     const albumCountMap = new Map<string, number>(
       albumCountRows.map((r) => [r.albumId, Number(r.count || 0)])
     );
-
-    // 2. Query cover candidates with an efficient bound (up to 500 candidate photos total, prioritized by pin & date)
-    const coverCandidates = await readOrm
-      .select({
-        albumId: albumPhotoTab.albumId,
-        photoId: photoTab.photoId,
-        name: photoTab.name,
-        width: photoTab.width,
-        height: photoTab.height,
-        size: photoTab.size,
-        thumbHash: photoTab.thumbHash,
-        storageId: photoTab.storageId,
-        takenTime: photoTab.takenTime
-      })
-      .from(albumPhotoTab)
-      .innerJoin(photoTab, eq(albumPhotoTab.photoId, photoTab.photoId))
-      .where(and(...wherePhotoList))
-      .orderBy(desc(albumPhotoTab.isPinned), desc(photoTab.takenTime), desc(photoTab.photoId))
-      .limit(500);
 
     const photosByAlbum = new Map<string, typeof coverCandidates>();
     for (const row of coverCandidates) {

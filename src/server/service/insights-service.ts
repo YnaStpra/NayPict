@@ -177,10 +177,12 @@ const insightsService = {
     let viewsThisMonth = 0;
     let totalShares = 0;
     let totalDownloads = 0;
+    let totalReactions = 0;
+    const reactionsBreakdown = { love: 0, fire: 0, camera: 0, place: 0, clap: 0 };
 
     try {
       // Consolidate overview metrics into parallel single-roundtrip queries using SQL conditional aggregation
-      const [photoRes, commentRes, viewStatsRes] = await Promise.all([
+      const [photoRes, commentRes, viewStatsRes, reactionRows] = await Promise.all([
         readOrm
           .select({ count: count() })
           .from(photoTab)
@@ -198,6 +200,14 @@ const insightsService = {
             totalDownloads: sql<number>`COALESCE(COUNT(*) FILTER (WHERE ${photoViewTab.type} = 'download'), 0)::int`,
           })
           .from(photoViewTab),
+        readOrm
+          .select({
+            reactionType: photoReactionTab.reactionType,
+            count: sql<number>`COALESCE(SUM(${photoReactionTab.count}), 0)::int`,
+          })
+          .from(photoReactionTab)
+          .groupBy(photoReactionTab.reactionType)
+          .catch(() => []),
       ]);
 
       totalPhotos = photoRes[0]?.count ?? 0;
@@ -212,21 +222,6 @@ const insightsService = {
         totalShares = Number(viewStats.totalShares || 0);
         totalDownloads = Number(viewStats.totalDownloads || 0);
       }
-    } catch (err) {
-      console.error('[INSIGHTS] Error fetching overview metrics:', err);
-    }
-
-    // 9. Total reactions & breakdown
-    let totalReactions = 0;
-    const reactionsBreakdown = { love: 0, fire: 0, camera: 0, place: 0, clap: 0 };
-    try {
-      const reactionRows = await readOrm
-        .select({
-          reactionType: photoReactionTab.reactionType,
-          count: sql<number>`COALESCE(SUM(${photoReactionTab.count}), 0)::int`,
-        })
-        .from(photoReactionTab)
-        .groupBy(photoReactionTab.reactionType);
 
       for (const row of reactionRows) {
         const c = Number(row.count || 0);
@@ -235,8 +230,8 @@ const insightsService = {
           reactionsBreakdown[row.reactionType as keyof typeof reactionsBreakdown] = c;
         }
       }
-    } catch (reactionErr) {
-      console.warn('[INSIGHTS] Failed to aggregate reactions for overview:', reactionErr);
+    } catch (err) {
+      console.error('[INSIGHTS] Error fetching overview metrics:', err);
     }
 
     return {
@@ -332,69 +327,69 @@ const insightsService = {
     await ensurePhotoViewTable();
 
     try {
-      // 1. Fetch public viewed photos (strictly views > 0 via innerJoin)
+      // Stage 1: Parallel ranking resolution (views, comments, reactions)
       const viewedLimit = Math.min(Math.max(1, limit), 500);
-      const mostViewedRaw = await readOrm
-        .select({
-          photoId: photoTab.photoId,
-          name: photoTab.name,
-          type: photoTab.type,
-          checksum: photoTab.checksum,
-          width: photoTab.width,
-          height: photoTab.height,
-          storageId: photoTab.storageId,
-          viewCount: count(photoViewTab.id),
-          lastViewedAt: sql<string>`MAX(${photoViewTab.viewedAt})`,
-        })
-        .from(photoTab)
-        .innerJoin(
-          photoViewTab,
-          and(eq(photoViewTab.photoId, photoTab.photoId), eq(photoViewTab.type, 'view'))
-        )
-        .where(eq(photoTab.status, PhotoStatusEnum.NORMAL))
-        .groupBy(
-          photoTab.photoId,
-          photoTab.name,
-          photoTab.type,
-          photoTab.checksum,
-          photoTab.width,
-          photoTab.height,
-          photoTab.storageId
-        )
-        .orderBy(desc(count(photoViewTab.id)))
-        .limit(viewedLimit);
+      const [mostViewedRaw, mostCommentedRaw, mostReacted] = await Promise.all([
+        readOrm
+          .select({
+            photoId: photoTab.photoId,
+            name: photoTab.name,
+            type: photoTab.type,
+            checksum: photoTab.checksum,
+            width: photoTab.width,
+            height: photoTab.height,
+            storageId: photoTab.storageId,
+            viewCount: count(photoViewTab.id),
+            lastViewedAt: sql<string>`MAX(${photoViewTab.viewedAt})`,
+          })
+          .from(photoTab)
+          .innerJoin(
+            photoViewTab,
+            and(eq(photoViewTab.photoId, photoTab.photoId), eq(photoViewTab.type, 'view'))
+          )
+          .where(eq(photoTab.status, PhotoStatusEnum.NORMAL))
+          .groupBy(
+            photoTab.photoId,
+            photoTab.name,
+            photoTab.type,
+            photoTab.checksum,
+            photoTab.width,
+            photoTab.height,
+            photoTab.storageId
+          )
+          .orderBy(desc(count(photoViewTab.id)))
+          .limit(viewedLimit),
 
-      // 2. Fetch top photos by comments
-      const mostCommentedRaw = await readOrm
-        .select({
-          photoId: photoTab.photoId,
-          name: photoTab.name,
-          type: photoTab.type,
-          checksum: photoTab.checksum,
-          width: photoTab.width,
-          height: photoTab.height,
-          storageId: photoTab.storageId,
-          commentCount: count(commentTab.commentId),
-        })
-        .from(photoTab)
-        .innerJoin(commentTab, eq(commentTab.photoId, photoTab.photoId))
-        .where(eq(photoTab.status, PhotoStatusEnum.NORMAL))
-        .groupBy(
-          photoTab.photoId,
-          photoTab.name,
-          photoTab.type,
-          photoTab.checksum,
-          photoTab.width,
-          photoTab.height,
-          photoTab.storageId
-        )
-        .orderBy(desc(count(commentTab.commentId)))
-        .limit(limit);
+        readOrm
+          .select({
+            photoId: photoTab.photoId,
+            name: photoTab.name,
+            type: photoTab.type,
+            checksum: photoTab.checksum,
+            width: photoTab.width,
+            height: photoTab.height,
+            storageId: photoTab.storageId,
+            commentCount: count(commentTab.commentId),
+          })
+          .from(photoTab)
+          .innerJoin(commentTab, eq(commentTab.photoId, photoTab.photoId))
+          .where(eq(photoTab.status, PhotoStatusEnum.NORMAL))
+          .groupBy(
+            photoTab.photoId,
+            photoTab.name,
+            photoTab.type,
+            photoTab.checksum,
+            photoTab.width,
+            photoTab.height,
+            photoTab.storageId
+          )
+          .orderBy(desc(count(commentTab.commentId)))
+          .limit(limit),
 
-      // 3. Fetch top photos by reactions
-      const mostReacted = await reactionService.getTopReactionPhotos(limit);
+        reactionService.getTopReactionPhotos(limit),
+      ]);
 
-      // Collect all referenced storageIds to resolve domain
+      // Collect all referenced storageIds and photoIds
       const storageIds = Array.from(
         new Set(
           [...mostViewedRaw, ...mostCommentedRaw]
@@ -403,77 +398,82 @@ const insightsService = {
         )
       );
 
-      const storageMap = new Map<string, string | null>();
-      if (storageIds.length > 0) {
-        const storageRows = await readOrm
-          .select({
-            storageId: storageTab.storageId,
-            domain: storageTab.domain,
-          })
-          .from(storageTab)
-          .where(inArray(storageTab.storageId, storageIds));
-
-        for (const s of storageRows) {
-          storageMap.set(s.storageId, s.domain);
-        }
-      }
-
-      // Collect all photoIds to fetch files, comment and view counts
       const allPhotoIds = Array.from(
         new Set([...mostViewedRaw, ...mostCommentedRaw].map((p) => p.photoId))
       );
 
+      // Stage 2: Parallel metadata resolution (storage domains, files, comments, views)
+      const [storageRows, fileRows, commentRows, viewRows] = await Promise.all([
+        storageIds.length > 0
+          ? readOrm
+              .select({
+                storageId: storageTab.storageId,
+                domain: storageTab.domain,
+              })
+              .from(storageTab)
+              .where(inArray(storageTab.storageId, storageIds))
+          : Promise.resolve([]),
+
+        allPhotoIds.length > 0
+          ? readOrm
+              .select({
+                photoId: fileTab.photoId,
+                type: fileTab.type,
+                key: fileTab.key,
+              })
+              .from(fileTab)
+              .where(inArray(fileTab.photoId, allPhotoIds))
+          : Promise.resolve([]),
+
+        allPhotoIds.length > 0
+          ? readOrm
+              .select({
+                photoId: commentTab.photoId,
+                count: count(),
+              })
+              .from(commentTab)
+              .where(inArray(commentTab.photoId, allPhotoIds))
+              .groupBy(commentTab.photoId)
+          : Promise.resolve([]),
+
+        allPhotoIds.length > 0
+          ? readOrm
+              .select({
+                photoId: photoViewTab.photoId,
+                count: count(),
+              })
+              .from(photoViewTab)
+              .where(and(inArray(photoViewTab.photoId, allPhotoIds), eq(photoViewTab.type, 'view')))
+              .groupBy(photoViewTab.photoId)
+          : Promise.resolve([]),
+      ]);
+
+      const storageMap = new Map<string, string | null>();
+      for (const s of storageRows) {
+        storageMap.set(s.storageId, s.domain);
+      }
+
       const fileMap = new Map<string, { thumbnailKey?: string; previewKey?: string; originalKey?: string }>();
+      for (const f of fileRows) {
+        const current = fileMap.get(f.photoId) || {};
+        if (f.type === FileTypeEnum.THUMBNAIL) {
+          current.thumbnailKey = f.key;
+        } else if (f.type === FileTypeEnum.PREVIEW) {
+          current.previewKey = f.key;
+        } else if (f.type === FileTypeEnum.ORIGINAL) {
+          current.originalKey = f.key;
+        }
+        fileMap.set(f.photoId, current);
+      }
+
       const commentCountMap = new Map<string, number>();
+      for (const c of commentRows) {
+        commentCountMap.set(c.photoId, Number(c.count) || 0);
+      }
+
       const viewCountMap = new Map<string, number>();
-
-      if (allPhotoIds.length > 0) {
-        const fileRows = await readOrm
-          .select({
-            photoId: fileTab.photoId,
-            type: fileTab.type,
-            key: fileTab.key,
-          })
-          .from(fileTab)
-          .where(inArray(fileTab.photoId, allPhotoIds));
-
-        for (const f of fileRows) {
-          const current = fileMap.get(f.photoId) || {};
-          if (f.type === FileTypeEnum.THUMBNAIL) {
-            current.thumbnailKey = f.key;
-          } else if (f.type === FileTypeEnum.PREVIEW) {
-            current.previewKey = f.key;
-          } else if (f.type === FileTypeEnum.ORIGINAL) {
-            current.originalKey = f.key;
-          }
-          fileMap.set(f.photoId, current);
-        }
-
-        const commentRows = await readOrm
-          .select({
-            photoId: commentTab.photoId,
-            count: count(),
-          })
-          .from(commentTab)
-          .where(inArray(commentTab.photoId, allPhotoIds))
-          .groupBy(commentTab.photoId);
-
-        for (const c of commentRows) {
-          commentCountMap.set(c.photoId, Number(c.count) || 0);
-        }
-
-        const viewRows = await readOrm
-          .select({
-            photoId: photoViewTab.photoId,
-            count: count(),
-          })
-          .from(photoViewTab)
-          .where(and(inArray(photoViewTab.photoId, allPhotoIds), eq(photoViewTab.type, 'view')))
-          .groupBy(photoViewTab.photoId);
-
-        for (const v of viewRows) {
-          viewCountMap.set(v.photoId, Number(v.count) || 0);
-        }
+      for (const v of viewRows) {
+        viewCountMap.set(v.photoId, Number(v.count) || 0);
       }
 
       const formatPhotoItem = (item: {

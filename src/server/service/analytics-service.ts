@@ -490,20 +490,21 @@ const analyticsService = {
 
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
-    const [totalRow] = await readOrm
-      .select({ total: count() })
-      .from(visitorSessionTab)
-      .where(whereClause);
+    const [[totalRow], rows] = await Promise.all([
+      readOrm
+        .select({ total: count() })
+        .from(visitorSessionTab)
+        .where(whereClause),
+      readOrm
+        .select()
+        .from(visitorSessionTab)
+        .where(whereClause)
+        .orderBy(desc(visitorSessionTab.startedAt))
+        .limit(pageSize)
+        .offset(offset),
+    ]);
 
     const total = totalRow?.total || 0;
-
-    const rows = await readOrm
-      .select()
-      .from(visitorSessionTab)
-      .where(whereClause)
-      .orderBy(desc(visitorSessionTab.startedAt))
-      .limit(pageSize)
-      .offset(offset);
 
     const items: VisitorSessionVo[] = rows.map((r) => {
       const sanitized = sanitizeGeoRecord({
@@ -566,46 +567,48 @@ const analyticsService = {
       return null;
     }
 
-    // Fetch activities for this session
-    const activityRows = await readOrm
-      .select({
-        id: visitorActivityTab.id,
-        photoId: visitorActivityTab.photoId,
-        action: visitorActivityTab.action,
-        createdAt: visitorActivityTab.createdAt,
-        photoTitle: photoTab.name,
-        storageId: photoTab.storageId,
-        checksum: photoTab.checksum,
-      })
-      .from(visitorActivityTab)
-      .innerJoin(photoTab, eq(visitorActivityTab.photoId, photoTab.photoId))
-      .where(eq(visitorActivityTab.sessionId, sessionId))
-      .orderBy(desc(visitorActivityTab.createdAt));
-
-    // Fetch comments left during this session or by this visitor
+    // Fetch comments conditions
     const commentConditions = [eq(commentTab.sessionId, sessionId)];
     if (session.visitorId && session.visitorId.trim()) {
       commentConditions.push(eq(commentTab.visitorId, session.visitorId.trim()));
     }
 
-    const commentRows = await readOrm
-      .select({
-        commentId: commentTab.commentId,
-        photoId: commentTab.photoId,
-        name: commentTab.name,
-        content: commentTab.content,
-        replyContent: commentTab.replyContent,
-        replyTime: commentTab.replyTime,
-        createTime: commentTab.createTime,
-        sessionId: commentTab.sessionId,
-        photoTitle: photoTab.name,
-        storageId: photoTab.storageId,
-        checksum: photoTab.checksum,
-      })
-      .from(commentTab)
-      .innerJoin(photoTab, eq(commentTab.photoId, photoTab.photoId))
-      .where(or(...commentConditions))
-      .orderBy(desc(commentTab.createTime));
+    // Parallel fetch of session activities and comments
+    const [activityRows, commentRows] = await Promise.all([
+      readOrm
+        .select({
+          id: visitorActivityTab.id,
+          photoId: visitorActivityTab.photoId,
+          action: visitorActivityTab.action,
+          createdAt: visitorActivityTab.createdAt,
+          photoTitle: photoTab.name,
+          storageId: photoTab.storageId,
+          checksum: photoTab.checksum,
+        })
+        .from(visitorActivityTab)
+        .innerJoin(photoTab, eq(visitorActivityTab.photoId, photoTab.photoId))
+        .where(eq(visitorActivityTab.sessionId, sessionId))
+        .orderBy(desc(visitorActivityTab.createdAt)),
+
+      readOrm
+        .select({
+          commentId: commentTab.commentId,
+          photoId: commentTab.photoId,
+          name: commentTab.name,
+          content: commentTab.content,
+          replyContent: commentTab.replyContent,
+          replyTime: commentTab.replyTime,
+          createTime: commentTab.createTime,
+          sessionId: commentTab.sessionId,
+          photoTitle: photoTab.name,
+          storageId: photoTab.storageId,
+          checksum: photoTab.checksum,
+        })
+        .from(commentTab)
+        .innerJoin(photoTab, eq(commentTab.photoId, photoTab.photoId))
+        .where(or(...commentConditions))
+        .orderBy(desc(commentTab.createTime)),
+    ]);
 
     // Resolve storage domains and file keys across both activities and comments
     const storageIds = Array.from(

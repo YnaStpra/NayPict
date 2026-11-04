@@ -20,6 +20,8 @@ import { commentEventHub } from '@/server/lib/comment-event-hub';
 import { v4 as uuidv4 } from 'uuid';
 import { cache } from '@/server/infra/cache';
 import BizError from '@/server/error/biz-error';
+import { getArchivedAlbumIds } from '@/server/service/album-service';
+import { storageService } from '@/server/service/storage-service';
 
 // This module handles visitor micro-reactions (Love, Fire, Camera, Place) and public claps/likes per photo.
 
@@ -61,31 +63,52 @@ const reactionService = {
 
       // Reject reactions view on ALBUM_ONLY photos that belong to an archived album
       if (photo.visibility === PhotoVisibilityEnum.ALBUM_ONLY) {
-        const [archivedAlbumRel] = await dbClient
-          .select({ id: albumPhotoTab.id })
-          .from(albumPhotoTab)
-          .innerJoin(albumTab, eq(albumTab.albumId, albumPhotoTab.albumId))
-          .where(and(eq(albumPhotoTab.photoId, cleanPhotoId), eq(albumTab.isArchived, 1)))
-          .limit(1);
+        const archivedIds = await getArchivedAlbumIds();
+        if (archivedIds.length > 0) {
+          const [archivedAlbumRel] = await dbClient
+            .select({ id: albumPhotoTab.id })
+            .from(albumPhotoTab)
+            .where(and(eq(albumPhotoTab.photoId, cleanPhotoId), inArray(albumPhotoTab.albumId, archivedIds)))
+            .limit(1);
 
-        if (archivedAlbumRel) {
-          return {
-            photoId: cleanPhotoId,
-            totals: { love: 0, fire: 0, camera: 0, place: 0, clap: 0 },
-            userReactions: { love: false, fire: false, camera: false, place: false, clap: 0 },
-          };
+          if (archivedAlbumRel) {
+            return {
+              photoId: cleanPhotoId,
+              totals: { love: 0, fire: 0, camera: 0, place: 0, clap: 0 },
+              userReactions: { love: false, fire: false, camera: false, place: false, clap: 0 },
+            };
+          }
         }
       }
 
-      // 1. Fetch aggregated totals grouped by reaction_type
-      const totalRows = await dbClient
-        .select({
-          reactionType: photoReactionTab.reactionType,
-          total: sql<number>`COALESCE(SUM(${photoReactionTab.count}), 0)::int`,
-        })
-        .from(photoReactionTab)
-        .where(eq(photoReactionTab.photoId, cleanPhotoId))
-        .groupBy(photoReactionTab.reactionType);
+      const cleanVisitorId = visitorId?.trim() || '';
+
+      // Parallel fetch of aggregated totals and visitor's personal reactions
+      const [totalRows, userRows] = await Promise.all([
+        dbClient
+          .select({
+            reactionType: photoReactionTab.reactionType,
+            total: sql<number>`COALESCE(SUM(${photoReactionTab.count}), 0)::int`,
+          })
+          .from(photoReactionTab)
+          .where(eq(photoReactionTab.photoId, cleanPhotoId))
+          .groupBy(photoReactionTab.reactionType),
+
+        cleanVisitorId
+          ? dbClient
+              .select({
+                reactionType: photoReactionTab.reactionType,
+                count: photoReactionTab.count,
+              })
+              .from(photoReactionTab)
+              .where(
+                and(
+                  eq(photoReactionTab.photoId, cleanPhotoId),
+                  eq(photoReactionTab.visitorId, cleanVisitorId)
+                )
+              )
+          : Promise.resolve([]),
+      ]);
 
       const totals: ReactionTotalsVo = { love: 0, fire: 0, camera: 0, place: 0, clap: 0 };
       totalRows.forEach((row) => {
@@ -94,7 +117,7 @@ const reactionService = {
         }
       });
 
-      // 2. Fetch visitor's personal reactions if visitorId is provided
+      // 2. Map visitor's personal reactions
       const userReactions: UserReactionsVo = {
         love: false,
         fire: false,
@@ -103,30 +126,14 @@ const reactionService = {
         clap: 0,
       };
 
-      if (visitorId?.trim()) {
-        const cleanVisitorId = visitorId.trim();
-        const userRows = await dbClient
-          .select({
-            reactionType: photoReactionTab.reactionType,
-            count: photoReactionTab.count,
-          })
-          .from(photoReactionTab)
-          .where(
-            and(
-              eq(photoReactionTab.photoId, cleanPhotoId),
-              eq(photoReactionTab.visitorId, cleanVisitorId)
-            )
-          );
-
-        userRows.forEach((row) => {
-          const type = row.reactionType as ReactionType;
-          if (type === 'clap') {
-            userReactions.clap = row.count > 0 ? 1 : 0;
-          } else if (type in userReactions) {
-            userReactions[type as 'love' | 'fire' | 'camera' | 'place'] = row.count > 0;
-          }
-        });
-      }
+      userRows.forEach((row) => {
+        const type = row.reactionType as ReactionType;
+        if (type === 'clap') {
+          userReactions.clap = row.count > 0 ? 1 : 0;
+        } else if (type in userReactions) {
+          userReactions[type as 'love' | 'fire' | 'camera' | 'place'] = row.count > 0;
+        }
+      });
 
       return {
         photoId: cleanPhotoId,
@@ -267,48 +274,60 @@ const reactionService = {
 
       const photoIds = reactionAggRows.map((r) => r.photoId);
 
-      // 2. Fetch photo metadata
-      const photos = await readOrm
-        .select({
-          photoId: photoTab.photoId,
-          name: photoTab.name,
-          type: photoTab.type,
-          checksum: photoTab.checksum,
-          width: photoTab.width,
-          height: photoTab.height,
-          storageId: photoTab.storageId,
-        })
-        .from(photoTab)
-        .where(and(inArray(photoTab.photoId, photoIds), eq(photoTab.status, PhotoStatusEnum.NORMAL)));
+      // 2. Fetch photo metadata, files, views, comments, and storage in parallel
+      const [photos, fileRows, viewRows, commentRows, fileStorageList] = await Promise.all([
+        readOrm
+          .select({
+            photoId: photoTab.photoId,
+            name: photoTab.name,
+            type: photoTab.type,
+            checksum: photoTab.checksum,
+            width: photoTab.width,
+            height: photoTab.height,
+            storageId: photoTab.storageId,
+          })
+          .from(photoTab)
+          .where(and(inArray(photoTab.photoId, photoIds), eq(photoTab.status, PhotoStatusEnum.NORMAL))),
+
+        readOrm
+          .select({
+            photoId: fileTab.photoId,
+            type: fileTab.type,
+            key: fileTab.key,
+          })
+          .from(fileTab)
+          .where(inArray(fileTab.photoId, photoIds)),
+
+        readOrm
+          .select({
+            photoId: photoViewTab.photoId,
+            views: sql<number>`COUNT(*)::int`,
+          })
+          .from(photoViewTab)
+          .where(and(inArray(photoViewTab.photoId, photoIds), eq(photoViewTab.type, 'view')))
+          .groupBy(photoViewTab.photoId),
+
+        readOrm
+          .select({
+            photoId: commentTab.photoId,
+            comments: sql<number>`COUNT(*)::int`,
+          })
+          .from(commentTab)
+          .where(inArray(commentTab.photoId, photoIds))
+          .groupBy(commentTab.photoId),
+
+        storageService.getStorageList(),
+      ]);
 
       const photoMap = new Map<string, typeof photos[0]>();
-      const storageIds = new Set<string>();
       for (const p of photos) {
         photoMap.set(p.photoId, p);
-        if (p.storageId) storageIds.add(p.storageId);
       }
 
-      // 3. Resolve storage domains
       const storageMap = new Map<string, string | null>();
-      if (storageIds.size > 0) {
-        const storageRows = await readOrm
-          .select({ storageId: storageTab.storageId, domain: storageTab.domain })
-          .from(storageTab)
-          .where(inArray(storageTab.storageId, Array.from(storageIds)));
-        for (const s of storageRows) {
-          storageMap.set(s.storageId, s.domain);
-        }
+      for (const s of fileStorageList) {
+        storageMap.set(s.storageId, s.domain);
       }
-
-      // 4. Resolve thumbnail, preview & original keys
-      const fileRows = await readOrm
-        .select({
-          photoId: fileTab.photoId,
-          type: fileTab.type,
-          key: fileTab.key,
-        })
-        .from(fileTab)
-        .where(inArray(fileTab.photoId, photoIds));
 
       const fileMap = new Map<string, { thumbnailKey?: string; previewKey?: string; originalKey?: string }>();
       for (const f of fileRows) {
@@ -319,29 +338,10 @@ const reactionService = {
         fileMap.set(f.photoId, cur);
       }
 
-      // 5. Query view counts and comment counts for context
-      const viewRows = await readOrm
-        .select({
-          photoId: photoViewTab.photoId,
-          views: sql<number>`COUNT(*)::int`,
-        })
-        .from(photoViewTab)
-        .where(and(inArray(photoViewTab.photoId, photoIds), eq(photoViewTab.type, 'view')))
-        .groupBy(photoViewTab.photoId);
-
       const viewMap = new Map<string, number>();
       for (const v of viewRows) {
         viewMap.set(v.photoId, Number(v.views || 0));
       }
-
-      const commentRows = await readOrm
-        .select({
-          photoId: commentTab.photoId,
-          comments: sql<number>`COUNT(*)::int`,
-        })
-        .from(commentTab)
-        .where(inArray(commentTab.photoId, photoIds))
-        .groupBy(commentTab.photoId);
 
       const commentMap = new Map<string, number>();
       for (const c of commentRows) {
