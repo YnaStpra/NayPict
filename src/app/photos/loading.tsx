@@ -4,10 +4,12 @@ import { useApp } from "@/app/provider"
 import { AppSidebar } from "@/components/layout/app-sidebar"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import { PhotoMasonrySkeleton } from "@/components/photo/photo-masonry-skeleton"
+import { getMemoryOfflineCatalog } from "@/lib/offline-catalog"
 
-// Display an immediate loading skeleton when navigating to the photos gallery
+// Display an immediate loading frame with cached landing photos when navigating to the photos gallery
 export default function PhotosLoading() {
   const { sidebarOpen, setSidebarOpen } = useApp()
+  const cachedPhotos = getMemoryOfflineCatalog()?.photos || []
 
   return (
     <SidebarProvider open={sidebarOpen} onOpenChange={setSidebarOpen}>
@@ -25,9 +27,9 @@ export default function PhotosLoading() {
           </div>
         </header>
 
-        {/* Shimmering Masonry Grid Skeleton */}
+        {/* Zero-Skeleton Instant Masonry Grid Frame */}
         <div className="px-1 md:pl-1 md:pr-0 min-w-0 max-w-full">
-          <PhotoMasonrySkeleton photos={[]} />
+          <PhotoMasonrySkeleton photos={cachedPhotos} />
         </div>
       </SidebarInset>
     </SidebarProvider>

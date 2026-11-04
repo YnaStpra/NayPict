@@ -9,6 +9,7 @@ import { NaypictLogo } from '@/components/icons/naypict-logo'
 import { type PhotoVo } from '@/server/entity/vo/photo'
 import { photoList } from '@/request/photo'
 import { saveOfflineCatalog } from '@/lib/offline-catalog'
+import { markThumbnailLoaded } from '@/components/photo/photo-card'
 
 // Dynamic import InfiniteGallery with ssr: false for smooth client canvas initialization
 const InfiniteGallery = dynamic(
@@ -18,19 +19,27 @@ const InfiniteGallery = dynamic(
 
 interface LandingClientProps {
   initialPhotos: PhotoVo[]
+  initialTotal?: number
 }
 
-export function LandingClient({ initialPhotos }: LandingClientProps) {
+export function LandingClient({ initialPhotos, initialTotal }: LandingClientProps) {
   const router = useRouter()
   const [photos, setPhotos] = useState<PhotoVo[]>(initialPhotos || [])
   const [isNavigating, setIsNavigating] = useState(false)
 
-  // Seed gallery catalog cache with landing photos for 0ms zero-skeleton transition into /photos
+  // Seed gallery catalog cache and pre-warm thumbnail memory cache for 0ms zero-skeleton transition into /photos
   useEffect(() => {
     if (photos && photos.length > 0) {
-      saveOfflineCatalog(photos, photos.length)
+      const total = initialTotal ?? photos.length
+      saveOfflineCatalog(photos, total)
+      photos.forEach((photo) => {
+        const src = photo.thumbnail || photo.preview || photo.key
+        if (src) {
+          markThumbnailLoaded(src)
+        }
+      })
     }
-  }, [photos])
+  }, [photos, initialTotal])
 
   // Freeze intensive 120 FPS render loops the instant user begins navigating away
   const handleNavigationStart = useCallback(() => {
@@ -43,6 +52,14 @@ export function LandingClient({ initialPhotos }: LandingClientProps) {
       window.dispatchEvent(new CustomEvent('naypict:navigation-started'))
     }
   }, [])
+
+  // Seamless click-through directly from background canvas photo to photo viewer in /photos
+  const handlePhotoClick = useCallback((index: number, photo?: PhotoVo) => {
+    if (photo?.photoId) {
+      handleNavigationStart()
+      router.push(`/photos?photoId=${photo.photoId}`)
+    }
+  }, [router, handleNavigationStart])
 
   // Instantly prefetch primary gallery routes as soon as landing mounts
   useEffect(() => {
@@ -163,6 +180,7 @@ export function LandingClient({ initialPhotos }: LandingClientProps) {
       <div className="absolute inset-0 z-0">
         <InfiniteGallery
           photos={displayPhotos}
+          onPhotoClick={handlePhotoClick}
           density={10}
           imageWidth={170}
           imageHeight={170}
@@ -227,7 +245,6 @@ export function LandingClient({ initialPhotos }: LandingClientProps) {
               <Link
                 href="/photos"
                 prefetch={true}
-                onPointerDown={handleNavigationStart}
                 onClick={handleNavigationStart}
                 className="btn-shimmer-interactive group relative flex items-center justify-between w-full h-11 sm:h-12 px-4 sm:px-5 rounded-2xl bg-white/10 hover:bg-white/20 active:bg-white/25 border border-white/25 text-white font-bold text-sm sm:text-base backdrop-blur-md hover:scale-[1.02] active:scale-[0.98] cursor-pointer shadow-lg transition-all"
               >
@@ -243,7 +260,6 @@ export function LandingClient({ initialPhotos }: LandingClientProps) {
               <Link
                 href="/albums"
                 prefetch={true}
-                onPointerDown={handleNavigationStart}
                 onClick={handleNavigationStart}
                 className="btn-shimmer-interactive group relative flex items-center justify-between w-full h-11 sm:h-12 px-4 sm:px-5 rounded-2xl bg-white/10 hover:bg-white/20 active:bg-white/25 border border-white/25 text-white font-bold text-sm sm:text-base backdrop-blur-md hover:scale-[1.02] active:scale-[0.98] cursor-pointer shadow-lg transition-all"
               >
@@ -259,7 +275,6 @@ export function LandingClient({ initialPhotos }: LandingClientProps) {
               <Link
                 href="/map"
                 prefetch={true}
-                onPointerDown={handleNavigationStart}
                 onClick={handleNavigationStart}
                 className="btn-shimmer-interactive group relative flex items-center justify-between w-full h-11 sm:h-12 px-4 sm:px-5 rounded-2xl bg-white/10 hover:bg-white/20 active:bg-white/25 border border-white/25 text-white font-bold text-sm sm:text-base backdrop-blur-md hover:scale-[1.02] active:scale-[0.98] cursor-pointer shadow-lg transition-all"
               >

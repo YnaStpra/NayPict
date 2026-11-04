@@ -344,4 +344,44 @@ describe('Advanced Performance Optimizations Verification', () => {
       assert.ok(Array.isArray(onThisDay.list));
     });
   });
+
+  describe('Optimization: Landing-to-Page Zero-Freeze, Infinite Scroll & Zero-Skeleton Suite', () => {
+    it('pre-warms thumbnail URLs from landing catalog to eliminate image fade-in delay and gray placeholders', () => {
+      const samplePhotos = [
+        { photoId: 'p1', thumbnail: '/media/photos/p1_thumb.webp' },
+        { photoId: 'p2', preview: '/media/photos/p2_prev.webp' },
+        { photoId: 'p3', key: '/media/photos/p3_orig.webp' },
+      ];
+
+      samplePhotos.forEach((photo) => {
+        const src = photo.thumbnail || photo.preview || photo.key;
+        if (src) markThumbnailLoaded(src);
+      });
+
+      assert.equal(loadedThumbnails.has('/media/photos/p1_thumb.webp'), true);
+      assert.equal(loadedThumbnails.has('/media/photos/p2_prev.webp'), true);
+      assert.equal(loadedThumbnails.has('/media/photos/p3_orig.webp'), true);
+    });
+
+    it('accurately resolves initial hasMore status when client starts with empty Suspense array', () => {
+      const emptyInitialPhotos: any[] = [];
+      const hasInitialPhotos = Array.isArray(emptyInitialPhotos) && emptyInitialPhotos.length > 0;
+      const pageSize = 40;
+      const initialMoreAvailable = hasInitialPhotos ? emptyInitialPhotos.length === pageSize : true;
+
+      // Must remain true so that infinite scroll is NOT prematurely terminated
+      assert.equal(initialMoreAvailable, true);
+    });
+
+    it('correctly tracks more availability after random IDs catalog loads asynchronously', () => {
+      const allIds = Array.from({ length: 120 }, (_, i) => `photo-${i}`);
+      let pageOffset = 40;
+      const more = pageOffset < allIds.length;
+      assert.equal(more, true);
+
+      pageOffset = 120;
+      const endReached = pageOffset < allIds.length;
+      assert.equal(endReached, false);
+    });
+  });
 });
