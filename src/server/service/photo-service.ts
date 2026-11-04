@@ -71,6 +71,7 @@ import { fileService } from '@/server/service/file-service';
 import { commentService } from '@/server/service/comment-service';
 import { reactionService } from '@/server/service/reaction-service';
 import { insightsService } from '@/server/service/insights-service';
+import { analyticsService } from '@/server/service/analytics-service';
 import { FileTypeEnum } from '@/server/enums/file-enum';
 import { syncService } from '@/server/service/sync-service';
 
@@ -2181,6 +2182,7 @@ const photoService = {
     await exifService.deleteByPhotoIds(photoIds);
     await reactionService.deleteByPhotoIds(photoIds);
     await insightsService.deleteByPhotoIds(photoIds);
+    await analyticsService.deleteByPhotoIds(photoIds);
 
     await orm.delete(photoTab)
       .where(inArray(photoTab.photoId, photoIds));
@@ -2274,6 +2276,7 @@ const photoService = {
       await exifService.deleteByPhotoIds(photoIds);
       await reactionService.deleteByPhotoIds(photoIds);
       await insightsService.deleteByPhotoIds(photoIds);
+      await analyticsService.deleteByPhotoIds(photoIds);
 
       await orm.delete(photoTab)
         .where(and(
