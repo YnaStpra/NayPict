@@ -16,6 +16,7 @@ import { buildPreviewKey, buildThumbnailKey } from '@/server/lib/photo-path';
 import { toMediaUrl, toProxyMediaUrl } from '@/lib/url';
 import { toUtcIsoString } from '@/lib/date';
 import { reactionService } from '@/server/service/reaction-service';
+import { getArchivedAlbumIds } from '@/server/service/album-service';
 import { type PhotoViewRecordBo } from '@/server/entity/bo/insights';
 import {
   type InsightsChartDataVo,
@@ -106,15 +107,17 @@ const insightsService = {
 
       // Reject interaction records on ALBUM_ONLY photos that belong to an archived album
       if (photo.visibility === PhotoVisibilityEnum.ALBUM_ONLY) {
-        const [archivedAlbumRel] = await orm
-          .select({ id: albumPhotoTab.id })
-          .from(albumPhotoTab)
-          .innerJoin(albumTab, eq(albumTab.albumId, albumPhotoTab.albumId))
-          .where(and(eq(albumPhotoTab.photoId, photoId), eq(albumTab.isArchived, 1)))
-          .limit(1);
+        const archivedIds = await getArchivedAlbumIds();
+        if (archivedIds.length > 0) {
+          const [archivedAlbumRel] = await orm
+            .select({ id: albumPhotoTab.id })
+            .from(albumPhotoTab)
+            .where(and(eq(albumPhotoTab.photoId, photoId), inArray(albumPhotoTab.albumId, archivedIds)))
+            .limit(1);
 
-        if (archivedAlbumRel) {
-          return { recorded: false, reason: 'photo_not_found' };
+          if (archivedAlbumRel) {
+            return { recorded: false, reason: 'photo_not_found' };
+          }
         }
       }
 

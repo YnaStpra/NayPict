@@ -676,32 +676,22 @@ const photoService = {
     }
 
     // Exclude photos belonging to archived albums when browsing general feeds or active albums
-    let isCurrentAlbumArchived = false;
-    if (params.albumId) {
-      const [currentAlbum] = await readOrm
-        .select({ isArchived: albumTab.isArchived })
-        .from(albumTab)
-        .where(eq(albumTab.albumId, params.albumId))
-        .limit(1);
-      isCurrentAlbumArchived = currentAlbum?.isArchived === 1;
-    }
+    const archivedIds = await getArchivedAlbumIds();
+    const isCurrentAlbumArchived = params.albumId ? archivedIds.includes(params.albumId) : false;
 
     // Security: Unauthenticated guests cannot query shooting dates for archived albums
     if (isCurrentAlbumArchived && !userId) {
       return [];
     }
 
-    if (!isCurrentAlbumArchived) {
-      const archivedIds = await getArchivedAlbumIds();
-      if (archivedIds.length > 0) {
-        whereList.push(
-          sql`NOT EXISTS (
-            SELECT 1 FROM ${albumPhotoTab}
-            WHERE ${albumPhotoTab.photoId} = ${photoTab.photoId}
-            AND ${inArray(albumPhotoTab.albumId, archivedIds)}
-          )`
-        );
-      }
+    if (!isCurrentAlbumArchived && archivedIds.length > 0) {
+      whereList.push(
+        sql`NOT EXISTS (
+          SELECT 1 FROM ${albumPhotoTab}
+          WHERE ${albumPhotoTab.photoId} = ${photoTab.photoId}
+          AND ${inArray(albumPhotoTab.albumId, archivedIds)}
+        )`
+      );
     }
 
     // Group by calendar day (YYYY-MM-DD) from takenTime ISO timestamp string.
@@ -2325,26 +2315,28 @@ const photoService = {
 
     // Hide photos belonging to any archived album from unauthenticated visitors
     if (!currentUserId) {
-      const [archivedAlbumRel] = await readOrm
-        .select({ id: albumPhotoTab.id })
-        .from(albumPhotoTab)
-        .innerJoin(albumTab, eq(albumTab.albumId, albumPhotoTab.albumId))
-        .where(and(eq(albumPhotoTab.photoId, photoId), eq(albumTab.isArchived, 1)))
-        .limit(1);
+      const archivedIds = await getArchivedAlbumIds();
+      if (archivedIds.length > 0) {
+        const [archivedAlbumRel] = await readOrm
+          .select({ id: albumPhotoTab.id })
+          .from(albumPhotoTab)
+          .where(and(eq(albumPhotoTab.photoId, photoId), inArray(albumPhotoTab.albumId, archivedIds)))
+          .limit(1);
 
-      if (archivedAlbumRel) {
-        return null;
+        if (archivedAlbumRel) {
+          return null;
+        }
       }
     }
 
-    const fileStorageList = await storageService.getStorageList();
-    const fileStorage = fileStorageList.find((item: any) => item.storageId === photo.storageId);
-    const domain = formatHttpUrl(fileStorage?.domain);
-    const [exifRow, files, albumMap] = await Promise.all([
+    const [fileStorageList, exifRow, files, albumMap] = await Promise.all([
+      storageService.getStorageList(),
       exifService.getByPhotoId(photoId),
       fileService.listByPhotoId(photoId),
       albumService.listAlbumMapByPhotoIds([photoId]),
     ]);
+    const fileStorage = fileStorageList.find((item: any) => item.storageId === photo.storageId);
+    const domain = formatHttpUrl(fileStorage?.domain);
 
     return this.toPhotoVo(photo, files, fileStorage, domain, exifRow, currentUserId, albumMap.get(photoId) ?? []);
   },

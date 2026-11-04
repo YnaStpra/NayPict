@@ -33,8 +33,9 @@ export function PhotoViewerAmbientGlow({
       )}
       style={{
         opacity: dragOpacity,
-        transform: "translateZ(0)",
-        contain: "paint",
+        transform: "translate3d(0, 0, 0)",
+        contain: "strict",
+        willChange: dragOpacity !== 1 ? "opacity" : "auto",
       }}
       aria-hidden
     >
@@ -43,7 +44,7 @@ export function PhotoViewerAmbientGlow({
         src={thumbHashUrl}
         alt=""
         decoding="async"
-        className="absolute w-[95vw] h-[95vh] max-w-[1600px] max-h-[1200px] rounded-full blur-[120px] opacity-70 dark:opacity-80 scale-150 saturate-[2.2] contrast-[1.25] object-cover pointer-events-none transition-all duration-700 ease-out hidden md:block md:animate-ambient-breathe"
+        className="absolute w-[95vw] h-[95vh] max-w-[1600px] max-h-[1200px] rounded-full blur-[120px] opacity-70 dark:opacity-80 scale-150 saturate-[2.2] contrast-[1.25] object-cover pointer-events-none transition-all duration-700 ease-out hidden md:block md:animate-ambient-breathe will-change-transform translate-z-0"
       />
 
       {/* Inner Core Bloom: Radiant atmospheric halo around photo frame (Lightweight 28px blur on mobile, 65px on desktop) */}
@@ -51,7 +52,7 @@ export function PhotoViewerAmbientGlow({
         src={thumbHashUrl}
         alt=""
         decoding="async"
-        className="absolute w-[85vw] h-[85vh] md:w-[75vw] md:h-[75vh] max-w-[1100px] max-h-[850px] rounded-full blur-[28px] md:blur-[65px] opacity-60 dark:opacity-75 scale-105 md:scale-110 saturate-[1.6] md:saturate-[1.8] contrast-[1.1] md:contrast-[1.15] object-cover pointer-events-none transition-all duration-700 ease-out"
+        className="absolute w-[85vw] h-[85vh] md:w-[75vw] md:h-[75vh] max-w-[1100px] max-h-[850px] rounded-full blur-[28px] md:blur-[65px] opacity-60 dark:opacity-75 scale-105 md:scale-110 saturate-[1.6] md:saturate-[1.8] contrast-[1.1] md:contrast-[1.15] object-cover pointer-events-none transition-all duration-700 ease-out translate-z-0"
       />
 
       {/* Cinema Contrast Vignette: Preserves deep black viewport edges and contrast */}
