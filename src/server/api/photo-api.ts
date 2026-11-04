@@ -201,6 +201,16 @@ export function registerPhotoApi(app: Hono<HonoEnv>) {
     return c.json(result.ok(data));
   });
 
+  // Query aggregated inventory summary metrics for Admin Media Management.
+  app.get('/photo/inventory/stats', async (c: Context) => {
+    const userId = getUserId();
+    if (!userId) {
+      throw new BizError('auth.failed', 401);
+    }
+    const data = await photoService.getInventoryStats(userId);
+    return c.json(result.ok(data));
+  });
+
   // Parse query parameters or JSON body into PhotoListBo
   const parsePhotoListParams = async (c: Context): Promise<PhotoListBo> => {
     if (c.req.method === 'GET') {

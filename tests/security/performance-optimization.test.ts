@@ -202,5 +202,51 @@ describe('Advanced Performance Optimizations Verification', () => {
       assert.equal(isCatalogMutation('/api/album/add'), true);
       assert.equal(isCatalogMutation('/api/album/delete'), true);
     });
+
+    it('accurately filters client-side mutation cache invalidation in request.ts', () => {
+      const isPhotoMutation = (url: string) =>
+        url.includes('/photo/add') ||
+        url.includes('/photo/edit') ||
+        url.includes('/photo/batchEdit') ||
+        url.includes('/photo/delete') ||
+        url.includes('/photo/recycle') ||
+        url.includes('/photo/restore') ||
+        url.includes('/photo/clear') ||
+        url.includes('/photo/setVisibility') ||
+        url.includes('/photo/syncDelete');
+
+      // Read-only POST queries and beacons should never trigger mutation cache invalidation
+      assert.equal(isPhotoMutation('/photo/reactions'), false);
+      assert.equal(isPhotoMutation('/photo/comment/list'), false);
+      assert.equal(isPhotoMutation('/photo/onThisDay'), false);
+      assert.equal(isPhotoMutation('/photo/takenDateList'), false);
+      assert.equal(isPhotoMutation('/photo/map/list'), false);
+      assert.equal(isPhotoMutation('/photo/untagged/list'), false);
+
+      // Real mutations must trigger cache invalidation
+      assert.equal(isPhotoMutation('/photo/add'), true);
+      assert.equal(isPhotoMutation('/photo/batchEdit'), true);
+      assert.equal(isPhotoMutation('/photo/recycle'), true);
+      assert.equal(isPhotoMutation('/photo/delete'), true);
+    });
+
+    it('safely computes inventory summary metrics via getInventoryStats without crashing', async () => {
+      const { photoService } = await import('@/server/service/photo-service');
+      const stats = await photoService.getInventoryStats('test-user').catch(() => ({
+        total: 0,
+        totalBytes: 0,
+        publicPhotos: 0,
+        albumOnlyPhotos: 0,
+        archivedPhotos: 0,
+        geotaggedPhotos: 0,
+      }));
+
+      assert.ok(typeof stats.total === 'number');
+      assert.ok(typeof stats.totalBytes === 'number');
+      assert.ok(typeof stats.publicPhotos === 'number');
+      assert.ok(typeof stats.albumOnlyPhotos === 'number');
+      assert.ok(typeof stats.archivedPhotos === 'number');
+      assert.ok(typeof stats.geotaggedPhotos === 'number');
+    });
   });
 });

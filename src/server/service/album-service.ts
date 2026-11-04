@@ -320,7 +320,7 @@ const albumService = {
     if (cacheKey) {
       publicAlbumListCache.set(cacheKey, {
         data: list,
-        expires: Date.now() + 60 * 1000,
+        expires: Date.now() + 300 * 1000, // 5 minutes TTL with event-driven mutation invalidation
       });
     }
 

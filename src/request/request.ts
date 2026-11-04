@@ -150,14 +150,32 @@ async function post<T = unknown>(url: string, params: RequestParams = null, opti
     notifyConnectionRestored();
   }
 
-  // Automatically invalidate relevant in-memory GET caches on successful mutations
-  if (url.includes('/photo') || url.includes('/photos')) {
+  // Automatically invalidate relevant in-memory GET caches ONLY on true catalog mutations.
+  // Query-style POSTs (reactions, comment/list, onThisDay, takenDateList) and analytics beacons must NOT wipe cache!
+  const isPhotoMutation =
+    url.includes('/photo/add') ||
+    url.includes('/photo/edit') ||
+    url.includes('/photo/batchEdit') ||
+    url.includes('/photo/delete') ||
+    url.includes('/photo/recycle') ||
+    url.includes('/photo/restore') ||
+    url.includes('/photo/clear') ||
+    url.includes('/photo/setVisibility') ||
+    url.includes('/photo/syncDelete');
+
+  const isAlbumMutation =
+    url.includes('/album/add') ||
+    url.includes('/album/edit') ||
+    url.includes('/album/delete') ||
+    url.includes('/album/addPhoto') ||
+    url.includes('/album/removePhoto') ||
+    url.includes('/album/sort');
+
+  if (isPhotoMutation) {
     clearHttpCache('/photo');
-  } else if (url.includes('/album')) {
+  } else if (isAlbumMutation) {
     clearHttpCache('/album');
     clearHttpCache('/photo');
-  } else {
-    clearHttpCache();
   }
 
   return json.data as T;
