@@ -11,5 +11,5 @@ export function login(params: LoginBo) {
 
 // Log out and clear the server Cookie.
 export function logout() {
-  return http.post<void>('/logout');
+  return http.post<void>('/logout', {});
 }

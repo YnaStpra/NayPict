@@ -71,6 +71,7 @@ import { fileService } from '@/server/service/file-service';
 import { commentService } from '@/server/service/comment-service';
 import { reactionService } from '@/server/service/reaction-service';
 import { insightsService } from '@/server/service/insights-service';
+import { analyticsService } from '@/server/service/analytics-service';
 import { FileTypeEnum } from '@/server/enums/file-enum';
 import { syncService } from '@/server/service/sync-service';
 
@@ -691,14 +692,16 @@ const photoService = {
     }
 
     if (!isCurrentAlbumArchived) {
-      whereList.push(
-        sql`NOT EXISTS (
-          SELECT 1 FROM ${albumPhotoTab}
-          INNER JOIN ${albumTab} ON ${albumTab.albumId} = ${albumPhotoTab.albumId}
-          WHERE ${albumPhotoTab.photoId} = ${photoTab.photoId}
-          AND ${albumTab.isArchived} = 1
-        )`
-      );
+      const archivedIds = await getArchivedAlbumIds();
+      if (archivedIds.length > 0) {
+        whereList.push(
+          sql`NOT EXISTS (
+            SELECT 1 FROM ${albumPhotoTab}
+            WHERE ${albumPhotoTab.photoId} = ${photoTab.photoId}
+            AND ${inArray(albumPhotoTab.albumId, archivedIds)}
+          )`
+        );
+      }
     }
 
     // Group by calendar day (YYYY-MM-DD) from takenTime ISO timestamp string.
@@ -801,13 +804,18 @@ const photoService = {
           inArray(photoTab.visibility, [PhotoVisibilityEnum.BOTH, PhotoVisibilityEnum.GALLERY_ONLY]),
           isNull(photoTab.visibility)
         )!,
-        sql`NOT EXISTS (
-          SELECT 1 FROM ${albumPhotoTab}
-          INNER JOIN ${albumTab} ON ${albumTab.albumId} = ${albumPhotoTab.albumId}
-          WHERE ${albumPhotoTab.photoId} = ${photoTab.photoId}
-          AND ${albumTab.isArchived} = 1
-        )`,
       ];
+
+      const archivedIds = await getArchivedAlbumIds();
+      if (archivedIds.length > 0) {
+        baseWhereList.push(
+          sql`NOT EXISTS (
+            SELECT 1 FROM ${albumPhotoTab}
+            WHERE ${albumPhotoTab.photoId} = ${photoTab.photoId}
+            AND ${inArray(albumPhotoTab.albumId, archivedIds)}
+          )`
+        );
+      }
 
       const list = await readOrm
         .select()
@@ -835,10 +843,10 @@ const photoService = {
         return emptyOutput;
       }
 
-      const fileStorageList = await storageService.getStorageList();
       const photoIds = list.map((photo: Photo) => photo.photoId);
-      const [exifMap, fileMap, albumMap] = await Promise.all([
-        exifService.listByPhotoIds(photoIds),
+      const [fileStorageList, exifMap, fileMap, albumMap] = await Promise.all([
+        storageService.getStorageList(),
+        exifService.listByPhotoIds(photoIds, false),
         fileService.listByPhotoIds(photoIds),
         albumService.listAlbumMapByPhotoIds(photoIds),
       ]);
@@ -854,7 +862,9 @@ const photoService = {
           domain,
           exifMap.get(photo.photoId) ?? null,
           userId,
-          albumMap.get(photo.photoId) ?? []
+          albumMap.get(photo.photoId) ?? [],
+          false,
+          true // isGridList: lightweight EXIF payload
         );
 
         const photoYear = parseInt((photo.takenTime || '').substring(0, 4), 10);
@@ -2174,6 +2184,7 @@ const photoService = {
     await exifService.deleteByPhotoIds(photoIds);
     await reactionService.deleteByPhotoIds(photoIds);
     await insightsService.deleteByPhotoIds(photoIds);
+    await analyticsService.deleteByPhotoIds(photoIds);
 
     await orm.delete(photoTab)
       .where(inArray(photoTab.photoId, photoIds));
@@ -2267,6 +2278,7 @@ const photoService = {
       await exifService.deleteByPhotoIds(photoIds);
       await reactionService.deleteByPhotoIds(photoIds);
       await insightsService.deleteByPhotoIds(photoIds);
+      await analyticsService.deleteByPhotoIds(photoIds);
 
       await orm.delete(photoTab)
         .where(and(
@@ -2872,16 +2884,27 @@ const photoService = {
       return true;
     };
 
-    // Pairwise visual match for images
-    for (let i = 0; i < imageList.length; i++) {
-      const pA = imageList[i];
-      const sigA = sigMap.get(pA.photoId);
-      if (!sigA) continue;
+    // Pre-sort imageList by aspect ratio to enable O(N log N + N*k) early pruning window
+    const validImageList = imageList
+      .filter((p) => sigMap.has(p.photoId))
+      .sort((a, b) => (sigMap.get(a.photoId)!.aspectRatio - sigMap.get(b.photoId)!.aspectRatio));
 
-      for (let j = i + 1; j < imageList.length; j++) {
-        const pB = imageList[j];
-        const sigB = sigMap.get(pB.photoId);
-        if (!sigB) continue;
+    // Pairwise visual match for images with early aspect ratio window break
+    for (let i = 0; i < validImageList.length; i++) {
+      const pA = validImageList[i];
+      const sigA = sigMap.get(pA.photoId)!;
+
+      for (let j = i + 1; j < validImageList.length; j++) {
+        const pB = validImageList[j];
+        const sigB = sigMap.get(pB.photoId)!;
+
+        // Early break: since validImageList is sorted by aspectRatio ascending,
+        // once (sigB.aspectRatio - sigA.aspectRatio) / sigB.aspectRatio exceeds tolerance (0.035),
+        // all subsequent items will also exceed tolerance.
+        const maxAr = Math.max(sigA.aspectRatio, sigB.aspectRatio);
+        if (maxAr > 0 && (sigB.aspectRatio - sigA.aspectRatio) / maxAr > 0.035) {
+          break;
+        }
 
         const sim = calculateVisualSimilarity(sigA, sigB);
         if (sim >= 0.965) {
@@ -3040,25 +3063,33 @@ const photoService = {
 
   // Query all geotagged photos with valid GPS coordinates for the interactive photo map explorer.
   async getMapPhotos(userId?: string): Promise<PhotoVo[]> {
-    const baseWhere = and(
+    const whereConditions = [
       eq(photoTab.status, PhotoStatusEnum.NORMAL),
       isNotNull(exifTab.latitude),
       isNotNull(exifTab.longitude),
       sql`${exifTab.latitude} BETWEEN -90 AND 90`,
       sql`${exifTab.longitude} BETWEEN -180 AND 180`,
-      userId
-        ? undefined
-        : or(
-            inArray(photoTab.visibility, [PhotoVisibilityEnum.BOTH, PhotoVisibilityEnum.GALLERY_ONLY]),
-            isNull(photoTab.visibility)
-          ),
-      sql`NOT EXISTS (
-        SELECT 1 FROM ${albumPhotoTab}
-        INNER JOIN ${albumTab} ON ${albumTab.albumId} = ${albumPhotoTab.albumId}
-        WHERE ${albumPhotoTab.photoId} = ${photoTab.photoId}
-        AND ${albumTab.isArchived} = 1
-      )`
-    );
+      ...(userId
+        ? []
+        : [
+            or(
+              inArray(photoTab.visibility, [PhotoVisibilityEnum.BOTH, PhotoVisibilityEnum.GALLERY_ONLY]),
+              isNull(photoTab.visibility)
+            )!,
+          ]),
+    ];
+
+    const archivedIds = await getArchivedAlbumIds();
+    if (archivedIds.length > 0) {
+      whereConditions.push(
+        sql`NOT EXISTS (
+          SELECT 1 FROM ${albumPhotoTab}
+          WHERE ${albumPhotoTab.photoId} = ${photoTab.photoId}
+          AND ${inArray(albumPhotoTab.albumId, archivedIds)}
+        )`
+      );
+    }
+    const baseWhere = and(...whereConditions);
 
     const rows = await readOrm
       .select({
@@ -3066,7 +3097,6 @@ const photoService = {
         latitude: exifTab.latitude,
         longitude: exifTab.longitude,
         altitude: exifTab.altitude,
-        exif: exifTab.exif,
       })
       .from(photoTab)
       .innerJoin(exifTab, eq(photoTab.photoId, exifTab.photoId))
@@ -3078,9 +3108,9 @@ const photoService = {
       return [];
     }
 
-    const fileStorageList = await storageService.getStorageList();
     const photoIds = rows.map((r: any) => r.photoId);
-    const [fileMap, albumMap] = await Promise.all([
+    const [fileStorageList, fileMap, albumMap] = await Promise.all([
+      storageService.getStorageList(),
       fileService.listByPhotoIds(photoIds),
       albumService.listAlbumMapByPhotoIds(photoIds),
     ]);
@@ -3090,7 +3120,7 @@ const photoService = {
       const domain = formatHttpUrl(fileStorage?.domain);
 
       const exifRow = {
-        exif: photo.exif,
+        exif: null,
         latitude: photo.latitude,
         longitude: photo.longitude,
         altitude: photo.altitude,
@@ -3104,7 +3134,8 @@ const photoService = {
         exifRow as any,
         userId,
         albumMap.get(photo.photoId) ?? [],
-        false
+        false,
+        true // isGridList: lightweight EXIF payload
       );
     });
   },
@@ -3129,7 +3160,6 @@ const photoService = {
         latitude: exifTab.latitude,
         longitude: exifTab.longitude,
         altitude: exifTab.altitude,
-        exif: exifTab.exif,
       })
       .from(photoTab)
       .leftJoin(exifTab, eq(photoTab.photoId, exifTab.photoId))
@@ -3141,9 +3171,9 @@ const photoService = {
       return [];
     }
 
-    const fileStorageList = await storageService.getStorageList();
     const photoIds = rows.map((r: any) => r.photoId);
-    const [fileMap, albumMap] = await Promise.all([
+    const [fileStorageList, fileMap, albumMap] = await Promise.all([
+      storageService.getStorageList(),
       fileService.listByPhotoIds(photoIds),
       albumService.listAlbumMapByPhotoIds(photoIds),
     ]);
@@ -3153,7 +3183,7 @@ const photoService = {
       const domain = formatHttpUrl(fileStorage?.domain);
 
       const exifRow = {
-        exif: photo.exif,
+        exif: null,
         latitude: photo.latitude,
         longitude: photo.longitude,
         altitude: photo.altitude,
@@ -3167,9 +3197,42 @@ const photoService = {
         exifRow as any,
         userId,
         albumMap.get(photo.photoId) ?? [],
-        false
+        false,
+        true // isGridList: lightweight EXIF payload
       );
     });
+  },
+
+  // High-performance single-pass SQL aggregate query for Admin Media Management summary metrics.
+  async getInventoryStats(userId: string): Promise<{
+    total: number;
+    totalBytes: number;
+    publicPhotos: number;
+    albumOnlyPhotos: number;
+    archivedPhotos: number;
+    geotaggedPhotos: number;
+  }> {
+    const [statsRow] = await readOrm
+      .select({
+        total: count(photoTab.photoId),
+        totalBytes: sql<number>`COALESCE(SUM(${photoTab.size}), 0)`,
+        publicPhotos: sql<number>`COALESCE(COUNT(*) FILTER (WHERE ${photoTab.visibility} IN (${PhotoVisibilityEnum.BOTH}, ${PhotoVisibilityEnum.GALLERY_ONLY}) OR ${photoTab.visibility} IS NULL), 0)`,
+        albumOnlyPhotos: sql<number>`COALESCE(COUNT(*) FILTER (WHERE ${photoTab.visibility} = ${PhotoVisibilityEnum.ALBUM_ONLY}), 0)`,
+        archivedPhotos: sql<number>`COALESCE(COUNT(*) FILTER (WHERE ${photoTab.visibility} = ${PhotoVisibilityEnum.ARCHIVED}), 0)`,
+        geotaggedPhotos: sql<number>`COALESCE(COUNT(*) FILTER (WHERE ${exifTab.latitude} IS NOT NULL AND ${exifTab.longitude} IS NOT NULL AND ${exifTab.latitude} != 999), 0)`,
+      })
+      .from(photoTab)
+      .leftJoin(exifTab, eq(photoTab.photoId, exifTab.photoId))
+      .where(eq(photoTab.status, PhotoStatusEnum.NORMAL));
+
+    return {
+      total: Number(statsRow?.total ?? 0),
+      totalBytes: Number(statsRow?.totalBytes ?? 0),
+      publicPhotos: Number(statsRow?.publicPhotos ?? 0),
+      albumOnlyPhotos: Number(statsRow?.albumOnlyPhotos ?? 0),
+      archivedPhotos: Number(statsRow?.archivedPhotos ?? 0),
+      geotaggedPhotos: Number(statsRow?.geotaggedPhotos ?? 0),
+    };
   },
 };
 

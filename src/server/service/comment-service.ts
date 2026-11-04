@@ -7,7 +7,7 @@ import { PhotoStatusEnum, PhotoVisibilityEnum } from '@/server/enums/photo-enum'
 import { type CommentAddBo, type CommentListAdminBo, type CommentReplyBo } from '@/server/entity/bo/comment';
 import { type CommentAdminPageVo, type CommentVo } from '@/server/entity/vo/comment';
 import BizError from '@/server/error/biz-error';
-import { orm } from '@/server/infra/db';
+import { orm, readOrm } from '@/server/infra/db';
 import { createId } from '@/server/lib/id';
 import { verifyTurnstileToken } from '@/server/lib/turnstile';
 import { commentEventHub } from '@/server/lib/comment-event-hub';
@@ -15,6 +15,7 @@ import { type Storage } from '@/server/entity/storage';
 import { type File as PhotoFile } from '@/server/entity/file';
 import { fileService } from '@/server/service/file-service';
 import { storageService } from '@/server/service/storage-service';
+import { getArchivedAlbumIds } from '@/server/service/album-service';
 import { formatHttpUrl, toMediaUrl } from '@/lib/url';
 import { toUtcIsoString } from '@/lib/date';
 import { FileTypeEnum } from '@/server/enums/file-enum';
@@ -45,8 +46,8 @@ const commentService = {
     }
 
     try {
-      // Security: verify photo exists, is active and not archived
-      const [photo] = await orm
+      // Security: verify photo exists, is active and not archived using read-replica
+      const [photo] = await readOrm
         .select({
           photoId: photoTab.photoId,
           visibility: photoTab.visibility,
@@ -61,19 +62,21 @@ const commentService = {
 
       // Reject comments on ALBUM_ONLY photos that belong to an archived album
       if (photo.visibility === PhotoVisibilityEnum.ALBUM_ONLY) {
-        const [archivedAlbumRel] = await orm
-          .select({ id: albumPhotoTab.id })
-          .from(albumPhotoTab)
-          .innerJoin(albumTab, eq(albumTab.albumId, albumPhotoTab.albumId))
-          .where(and(eq(albumPhotoTab.photoId, cleanPhotoId), eq(albumTab.isArchived, 1)))
-          .limit(1);
+        const archivedIds = await getArchivedAlbumIds();
+        if (archivedIds.length > 0) {
+          const [archivedAlbumRel] = await readOrm
+            .select({ id: albumPhotoTab.id })
+            .from(albumPhotoTab)
+            .where(and(eq(albumPhotoTab.photoId, cleanPhotoId), inArray(albumPhotoTab.albumId, archivedIds)))
+            .limit(1);
 
-        if (archivedAlbumRel) {
-          return [];
+          if (archivedAlbumRel) {
+            return [];
+          }
         }
       }
 
-      const rows = await orm
+      const rows = await readOrm
         .select()
         .from(commentTab)
         .where(eq(commentTab.photoId, cleanPhotoId))

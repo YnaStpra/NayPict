@@ -139,5 +139,11 @@ describe('Admin Reset & Mutation Endpoints Reliability Audit', () => {
       });
       assert.equal(res.success, true);
     });
+
+    it('analyticsService.deleteByPhotoIds handles empty array and arbitrary photo IDs gracefully', async () => {
+      await analyticsService.deleteByPhotoIds([]);
+      await analyticsService.deleteByPhotoIds(['non-existent-photo-1', 'non-existent-photo-2']);
+      assert.ok(true);
+    });
   });
 });

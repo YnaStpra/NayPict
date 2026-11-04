@@ -54,6 +54,18 @@ export function photoUntaggedList() {
   return http.get<PhotoVo[]>('/photos/untagged');
 }
 
+// Query aggregated inventory summary metrics for Admin Media Management.
+export function photoInventoryStats() {
+  return http.get<{
+    total: number;
+    totalBytes: number;
+    publicPhotos: number;
+    albumOnlyPhotos: number;
+    archivedPhotos: number;
+    geotaggedPhotos: number;
+  }>('/photo/inventory/stats');
+}
+
 // Query the photo list by pagination and conditions (GET allows edge CDN caching).
 export function photoList(params: PhotoListBo) {
   return http.get<PageVo<PhotoVo>>('/photo/list', params as unknown as Record<string, unknown>);

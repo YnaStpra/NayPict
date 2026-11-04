@@ -134,6 +134,48 @@ function usePhotoList(
     }
   }, [initialPhotos, pageSize, initialPhotoList, initialTotal, initialParams.albumId, initialParams.status, seededCatalog])
 
+  // Speculatively prefetch randomized ID catalog in idle time so the first infinite scroll triggers 1 single request instead of 2 sequential requests
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    if (paramsRef.current.sortBy || paramsRef.current.cursorPhotoId) return
+    if (allShuffledIdsRef.current) return
+
+    const prefetchRandomIds = () => {
+      const q = paramsRef.current
+      if (q.sortBy || q.cursorPhotoId || allShuffledIdsRef.current) return
+
+      photoRandomIdList({
+        status: q.status ?? null,
+        albumId: q.albumId ?? null,
+        startTakenTime: q.startTakenTime ?? null,
+        endTakenTime: q.endTakenTime ?? null,
+      })
+        .then((allIds) => {
+          if (!allShuffledIdsRef.current && Array.isArray(allIds) && allIds.length > 0) {
+            allShuffledIdsRef.current = allIds
+            setTotalCount((prev) => (prev > 0 ? prev : allIds.length))
+            const lastShownPhoto = photosRef.current[photosRef.current.length - 1]
+            if (lastShownPhoto) {
+              const idx = allIds.indexOf(lastShownPhoto.photoId)
+              if (idx !== -1) {
+                pageOffsetRef.current = idx + 1
+              }
+            }
+          }
+        })
+        .catch(() => {})
+    }
+
+    let timer: any = null
+    if ("requestIdleCallback" in window) {
+      const handle = (window as any).requestIdleCallback(prefetchRandomIds, { timeout: 1500 })
+      return () => (window as any).cancelIdleCallback(handle)
+    } else {
+      timer = setTimeout(prefetchRandomIds, 400)
+      return () => clearTimeout(timer)
+    }
+  }, [])
+
   // Refresh waterfall layout calculations.
   const refreshMasonry = useCallback(() => {
     setMasonryKey((prev) => prev + 1)

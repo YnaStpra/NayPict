@@ -82,7 +82,7 @@ import { useApp } from '@/app/provider'
 import { UserTypeEnum } from '@/server/enums/user-enum'
 import { PhotoStatusEnum, PhotoVisibilityEnum } from '@/server/enums/photo-enum'
 import { type PhotoVo } from '@/server/entity/vo/photo'
-import { photoBatchEdit, photoList, photoRecycle } from '@/request/photo'
+import { photoBatchEdit, photoList, photoRecycle, photoInventoryStats } from '@/request/photo'
 import { albumAddPhoto, albumRemovePhoto } from '@/request/album'
 import { type AlbumAddPhotoResultVo } from '@/server/entity/vo/album'
 import { useAlbumStore } from '@/store/album-store'
@@ -241,6 +241,14 @@ export default function AdminPhotosPage() {
   const [loading, setLoading] = useState(true)
   const [photos, setPhotos] = useState<PhotoVo[]>([])
   const [totalCount, setTotalCount] = useState<number>(0)
+  const [stats, setStats] = useState<{
+    total: number
+    totalBytes: number
+    publicPhotos: number
+    albumOnlyPhotos: number
+    archivedPhotos: number
+    geotaggedPhotos: number
+  } | null>(null)
 
   // Search & Filter state
   const [searchQuery, setSearchQuery] = useState<string>('')
@@ -283,19 +291,35 @@ export default function AdminPhotosPage() {
     return () => clearTimeout(timer)
   }, [searchQuery])
 
+  // Fetch aggregated summary metrics
+  const fetchStats = useCallback(async () => {
+    if (!isAdmin) return
+    try {
+      const data = await photoInventoryStats()
+      if (data) {
+        setStats(data)
+      }
+    } catch {}
+  }, [isAdmin])
+
+  useEffect(() => {
+    fetchStats()
+  }, [fetchStats])
+
   // Reset to first page whenever search or filter criteria change
   useEffect(() => {
     setCurrentPage(1)
   }, [debouncedQuery, visibilityFilter, locationFilter, sortBy, sortOrder])
 
-  // Fetch photos from server with allowAllVisibility=true for full admin inventory
+  // Fetch photos from server with server-side pagination (50 items per page instead of dragging 10,000 photos over the wire)
   const fetchPhotos = useCallback(async () => {
     if (!isAdmin) return
     setLoading(true)
 
     try {
       const res = await photoList({
-        size: 10000, // Retrieve full inventory without artificial 500 limit
+        size: pageSize,
+        offset: (currentPage - 1) * pageSize,
         allowAllVisibility: true,
         keyword: debouncedQuery || undefined,
         visibility: visibilityFilter !== 'all' ? Number(visibilityFilter) : undefined,
@@ -311,7 +335,7 @@ export default function AdminPhotosPage() {
     } finally {
       setLoading(false)
     }
-  }, [isAdmin, debouncedQuery, visibilityFilter, sortBy, sortOrder])
+  }, [isAdmin, currentPage, pageSize, debouncedQuery, visibilityFilter, sortBy, sortOrder])
 
   useEffect(() => {
     setSelectedIds([])
@@ -320,6 +344,7 @@ export default function AdminPhotosPage() {
 
   // Filter photos by client-side location criteria if needed
   const filteredPhotos = useMemo(() => {
+    if (locationFilter === 'all') return photos
     return photos.filter((photo) => {
       // Location filter
       if (locationFilter === 'tagged') {
@@ -336,15 +361,22 @@ export default function AdminPhotosPage() {
     })
   }, [photos, locationFilter])
 
-  // Pagination calculations
-  const totalPages = Math.max(1, Math.ceil(filteredPhotos.length / pageSize))
-  const paginatedPhotos = useMemo(() => {
-    const start = (currentPage - 1) * pageSize
-    return filteredPhotos.slice(start, start + pageSize)
-  }, [filteredPhotos, currentPage, pageSize])
+  // Pagination calculations (server-side paginated photos)
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize))
+  const paginatedPhotos = filteredPhotos
 
-  // Summary Metrics calculations
+  // Summary Metrics calculations (efficient single-query SQL aggregation)
   const metrics = useMemo(() => {
+    if (stats) {
+      return {
+        total: stats.total,
+        totalBytes: formatFileSize(stats.totalBytes),
+        publicPhotos: stats.publicPhotos,
+        albumOnlyPhotos: stats.albumOnlyPhotos,
+        archivedPhotos: stats.archivedPhotos,
+        geotaggedPhotos: stats.geotaggedPhotos,
+      }
+    }
     const total = totalCount || photos.length
     const totalBytes = photos.reduce((acc, p) => acc + (p.size || 0), 0)
     const publicPhotos = photos.filter((p) => p.visibility === PhotoVisibilityEnum.BOTH || p.visibility === PhotoVisibilityEnum.GALLERY_ONLY).length
@@ -360,7 +392,7 @@ export default function AdminPhotosPage() {
       archivedPhotos,
       geotaggedPhotos,
     }
-  }, [photos, totalCount])
+  }, [stats, photos, totalCount])
 
   // Selection helpers (supports page selection or full selection)
   const isPageSelected = paginatedPhotos.length > 0 && paginatedPhotos.every((p) => selectedIds.includes(p.photoId))
@@ -455,6 +487,7 @@ export default function AdminPhotosPage() {
     )
     setSelectedIds([])
     fetchPhotos()
+    fetchStats()
   }
 
   const handleAlbumSuccess = async (albumIds: string[]) => {
@@ -536,6 +569,7 @@ export default function AdminPhotosPage() {
       void refreshAlbums()
       emitCatalogSync('all')
       fetchPhotos()
+      fetchStats()
     } catch {
       toast.error('Failed to update album assignments.')
     }
@@ -593,6 +627,7 @@ export default function AdminPhotosPage() {
               onClick={() => {
                 setSelectedIds([])
                 fetchPhotos()
+                fetchStats()
               }}
               disabled={loading}
               className="h-8 text-xs rounded-xl gap-1.5 border-border/80"
