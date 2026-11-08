@@ -1135,6 +1135,8 @@ function PhotoSlideImage({
   // Zoom & Pan state
   const [scale, setScale] = useState(1)
   const [position, setPosition] = useState({ x: 0, y: 0 })
+  const targetPosRef = useRef({ x: 0, y: 0 })
+  const rafPanRef = useRef<number | null>(null)
   const lastTapTimeRef = useRef<number>(0)
   const lastTapPosRef = useRef({ x: 0, y: 0 })
   const singleTapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -1142,6 +1144,15 @@ function PhotoSlideImage({
   const dragStartRef = useRef({ x: 0, y: 0, posX: 0, posY: 0 })
   const pinchStartDistRef = useRef<number | null>(null)
   const pinchStartScaleRef = useRef(1)
+
+  // Cancel any pending pan rAF loop on unmount
+  useEffect(() => {
+    return () => {
+      if (rafPanRef.current !== null) {
+        cancelAnimationFrame(rafPanRef.current)
+      }
+    }
+  }, [])
 
   // Reset zoom whenever this slide becomes inactive
   useEffect(() => {
@@ -1312,16 +1323,28 @@ function PhotoSlideImage({
     const dx = e.clientX - dragStartRef.current.x
     const dy = e.clientY - dragStartRef.current.y
 
-    // Allow smooth panning when zoomed
-    setPosition({
+    // 120 FPS rAF scheduled pan to eliminate main-thread stutter on high-refresh displays
+    targetPosRef.current = {
       x: dragStartRef.current.posX + dx,
       y: dragStartRef.current.posY + dy,
-    })
+    }
+
+    if (rafPanRef.current === null) {
+      rafPanRef.current = requestAnimationFrame(() => {
+        rafPanRef.current = null
+        setPosition(targetPosRef.current)
+      })
+    }
   }
 
   const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
     const wasDragging = isDraggingRef.current
     isDraggingRef.current = false
+    if (rafPanRef.current !== null) {
+      cancelAnimationFrame(rafPanRef.current)
+      rafPanRef.current = null
+      setPosition(targetPosRef.current)
+    }
     try {
       ;(e.target as HTMLElement).releasePointerCapture?.(e.pointerId)
     } catch {}
@@ -1607,10 +1630,13 @@ export function PhotoViewer({
   const [canScrollPrev, setCanScrollPrev] = useState(false)
   const [canScrollNext, setCanScrollNext] = useState(false)
 
-  // Vertical pull-to-dismiss gesture state
-  const [pullY, setPullY] = useState(0)
-  const [isPulling, setIsPulling] = useState(false)
+  // Vertical pull-to-dismiss gesture state (Zero-React-Rerender DOM-scheduled via rAF)
+  const pullYRef = useRef(0)
+  const isPullingRef = useRef(false)
   const pullStartRef = useRef<{ x: number; y: number } | null>(null)
+  const rafPullRef = useRef<number | null>(null)
+  const viewerContainerRef = useRef<HTMLDivElement>(null)
+  const carouselViewportRef = useRef<HTMLDivElement>(null)
 
   // Idle controls hiding in cinematic mode
   const [isIdleHidden, setIsIdleHidden] = useState(false)
@@ -2272,7 +2298,7 @@ export function PhotoViewer({
     router.push(`/albums/${albumId}`)
   }, [router])
 
-  // Pull-to-dismiss touch handlers
+  // Pull-to-dismiss touch handlers (Direct DOM + rAF to eliminate full-viewer re-renders during drag)
   const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
     if (zoomLevel > 1 || isVideoScrubbing || isVideoFullscreen || infoOpen) return
     if (e.touches.length === 1) {
@@ -2287,28 +2313,60 @@ export function PhotoViewer({
     const dy = e.touches[0].clientY - pullStartRef.current.y
     const dx = e.touches[0].clientX - pullStartRef.current.x
 
-    if (!isPulling) {
+    if (!isPullingRef.current) {
       if (Math.abs(dy) > Math.abs(dx) * 1.5 && Math.abs(dy) > 12) {
-        setIsPulling(true)
+        isPullingRef.current = true
+        if (carouselViewportRef.current) {
+          carouselViewportRef.current.style.transition = "none"
+        }
       } else if (Math.abs(dx) > 10) {
         pullStartRef.current = null
         return
       }
     }
 
-    if (isPulling) {
-      setPullY(dy * 0.75)
+    if (isPullingRef.current) {
+      const currentPull = dy * 0.75
+      pullYRef.current = currentPull
+
+      if (rafPullRef.current === null) {
+        rafPullRef.current = requestAnimationFrame(() => {
+          rafPullRef.current = null
+          const pY = pullYRef.current
+          if (carouselViewportRef.current) {
+            carouselViewportRef.current.style.transform = `translate3d(0, ${pY}px, 0)`
+          }
+          if (viewerContainerRef.current) {
+            const opacity = Math.max(0.15, 1 - Math.abs(pY) / 320)
+            viewerContainerRef.current.style.backgroundColor = `rgba(0, 0, 0, ${opacity})`
+          }
+        })
+      }
     }
   }
 
   const handleTouchEnd = () => {
-    if (isPulling) {
-      if (Math.abs(pullY) > 90) {
+    if (rafPullRef.current !== null) {
+      cancelAnimationFrame(rafPullRef.current)
+      rafPullRef.current = null
+    }
+
+    if (isPullingRef.current) {
+      const finalPull = pullYRef.current
+      if (Math.abs(finalPull) > 90) {
         closeViewer()
       } else {
-        setPullY(0)
+        if (carouselViewportRef.current) {
+          carouselViewportRef.current.style.transition = "transform 0.25s cubic-bezier(0.16, 1, 0.3, 1)"
+          carouselViewportRef.current.style.transform = "translate3d(0, 0, 0)"
+        }
+        if (viewerContainerRef.current) {
+          viewerContainerRef.current.style.transition = "background-color 0.25s cubic-bezier(0.16, 1, 0.3, 1)"
+          viewerContainerRef.current.style.backgroundColor = "rgba(0, 0, 0, 1)"
+        }
       }
-      setIsPulling(false)
+      isPullingRef.current = false
+      pullYRef.current = 0
     }
     pullStartRef.current = null
   }
@@ -2317,18 +2375,14 @@ export function PhotoViewer({
     return null
   }
 
-  const backdropOpacity = pullY !== 0 ? Math.max(0.15, 1 - Math.abs(pullY) / 320) : 1
-
   return (
     <div
+      ref={viewerContainerRef}
       data-yarl-viewer-open="true"
       className={cn(
         "fixed inset-0 z-[1000] bg-black select-none overflow-hidden touch-none photo-viewer",
         isAnySubModalOpen && "pointer-events-none select-none touch-none"
       )}
-      style={{
-        backgroundColor: `rgba(0, 0, 0, ${backdropOpacity})`,
-      }}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
@@ -2352,14 +2406,11 @@ export function PhotoViewer({
 
       {/* Main interactive carousel viewport */}
       <div
+        ref={carouselViewportRef}
         className={cn(
           "w-full h-full transition-[padding] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]",
           isSidebarOpen ? "md:pr-[336px]" : "md:pr-0"
         )}
-        style={{
-          transform: pullY !== 0 ? `translate3d(0, ${pullY}px, 0)` : undefined,
-          transition: isPulling ? "none" : "transform 0.25s cubic-bezier(0.16, 1, 0.3, 1)",
-        }}
       >
         <div className="overflow-hidden w-full h-full" ref={emblaRef}>
           <div className="flex h-full will-change-transform">

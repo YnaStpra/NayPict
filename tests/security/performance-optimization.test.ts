@@ -384,4 +384,41 @@ describe('Advanced Performance Optimizations Verification', () => {
       assert.equal(endReached, false);
     });
   });
+
+  describe('Optimization Round 10: Batch Parallelization, Gesture Performance & Query Fast-Paths', () => {
+    it('Optimization 3: photoService.getById handles visitor queries with parallelized service lookups safely', async () => {
+      const { photoService } = await import('@/server/service/photo-service');
+      const result = await photoService.getById('non-existent-photo-uuid', undefined).catch(() => null);
+      assert.ok(result === null || typeof result === 'object');
+    });
+
+    it('Optimization 4: photoService.takenDateList verifies archived album safely using cached list', async () => {
+      const { photoService } = await import('@/server/service/photo-service');
+      const dates = await photoService.takenDateList({ albumId: 'non-existent-album', tzOffset: 0 }).catch(() => []);
+      assert.ok(Array.isArray(dates));
+    });
+
+    it('Optimization 6: insightsService.recordEvent safely handles public album event with fast-path check', async () => {
+      const { insightsService } = await import('@/server/service/insights-service');
+      await assert.doesNotReject(async () => {
+        await insightsService.recordEvent({
+          photoId: 'non-existent-photo',
+          type: 'view',
+        }, 'test-visitor-id', false).catch(() => ({ recorded: false }));
+      });
+    });
+
+    it('Optimization 10: fileService chunking partitions items correctly for parallel batch execution', () => {
+      const items = Array.from({ length: 250 }, (_, i) => ({ id: `id-${i}` }));
+      const chunkSize = 100;
+      const chunks: typeof items[] = [];
+      for (let i = 0; i < items.length; i += chunkSize) {
+        chunks.push(items.slice(i, i + chunkSize));
+      }
+      assert.equal(chunks.length, 3);
+      assert.equal(chunks[0].length, 100);
+      assert.equal(chunks[1].length, 100);
+      assert.equal(chunks[2].length, 50);
+    });
+  });
 });

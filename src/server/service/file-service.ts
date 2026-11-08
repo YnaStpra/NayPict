@@ -39,34 +39,39 @@ const fileService = {
     return map;
   },
 
-  // Write photo file records in batches (chunked to 100 to prevent parameter limits).
+  // Write photo file records in batches (chunked to 100 and executed in parallel).
   async save(files: FileInto[]): Promise<File[]> {
     if (!files.length) {
       return [];
     }
 
     const CHUNK_SIZE = 100;
-    const results: File[] = [];
+    const chunks: FileInto[][] = [];
     for (let i = 0; i < files.length; i += CHUNK_SIZE) {
-      const chunk = files.slice(i, i + CHUNK_SIZE);
-      const inserted = await orm.insert(fileTab).values(chunk).returning();
-      results.push(...inserted);
+      chunks.push(files.slice(i, i + CHUNK_SIZE));
     }
-    return results;
+
+    const chunkResults = await Promise.all(
+      chunks.map((chunk) => orm.insert(fileTab).values(chunk).returning())
+    );
+    return chunkResults.flat();
   },
 
-  // Delete file records by photo ID list (chunked to 100 to prevent parameter limits).
+  // Delete file records by photo ID list (chunked to 100 and executed in parallel).
   async deleteByPhotoIds(photoIds: string[]): Promise<void> {
     if (!photoIds.length) {
       return;
     }
 
     const CHUNK_SIZE = 100;
+    const chunks: string[][] = [];
     for (let i = 0; i < photoIds.length; i += CHUNK_SIZE) {
-      const chunk = photoIds.slice(i, i + CHUNK_SIZE);
-      await orm.delete(fileTab)
-        .where(inArray(fileTab.photoId, chunk));
+      chunks.push(photoIds.slice(i, i + CHUNK_SIZE));
     }
+
+    await Promise.all(
+      chunks.map((chunk) => orm.delete(fileTab).where(inArray(fileTab.photoId, chunk)))
+    );
   }
 };
 

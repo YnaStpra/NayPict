@@ -403,4 +403,11 @@ export const totpSetupRateLimiter = new DistributedRateLimiter({
   windowMs: 15 * 60 * 1000, // 15 minutes
 })
 
+// 22. Photo Random Catalog Rate Limiter: Max 30 random catalog queries per 1 minute per IP (Anti-Scraping)
+export const photoRandomListRateLimiter = new DistributedRateLimiter({
+  name: 'photo-random-list',
+  limit: 30,
+  windowMs: 60 * 1000, // 1 minute
+})
+
 

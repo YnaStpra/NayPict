@@ -222,7 +222,15 @@ const loginService = {
     }
 
     if (user.status === UserStatusEnum.DISABLE) {
-      throw new BizError("user.disabled");
+      await loginRateLimiter.consume(clientIp);
+      await accountLockoutRateLimiter.consume(normalizedUsername);
+      logSecurityAudit({
+        action: 'AUTH_LOGIN_FAILED',
+        userId: user.userId,
+        clientIp,
+        details: { username, reason: 'account_disabled' },
+      });
+      throw new BizError("login.invalidCredentials");
     }
 
     const { valid: isValidPassword, needsRehash } = await verifyPasswordDetailed(params.password, user.salt, user.password);

@@ -66,6 +66,24 @@ function clearLoginCookies(response: NextResponse) {
   return response;
 }
 
+// Safely build login redirect response, stripping query parameters and enforcing canonical host in production
+function safeLoginRedirect(req: NextRequest): NextResponse {
+  const loginUrl = req.nextUrl.clone();
+  loginUrl.pathname = '/login';
+  loginUrl.search = '';
+
+  const configuredAppUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL;
+  if (configuredAppUrl && process.env.NODE_ENV === 'production') {
+    try {
+      const parsed = new URL(configuredAppUrl);
+      loginUrl.protocol = parsed.protocol;
+      loginUrl.host = parsed.host;
+    } catch {}
+  }
+
+  return clearLoginCookies(NextResponse.redirect(loginUrl));
+}
+
 // Agent is not logged in to access the page, API and media resources are handed over to their respective backends for processing..
 export async function proxy(req: NextRequest) {
 
@@ -110,9 +128,7 @@ export async function proxy(req: NextRequest) {
       return hasTokenCookie ? clearLoginCookies(NextResponse.next()) : NextResponse.next();
     }
 
-    const loginUrl = req.nextUrl.clone();
-    loginUrl.pathname = '/login';
-    return clearLoginCookies(NextResponse.redirect(loginUrl));
+    return safeLoginRedirect(req);
   }
 
   // Confirm current session from cache uuid still valid.
@@ -155,9 +171,7 @@ export async function proxy(req: NextRequest) {
           if (isPublicPath(pathname)) {
             return clearLoginCookies(NextResponse.next());
           }
-          const loginUrl = req.nextUrl.clone();
-          loginUrl.pathname = '/login';
-          return clearLoginCookies(NextResponse.redirect(loginUrl));
+          return safeLoginRedirect(req);
         }
 
         const revokedUuids = await sessionService.getRevokedUuids(userId);
@@ -165,9 +179,7 @@ export async function proxy(req: NextRequest) {
           if (isPublicPath(pathname)) {
             return clearLoginCookies(NextResponse.next());
           }
-          const loginUrl = req.nextUrl.clone();
-          loginUrl.pathname = '/login';
-          return clearLoginCookies(NextResponse.redirect(loginUrl));
+          return safeLoginRedirect(req);
         }
 
         authInfo = {
@@ -192,9 +204,7 @@ export async function proxy(req: NextRequest) {
       return clearLoginCookies(NextResponse.next());
     }
 
-    const loginUrl = req.nextUrl.clone();
-    loginUrl.pathname = '/login';
-    return clearLoginCookies(NextResponse.redirect(loginUrl));
+    return safeLoginRedirect(req);
   }
 
   // Verify session inactivity timeout (idle timeout defense, default 7 days)
@@ -206,9 +216,7 @@ export async function proxy(req: NextRequest) {
       if (isPublicPath(pathname)) {
         return clearLoginCookies(NextResponse.next());
       }
-      const loginUrl = req.nextUrl.clone();
-      loginUrl.pathname = '/login';
-      return clearLoginCookies(NextResponse.redirect(loginUrl));
+      return safeLoginRedirect(req);
     }
   }
 

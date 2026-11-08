@@ -23,7 +23,7 @@ import {
   type PhotoSetVisibilityBo,
   type PhotoTakenDateListBo,
 } from '@/server/entity/bo/photo';
-import { downloadRateLimiter, photoListRateLimiter, uploadRateLimiter } from '@/server/lib/rate-limiter';
+import { downloadRateLimiter, photoListRateLimiter, photoRandomListRateLimiter, uploadRateLimiter } from '@/server/lib/rate-limiter';
 import { getClientIp } from '@/server/lib/ip';
 import { logSecurityAudit } from '@/server/lib/audit';
 import { settingService } from '@/server/service/setting-service';
@@ -260,6 +260,15 @@ export function registerPhotoApi(app: Hono<HonoEnv>) {
   // Return all photo IDs in random order for client-side random pagination (supports GET for edge caching).
   const handlePhotoRandomIdList = async (c: Context) => {
     const userId = getUserId();
+    if (!userId) {
+      const clientIp = getClientIp(c);
+      const rateLimit = await photoRandomListRateLimiter.consume(clientIp);
+      if (!rateLimit.allowed) {
+        c.header('Retry-After', String(Math.ceil(rateLimit.resetMs / 1000)));
+        return c.json(result.fail("Rate limit exceeded. Please wait a moment before loading random catalog.", 429), 429);
+      }
+    }
+
     applyPublicCacheHeaders(c, userId);
     let params: PhotoRandomIdListBo = {};
     if (c.req.method === 'GET') {
