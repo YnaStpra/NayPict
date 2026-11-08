@@ -37,30 +37,33 @@ const locationService = {
 
   // Reverse geocode latitude and longitude into a formatted human-readable address.
   async reverseGeocode(latitude: number, longitude: number): Promise<ReverseGeocodeResult> {
-    const lat = Number(latitude);
-    const lng = Number(longitude);
-
-    const mapsUrl = `https://www.google.com/maps?q=${lat},${lng}`;
+    const rawLat = Number(latitude);
+    const rawLng = Number(longitude);
 
     if (
-      isNaN(lat) ||
-      isNaN(lng) ||
-      !isFinite(lat) ||
-      !isFinite(lng) ||
-      lat < -90 ||
-      lat > 90 ||
-      lng < -180 ||
-      lng > 180
+      isNaN(rawLat) ||
+      isNaN(rawLng) ||
+      !isFinite(rawLat) ||
+      !isFinite(rawLng) ||
+      rawLat < -90 ||
+      rawLat > 90 ||
+      rawLng < -180 ||
+      rawLng > 180
     ) {
       return {
         address: '',
-        latitude: isNaN(lat) ? 0 : lat,
-        longitude: isNaN(lng) ? 0 : lng,
+        latitude: isNaN(rawLat) ? 0 : rawLat,
+        longitude: isNaN(rawLng) ? 0 : rawLng,
         mapsUrl: '',
       };
     }
 
-    // Cache key rounded to ~4 decimal places (approx. 11 meter precision, street & venue resolution)
+    // Quantize coordinates to 4 decimal places (~11m resolution) to maximize cache hits and prevent provider flooding
+    const lat = Math.round(rawLat * 10000) / 10000;
+    const lng = Math.round(rawLng * 10000) / 10000;
+    const mapsUrl = `https://www.google.com/maps?q=${lat},${lng}`;
+
+    // Cache key rounded to 4 decimal places (approx. 11 meter precision, street & venue resolution)
     const cacheKey = `${lat.toFixed(4)},${lng.toFixed(4)}`;
     if (addressCache.has(cacheKey)) {
       return addressCache.get(cacheKey)!;

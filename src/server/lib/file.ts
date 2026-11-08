@@ -32,13 +32,16 @@ function formatFileTimestamp(date = new Date()) {
 
 // Generate RFC 6266 and RFC 5987 compliant Content-Disposition with ASCII fallback and UTF-8 encoded filename.
 function buildContentDisposition(name: string, dispositionType: 'inline' | 'attachment' = 'inline') {
-  const cleanName = (name || 'photo').replace(/[\r\n\t"]/g, '_').trim();
-  const asciiFallback = cleanName.replace(/[^\x20-\x7E]/g, '_');
+  const safeType = dispositionType === 'attachment' ? 'attachment' : 'inline';
+  const cleanName = (name || 'photo')
+    .replace(/[\x00-\x1F\x7F\r\n\t";\\]/g, '_')
+    .trim() || 'file';
+  const asciiFallback = cleanName.replace(/[^\x20-\x7E]/g, '_').replace(/["\\]/g, '_');
   const encodedName = encodeURIComponent(cleanName)
     .replace(/[!'()*]/g, (char) =>
       `%${char.charCodeAt(0).toString(16).toUpperCase()}`
     );
-  return `${dispositionType}; filename="${asciiFallback}"; filename*=UTF-8''${encodedName}`;
+  return `${safeType}; filename="${asciiFallback}"; filename*=UTF-8''${encodedName}`;
 }
 
 export interface MagicBytesResult {

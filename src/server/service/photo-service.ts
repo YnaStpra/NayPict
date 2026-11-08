@@ -1584,6 +1584,9 @@ const photoService = {
       if (!headCheck.exists) {
         throw new BizError('photo.uploadFailed', 400);
       }
+      if (headCheck.size && headCheck.size > 2 * 1024 * 1024 * 1024) {
+        throw new BizError('photo.fileTooLarge');
+      }
     } catch (headErr) {
       if (headErr instanceof BizError) throw headErr;
       console.warn('[STORAGE] Head check warning during addVideo:', headErr);
@@ -1848,6 +1851,21 @@ const photoService = {
       const headCheck = await storage.head(key, photoStorage.storageId);
       if (!headCheck.exists) {
         throw new BizError('photo.uploadFailed', 400);
+      }
+      if (headCheck.size && headCheck.size > 500 * 1024 * 1024) {
+        throw new BizError('photo.fileTooLarge');
+      }
+      if (previewKey) {
+        const previewHead = await storage.head(previewKey, photoStorage.storageId).catch(() => ({ exists: true }));
+        if (!previewHead.exists) {
+          throw new BizError('photo.uploadFailed', 400);
+        }
+      }
+      if (thumbnailKey) {
+        const thumbHead = await storage.head(thumbnailKey, photoStorage.storageId).catch(() => ({ exists: true }));
+        if (!thumbHead.exists) {
+          throw new BizError('photo.uploadFailed', 400);
+        }
       }
     } catch (headErr) {
       if (headErr instanceof BizError) throw headErr;

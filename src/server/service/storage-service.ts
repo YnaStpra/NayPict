@@ -12,28 +12,59 @@ import { cache } from '@/server/infra/cache';
 import { orm, readOrm } from '@/server/infra/db';
 import { formatHttpUrl } from '@/lib/url';
 import { encryptData, decryptData } from '@/server/lib/crypto';
-import { isPrivateOrReservedIp } from '@/server/lib/ip';
+import { isPrivateOrReservedIp, isValidIp } from '@/server/lib/ip';
+import dns from 'node:dns/promises';
 
 // Validate custom endpoint and domain to strictly prevent SSRF (Server-Side Request Forgery) attacks
-function validateStorageUrl(rawUrl?: string | null): void {
+async function validateStorageUrl(rawUrl?: string | null): Promise<void> {
   if (!rawUrl?.trim()) return;
   try {
     const trimmed = rawUrl.trim();
-    const parsed = new URL(trimmed.startsWith('http://') || trimmed.startsWith('https://') ? trimmed : `https://${trimmed}`);
+    if (trimmed.includes('://')) {
+      const proto = trimmed.split('://')[0].toLowerCase();
+      if (proto !== 'http' && proto !== 'https') {
+        throw new BizError('storage.invalidUrlProtocol');
+      }
+    }
+    const parsed = new URL(trimmed.includes('://') ? trimmed : `https://${trimmed}`);
     if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
       throw new BizError('storage.invalidUrlProtocol');
     }
 
     const host = parsed.hostname.toLowerCase();
-    // Block cloud metadata service IP explicitly
-    if (host === '169.254.169.254' || host === 'metadata.google.internal' || host === 'instance-data') {
+    // Block cloud metadata service, loopback, and internal addresses explicitly
+    if (
+      host === '169.254.169.254' ||
+      host === 'metadata.google.internal' ||
+      host === 'instance-data' ||
+      host === 'localhost' ||
+      host.endsWith('.localhost') ||
+      host.endsWith('.local') ||
+      host.endsWith('.internal') ||
+      host.includes('169.254.169.254')
+    ) {
       throw new BizError('storage.ssrfBlocked');
     }
 
-    // In production, strictly reject local loopback and private network ranges
-    if (process.env.NODE_ENV === 'production') {
-      if (host === 'localhost' || isPrivateOrReservedIp(host)) {
+    // Direct IP address evaluation
+    if (isValidIp(host)) {
+      if (isPrivateOrReservedIp(host)) {
         throw new BizError('storage.ssrfBlocked');
+      }
+      return;
+    }
+
+    // DNS Rebinding and private IP resolution defense in production or test environments
+    if (process.env.NODE_ENV === 'production' || process.env.NODE_ENV === 'test') {
+      try {
+        const addresses = await dns.lookup(host, { all: true });
+        for (const addr of addresses) {
+          if (isPrivateOrReservedIp(addr.address)) {
+            throw new BizError('storage.ssrfBlocked');
+          }
+        }
+      } catch (err) {
+        if (err instanceof BizError) throw err;
       }
     }
   } catch (err) {
@@ -144,8 +175,8 @@ const storageService = {
       throw new BizError('storage.typeRequired');
     }
 
-    validateStorageUrl(params.endpoint);
-    validateStorageUrl(params.domain);
+    await validateStorageUrl(params.endpoint);
+    await validateStorageUrl(params.domain);
 
     const [existsStorage] = await orm
       .select()
@@ -234,8 +265,8 @@ const storageService = {
       throw new BizError('storage.typeRequired');
     }
 
-    validateStorageUrl(params.endpoint);
-    validateStorageUrl(params.domain);
+    await validateStorageUrl(params.endpoint);
+    await validateStorageUrl(params.domain);
 
     const masterKey = getStorageMasterKey();
     const updateValues: Record<string, unknown> = {

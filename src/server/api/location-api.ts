@@ -41,7 +41,9 @@ export function registerLocationApi(app: Hono<HonoEnv>) {
       return c.json(result.ok({ address: '', latitude: 0, longitude: 0, mapsUrl: '' }));
     }
 
-    const res = await locationService.reverseGeocode(lat, lng);
+    const quantizedLat = Math.round(lat * 10000) / 10000;
+    const quantizedLng = Math.round(lng * 10000) / 10000;
+    const res = await locationService.reverseGeocode(quantizedLat, quantizedLng);
     return c.json(result.ok(res));
   });
 }
