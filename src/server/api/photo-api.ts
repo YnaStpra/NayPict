@@ -244,6 +244,7 @@ export function registerPhotoApi(app: Hono<HonoEnv>) {
       const clientIp = getClientIp(c);
       const rateLimit = await photoListRateLimiter.consume(clientIp);
       if (!rateLimit.allowed) {
+        c.header('Retry-After', String(Math.ceil(rateLimit.resetMs / 1000)));
         return c.json(result.fail("Rate limit exceeded. Please wait a moment before loading more photos.", 429), 429);
       }
     }

@@ -176,7 +176,13 @@ export function GalleryBottomStatus({
       {/* State 2: Load Error / Retry */}
       {!loadingMore && loadMoreError && (
         <div className="flex flex-col items-center justify-center gap-3 py-10 pb-16 px-4 animate-in fade-in-50 duration-300">
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400 text-xs font-medium">
+          <div
+            onClick={onRetry}
+            className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 active:scale-95 text-amber-600 dark:text-amber-400 text-xs font-medium cursor-pointer transition-all select-none"
+            role="button"
+            tabIndex={0}
+            title={getRetryText()}
+          >
             <RefreshCw className="size-3.5" />
             <span>{getLoadFailedText()}</span>
           </div>
@@ -186,7 +192,7 @@ export function GalleryBottomStatus({
               variant="outline"
               size="sm"
               onClick={onRetry}
-              className="h-8 text-xs gap-1.5 rounded-full px-4 border-border/70 hover:bg-muted"
+              className="h-8 text-xs gap-1.5 rounded-full px-4 border-border/70 hover:bg-muted active:scale-95 cursor-pointer shadow-xs transition-all"
             >
               <RefreshCw className="size-3.5" />
               <span>{getRetryText()}</span>

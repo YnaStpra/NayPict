@@ -291,10 +291,10 @@ export const reactionRateLimiter = new DistributedRateLimiter({
   windowMs: 60 * 1000, // 1 minute
 })
 
-// 6. Photo List Read Rate Limiter: Max 120 requests per 1 minute per IP
+// 6. Photo List Read Rate Limiter: Max 240 requests per 1 minute per IP (Smooth infinite scroll)
 export const photoListRateLimiter = new DistributedRateLimiter({
   name: 'photo-list',
-  limit: 120,
+  limit: 240,
   windowMs: 60 * 1000, // 1 minute
 })
 

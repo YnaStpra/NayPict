@@ -66,8 +66,11 @@ export function photoInventoryStats() {
   }>('/photo/inventory/stats');
 }
 
-// Query the photo list by pagination and conditions (GET allows edge CDN caching).
+// Query the photo list by pagination and conditions (GET allows edge CDN caching, POST for bulk photoIds to avoid URL length overflow).
 export function photoList(params: PhotoListBo) {
+  if (params.photoIds && params.photoIds.length > 0) {
+    return http.post<PageVo<PhotoVo>>('/photo/list', params);
+  }
   return http.get<PageVo<PhotoVo>>('/photo/list', params as unknown as Record<string, unknown>);
 }
 

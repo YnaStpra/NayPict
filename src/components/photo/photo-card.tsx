@@ -1,7 +1,7 @@
 "use client"
 
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from "react"
-import { FolderIcon, MapPin, PinIcon, Play } from "lucide-react"
+import { FolderIcon, MapPin, PinIcon, Play, RefreshCw } from "lucide-react"
 import { type RenderComponentProps } from "masonic"
 import { useIsMobile } from "@/hooks/use-mobile"
 import { Button } from "@/components/ui/button"
@@ -326,10 +326,13 @@ export const PhotoCard = memo(function PhotoCard({
     }
   }, [isVideo, data.photoId, startAutoplay, stopAutoplay])
 
+  const failedUrlsRef = useRef<Set<string>>(new Set())
+
   // Synchronously reset image source and state during render when photo changes to avoid 1-frame visual glitch
   const prevPhotoIdRef = useRef(data.photoId)
   if (prevPhotoIdRef.current !== data.photoId) {
     prevPhotoIdRef.current = data.photoId
+    failedUrlsRef.current.clear()
     const nextSrc = data.thumbnail || data.preview || (isVideo ? null : data.key) || null
     setImageSrc(nextSrc)
     setIsImageLoaded(Boolean(nextSrc && loadedThumbnails.has(nextSrc)))
@@ -342,6 +345,7 @@ export const PhotoCard = memo(function PhotoCard({
       markThumbnailLoaded(imageSrc)
     }
     setIsImageLoaded(true)
+    setImageError(false)
     if (getIsOffline()) {
       notifyConnectionRestored()
     }
@@ -355,20 +359,57 @@ export const PhotoCard = memo(function PhotoCard({
         markThumbnailLoaded(imageSrc)
       }
       setIsImageLoaded(true)
+      setImageError(false)
     }
   }, [imageSrc])
 
+  // Handle graceful image fallback across all media tiers without infinite looping
+  const handleImageError = useCallback(() => {
+    if (imageSrc) {
+      failedUrlsRef.current.add(imageSrc)
+    }
 
-  // Handle graceful image fallback across all media tiers
-  function handleImageError() {
-    if (data.preview && imageSrc !== data.preview) {
-      setImageSrc(data.preview)
-    } else if (data.thumbnail && imageSrc !== data.thumbnail) {
-      setImageSrc(data.thumbnail)
+    const candidates: string[] = []
+
+    // 1. Direct proxy of current failing URL if it was on an external CDN/gateway
+    if (imageSrc && !imageSrc.startsWith('/media/')) {
+      const directProxy = toProxyMediaUrl(imageSrc, true)
+      if (directProxy) candidates.push(directProxy)
+    }
+
+    // 2. Preview
+    if (data.preview) {
+      candidates.push(data.preview)
+      if (!data.preview.startsWith('/media/')) {
+        const directPreview = toProxyMediaUrl(data.preview, true)
+        if (directPreview) candidates.push(directPreview)
+      }
+    }
+
+    // 3. Thumbnail (if not tried yet)
+    if (data.thumbnail) {
+      candidates.push(data.thumbnail)
+      if (!data.thumbnail.startsWith('/media/')) {
+        const directThumb = toProxyMediaUrl(data.thumbnail, true)
+        if (directThumb) candidates.push(directThumb)
+      }
+    }
+
+    // 4. Original key (for photos only, never video binaries)
+    if (!isVideo && data.key) {
+      candidates.push(data.key)
+      const directKey = toProxyMediaUrl(data.key, true)
+      if (directKey) candidates.push(directKey)
+    }
+
+    const nextCandidate = candidates.find((c) => c && c !== imageSrc && !failedUrlsRef.current.has(c))
+
+    if (nextCandidate) {
+      setImageSrc(nextCandidate)
     } else {
       setImageError(true)
     }
-  }
+  }, [imageSrc, data.preview, data.thumbnail, data.key, isVideo])
 
   // Trigger open callback with origin rectangle for Hero expansion transition
   const triggerOpen = useCallback(() => {
@@ -744,8 +785,8 @@ export const PhotoCard = memo(function PhotoCard({
         transform: "translateZ(0)",
         willChange: "auto",
         ["--card-stagger" as string]: shouldAnimateReveal ? `${staggerDelay}ms` : undefined,
-        backgroundColor: placeholder ? undefined : "rgba(128,128,128,0.08)",
-        backgroundImage: isImageLoaded ? undefined : (placeholder ? `url("${placeholder}")` : undefined),
+        backgroundColor: placeholder && !imageError ? undefined : "rgba(128,128,128,0.08)",
+        backgroundImage: isImageLoaded || imageError ? undefined : (placeholder ? `url("${placeholder}")` : undefined),
         backgroundSize: "cover",
         backgroundPosition: "center",
         // Dynamic Layout Stability CSS Custom Properties (CLS = 0.000)
@@ -758,8 +799,8 @@ export const PhotoCard = memo(function PhotoCard({
         <div
           className="absolute inset-0 flex items-center justify-center overflow-hidden bg-cover bg-center"
           style={{
-            backgroundColor: placeholder ? undefined : "rgba(128,128,128,0.08)",
-            backgroundImage: isImageLoaded ? undefined : (placeholder ? `url("${placeholder}")` : undefined),
+            backgroundColor: placeholder && !imageError ? undefined : "rgba(128,128,128,0.08)",
+            backgroundImage: isImageLoaded || imageError ? undefined : (placeholder ? `url("${placeholder}")` : undefined),
           }}
         >
           <video
@@ -810,8 +851,29 @@ export const PhotoCard = memo(function PhotoCard({
           <div className="absolute inset-0 bg-black/15 pointer-events-none" />
         </div>
       ) : imageError ? (
-        <div className="absolute inset-0 flex items-center justify-center px-3 text-center text-sm text-muted-foreground bg-muted/60">
-          {t("imageLoadFailed")}
+        <div
+          onClick={(e) => {
+            e.stopPropagation()
+            failedUrlsRef.current.clear()
+            setImageError(false)
+            setIsImageLoaded(false)
+            const fallbackSrc = toProxyMediaUrl(data.thumbnail || data.preview || (isVideo ? null : data.key), true) || data.thumbnail || data.preview || null
+            setImageSrc(fallbackSrc)
+          }}
+          className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 p-3 text-center text-xs text-muted-foreground bg-muted/80 backdrop-blur-xs cursor-pointer hover:bg-muted/95 active:scale-95 transition-all select-none group/err"
+          role="button"
+          tabIndex={0}
+          aria-label="Image failed to load. Click to retry."
+        >
+          <div className="flex size-8 items-center justify-center rounded-full bg-background/80 shadow-xs border border-border/50 group-hover/err:border-primary/50 transition-colors">
+            <RefreshCw className="size-4 text-muted-foreground group-hover/err:rotate-180 group-hover/err:text-primary transition-all duration-300" />
+          </div>
+          <span className="font-medium text-[11px] leading-tight text-foreground/80">
+            {t("imageLoadFailed") || "Failed to load"}
+          </span>
+          <span className="text-[10px] text-muted-foreground/75 underline">
+            Tap to retry
+          </span>
         </div>
       ) : (
         <img
