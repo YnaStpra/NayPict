@@ -239,9 +239,12 @@ class StorageCleanerService {
       if (u.avatar) existingDbKeySet.add(`profile/${u.avatar}`);
     }
 
-    // Critical Safeguard: Only allow deleting objects with NayPict managed prefixes that do not exist in DB
+    // Critical Safeguard: Only allow deleting objects with NayPict managed prefixes that do not exist in DB,
+    // and strictly reject path traversal sequences ('..') and null bytes ('\0').
     const safeKeysToDelete = keysToInspect.filter((k) =>
       !existingDbKeySet.has(k) &&
+      !k.includes('..') &&
+      !k.includes('\0') &&
       NAYPICT_MANAGED_PREFIXES.some((prefix) => k.startsWith(prefix))
     );
 

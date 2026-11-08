@@ -410,4 +410,12 @@ export const photoRandomListRateLimiter = new DistributedRateLimiter({
   windowMs: 60 * 1000, // 1 minute
 })
 
+// 23. Photo Duplicate Detection Rate Limiter: Max 10 duplicate group scans per 5 minutes per user/IP
+export const photoDuplicatesRateLimiter = new DistributedRateLimiter({
+  name: 'photo-duplicates',
+  limit: 10,
+  windowMs: 5 * 60 * 1000, // 5 minutes
+})
+
+
 

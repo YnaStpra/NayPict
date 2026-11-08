@@ -9,7 +9,11 @@ export const VISITOR_COOKIE_NAME = 'naypict_vid';
 export const ONE_YEAR_SECONDS = 365 * 24 * 60 * 60;
 
 function getSigningSecret(): string {
-  return process.env.JWT_SECRET?.trim() || 'naypict_visitor_cookie_fallback_secret_32b!';
+  const secret = process.env.JWT_SECRET?.trim();
+  if (process.env.NODE_ENV === 'production' && !secret) {
+    throw new Error('FATAL: JWT_SECRET must be configured in production for visitor cookie signing.');
+  }
+  return secret || 'naypict_visitor_cookie_fallback_secret_32b!';
 }
 
 // Generate an HMAC-SHA256 signature for a visitor ID
@@ -35,14 +39,23 @@ export function verifySignedVisitorId(signedValue: string | undefined | null): s
     return null;
   }
 
-  const secret = getSigningSecret();
+  let secret: string;
+  try {
+    secret = getSigningSecret();
+  } catch {
+    return null;
+  }
+
   const expectedHmac = crypto.createHmac('sha256', secret).update(vid).digest('base64url');
+  const sigBuf = Buffer.from(signature, 'utf8');
+  const expectedBuf = Buffer.from(expectedHmac, 'utf8');
+
+  if (sigBuf.length !== expectedBuf.length) {
+    return null;
+  }
 
   try {
-    const isMatch = crypto.timingSafeEqual(
-      Buffer.from(signature, 'utf8'),
-      Buffer.from(expectedHmac, 'utf8')
-    );
+    const isMatch = crypto.timingSafeEqual(sigBuf, expectedBuf);
     return isMatch ? vid : null;
   } catch {
     return null;

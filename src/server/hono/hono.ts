@@ -17,12 +17,32 @@ import type { HonoEnv } from './type';
 export function createHonoApp() {
   const instance = new Hono<HonoEnv>().basePath('/api');
 
-  instance.use('*', bodyLimit({
-    maxSize: 250 * 1024 * 1024,
-    onError: (c) => {
-      return c.json(result.fail('Request payload too large (maximum 250MB allowed).', 413), 413);
-    },
-  }));
+  // Layered Request Body Limits: 250MB for binary uploads, 128KB for telemetry/CSP, and 2MB for standard JSON APIs (Anti-DoS & Memory Defense)
+  instance.use('*', async (c, next) => {
+    const path = c.req.path;
+    // Allow up to 250MB for direct file upload and database backup endpoints
+    if (path === '/api/photo/add' || path.startsWith('/api/photo/upload') || path.startsWith('/api/backup/export')) {
+      const limiter = bodyLimit({
+        maxSize: 250 * 1024 * 1024,
+        onError: (ctx) => ctx.json(result.fail('Upload payload too large (maximum 250MB allowed).', 413), 413),
+      });
+      return limiter(c, next);
+    }
+    // Strict 128KB limit for analytics, telemetry, and CSP reports
+    if (path.startsWith('/api/analytics') || path.startsWith('/api/telemetry') || path === '/api/csp-report') {
+      const limiter = bodyLimit({
+        maxSize: 128 * 1024,
+        onError: (ctx) => ctx.json(result.fail('Telemetry payload too large (maximum 128KB allowed).', 413), 413),
+      });
+      return limiter(c, next);
+    }
+    // Strict 2MB ceiling for all standard JSON/API routes (login, comments, user, settings, etc.)
+    const limiter = bodyLimit({
+      maxSize: 2 * 1024 * 1024,
+      onError: (ctx) => ctx.json(result.fail('Request payload too large (maximum 2MB allowed).', 413), 413),
+    });
+    return limiter(c, next);
+  });
   instance.use('*', compress());
   instance.use('*', etag());
   instance.use('*', apiCors);
