@@ -13,6 +13,7 @@ function getExifTool() {
     try {
       const { ExifTool } = require("exiftool-vendored")
       exiftoolInstance = new ExifTool({
+        taskTimeoutMillis: 5000,
         backfillTimezones: true,
         inferTimezoneFromDatestamps: true,
       })
@@ -496,7 +497,14 @@ export async function readPhotoExifFromBuffer(input: ArrayBuffer | Buffer) {
       const filePath = join(dir, "photo")
       try {
         await writeFile(filePath, source)
-        const tags = await tool.read(filePath, { readArgs })
+        const timeoutPromise = new Promise<never>((_, reject) => {
+          const timer = setTimeout(() => reject(new Error("ExifTool task execution timeout")), 5000);
+          if (typeof timer.unref === "function") timer.unref();
+        });
+        const tags = await Promise.race([
+          tool.read(filePath, { readArgs }),
+          timeoutPromise,
+        ]) as any
         const result = {
           takenTime: getTakenTime(tags),
           latitude: getCoordinate(tags.GPSLatitude, tags.GPSLatitudeRef),

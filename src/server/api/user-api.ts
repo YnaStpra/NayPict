@@ -107,8 +107,17 @@ export function registerUserApi(app: Hono<HonoEnv>) {
       return c.body(null, 404);
     }
 
+    const ext = rawKey.toLowerCase().split('.').pop();
+    const contentTypeMap: Record<string, string> = {
+      webp: 'image/webp',
+      jpg: 'image/jpeg',
+      jpeg: 'image/jpeg',
+      png: 'image/png',
+    };
+    const contentType = (ext && contentTypeMap[ext]) || 'image/webp';
+
     return c.body(file.body as unknown as ReadableStream, 200, {
-      'Content-Type': 'image/webp',
+      'Content-Type': contentType,
       'Cache-Control': 'public, max-age=31536000, immutable',
       'Content-Length': String(file.size),
       'X-Content-Type-Options': 'nosniff',

@@ -9,17 +9,25 @@ type LoginCookie = {
   tokenVersion: number
 }
 
+// Max RFC 6265 header size to prevent CPU burn on Cookie Bomb attacks
+const MAX_COOKIE_HEADER_LENGTH = 8192;
+
 // from incoming Cookie Read the value of the specified name from the string.
-function getCookieValueFromString(cookie: string | null | undefined, name: string) {
-  if (!cookie) {
-    return undefined
+function getCookieValueFromString(cookie: string | null | undefined, name: string): string | undefined {
+  if (!cookie || typeof cookie !== 'string' || cookie.length > MAX_COOKIE_HEADER_LENGTH) {
+    return undefined;
   }
 
-  const item = cookie
-    .split("; ")
-    .find((cookieItem) => cookieItem.startsWith(`${name}=`))
+  // Robust parsing: splits on semicolon with arbitrary whitespace (supports cookies without spaces)
+  const items = cookie.split(/;\s*/);
+  const targetPrefix = `${name}=`;
+  for (const item of items) {
+    if (item.startsWith(targetPrefix)) {
+      return item.slice(targetPrefix.length);
+    }
+  }
 
-  return item?.slice(name.length + 1)
+  return undefined;
 }
 
 // from incoming Cookie Verify login in string token, and returns the user id with session uuid.

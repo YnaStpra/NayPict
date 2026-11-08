@@ -23,7 +23,7 @@ import {
   type PhotoSetVisibilityBo,
   type PhotoTakenDateListBo,
 } from '@/server/entity/bo/photo';
-import { downloadRateLimiter, photoListRateLimiter, photoRandomListRateLimiter, uploadRateLimiter } from '@/server/lib/rate-limiter';
+import { downloadRateLimiter, photoDuplicatesRateLimiter, photoListRateLimiter, photoRandomListRateLimiter, uploadRateLimiter } from '@/server/lib/rate-limiter';
 import { getClientIp } from '@/server/lib/ip';
 import { logSecurityAudit } from '@/server/lib/audit';
 import { settingService } from '@/server/service/setting-service';
@@ -531,12 +531,27 @@ export function registerPhotoApi(app: Hono<HonoEnv>) {
   });
 
   // Auto-detect duplicate photo groups based on visual content / checksum / album (Admin only).
+  const checkDuplicatesRateLimit = async (c: Context) => {
+    const userId = getUserId();
+    const clientIp = getClientIp(c);
+    const rateLimit = await photoDuplicatesRateLimiter.consume(`${userId || 'guest'}:${clientIp}`);
+    if (!rateLimit.allowed) {
+      c.header('Retry-After', String(Math.ceil(rateLimit.resetMs / 1000)));
+      return c.json(result.fail('Duplicate scanning rate limit exceeded. Please wait a moment.', 429), 429);
+    }
+    return null;
+  };
+
   app.post('/photo/duplicates', async (c: Context) => {
+    const rateLimitError = await checkDuplicatesRateLimit(c);
+    if (rateLimitError) return rateLimitError;
     const { albumId } = await c.req.json<{ albumId?: string }>().catch(() => ({ albumId: undefined }));
     const data = await photoService.findDuplicateGroups(getUserId(), albumId);
     return c.json(result.ok(data));
   });
   app.get('/photo/duplicates', async (c: Context) => {
+    const rateLimitError = await checkDuplicatesRateLimit(c);
+    if (rateLimitError) return rateLimitError;
     const albumId = c.req.query('albumId');
     const data = await photoService.findDuplicateGroups(getUserId(), albumId);
     return c.json(result.ok(data));

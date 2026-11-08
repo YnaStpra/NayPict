@@ -1128,6 +1128,15 @@ const photoService = {
       throw new BizError('param.invalid');
     }
 
+    // Security: Validate multipart part integrity (PartNumber must be 1..10000, ETag alphanumeric/quotes/hyphen)
+    for (const part of params.parts) {
+      const partNum = Number(part?.PartNumber);
+      const etag = typeof part?.ETag === 'string' ? part.ETag.trim() : '';
+      if (!partNum || !Number.isInteger(partNum) || partNum < 1 || partNum > 10000 || !/^[a-zA-Z0-9"-]{1,128}$/.test(etag)) {
+        throw new BizError('param.invalid');
+      }
+    }
+
     await storage.completeMultipartUpload(key, uploadId, params.parts, params.storageId);
 
     return {

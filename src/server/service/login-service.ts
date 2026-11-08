@@ -27,6 +27,7 @@ import { logSecurityAudit } from '@/server/lib/audit';
 interface Temp2FaSession {
   userId: string;
   tokenVersion: number;
+  ipSubnet?: string;
 }
 
 const loginService = {
@@ -117,6 +118,18 @@ const loginService = {
         || typeof tempSession.userId !== 'string'
         || !Number.isInteger(tempSession.tokenVersion)
       ) {
+        throw new BizError('totp.sessionExpired');
+      }
+
+      // Security: Cryptographic Subnet Binding (Prevent cross-network hijacking of temp 2FA tokens)
+      if (tempSession.ipSubnet && tempSession.ipSubnet !== ipSubnet) {
+        await cache.delete(`temp_2fa_${params.tempToken}`);
+        await cache.delete(`temp_2fa_attempts_${params.tempToken}`);
+        logSecurityAudit({
+          action: 'AUTH_2FA_SUBNET_MISMATCH',
+          clientIp,
+          details: { originalSubnet: tempSession.ipSubnet, currentSubnet: ipSubnet },
+        });
         throw new BizError('totp.sessionExpired');
       }
 
@@ -294,6 +307,7 @@ const loginService = {
         const tempSession: Temp2FaSession = {
           userId: user.userId,
           tokenVersion: user.tokenVersion,
+          ipSubnet,
         };
         await cache.set(`temp_2fa_${tempToken}`, tempSession, { ttl: 300 }); // 5 mins TTL
         return {

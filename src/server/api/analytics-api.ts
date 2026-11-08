@@ -262,6 +262,12 @@ async function resolveAccurateGeo(
   return result;
 }
 
+// Sanitize and validate sessionId to prevent injection, control characters, or oversized parameters
+function sanitizeSessionId(sessionId?: unknown): string {
+  if (typeof sessionId !== 'string') return '';
+  return sessionId.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 64);
+}
+
 // Register visitor analytics API routes onto Hono instance.
 export function registerAnalyticsApi(app: Hono<HonoEnv>) {
 
@@ -398,14 +404,15 @@ export function registerAnalyticsApi(app: Hono<HonoEnv>) {
     }
 
     const body = await c.req.json<HeartbeatBo>().catch(() => ({} as HeartbeatBo));
-    if (!body.sessionId || typeof body.sessionId !== 'string' || body.sessionId.length > 64) {
+    const cleanSessionId = sanitizeSessionId(body.sessionId);
+    if (!cleanSessionId) {
       return c.json(result.ok({ updated: false }));
     }
 
     const updated = await analyticsService.heartbeat(
       {
         ...body,
-        sessionId: body.sessionId.slice(0, 64),
+        sessionId: cleanSessionId,
         durationSeconds: Math.max(0, Math.min(Number(body.durationSeconds) || 0, 86400)),
       },
       false
@@ -422,8 +429,8 @@ export function registerAnalyticsApi(app: Hono<HonoEnv>) {
     }
 
     const body = await c.req.json<UpdateVisitorLocationBo>().catch(() => ({} as UpdateVisitorLocationBo));
-
-    if (!body.sessionId || typeof body.sessionId !== 'string' || body.sessionId.length > 64) {
+    const cleanSessionId = sanitizeSessionId(body.sessionId);
+    if (!cleanSessionId) {
       return c.json(result.ok({ updated: false }));
     }
 
@@ -447,7 +454,7 @@ export function registerAnalyticsApi(app: Hono<HonoEnv>) {
     const updated = await analyticsService.updateLocation(
       {
         ...body,
-        sessionId: body.sessionId.slice(0, 64),
+        sessionId: cleanSessionId,
         locationName: typeof body.locationName === 'string' ? body.locationName.slice(0, 255) : '',
         latitude: isNaN(lat) || !isFinite(lat) ? null : lat,
         longitude: isNaN(lng) || !isFinite(lng) ? null : lng,
@@ -466,10 +473,12 @@ export function registerAnalyticsApi(app: Hono<HonoEnv>) {
     }
 
     const body = await c.req.json<TrackMediaBo>().catch(() => ({} as TrackMediaBo));
-    if (!body.photoId || typeof body.photoId !== 'string' || body.photoId.length > 64) {
+    const cleanPhotoId = typeof body.photoId === 'string' ? body.photoId.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 64) : '';
+    if (!cleanPhotoId) {
       return c.json(result.ok({ tracked: false }));
     }
 
+    const cleanSessionId = sanitizeSessionId(body.sessionId);
     const validActions = ['view', 'download', 'share', 'reaction', 'comment'];
     const safeAction = body.action && validActions.includes(body.action) ? body.action : 'view';
     const isAdmin = await checkIsAdmin(c);
@@ -477,8 +486,8 @@ export function registerAnalyticsApi(app: Hono<HonoEnv>) {
     const tracked = await analyticsService.trackMedia(
       {
         ...body,
-        photoId: body.photoId.slice(0, 64),
-        sessionId: typeof body.sessionId === 'string' ? body.sessionId.slice(0, 64) : undefined,
+        photoId: cleanPhotoId,
+        sessionId: cleanSessionId || undefined,
         action: safeAction as 'view' | 'download' | 'share' | 'reaction' | 'comment',
       },
       isAdmin
