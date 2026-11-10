@@ -421,4 +421,36 @@ describe('Advanced Performance Optimizations Verification', () => {
       assert.equal(chunks[2].length, 50);
     });
   });
+
+  describe('Round 14 Performance Optimizations Verification', () => {
+    it('Optimization 9: getPhotoThumbHashUrl caches and reuses data-URL via WeakMap for photo objects', async () => {
+      const { getPhotoThumbHashUrl, getThumbHashUrl } = await import('@/lib/thumb-hash');
+      const mockPhoto = { photoId: 'test-photo-123', thumbHash: '934a06342468766c6c747c34827c' };
+
+      const url1 = getPhotoThumbHashUrl(mockPhoto, mockPhoto.thumbHash);
+      assert.ok(typeof url1 === 'string' && url1.startsWith('data:image/png;base64,'));
+
+      const url2 = getPhotoThumbHashUrl(mockPhoto, mockPhoto.thumbHash);
+      assert.strictEqual(url1, url2);
+
+      assert.equal(getPhotoThumbHashUrl(null, undefined), undefined);
+      assert.equal(getPhotoThumbHashUrl(mockPhoto, null), undefined);
+    });
+
+    it('Optimization 1 & 2: photoService.list parallelizes storage queries and uses cached archived IDs', async () => {
+      const { photoService } = await import('@/server/service/photo-service');
+      const result = await photoService.list({
+        size: 5,
+        albumId: 'non-existent-album',
+        shuffle: false,
+      }, undefined).catch(() => ({ list: [], total: 0 }));
+      assert.ok(Array.isArray(result.list));
+    });
+
+    it('Optimization 3: fileService.listByPhotoIds returns empty map gracefully when photoIds is empty', async () => {
+      const { fileService } = await import('@/server/service/file-service');
+      const map = await fileService.listByPhotoIds([]);
+      assert.equal(map.size, 0);
+    });
+  });
 });

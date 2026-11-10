@@ -313,15 +313,8 @@ const photoService = {
     }
 
     // Exclude photos belonging to archived albums when browsing general feeds or active albums
-    let isCurrentAlbumArchived = false;
-    if (params.albumId) {
-      const [currentAlbum] = await readOrm
-        .select({ isArchived: albumTab.isArchived })
-        .from(albumTab)
-        .where(eq(albumTab.albumId, params.albumId))
-        .limit(1);
-      isCurrentAlbumArchived = currentAlbum?.isArchived === 1;
-    }
+    const archivedIds = status === PhotoStatusEnum.NORMAL || params.albumId ? await getArchivedAlbumIds() : [];
+    const isCurrentAlbumArchived = Boolean(params.albumId && archivedIds.includes(params.albumId));
 
     // Security: Unauthenticated guests are strictly forbidden from viewing photos in archived albums
     if (isCurrentAlbumArchived && !userId) {
@@ -329,7 +322,6 @@ const photoService = {
     }
 
     if (!isCurrentAlbumArchived && status === PhotoStatusEnum.NORMAL) {
-      const archivedIds = await getArchivedAlbumIds();
       if (archivedIds.length > 0) {
         baseWhereList.push(
           sql`NOT EXISTS (
@@ -475,9 +467,9 @@ const photoService = {
       };
     }
 
-    const fileStorageList = await storageService.getStorageList();
     const photoIds = list.map((photo: any) => photo.photoId);
-    const [exifMap, fileMap, albumMap] = await Promise.all([
+    const [fileStorageList, exifMap, fileMap, albumMap] = await Promise.all([
+      storageService.getStorageList(),
       exifService.listByPhotoIds(photoIds, false),
       fileService.listByPhotoIds(photoIds),
       albumService.listAlbumMapByPhotoIds(photoIds),
@@ -567,15 +559,8 @@ const photoService = {
     }
 
     // Exclude photos belonging to archived albums when browsing general feeds or active albums
-    let isCurrentAlbumArchived = false;
-    if (params.albumId) {
-      const [currentAlbum] = await readOrm
-        .select({ isArchived: albumTab.isArchived })
-        .from(albumTab)
-        .where(eq(albumTab.albumId, params.albumId))
-        .limit(1);
-      isCurrentAlbumArchived = currentAlbum?.isArchived === 1;
-    }
+    const archivedIds = status === PhotoStatusEnum.NORMAL || params.albumId ? await getArchivedAlbumIds() : [];
+    const isCurrentAlbumArchived = Boolean(params.albumId && archivedIds.includes(params.albumId));
 
     // Security: Unauthenticated guests cannot request random IDs for archived albums
     if (isCurrentAlbumArchived && !userId) {
@@ -583,7 +568,6 @@ const photoService = {
     }
 
     if (!isCurrentAlbumArchived && status === PhotoStatusEnum.NORMAL) {
-      const archivedIds = await getArchivedAlbumIds();
       if (archivedIds.length > 0) {
         whereList.push(
           sql`NOT EXISTS (

@@ -70,6 +70,8 @@ export default async function RootLayout({ children }: RootLayoutProps) {
     process.env.S3_ENDPOINT,
     process.env.NEXT_PUBLIC_S3_ENDPOINT,
     process.env.STORAGE_DOMAIN,
+    process.env.NEXT_PUBLIC_APP_URL,
+    process.env.APP_URL,
   ]
   const preconnectOrigins = new Set<string>()
 
@@ -94,6 +96,8 @@ export default async function RootLayout({ children }: RootLayoutProps) {
           <link key={`dns-${origin}`} rel="dns-prefetch" href={origin} />,
           <link key={`pre-${origin}`} rel="preconnect" href={origin} crossOrigin="anonymous" />,
         ])}
+        <link rel="preload" href="/worklets/smooth-corners.js" as="script" />
+        <link rel="preload" href="/worklets/skeleton-shimmer.js" as="script" />
         <script
           dangerouslySetInnerHTML={{
             __html: `if(typeof CSS!=='undefined'&&'paintWorklet' in CSS){try{CSS.paintWorklet.addModule('/worklets/smooth-corners.js');CSS.paintWorklet.addModule('/worklets/skeleton-shimmer.js')}catch(e){}}`,

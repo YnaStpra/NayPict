@@ -7,7 +7,7 @@ import { useIsMobile } from "@/hooks/use-mobile"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { formatPhotoTakenDate, formatRecycleTime } from "@/lib/date"
-import { getThumbHashUrl } from "@/lib/thumb-hash"
+import { getThumbHashUrl, getPhotoThumbHashUrl } from "@/lib/thumb-hash"
 import { toProxyMediaUrl } from "@/lib/url"
 import { PhotoStatusEnum } from "@/server/enums/photo-enum"
 import { type PhotoVo } from "@/server/entity/vo/photo"
@@ -217,10 +217,10 @@ export const PhotoCard = memo(function PhotoCard({
   const initialLoaded = Boolean(imageSrc && loadedThumbnails.has(imageSrc))
   const [isImageLoaded, setIsImageLoaded] = useState(initialLoaded)
   const isDummyThumbHash = !data.thumbHash || data.thumbHash.startsWith("00080204") || data.thumbHash.startsWith("00080205")
-  // Bypass ThumbHash hex decoding and canvas drawing if the thumbnail is already painted from memory cache
+  // Bypass ThumbHash hex decoding and canvas drawing if the thumbnail is already painted from memory cache, using fast WeakMap
   const placeholder = useMemo(
-    () => (!initialLoaded && !isDummyThumbHash ? getThumbHashUrl(data.thumbHash) : undefined),
-    [initialLoaded, data.thumbHash, isDummyThumbHash]
+    () => (!initialLoaded && !isDummyThumbHash ? getPhotoThumbHashUrl(data, data.thumbHash) : undefined),
+    [initialLoaded, data, data.thumbHash, isDummyThumbHash]
   )
   // showTouchHover Record whether floating information is displayed after long pressing on the mobile terminal.
   const [showTouchHover, setShowTouchHover] = useState(false)
@@ -433,16 +433,20 @@ export const PhotoCard = memo(function PhotoCard({
     onOpen?.(origin)
   }, [data.width, data.height, data.preview, data.thumbnail, data.key, imageSrc, isVideo, onOpen])
 
-  // Predictive zero-delay hover prefetching and instant video hover autoplay
+  // Predictive zero-delay hover prefetching and intent-debounced video hover autoplay
   function handleMouseEnter() {
     if (isMobile) return
     prefetchPhotoHighRes(data.preview || data.key)
     prefetchPhotoViewer()
     if (isVideo) {
-      if (videoStreamUrl) {
-        prebufferVideo(videoStreamUrl)
-      }
-      videoCoordinator?.setHovered(data.photoId)
+      if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current)
+      hoverTimerRef.current = setTimeout(() => {
+        if (videoStreamUrl) {
+          prebufferVideo(videoStreamUrl)
+        }
+        videoCoordinator?.setHovered(data.photoId)
+        hoverTimerRef.current = null
+      }, 80)
     }
   }
 

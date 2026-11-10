@@ -4,6 +4,24 @@ import { thumbHashToDataURL, rgbaToThumbHash } from "thumbhash"
 
 // In-memory LRU cache to prevent repeated CPU-heavy hex parsing and canvas drawing during render loops
 const thumbHashCache = new Map<string, string>();
+// WeakMap for zero-overhead O(1) object lookup bypassing string hashing across render cycles
+const photoThumbHashMap = new WeakMap<object, string>();
+
+// Fast object-level thumbHash lookup using WeakMap
+function getPhotoThumbHashUrl(photo?: object | null, thumbHash?: string | null): string | undefined {
+  if (!thumbHash) {
+    return undefined;
+  }
+  if (photo) {
+    const cached = photoThumbHashMap.get(photo);
+    if (cached) return cached;
+  }
+  const url = getThumbHashUrl(thumbHash);
+  if (url && photo) {
+    photoThumbHashMap.set(photo, url);
+  }
+  return url;
+}
 // Dynamic memory bound: 600 entries on mobile to prevent RAM pressure, 1500 on desktop
 function getMaxCacheLimit(): number {
   if (typeof window !== "undefined" && window.innerWidth < 768) {
@@ -185,6 +203,7 @@ async function generateClientImageThumbHash(
 export {
   decodeThumbHash,
   getThumbHashUrl,
+  getPhotoThumbHashUrl,
   decodeThumbHashOffscreen,
   clearThumbHashCache,
   generateClientImageThumbHash,
