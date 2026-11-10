@@ -22,17 +22,23 @@ const fileService = {
     }
 
     const list = await readOrm
-      .select()
+      .select({
+        fileId: fileTab.fileId,
+        photoId: fileTab.photoId,
+        type: fileTab.type,
+        key: fileTab.key,
+      })
       .from(fileTab)
       .where(inArray(fileTab.photoId, photoIds));
 
     for (const file of list) {
-      const files = map.get(file.photoId);
+      const typedFile = file as unknown as File;
+      const files = map.get(typedFile.photoId);
 
       if (files) {
-        files.push(file);
+        files.push(typedFile);
       } else {
-        map.set(file.photoId, [file]);
+        map.set(typedFile.photoId, [typedFile]);
       }
     }
 

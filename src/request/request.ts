@@ -77,6 +77,22 @@ export function clearHttpCache(pattern?: string | RegExp) {
 
 // send POST Request and return interface data.
 async function post<T = unknown>(url: string, params: RequestParams = null, options?: RequestOptions) {
+  // Idempotent read-only POST cache for chunked photo list pagination (0ms reverse scroll & memory reuse)
+  const isCacheablePost = url === '/photo/list'
+    && typeof params === 'object'
+    && params !== null
+    && !(params instanceof FormData)
+    && Array.isArray((params as any).photoIds)
+    && (params as any).photoIds.length > 0;
+
+  const postCacheKey = isCacheablePost ? `post:/photo/list:${JSON.stringify(params)}` : null;
+  if (postCacheKey) {
+    const cached = memoryGetCache.get(postCacheKey);
+    if (cached && Date.now() < cached.expiresAt) {
+      return cached.data as T;
+    }
+  }
+
   const headers = new Headers();
   headers.set('X-Requested-With', 'XMLHttpRequest');
   let body: BodyInit | null = null;
@@ -178,7 +194,16 @@ async function post<T = unknown>(url: string, params: RequestParams = null, opti
     clearHttpCache('/photo');
   }
 
-  return json.data as T;
+  const resultData = json.data as T;
+  if (postCacheKey && resultData) {
+    if (memoryGetCache.size > 200) {
+      const oldest = memoryGetCache.keys().next().value;
+      if (oldest) memoryGetCache.delete(oldest);
+    }
+    memoryGetCache.set(postCacheKey, { data: resultData, expiresAt: Date.now() + 60_000 });
+  }
+
+  return resultData;
 }
 
 // Append query parameters onto URL

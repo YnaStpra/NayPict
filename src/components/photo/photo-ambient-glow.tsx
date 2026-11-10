@@ -3,6 +3,7 @@
 import React, { useMemo } from "react"
 import { getThumbHashUrl } from "@/lib/thumb-hash"
 import { cn } from "@/lib/utils"
+import { useAdaptivePerformance } from "@/hooks/use-adaptive-performance"
 
 interface PhotoViewerAmbientGlowProps {
   thumbHash?: string | null
@@ -21,7 +22,9 @@ export function PhotoViewerAmbientGlow({
   dragOpacity = 1,
   className,
 }: PhotoViewerAmbientGlowProps) {
+  const { isEcoMode } = useAdaptivePerformance()
   const thumbHashUrl = useMemo(() => getThumbHashUrl(thumbHash), [thumbHash])
+  const isDragging = dragOpacity !== 1
 
   if (!thumbHashUrl || !visible) return null
 
@@ -35,17 +38,22 @@ export function PhotoViewerAmbientGlow({
         opacity: dragOpacity,
         transform: "translate3d(0, 0, 0)",
         contain: "strict",
-        willChange: dragOpacity !== 1 ? "opacity" : "auto",
+        willChange: isDragging ? "opacity" : "auto",
       }}
       aria-hidden
     >
-      {/* Outer Ambient Atmosphere: Ultra-wide color wash with enhanced saturation (Desktop only to conserve mobile GPU fill-rate) */}
-      <img
-        src={thumbHashUrl}
-        alt=""
-        decoding="async"
-        className="absolute w-[95vw] h-[95vh] max-w-[1600px] max-h-[1200px] rounded-full blur-[120px] opacity-70 dark:opacity-80 scale-150 saturate-[2.2] contrast-[1.25] object-cover pointer-events-none transition-all duration-700 ease-out hidden md:block md:animate-ambient-breathe will-change-transform translate-z-0"
-      />
+      {/* Outer Ambient Atmosphere: Ultra-wide color wash with enhanced saturation (Desktop only, omitted in EcoMode to conserve GPU fill-rate) */}
+      {!isEcoMode && (
+        <img
+          src={thumbHashUrl}
+          alt=""
+          decoding="async"
+          className={cn(
+            "absolute w-[95vw] h-[95vh] max-w-[1600px] max-h-[1200px] rounded-full blur-[120px] opacity-70 dark:opacity-80 scale-150 saturate-[2.2] contrast-[1.25] object-cover pointer-events-none transition-all duration-700 ease-out hidden md:block will-change-transform translate-z-0",
+            !isDragging && "md:animate-ambient-breathe"
+          )}
+        />
+      )}
 
       {/* Inner Core Bloom: Radiant atmospheric halo around photo frame (Lightweight 28px blur on mobile, 65px on desktop) */}
       <img

@@ -87,7 +87,7 @@ import { albumAddPhoto, albumRemovePhoto } from '@/request/album'
 import { type AlbumAddPhotoResultVo } from '@/server/entity/vo/album'
 import { useAlbumStore } from '@/store/album-store'
 import { emitCatalogSync } from '@/lib/catalog-sync'
-import { getThumbHashUrl } from '@/lib/thumb-hash'
+import { getThumbHashUrl, getPhotoThumbHashUrl } from '@/lib/thumb-hash'
 import { toProxyMediaUrl } from '@/lib/url'
 import { formatPhotoTakenDate, formatRelativeTime, parseTime } from '@/lib/date'
 import { decimalToDms } from '@/lib/geo'
@@ -148,8 +148,14 @@ function AdminPhotoThumbnail({
   const isVideo = Boolean(photo.type?.startsWith('video/') || /\.(mp4|webm|mov|m4v|mkv)$/i.test(photo.name))
   const [imgSrc, setImgSrc] = useState<string | null>(photo.thumbnail || photo.preview || '')
   const [hasError, setHasError] = useState(false)
-  const isDummyThumbHash = !photo.thumbHash || photo.thumbHash.startsWith("00080204") || photo.thumbHash.startsWith("00080205")
-  const thumbHashUrl = isDummyThumbHash ? null : getThumbHashUrl(photo.thumbHash)
+  const isDummyThumbHash = useMemo(
+    () => !photo.thumbHash || photo.thumbHash.startsWith("00080204") || photo.thumbHash.startsWith("00080205"),
+    [photo.thumbHash]
+  )
+  const thumbHashUrl = useMemo(
+    () => isDummyThumbHash ? null : getPhotoThumbHashUrl(photo, photo.thumbHash),
+    [photo, photo.thumbHash, isDummyThumbHash]
+  )
   const videoSrc = photo.key?.startsWith('http')
     ? photo.key
     : (photo.key ? toProxyMediaUrl(photo.key) : undefined)

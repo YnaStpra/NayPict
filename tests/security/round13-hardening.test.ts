@@ -1,9 +1,8 @@
-import { describe, it } from 'node:test';
-import assert from 'node:assert/strict';
-
-// Ensure JWT_SECRET is available for security test execution even if cleared by other test suites
+// Ensure fallback test secret for CI environments where JWT_SECRET is not configured
 process.env.JWT_SECRET = process.env.JWT_SECRET || 'supersecretfornaypicttests1234567890';
 
+import { describe, it } from 'node:test';
+import assert from 'node:assert/strict';
 import { generateTotpSecret, getTotpCode, verifyTotpCode } from '@/server/lib/totp';
 import { createLoginToken, verifyLoginToken } from '@/server/lib/jwt';
 import { encryptData, decryptData } from '@/server/lib/crypto';
@@ -55,6 +54,7 @@ describe('Round 13 Security Hardening Test Suite', () => {
 
   describe('Task 2: Standard JWT Claims Enforcement (RFC 7519)', () => {
     it('creates tokens with iss: naypict, aud: naypict-web, and nbf claims', async () => {
+      process.env.JWT_SECRET = process.env.JWT_SECRET || 'supersecretfornaypicttests1234567890';
       const token = await createLoginToken('user_test_123', 'uuid_test_456', 1);
       assert.ok(token);
 
