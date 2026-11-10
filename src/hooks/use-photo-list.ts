@@ -192,7 +192,7 @@ function usePhotoList(
   }, [])
 
   // Fetch next page of photos by ID slice from the shuffled ID list.
-  const loadPhotosByIds = useCallback((ids: string[], append: boolean) => {
+  const loadPhotosByIds = useCallback((ids: string[], append: boolean, previousOffset?: number) => {
     const queryParams = paramsRef.current
 
     photoList({
@@ -228,8 +228,12 @@ function usePhotoList(
       })
       .catch((err) => {
         console.error("Failed to load photos by IDs:", err)
-        hasMoreRef.current = false
-        setHasMore(false)
+        // Rollback offset so subsequent retry re-fetches this exact slice instead of skipping or hitting EOF
+        if (append && typeof previousOffset === 'number') {
+          pageOffsetRef.current = previousOffset
+        }
+        hasMoreRef.current = true
+        setHasMore(true)
         if (append) {
           setLoadMoreError(true)
         }
@@ -318,8 +322,8 @@ function usePhotoList(
         })
         .catch((err) => {
           console.error("Failed to load photo list:", err)
-          hasMoreRef.current = false
-          setHasMore(false)
+          hasMoreRef.current = true
+          setHasMore(true)
           if (append) {
             setLoadMoreError(true)
           }
@@ -356,11 +360,12 @@ function usePhotoList(
         return
       }
 
+      const prevOffset = offset
       pageOffsetRef.current = offset + nextIds.length
       const more = pageOffsetRef.current < allIds.length
       hasMoreRef.current = more
       setHasMore(more)
-      loadPhotosByIds(nextIds, true)
+      loadPhotosByIds(nextIds, true, prevOffset)
       return
     }
 
@@ -391,11 +396,12 @@ function usePhotoList(
           }
           const lastId = nextIds[nextIds.length - 1]
           const lastIdx = allIds.indexOf(lastId)
+          const prevOffset = pageOffsetRef.current
           pageOffsetRef.current = lastIdx !== -1 ? lastIdx + 1 : allIds.length
           const more = pageOffsetRef.current < allIds.length
           hasMoreRef.current = more
           setHasMore(more)
-          loadPhotosByIds(nextIds, true)
+          loadPhotosByIds(nextIds, true, prevOffset)
         } else {
           // Fresh load: replace everything with first page from shuffled IDs
           const firstPageIds = allIds.slice(0, pageSize)
@@ -413,8 +419,8 @@ function usePhotoList(
       })
       .catch((err) => {
         console.error("Failed to fetch random ID list:", err)
-        hasMoreRef.current = false
-        setHasMore(false)
+        hasMoreRef.current = true
+        setHasMore(true)
         loadingRef.current = false
         setLoadingMore(false)
         if (append) {
@@ -447,9 +453,11 @@ function usePhotoList(
 
   // Retry loading more photos after a failure
   const retryLoadMore = useCallback(() => {
+    loadingRef.current = false
+    setLoadingMore(false)
+    setLoadMoreError(false)
     hasMoreRef.current = true
     setHasMore(true)
-    setLoadMoreError(false)
     loadPhotoList(true)
   }, [loadPhotoList])
 

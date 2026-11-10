@@ -435,7 +435,7 @@ const photoService = {
               ]
             : [
                 params.photoIds?.length
-                  ? sql`CASE ${photoTab.photoId} ${params.photoIds.map((id, i) => sql`WHEN ${id} THEN ${i}`).reduce((a, b) => sql`${a} ${b}`)} END`
+                  ? asc(photoTab.photoId)
                   : (params.shuffle && !params.sortBy && !params.cursorPhotoId ? sql`RANDOM()` : sortFn(orderColumn)),
                 sortFn(photoTab.photoId),
               ])
@@ -455,7 +455,7 @@ const photoService = {
               ]
             : [
                 params.photoIds?.length
-                  ? sql`CASE ${photoTab.photoId} ${params.photoIds.map((id, i) => sql`WHEN ${id} THEN ${i}`).reduce((a, b) => sql`${a} ${b}`)} END`
+                  ? asc(photoTab.photoId)
                   : (params.shuffle && !params.sortBy && !params.cursorPhotoId ? sql`RANDOM()` : sortFn(orderColumn)),
                 sortFn(photoTab.photoId),
               ])
@@ -499,6 +499,12 @@ const photoService = {
         true // isGridList: lightweight EXIF payload
       );
     });
+
+    // In-memory stable order preservation matching requested photoIds sequence
+    if (params.photoIds && params.photoIds.length > 0) {
+      const idOrder = new Map(params.photoIds.map((id, i) => [id, i]));
+      result.sort((a, b) => (idOrder.get(a.photoId) ?? 0) - (idOrder.get(b.photoId) ?? 0));
+    }
 
     let totalCount: number | undefined = shuffledTotalCount;
     if (countResult && countResult[0]) {
