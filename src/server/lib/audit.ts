@@ -8,8 +8,8 @@ export interface SecurityAuditEntry {
   details?: Record<string, unknown>;
 }
 
-// Sensitive keys pattern to redact automatically from audit logs.
-const SENSITIVE_KEY_PATTERN = /^(password|passwd|secret|token|accesstoken|refreshtoken|accesskey|secretkey|authorization|cookie|sessionid)$/i;
+// Sensitive keys pattern to redact automatically from audit logs (matches exact or compound keys like tempToken, backupCodes, apiKey, accessKey, privateKey).
+const SENSITIVE_KEY_PATTERN = /(password|passwd|secret|token|auth|cookie|session|backupcode|privatekey|apikey|accesskey|credential|signature)/i;
 
 // Recursively redact sensitive authentication and credential values from log details.
 export function redactSensitiveDetails(obj: unknown, depth = 0): unknown {

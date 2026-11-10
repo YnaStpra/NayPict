@@ -21,7 +21,7 @@ function getJwtSecret(): string {
   return secret;
 }
 
-// Generate and return a JWT token after successful login.
+// Generate and return a JWT token after successful login with RFC 7519 standard claims.
 async function createLoginToken(userId: string, uuid: string, tokenVersion: number): Promise<string> {
   const secret = getJwtSecret();
   const now = Math.floor(Date.now() / 1000);
@@ -29,6 +29,9 @@ async function createLoginToken(userId: string, uuid: string, tokenVersion: numb
     userId,
     uuid,
     tokenVersion,
+    iss: 'naypict',
+    aud: 'naypict-web',
+    nbf: now - 5, // 5 seconds tolerance for clock drift
     iat: now,
     exp: now + 60 * 60 * 24 * 30,
   };
@@ -56,6 +59,8 @@ async function verifyLoginToken(token: string | undefined): Promise<LoginTokenPa
       || typeof payload.uuid !== 'string'
       || (payload.tokenVersion !== undefined
         && (!Number.isInteger(payload.tokenVersion) || Number(payload.tokenVersion) < 1))
+      || (payload.iss !== undefined && payload.iss !== 'naypict')
+      || (payload.aud !== undefined && payload.aud !== 'naypict-web')
     ) {
       return null;
     }

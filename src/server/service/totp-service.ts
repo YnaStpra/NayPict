@@ -70,7 +70,7 @@ const totpService = {
     try {
       const data = JSON.parse(row.value) as TotpUserData;
       if (data.secret) {
-        data.secret = await decryptData(data.secret, getEncryptionKey());
+        data.secret = await decryptData(data.secret, getEncryptionKey(), { failClosed: true });
       }
       return data;
     } catch {
@@ -290,16 +290,27 @@ const totpService = {
     }
 
     const cleanCode = code.trim().toLowerCase();
-    const inputHash = crypto.createHash('sha256').update(cleanCode).digest('hex');
+    const inputHashBuf = crypto.createHash('sha256').update(cleanCode).digest();
 
-    const codeIndex = data.backupCodes.indexOf(inputHash);
-    if (codeIndex === -1) {
+    // Constant-time search across all stored backup hashes to eliminate timing side-channels
+    let matchedIndex = -1;
+    for (let i = 0; i < data.backupCodes.length; i++) {
+      const storedHashHex = data.backupCodes[i];
+      if (typeof storedHashHex === 'string' && storedHashHex.length === 64) {
+        const storedHashBuf = Buffer.from(storedHashHex, 'hex');
+        if (storedHashBuf.length === inputHashBuf.length && crypto.timingSafeEqual(storedHashBuf, inputHashBuf)) {
+          matchedIndex = i;
+        }
+      }
+    }
+
+    if (matchedIndex === -1) {
       return false;
     }
 
     // Single-use: remove matched code from user's remaining list
     const remainingCodes = [...data.backupCodes];
-    remainingCodes.splice(codeIndex, 1);
+    remainingCodes.splice(matchedIndex, 1);
 
     const key = this.getSettingKey(userId);
     const encryptedSecret = await encryptData(data.secret, getEncryptionKey());

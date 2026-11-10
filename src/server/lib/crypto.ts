@@ -157,13 +157,21 @@ export async function encryptData(plainText: string, secretKey: string): Promise
 }
 
 // Decrypt AES-256-GCM encrypted payload, or return as-is if unencrypted legacy format.
-export async function decryptData(cipherText: string, secretKey: string): Promise<string> {
+// Supports fail-closed mode via options.failClosed (throws if an enc:v1: payload is corrupted, tampered with, or uses an invalid key).
+export async function decryptData(
+  cipherText: string,
+  secretKey: string,
+  options?: { failClosed?: boolean }
+): Promise<string> {
   if (!cipherText || !cipherText.startsWith('enc:v1:')) {
     return cipherText;
   }
 
   const parts = cipherText.split(':');
   if (parts.length !== 4) {
+    if (options?.failClosed) {
+      throw new Error('Corrupted encrypted payload: invalid format');
+    }
     return cipherText;
   }
 
@@ -193,6 +201,9 @@ export async function decryptData(cipherText: string, secretKey: string): Promis
     return new TextDecoder().decode(decryptedBuffer);
   } catch (err) {
     console.warn('[CRYPTO] AES-256-GCM payload decryption failed (tampered data or wrong key):', err);
+    if (options?.failClosed) {
+      throw new Error('AES-256-GCM payload decryption failed: invalid key or tampered ciphertext');
+    }
     return cipherText;
   }
 }

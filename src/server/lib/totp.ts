@@ -27,13 +27,30 @@ function base32Decode(base32: string): Buffer {
   return Buffer.from(bytes);
 }
 
-// Generate random 16-character Base32 Secret Key for TOTP
-export function generateTotpSecret(length: number = 16): string {
-  const randomBytes = crypto.randomBytes(length);
+// Generate cryptographically secure Base32 Secret Key for TOTP (RFC 6238 recommends minimum 160 bits = 32 Base32 characters).
+export function generateTotpSecret(length: number = 32): string {
+  // Each Base32 character encodes exactly 5 bits.
+  // Use bit-shifting with 0x1f mask across random bytes to guarantee uniform distribution without modulo bias.
+  const byteLength = Math.ceil((length * 5) / 8);
+  const randomBytes = crypto.randomBytes(byteLength);
   let secret = '';
-  for (let i = 0; i < length; i++) {
-    secret += BASE32_CHARS[randomBytes[i] % 32];
+  let buffer = 0;
+  let bitsLeft = 0;
+
+  for (let i = 0; i < randomBytes.length && secret.length < length; i++) {
+    buffer = (buffer << 8) | randomBytes[i];
+    bitsLeft += 8;
+    while (bitsLeft >= 5 && secret.length < length) {
+      bitsLeft -= 5;
+      secret += BASE32_CHARS[(buffer >> bitsLeft) & 0x1f];
+    }
   }
+
+  while (secret.length < length) {
+    const extra = crypto.randomBytes(1)[0];
+    secret += BASE32_CHARS[extra & 0x1f];
+  }
+
   return secret;
 }
 
