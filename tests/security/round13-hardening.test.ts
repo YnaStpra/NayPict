@@ -1,5 +1,9 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
+
+// Ensure JWT_SECRET is available for security test execution even if cleared by other test suites
+process.env.JWT_SECRET = process.env.JWT_SECRET || 'supersecretfornaypicttests1234567890';
+
 import { generateTotpSecret, getTotpCode, verifyTotpCode } from '@/server/lib/totp';
 import { createLoginToken, verifyLoginToken } from '@/server/lib/jwt';
 import { encryptData, decryptData } from '@/server/lib/crypto';
