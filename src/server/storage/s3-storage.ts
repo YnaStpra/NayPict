@@ -91,6 +91,20 @@ class S3StorageStrategy implements StorageStrategy {
       throw new BizError('s3.configIncomplete');
     }
 
+    // Security: Enforce strict TLS/HTTPS for remote storage endpoints in production
+    if (process.env.NODE_ENV === 'production') {
+      try {
+        const parsedUrl = new URL(endpoint);
+        const isLocalHost = parsedUrl.hostname === 'localhost' || parsedUrl.hostname === '127.0.0.1' || parsedUrl.hostname === '::1';
+        if (!isLocalHost && parsedUrl.protocol !== 'https:') {
+          throw new BizError('s3.httpsRequiredInProduction');
+        }
+      } catch (err) {
+        if (err instanceof BizError) throw err;
+        throw new BizError('s3.invalidEndpoint');
+      }
+    }
+
     const cacheKey = `${storage.storageId || 'default'}_${endpoint}_${accessKeyId}`;
     let client = s3ClientCache.get(cacheKey);
 
@@ -99,6 +113,7 @@ class S3StorageStrategy implements StorageStrategy {
         region,
         endpoint,
         forcePathStyle: true,
+        tls: endpoint.startsWith('https:'),
         credentials: {
           accessKeyId,
           secretAccessKey
@@ -245,6 +260,9 @@ class S3StorageStrategy implements StorageStrategy {
     // Ensure bucket CORS is configured for browser direct PUT uploads
     void ensureBucketCors(client, bucket);
 
+    // Security: Enforce tight expiration bounds between 60s and 900s (max 15 minutes) to prevent persistent upload URLs
+    const clampedExpiresIn = Math.min(Math.max(Number(expiresIn) || 900, 60), 900);
+
     const command = new PutObjectCommand({
       Bucket: bucket,
       Key: key,
@@ -252,7 +270,7 @@ class S3StorageStrategy implements StorageStrategy {
     });
 
     const { getSignedUrl } = await import('@aws-sdk/s3-request-presigner');
-    return getSignedUrl(client, command, { expiresIn });
+    return getSignedUrl(client, command, { expiresIn: clampedExpiresIn });
   }
 
   // Initiate S3 / Cloudflare R2 multipart upload session and return uploadId.

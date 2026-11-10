@@ -375,6 +375,7 @@ const userService = {
         .where(eq(userTab.userId, userId));
 
       await cache.delete(AUTH_CACHE_KEY + userId);
+      await sessionService.revokeAllSessions(userId).catch(() => {});
       return;
     }
 
@@ -387,8 +388,9 @@ const userService = {
       .where(eq(userTab.userId, userId));
 
     if (isTypeChanged) {
-      // Security: Invalidate active login session cache across all devices when role changes
+      // Security: Invalidate active login session cache and revoke all active sessions across devices when role changes
       await cache.delete(AUTH_CACHE_KEY + userId);
+      await sessionService.revokeAllSessions(userId).catch(() => {});
     } else {
       // If there is a login cache, Synchronously update the user types and username in it.
       const authInfo = await cache.get<AuthInfo>(AUTH_CACHE_KEY + userId);
@@ -455,6 +457,7 @@ const userService = {
 
     // Invalidate active login cache sessions across all devices for security
     await cache.delete(AUTH_CACHE_KEY + userId);
+    await sessionService.revokeAllSessions(userId).catch(() => {});
   },
 
   // Toggle the enabled status of a specified user with self-protection and last-admin safeguard.

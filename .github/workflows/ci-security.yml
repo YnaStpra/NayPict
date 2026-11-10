@@ -45,6 +45,8 @@ jobs:
 
       - name: Run Security Test Suite
         run: pnpm test:security
+        env:
+          JWT_SECRET: supersecretfornaypicttests1234567890
 
       - name: TypeScript Type Check
         run: npx tsc --noEmit

@@ -940,6 +940,7 @@ const photoService = {
     if (!ALLOWED_UPLOAD_MIMES.has(fileType)) {
       throw new BizError('photo.invalidFileType');
     }
+
     let storageList = await storageService.getStorageList();
     let targetStorage: Storage | undefined = params.storageId
       ? storageList.find((s) => s.storageId === params.storageId)
@@ -995,6 +996,13 @@ const photoService = {
     if (!ALLOWED_UPLOAD_MIMES.has(fileType)) {
       throw new BizError('photo.invalidFileType');
     }
+
+    const ALLOWED_THUMBNAIL_MIMES = new Set(['image/avif', 'image/webp', 'image/jpeg', 'image/png']);
+    const thumbnailType = params.thumbnailType || 'image/avif';
+    if (!ALLOWED_THUMBNAIL_MIMES.has(thumbnailType)) {
+      throw new BizError('photo.invalidFileType');
+    }
+
     let storageList = await storageService.getStorageList();
     let targetStorage: Storage | undefined = params.storageId
       ? storageList.find((s) => s.storageId === params.storageId)
@@ -1021,7 +1029,6 @@ const photoService = {
     const originalKey = await this.resolvePhotoKey(userId, filename);
     const previewKey = buildPreviewKey(checksum, photoId);
 
-    const thumbnailType = params.thumbnailType || 'image/avif';
     const thumbnailExt = thumbnailType.includes('avif') ? '.avif' : thumbnailType.includes('jpeg') ? '.jpg' : '.webp';
     const thumbnailKey = buildThumbnailKey(checksum, photoId, thumbnailExt);
 

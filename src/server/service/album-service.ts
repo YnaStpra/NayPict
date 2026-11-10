@@ -459,71 +459,97 @@ const albumService = {
 
   // Get photo candidates in album sorted by cover score.
   async getCoverCandidates(albumId: string, userId?: string) {
-    const wherePhotoList = [
-      eq(albumPhotoTab.albumId, albumId),
-      eq(photoTab.status, PhotoStatusEnum.NORMAL)
-    ];
-    if (userId) {
-      wherePhotoList.push(eq(photoTab.userId, userId));
+    if (!albumId?.trim()) {
+      return [];
     }
+    const cleanAlbumId = albumId.trim();
 
-    // If target album is active, exclude photos belonging to any archived album
-    const [targetAlbum] = await readOrm
-      .select({ isArchived: albumTab.isArchived })
-      .from(albumTab)
-      .where(eq(albumTab.albumId, albumId))
-      .limit(1);
+    try {
+      // Query target album to verify existence and check archived permissions
+      const [targetAlbum] = await readOrm
+        .select({
+          albumId: albumTab.albumId,
+          userId: albumTab.userId,
+          isArchived: albumTab.isArchived,
+        })
+        .from(albumTab)
+        .where(eq(albumTab.albumId, cleanAlbumId))
+        .limit(1);
 
-    if (targetAlbum?.isArchived === 0) {
-      const archivedIds = await getArchivedAlbumIds();
-      if (archivedIds.length > 0) {
-        wherePhotoList.push(
-          sql`NOT EXISTS (
-            SELECT 1 FROM ${albumPhotoTab} ap_archived
-            WHERE ap_archived.photo_id = ${photoTab.photoId}
-            AND ${inArray(albumPhotoTab.albumId, archivedIds)}
-          )`
-        );
+      if (!targetAlbum) {
+        return [];
       }
+
+      // Security: Archived albums are private and cannot be inspected by unauthenticated visitors or non-owners
+      if (targetAlbum.isArchived === 1) {
+        if (!userId || targetAlbum.userId !== userId) {
+          return [];
+        }
+      }
+
+      const wherePhotoList = [
+        eq(albumPhotoTab.albumId, cleanAlbumId),
+        eq(photoTab.status, PhotoStatusEnum.NORMAL)
+      ];
+      if (userId) {
+        wherePhotoList.push(eq(photoTab.userId, userId));
+      }
+
+      // If target album is active, exclude photos belonging to any archived album
+      if (targetAlbum.isArchived === 0) {
+        const archivedIds = await getArchivedAlbumIds();
+        if (archivedIds.length > 0) {
+          wherePhotoList.push(
+            sql`NOT EXISTS (
+              SELECT 1 FROM ${albumPhotoTab} ap_archived
+              WHERE ap_archived.photo_id = ${photoTab.photoId}
+              AND ${inArray(albumPhotoTab.albumId, archivedIds)}
+            )`
+          );
+        }
+      }
+
+      const albumPhotos = await readOrm
+        .select({
+          photoId: photoTab.photoId,
+          name: photoTab.name,
+          width: photoTab.width,
+          height: photoTab.height,
+          size: photoTab.size,
+          thumbHash: photoTab.thumbHash,
+          storageId: photoTab.storageId
+        })
+        .from(albumPhotoTab)
+        .innerJoin(photoTab, eq(albumPhotoTab.photoId, photoTab.photoId))
+        .where(and(...wherePhotoList))
+        .limit(500);
+
+      const photoIds = albumPhotos.map((p) => p.photoId);
+      const fileStorageList = await storageService.list();
+      const fileMap = photoIds.length
+        ? await fileService.listByPhotoIds(photoIds)
+        : new Map<string, File[]>();
+
+      const scored = albumPhotos.map((photo) => {
+        const score = calculateAlbumCoverScore(photo);
+        const fileStorage = fileStorageList.list.find((item: any) => item.storageId === photo.storageId);
+        const domain = formatHttpUrl(fileStorage?.domain);
+        const thumbnailFile = (fileMap.get(photo.photoId) ?? []).find((item: any) => item.type === FileTypeEnum.THUMBNAIL);
+        const previewFile = (fileMap.get(photo.photoId) ?? []).find((item: any) => item.type === FileTypeEnum.PREVIEW);
+
+        return {
+          ...photo,
+          score,
+          thumbnail: thumbnailFile?.key ? toMediaUrl(thumbnailFile.key, domain) : null,
+          preview: previewFile?.key ? toMediaUrl(previewFile.key, domain) : null,
+        };
+      }).sort((a, b) => b.score - a.score);
+
+      return scored;
+    } catch (err) {
+      console.warn('[ALBUM] Error querying cover candidates:', err);
+      return [];
     }
-
-    const albumPhotos = await readOrm
-      .select({
-        photoId: photoTab.photoId,
-        name: photoTab.name,
-        width: photoTab.width,
-        height: photoTab.height,
-        size: photoTab.size,
-        thumbHash: photoTab.thumbHash,
-        storageId: photoTab.storageId
-      })
-      .from(albumPhotoTab)
-      .innerJoin(photoTab, eq(albumPhotoTab.photoId, photoTab.photoId))
-      .where(and(...wherePhotoList))
-      .limit(500);
-
-    const photoIds = albumPhotos.map((p) => p.photoId);
-    const fileStorageList = await storageService.list();
-    const fileMap = photoIds.length
-      ? await fileService.listByPhotoIds(photoIds)
-      : new Map<string, File[]>();
-
-    const scored = albumPhotos.map((photo) => {
-      const score = calculateAlbumCoverScore(photo);
-      const fileStorage = fileStorageList.list.find((item: any) => item.storageId === photo.storageId);
-      const domain = formatHttpUrl(fileStorage?.domain);
-      const thumbnailFile = (fileMap.get(photo.photoId) ?? []).find((item: any) => item.type === FileTypeEnum.THUMBNAIL);
-      const previewFile = (fileMap.get(photo.photoId) ?? []).find((item: any) => item.type === FileTypeEnum.PREVIEW);
-
-      return {
-        ...photo,
-        score,
-        thumbnail: thumbnailFile?.key ? toMediaUrl(thumbnailFile.key, domain) : null,
-        preview: previewFile?.key ? toMediaUrl(previewFile.key, domain) : null,
-      };
-    }).sort((a, b) => b.score - a.score);
-
-    return scored;
   },
 
   // Add photo associations to albums, ensuring photos are not duplicated by photoId.
