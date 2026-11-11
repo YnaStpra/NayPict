@@ -68,6 +68,10 @@ const SENSITIVE_MUTATION_PATHS = [
   '/admin/insights/reset',
   '/admin/insights/reactions/reset',
   '/cron/cleanup',
+  '/photo/add',
+  '/photo/presignedUploadUrl',
+  '/photo/presignedPhotoUploadUrls',
+  '/logout',
 ];
 
 // Extract hostname without port from a URL string or host header.
@@ -189,7 +193,8 @@ export async function csrfProtection(c: Context, next: Next) {
   if (isSensitive) {
     const requestedWith = c.req.header('x-requested-with');
     const contentType = c.req.header('content-type') || '';
-    const isJson = contentType.includes('application/json');
+    const mimeEssence = contentType.split(';')[0]?.trim().toLowerCase() || '';
+    const isJson = mimeEssence === 'application/json';
     const isCustomHeader = Boolean(requestedWith) || isJson;
 
     if (!isCustomHeader) {

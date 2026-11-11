@@ -279,7 +279,7 @@ function usePhotoList(
           const rank = isVideosFirst ? (isVideo ? 0 : 1) : (isVideo ? 1 : 0)
           cursorTime = `${rank}__${lastPhoto.takenTime || lastPhoto.createTime || ""}`
         } else if (queryParams.status === PhotoStatusEnum.DELETE) {
-          cursorTime = lastPhoto.recycleTime
+          cursorTime = lastPhoto.recycleTime ?? null
         } else {
           cursorTime = lastPhoto.takenTime
         }

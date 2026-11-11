@@ -378,7 +378,13 @@ export function registerPhotoApi(app: Hono<HonoEnv>) {
     }
 
     if (photo.key) {
-      return c.redirect(photo.key);
+      const target = photo.key.trim();
+      const isSafeLocalPath = target.startsWith('/') && !target.startsWith('//') && !target.includes('\\');
+      const isSafeRemoteUrl = target.startsWith('https://');
+      if (!isSafeLocalPath && !isSafeRemoteUrl) {
+        return c.text('Invalid media redirect target', 400);
+      }
+      return c.redirect(target);
     }
 
     return c.json({ code: 404, error: "NOT_FOUND", message: "Media file not found" }, 404);

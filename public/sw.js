@@ -123,9 +123,15 @@ self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
-  // Invalidate read-only API cache ONLY on true catalog mutations.
-  // Harmless visitor tracking, reaction pings, comments, and session beacons must NEVER flush photo/album caches!
+  // Invalidate cached API and media payloads on catalog mutations or logout.
+  // Harmless visitor tracking, reaction pings, comments, and session beacons must NEVER flush photo/album caches.
   if (request.method !== 'GET') {
+    if (url.pathname.includes('/logout')) {
+      caches.delete(API_CACHE_NAME).catch(() => {});
+      caches.delete(MEDIA_CACHE_NAME).catch(() => {});
+      return;
+    }
+
     const isCatalogMutation =
       url.pathname.includes('/photo/add') ||
       url.pathname.includes('/photo/edit') ||
@@ -264,10 +270,14 @@ self.addEventListener('fetch', (event) => {
         const fetchPromise = fetchWithExponentialRetry(request, 3, [1000, 2000, 4000])
           .then((networkResponse) => {
             if (networkResponse && networkResponse.status === 200) {
-              const responseToCache = networkResponse.clone();
-              cache.put(request, responseToCache);
-              if (url.pathname === '/api/photo/list' && !url.searchParams.has('cursorPhotoId') && !url.searchParams.has('offset')) {
-                cache.put('/api/photo/list', responseToCache.clone());
+              const cc = (networkResponse.headers.get('cache-control') || '').toLowerCase();
+              const isPrivateOrNoStore = cc.includes('no-store') || cc.includes('private');
+              if (!isPrivateOrNoStore) {
+                const responseToCache = networkResponse.clone();
+                cache.put(request, responseToCache);
+                if (url.pathname === '/api/photo/list' && !url.searchParams.has('cursorPhotoId') && !url.searchParams.has('offset')) {
+                  cache.put('/api/photo/list', responseToCache.clone());
+                }
               }
             }
             return networkResponse;

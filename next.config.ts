@@ -132,40 +132,8 @@ const nextConfig: NextConfig = {
           },
         ],
       },
-      {
-        source: '/media/thumbnails/:path*',
-        headers: [
-          {
-            key: 'Cache-Control',
-            value: 'public, max-age=31536000, immutable',
-          },
-          {
-            key: 'CDN-Cache-Control',
-            value: 'public, max-age=31536000, immutable',
-          },
-          {
-            key: 'Cloudflare-CDN-Cache-Control',
-            value: 'public, max-age=31536000, immutable',
-          },
-        ],
-      },
-      {
-        source: '/media/previews/:path*',
-        headers: [
-          {
-            key: 'Cache-Control',
-            value: 'public, max-age=31536000, immutable',
-          },
-          {
-            key: 'CDN-Cache-Control',
-            value: 'public, max-age=31536000, immutable',
-          },
-          {
-            key: 'Cloudflare-CDN-Cache-Control',
-            value: 'public, max-age=31536000, immutable',
-          },
-        ],
-      },
+      // Dynamic Cache-Control / CDN-Cache-Control for /media/thumbnails/* and /media/previews/*
+      // is enforced in src/server/hono/media.ts based on live album/photo visibility and deletion state.
       {
         source: '/api/:path*',
         headers: [

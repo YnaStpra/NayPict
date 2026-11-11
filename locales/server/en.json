@@ -47,6 +47,7 @@
   "photo.emptyFile": "Uploaded file is empty.",
   "reaction.tooManyRequests": "Too many reactions. Please wait a moment before trying again.",
   "totp.notConfigured": "2FA is not configured for this account.",
+  "totp.alreadyEnabled": "Two-factor authentication is already enabled. Disable it first to rotate your secret.",
   "totp.invalidCode": "Invalid 2FA verification code.",
   "totp.codeAlreadyUsed": "This 2FA code has already been used.",
   "totp.sessionExpired": "2FA verification session has expired.",

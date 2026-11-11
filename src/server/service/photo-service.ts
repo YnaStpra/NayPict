@@ -68,6 +68,7 @@ import { exifService } from '@/server/service/exif-service';
 import { buildPhotoKey, buildPreviewKey, buildThumbnailKey } from '@/server/lib/photo-path';
 import { type File as PhotoFile, fileTab } from '@/server/entity/file';
 import { fileService } from '@/server/service/file-service';
+import { invalidateMediaFileCache } from '@/server/lib/media-cache';
 import { commentService } from '@/server/service/comment-service';
 import { reactionService } from '@/server/service/reaction-service';
 import { insightsService } from '@/server/service/insights-service';
@@ -124,6 +125,7 @@ export function invalidatePhotoFastPathCache(): void {
   randomIdBaseCache.clear();
   onThisDayCache.clear();
   takenDateCache.clear();
+  invalidateMediaFileCache();
 }
 
 const ALLOWED_UPLOAD_MIMES = new Set([
@@ -144,6 +146,20 @@ const ALLOWED_UPLOAD_MIMES = new Set([
   'video/x-m4v',
   'video/x-matroska',
   'video/ogg',
+]);
+
+const ALLOWED_THUMBNAIL_MIMES = new Set([
+  'image/avif',
+  'image/webp',
+  'image/jpeg',
+  'image/png',
+]);
+
+const ALLOWED_VIDEO_THUMBNAIL_MIMES = new Set([
+  'video/mp4',
+  'video/webm',
+  'video/quicktime',
+  ...ALLOWED_THUMBNAIL_MIMES,
 ]);
 
 const ALLOWED_VIDEO_MIMES = new Set([
@@ -1541,6 +1557,19 @@ const photoService = {
       throw new BizError('param.invalid');
     }
 
+    const cleanVideoThumbKey = params.videoThumbnailKey?.trim();
+    if (
+      cleanVideoThumbKey &&
+      (
+        (!cleanVideoThumbKey.startsWith('thumbnails/') && !cleanVideoThumbKey.startsWith('previews/')) ||
+        cleanVideoThumbKey.includes('..') ||
+        cleanVideoThumbKey.includes('\0') ||
+        cleanVideoThumbKey.includes('\\')
+      )
+    ) {
+      throw new BizError('photo.invalidStorageKey', 400);
+    }
+
     // Security: Enforce positive, valid file size limit (max 2GB for direct video upload)
     if (typeof size !== 'number' || !Number.isFinite(size) || size <= 0) {
       throw new BizError('param.invalid');
@@ -1688,8 +1717,23 @@ const photoService = {
     if (thumbnailKey) {
       fileRecords.push({ fileId: createId(), photoId, key: thumbnailKey, type: FileTypeEnum.THUMBNAIL, fileType: 'image/webp', size: 25000 });
     }
-    if (params.videoThumbnailKey) {
-      fileRecords.push({ fileId: createId(), photoId, key: params.videoThumbnailKey, type: FileTypeEnum.THUMBNAIL_VIDEO, fileType: 'video/mp4', size: params.videoThumbnailSize || 350000 });
+    if (cleanVideoThumbKey) {
+      const thumbHead = await storage.head(cleanVideoThumbKey, videoStorage.storageId);
+      if (!thumbHead) {
+        throw new BizError('photo.notFound', 404);
+      }
+      const actualThumbType = (thumbHead.contentType || '').split(';')[0]?.trim().toLowerCase();
+      if (actualThumbType && !ALLOWED_VIDEO_THUMBNAIL_MIMES.has(actualThumbType)) {
+        throw new BizError('photo.invalidFileType', 400);
+      }
+      fileRecords.push({
+        fileId: createId(),
+        photoId,
+        key: cleanVideoThumbKey,
+        type: FileTypeEnum.THUMBNAIL_VIDEO,
+        fileType: actualThumbType || 'video/mp4',
+        size: thumbHead.size || params.videoThumbnailSize || 350000,
+      });
     }
 
     const files = await fileService.save(fileRecords);
@@ -1813,6 +1857,11 @@ const photoService = {
       throw new BizError('photo.invalidStorageKey', 400);
     }
 
+    const cleanThumbType = params.thumbnailType?.split(';')[0]?.trim().toLowerCase();
+    if (cleanThumbType && !ALLOWED_THUMBNAIL_MIMES.has(cleanThumbType)) {
+      throw new BizError('photo.invalidFileType', 400);
+    }
+
     // Security: Enforce strictly positive file size within limit (max 500MB)
     if (!size || typeof size !== 'number' || size <= 0 || size > 500 * 1024 * 1024) {
       throw new BizError('photo.fileTooLarge');
@@ -1934,7 +1983,7 @@ const photoService = {
       allowDownload: allowDownload ? 1 : 0,
     }).returning();
 
-    const finalThumbType = params.thumbnailType || (thumbnailKey.endsWith('.avif') ? 'image/avif' : thumbnailKey.endsWith('.jpg') ? 'image/jpeg' : 'image/webp');
+    const finalThumbType = cleanThumbType || (thumbnailKey.endsWith('.avif') ? 'image/avif' : thumbnailKey.endsWith('.jpg') ? 'image/jpeg' : 'image/webp');
     const fileRecords: { fileId: string; photoId: string; key: string; type: number; fileType: string; size: number }[] = [
       { fileId: createId(), photoId: finalPhotoId, key, type: FileTypeEnum.ORIGINAL, fileType: finalType, size },
       { fileId: createId(), photoId: finalPhotoId, key: previewKey, type: FileTypeEnum.PREVIEW, fileType: 'image/jpeg', size: safePreviewSize },
@@ -2660,7 +2709,7 @@ const photoService = {
       }
     }
 
-    return {
+    const voPayload: PhotoVo = {
       ...photo,
       exif: sanitizedExif,
       latitude,
@@ -2678,6 +2727,15 @@ const photoService = {
       isPinned: isPinned ?? Boolean((photo as any).isPinned === 1 || (photo as any).isPinned === true),
       isLocationIgnored: isLocationIgnored || undefined,
     };
+
+    if (!currentUserId) {
+      delete voPayload.userId;
+      delete voPayload.storageId;
+      delete voPayload.checksum;
+      delete voPayload.recycleTime;
+    }
+
+    return voPayload;
   },
 
   // Read photos from uploaded files buffer and name, size, type.

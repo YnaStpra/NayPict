@@ -23,6 +23,7 @@ import { storageService } from '@/server/service/storage-service';
 import { formatHttpUrl, toMediaUrl } from '@/lib/url';
 import { fileService } from '@/server/service/file-service';
 import { FileTypeEnum } from '@/server/enums/file-enum';
+import { invalidateMediaFileCache } from '@/server/lib/media-cache';
 import { type File } from '@/server/entity/file';
 import { syncService } from '@/server/service/sync-service';
 
@@ -112,6 +113,7 @@ export function invalidateArchivedAlbumsCache(): void {
 function invalidateAlbumFastPathCache(): void {
   publicAlbumListCache.clear();
   invalidateArchivedAlbumsCache();
+  invalidateMediaFileCache();
 }
 
 const albumService = {

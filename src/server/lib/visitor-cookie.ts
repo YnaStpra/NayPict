@@ -80,12 +80,8 @@ export function resolveSignedVisitorId(c: Context, explicitId?: string): string 
     return resolvedVid;
   }
 
-  // If cookie was an unsigned legacy cookie, upgrade and sign. Otherwise generate a fresh server-side ID.
-  if (cookieVal && /^[a-zA-Z0-9_\-]{8,64}$/.test(cookieVal.trim())) {
-    resolvedVid = cookieVal.trim();
-  } else {
-    resolvedVid = createId();
-  }
+  // Never trust or upgrade unsigned client-supplied cookies; always mint a fresh server-side visitor ID.
+  resolvedVid = createId();
 
   const signed = signVisitorId(resolvedVid);
   setCookie(c, VISITOR_COOKIE_NAME, signed, {
