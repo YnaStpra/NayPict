@@ -44,6 +44,7 @@
   "photo.maliciousFileDetected": "图片包含恶意脚本或可执行代码，已被安全拦截。",
   "photo.emptyFile": "上传的文件为空。",
   "totp.notConfigured": "2FA is not configured for this account.",
+  "totp.alreadyEnabled": "已启用双因素身份验证，请先禁用后再重新配置密钥。",
   "totp.invalidCode": "Invalid 2FA verification code.",
   "totp.codeAlreadyUsed": "This 2FA code has already been used.",
   "totp.sessionExpired": "2FA verification session has expired.",

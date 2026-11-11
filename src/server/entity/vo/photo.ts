@@ -2,7 +2,11 @@
 
 import { type Photo } from '@/server/entity/photo';
 
-type PhotoVo = Omit<Photo, 'favorite'> & {
+type PhotoVo = Omit<Photo, 'favorite' | 'userId' | 'storageId' | 'checksum' | 'recycleTime'> & {
+  userId?: string;
+  storageId?: string | null;
+  checksum?: string | null;
+  recycleTime?: string | null;
   key: string | null;
   preview: string;
   thumbnail: string;

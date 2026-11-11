@@ -81,12 +81,16 @@ const totpService = {
   // Initialize or setup Google Authenticator TOTP QR code for user with encrypted secret storage and emergency backup codes.
   async setupTotp(username: string, userId: string): Promise<TotpSetupVo> {
     const existingData = await this.getTotpData(userId);
+    if (existingData?.enabled) {
+      throw new BizError('totp.alreadyEnabled', 403);
+    }
+
     let secret = existingData?.secret;
     const { plainCodes, hashedCodes } = generateEmergencyBackupCodes(8);
     let generatedBackupCodes: string[] | undefined = undefined;
 
     if (!secret || !existingData?.backupCodes || existingData.backupCodes.length === 0) {
-      secret = secret || generateTotpSecret(16);
+      secret = secret || generateTotpSecret();
       generatedBackupCodes = plainCodes;
       const key = this.getSettingKey(userId);
       const encryptedSecret = await encryptData(secret, getEncryptionKey());

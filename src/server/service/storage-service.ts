@@ -78,17 +78,24 @@ async function validateStorageUrl(rawUrl?: string | null): Promise<void> {
 // Retrieve master encryption key for cloud storage credentials at rest.
 function getStorageMasterKey(): string {
   const key = process.env.STORAGE_ENCRYPTION_KEY?.trim() || process.env.JWT_SECRET?.trim();
-  if (!key && process.env.NODE_ENV === 'production') {
-    console.warn('[SECURITY WARNING] STORAGE_ENCRYPTION_KEY or JWT_SECRET is not configured. Using default storage key in production is strongly discouraged.');
+  if (!key) {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('[SECURITY ERROR] STORAGE_ENCRYPTION_KEY or JWT_SECRET must be configured in production.');
+    }
+    return 'naypict-storage-master-key';
   }
-  return key || 'naypict-storage-master-key';
+  return key;
 }
 
-// Transparently decrypt stored S3/R2 access credentials while supporting unencrypted legacy format.
+// Decrypt stored S3/R2 access credentials fail-closed while preserving unencrypted legacy values.
 async function decryptStorageCredentials(storage: Storage): Promise<Storage> {
   const masterKey = getStorageMasterKey();
-  const accessKey = storage.accessKey ? await decryptData(storage.accessKey, masterKey).catch(() => storage.accessKey) : storage.accessKey;
-  const secretKey = storage.secretKey ? await decryptData(storage.secretKey, masterKey).catch(() => storage.secretKey) : storage.secretKey;
+  const accessKey = storage.accessKey
+    ? await decryptData(storage.accessKey, masterKey, { failClosed: true })
+    : storage.accessKey;
+  const secretKey = storage.secretKey
+    ? await decryptData(storage.secretKey, masterKey, { failClosed: true })
+    : storage.secretKey;
   return {
     ...storage,
     accessKey,
@@ -401,4 +408,4 @@ const storageService = {
   }
 }
 
-export { storageService };
+export { storageService, getStorageMasterKey, decryptStorageCredentials };

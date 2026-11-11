@@ -20,7 +20,23 @@ import { antiHotlink } from '@/server/security/hotlink';
 import { botBlocker } from '@/server/security/bot-blocker';
 import { userService } from '@/server/service/user-service';
 import { UserTypeEnum } from '@/server/enums/user-enum';
+import { getCachedMediaFile, invalidateMediaFileCache, setCachedMediaFile } from '@/server/lib/media-cache';
 import type { HonoEnv } from './type';
+
+export { invalidateMediaFileCache };
+
+const SAFE_MEDIA_CONTENT_TYPES = new Set([
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'image/avif',
+  'image/gif',
+  'image/heic',
+  'image/heif',
+  'video/mp4',
+  'video/webm',
+  'video/quicktime',
+]);
 
 // This module handles the photo media reading interface, the path is /media/{key}.
 
@@ -39,19 +55,23 @@ media.onError((err, c) => {
   return c.text(err.message, 500);
 });
 
-// Query file and photo information by document key with in-memory LRU cache.
-const photoFileCache = new Map<string, { data: any; exp: number }>();
+interface CachedMediaFileRow {
+  key: string;
+  type: number;
+  fileType: string | null;
+  name: string;
+  photoId: string;
+  storageId: string | null;
+  allowDownload: number;
+  status: number;
+  visibility: number;
+}
 
+// Query file and photo information by document key with short-lived in-memory cache for public assets only.
 async function getPhotoFile(key: string) {
-  const now = Date.now();
-  const cached = photoFileCache.get(key);
-  if (cached && cached.exp > now && cached.data.type !== FileTypeEnum.ORIGINAL) {
-    return cached.data;
-  }
-
-  // Original authorization fields are mutable, so never reuse a cached permission decision.
-  if (cached?.data.type === FileTypeEnum.ORIGINAL) {
-    photoFileCache.delete(key);
+  const cached = getCachedMediaFile<CachedMediaFileRow>(key);
+  if (cached && cached.type !== FileTypeEnum.ORIGINAL) {
+    return cached;
   }
 
   const [row] = await readOrm
@@ -71,12 +91,14 @@ async function getPhotoFile(key: string) {
     .where(eq(fileTab.key, key))
     .limit(1);
 
-  if (row && row.type !== FileTypeEnum.ORIGINAL) {
-    if (photoFileCache.size > 2000) {
-      const oldestKey = photoFileCache.keys().next().value;
-      if (oldestKey) photoFileCache.delete(oldestKey);
-    }
-    photoFileCache.set(key, { data: row, exp: now + 1000 * 60 * 60 }); // 1 hour memory cache
+  // Only cache publicly accessible derivative files (never cache originals, trashed, archived, or ALBUM_ONLY metadata).
+  if (
+    row &&
+    row.type !== FileTypeEnum.ORIGINAL &&
+    row.status !== PhotoStatusEnum.DELETE &&
+    (row.visibility === PhotoVisibilityEnum.BOTH || row.visibility === PhotoVisibilityEnum.GALLERY_ONLY)
+  ) {
+    setCachedMediaFile(key, row);
   }
 
   return row;
@@ -106,6 +128,7 @@ media.get('*', async (c: Context, next: Next) => {
   }
 
   const userId = getUserId();
+  let hasActiveAlbum = true;
 
   // If photo is in trash / recycled, only allow authenticated user/admin to view
   if (photoFile.status === PhotoStatusEnum.DELETE && !userId) {
@@ -117,20 +140,17 @@ media.get('*', async (c: Context, next: Next) => {
     return next();
   }
 
-  // If photo is ALBUM_ONLY, only allow unauthenticated visitors if it belongs to at least one active public album
-  if (photoFile.visibility === PhotoVisibilityEnum.ALBUM_ONLY && !userId) {
-    if (photoFile.hasActiveAlbum === undefined) {
-      const [activeAlbumRel] = await readOrm
-        .select({ id: albumPhotoTab.id })
-        .from(albumPhotoTab)
-        .innerJoin(albumTab, eq(albumTab.albumId, albumPhotoTab.albumId))
-        .where(and(eq(albumPhotoTab.photoId, photoFile.photoId), eq(albumTab.isArchived, 0)))
-        .limit(1);
+  // If photo is ALBUM_ONLY, query live active album membership (do not mutate cached metadata)
+  if (photoFile.visibility === PhotoVisibilityEnum.ALBUM_ONLY) {
+    const [activeAlbumRel] = await readOrm
+      .select({ id: albumPhotoTab.id })
+      .from(albumPhotoTab)
+      .innerJoin(albumTab, eq(albumTab.albumId, albumPhotoTab.albumId))
+      .where(and(eq(albumPhotoTab.photoId, photoFile.photoId), eq(albumTab.isArchived, 0)))
+      .limit(1);
 
-      photoFile.hasActiveAlbum = Boolean(activeAlbumRel);
-    }
-
-    if (!photoFile.hasActiveAlbum) {
+    hasActiveAlbum = Boolean(activeAlbumRel);
+    if (!hasActiveAlbum && !userId) {
       return next();
     }
   }
@@ -169,9 +189,14 @@ media.get('*', async (c: Context, next: Next) => {
     }
   }
 
+  const isRestrictedMedia =
+    photoFile.status === PhotoStatusEnum.DELETE ||
+    photoFile.visibility === PhotoVisibilityEnum.ARCHIVED ||
+    (photoFile.visibility === PhotoVisibilityEnum.ALBUM_ONLY && !hasActiveAlbum);
+
   const isOriginal = photoFile.type === FileTypeEnum.ORIGINAL;
-  // Derivatives and public gallery videos are safe to cache on global CDN edge
-  const isCacheable = !isOriginal || isVideo;
+  // Derivatives and public gallery videos are safe to cache on global CDN edge ONLY when publicly accessible
+  const isCacheable = !isRestrictedMedia && (!isOriginal || isVideo);
 
   // Offload public derivatives and videos to Cloudflare Worker Media Gateway if configured, unless direct streaming is requested.
   // Returning an instant 307 redirect reduces Vercel serverless execution to ~5ms and consumes 0 bytes of Fast Origin Transfer.
@@ -189,7 +214,8 @@ media.get('*', async (c: Context, next: Next) => {
   if (ifNoneMatch && (ifNoneMatch === etag || ifNoneMatch === `"${photoFile.key}"`)) {
     const notModifiedHeaders: Record<string, string> = {
       'ETag': etag,
-      'Cache-Control': isCacheable ? 'public, max-age=31536000, immutable' : 'no-cache, private',
+      'Cache-Control': isCacheable ? 'public, max-age=31536000, immutable' : 'private, no-store',
+      'Vary': isCacheable ? 'Accept, Accept-Encoding' : 'Cookie, Accept, Accept-Encoding',
       'X-Content-Type-Options': 'nosniff',
     };
     if (isCacheable) {
@@ -204,11 +230,20 @@ media.get('*', async (c: Context, next: Next) => {
   const disposition = photoFile.type === FileTypeEnum.ORIGINAL ? buildContentDisposition(photoFile.name) : null;
   const isPartial = Boolean(rangeHeader && obj.statusCode === 206 && obj.contentRange);
 
+  const rawContentType = (photoFile.fileType || '').split(';')[0]?.trim().toLowerCase();
+  const safeContentType = SAFE_MEDIA_CONTENT_TYPES.has(rawContentType)
+    ? rawContentType
+    : isVideo
+      ? 'video/mp4'
+      : photoFile.type === FileTypeEnum.ORIGINAL
+        ? 'application/octet-stream'
+        : 'image/webp';
+
   const headers: Record<string, string> = {
-    'Content-Type': photoFile.fileType || (isVideo ? 'video/mp4' : 'image/webp'),
-    'Cache-Control': isCacheable ? 'public, max-age=31536000, immutable' : 'private, max-age=86400, immutable',
+    'Content-Type': safeContentType,
+    'Cache-Control': isCacheable ? 'public, max-age=31536000, immutable' : 'private, no-store',
     'ETag': etag,
-    'Vary': 'Accept, Accept-Encoding',
+    'Vary': isCacheable ? 'Accept, Accept-Encoding' : 'Cookie, Accept, Accept-Encoding',
     'Accept-Ranges': 'bytes',
     'X-Content-Type-Options': 'nosniff',
   };
@@ -221,6 +256,9 @@ media.get('*', async (c: Context, next: Next) => {
     // Explicitly instruct Cloudflare Edge CDN to cache derivatives and videos for 1 year so repeat visits bypass Vercel completely
     headers['CDN-Cache-Control'] = 'public, max-age=31536000, immutable';
     headers['Cloudflare-CDN-Cache-Control'] = 'public, max-age=31536000, immutable';
+  } else {
+    headers['CDN-Cache-Control'] = 'no-store';
+    headers['Cloudflare-CDN-Cache-Control'] = 'no-store';
   }
 
   // Only attach download disposition for non-video files or when not a partial stream

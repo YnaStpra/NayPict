@@ -42,8 +42,7 @@ function resolveAllowedOrigin(origin: string): string | null {
     if (
       host === 'naypict.my.id' ||
       host.endsWith('.naypict.my.id') ||
-      host === 'localhost' ||
-      host === '127.0.0.1' ||
+      (process.env.NODE_ENV !== 'production' && (host === 'localhost' || host === '127.0.0.1')) ||
       (process.env.VERCEL === '1' && (
         host === 'naypict.vercel.app' ||
         /^naypict[a-z0-9-]*\.vercel\.app$/i.test(host) ||

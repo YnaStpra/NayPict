@@ -15,7 +15,6 @@ import { type Storage } from '@/server/entity/storage';
 import { type File as PhotoFile } from '@/server/entity/file';
 import { fileService } from '@/server/service/file-service';
 import { storageService } from '@/server/service/storage-service';
-import { getArchivedAlbumIds } from '@/server/service/album-service';
 import { formatHttpUrl, toMediaUrl } from '@/lib/url';
 import { toUtcIsoString } from '@/lib/date';
 import { FileTypeEnum } from '@/server/enums/file-enum';
@@ -34,6 +33,18 @@ function sanitizeCommentText(text?: string): string {
     .replace(/data:\s*text\/html/gi, '') // Strip HTML data URIs
     .replace(/[\u0000-\u0008\u000B-\u000C\u000E-\u001F\u007F]/g, '') // Strip ASCII control characters
     .trim();
+}
+
+// Verify whether an ALBUM_ONLY photo currently belongs to at least one active (non-archived) album.
+async function hasActivePublicAlbum(photoId: string): Promise<boolean> {
+  const [activeAlbumRel] = await readOrm
+    .select({ id: albumPhotoTab.id })
+    .from(albumPhotoTab)
+    .innerJoin(albumTab, eq(albumTab.albumId, albumPhotoTab.albumId))
+    .where(and(eq(albumPhotoTab.photoId, photoId), eq(albumTab.isArchived, 0)))
+    .limit(1);
+
+  return Boolean(activeAlbumRel);
 }
 
 const commentService = {
@@ -60,20 +71,9 @@ const commentService = {
         return [];
       }
 
-      // Reject comments on ALBUM_ONLY photos that belong to an archived album
-      if (photo.visibility === PhotoVisibilityEnum.ALBUM_ONLY) {
-        const archivedIds = await getArchivedAlbumIds();
-        if (archivedIds.length > 0) {
-          const [archivedAlbumRel] = await readOrm
-            .select({ id: albumPhotoTab.id })
-            .from(albumPhotoTab)
-            .where(and(eq(albumPhotoTab.photoId, cleanPhotoId), inArray(albumPhotoTab.albumId, archivedIds)))
-            .limit(1);
-
-          if (archivedAlbumRel) {
-            return [];
-          }
-        }
+      // Allow ALBUM_ONLY photos ONLY if they currently belong to at least one active (non-archived) album
+      if (photo.visibility === PhotoVisibilityEnum.ALBUM_ONLY && !(await hasActivePublicAlbum(cleanPhotoId))) {
+        return [];
       }
 
       const rows = await readOrm
@@ -254,18 +254,9 @@ const commentService = {
       throw new BizError('photo.notFound');
     }
 
-    // Reject comments on ALBUM_ONLY photos that belong to an archived album
-    if (photo.visibility === PhotoVisibilityEnum.ALBUM_ONLY) {
-      const [archivedAlbumRel] = await orm
-        .select({ id: albumPhotoTab.id })
-        .from(albumPhotoTab)
-        .innerJoin(albumTab, eq(albumTab.albumId, albumPhotoTab.albumId))
-        .where(and(eq(albumPhotoTab.photoId, photoId), eq(albumTab.isArchived, 1)))
-        .limit(1);
-
-      if (archivedAlbumRel) {
-        throw new BizError('photo.notFound');
-      }
+    // Reject comments on orphaned or archived-only ALBUM_ONLY photos
+    if (photo.visibility === PhotoVisibilityEnum.ALBUM_ONLY && !(await hasActivePublicAlbum(photoId))) {
+      throw new BizError('photo.notFound');
     }
 
     // 4. Duplicate Comment Flood Check (prevent spamming identical text to same photo within 60s)

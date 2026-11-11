@@ -301,6 +301,7 @@ class S3StorageStrategy implements StorageStrategy {
 
   // Generate presigned PUT URL for a specific part in a multipart upload (default 15 mins).
   async getPresignedPartUrl(key: string, uploadId: string, partNumber: number, storage: Storage, expiresIn = 900): Promise<string> {
+    const boundedExpiresIn = Math.min(Math.max(Number(expiresIn) || 900, 60), 900);
     const client = this.createClient(storage);
     const bucket = storage.bucket?.trim();
 
@@ -316,7 +317,7 @@ class S3StorageStrategy implements StorageStrategy {
     });
 
     const { getSignedUrl } = await import('@aws-sdk/s3-request-presigner');
-    return getSignedUrl(client, command, { expiresIn });
+    return getSignedUrl(client, command, { expiresIn: boundedExpiresIn });
   }
 
   // Finalize S3 / Cloudflare R2 multipart upload by assembling all uploaded parts.

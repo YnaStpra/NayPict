@@ -2,9 +2,7 @@ import type { Context, Hono } from 'hono';
 import { getCookie, setCookie } from 'hono/cookie';
 import result from '@/server/model/result';
 import { analyticsService } from '@/server/service/analytics-service';
-import { getLoginInfo } from '@/lib/cookie';
-import { userService } from '@/server/service/user-service';
-import { UserTypeEnum } from '@/server/enums/user-enum';
+import { checkIsAdmin } from '@/server/security/security';
 import { createId } from '@/server/lib/id';
 import BizError from '@/server/error/biz-error';
 import { parseUserAgent } from '@/server/lib/user-agent';
@@ -24,43 +22,15 @@ import {
 import { getClientIp, isPublicIp } from '@/server/lib/ip';
 import { logSecurityAudit } from '@/server/lib/audit';
 import { getUserId } from '@/server/security/context';
-import { cache } from '@/server/infra/cache';
-import { AUTH_CACHE_KEY } from '@/server/const/cache';
-import { type AuthInfo } from '@/server/entity/vo/auth';
 import {
   telemetryInitRateLimiter,
   telemetryLocationRateLimiter,
   telemetryPingRateLimiter,
   telemetryTrackRateLimiter,
 } from '@/server/lib/rate-limiter';
-import { resolveSignedVisitorId } from '@/server/lib/visitor-cookie';
+import { resolveSignedVisitorId, verifySignedVisitorId, VISITOR_COOKIE_NAME } from '@/server/lib/visitor-cookie';
 
 // This module handles API endpoints for visitor session initialization, telemetry heartbeats, media tracking, and admin inspection.
-
-// Verify if the current request belongs to an authenticated Admin session.
-async function checkIsAdmin(c: Context): Promise<boolean> {
-  try {
-    const currentUserId = getUserId();
-    if (currentUserId) {
-      const authInfo = await cache.get<AuthInfo>(AUTH_CACHE_KEY + currentUserId);
-      if (authInfo) return authInfo.type === UserTypeEnum.ADMIN;
-      const user = await userService.getById(currentUserId);
-      return user?.type === UserTypeEnum.ADMIN;
-    }
-
-    const rawCookie = c.req.header('cookie') ?? null;
-    const { userId } = await getLoginInfo(rawCookie);
-    if (!userId) return false;
-
-    const authInfo = await cache.get<AuthInfo>(AUTH_CACHE_KEY + userId);
-    if (authInfo) return authInfo.type === UserTypeEnum.ADMIN;
-
-    const user = await userService.getById(userId);
-    return user?.type === UserTypeEnum.ADMIN;
-  } catch {
-    return false;
-  }
-}
 
 // Determine if request originates from automated bot, crawler, or serverless function
 function isBotOrCrawler(c: Context): boolean {
@@ -403,6 +373,11 @@ export function registerAnalyticsApi(app: Hono<HonoEnv>) {
       return c.json(result.ok({ updated: false }));
     }
 
+    const verifiedVisitorId = verifySignedVisitorId(getCookie(c, VISITOR_COOKIE_NAME));
+    if (!verifiedVisitorId) {
+      return c.json(result.ok({ updated: false }));
+    }
+
     const body = await c.req.json<HeartbeatBo>().catch(() => ({} as HeartbeatBo));
     const cleanSessionId = sanitizeSessionId(body.sessionId);
     if (!cleanSessionId) {
@@ -415,7 +390,8 @@ export function registerAnalyticsApi(app: Hono<HonoEnv>) {
         sessionId: cleanSessionId,
         durationSeconds: Math.max(0, Math.min(Number(body.durationSeconds) || 0, 86400)),
       },
-      false
+      false,
+      verifiedVisitorId
     );
     return c.json(result.ok({ updated }));
   };
@@ -425,6 +401,11 @@ export function registerAnalyticsApi(app: Hono<HonoEnv>) {
     const clientIp = getClientIp(c);
     const rateLimit = await telemetryLocationRateLimiter.consume(clientIp);
     if (!rateLimit.allowed) {
+      return c.json(result.ok({ updated: false }));
+    }
+
+    const verifiedVisitorId = verifySignedVisitorId(getCookie(c, VISITOR_COOKIE_NAME));
+    if (!verifiedVisitorId) {
       return c.json(result.ok({ updated: false }));
     }
 
@@ -459,7 +440,8 @@ export function registerAnalyticsApi(app: Hono<HonoEnv>) {
         latitude: isNaN(lat) || !isFinite(lat) ? null : lat,
         longitude: isNaN(lng) || !isFinite(lng) ? null : lng,
       },
-      false
+      false,
+      verifiedVisitorId
     );
     return c.json(result.ok({ updated }));
   };
@@ -479,6 +461,11 @@ export function registerAnalyticsApi(app: Hono<HonoEnv>) {
     }
 
     const cleanSessionId = sanitizeSessionId(body.sessionId);
+    const verifiedVisitorId = verifySignedVisitorId(getCookie(c, VISITOR_COOKIE_NAME));
+    if (cleanSessionId && !verifiedVisitorId) {
+      return c.json(result.ok({ tracked: false }));
+    }
+
     const validActions = ['view', 'download', 'share', 'reaction', 'comment'];
     const safeAction = body.action && validActions.includes(body.action) ? body.action : 'view';
     const isAdmin = await checkIsAdmin(c);
@@ -490,7 +477,8 @@ export function registerAnalyticsApi(app: Hono<HonoEnv>) {
         sessionId: cleanSessionId || undefined,
         action: safeAction as 'view' | 'download' | 'share' | 'reaction' | 'comment',
       },
-      isAdmin
+      isAdmin,
+      verifiedVisitorId ?? undefined
     );
     return c.json(result.ok({ tracked }));
   };

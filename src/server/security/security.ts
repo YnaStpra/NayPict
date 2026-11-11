@@ -4,7 +4,7 @@ import { TOKEN_COOKIE_NAME } from '@/server/const/global';
 import { AUTH_CACHE_KEY } from '@/server/const/cache';
 import BizError from '@/server/error/biz-error';
 import { getLoginInfo } from '@/lib/cookie';
-import { setUserId } from '@/server/security/context';
+import { getUserId, setUserId } from '@/server/security/context';
 import { cache } from '@/server/infra/cache';
 import { type AuthInfo } from '@/server/entity/vo/auth';
 import { UserStatusEnum, UserTypeEnum } from '@/server/enums/user-enum';
@@ -41,6 +41,7 @@ const SYSTEM_PATHS = [
   '/photo/multipart/partUrl',
   '/photo/multipart/complete',
   '/photo/multipart/abort',
+  '/photo/inventory/stats',
   '/album/add',
   '/album/setCover',
   '/album/coverCandidates',
@@ -139,19 +140,17 @@ export function clearLoginCookies(c: Context) {
   }
 }
 
-// Verify login information and session uuid, Write context after passing; Direct release via public path.
-async function security(c: Context, next: Next) {
-
-  const path = c.req.path.replace(/^\/api/, '');
-
-  const { userId, uuid, tokenVersion } = await getLoginInfo(c.req.header('cookie') ?? null);
+// Validate session cookie against JWT signature, tokenVersion, active session UUIDs, and account status.
+async function resolveValidatedAuth(rawCookie: string | null): Promise<{
+  authInfo: AuthInfo | null;
+  uuid: string | null;
+  userDisabled: boolean;
+  hasToken: boolean;
+}> {
+  const { userId, uuid, tokenVersion } = await getLoginInfo(rawCookie);
 
   if (!userId || !uuid) {
-    if (isPublicApiPath(path)) {
-      return next();
-    }
-    clearLoginCookies(c);
-    throw new BizError('auth.failed', 401);
+    return { authInfo: null, uuid: null, userDisabled: false, hasToken: false };
   }
 
   // Read login information from cache, and fallback to DB for serverless lambda instances.
@@ -162,15 +161,13 @@ async function security(c: Context, next: Next) {
     if (user) {
       // Security: Reject disabled user accounts immediately
       if (user.status === UserStatusEnum.DISABLE) {
-        clearLoginCookies(c);
-        throw new BizError('auth.userDisabled', 401);
+        return { authInfo: null, uuid, userDisabled: true, hasToken: true };
       }
 
       // Check persistent revoked UUIDs from database to prevent session resurrection
       const revokedUuids = await sessionService.getRevokedUuids(userId);
       if (revokedUuids.includes(uuid)) {
-        clearLoginCookies(c);
-        throw new BizError('auth.failed', 401);
+        return { authInfo: null, uuid, userDisabled: false, hasToken: true };
       }
 
       authInfo = {
@@ -193,8 +190,12 @@ async function security(c: Context, next: Next) {
     || cachedTokenVersion !== tokenVersion
     || !authInfo.uuidList.includes(uuid)
   ) {
-    clearLoginCookies(c);
-    throw new BizError('auth.failed', 401);
+    return {
+      authInfo: null,
+      uuid,
+      userDisabled: authInfo?.status === UserStatusEnum.DISABLE,
+      hasToken: true,
+    };
   }
 
   // Verify session inactivity timeout (idle timeout defense, default 7 days)
@@ -202,10 +203,61 @@ async function security(c: Context, next: Next) {
   if (authInfo.sessions && authInfo.sessions.length > 0) {
     const activeSession = authInfo.sessions.find((s) => s.uuid === uuid);
     if (activeSession?.lastActive && (Date.now() - activeSession.lastActive > SESSION_IDLE_TIMEOUT_MS)) {
-      clearLoginCookies(c);
       sessionService.revokeSession(authInfo.userId, uuid).catch(() => {});
-      throw new BizError('auth.failed', 401);
+      return { authInfo: null, uuid, userDisabled: false, hasToken: true };
     }
+  }
+
+  return { authInfo, uuid, userDisabled: false, hasToken: true };
+}
+
+// Verify whether the current request belongs to an active, unrevoked Admin session.
+async function checkIsAdmin(c: Context): Promise<boolean> {
+  try {
+    const rawCookie = c.req.header('cookie') ?? null;
+    if (rawCookie) {
+      const { authInfo } = await resolveValidatedAuth(rawCookie);
+      return Boolean(authInfo && authInfo.status !== UserStatusEnum.DISABLE && authInfo.type === UserTypeEnum.ADMIN);
+    }
+
+    const currentUserId = getUserId();
+    if (!currentUserId) return false;
+
+    const authInfo = await cache.get<AuthInfo>(AUTH_CACHE_KEY + currentUserId);
+    if (authInfo) {
+      return authInfo.status !== UserStatusEnum.DISABLE && authInfo.type === UserTypeEnum.ADMIN;
+    }
+
+    const user = await userService.getById(currentUserId);
+    return Boolean(user && user.status !== UserStatusEnum.DISABLE && user.type === UserTypeEnum.ADMIN);
+  } catch {
+    return false;
+  }
+}
+
+// Verify login information and session uuid, Write context after passing; Direct release via public path.
+async function security(c: Context, next: Next) {
+
+  const path = c.req.path.replace(/^\/api/, '');
+
+  const { authInfo, uuid, userDisabled, hasToken } = await resolveValidatedAuth(c.req.header('cookie') ?? null);
+
+  if (!hasToken) {
+    if (isPublicApiPath(path)) {
+      return next();
+    }
+    clearLoginCookies(c);
+    throw new BizError('auth.failed', 401);
+  }
+
+  if (userDisabled) {
+    clearLoginCookies(c);
+    throw new BizError('auth.userDisabled', 401);
+  }
+
+  if (!authInfo || !uuid) {
+    clearLoginCookies(c);
+    throw new BizError('auth.failed', 401);
   }
 
   if (isSystemPath(path) && !isPublicApiPath(path) && authInfo.type === UserTypeEnum.NORMAL) {
@@ -221,4 +273,4 @@ async function security(c: Context, next: Next) {
   return next();
 }
 
-export { security };
+export { security, checkIsAdmin };

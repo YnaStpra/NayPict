@@ -70,7 +70,7 @@ export default async function AlbumPhotoLayout({ children, params }: AlbumPhotoL
       initialTotal={data.total ?? 0}
       album={{
         albumId: album.albumId,
-        name: album.name,
+        name: isArchived ? '' : album.name,
         isArchived: isArchived ? 1 : 0,
       }}
     >

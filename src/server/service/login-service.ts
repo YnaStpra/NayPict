@@ -303,7 +303,7 @@ const loginService = {
           }
         }
       } else {
-        const tempToken = createId();
+        const tempToken = crypto.randomBytes(32).toString('base64url');
         const tempSession: Temp2FaSession = {
           userId: user.userId,
           tokenVersion: user.tokenVersion,

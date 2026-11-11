@@ -118,7 +118,7 @@ function toIsoString(dateInput: string | Date | null | undefined): string {
 }
 
 // In-memory throttling map to prevent excessive Neon DB write IOPS from frequent client heartbeats
-const sessionHeartbeatCache = new Map<string, { lastDuration: number; lastDbUpdate: number }>();
+const sessionHeartbeatCache = new Map<string, { lastDuration: number; lastDbUpdate: number; visitorId?: string }>();
 
 const analyticsService = {
 
@@ -208,8 +208,9 @@ const analyticsService = {
   },
 
   // Update session duration and last active timestamp via lightweight heartbeat ping.
-  async heartbeat(params: HeartbeatBo, _isAdmin?: boolean): Promise<boolean> {
-    if (!params.sessionId) {
+  // Heartbeat ping updating active session duration only after verifying visitor ownership.
+  async heartbeat(params: HeartbeatBo, _isAdmin?: boolean, visitorId?: string): Promise<boolean> {
+    if (!params.sessionId || !visitorId) {
       return false;
     }
 
@@ -218,32 +219,42 @@ const analyticsService = {
     const now = Date.now();
     const cached = sessionHeartbeatCache.get(sid);
 
-    // Throttle: only commit to Neon DB if at least 60s has elapsed since last DB write or duration increased by >= 60s
-    if (cached && now - cached.lastDbUpdate < 60000 && Math.abs(safeDuration - cached.lastDuration) < 60) {
-      cached.lastDuration = safeDuration;
-      return true;
+    if (cached) {
+      if (cached.visitorId !== visitorId) {
+        return false;
+      }
+      // Throttle: only commit to Neon DB if at least 60s has elapsed since last DB write or duration increased by >= 60s
+      if (now - cached.lastDbUpdate < 60000 && Math.abs(safeDuration - cached.lastDuration) < 60) {
+        cached.lastDuration = safeDuration;
+        return true;
+      }
+    }
+
+    const updatedRows = await orm
+      .update(visitorSessionTab)
+      .set({
+        lastActiveAt: sql`now()`,
+        durationSeconds: safeDuration,
+      })
+      .where(and(eq(visitorSessionTab.id, sid), eq(visitorSessionTab.visitorId, visitorId)))
+      .returning({ id: visitorSessionTab.id });
+
+    if (updatedRows.length === 0) {
+      return false;
     }
 
     if (sessionHeartbeatCache.size > 2000) {
       const oldest = sessionHeartbeatCache.keys().next().value;
       if (oldest) sessionHeartbeatCache.delete(oldest);
     }
-    sessionHeartbeatCache.set(sid, { lastDuration: safeDuration, lastDbUpdate: now });
-
-    await orm
-      .update(visitorSessionTab)
-      .set({
-        lastActiveAt: sql`now()`,
-        durationSeconds: safeDuration,
-      })
-      .where(eq(visitorSessionTab.id, sid));
+    sessionHeartbeatCache.set(sid, { lastDuration: safeDuration, lastDbUpdate: now, visitorId });
 
     return true;
   },
 
-  // Update visitor session with consented device GPS location.
-  async updateLocation(params: UpdateVisitorLocationBo, _isAdmin?: boolean): Promise<boolean> {
-    if (!params.sessionId) {
+  // Update visitor session with consented device GPS location after verifying session ownership.
+  async updateLocation(params: UpdateVisitorLocationBo, _isAdmin?: boolean, visitorId?: string): Promise<boolean> {
+    if (!params.sessionId || !visitorId) {
       return false;
     }
 
@@ -251,7 +262,7 @@ const analyticsService = {
 
     // Handle user revoking or disabling location access
     if (params.isRevoked) {
-      await orm
+      const revokedRows = await orm
         .update(visitorSessionTab)
         .set({
           userLat: '',
@@ -259,14 +270,26 @@ const analyticsService = {
           userLocationName: '',
           lastActiveAt: sql`now()`,
         })
-        .where(eq(visitorSessionTab.id, safeSessionId));
-      return true;
+        .where(and(eq(visitorSessionTab.id, safeSessionId), eq(visitorSessionTab.visitorId, visitorId)))
+        .returning({ id: visitorSessionTab.id });
+      return revokedRows.length > 0;
     }
 
     const lat = typeof params.latitude === 'number' ? params.latitude : parseFloat(String(params.latitude));
     const lng = typeof params.longitude === 'number' ? params.longitude : parseFloat(String(params.longitude));
 
     if (!isNaN(lat) && !isNaN(lng) && isFinite(lat) && isFinite(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+      // Verify ownership before invoking external reverse-geocoding API
+      const [ownedSession] = await readOrm
+        .select({ id: visitorSessionTab.id })
+        .from(visitorSessionTab)
+        .where(and(eq(visitorSessionTab.id, safeSessionId), eq(visitorSessionTab.visitorId, visitorId)))
+        .limit(1);
+
+      if (!ownedSession) {
+        return false;
+      }
+
       let locationName = (params.locationName || '').trim().slice(0, 255);
       let detectedCity: string | undefined;
       let detectedRegion: string | undefined;
@@ -298,19 +321,20 @@ const analyticsService = {
         updateData.region = detectedRegion;
       }
 
-      await orm
+      const updatedRows = await orm
         .update(visitorSessionTab)
         .set(updateData)
-        .where(eq(visitorSessionTab.id, safeSessionId));
+        .where(and(eq(visitorSessionTab.id, safeSessionId), eq(visitorSessionTab.visitorId, visitorId)))
+        .returning({ id: visitorSessionTab.id });
 
-      return true;
+      return updatedRows.length > 0;
     }
 
     return false;
   },
 
   // Track media viewed or interacted with by visitor during session.
-  async trackMedia(params: TrackMediaBo, isAdmin?: boolean): Promise<boolean> {
+  async trackMedia(params: TrackMediaBo, _isAdmin?: boolean, visitorId?: string): Promise<boolean> {
     if (!params.photoId) {
       return false;
     }
@@ -319,11 +343,22 @@ const analyticsService = {
     const validActions = ['view', 'download', 'share', 'reaction'];
     const action = validActions.includes(params.action || '') ? params.action : 'view';
 
-    let isSessionAdmin = Boolean(isAdmin);
-
     if (params.sessionId) {
+      if (!visitorId) {
+        return false;
+      }
       const safeSessionId = params.sessionId.slice(0, 64);
       try {
+        const [ownedSession] = await readOrm
+          .select({ id: visitorSessionTab.id })
+          .from(visitorSessionTab)
+          .where(and(eq(visitorSessionTab.id, safeSessionId), eq(visitorSessionTab.visitorId, visitorId)))
+          .limit(1);
+
+        if (!ownedSession) {
+          return false;
+        }
+
         await orm.insert(visitorActivityTab).values({
           id: createId(),
           sessionId: safeSessionId,
@@ -338,19 +373,7 @@ const analyticsService = {
             mediaCount: sql`${visitorSessionTab.mediaCount} + 1`,
             lastActiveAt: sql`now()`,
           })
-          .where(eq(visitorSessionTab.id, safeSessionId));
-
-        // If isAdmin was not explicitly passed, inspect the session record
-        if (!isSessionAdmin) {
-          const [session] = await orm
-            .select({ isAdmin: visitorSessionTab.isAdmin })
-            .from(visitorSessionTab)
-            .where(eq(visitorSessionTab.id, safeSessionId))
-            .limit(1);
-          if (session?.isAdmin === 1) {
-            isSessionAdmin = true;
-          }
-        }
+          .where(and(eq(visitorSessionTab.id, safeSessionId), eq(visitorSessionTab.visitorId, visitorId)));
       } catch {
         // Gracefully ignore foreign key constraint violations or missing session/photo references
         return false;
