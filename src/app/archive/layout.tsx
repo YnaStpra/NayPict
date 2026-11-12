@@ -28,7 +28,11 @@ export default async function ArchiveLayout({ children }: ArchiveLayoutProps) {
   ])
 
   return (
-    <ArchiveProvider initialPhotos={photoData.list} initialAlbums={archivedAlbums}>
+    <ArchiveProvider
+      initialPhotos={photoData.list}
+      initialTotal={photoData.total ?? photoData.list.length}
+      initialAlbums={archivedAlbums}
+    >
       {children}
     </ArchiveProvider>
   )

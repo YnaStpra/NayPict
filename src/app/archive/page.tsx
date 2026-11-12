@@ -50,7 +50,7 @@ const emptySubscribe = () => () => {}
 export default function ArchivePage() {
   const isBrowser = useSyncExternalStore(emptySubscribe, () => true, () => false)
   const t = useTranslations()
-  const { initialPhotos, initialAlbums } = useArchiveContext()
+  const { initialPhotos, initialTotal, initialAlbums } = useArchiveContext()
   const { userInfo, sidebarOpen, setSidebarOpen, refreshAlbums } = useApp()
   const isAdmin = userInfo?.type === UserTypeEnum.ADMIN
   const [archivedAlbums, setArchivedAlbums] = useState<AlbumVo[]>(initialAlbums || [])
@@ -69,7 +69,17 @@ export default function ArchivePage() {
     retryLoadMore,
     updatePhotos,
     setPhotos,
-  } = usePhotoList({ visibility: PhotoVisibilityEnum.ARCHIVED }, PHOTO_LIST_PAGE_SIZE, initialPhotos)
+  } = usePhotoList(
+    {
+      visibility: PhotoVisibilityEnum.ARCHIVED,
+      sortBy: "takenTime",
+      sortOrder: "desc",
+      shuffle: false,
+    },
+    PHOTO_LIST_PAGE_SIZE,
+    initialPhotos,
+    initialTotal
+  )
 
   // Listen for background catalog changes and update archived items seamlessly
   useEffect(() => {
@@ -127,7 +137,7 @@ export default function ArchivePage() {
       return
     }
 
-    photoList({ photoIds: [targetPhotoId], size: 1 })
+    photoList({ photoIds: [targetPhotoId], size: 1, visibility: PhotoVisibilityEnum.ARCHIVED })
       .then((res) => {
         if (res?.list && res.list.length > 0) {
           setPhotos((prev) => {
