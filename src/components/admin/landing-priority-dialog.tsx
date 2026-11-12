@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Check, Loader2, Search, Sparkles, Trash2, X } from "lucide-react"
 import { toast } from "sonner"
 
@@ -23,7 +23,7 @@ import { toProxyMediaUrl } from "@/lib/url"
 import { useModalBackHandler } from "@/hooks/use-modal-back-handler"
 
 const MAX_PRIORITY_PHOTOS = 10
-const PAGE_SIZE = 30
+const PAGE_SIZE = 50
 
 interface LandingPriorityDialogProps {
   open: boolean
@@ -52,13 +52,23 @@ export function LandingPriorityDialog({
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [selectedMap, setSelectedMap] = useState<Map<string, PhotoVo>>(new Map())
   const [candidates, setCandidates] = useState<PhotoVo[]>([])
-  const [totalEligible, setTotalEligible] = useState<number>(0)
+  const [pagination, setPagination] = useState<{
+    loadedOffset: number
+    totalEligible: number | null
+    hasMore: boolean
+  }>({
+    loadedOffset: 0,
+    totalEligible: null,
+    hasMore: false,
+  })
   const [searchText, setSearchText] = useState("")
   const [debouncedKeyword, setDebouncedKeyword] = useState("")
   const [loadingInitial, setLoadingInitial] = useState(false)
   const [loadingCandidates, setLoadingCandidates] = useState(false)
+  const [loadError, setLoadError] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [loadedOffset, setLoadedOffset] = useState(0)
+  const scrollContainerRef = useRef<HTMLDivElement | null>(null)
+  const loadMoreTriggerRef = useRef<HTMLDivElement | null>(null)
 
   // Debounce keyword searches cleanly
   useEffect(() => {
@@ -107,6 +117,7 @@ export function LandingPriorityDialog({
       isActive: () => boolean = () => true
     ) => {
       setLoadingCandidates(true)
+      setLoadError(false)
       try {
         const res = await photoList({
           size: PAGE_SIZE,
@@ -121,8 +132,27 @@ export function LandingPriorityDialog({
         if (!isActive()) return
         const rawList = res?.list || []
         const filtered = rawList.filter(isEligibleLandingPhoto)
-        setLoadedOffset(offset + rawList.length)
-        setTotalEligible(res?.total ?? offset + rawList.length)
+        const nextOffset = offset + rawList.length
+
+        // photoService.list skips COUNT on subsequent pages (offset > 0) and omits res.total;
+        // preserve the page-1 total so Load More stays active until all photos are fetched.
+        setPagination((prev) => {
+          const resolvedTotal =
+            typeof res?.total === "number"
+              ? res.total
+              : append
+                ? prev.totalEligible
+                : null
+          const hasMore =
+            resolvedTotal !== null
+              ? nextOffset < resolvedTotal && rawList.length > 0
+              : rawList.length >= PAGE_SIZE
+          return {
+            loadedOffset: nextOffset,
+            totalEligible: resolvedTotal,
+            hasMore,
+          }
+        })
 
         setSelectedMap((prev) => {
           const next = new Map(prev)
@@ -140,7 +170,10 @@ export function LandingPriorityDialog({
           return [...prev, ...filtered.filter((item) => !seen.has(item.photoId))]
         })
       } catch {
-        if (isActive()) toast.error("Failed to load gallery photos")
+        if (isActive()) {
+          setLoadError(true)
+          toast.error("Failed to load gallery photos")
+        }
       } finally {
         if (isActive()) setLoadingCandidates(false)
       }
@@ -163,6 +196,34 @@ export function LandingPriorityDialog({
       active = false
     }
   }, [open, debouncedKeyword, fetchCandidates])
+
+  // Auto-load next batch when scrolling near bottom of picker grid
+  useEffect(() => {
+    if (!open || !pagination.hasMore || loadingCandidates || loadError) return
+    const root = scrollContainerRef.current
+    const target = loadMoreTriggerRef.current
+    if (!root || !target) return
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          void fetchCandidates(pagination.loadedOffset, debouncedKeyword, true)
+        }
+      },
+      { root, rootMargin: "140px" }
+    )
+
+    observer.observe(target)
+    return () => observer.disconnect()
+  }, [
+    open,
+    pagination.hasMore,
+    pagination.loadedOffset,
+    loadingCandidates,
+    loadError,
+    debouncedKeyword,
+    fetchCandidates,
+  ])
 
   const togglePhoto = useCallback((photo: PhotoVo) => {
     setSelectedIds((prev) => {
@@ -194,7 +255,7 @@ export function LandingPriorityDialog({
       .filter((p): p is PhotoVo => Boolean(p))
   }, [selectedIds, selectedMap])
 
-  const hasMore = loadedOffset < totalEligible
+  const hasMore = pagination.hasMore
 
   async function handleSave() {
     setSaving(true)
@@ -320,10 +381,25 @@ export function LandingPriorityDialog({
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-6 py-4 min-h-[260px]">
+        <div ref={scrollContainerRef} className="flex-1 overflow-y-auto px-6 py-4 min-h-[260px]">
           {candidates.length === 0 && !loadingCandidates ? (
-            <div className="h-full min-h-[200px] flex flex-col items-center justify-center text-center text-sm text-muted-foreground">
-              No eligible public photos found.
+            <div className="h-full min-h-[200px] flex flex-col items-center justify-center gap-3 text-center text-sm text-muted-foreground">
+              <span>No eligible public photos found.</span>
+              {hasMore && (
+                <div ref={loadMoreTriggerRef}>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() =>
+                      void fetchCandidates(pagination.loadedOffset, debouncedKeyword, true)
+                    }
+                    className="cursor-pointer"
+                  >
+                    Load More Photos
+                  </Button>
+                </div>
+              )}
             </div>
           ) : (
             <>
@@ -387,13 +463,15 @@ export function LandingPriorityDialog({
               </div>
 
               {hasMore && (
-                <div className="mt-4 flex justify-center">
+                <div ref={loadMoreTriggerRef} className="mt-4 flex justify-center">
                   <Button
                     type="button"
                     variant="outline"
                     size="sm"
                     disabled={loadingCandidates}
-                    onClick={() => void fetchCandidates(loadedOffset, debouncedKeyword, true)}
+                    onClick={() =>
+                      void fetchCandidates(pagination.loadedOffset, debouncedKeyword, true)
+                    }
                     className="cursor-pointer"
                   >
                     {loadingCandidates ? (
@@ -401,6 +479,8 @@ export function LandingPriorityDialog({
                         <Loader2 className="size-3.5 mr-2 animate-spin" />
                         Loading...
                       </>
+                    ) : pagination.totalEligible !== null ? (
+                      `Load More Photos (${pagination.loadedOffset} / ${pagination.totalEligible})`
                     ) : (
                       "Load More Photos"
                     )}
