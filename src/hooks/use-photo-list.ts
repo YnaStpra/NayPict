@@ -49,14 +49,19 @@ function usePhotoList(
   // Tracks the current offset into allShuffledIdsRef for the next page fetch.
   const pageOffsetRef = useRef(0)
 
-  // Initial photos from SSR, or seeded from landing page in-memory cache for instant 0ms paint
+  const hasCustomVisibility =
+    initialParams.visibility !== undefined && initialParams.visibility !== null
+  const isMainGalleryScope =
+    !initialParams.albumId && !initialParams.status && !hasCustomVisibility
+
+  // Initial photos from SSR, or seeded from landing page in-memory cache ONLY for main public gallery scope
   const seededCatalog = useMemo(() => {
     if (initialPhotos && initialPhotos.length > 0) return null
-    if (!initialParams.albumId && !initialParams.status) {
+    if (isMainGalleryScope) {
       return getMemoryOfflineCatalog()
     }
     return null
-  }, [initialPhotos, initialParams.albumId, initialParams.status])
+  }, [initialPhotos, isMainGalleryScope])
 
   const initialPhotoList = useMemo(() => {
     if (initialPhotos && initialPhotos.length > 0) return initialPhotos
@@ -69,7 +74,9 @@ function usePhotoList(
   const hasInitialPhotos = Array.isArray(initialPhotos) && initialPhotos.length > 0
   const initialMoreAvailable = hasInitialPhotos
     ? initialPhotos.length === pageSize
-    : true
+    : typeof initialTotal === "number"
+      ? false
+      : true
   const hasMoreRef = useRef(initialMoreAvailable) // Tracks if more pages are available.
   const [hasMore, setHasMore] = useState<boolean>(initialMoreAvailable)
   const [photos, setPhotos] = useState<PhotoVo[]>(initialPhotoList) // Store the list of photos displayed on the current page.
@@ -99,18 +106,22 @@ function usePhotoList(
       initialUsedRef.current = true
       photosRef.current = initialPhotoList
       setPhotos(initialPhotoList)
-      setTotalCount(initialTotal || (seededCatalog?.totalCount ?? initialPhotoList.length))
+      setTotalCount(initialTotal ?? (seededCatalog?.totalCount ?? initialPhotoList.length))
       const hasInitialPhotos = Array.isArray(initialPhotos) && initialPhotos.length > 0
-      const moreAvailable = hasInitialPhotos ? initialPhotos.length === pageSize : true
+      const moreAvailable = hasInitialPhotos
+        ? initialPhotos.length === pageSize
+        : typeof initialTotal === "number"
+          ? false
+          : true
       hasMoreRef.current = moreAvailable
       setHasMore(moreAvailable)
       // Offset starts at how many SSR photos we already have
       pageOffsetRef.current = initialPhotoList.length
 
-      // Save initial page to offline IndexedDB catalog or restore cached snapshot instantly
-      if (initialPhotoList.length > 0 && !initialParams.albumId && !initialParams.status) {
-        saveOfflineCatalog(initialPhotoList, initialTotal || (seededCatalog?.totalCount ?? initialPhotoList.length))
-      } else if (initialPhotoList.length === 0 && !initialParams.albumId && !initialParams.status) {
+      // Save initial page to offline IndexedDB catalog or restore cached snapshot ONLY for main public gallery
+      if (initialPhotoList.length > 0 && isMainGalleryScope) {
+        saveOfflineCatalog(initialPhotoList, initialTotal ?? (seededCatalog?.totalCount ?? initialPhotoList.length))
+      } else if (initialPhotoList.length === 0 && isMainGalleryScope) {
         getOfflineCatalog().then((cached) => {
           if (cached && cached.photos.length > 0) {
             photosRef.current = cached.photos
@@ -135,25 +146,26 @@ function usePhotoList(
       hasMoreRef.current = moreAvailable
       setHasMore(moreAvailable)
       pageOffsetRef.current = initialPhotos.length
-      if (!initialParams.albumId && !initialParams.status) {
+      if (isMainGalleryScope) {
         saveOfflineCatalog(initialPhotos, initialTotal ?? initialPhotos.length)
       }
     }
-  }, [initialPhotos, pageSize, initialPhotoList, initialTotal, initialParams.albumId, initialParams.status, seededCatalog])
+  }, [initialPhotos, pageSize, initialPhotoList, initialTotal, isMainGalleryScope, seededCatalog])
 
   // Speculatively prefetch randomized ID catalog in idle time so the first infinite scroll triggers 1 single request instead of 2 sequential requests
   useEffect(() => {
     if (typeof window === "undefined") return
-    if (paramsRef.current.sortBy || paramsRef.current.cursorPhotoId) return
+    if (paramsRef.current.sortBy || paramsRef.current.cursorPhotoId || paramsRef.current.shuffle === false) return
     if (allShuffledIdsRef.current) return
 
     const prefetchRandomIds = () => {
       const q = paramsRef.current
-      if (q.sortBy || q.cursorPhotoId || allShuffledIdsRef.current) return
+      if (q.sortBy || q.cursorPhotoId || q.shuffle === false || allShuffledIdsRef.current) return
 
       photoRandomIdList({
         status: q.status ?? null,
         albumId: q.albumId ?? null,
+        visibility: q.visibility ?? null,
         startTakenTime: q.startTakenTime ?? null,
         endTakenTime: q.endTakenTime ?? null,
       })
@@ -176,12 +188,15 @@ function usePhotoList(
         .catch(() => {})
     }
 
-    let timer: any = null
-    if ("requestIdleCallback" in window) {
-      const handle = (window as any).requestIdleCallback(prefetchRandomIds, { timeout: 1500 })
-      return () => (window as any).cancelIdleCallback(handle)
+    const idleWindow = window as Window & {
+      requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number
+      cancelIdleCallback?: (id: number) => void
+    }
+    if (typeof idleWindow.requestIdleCallback === "function") {
+      const handle = idleWindow.requestIdleCallback(prefetchRandomIds, { timeout: 1500 })
+      return () => idleWindow.cancelIdleCallback?.(handle)
     } else {
-      timer = setTimeout(prefetchRandomIds, 400)
+      const timer: ReturnType<typeof setTimeout> = setTimeout(prefetchRandomIds, 400)
       return () => clearTimeout(timer)
     }
   }, [])
@@ -304,7 +319,11 @@ function usePhotoList(
             if (data.total !== undefined) {
               setTotalCount(data.total)
             }
-            if (!append && !queryParams.albumId && !queryParams.status) {
+            const isQueryMainGallery =
+              !queryParams.albumId &&
+              !queryParams.status &&
+              (queryParams.visibility === undefined || queryParams.visibility === null)
+            if (!append && isQueryMainGallery) {
               saveOfflineCatalog(uniquePhotos, data.total ?? uniquePhotos.length)
             }
             setIsOffline(false)
@@ -327,7 +346,11 @@ function usePhotoList(
           if (append) {
             setLoadMoreError(true)
           }
-          if (photosRef.current.length === 0) {
+          const isQueryMainGallery =
+            !queryParams.albumId &&
+            !queryParams.status &&
+            (queryParams.visibility === undefined || queryParams.visibility === null)
+          if (photosRef.current.length === 0 && isQueryMainGallery) {
             getOfflineCatalog().then((cached) => {
               if (cached && cached.photos.length > 0) {
                 photosRef.current = cached.photos
@@ -373,6 +396,7 @@ function usePhotoList(
     photoRandomIdList({
       status: queryParams.status ?? null,
       albumId: queryParams.albumId ?? null,
+      visibility: queryParams.visibility ?? null,
       startTakenTime: queryParams.startTakenTime ?? null,
       endTakenTime: queryParams.endTakenTime ?? null,
     })
@@ -510,11 +534,14 @@ function usePhotoList(
 
   // Update in-memory photo fields (e.g. visibility, allowDownload).
   const updatePhoto = useCallback((updatedPhoto: Partial<PhotoVo> & { photoId: string }) => {
-    // If photo is archived or moved out of gallery scope, remove it from view and decrement totalCount
-    if (
-      updatedPhoto.visibility === PhotoVisibilityEnum.ARCHIVED ||
-      (!paramsRef.current.albumId && updatedPhoto.visibility === PhotoVisibilityEnum.ALBUM_ONLY)
-    ) {
+    const isInArchiveView = paramsRef.current.visibility === PhotoVisibilityEnum.ARCHIVED
+    const shouldRemoveFromView = isInArchiveView
+      ? (updatedPhoto.visibility !== undefined && updatedPhoto.visibility !== PhotoVisibilityEnum.ARCHIVED)
+      : (
+          updatedPhoto.visibility === PhotoVisibilityEnum.ARCHIVED ||
+          (!paramsRef.current.albumId && updatedPhoto.visibility === PhotoVisibilityEnum.ALBUM_ONLY)
+        )
+    if (shouldRemoveFromView) {
       removePhotos([updatedPhoto.photoId])
       return
     }
@@ -528,11 +555,14 @@ function usePhotoList(
 
   // Batch update in-memory photo fields across multiple photo IDs.
   const updatePhotos = useCallback((photoIds: string[], updatedFields: Partial<PhotoVo>) => {
-    // If photos are archived or moved out of gallery scope, remove them from view and decrement totalCount
-    if (
-      updatedFields.visibility === PhotoVisibilityEnum.ARCHIVED ||
-      (!paramsRef.current.albumId && updatedFields.visibility === PhotoVisibilityEnum.ALBUM_ONLY)
-    ) {
+    const isInArchiveView = paramsRef.current.visibility === PhotoVisibilityEnum.ARCHIVED
+    const shouldRemoveFromView = isInArchiveView
+      ? (updatedFields.visibility !== undefined && updatedFields.visibility !== PhotoVisibilityEnum.ARCHIVED)
+      : (
+          updatedFields.visibility === PhotoVisibilityEnum.ARCHIVED ||
+          (!paramsRef.current.albumId && updatedFields.visibility === PhotoVisibilityEnum.ALBUM_ONLY)
+        )
+    if (shouldRemoveFromView) {
       removePhotos(photoIds)
       return
     }
@@ -559,6 +589,7 @@ function usePhotoList(
       photoRandomIdList({
         status: queryParams.status ?? null,
         albumId: queryParams.albumId ?? null,
+        visibility: queryParams.visibility ?? null,
         startTakenTime: queryParams.startTakenTime ?? null,
         endTakenTime: queryParams.endTakenTime ?? null,
       })
