@@ -76,6 +76,7 @@ const PUBLIC_API_PATHS = [
   '/login',
   '/logout',
   '/photo/list',
+  '/photo/landing',
   '/photo/randomIdList',
   '/photo/map/list',
   '/photo/takenDateList',

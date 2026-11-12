@@ -7,7 +7,7 @@ import dynamic from 'next/dynamic'
 import { FolderHeart, Image as ImageIcon, ArrowRight, MapPin } from 'lucide-react'
 import { NaypictLogo } from '@/components/icons/naypict-logo'
 import { type PhotoVo } from '@/server/entity/vo/photo'
-import { photoList } from '@/request/photo'
+import { photoLandingList } from '@/request/photo'
 import { saveOfflineCatalog } from '@/lib/offline-catalog'
 import { markThumbnailLoaded } from '@/components/photo/photo-card'
 
@@ -89,7 +89,7 @@ export function LandingClient({ initialPhotos, initialTotal }: LandingClientProp
   useEffect(() => {
     if (initialPhotos && initialPhotos.length > 0) return
 
-    photoList({ size: 40, shuffle: true })
+    photoLandingList(40)
       .then((res) => {
         if (res?.list && res.list.length > 0) {
           setPhotos(res.list)

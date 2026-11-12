@@ -33,6 +33,7 @@ interface PhotoRandomIdListBo {
   visibility?: number | null;
   startTakenTime?: string | null;
   endTakenTime?: string | null;
+  excludeVideos?: boolean;
 }
 
 interface PhotoExistsBo {

@@ -74,6 +74,11 @@ export function photoList(params: PhotoListBo) {
   return http.get<PageVo<PhotoVo>>('/photo/list', params as unknown as Record<string, unknown>);
 }
 
+// Fetch randomized showcase images with guaranteed admin-selected priority photos for landing page.
+export function photoLandingList(size = 40) {
+  return http.get<PageVo<PhotoVo>>('/photo/landing', { size });
+}
+
 // Query photos taken on this day in previous years.
 export function photoOnThisDay(params: PhotoOnThisDayBo = {}) {
   return http.post<PhotoOnThisDayVo>('/photo/onThisDay', params);
