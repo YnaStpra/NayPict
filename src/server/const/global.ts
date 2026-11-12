@@ -7,7 +7,7 @@ const AUTH_CACHE_TTL = 60 * 60 * 24 * 30;
 const PHOTO_LIST_PAGE_SIZE = 50;
 const SETTING_KEY = 'system-config';
 const LANDING_PRIORITY_PHOTO_IDS_KEY = 'landing_priority_photo_ids';
-const LANDING_PRIORITY_MAX_COUNT = 10;
+const LANDING_PRIORITY_MAX_COUNT = 30;
 
 export {
   TOKEN_COOKIE_NAME,

@@ -121,9 +121,9 @@ export default function AdminPage() {
     },
     {
       title: "Landing Priority Photos",
-      description: "Choose up to 10 photos guaranteed to appear mixed randomly in every visitor's landing page infinite gallery.",
+      description: "Choose up to 30 photos guaranteed to appear mixed randomly in every visitor's landing page infinite gallery.",
       icon: <Star className="size-6 text-violet-500" />,
-      actionLabel: priorityCount !== null ? `Edit Priority Photos (${priorityCount}/10)` : "Edit Priority Photos",
+      actionLabel: priorityCount !== null ? `Edit Priority Photos (${priorityCount}/30)` : "Edit Priority Photos",
       onClick: () => setPriorityDialogOpen(true),
     },
     {

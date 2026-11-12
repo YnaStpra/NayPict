@@ -77,7 +77,9 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     logo: data.teams[0].logo,
   }
   const teams = isAdmin ? [albumTeam, data.teams[1]] : [albumTeam]
-  const isSystemTeam = isAdmin && data.sysMain.some((item) => isUrlMatched(pathname, item.url))
+  const isSystemTeam =
+    isAdmin &&
+    (isUrlMatched(pathname, "/admin") || data.sysMain.some((item) => isUrlMatched(pathname, item.url)))
   const activeTeam = isSystemTeam ? data.teams[1] : albumTeam
   const navItems = isSystemTeam
     ? data.sysMain
@@ -96,13 +98,13 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
   // Proactively pre-warm core navigation routes so clicking any sidebar item opens in 0ms
   React.useEffect(() => {
-    const coreRoutes = ["/photos", "/albums", "/map"]
+    const coreRoutes = isAdmin ? ["/photos", "/albums", "/map", "/admin"] : ["/photos", "/albums", "/map"]
     coreRoutes.forEach((url) => {
       try {
         router.prefetch(url)
       } catch {}
     })
-  }, [router])
+  }, [isAdmin, router])
 
   const handlePrewarmSidebar = React.useCallback(() => {
     navItems.forEach((item) => {
@@ -114,7 +116,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
   // switch team Enter the corresponding team default page, Allow it to pass even after refreshing URL Determine current team.
   function changeTeam(team: { name: string; logo: React.ReactNode }) {
-    const targetUrl = team.name === data.teams[1].name ? data.sysMain[0].url : data.navMain[0].url
+    const targetUrl = team.name === data.teams[1].name ? "/admin" : data.navMain[0].url
 
     setTimeout(() => {
       router.push(targetUrl)

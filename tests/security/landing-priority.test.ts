@@ -22,20 +22,21 @@ import { createLoginToken } from '@/server/lib/jwt';
 import BizError from '@/server/error/biz-error';
 
 describe('Landing Page Priority Photos Feature & Security Suite', () => {
-  describe('Input Validation & Max 10 Cap', () => {
-    it('deduplicates valid IDs and allows up to 10 photo IDs', () => {
+  describe('Input Validation & Max 30 Cap', () => {
+    it('deduplicates valid IDs and allows up to 30 photo IDs', () => {
       const ids = Array.from({ length: LANDING_PRIORITY_MAX_COUNT }, (_, i) => `photo_${i + 1}`);
       const withDuplicates = [...ids, 'photo_1', 'photo_5'];
       const cleaned = sanitizeLandingPriorityPhotoIds(withDuplicates);
 
-      assert.equal(cleaned.length, 10);
+      assert.equal(LANDING_PRIORITY_MAX_COUNT, 30);
+      assert.equal(cleaned.length, 30);
       assert.deepEqual(cleaned, ids);
     });
 
-    it('rejects selecting more than 10 unique photo IDs', () => {
-      const elevenIds = Array.from({ length: 11 }, (_, i) => `photo_${i + 1}`);
+    it('rejects selecting more than 30 unique photo IDs', () => {
+      const tooManyIds = Array.from({ length: 31 }, (_, i) => `photo_${i + 1}`);
       assert.throws(
-        () => sanitizeLandingPriorityPhotoIds(elevenIds),
+        () => sanitizeLandingPriorityPhotoIds(tooManyIds),
         (err: unknown) =>
           err instanceof BizError && err.message === 'landing.priorityLimitExceeded' && err.code === 400
       );
@@ -82,15 +83,15 @@ describe('Landing Page Priority Photos Feature & Security Suite', () => {
   });
 
   describe('Priority + Random Mixing Logic', () => {
-    it('guarantees all eligible priority IDs appear inside the 40-photo landing slice alongside random fillers', () => {
-      const priorityIds = Array.from({ length: 10 }, (_, i) => `prio_${i + 1}`);
+    it('guarantees all eligible priority IDs (up to 30) appear inside the 50-photo landing slice alongside random fillers', () => {
+      const priorityIds = Array.from({ length: 30 }, (_, i) => `prio_${i + 1}`);
       const otherIds = Array.from({ length: 120 }, (_, i) => `rand_${i + 1}`);
       const allEligible = [...otherIds, ...priorityIds];
 
-      const merged = mergeLandingPhotoIds(priorityIds, allEligible, 40);
+      const merged = mergeLandingPhotoIds(priorityIds, allEligible, 50);
 
-      assert.equal(merged.length, 40);
-      assert.equal(new Set(merged).size, 40, 'Merged landing pool must contain 40 unique photo IDs');
+      assert.equal(merged.length, 50);
+      assert.equal(new Set(merged).size, 50, 'Merged landing pool must contain 50 unique photo IDs');
       for (const pid of priorityIds) {
         assert.ok(merged.includes(pid), `Priority photo ${pid} must be guaranteed in landing pool`);
       }
@@ -192,8 +193,9 @@ describe('Landing Page Priority Photos Feature & Security Suite', () => {
       const photosPageSource = fs.readFileSync(path.join(process.cwd(), 'src/app/photos/page.tsx'), 'utf-8');
       const adminPageSource = fs.readFileSync(path.join(process.cwd(), 'src/app/admin/page.tsx'), 'utf-8');
 
-      assert.ok(landingPageSource.includes('photoService.getLandingPhotos(40)'));
-      assert.ok(landingClientSource.includes('photoLandingList(40)'));
+      assert.ok(landingPageSource.includes('photoService.getLandingPhotos(50)'));
+      assert.ok(landingClientSource.includes('photoLandingList(50)'));
+      assert.equal(landingClientSource.includes('isPaused={isNavigating}'), false);
       assert.equal(photosPageSource.includes('landing-priority'), false);
       assert.equal(photosPageSource.includes('photoLandingList'), false);
       assert.ok(adminPageSource.includes('LandingPriorityDialog'));

@@ -22,7 +22,7 @@ import { photoList } from "@/request/photo"
 import { toProxyMediaUrl } from "@/lib/url"
 import { useModalBackHandler } from "@/hooks/use-modal-back-handler"
 
-const MAX_PRIORITY_PHOTOS = 10
+const MAX_PRIORITY_PHOTOS = 30
 const PAGE_SIZE = 50
 
 interface LandingPriorityDialogProps {

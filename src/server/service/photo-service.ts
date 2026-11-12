@@ -120,7 +120,7 @@ const onThisDayCache = new Map<string, { data: PhotoOnThisDayVo; expires: number
 // In-memory fast-path cache for calendar/timeline date aggregation (60s TTL)
 const takenDateCache = new Map<string, { data: PhotoTakenDateVo[]; expires: number }>();
 
-// Merge up to 10 prioritized photo IDs with randomly sampled filler IDs and shuffle together for landing sessions.
+// Merge up to LANDING_PRIORITY_MAX_COUNT (30) prioritized photo IDs with randomly sampled filler IDs and shuffle together for landing sessions.
 export function mergeLandingPhotoIds(
   priorityIds: string[],
   shuffledPublicIds: string[],
@@ -3345,9 +3345,9 @@ const photoService = {
     };
   },
 
-  // Fetch landing page infinite gallery images: guarantees up to 10 admin-selected priority photos mixed randomly with other public images.
-  async getLandingPhotos(size = 40): Promise<PageVo<PhotoVo>> {
-    const targetSize = Math.max(10, Math.min(60, Math.floor(size || 40)));
+  // Fetch landing page infinite gallery images: guarantees up to LANDING_PRIORITY_MAX_COUNT (30) admin-selected priority photos mixed randomly with other public images.
+  async getLandingPhotos(size = 50): Promise<PageVo<PhotoVo>> {
+    const targetSize = Math.max(10, Math.min(60, Math.floor(size || 50)));
     const [priorityIds, eligibleIds] = await Promise.all([
       settingService.getLandingPriorityPhotoIds(),
       this.randomIdList({ excludeVideos: true }),
