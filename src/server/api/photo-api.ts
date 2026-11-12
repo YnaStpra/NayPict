@@ -255,6 +255,21 @@ export function registerPhotoApi(app: Hono<HonoEnv>) {
     return c.json(result.ok(data));
   };
 
+  app.get('/photo/landing', async (c: Context) => {
+    const clientIp = getClientIp(c);
+    const rateLimit = await photoListRateLimiter.consume(clientIp);
+    if (!rateLimit.allowed) {
+      c.header('Retry-After', String(Math.ceil(rateLimit.resetMs / 1000)));
+      return c.json(result.fail('Rate limit exceeded. Please wait a moment before loading more photos.', 429), 429);
+    }
+
+    const size = Math.max(10, Math.min(60, Number(c.req.query('size')) || 40));
+    c.header('Cache-Control', 'public, max-age=0, s-maxage=30, stale-while-revalidate=60');
+    c.header('CDN-Cache-Control', 'public, s-maxage=30, stale-while-revalidate=60');
+    const data = await photoService.getLandingPhotos(size);
+    return c.json(result.ok(data));
+  });
+
   app.get('/photo/list', handlePhotoList);
   app.post('/photo/list', handlePhotoList);
 

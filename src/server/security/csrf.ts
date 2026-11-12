@@ -72,6 +72,7 @@ const SENSITIVE_MUTATION_PATHS = [
   '/photo/presignedUploadUrl',
   '/photo/presignedPhotoUploadUrls',
   '/logout',
+  '/setting/landing-priority',
 ];
 
 // Extract hostname without port from a URL string or host header.

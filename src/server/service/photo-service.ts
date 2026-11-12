@@ -28,7 +28,7 @@ import {
   type PhotoSetVisibilityBo,
   type PhotoTakenDateListBo,
 } from '@/server/entity/bo/photo';
-import { PHOTO_LIST_PAGE_SIZE } from '@/server/const/global';
+import { PHOTO_LIST_PAGE_SIZE, LANDING_PRIORITY_MAX_COUNT } from '@/server/const/global';
 import { PhotoStatusEnum, PhotoVisibilityEnum } from '@/server/enums/photo-enum';
 import { StorageStatusEnum, StorageTypeOptions } from '@/server/enums/storage-enum';
 import { type PageVo } from '@/server/entity/vo/common';
@@ -119,6 +119,38 @@ const onThisDayCache = new Map<string, { data: PhotoOnThisDayVo; expires: number
 
 // In-memory fast-path cache for calendar/timeline date aggregation (60s TTL)
 const takenDateCache = new Map<string, { data: PhotoTakenDateVo[]; expires: number }>();
+
+// Merge up to 10 prioritized photo IDs with randomly sampled filler IDs and shuffle together for landing sessions.
+export function mergeLandingPhotoIds(
+  priorityIds: string[],
+  shuffledPublicIds: string[],
+  targetSize: number
+): string[] {
+  const safeTarget = Math.max(1, targetSize);
+  const eligibleSet = new Set(shuffledPublicIds);
+  const validPriorityIds: string[] = [];
+  const selectedSet = new Set<string>();
+
+  for (const id of priorityIds) {
+    if (validPriorityIds.length >= LANDING_PRIORITY_MAX_COUNT) break;
+    if (eligibleSet.has(id) && !selectedSet.has(id)) {
+      selectedSet.add(id);
+      validPriorityIds.push(id);
+    }
+  }
+
+  const remainingSlots = Math.max(0, safeTarget - validPriorityIds.length);
+  const fillers: string[] = [];
+  for (const id of shuffledPublicIds) {
+    if (fillers.length >= remainingSlots) break;
+    if (!selectedSet.has(id)) {
+      selectedSet.add(id);
+      fillers.push(id);
+    }
+  }
+
+  return shuffleArray([...validPriorityIds, ...fillers]);
+}
 
 export function invalidatePhotoFastPathCache(): void {
   publicFastPathCache.clear();
@@ -593,6 +625,10 @@ const photoService = {
           )`
         );
       }
+    }
+
+    if (params.excludeVideos) {
+      whereList.push(sql`COALESCE(${photoTab.type}, '') NOT LIKE 'video/%'`);
     }
 
     // In-memory Fisher-Yates shuffle replaces database ORDER BY RANDOM(), eliminating heavy table scans and sort overhead in PostgreSQL
@@ -3306,6 +3342,34 @@ const photoService = {
       albumOnlyPhotos: Number(statsRow?.albumOnlyPhotos ?? 0),
       archivedPhotos: Number(statsRow?.archivedPhotos ?? 0),
       geotaggedPhotos: Number(statsRow?.geotaggedPhotos ?? 0),
+    };
+  },
+
+  // Fetch landing page infinite gallery images: guarantees up to 10 admin-selected priority photos mixed randomly with other public images.
+  async getLandingPhotos(size = 40): Promise<PageVo<PhotoVo>> {
+    const targetSize = Math.max(10, Math.min(60, Math.floor(size || 40)));
+    const [priorityIds, eligibleIds] = await Promise.all([
+      settingService.getLandingPriorityPhotoIds(),
+      this.randomIdList({ excludeVideos: true }),
+    ]);
+
+    if (eligibleIds.length === 0) {
+      return { list: [], total: 0 };
+    }
+
+    const targetIds = mergeLandingPhotoIds(priorityIds, eligibleIds, targetSize);
+    if (targetIds.length === 0) {
+      return { list: [], total: eligibleIds.length };
+    }
+
+    const res = await this.list({
+      size: targetIds.length,
+      photoIds: targetIds,
+    });
+
+    return {
+      list: shuffleArray(res.list),
+      total: eligibleIds.length,
     };
   },
 };

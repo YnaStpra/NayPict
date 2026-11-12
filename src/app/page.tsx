@@ -10,14 +10,7 @@ export default async function Home() {
   let initialPhotos: PhotoVo[] = []
   let initialTotal = 0
   try {
-    const data = await photoService.list({
-      size: 40,
-      cursorPhotoId: null,
-      cursorTime: null,
-      status: null,
-      albumId: null,
-      shuffle: true,
-    })
+    const data = await photoService.getLandingPhotos(40)
 
     initialPhotos = data.list || []
     initialTotal = data.total ?? initialPhotos.length

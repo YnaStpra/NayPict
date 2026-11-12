@@ -19,15 +19,19 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { useApp } from "@/app/provider"
 import { UserTypeEnum } from "@/server/enums/user-enum"
-import { Image, FolderOpen, Database, Trash2, Settings, Upload, ShieldCheck, ArrowRight, LoaderCircle, BarChart3, Sparkles } from "lucide-react"
+import { Image, FolderOpen, Database, Trash2, Settings, Upload, ShieldCheck, ArrowRight, LoaderCircle, BarChart3, Sparkles, Star } from "lucide-react"
 import { usePhotoStore } from "@/store/photo-store"
 import { userInfo as fetchUserInfo } from "@/request/user"
+import { landingPriorityGet } from "@/request/setting"
+import { LandingPriorityDialog } from "@/components/admin/landing-priority-dialog"
 
 export default function AdminPage() {
   const router = useRouter()
   const { userInfo, setUserInfo, sidebarOpen, setSidebarOpen, title } = useApp()
   const openUpload = usePhotoStore((state) => state.openUpload)
   const [checking, setChecking] = useState(!userInfo)
+  const [priorityDialogOpen, setPriorityDialogOpen] = useState(false)
+  const [priorityCount, setPriorityCount] = useState<number | null>(null)
 
   useEffect(() => {
     if (!userInfo) {
@@ -49,6 +53,14 @@ export default function AdminPage() {
       router.replace("/login")
     }
   }, [userInfo, setUserInfo, router])
+
+  useEffect(() => {
+    if (userInfo?.type === UserTypeEnum.ADMIN) {
+      landingPriorityGet()
+        .then((res) => setPriorityCount(res?.photoIds?.length ?? 0))
+        .catch(() => {})
+    }
+  }, [userInfo])
 
   if (checking) {
     return (
@@ -106,6 +118,13 @@ export default function AdminPage() {
       icon: <Trash2 className="size-6 text-rose-500" />,
       actionLabel: "Open Trash",
       onClick: () => router.push("/trash"),
+    },
+    {
+      title: "Landing Priority Photos",
+      description: "Choose up to 10 photos guaranteed to appear mixed randomly in every visitor's landing page infinite gallery.",
+      icon: <Star className="size-6 text-violet-500" />,
+      actionLabel: priorityCount !== null ? `Edit Priority Photos (${priorityCount}/10)` : "Edit Priority Photos",
+      onClick: () => setPriorityDialogOpen(true),
     },
     {
       title: "System Settings",
@@ -196,6 +215,12 @@ export default function AdminPage() {
           </div>
         </div>
       </SidebarInset>
+
+      <LandingPriorityDialog
+        open={priorityDialogOpen}
+        onOpenChange={setPriorityDialogOpen}
+        onSaved={(ids) => setPriorityCount(ids.length)}
+      />
     </SidebarProvider>
   )
 }
