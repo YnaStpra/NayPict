@@ -335,14 +335,14 @@ export function InfiniteGallery(props: InfiniteGalleryProps) {
       return pool
     }
 
-    // Dynamic GPU Tile Texture Memory Eviction: Explicitly disconnect textures and revoke image sources
+    // Dynamic GPU Tile Texture Memory Eviction: Explicitly disconnect textures and remove image src cleanly
     const disposeLayer = (octave: number) => {
       const pool = layerPools.get(octave)
       if (!pool) return
       pool.imgEls.forEach((img) => {
         img.onload = null
         img.onerror = null
-        img.src = ""
+        img.removeAttribute("src")
       })
       pool.tileEls.forEach((el) => {
         if (el.parentNode === scene) scene.removeChild(el)
@@ -359,7 +359,7 @@ export function InfiniteGallery(props: InfiniteGalleryProps) {
       if (img) {
         img.onload = null
         img.onerror = null
-        img.src = ""
+        img.removeAttribute("src")
       }
       const el = pool.tileEls.get(key)
       if (el && el.parentNode === scene) scene.removeChild(el)
@@ -413,7 +413,7 @@ export function InfiniteGallery(props: InfiniteGalleryProps) {
 
         const img = document.createElement("img")
         img.src = currentSrc
-        img.alt = t.alt || safeImages[t.imgIdx]?.alt || ""
+        img.alt = ""
         img.decoding = "async"
         img.loading = "eager"
         img.draggable = false
@@ -428,10 +428,13 @@ export function InfiniteGallery(props: InfiniteGalleryProps) {
         img.style.transition = "transform 0.2s ease, box-shadow 0.2s ease"
 
         img.onerror = () => {
-          if (img.src && !img.src.includes('/media/')) {
+          if (img.dataset.fallbackTried !== "1" && img.src && !img.src.includes('/media/')) {
+            img.dataset.fallbackTried = "1"
             const fallbackSrc = currentSrc.startsWith('http') ? currentSrc.replace(/^https?:\/\/[^\/]+/, '/media') : currentSrc
             img.src = fallbackSrc
+            return
           }
+          img.style.visibility = "hidden"
         }
 
         const radiusPx = (safeRounded / 20) * (Math.min(wPx, hPx) / 2)
@@ -493,6 +496,8 @@ export function InfiniteGallery(props: InfiniteGalleryProps) {
           el.dataset.photoIndex = String(currentPhotoIndex)
           const img = pool.imgEls.get(key)
           if (img && img.src !== currentSrc) {
+            img.dataset.fallbackTried = "0"
+            img.style.visibility = "visible"
             img.src = currentSrc
           }
         }
@@ -702,21 +707,14 @@ export function InfiniteGallery(props: InfiniteGalleryProps) {
       }
     }
 
-    // Freeze render loop immediately when user begins navigating away to release 100% main thread CPU
-    const handleNavStart = () => {
-      stopLoop()
-    }
-
     if (!isPausedRef.current) {
       startLoop()
     }
     document.addEventListener("visibilitychange", handleVisibility)
-    window.addEventListener("naypict:navigation-started", handleNavStart)
 
     return () => {
       stopLoop()
       document.removeEventListener("visibilitychange", handleVisibility)
-      window.removeEventListener("naypict:navigation-started", handleNavStart)
       window.removeEventListener("resize", handleOrientationOrResize)
       window.removeEventListener("orientationchange", handleOrientationOrResize)
       ro.disconnect()

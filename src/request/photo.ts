@@ -75,7 +75,7 @@ export function photoList(params: PhotoListBo) {
 }
 
 // Fetch randomized showcase images with guaranteed admin-selected priority photos for landing page.
-export function photoLandingList(size = 40) {
+export function photoLandingList(size = 50) {
   return http.get<PageVo<PhotoVo>>('/photo/landing', { size });
 }
 

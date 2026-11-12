@@ -45,7 +45,7 @@
   "photo.emptyFile": "上传的文件为空。",
   "totp.notConfigured": "2FA is not configured for this account.",
   "totp.alreadyEnabled": "已启用双因素身份验证，请先禁用后再重新配置密钥。",
-  "landing.priorityLimitExceeded": "首页展示画廊最多只能选择 10 张优先照片。",
+  "landing.priorityLimitExceeded": "首页展示画廊最多只能选择 30 张优先照片。",
   "landing.invalidPhotoSelection": "所选照片包含无效或非公开图片，无法用于首页展示。",
   "totp.invalidCode": "Invalid 2FA verification code.",
   "totp.codeAlreadyUsed": "This 2FA code has already been used.",

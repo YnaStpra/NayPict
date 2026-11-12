@@ -82,7 +82,7 @@
   "backup.passwordTooShort": "Backup encryption password must be at least 12 characters long.",
   "user.passwordTooCommon": "This password is too common and easily guessed. Please choose a stronger password.",
   "user.passwordMatchesUsername": "Password cannot be the same as your username.",
-  "landing.priorityLimitExceeded": "You can select at most 10 priority photos for the landing gallery.",
+  "landing.priorityLimitExceeded": "You can select at most 30 priority photos for the landing gallery.",
   "landing.invalidPhotoSelection": "One or more selected photos are not eligible for the public landing gallery."
 }
 

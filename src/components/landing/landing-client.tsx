@@ -25,7 +25,6 @@ interface LandingClientProps {
 export function LandingClient({ initialPhotos, initialTotal }: LandingClientProps) {
   const router = useRouter()
   const [photos, setPhotos] = useState<PhotoVo[]>(initialPhotos || [])
-  const [isNavigating, setIsNavigating] = useState(false)
 
   // Seed gallery catalog cache and pre-warm thumbnail memory cache for 0ms zero-skeleton transition into /photos
   useEffect(() => {
@@ -41,25 +40,12 @@ export function LandingClient({ initialPhotos, initialTotal }: LandingClientProp
     }
   }, [photos, initialTotal])
 
-  // Freeze intensive 120 FPS render loops the instant user begins navigating away
-  const handleNavigationStart = useCallback(() => {
-    setIsNavigating(true)
-    if (rafTiltRef.current !== null) {
-      cancelAnimationFrame(rafTiltRef.current)
-      rafTiltRef.current = null
-    }
-    if (typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent('naypict:navigation-started'))
-    }
-  }, [])
-
   // Seamless click-through directly from background canvas photo to photo viewer in /photos
   const handlePhotoClick = useCallback((index: number, photo?: PhotoVo) => {
     if (photo?.photoId) {
-      handleNavigationStart()
       router.push(`/photos?photoId=${photo.photoId}`)
     }
-  }, [router, handleNavigationStart])
+  }, [router])
 
   // Instantly prefetch primary gallery routes as soon as landing mounts
   useEffect(() => {
@@ -89,7 +75,7 @@ export function LandingClient({ initialPhotos, initialTotal }: LandingClientProp
   useEffect(() => {
     if (initialPhotos && initialPhotos.length > 0) return
 
-    photoLandingList(40)
+    photoLandingList(50)
       .then((res) => {
         if (res?.list && res.list.length > 0) {
           setPhotos(res.list)
@@ -188,7 +174,6 @@ export function LandingClient({ initialPhotos, initialTotal }: LandingClientProp
           driftAmount={14}
           dragSpeed={18}
           friction={10}
-          isPaused={isNavigating}
           className="w-full h-full"
         />
         {/* Subtle Multi-Layer Dark Vignette */}
@@ -245,7 +230,6 @@ export function LandingClient({ initialPhotos, initialTotal }: LandingClientProp
               <Link
                 href="/photos"
                 prefetch={true}
-                onClick={handleNavigationStart}
                 className="btn-shimmer-interactive group relative flex items-center justify-between w-full h-11 sm:h-12 px-4 sm:px-5 rounded-2xl bg-white/10 hover:bg-white/20 active:bg-white/25 border border-white/25 text-white font-bold text-sm sm:text-base backdrop-blur-md hover:scale-[1.02] active:scale-[0.98] cursor-pointer shadow-lg transition-all"
               >
                 <div className="flex items-center gap-3">
@@ -260,7 +244,6 @@ export function LandingClient({ initialPhotos, initialTotal }: LandingClientProp
               <Link
                 href="/albums"
                 prefetch={true}
-                onClick={handleNavigationStart}
                 className="btn-shimmer-interactive group relative flex items-center justify-between w-full h-11 sm:h-12 px-4 sm:px-5 rounded-2xl bg-white/10 hover:bg-white/20 active:bg-white/25 border border-white/25 text-white font-bold text-sm sm:text-base backdrop-blur-md hover:scale-[1.02] active:scale-[0.98] cursor-pointer shadow-lg transition-all"
               >
                 <div className="flex items-center gap-3">
@@ -275,7 +258,6 @@ export function LandingClient({ initialPhotos, initialTotal }: LandingClientProp
               <Link
                 href="/map"
                 prefetch={true}
-                onClick={handleNavigationStart}
                 className="btn-shimmer-interactive group relative flex items-center justify-between w-full h-11 sm:h-12 px-4 sm:px-5 rounded-2xl bg-white/10 hover:bg-white/20 active:bg-white/25 border border-white/25 text-white font-bold text-sm sm:text-base backdrop-blur-md hover:scale-[1.02] active:scale-[0.98] cursor-pointer shadow-lg transition-all"
               >
                 <div className="flex items-center gap-3">
