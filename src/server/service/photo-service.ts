@@ -2701,7 +2701,7 @@ const photoService = {
     const key = isAllowed && rawKey
       ? (domain ? toMediaUrl(rawKey, domain) : toProxyMediaUrl(rawKey))
       : null;
-    const isGpsPubliclyHidden = Boolean(!currentUserId && process.env.HIDE_PUBLIC_GPS === 'true');
+    const isGpsPubliclyHidden = Boolean(!currentUserId && settingService.isPublicGpsHidden());
     const isLocationIgnored = (exifRow?.latitude === 999 && exifRow?.longitude === 999) || isGpsPubliclyHidden;
     const latitude = isLocationIgnored ? null : (exifRow?.latitude ?? null);
     const longitude = isLocationIgnored ? null : (exifRow?.longitude ?? null);
@@ -3173,6 +3173,10 @@ const photoService = {
 
   // Query all geotagged photos with valid GPS coordinates for the interactive photo map explorer.
   async getMapPhotos(userId?: string): Promise<PhotoVo[]> {
+    if (!userId && settingService.isPublicGpsHidden()) {
+      return [];
+    }
+
     const whereConditions = [
       eq(photoTab.status, PhotoStatusEnum.NORMAL),
       isNotNull(exifTab.latitude),

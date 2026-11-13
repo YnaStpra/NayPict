@@ -23,10 +23,16 @@ const SettingRightClickGuardEnum = {
   DISABLE: 2
 } as const;
 
+const SettingHideGpsEnum = {
+  ENABLE: 1,
+  DISABLE: 2
+} as const;
+
 export {
   SettingSyncDeleteEnum,
   SettingPhotoDedupEnum,
   SettingOnThisDayEnum,
   SettingWatermarkEnum,
   SettingRightClickGuardEnum,
+  SettingHideGpsEnum,
 };

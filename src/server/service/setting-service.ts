@@ -16,6 +16,7 @@ import {
   SettingSyncDeleteEnum,
   SettingWatermarkEnum,
   SettingRightClickGuardEnum,
+  SettingHideGpsEnum,
 } from '@/server/enums/setting-enum';
 import { orm, readOrm } from '@/server/infra/db';
 
@@ -29,6 +30,7 @@ const defaultSetting: Setting = {
   watermarkEnabled: SettingWatermarkEnum.DISABLE,
   watermarkText: '© NayPict',
   rightClickGuard: SettingRightClickGuardEnum.DISABLE,
+  hidePublicGps: SettingHideGpsEnum.DISABLE,
 };
 
 let cachedSetting: Setting | null = null;
@@ -117,6 +119,7 @@ const settingService = {
       watermarkEnabled: params.watermarkEnabled === SettingWatermarkEnum.ENABLE ? SettingWatermarkEnum.ENABLE : SettingWatermarkEnum.DISABLE,
       watermarkText: safeWatermarkText,
       rightClickGuard: params.rightClickGuard === SettingRightClickGuardEnum.ENABLE ? SettingRightClickGuardEnum.ENABLE : SettingRightClickGuardEnum.DISABLE,
+      hidePublicGps: params.hidePublicGps === SettingHideGpsEnum.ENABLE ? SettingHideGpsEnum.ENABLE : SettingHideGpsEnum.DISABLE,
     };
 
     cachedSetting = validated;
@@ -138,6 +141,14 @@ const settingService = {
       }
       throw err;
     }
+  },
+
+  // Check if public GPS location coordinates should be stripped for guest visitors.
+  isPublicGpsHidden(): boolean {
+    if (process.env.HIDE_PUBLIC_GPS === 'true') {
+      return true;
+    }
+    return cachedSetting?.hidePublicGps === SettingHideGpsEnum.ENABLE;
   },
 
   // Read admin-selected priority photo IDs for the public landing page infinite gallery (max 10).

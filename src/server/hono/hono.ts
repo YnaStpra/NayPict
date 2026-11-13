@@ -20,8 +20,16 @@ export function createHonoApp() {
   // Layered Request Body Limits: 250MB for binary uploads, 128KB for telemetry/CSP, and 2MB for standard JSON APIs (Anti-DoS & Memory Defense)
   instance.use('*', async (c, next) => {
     const path = c.req.path;
+    const contentLength = Number(c.req.header('content-length') || '0');
+
+    // Reject excessively large payloads early via Content-Length header check
+    const isUploadPath = path === '/api/photo/add' || path.startsWith('/api/photo/upload') || path.startsWith('/api/backup/export');
+    if (!isUploadPath && contentLength > 10 * 1024 * 1024) {
+      return c.json(result.fail('Payload too large (maximum 10MB allowed for non-upload requests).', 413), 413);
+    }
+
     // Allow up to 250MB for direct file upload and database backup endpoints
-    if (path === '/api/photo/add' || path.startsWith('/api/photo/upload') || path.startsWith('/api/backup/export')) {
+    if (isUploadPath) {
       const limiter = bodyLimit({
         maxSize: 250 * 1024 * 1024,
         onError: (ctx) => ctx.json(result.fail('Upload payload too large (maximum 250MB allowed).', 413), 413),

@@ -216,6 +216,48 @@ function conditionalResponse(status, headers) {
   return new Response(null, { status, headers: responseHeaders })
 }
 
+// Verify HMAC-SHA256 token for protected derivatives and anti-scraping gateway security.
+async function verifyGatewayToken(key, token, exp, secret) {
+  if (!token || !secret) return false
+  if (exp) {
+    const expiresAt = Number.parseInt(exp, 10)
+    if (Number.isNaN(expiresAt) || Math.floor(Date.now() / 1000) > expiresAt) {
+      return false
+    }
+  }
+
+  const payload = exp ? `${key}:${exp}` : key
+  const encoder = new TextEncoder()
+  const keyData = encoder.encode(secret)
+  const data = encoder.encode(payload)
+
+  try {
+    const cryptoKey = await crypto.subtle.importKey(
+      "raw",
+      keyData,
+      { name: "HMAC", hash: "SHA-256" },
+      false,
+      ["verify"]
+    )
+
+    let sigBytes
+    if (/^[0-9a-fA-F]{64}$/.test(token)) {
+      sigBytes = new Uint8Array(token.match(/.{1,2}/g).map((b) => Number.parseInt(b, 16)))
+    } else {
+      const base64 = token.replace(/-/g, "+").replace(/_/g, "/")
+      const bin = atob(base64)
+      sigBytes = new Uint8Array(bin.length)
+      for (let i = 0; i < bin.length; i++) {
+        sigBytes[i] = bin.charCodeAt(i)
+      }
+    }
+
+    return await crypto.subtle.verify("HMAC", cryptoKey, sigBytes, data)
+  } catch {
+    return false
+  }
+}
+
 // Validate and answer an exact-origin CORS preflight request.
 function handleOptions(request, allowedOrigin) {
   const requestOrigin = request.headers.get("Origin")
@@ -362,6 +404,22 @@ const mediaGateway = {
 
     if (!env.MEDIA_BUCKET) {
       return errorResponse("Media bucket is not configured.", 500, allowedOrigin)
+    }
+
+    const secret = env.MEDIA_GATEWAY_SECRET
+    if (secret) {
+      const url = new URL(request.url)
+      const token = url.searchParams.get("token") || url.searchParams.get("sig")
+      const exp = url.searchParams.get("exp")
+
+      if (token) {
+        const isValid = await verifyGatewayToken(key, token, exp, secret)
+        if (!isValid) {
+          return errorResponse("Invalid or expired media token.", 403, allowedOrigin)
+        }
+      } else if (env.REQUIRE_SIGNED_TOKEN === "true") {
+        return errorResponse("Signed media token required.", 401, allowedOrigin)
+      }
     }
 
     try {
