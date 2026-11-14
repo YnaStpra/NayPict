@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import { Hono } from 'hono';
 import type { Context, Next } from 'hono';
 import { storage } from '@/server/storage/storage';
@@ -204,7 +205,14 @@ media.get('*', async (c: Context, next: Next) => {
   const gatewayBase = (process.env.NEXT_PUBLIC_MEDIA_GATEWAY_URL || process.env.R2_MEDIA_GATEWAY_URL || '').replace(/\/+$/, '');
   if (isCacheable && gatewayBase && !isDirectRequested) {
     const encodedKey = photoFile.key.split('/').map((segment: string) => encodeURIComponent(segment)).join('/');
-    return c.redirect(`${gatewayBase}/${encodedKey}`, 307);
+    const gatewaySecret = process.env.MEDIA_GATEWAY_SECRET;
+    let redirectUrl = `${gatewayBase}/${encodedKey}`;
+    if (gatewaySecret) {
+      const exp = Math.floor(Date.now() / 1000) + 3600; // 1 hour token
+      const sig = crypto.createHmac('sha256', gatewaySecret).update(`${photoFile.key}:${exp}`).digest('hex');
+      redirectUrl += `?token=${sig}&exp=${exp}`;
+    }
+    return c.redirect(redirectUrl, 307);
   }
 
   const etag = `W/"${photoFile.key}"`;

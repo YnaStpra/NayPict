@@ -14,6 +14,7 @@ export interface SettingConfig {
   watermarkEnabled?: number;
   watermarkText?: string;
   rightClickGuard?: number;
+  hidePublicGps?: number;
 }
 
 export type Setting = SettingConfig;

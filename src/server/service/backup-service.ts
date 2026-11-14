@@ -136,6 +136,11 @@ const backupService = {
         orm.select().from(storageTab),
       ]);
 
+      // Sanitize sensitive 2FA TOTP secrets and consumed replay codes from settings to prevent credential leakage in backups
+      const sanitizedSettings = settings.filter(
+        (s) => !s.key.startsWith('totp_user_') && !s.key.startsWith('totp_used_')
+      );
+
       const dump = {
         meta: {
           version: 1,
@@ -152,7 +157,7 @@ const backupService = {
           comments,
           reactions,
           views,
-          settings,
+          settings: sanitizedSettings,
           storages,
         },
       };

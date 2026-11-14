@@ -40,6 +40,7 @@ import {
   SettingSyncDeleteEnum,
   SettingWatermarkEnum,
   SettingRightClickGuardEnum,
+  SettingHideGpsEnum,
 } from "@/server/enums/setting-enum"
 import { useTranslations } from "next-intl"
 
@@ -125,6 +126,14 @@ export default function Page() {
       .catch(() => {
         toast.error("Failed to save setting")
       })
+  }
+
+  // Modify hide public GPS location coordinates switch value.
+  function changeHidePublicGps(checked: boolean) {
+    setSetting((prev) => ({
+      ...prev,
+      hidePublicGps: checked ? SettingHideGpsEnum.ENABLE : SettingHideGpsEnum.DISABLE,
+    }))
   }
 
   // Save current system settings.
@@ -247,6 +256,15 @@ export default function Page() {
               <Switch
                 checked={setting.rightClickGuard === SettingRightClickGuardEnum.ENABLE}
                 onCheckedChange={changeRightClickGuard}
+              />
+            </SettingItem>
+            <SettingItem
+              title="Hide Public GPS Location"
+              description="Strip latitude and longitude coordinates for guest visitors across albums and gallery to protect your location privacy."
+            >
+              <Switch
+                checked={setting.hidePublicGps === SettingHideGpsEnum.ENABLE}
+                onCheckedChange={changeHidePublicGps}
               />
             </SettingItem>
             <TotpSettingsCard />

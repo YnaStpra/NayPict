@@ -88,7 +88,12 @@ const insightsService = {
 
     await ensurePhotoViewTable();
 
-    const type = params.type || 'view';
+    const ALLOWED_INTERACTION_TYPES = new Set(['view', 'share', 'download']);
+    const rawType = params.type || 'view';
+    if (!ALLOWED_INTERACTION_TYPES.has(rawType)) {
+      return { recorded: false, reason: 'invalid_interaction_type' };
+    }
+    const type = rawType;
 
     try {
       // Verify photo exists, is active and publicly visible
@@ -121,28 +126,30 @@ const insightsService = {
         }
       }
 
-      // 60-second cooldown for views to prevent spam/refresh inflation
-      if (type === 'view') {
+      // 60-second cooldown for views and shares to prevent spam/refresh inflation
+      if (type === 'view' || type === 'share') {
         const cooldownThreshold = new Date(Date.now() - VIEW_COOLDOWN_SECONDS * 1000).toISOString();
-        const [recentView] = await orm
+        const [recentRecord] = await orm
           .select({ id: photoViewTab.id })
           .from(photoViewTab)
           .where(
             and(
               eq(photoViewTab.photoId, photoId),
               eq(photoViewTab.visitorId, visitorId),
-              eq(photoViewTab.type, 'view'),
+              eq(photoViewTab.type, type),
               gte(photoViewTab.viewedAt, sql`${cooldownThreshold}::timestamp`)
             )
           )
           .limit(1);
 
-        if (recentView) {
-          // Even during the 60s cooldown window, refresh the viewedAt timestamp so 'Recently Viewed' is always 100% current!
-          await orm
-            .update(photoViewTab)
-            .set({ viewedAt: new Date().toISOString() })
-            .where(eq(photoViewTab.id, recentView.id));
+        if (recentRecord) {
+          if (type === 'view') {
+            // Even during the 60s cooldown window, refresh the viewedAt timestamp so 'Recently Viewed' is always 100% current!
+            await orm
+              .update(photoViewTab)
+              .set({ viewedAt: new Date().toISOString() })
+              .where(eq(photoViewTab.id, recentRecord.id));
+          }
           return { recorded: true };
         }
       }
