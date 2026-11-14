@@ -58,7 +58,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       { title: t("navigation.map"), url: "/map", icon: <MapPin className="text-rose-500 dark:text-rose-400" />, isActive: isUrlMatched(pathname, "/map") },
       { title: t("navigation.archive") || "Archive", url: "/archive", icon: <Archive className="text-indigo-500 dark:text-indigo-400" />, isActive: isUrlMatched(pathname, "/archive") },
       { title: t("navigation.comments"), url: "/comments", icon: <MessageSquare className="text-emerald-500 dark:text-emerald-400" />, isActive: isUrlMatched(pathname, "/comments") },
-      { title: "Insights", url: "/admin/insights", icon: <BarChart3 className="text-violet-500 dark:text-violet-400" />, isActive: isUrlMatched(pathname, "/admin/insights") },
+      { title: "Insights", url: "/admin/insights", icon: <BarChart3 className="text-violet-500 dark:text-violet-400" />, isActive: isUrlMatched(pathname, "/admin/insights") || isUrlMatched(pathname, "/insights") },
       { title: t("navigation.trash"), url: "/trash", icon: <Trash2 className="text-red-500 dark:text-red-400" />, isActive: isUrlMatched(pathname, "/trash") },
     ],
     sysMain: [
@@ -77,19 +77,24 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     logo: data.teams[0].logo,
   }
   const teams = isAdmin ? [albumTeam, data.teams[1]] : [albumTeam]
+  const isNavMainMatch = data.navMain.some((item) => isUrlMatched(pathname, item.url))
+  const isSysMainMatch = data.sysMain.some((item) => isUrlMatched(pathname, item.url))
   const isSystemTeam =
     isAdmin &&
-    (isUrlMatched(pathname, "/admin") || data.sysMain.some((item) => isUrlMatched(pathname, item.url)))
+    !isNavMainMatch &&
+    (pathname === "/admin" || pathname === "/admin/" || isSysMainMatch)
   const activeTeam = isSystemTeam ? data.teams[1] : albumTeam
-  const navItems = isSystemTeam
-    ? data.sysMain
-    : isAdmin
-    ? data.navMain
-    : [
-        { title: t("navigation.photos") || "Gallery", url: "/photos", icon: <Images className="text-sky-500 dark:text-sky-400" />, isActive: isUrlMatched(pathname, "/photos") },
-        { title: t("navigation.albums"), url: "/albums", icon: <FolderOpen className="text-amber-500 dark:text-amber-400" />, isActive: isUrlMatched(pathname, "/albums") },
-        { title: t("navigation.map"), url: "/map", icon: <MapPin className="text-rose-500 dark:text-rose-400" />, isActive: isUrlMatched(pathname, "/map") },
-      ]
+  const navItems = React.useMemo(() => {
+    return isSystemTeam
+      ? data.sysMain
+      : isAdmin
+      ? data.navMain
+      : [
+          { title: t("navigation.photos") || "Gallery", url: "/photos", icon: <Images className="text-sky-500 dark:text-sky-400" />, isActive: isUrlMatched(pathname, "/photos") },
+          { title: t("navigation.albums"), url: "/albums", icon: <FolderOpen className="text-amber-500 dark:text-amber-400" />, isActive: isUrlMatched(pathname, "/albums") },
+          { title: t("navigation.map"), url: "/map", icon: <MapPin className="text-rose-500 dark:text-rose-400" />, isActive: isUrlMatched(pathname, "/map") },
+        ]
+  }, [isSystemTeam, isAdmin, data.sysMain, data.navMain, t, pathname])
   const navUser = {
     ...data.user,
     name: userInfo?.username ?? data.user.name,
