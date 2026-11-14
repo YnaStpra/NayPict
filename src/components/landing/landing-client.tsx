@@ -4,7 +4,7 @@ import { useEffect, useState, useRef, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
-import { FolderHeart, Image as ImageIcon, ArrowRight, MapPin } from 'lucide-react'
+import { FolderHeart, Image as ImageIcon, ArrowRight, MapPin, Loader2 } from 'lucide-react'
 import { NaypictLogo } from '@/components/icons/naypict-logo'
 import { type PhotoVo } from '@/server/entity/vo/photo'
 import { photoLandingList } from '@/request/photo'
@@ -25,6 +25,14 @@ interface LandingClientProps {
 export function LandingClient({ initialPhotos, initialTotal }: LandingClientProps) {
   const router = useRouter()
   const [photos, setPhotos] = useState<PhotoVo[]>(initialPhotos || [])
+  const [navigatingTarget, setNavigatingTarget] = useState<string | null>(null)
+
+  // Reset loading state if browser navigates back to landing page via bfcache
+  useEffect(() => {
+    const handlePageShow = () => setNavigatingTarget(null)
+    window.addEventListener('pageshow', handlePageShow)
+    return () => window.removeEventListener('pageshow', handlePageShow)
+  }, [])
 
   // Seed gallery catalog cache and pre-warm thumbnail memory cache for 0ms zero-skeleton transition into /photos
   useEffect(() => {
@@ -230,42 +238,63 @@ export function LandingClient({ initialPhotos, initialTotal }: LandingClientProp
               <Link
                 href="/photos"
                 prefetch={true}
-                className="btn-shimmer-interactive group relative flex items-center justify-between w-full h-11 sm:h-12 px-4 sm:px-5 rounded-2xl bg-white/10 hover:bg-white/20 active:bg-white/25 border border-white/25 text-white font-bold text-sm sm:text-base backdrop-blur-md hover:scale-[1.02] active:scale-[0.98] cursor-pointer shadow-lg transition-all"
+                onClick={() => setNavigatingTarget('/photos')}
+                className={`btn-shimmer-interactive group relative flex items-center justify-between w-full h-11 sm:h-12 px-4 sm:px-5 rounded-2xl bg-white/10 hover:bg-white/20 active:bg-white/25 border border-white/25 text-white font-bold text-sm sm:text-base backdrop-blur-md hover:scale-[1.02] active:scale-[0.98] cursor-pointer shadow-lg transition-all ${
+                  navigatingTarget && navigatingTarget !== '/photos' ? 'opacity-60 pointer-events-none' : ''
+                } ${navigatingTarget === '/photos' ? 'ring-2 ring-white/40 bg-white/20 pointer-events-none' : ''}`}
               >
                 <div className="flex items-center gap-3">
                   <ImageIcon className="size-4.5 sm:size-5 text-white/90" />
                   <span>Explore Gallery</span>
                 </div>
                 <div className="flex items-center">
-                  <ArrowRight className="size-4 opacity-75 group-hover:translate-x-1 transition-transform" />
+                  {navigatingTarget === '/photos' ? (
+                    <Loader2 className="size-4 animate-spin text-white" />
+                  ) : (
+                    <ArrowRight className="size-4 opacity-75 group-hover:translate-x-1 transition-transform" />
+                  )}
                 </div>
               </Link>
 
               <Link
                 href="/albums"
                 prefetch={true}
-                className="btn-shimmer-interactive group relative flex items-center justify-between w-full h-11 sm:h-12 px-4 sm:px-5 rounded-2xl bg-white/10 hover:bg-white/20 active:bg-white/25 border border-white/25 text-white font-bold text-sm sm:text-base backdrop-blur-md hover:scale-[1.02] active:scale-[0.98] cursor-pointer shadow-lg transition-all"
+                onClick={() => setNavigatingTarget('/albums')}
+                className={`btn-shimmer-interactive group relative flex items-center justify-between w-full h-11 sm:h-12 px-4 sm:px-5 rounded-2xl bg-white/10 hover:bg-white/20 active:bg-white/25 border border-white/25 text-white font-bold text-sm sm:text-base backdrop-blur-md hover:scale-[1.02] active:scale-[0.98] cursor-pointer shadow-lg transition-all ${
+                  navigatingTarget && navigatingTarget !== '/albums' ? 'opacity-60 pointer-events-none' : ''
+                } ${navigatingTarget === '/albums' ? 'ring-2 ring-white/40 bg-white/20 pointer-events-none' : ''}`}
               >
                 <div className="flex items-center gap-3">
                   <FolderHeart className="size-4.5 sm:size-5 text-white/90" />
                   <span>Browse Albums</span>
                 </div>
                 <div className="flex items-center">
-                  <ArrowRight className="size-4 opacity-75 group-hover:translate-x-1 transition-transform" />
+                  {navigatingTarget === '/albums' ? (
+                    <Loader2 className="size-4 animate-spin text-white" />
+                  ) : (
+                    <ArrowRight className="size-4 opacity-75 group-hover:translate-x-1 transition-transform" />
+                  )}
                 </div>
               </Link>
 
               <Link
                 href="/map"
                 prefetch={true}
-                className="btn-shimmer-interactive group relative flex items-center justify-between w-full h-11 sm:h-12 px-4 sm:px-5 rounded-2xl bg-white/10 hover:bg-white/20 active:bg-white/25 border border-white/25 text-white font-bold text-sm sm:text-base backdrop-blur-md hover:scale-[1.02] active:scale-[0.98] cursor-pointer shadow-lg transition-all"
+                onClick={() => setNavigatingTarget('/map')}
+                className={`btn-shimmer-interactive group relative flex items-center justify-between w-full h-11 sm:h-12 px-4 sm:px-5 rounded-2xl bg-white/10 hover:bg-white/20 active:bg-white/25 border border-white/25 text-white font-bold text-sm sm:text-base backdrop-blur-md hover:scale-[1.02] active:scale-[0.98] cursor-pointer shadow-lg transition-all ${
+                  navigatingTarget && navigatingTarget !== '/map' ? 'opacity-60 pointer-events-none' : ''
+                } ${navigatingTarget === '/map' ? 'ring-2 ring-white/40 bg-white/20 pointer-events-none' : ''}`}
               >
                 <div className="flex items-center gap-3">
                   <MapPin className="size-4.5 sm:size-5 text-white/90" />
                   <span>Interactive Map Explorer</span>
                 </div>
                 <div className="flex items-center">
-                  <ArrowRight className="size-4 opacity-75 group-hover:translate-x-1 transition-transform" />
+                  {navigatingTarget === '/map' ? (
+                    <Loader2 className="size-4 animate-spin text-white" />
+                  ) : (
+                    <ArrowRight className="size-4 opacity-75 group-hover:translate-x-1 transition-transform" />
+                  )}
                 </div>
               </Link>
             </div>
