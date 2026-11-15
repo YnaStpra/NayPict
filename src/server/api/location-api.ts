@@ -1,6 +1,8 @@
 import type { Context, Hono } from 'hono';
 import result from '@/server/model/result';
 import { locationService } from '@/server/service/location-service';
+import { settingService } from '@/server/service/setting-service';
+import { checkIsAdmin } from '@/server/security/security';
 import { getClientIp } from '@/server/lib/ip';
 import { locationRateLimiter } from '@/server/lib/rate-limiter';
 import BizError from '@/server/error/biz-error';
@@ -16,6 +18,14 @@ export function registerLocationApi(app: Hono<HonoEnv>) {
     const rateLimit = await locationRateLimiter.consume(clientIp);
     if (!rateLimit.allowed) {
       throw new BizError('location.rateLimited', 429);
+    }
+
+    // Security: Enforce public GPS privacy policy when hidePublicGps is enabled
+    if (settingService.isPublicGpsHidden()) {
+      const isAdmin = await checkIsAdmin(c);
+      if (!isAdmin) {
+        return c.json(result.ok({ address: '', latitude: 0, longitude: 0, mapsUrl: '' }));
+      }
     }
 
     const latParam = c.req.query('lat');

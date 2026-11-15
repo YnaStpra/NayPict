@@ -19,6 +19,8 @@ export const photoReactionTab = pgTable(
   (table) => [
     uniqueIndex('idx_photo_reaction_unique').on(table.photoId, table.visitorId, table.reactionType),
     index('idx_photo_reaction_photo_id').on(table.photoId),
+    index('idx_photo_reaction_lookup').on(table.photoId, table.visitorId),
+    index('idx_photo_reaction_type').on(table.photoId, table.reactionType),
   ]
 );
 

@@ -619,7 +619,12 @@ const albumService = {
           photoId: cp.photoId,
           albumId,
         }));
-        await orm.insert(albumPhotoTab).values(rows);
+        // Chunk batch insertion to at most 100 records per query to prevent SQL parameter limits
+        const CHUNK_SIZE = 100;
+        for (let i = 0; i < rows.length; i += CHUNK_SIZE) {
+          const chunk = rows.slice(i, i + CHUNK_SIZE);
+          await orm.insert(albumPhotoTab).values(chunk);
+        }
         totalAdded += newPhotosToAdd.length;
       }
     }
@@ -659,11 +664,16 @@ const albumService = {
       return;
     }
 
-    await orm.delete(albumPhotoTab)
-      .where(and(
-        eq(albumPhotoTab.albumId, params.albumId),
-        inArray(albumPhotoTab.photoId, params.photoIds)
-      ));
+    // Chunk batch deletion to at most 100 records per query to prevent SQL parameter limits
+    const CHUNK_SIZE = 100;
+    for (let i = 0; i < params.photoIds.length; i += CHUNK_SIZE) {
+      const chunk = params.photoIds.slice(i, i + CHUNK_SIZE);
+      await orm.delete(albumPhotoTab)
+        .where(and(
+          eq(albumPhotoTab.albumId, params.albumId),
+          inArray(albumPhotoTab.photoId, chunk)
+        ));
+    }
 
     // Security: If current cover photo was removed from album, reset coverPhotoId
     if (album.coverPhotoId && params.photoIds.includes(album.coverPhotoId)) {

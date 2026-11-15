@@ -1,9 +1,8 @@
 import type { Context, Hono } from 'hono';
-import { getCookie, setCookie } from 'hono/cookie';
+import { getCookie } from 'hono/cookie';
 import result from '@/server/model/result';
 import { analyticsService } from '@/server/service/analytics-service';
 import { checkIsAdmin } from '@/server/security/security';
-import { createId } from '@/server/lib/id';
 import BizError from '@/server/error/biz-error';
 import { parseUserAgent } from '@/server/lib/user-agent';
 import {
@@ -340,15 +339,28 @@ export function registerAnalyticsApi(app: Hono<HonoEnv>) {
       }
     }
 
+    const cleanReferrer = typeof body.referrer === 'string'
+      ? body.referrer.replace(/[\x00-\x1F\x7F]/g, '').trim().slice(0, 255)
+      : '';
+    const cleanLandingPath = typeof body.landingPath === 'string'
+      ? body.landingPath.replace(/[\x00-\x1F\x7F]/g, '').trim().slice(0, 255)
+      : '/';
+    const cleanBrowserVersion = typeof body.browserVersion === 'string'
+      ? body.browserVersion.replace(/[\x00-\x1F\x7F]/g, '').trim().slice(0, 32)
+      : '';
+    const cleanUserLocationName = typeof body.userLocationName === 'string'
+      ? body.userLocationName.replace(/[\x00-\x1F\x7F]/g, '').trim().slice(0, 255)
+      : '';
+
     const isAdmin = await checkIsAdmin(c);
 
     const data = await analyticsService.initSession(
       {
         ...body,
-        referrer: typeof body.referrer === 'string' ? body.referrer.slice(0, 255) : '',
-        landingPath: typeof body.landingPath === 'string' ? body.landingPath.slice(0, 255) : '/',
-        browserVersion: typeof body.browserVersion === 'string' ? body.browserVersion.slice(0, 32) : '',
-        userLocationName: typeof body.userLocationName === 'string' ? body.userLocationName.slice(0, 255) : '',
+        referrer: cleanReferrer,
+        landingPath: cleanLandingPath,
+        browserVersion: cleanBrowserVersion,
+        userLocationName: cleanUserLocationName,
         userLat,
         userLng,
         device,
@@ -436,7 +448,9 @@ export function registerAnalyticsApi(app: Hono<HonoEnv>) {
       {
         ...body,
         sessionId: cleanSessionId,
-        locationName: typeof body.locationName === 'string' ? body.locationName.slice(0, 255) : '',
+        locationName: typeof body.locationName === 'string'
+          ? body.locationName.replace(/[\x00-\x1F\x7F]/g, '').trim().slice(0, 255)
+          : '',
         latitude: isNaN(lat) || !isFinite(lat) ? null : lat,
         longitude: isNaN(lng) || !isFinite(lng) ? null : lng,
       },

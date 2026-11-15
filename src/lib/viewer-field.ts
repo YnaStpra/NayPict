@@ -19,13 +19,20 @@ type ViewerField = {
   wrap?: boolean
 }
 
-// Bundle Exif Convert text field to non-empty string.
+// Bundle Exif Convert text field to non-empty string with HTML and control char sanitization.
 function exifText(value: unknown) {
   if (value === undefined || value === null || value === "") {
     return null
   }
 
-  const text = String(value).trim()
+  const text = String(value)
+    .replace(/<script[\s\S]*?<\/script>/gi, '')
+    .replace(/<style[\s\S]*?<\/style>/gi, '')
+    .replace(/<svg[\s\S]*?<\/svg>/gi, '')
+    .replace(/<iframe[\s\S]*?<\/iframe>/gi, '')
+    .replace(/<[^>]*>/g, '') // Strip HTML tags to eliminate Stored XSS
+    .replace(/[\x00-\x1F\x7F]/g, '') // Strip non-printable control characters
+    .trim()
   return text || null
 }
 

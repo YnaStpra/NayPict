@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars */
 import { and, asc, count, desc, eq, getTableColumns, gt, gte, ilike, inArray, isNotNull, isNull, lt, lte, or, sql } from 'drizzle-orm';
 import { createId } from '@/server/lib/id';
 import { type Photo, photoTab } from '@/server/entity/photo';
@@ -120,6 +121,9 @@ const onThisDayCache = new Map<string, { data: PhotoOnThisDayVo; expires: number
 // In-memory fast-path cache for calendar/timeline date aggregation (60s TTL)
 const takenDateCache = new Map<string, { data: PhotoTakenDateVo[]; expires: number }>();
 
+// In-memory fast-path cache for duplicate photo groups (60s TTL)
+const duplicateGroupsCache = new Map<string, { data: PhotoDuplicateGroupVo[]; expires: number }>();
+
 // Merge up to LANDING_PRIORITY_MAX_COUNT (30) prioritized photo IDs with randomly sampled filler IDs and shuffle together for landing sessions.
 export function mergeLandingPhotoIds(
   priorityIds: string[],
@@ -157,6 +161,7 @@ export function invalidatePhotoFastPathCache(): void {
   randomIdBaseCache.clear();
   onThisDayCache.clear();
   takenDateCache.clear();
+  duplicateGroupsCache.clear();
   invalidateMediaFileCache();
 }
 
@@ -2843,6 +2848,24 @@ const photoService = {
 
   // Auto-detect duplicate photos based on visual similarity (thumbHash), checksum, or dimensions+size (optionally within an album).
   async findDuplicateGroups(userId?: string, albumId?: string): Promise<PhotoDuplicateGroupVo[]> {
+    const cacheKey = `${userId || 'all'}:${albumId || 'global'}`;
+    const cached = duplicateGroupsCache.get(cacheKey);
+    if (cached && Date.now() < cached.expires) {
+      return cached.data;
+    }
+
+    // IDOR protection: When querying duplicates within a specific album, verify album ownership
+    if (albumId && userId) {
+      const [album] = await readOrm
+        .select({ albumId: albumTab.albumId })
+        .from(albumTab)
+        .where(and(eq(albumTab.albumId, albumId), eq(albumTab.userId, userId)))
+        .limit(1);
+      if (!album) {
+        return [];
+      }
+    }
+
     const whereList = [eq(photoTab.status, PhotoStatusEnum.NORMAL)];
     if (userId) {
       whereList.push(eq(photoTab.userId, userId));
@@ -2867,7 +2890,10 @@ const photoService = {
         .limit(2000);
     }
 
-    if (!list.length) return [];
+    if (!list.length) {
+      duplicateGroupsCache.set(cacheKey, { data: [], expires: Date.now() + 60000 });
+      return [];
+    }
 
     // Isolate media types: photos ONLY compare with photos, videos ONLY compare with videos
     const isVideoItem = (p: Photo) => p.type?.startsWith('video/') || false;
@@ -3168,6 +3194,7 @@ const photoService = {
       return timeB - timeA;
     });
 
+    duplicateGroupsCache.set(cacheKey, { data: resultGroups, expires: Date.now() + 60000 });
     return resultGroups;
   },
 

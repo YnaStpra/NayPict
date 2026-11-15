@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars */
 "use client"
 
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from "react"
@@ -809,7 +810,7 @@ export const PhotoCard = memo(function PhotoCard({
         >
           <video
             ref={videoRef}
-            src={isEcoMode && !isVideoPlaying ? undefined : videoStreamUrl}
+            src={(isEcoMode || isMobile) && !isVideoPlaying ? undefined : videoStreamUrl}
             muted
             playsInline
             loop

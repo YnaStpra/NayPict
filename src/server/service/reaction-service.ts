@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars */
 import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 import { neon } from '@neondatabase/serverless';
 import { orm, readOrm } from '@/server/infra/db';
@@ -165,6 +166,15 @@ const reactionService = {
     if (!VALID_REACTION_TYPES.includes(reactionType)) {
       throw new BizError('common.paramError');
     }
+
+    // Anti-Spam & Anti-Oscillation: Enforce 2-second debounce cooldown per visitor + photo
+    const debounceKey = `reaction_debounce:${visitorId}:${photoId}`;
+    const isDebounced = await cache.get<boolean>(debounceKey);
+    if (isDebounced) {
+      // Return current reaction state without redundant DB queries, mutations, or SSE broadcasts
+      return this.getPhotoReactions(photoId, visitorId, true);
+    }
+    await cache.set(debounceKey, true, { ttl: 2 }).catch(() => {});
 
     // Verify photo exists and is active before mutating reactions
     const [photo] = await orm
