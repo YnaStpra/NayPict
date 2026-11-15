@@ -13,6 +13,7 @@ interface UserInfoVo {
   avatar: string;
   type: number;
   status?: number;
+  tokenVersion?: number;
 }
 
 export type { UserVo, UserInfoVo };

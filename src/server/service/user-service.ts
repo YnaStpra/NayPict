@@ -1,5 +1,6 @@
 import { hashPassword, verifyPasswordDetailed } from '@/server/lib/crypto';
 import { createId } from '@/server/lib/id';
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars */
 import { and, count, eq, inArray, ne, sql, sum } from 'drizzle-orm';
 import { userTab } from '@/server/entity/user';
 import { settingTab } from '@/server/entity/setting';
@@ -96,6 +97,7 @@ const userService = {
         avatar: userTab.avatar,
         type: userTab.type,
         status: userTab.status,
+        tokenVersion: userTab.tokenVersion,
       })
       .from(userTab)
       .where(eq(userTab.userId, userId))

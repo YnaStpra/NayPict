@@ -165,6 +165,12 @@ async function resolveValidatedAuth(rawCookie: string | null): Promise<{
         return { authInfo: null, uuid, userDisabled: true, hasToken: true };
       }
 
+      // Security: Authoritative tokenVersion check from DB to prevent resurrection of invalidated tokens on cache cold-starts
+      const dbTokenVersion = user.tokenVersion ?? 1;
+      if (dbTokenVersion !== tokenVersion) {
+        return { authInfo: null, uuid, userDisabled: false, hasToken: true };
+      }
+
       // Check persistent revoked UUIDs from database to prevent session resurrection
       const revokedUuids = await sessionService.getRevokedUuids(userId);
       if (revokedUuids.includes(uuid)) {
@@ -177,7 +183,7 @@ async function resolveValidatedAuth(rawCookie: string | null): Promise<{
         avatar: user.avatar,
         type: user.type,
         status: user.status,
-        tokenVersion,
+        tokenVersion: dbTokenVersion,
         uuidList: [uuid],
       };
       await cache.set(AUTH_CACHE_KEY + userId, authInfo);
