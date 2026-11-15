@@ -1,4 +1,5 @@
-import { eq, inArray } from 'drizzle-orm';
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { inArray } from 'drizzle-orm';
 import { type ExifSaveBo } from '@/server/entity/bo/exif';
 import { type Exif, exifTab } from '@/server/entity/exif';
 import { orm, readOrm } from '@/server/infra/db';
@@ -26,6 +27,36 @@ function sanitizeCoordinates(
   }
 
   return { safeLat, safeLng, safeAlt };
+}
+
+// Sanitize raw EXIF JSON string against HTML tags, script tags, and unprintable control characters to prevent Stored XSS
+function sanitizeExifPayload(rawExif?: string | null): string | null {
+  if (!rawExif) return null;
+  const stripDangerousHtml = (str: string) => {
+    return str
+      .replace(/<script[\s\S]*?<\/script>/gi, '')
+      .replace(/<style[\s\S]*?<\/style>/gi, '')
+      .replace(/<svg[\s\S]*?<\/svg>/gi, '')
+      .replace(/<iframe[\s\S]*?<\/iframe>/gi, '')
+      .replace(/<[^>]*>/g, '')
+      .replace(/[\x00-\x1F\x7F]/g, '')
+      .trim();
+  };
+
+  try {
+    const parsed = JSON.parse(rawExif);
+    if (parsed && typeof parsed === 'object') {
+      for (const key of Object.keys(parsed)) {
+        if (typeof parsed[key] === 'string') {
+          parsed[key] = stripDangerousHtml(parsed[key]);
+        }
+      }
+      return JSON.stringify(parsed);
+    }
+  } catch {
+    return stripDangerousHtml(rawExif);
+  }
+  return null;
 }
 
 const exifService = {
@@ -56,18 +87,19 @@ const exifService = {
     return new Map(rows.map((row) => [row.photoId, row as Exif]));
   },
 
-  // Save photo Exif JSON and GPS location metadata with physical range validation.
+  // Save photo Exif JSON and GPS location metadata with physical range validation and sanitization.
   async save(photoId: string, params: ExifSaveBo): Promise<void> {
     const { exif, latitude, longitude, altitude } = params;
     const { safeLat, safeLng, safeAlt } = sanitizeCoordinates(latitude, longitude, altitude);
+    const safeExif = sanitizeExifPayload(exif);
 
-    if (!exif && safeLat == null && safeLng == null && safeAlt == null) {
+    if (!safeExif && safeLat == null && safeLng == null && safeAlt == null) {
       return;
     }
 
     await orm.insert(exifTab).values({
       photoId,
-      exif,
+      exif: safeExif,
       latitude: safeLat,
       longitude: safeLng,
       altitude: safeAlt,

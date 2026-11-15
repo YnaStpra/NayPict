@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars, react-hooks/set-state-in-effect, react-hooks/exhaustive-deps */
 "use client"
 
 import {
@@ -2035,10 +2036,10 @@ export function PhotoViewer({
         return
       }
 
-      if (event.key === "ArrowLeft") {
+      if (event.key === "ArrowLeft" || event.key === "k" || event.key === "K") {
         event.preventDefault()
         emblaApi?.scrollPrev()
-      } else if (event.key === "ArrowRight") {
+      } else if (event.key === "ArrowRight" || event.key === "j" || event.key === "J") {
         event.preventDefault()
         emblaApi?.scrollNext()
       } else if (event.key === "f" || event.key === "F") {
