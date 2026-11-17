@@ -83,6 +83,8 @@
   "user.passwordTooCommon": "This password is too common and easily guessed. Please choose a stronger password.",
   "user.passwordMatchesUsername": "Password cannot be the same as your username.",
   "landing.priorityLimitExceeded": "You can select at most 30 priority photos for the landing gallery.",
-  "landing.invalidPhotoSelection": "One or more selected photos are not eligible for the public landing gallery."
+  "landing.invalidPhotoSelection": "One or more selected photos are not eligible for the public landing gallery.",
+  "photo.checksumRequired": "File checksum is required.",
+  "photo.checksumInvalid": "Invalid file checksum format."
 }
 

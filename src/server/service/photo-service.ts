@@ -1044,6 +1044,11 @@ const photoService = {
       throw new BizError('photo.invalidFileType');
     }
 
+    // Checksum must be a valid cryptographic hex digest (e.g. SHA-1 40-char, SHA-256 64-char, or MD5 32-char)
+    if (!/^[a-fA-F0-9]{32,64}$/.test(checksum)) {
+      throw new BizError('photo.checksumInvalid');
+    }
+
     let storageList = await storageService.getStorageList();
     let targetStorage: Storage | undefined = params.storageId
       ? storageList.find((s) => s.storageId === params.storageId)
@@ -2093,32 +2098,41 @@ const photoService = {
       throw new BizError('photo.batchLimitExceeded');
     }
 
-    const whereList = [inArray(photoTab.photoId, params.photoIds)];
-    if (userId) {
-      whereList.push(eq(photoTab.userId, userId));
-    }
+    const CHUNK_SIZE = 100;
+    const validPhotoIds: string[] = [];
+    for (let i = 0; i < params.photoIds.length; i += CHUNK_SIZE) {
+      const chunk = params.photoIds.slice(i, i + CHUNK_SIZE);
+      const whereList = [inArray(photoTab.photoId, chunk)];
+      if (userId) {
+        whereList.push(eq(photoTab.userId, userId));
+      }
 
-    const targetPhotos = await orm
-      .select({ photoId: photoTab.photoId })
-      .from(photoTab)
-      .where(and(...whereList));
-    const validPhotoIds = targetPhotos.map((p) => p.photoId);
+      const targetPhotos = await orm
+        .select({ photoId: photoTab.photoId })
+        .from(photoTab)
+        .where(and(...whereList));
+      validPhotoIds.push(...targetPhotos.map((p) => p.photoId));
+    }
 
     if (!validPhotoIds.length) {
       return;
     }
 
-    await orm.update(photoTab)
-      .set({
-        status: PhotoStatusEnum.DELETE,
-        recycleTime: new Date().toISOString()
-      })
-      .where(inArray(photoTab.photoId, validPhotoIds));
+    const nowIso = new Date().toISOString();
+    for (let i = 0; i < validPhotoIds.length; i += CHUNK_SIZE) {
+      const chunk = validPhotoIds.slice(i, i + CHUNK_SIZE);
+      await orm.update(photoTab)
+        .set({
+          status: PhotoStatusEnum.DELETE,
+          recycleTime: nowIso
+        })
+        .where(inArray(photoTab.photoId, chunk));
 
-    // Automatically unpin recycled photos from any albums so they do not hold pin slots
-    await orm.update(albumPhotoTab)
-      .set({ isPinned: 0, pinnedAt: null })
-      .where(inArray(albumPhotoTab.photoId, validPhotoIds));
+      // Automatically unpin recycled photos from any albums so they do not hold pin slots
+      await orm.update(albumPhotoTab)
+        .set({ isPinned: 0, pinnedAt: null })
+        .where(inArray(albumPhotoTab.photoId, chunk));
+    }
 
     invalidatePhotoFastPathCache();
     void syncService.bump('photo', -validPhotoIds.length);
@@ -2146,9 +2160,13 @@ const photoService = {
 
     const userPhotoIds = userPhotos.map((p) => p.photoId);
     if (userPhotoIds.length > 0) {
-      await orm.update(albumPhotoTab)
-        .set({ isPinned: 0, pinnedAt: null })
-        .where(inArray(albumPhotoTab.photoId, userPhotoIds));
+      const CHUNK_SIZE = 100;
+      for (let i = 0; i < userPhotoIds.length; i += CHUNK_SIZE) {
+        const chunk = userPhotoIds.slice(i, i + CHUNK_SIZE);
+        await orm.update(albumPhotoTab)
+          .set({ isPinned: 0, pinnedAt: null })
+          .where(inArray(albumPhotoTab.photoId, chunk));
+      }
     }
 
     invalidatePhotoFastPathCache();
@@ -2168,36 +2186,44 @@ const photoService = {
       throw new BizError('photo.visibilityRequired');
     }
 
-    const whereList = [inArray(photoTab.photoId, params.photoIds)];
-    if (userId) {
-      whereList.push(eq(photoTab.userId, userId));
-    }
+    const CHUNK_SIZE = 100;
+    const validPhotoIds: string[] = [];
+    for (let i = 0; i < params.photoIds.length; i += CHUNK_SIZE) {
+      const chunk = params.photoIds.slice(i, i + CHUNK_SIZE);
+      const whereList = [inArray(photoTab.photoId, chunk)];
+      if (userId) {
+        whereList.push(eq(photoTab.userId, userId));
+      }
 
-    const targetPhotos = await orm
-      .select({ photoId: photoTab.photoId })
-      .from(photoTab)
-      .where(and(...whereList));
-    const validPhotoIds = targetPhotos.map((p) => p.photoId);
+      const targetPhotos = await orm
+        .select({ photoId: photoTab.photoId })
+        .from(photoTab)
+        .where(and(...whereList));
+      validPhotoIds.push(...targetPhotos.map((p) => p.photoId));
+    }
 
     if (!validPhotoIds.length) {
       return;
     }
 
-    await orm.update(photoTab)
-      .set({
-        visibility: params.visibility
-      })
-      .where(inArray(photoTab.photoId, validPhotoIds));
+    for (let i = 0; i < validPhotoIds.length; i += CHUNK_SIZE) {
+      const chunk = validPhotoIds.slice(i, i + CHUNK_SIZE);
+      await orm.update(photoTab)
+        .set({
+          visibility: params.visibility
+        })
+        .where(inArray(photoTab.photoId, chunk));
 
-    // If visibility is hidden from albums (ARCHIVED or GALLERY_ONLY), unpin them from albums and reset cover references
-    if (params.visibility === PhotoVisibilityEnum.ARCHIVED || params.visibility === PhotoVisibilityEnum.GALLERY_ONLY) {
-      await orm.update(albumPhotoTab)
-        .set({ isPinned: 0, pinnedAt: null })
-        .where(inArray(albumPhotoTab.photoId, validPhotoIds));
+      // If visibility is hidden from albums (ARCHIVED or GALLERY_ONLY), unpin them from albums and reset cover references
+      if (params.visibility === PhotoVisibilityEnum.ARCHIVED || params.visibility === PhotoVisibilityEnum.GALLERY_ONLY) {
+        await orm.update(albumPhotoTab)
+          .set({ isPinned: 0, pinnedAt: null })
+          .where(inArray(albumPhotoTab.photoId, chunk));
 
-      await orm.update(albumTab)
-        .set({ coverPhotoId: null, isManualCover: 0, updateTime: new Date().toISOString() })
-        .where(inArray(albumTab.coverPhotoId, validPhotoIds));
+        await orm.update(albumTab)
+          .set({ coverPhotoId: null, isManualCover: 0, updateTime: new Date().toISOString() })
+          .where(inArray(albumTab.coverPhotoId, chunk));
+      }
     }
 
     invalidatePhotoFastPathCache();
@@ -2213,27 +2239,35 @@ const photoService = {
       throw new BizError('photo.batchLimitExceeded');
     }
 
-    const whereList = [inArray(photoTab.photoId, params.photoIds)];
-    if (userId) {
-      whereList.push(eq(photoTab.userId, userId));
-    }
+    const CHUNK_SIZE = 100;
+    const validPhotoIds: string[] = [];
+    for (let i = 0; i < params.photoIds.length; i += CHUNK_SIZE) {
+      const chunk = params.photoIds.slice(i, i + CHUNK_SIZE);
+      const whereList = [inArray(photoTab.photoId, chunk)];
+      if (userId) {
+        whereList.push(eq(photoTab.userId, userId));
+      }
 
-    const targetPhotos = await orm
-      .select({ photoId: photoTab.photoId })
-      .from(photoTab)
-      .where(and(...whereList));
-    const validPhotoIds = targetPhotos.map((p) => p.photoId);
+      const targetPhotos = await orm
+        .select({ photoId: photoTab.photoId })
+        .from(photoTab)
+        .where(and(...whereList));
+      validPhotoIds.push(...targetPhotos.map((p) => p.photoId));
+    }
 
     if (!validPhotoIds.length) {
       return;
     }
 
-    await orm.update(photoTab)
-      .set({
-        status: PhotoStatusEnum.NORMAL,
-        recycleTime: null
-      })
-      .where(inArray(photoTab.photoId, validPhotoIds));
+    for (let i = 0; i < validPhotoIds.length; i += CHUNK_SIZE) {
+      const chunk = validPhotoIds.slice(i, i + CHUNK_SIZE);
+      await orm.update(photoTab)
+        .set({
+          status: PhotoStatusEnum.NORMAL,
+          recycleTime: null
+        })
+        .where(inArray(photoTab.photoId, chunk));
+    }
 
     invalidatePhotoFastPathCache();
     void syncService.bump('photo', validPhotoIds.length);
@@ -2250,15 +2284,21 @@ const photoService = {
 
     const fileStorageList = await storageService.list();
 
-    const selectWhere = [inArray(photoTab.photoId, params.photoIds)];
-    if (userId) {
-      selectWhere.push(eq(photoTab.userId, userId));
-    }
+    const CHUNK_SIZE = 100;
+    const photos: any[] = [];
+    for (let i = 0; i < params.photoIds.length; i += CHUNK_SIZE) {
+      const chunk = params.photoIds.slice(i, i + CHUNK_SIZE);
+      const selectWhere = [inArray(photoTab.photoId, chunk)];
+      if (userId) {
+        selectWhere.push(eq(photoTab.userId, userId));
+      }
 
-    const photos = await orm
-      .select()
-      .from(photoTab)
-      .where(and(...selectWhere));
+      const chunkPhotos = await orm
+        .select()
+        .from(photoTab)
+        .where(and(...selectWhere));
+      photos.push(...chunkPhotos);
+    }
     const photoIds = photos.map((photo: any) => photo.photoId);
 
     if (!photoIds.length) {
@@ -2275,13 +2315,16 @@ const photoService = {
       await storage.delete(keys, fileStorage.storageId);
     }
 
-    await orm.delete(albumPhotoTab)
-      .where(inArray(albumPhotoTab.photoId, photoIds));
+    for (let i = 0; i < photoIds.length; i += CHUNK_SIZE) {
+      const chunk = photoIds.slice(i, i + CHUNK_SIZE);
+      await orm.delete(albumPhotoTab)
+        .where(inArray(albumPhotoTab.photoId, chunk));
 
-    // Security: Reset dangling cover photo references in albumTab for permanently deleted photos
-    await orm.update(albumTab)
-      .set({ coverPhotoId: null, isManualCover: 0, updateTime: new Date().toISOString() })
-      .where(inArray(albumTab.coverPhotoId, photoIds));
+      // Security: Reset dangling cover photo references in albumTab for permanently deleted photos
+      await orm.update(albumTab)
+        .set({ coverPhotoId: null, isManualCover: 0, updateTime: new Date().toISOString() })
+        .where(inArray(albumTab.coverPhotoId, chunk));
+    }
 
     await fileService.deleteByPhotoIds(photoIds);
     await commentService.deleteByPhotoIds(photoIds);
@@ -2290,8 +2333,11 @@ const photoService = {
     await insightsService.deleteByPhotoIds(photoIds);
     await analyticsService.deleteByPhotoIds(photoIds);
 
-    await orm.delete(photoTab)
-      .where(inArray(photoTab.photoId, photoIds));
+    for (let i = 0; i < photoIds.length; i += CHUNK_SIZE) {
+      const chunk = photoIds.slice(i, i + CHUNK_SIZE);
+      await orm.delete(photoTab)
+        .where(inArray(photoTab.photoId, chunk));
+    }
 
     invalidatePhotoFastPathCache();
     void syncService.bump('all');
@@ -2508,15 +2554,19 @@ const photoService = {
       throw new BizError('photo.batchLimitExceeded');
     }
 
-    const whereList = [inArray(photoTab.photoId, cleanPhotoIds)];
-    if (userId) {
-      whereList.push(eq(photoTab.userId, userId));
-    }
+    const CHUNK_SIZE = 100;
+    for (let i = 0; i < cleanPhotoIds.length; i += CHUNK_SIZE) {
+      const chunk = cleanPhotoIds.slice(i, i + CHUNK_SIZE);
+      const whereList = [inArray(photoTab.photoId, chunk)];
+      if (userId) {
+        whereList.push(eq(photoTab.userId, userId));
+      }
 
-    await orm
-      .update(photoTab)
-      .set({ allowDownload: params.allowDownload ? 1 : 0 })
-      .where(and(...whereList));
+      await orm
+        .update(photoTab)
+        .set({ allowDownload: params.allowDownload ? 1 : 0 })
+        .where(and(...whereList));
+    }
 
     invalidatePhotoFastPathCache();
   },
@@ -2531,17 +2581,22 @@ const photoService = {
     }
 
     // Strictly verify photo ownership (IDOR prevention)
-    const selectWhere = [inArray(photoTab.photoId, params.photoIds)];
-    if (userId) {
-      selectWhere.push(eq(photoTab.userId, userId));
+    const CHUNK_SIZE = 100;
+    const verifiedPhotoIds: string[] = [];
+    for (let i = 0; i < params.photoIds.length; i += CHUNK_SIZE) {
+      const chunk = params.photoIds.slice(i, i + CHUNK_SIZE);
+      const selectWhere = [inArray(photoTab.photoId, chunk)];
+      if (userId) {
+        selectWhere.push(eq(photoTab.userId, userId));
+      }
+
+      const userPhotos = await orm
+        .select({ photoId: photoTab.photoId })
+        .from(photoTab)
+        .where(and(...selectWhere));
+      verifiedPhotoIds.push(...userPhotos.map((p) => p.photoId));
     }
 
-    const userPhotos = await orm
-      .select({ photoId: photoTab.photoId })
-      .from(photoTab)
-      .where(and(...selectWhere));
-
-    const verifiedPhotoIds = userPhotos.map((p) => p.photoId);
     if (!verifiedPhotoIds.length) {
       return;
     }
@@ -2551,13 +2606,16 @@ const photoService = {
     if (params.visibility !== undefined && params.visibility !== null) {
       updates.visibility = params.visibility;
       if (params.visibility === PhotoVisibilityEnum.ARCHIVED || params.visibility === PhotoVisibilityEnum.GALLERY_ONLY) {
-        await orm.update(albumPhotoTab)
-          .set({ isPinned: 0, pinnedAt: null })
-          .where(inArray(albumPhotoTab.photoId, verifiedPhotoIds));
+        for (let i = 0; i < verifiedPhotoIds.length; i += CHUNK_SIZE) {
+          const chunk = verifiedPhotoIds.slice(i, i + CHUNK_SIZE);
+          await orm.update(albumPhotoTab)
+            .set({ isPinned: 0, pinnedAt: null })
+            .where(inArray(albumPhotoTab.photoId, chunk));
 
-        await orm.update(albumTab)
-          .set({ coverPhotoId: null, isManualCover: 0, updateTime: new Date().toISOString() })
-          .where(inArray(albumTab.coverPhotoId, verifiedPhotoIds));
+          await orm.update(albumTab)
+            .set({ coverPhotoId: null, isManualCover: 0, updateTime: new Date().toISOString() })
+            .where(inArray(albumTab.coverPhotoId, chunk));
+        }
       }
     }
 
@@ -2578,18 +2636,26 @@ const photoService = {
     }
 
     if (Object.keys(updates).length > 0) {
-      await orm
-        .update(photoTab)
-        .set(updates)
-        .where(inArray(photoTab.photoId, verifiedPhotoIds));
+      for (let i = 0; i < verifiedPhotoIds.length; i += CHUNK_SIZE) {
+        const chunk = verifiedPhotoIds.slice(i, i + CHUNK_SIZE);
+        await orm
+          .update(photoTab)
+          .set(updates)
+          .where(inArray(photoTab.photoId, chunk));
+      }
     }
 
     // If name modifications are requested (set, prefix, suffix, replace)
     if (params.nameMode && params.nameMode !== ('unchanged' as any)) {
-      const photos = await orm
-        .select({ photoId: photoTab.photoId, name: photoTab.name })
-        .from(photoTab)
-        .where(inArray(photoTab.photoId, verifiedPhotoIds));
+      const photos: { photoId: string; name: string | null }[] = [];
+      for (let i = 0; i < verifiedPhotoIds.length; i += CHUNK_SIZE) {
+        const chunk = verifiedPhotoIds.slice(i, i + CHUNK_SIZE);
+        const chunkPhotos = await orm
+          .select({ photoId: photoTab.photoId, name: photoTab.name })
+          .from(photoTab)
+          .where(inArray(photoTab.photoId, chunk));
+        photos.push(...chunkPhotos);
+      }
 
       for (let i = 0; i < photos.length; i++) {
         const photo = photos[i];
