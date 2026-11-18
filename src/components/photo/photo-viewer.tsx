@@ -10,7 +10,7 @@ import {
   useRef,
   useState,
 } from "react"
-import { AnimatePresence } from "framer-motion"
+import { motion, AnimatePresence } from "framer-motion"
 import useEmblaCarousel from "embla-carousel-react"
 import {
   ArrowLeftIcon,
@@ -1599,6 +1599,7 @@ export function PhotoViewer({
   onAlbumOpen,
 }: PhotoViewerProps) {
   const router = useRouter()
+  const isMobile = useIsMobile()
   const { userInfo } = useApp()
   const isAdmin = userInfo?.type === UserTypeEnum.ADMIN
   const [viewIndex, setViewIndex] = useState(index)
@@ -2319,8 +2320,16 @@ export function PhotoViewer({
     const dy = e.touches[0].clientY - pullStartRef.current.y
     const dx = e.touches[0].clientX - pullStartRef.current.x
 
+    // Swipe up on mobile to open EXIF info bottom sheet drawer
+    if (isMobile && !infoOpen && dy < -55 && Math.abs(dy) > Math.abs(dx) * 1.5) {
+      pullStartRef.current = null
+      isPullingRef.current = false
+      handleToggleInfo()
+      return
+    }
+
     if (!isPullingRef.current) {
-      if (Math.abs(dy) > Math.abs(dx) * 1.5 && Math.abs(dy) > 12) {
+      if (dy > 12 && Math.abs(dy) > Math.abs(dx) * 1.5) {
         isPullingRef.current = true
         if (carouselViewportRef.current) {
           carouselViewportRef.current.style.transition = "none"
@@ -2698,12 +2707,24 @@ export function PhotoViewer({
         </div>
       )}
 
-      {/* Right Sidebar and Blurred Backdrop */}
+      {/* Right Sidebar / Mobile Bottom Sheet and Blurred Backdrop */}
       <AnimatePresence>
         {infoOpen && !fullscreenOpen && !isCinematicMode && (
           <PhotoViewerBlurBackground
             key="viewer-blur-backdrop"
             thumbHash={photos[viewIndex]?.thumbHash}
+          />
+        )}
+        {infoOpen && isMobile && !fullscreenOpen && !isCinematicMode && (
+          <motion.div
+            key="mobile-drawer-backdrop"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 z-[55] bg-black/50 backdrop-blur-xs md:hidden"
+            onClick={() => setInfoOpen(false)}
+            aria-label="Close Info Sheet"
           />
         )}
         {infoOpen && !fullscreenOpen && !isCinematicMode && (
