@@ -14,31 +14,34 @@ const fileService = {
 
   // Query file records for multiple photo IDs, grouped by photoId.
   async listByPhotoIds(photoIds: string[]): Promise<Map<string, File[]>> {
-
     const map = new Map<string, File[]>();
 
     if (!photoIds.length) {
       return map;
     }
 
-    const list = await readOrm
-      .select({
-        fileId: fileTab.fileId,
-        photoId: fileTab.photoId,
-        type: fileTab.type,
-        key: fileTab.key,
-      })
-      .from(fileTab)
-      .where(inArray(fileTab.photoId, photoIds));
+    const CHUNK_SIZE = 100;
+    for (let i = 0; i < photoIds.length; i += CHUNK_SIZE) {
+      const chunk = photoIds.slice(i, i + CHUNK_SIZE);
+      const list = await readOrm
+        .select({
+          fileId: fileTab.fileId,
+          photoId: fileTab.photoId,
+          type: fileTab.type,
+          key: fileTab.key,
+        })
+        .from(fileTab)
+        .where(inArray(fileTab.photoId, chunk));
 
-    for (const file of list) {
-      const typedFile = file as unknown as File;
-      const files = map.get(typedFile.photoId);
+      for (const file of list) {
+        const typedFile = file as unknown as File;
+        const files = map.get(typedFile.photoId);
 
-      if (files) {
-        files.push(typedFile);
-      } else {
-        map.set(typedFile.photoId, [typedFile]);
+        if (files) {
+          files.push(typedFile);
+        } else {
+          map.set(typedFile.photoId, [typedFile]);
+        }
       }
     }
 

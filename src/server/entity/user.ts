@@ -1,19 +1,25 @@
 import { sql } from 'drizzle-orm';
-import { integer, pgTable, text, timestamp } from 'drizzle-orm/pg-core';
+import { index, integer, pgTable, text, timestamp } from 'drizzle-orm/pg-core';
 import { UserStatusEnum, UserTypeEnum } from '@/server/enums/user-enum';
 
 // user
-export const userTab = pgTable('user', {
-  userId: text('user_id').primaryKey(),
-  username: text('username').notNull().unique(),
-  password: text('password').notNull(),
-  salt: text('salt').notNull(),
-  avatar: text('avatar').notNull().default(''),
-  type: integer('type').notNull().default(UserTypeEnum.NORMAL),
-  status: integer('status').notNull().default(UserStatusEnum.NORMAL),
-  tokenVersion: integer('token_version').notNull().default(1),
-  createTime: timestamp('create_time', { withTimezone: true, mode: 'string' }).notNull().default(sql`now()`),
-});
+export const userTab = pgTable(
+  'user',
+  {
+    userId: text('user_id').primaryKey(),
+    username: text('username').notNull().unique(),
+    password: text('password').notNull(),
+    salt: text('salt').notNull(),
+    avatar: text('avatar').notNull().default(''),
+    type: integer('type').notNull().default(UserTypeEnum.NORMAL),
+    status: integer('status').notNull().default(UserStatusEnum.NORMAL),
+    tokenVersion: integer('token_version').notNull().default(1),
+    createTime: timestamp('create_time', { withTimezone: true, mode: 'string' }).notNull().default(sql`now()`),
+  },
+  (table) => [
+    index('idx_user_type_status').on(table.type, table.status),
+  ]
+);
 
 export type User = typeof userTab.$inferSelect;
 export type UserInto = typeof userTab.$inferInsert;

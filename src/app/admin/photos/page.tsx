@@ -260,6 +260,7 @@ export default function AdminPhotosPage() {
   const [searchQuery, setSearchQuery] = useState<string>('')
   const [debouncedQuery, setDebouncedQuery] = useState<string>('')
   const [visibilityFilter, setVisibilityFilter] = useState<string>('all')
+  const [mediaTypeFilter, setMediaTypeFilter] = useState<'all' | 'photo' | 'video'>('all')
   const [locationFilter, setLocationFilter] = useState<string>('all')
   const [sortBy, setSortBy] = useState<'takenTime' | 'createTime' | 'size' | 'name' | 'type'>('takenTime')
   const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc')
@@ -315,7 +316,7 @@ export default function AdminPhotosPage() {
   // Reset to first page whenever search or filter criteria change
   useEffect(() => {
     setCurrentPage(1)
-  }, [debouncedQuery, visibilityFilter, locationFilter, sortBy, sortOrder])
+  }, [debouncedQuery, visibilityFilter, mediaTypeFilter, locationFilter, sortBy, sortOrder])
 
   // Fetch photos from server with server-side pagination (50 items per page instead of dragging 10,000 photos over the wire)
   const fetchPhotos = useCallback(async () => {
@@ -329,43 +330,33 @@ export default function AdminPhotosPage() {
         allowAllVisibility: true,
         keyword: debouncedQuery || undefined,
         visibility: visibilityFilter !== 'all' ? Number(visibilityFilter) : undefined,
+        mediaType: mediaTypeFilter !== 'all' ? mediaTypeFilter : undefined,
+        locationFilter: locationFilter !== 'all' ? (locationFilter as any) : undefined,
         sortBy,
         sortOrder,
       })
 
       setPhotos(res?.list || [])
-      setTotalCount(res?.total || res?.list?.length || 0)
+      if (res?.total !== undefined) {
+        setTotalCount(res.total)
+      } else if (currentPage === 1) {
+        setTotalCount(res?.list?.length || 0)
+      }
     } catch (err: any) {
       console.error('Failed to fetch admin photo inventory:', err)
       toast.error('Failed to load photo inventory.')
     } finally {
       setLoading(false)
     }
-  }, [isAdmin, currentPage, pageSize, debouncedQuery, visibilityFilter, sortBy, sortOrder])
+  }, [isAdmin, currentPage, pageSize, debouncedQuery, visibilityFilter, mediaTypeFilter, locationFilter, sortBy, sortOrder])
 
   useEffect(() => {
     setSelectedIds([])
     fetchPhotos()
   }, [fetchPhotos])
 
-  // Filter photos by client-side location criteria if needed
-  const filteredPhotos = useMemo(() => {
-    if (locationFilter === 'all') return photos
-    return photos.filter((photo) => {
-      // Location filter
-      if (locationFilter === 'tagged') {
-        const hasGps = typeof photo.latitude === 'number' && typeof photo.longitude === 'number' && photo.latitude !== 999
-        if (!hasGps) return false
-      } else if (locationFilter === 'untagged') {
-        const isUntagged = (photo.latitude === null || photo.longitude === null) && !photo.isLocationIgnored
-        if (!isUntagged) return false
-      } else if (locationFilter === 'ignored') {
-        if (!photo.isLocationIgnored && photo.latitude !== 999) return false
-      }
-
-      return true
-    })
-  }, [photos, locationFilter])
+  // Photos are accurately filtered on the server side across the full catalog
+  const filteredPhotos = photos
 
   // Pagination calculations (server-side paginated photos)
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize))
@@ -801,6 +792,21 @@ export default function AdminPhotosPage() {
                 </Select>
               </div>
 
+              {/* Media Type Filter */}
+              <div className="flex items-center gap-1.5 text-xs">
+                <span className="text-muted-foreground font-medium text-[11px]">Media:</span>
+                <Select value={mediaTypeFilter} onValueChange={(val: any) => setMediaTypeFilter(val)}>
+                  <SelectTrigger className="h-7 text-xs bg-muted/20 border-border/70 rounded-lg w-auto min-w-[100px]">
+                    <SelectValue placeholder="All Types" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all" className="text-xs">All Types</SelectItem>
+                    <SelectItem value="photo" className="text-xs">📸 Photos</SelectItem>
+                    <SelectItem value="video" className="text-xs">🎬 Videos</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
               {/* Location Filter */}
               <div className="flex items-center gap-1.5 text-xs">
                 <span className="text-muted-foreground font-medium text-[11px]">GPS:</span>
@@ -818,12 +824,13 @@ export default function AdminPhotosPage() {
               </div>
 
               {/* Reset filter button if any active */}
-              {(visibilityFilter !== 'all' || locationFilter !== 'all' || searchQuery) && (
+              {(visibilityFilter !== 'all' || mediaTypeFilter !== 'all' || locationFilter !== 'all' || searchQuery) && (
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={() => {
                     setVisibilityFilter('all')
+                    setMediaTypeFilter('all')
                     setLocationFilter('all')
                     setSearchQuery('')
                   }}
