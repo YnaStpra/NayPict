@@ -78,7 +78,7 @@ describe('Round 23 Mobile Ergonomics & Performance Optimization Suite (Android &
       assert.ok(content.includes("'ExposureTime', 'FNumber', 'FocalLength', 'ISO'"), 'Must retain camera shooting param keys');
     });
 
-    it('verifies photo-info-sidebar renders AnalogFilmStripCard and detailed spec rows for camera and lens', () => {
+    it('verifies photo-info-sidebar renders unified camera setting spec rows with colored icons', () => {
       const sidebarPath = path.join(process.cwd(), 'src/components/photo/photo-info-sidebar.tsx');
       assert.ok(fs.existsSync(sidebarPath), 'src/components/photo/photo-info-sidebar.tsx must exist');
 
@@ -92,8 +92,10 @@ describe('Round 23 Mobile Ergonomics & Performance Optimization Suite (Android &
       assert.ok(content.includes('isDraggingHorizontal'), 'Must support horizontal swipe-to-close gesture');
       assert.ok(content.includes('Swipe right to close'), 'Must hint swipe right to close on mobile');
 
-      // Verify camera settings / EXIF film strip card prominence and detailed rows
-      assert.ok(content.includes('AnalogFilmStripCard'), 'Must render AnalogFilmStripCard prominently for EXIF');
+      // Verify unified camera settings with colored icons without redundant AnalogFilmStripCard
+      assert.ok(!content.includes('<AnalogFilmStripCard'), 'Must not render redundant AnalogFilmStripCard in sidebar');
+      assert.ok(content.includes('CameraSettingRow'), 'Must render CameraSettingRow for camera settings');
+      assert.ok(content.includes('CAMERA_PARAM_CONFIG'), 'Must configure colored icon badges for each parameter');
       assert.ok(content.includes('deviceParams.map'), 'Must render explicit device parameter rows (Camera, Lens)');
       assert.ok(content.includes('shootingParams.map'), 'Must render explicit shooting parameter rows (Shutter, Aperture, ISO)');
     });

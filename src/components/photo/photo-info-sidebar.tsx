@@ -1,6 +1,28 @@
 "use client"
 
-import { Archive, ChevronDownIcon, ChevronRightIcon, Download, Eye, FolderHeart, FolderPlusIcon, Globe, Image as ImageIcon, InfoIcon, MapPin, MessageSquareIcon, Pencil, TrendingUp, XIcon } from "lucide-react"
+import {
+  Aperture,
+  Archive,
+  Camera,
+  ChevronDownIcon,
+  ChevronRightIcon,
+  Disc3,
+  Download,
+  Eye,
+  FolderHeart,
+  FolderPlusIcon,
+  Gauge,
+  Globe,
+  Image as ImageIcon,
+  InfoIcon,
+  MapPin,
+  Maximize2,
+  MessageSquareIcon,
+  Pencil,
+  Timer,
+  TrendingUp,
+  XIcon,
+} from "lucide-react"
 import { InstagramIcon } from "@/components/icons/instagram"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
@@ -11,7 +33,6 @@ import { cn } from "@/lib/utils"
 import { formatPhotoTakenDateTime } from "@/lib/date"
 import { getThumbHashUrl } from "@/lib/thumb-hash"
 import { getPhotoDeviceParams, getPhotoShootingParams, getPhotoSoftware, getPhotoTimezone } from "@/lib/viewer-field"
-import { AnalogFilmStripCard } from "@/components/photo/analog-film-strip"
 import { type PhotoVo } from "@/server/entity/vo/photo"
 import { useLocale, useTranslations } from "next-intl"
 import { useRouter } from "next/navigation"
@@ -135,6 +156,96 @@ function PhotoInfoRow({
       <span className="shrink-0 text-white/60">{label}</span>
       <span
         className={`min-w-0 flex-1 text-right text-white ${twoLines ? "line-clamp-2 break-all" : wrap ? "break-words whitespace-normal" : "truncate"}`}
+        title={wrap || typeof value !== "string" ? undefined : value}
+      >
+        {value}
+      </span>
+    </div>
+  )
+}
+
+// Icon and color configuration for each camera technical parameter
+const CAMERA_PARAM_CONFIG: Record<
+  string,
+  {
+    icon: React.ComponentType<{ className?: string }>
+    iconColor: string
+    iconBg: string
+  }
+> = {
+  camera: {
+    icon: Camera,
+    iconColor: "text-sky-400",
+    iconBg: "bg-sky-500/15 border-sky-500/25",
+  },
+  lens: {
+    icon: Disc3,
+    iconColor: "text-emerald-400",
+    iconBg: "bg-emerald-500/15 border-emerald-500/25",
+  },
+  shutter: {
+    icon: Timer,
+    iconColor: "text-amber-400",
+    iconBg: "bg-amber-500/15 border-amber-500/25",
+  },
+  aperture: {
+    icon: Aperture,
+    iconColor: "text-rose-400",
+    iconBg: "bg-rose-500/15 border-rose-500/25",
+  },
+  focalLength: {
+    icon: Maximize2,
+    iconColor: "text-indigo-400",
+    iconBg: "bg-indigo-500/15 border-indigo-500/25",
+  },
+  iso: {
+    icon: Gauge,
+    iconColor: "text-purple-400",
+    iconBg: "bg-purple-500/15 border-purple-500/25",
+  },
+}
+
+// Rendering a single camera specification row with colorful icon badge
+function CameraSettingRow({
+  icon: Icon,
+  iconColor,
+  iconBg,
+  label,
+  value,
+  wrap = false,
+}: {
+  icon: React.ComponentType<{ className?: string }>
+  iconColor: string
+  iconBg: string
+  label: string
+  value: React.ReactNode
+  wrap?: boolean
+}) {
+  if (!value) return null
+
+  return (
+    <div
+      className={cn(
+        "flex min-w-0 justify-between gap-3 text-left py-2 px-2.5 rounded-xl transition-colors hover:bg-white/[0.04]",
+        wrap ? "items-start" : "items-center"
+      )}
+    >
+      <div className="flex items-center gap-2.5 min-w-0">
+        <div
+          className={cn(
+            "size-7 rounded-lg flex items-center justify-center shrink-0 border",
+            iconBg
+          )}
+        >
+          <Icon className={cn("size-3.5", iconColor)} />
+        </div>
+        <span className="text-xs font-medium text-white/70 truncate">{label}</span>
+      </div>
+      <span
+        className={cn(
+          "min-w-0 flex-1 text-right text-xs font-semibold text-white tracking-tight",
+          wrap ? "break-words whitespace-normal" : "truncate font-mono"
+        )}
         title={wrap || typeof value !== "string" ? undefined : value}
       >
         {value}
@@ -698,20 +809,42 @@ export function PhotoInfoSidebar({
                 </Button>
               )}
 
-              {/* Camera Settings & Analog Film Strip Card (Prominent EXIF Display) */}
+              {/* Camera Settings (Single, Clean, Colored Icon EXIF Display) */}
               {(shootingParams.length > 0 || deviceParams.length > 0) && (
                 <div className="space-y-2">
                   <div className="pb-1 text-xs font-semibold text-white/50 tracking-wider uppercase">
                     {t("cameraSettings")}
                   </div>
-                  <AnalogFilmStripCard exif={photo.exif} />
-                  <div className="space-y-1.5 pt-1">
-                    {deviceParams.map((item) => (
-                      <PhotoInfoRow key={item.key} label={t(item.key)} value={item.value} wrap={item.wrap} />
-                    ))}
-                    {shootingParams.map((item) => (
-                      <PhotoInfoRow key={item.key} label={t(item.key)} value={item.value} />
-                    ))}
+                  <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-1.5 space-y-0.5 divide-y divide-white/[0.05]">
+                    {deviceParams.map((item) => {
+                      const cfg = CAMERA_PARAM_CONFIG[item.key]
+                      if (!cfg) return null
+                      return (
+                        <CameraSettingRow
+                          key={item.key}
+                          icon={cfg.icon}
+                          iconColor={cfg.iconColor}
+                          iconBg={cfg.iconBg}
+                          label={t(item.key)}
+                          value={item.value}
+                          wrap={item.wrap}
+                        />
+                      )
+                    })}
+                    {shootingParams.map((item) => {
+                      const cfg = CAMERA_PARAM_CONFIG[item.key]
+                      if (!cfg) return null
+                      return (
+                        <CameraSettingRow
+                          key={item.key}
+                          icon={cfg.icon}
+                          iconColor={cfg.iconColor}
+                          iconBg={cfg.iconBg}
+                          label={t(item.key)}
+                          value={item.value}
+                        />
+                      )
+                    })}
                   </div>
                 </div>
               )}
