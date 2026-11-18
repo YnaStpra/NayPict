@@ -231,6 +231,8 @@ export function registerPhotoApi(app: Hono<HonoEnv>) {
         keyword: q.keyword || null,
         allowAllVisibility: q.allowAllVisibility === 'true',
         allowDownload: q.allowDownload !== undefined && q.allowDownload !== '' ? (q.allowDownload === 'true' || q.allowDownload === '1') : null,
+        mediaType: (q.mediaType as PhotoListBo['mediaType']) || null,
+        locationFilter: (q.locationFilter as PhotoListBo['locationFilter']) || null,
         photoIds: q.photoIds ? (Array.isArray(q.photoIds) ? q.photoIds : q.photoIds.split(',')) : null,
       };
     }

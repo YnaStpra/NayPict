@@ -1,4 +1,4 @@
-import { index, integer, pgTable, text, timestamp } from 'drizzle-orm/pg-core';
+import { index, integer, pgTable, text, timestamp, uniqueIndex } from 'drizzle-orm/pg-core';
 
 // album_photo (many-to-many join table with pin support)
 export const albumPhotoTab = pgTable(
@@ -14,6 +14,7 @@ export const albumPhotoTab = pgTable(
     index('idx_album_photo_album_pinned').on(table.albumId, table.isPinned, table.pinnedAt),
     index('idx_album_photo_album_pinned_cov').on(table.albumId, table.isPinned, table.pinnedAt, table.photoId),
     index('idx_album_photo_photo').on(table.photoId),
+    uniqueIndex('idx_album_photo_album_photo_unique').on(table.albumId, table.photoId),
   ]
 );
 

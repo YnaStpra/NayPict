@@ -335,6 +335,45 @@ const photoService = {
       baseWhereList.push(lte(photoTab.takenTime, params.endTakenTime));
     }
 
+    // Media type filtering (all, photo, video)
+    if (params.mediaType === 'video') {
+      baseWhereList.push(sql`${isVideoSql} = 1`);
+    } else if (params.mediaType === 'photo') {
+      baseWhereList.push(sql`${isVideoSql} = 0`);
+    }
+
+    // Server-side GPS Location filtering (tagged, untagged, ignored)
+    if (params.locationFilter === 'tagged') {
+      baseWhereList.push(
+        sql`EXISTS (
+          SELECT 1 FROM ${exifTab}
+          WHERE ${exifTab.photoId} = ${photoTab.photoId}
+          AND ${exifTab.latitude} IS NOT NULL
+          AND ${exifTab.longitude} IS NOT NULL
+          AND ${exifTab.latitude} != 999
+        )`
+      );
+    } else if (params.locationFilter === 'untagged') {
+      baseWhereList.push(
+        sql`NOT EXISTS (
+          SELECT 1 FROM ${exifTab}
+          WHERE ${exifTab.photoId} = ${photoTab.photoId}
+          AND (
+            (${exifTab.latitude} IS NOT NULL AND ${exifTab.longitude} IS NOT NULL AND ${exifTab.latitude} != 999)
+            OR ${exifTab.latitude} = 999
+          )
+        )`
+      );
+    } else if (params.locationFilter === 'ignored') {
+      baseWhereList.push(
+        sql`EXISTS (
+          SELECT 1 FROM ${exifTab}
+          WHERE ${exifTab.photoId} = ${photoTab.photoId}
+          AND ${exifTab.latitude} = 999
+        )`
+      );
+    }
+
     // Scoped visibility filtering (Both, Gallery Only, Album Only, Archived):
     // Security: Unauthenticated guests cannot query ARCHIVED photos or bypass public visibility scoping.
     const requestedVisibility = params.visibility !== undefined && params.visibility !== null ? params.visibility : null;

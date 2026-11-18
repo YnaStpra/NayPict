@@ -24,6 +24,8 @@ interface PhotoListBo {
   keyword?: string | null;
   allowAllVisibility?: boolean | null;
   allowDownload?: boolean | null;
+  mediaType?: 'all' | 'photo' | 'video' | null;
+  locationFilter?: 'all' | 'tagged' | 'untagged' | 'ignored' | null;
 }
 
 // Input params for fetching all photo IDs in random order.

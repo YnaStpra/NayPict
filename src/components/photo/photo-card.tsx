@@ -740,14 +740,16 @@ export const PhotoCard = memo(function PhotoCard({
 
   // Reveal animation should only play once per photo during a user's session
   const isAlreadyRevealed = revealedPhotoIds.has(data.photoId)
-  if (!isAlreadyRevealed && data.photoId) {
-    revealedPhotoIds.add(data.photoId)
-    // Keep memory bounded during large browsing sessions
-    if (revealedPhotoIds.size > 2000) {
-      const oldest = revealedPhotoIds.values().next().value
-      if (oldest) revealedPhotoIds.delete(oldest)
+  useEffect(() => {
+    if (data.photoId && !revealedPhotoIds.has(data.photoId)) {
+      revealedPhotoIds.add(data.photoId)
+      // Keep memory bounded during large browsing sessions
+      if (revealedPhotoIds.size > 2000) {
+        const oldest = revealedPhotoIds.values().next().value
+        if (oldest) revealedPhotoIds.delete(oldest)
+      }
     }
-  }
+  }, [data.photoId])
 
   // Only play cascade wave reveal on initial mount of the first-screen items on desktop.
   // Never play opacity: 0 reveal animation during scroll or on mobile, which created black voids!

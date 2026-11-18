@@ -24,6 +24,7 @@ import { PhotoReactions } from "@/components/photo/photo-reactions"
 import { AnalogFilmStripCompact } from "@/components/photo/analog-film-strip"
 import { getIsOffline, notifyConnectionRestored } from "@/lib/network-status"
 import { useWakeLock } from "@/hooks/use-wake-lock"
+import { useAdaptivePerformance } from "@/hooks/use-adaptive-performance"
 import { VideoAmbientGlow } from "./video-ambient-glow"
 
 // Module-level map to store the exact playback timestamp per media item across view toggles and re-renders
@@ -88,6 +89,12 @@ export const VideoPlayer = memo(function VideoPlayer({
 
   // Hold Screen Wake Lock during active playback to prevent display sleeping on mobile & laptops
   useWakeLock(isPlaying)
+
+  // Cellular data saver and low-battery adaptive performance guards
+  const { isDataSaver, isEcoMode, canAutoplayVideo } = useAdaptivePerformance()
+  const effectiveAutoPlay = autoPlay && canAutoplayVideo
+  const videoPreload: "none" | "metadata" | "auto" = isDataSaver ? "none" : isEcoMode ? "metadata" : "auto"
+  const previewPreload: "none" | "metadata" | "auto" = isDataSaver ? "none" : isEcoMode ? "none" : "metadata"
   const [currentTime, setCurrentTime] = useState(0)
   const [scrubTime, setScrubTime] = useState(0)
   const [hoverTime, setHoverTime] = useState<number | null>(null)
@@ -193,7 +200,7 @@ export const VideoPlayer = memo(function VideoPlayer({
       const video = videoRef.current
       if (video && (video.paused || video.readyState < 2)) {
         video.load()
-        if (autoPlay) {
+        if (effectiveAutoPlay) {
           video.play().catch(() => {})
         }
       }
@@ -211,7 +218,7 @@ export const VideoPlayer = memo(function VideoPlayer({
       window.removeEventListener("online", handleOnline)
       window.removeEventListener("offline", handleOffline)
     }
-  }, [autoPlay])
+  }, [effectiveAutoPlay])
 
   // Track slow buffering / network congestion during video loading
   useEffect(() => {
@@ -309,7 +316,7 @@ export const VideoPlayer = memo(function VideoPlayer({
       video.pause()
       setIsPlaying(false)
       setIsBuffering(false)
-    } else if (autoPlay) {
+    } else if (effectiveAutoPlay) {
       setIsBuffering(true)
       void video.play().then(() => {
         setIsPlaying(true)
@@ -328,7 +335,7 @@ export const VideoPlayer = memo(function VideoPlayer({
         })
       })
     }
-  }, [isActive, autoPlay])
+  }, [isActive, effectiveAutoPlay])
 
   // Stop video and release media decoder on unmount
   useEffect(() => {
@@ -444,7 +451,7 @@ export const VideoPlayer = memo(function VideoPlayer({
       setCurrentTime(savedTime)
     }
 
-    if (autoPlay) {
+    if (effectiveAutoPlay) {
       setIsBuffering(true)
       void video.play().then(() => {
         setIsPlaying(true)
@@ -454,7 +461,7 @@ export const VideoPlayer = memo(function VideoPlayer({
         setIsBuffering(false)
       })
     }
-  }, [autoPlay, photoId, src])
+  }, [effectiveAutoPlay, photoId, src])
 
   // Mute / Unmute toggle
   const toggleMute = useCallback(() => {
@@ -1132,7 +1139,7 @@ export const VideoPlayer = memo(function VideoPlayer({
         poster={poster}
         playsInline
         webkit-playsinline="true"
-        preload="auto"
+        preload={videoPreload}
         crossOrigin="anonymous"
         className={cn(
           "relative z-[10] max-h-full max-w-full object-contain cursor-pointer transition-[padding] duration-300",
@@ -1435,7 +1442,7 @@ export const VideoPlayer = memo(function VideoPlayer({
                   muted
                   playsInline
                   webkit-playsinline="true"
-                  preload="auto"
+                  preload={previewPreload}
                   crossOrigin="anonymous"
                   onLoadedMetadata={handlePreviewLoadedMetadata}
                   className="size-full object-cover"

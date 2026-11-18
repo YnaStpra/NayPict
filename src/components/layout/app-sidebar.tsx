@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation"
 import { NavMain } from "@/components/layout/nav-main"
 import { NavUser } from "@/components/layout/nav-user"
 import { TeamSwitcher } from "@/components/layout/team-switcher"
+import { MobileBottomNav } from "@/components/layout/mobile-bottom-nav"
 import { useApp } from "@/app/provider"
 import { UserTypeEnum } from "@/server/enums/user-enum"
 import { useTranslations } from "next-intl"
@@ -129,27 +130,30 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   }
 
   return (
-    <Sidebar
-      collapsible="icon"
-      className="yarl__no_scroll_padding"
-      onPointerEnter={handlePrewarmSidebar}
-      onTouchStart={handlePrewarmSidebar}
-      {...props}
-    >
-      <SidebarHeader>
-        <TeamSwitcher
-          teams={teams}
-          activeTeam={activeTeam}
-          onTeamChange={changeTeam}
-        />
-      </SidebarHeader>
-      <SidebarContent>
-        <NavMain items={navItems} />
-      </SidebarContent>
-      <SidebarFooter>
-        <NavUser user={navUser} />
-      </SidebarFooter>
-      <SidebarRail />
-    </Sidebar>
+    <>
+      <Sidebar
+        collapsible="icon"
+        className="yarl__no_scroll_padding"
+        onPointerEnter={handlePrewarmSidebar}
+        onTouchStart={handlePrewarmSidebar}
+        {...props}
+      >
+        <SidebarHeader>
+          <TeamSwitcher
+            teams={teams}
+            activeTeam={activeTeam}
+            onTeamChange={changeTeam}
+          />
+        </SidebarHeader>
+        <SidebarContent>
+          <NavMain items={navItems} />
+        </SidebarContent>
+        <SidebarFooter>
+          <NavUser user={navUser} />
+        </SidebarFooter>
+        <SidebarRail />
+      </Sidebar>
+      <MobileBottomNav />
+    </>
   )
 }

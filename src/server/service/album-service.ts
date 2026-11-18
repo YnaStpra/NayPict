@@ -569,13 +569,19 @@ const albumService = {
     }
 
     // Verify candidate photos belong to the requesting user (IDOR prevention)
-    const candidatePhotos = await orm
-      .select({ photoId: photoTab.photoId })
-      .from(photoTab)
-      .where(and(
-        eq(photoTab.userId, userId),
-        inArray(photoTab.photoId, params.photoIds)
-      ));
+    const CHUNK_SIZE = 100;
+    const candidatePhotos: { photoId: string }[] = [];
+    for (let i = 0; i < params.photoIds.length; i += CHUNK_SIZE) {
+      const chunk = params.photoIds.slice(i, i + CHUNK_SIZE);
+      const chunkPhotos = await orm
+        .select({ photoId: photoTab.photoId })
+        .from(photoTab)
+        .where(and(
+          eq(photoTab.userId, userId),
+          inArray(photoTab.photoId, chunk)
+        ));
+      candidatePhotos.push(...chunkPhotos);
+    }
 
     if (!candidatePhotos.length) {
       return { addedCount: 0, alreadyInAlbumCount: 0 };
@@ -987,20 +993,24 @@ const albumService = {
     const map = new Map<string, { albumId: string; name: string }[]>();
     if (!photoIds || !photoIds.length) return map;
 
-    const rows = await readOrm
-      .select({
-        photoId: albumPhotoTab.photoId,
-        albumId: albumTab.albumId,
-        name: albumTab.name,
-      })
-      .from(albumPhotoTab)
-      .innerJoin(albumTab, eq(albumPhotoTab.albumId, albumTab.albumId))
-      .where(inArray(albumPhotoTab.photoId, photoIds));
+    const CHUNK_SIZE = 100;
+    for (let i = 0; i < photoIds.length; i += CHUNK_SIZE) {
+      const chunk = photoIds.slice(i, i + CHUNK_SIZE);
+      const rows = await readOrm
+        .select({
+          photoId: albumPhotoTab.photoId,
+          albumId: albumTab.albumId,
+          name: albumTab.name,
+        })
+        .from(albumPhotoTab)
+        .innerJoin(albumTab, eq(albumPhotoTab.albumId, albumTab.albumId))
+        .where(inArray(albumPhotoTab.photoId, chunk));
 
-    for (const row of rows) {
-      const existing = map.get(row.photoId) ?? [];
-      existing.push({ albumId: row.albumId, name: row.name });
-      map.set(row.photoId, existing);
+      for (const row of rows) {
+        const existing = map.get(row.photoId) ?? [];
+        existing.push({ albumId: row.albumId, name: row.name });
+        map.set(row.photoId, existing);
+      }
     }
 
     return map;
