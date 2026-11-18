@@ -27,7 +27,7 @@ import { removePhotoIdFromUrl } from "@/lib/url"
 import { albumAddPhoto, albumRemovePhoto } from "@/request/album"
 import { usePhotoStore } from "@/store/photo-store"
 import { useAlbumStore } from "@/store/album-store"
-import { ArrowUpDown, CalendarDays, ImageIcon, LayoutGrid, Plus, Sparkles, WifiOff } from "lucide-react"
+import { ArrowUpDown, CalendarDays, Check, Clock, ImageIcon, LayoutGrid, MapPin, Plus, Sparkles, Video, WifiOff } from "lucide-react"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -37,6 +37,15 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet"
+import { cn } from "@/lib/utils"
+import { useIsMobile } from "@/hooks/use-mobile"
 import { PhotoMasonrySkeleton } from "@/components/photo/photo-masonry-skeleton"
 import { GalleryBottomStatus } from "@/components/photo/gallery-bottom-status"
 import { BackToTopButton } from "@/components/ui/back-to-top-button"
@@ -101,9 +110,11 @@ export default function Page() {
   const isAdmin = userInfo?.type === UserTypeEnum.ADMIN
 
   const isBrowser = useSyncExternalStore(emptySubscribe, () => true, () => false)
+  const isMobile = useIsMobile()
   const [viewMode, setViewMode] = useState<"masonry" | "infinite">("masonry")
   const [sortKey, setSortKey] = useState<SortOptionKey>("none")
   const [groupByDate, setGroupByDate] = useState<boolean>(false)
+  const [sortSheetOpen, setSortSheetOpen] = useState<boolean>(false)
   const [isScrolled, setIsScrolled] = useState<boolean>(false)
   const { coords, requestLocation } = useUserLocation()
 
@@ -574,43 +585,96 @@ export default function Page() {
                 </TooltipProvider>
               )}
 
-              {/* Sort By Dropdown Menu (Icon-only with sort direction indicator) */}
-              <DropdownMenu modal={false}>
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <DropdownMenuTrigger asChild>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="size-8 rounded-lg transition-all duration-200 cursor-pointer hover:bg-violet-500/10 active:scale-95 text-violet-500 dark:text-violet-400 border border-border/50 hover:border-violet-500/30 shadow-2xs"
-                          aria-label="Sort Gallery Media"
-                        >
-                          <ArrowUpDown className="size-4 text-violet-500 dark:text-violet-400 shrink-0" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                    </TooltipTrigger>
-                    <TooltipContent side="bottom">
-                      {`Sort: ${SORT_OPTIONS.find((o) => o.key === sortKey)?.label || "Default"}`}
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
+              {/* Sort By: Mobile Bottom Action Sheet vs Desktop Dropdown Menu */}
+              {isMobile ? (
+                <>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="size-8 rounded-lg transition-all duration-200 cursor-pointer hover:bg-violet-500/10 active:scale-95 text-violet-500 dark:text-violet-400 border border-border/50 hover:border-violet-500/30 shadow-2xs"
+                    aria-label="Sort Gallery Media"
+                    onClick={() => setSortSheetOpen(true)}
+                  >
+                    <ArrowUpDown className="size-4 text-violet-500 dark:text-violet-400 shrink-0" />
+                  </Button>
 
-                <DropdownMenuContent align="end" className="w-64 z-[50]">
-                  <DropdownMenuLabel className="text-xs text-muted-foreground font-semibold px-2 py-1.5">
-                    Sort By
-                  </DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuRadioGroup value={sortKey} onValueChange={(val) => handleSortChange(val as SortOptionKey)}>
-                    {SORT_OPTIONS.map((opt) => (
-                      <DropdownMenuRadioItem key={opt.key} value={opt.key} className="text-xs font-medium cursor-pointer py-1.5">
-                        {opt.label}
-                      </DropdownMenuRadioItem>
-                    ))}
-                  </DropdownMenuRadioGroup>
-                </DropdownMenuContent>
-              </DropdownMenu>
+                  <Sheet open={sortSheetOpen} onOpenChange={setSortSheetOpen}>
+                    <SheetContent side="bottom" className="rounded-t-3xl border-t border-border/60 bg-background/95 backdrop-blur-xl px-4 pb-8 pt-3 max-h-[85vh] z-[100]">
+                      <div className="w-10 h-1 bg-muted-foreground/30 rounded-full mx-auto mb-3 shrink-0" />
+                      <SheetHeader className="p-0 text-left mb-2">
+                        <SheetTitle className="text-base font-semibold">Urutkan Media</SheetTitle>
+                        <SheetDescription className="text-xs text-muted-foreground">
+                          Pilih urutan tampilan foto dan video di galeri
+                        </SheetDescription>
+                      </SheetHeader>
+                      <div className="flex flex-col gap-1.5 overflow-y-auto max-h-[60vh] py-1 overscroll-contain">
+                        {SORT_OPTIONS.map((opt) => {
+                          const isSelected = sortKey === opt.key
+                          return (
+                            <button
+                              key={opt.key}
+                              type="button"
+                              onClick={() => {
+                                handleSortChange(opt.key)
+                                setSortSheetOpen(false)
+                              }}
+                              className={cn(
+                                "flex items-center justify-between w-full px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all text-left cursor-pointer",
+                                isSelected
+                                  ? "bg-violet-500/15 text-violet-600 dark:text-violet-400 font-semibold border border-violet-500/30 shadow-2xs"
+                                  : "hover:bg-muted active:bg-muted/80 text-foreground border border-transparent"
+                              )}
+                            >
+                              <div className="flex items-center gap-2.5 min-w-0">
+                                <span className="truncate">{opt.label}</span>
+                              </div>
+                              {isSelected && <Check className="size-4 text-violet-500 shrink-0 ml-2" />}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </SheetContent>
+                  </Sheet>
+                </>
+              ) : (
+                <DropdownMenu modal={false}>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="size-8 rounded-lg transition-all duration-200 cursor-pointer hover:bg-violet-500/10 active:scale-95 text-violet-500 dark:text-violet-400 border border-border/50 hover:border-violet-500/30 shadow-2xs"
+                            aria-label="Sort Gallery Media"
+                          >
+                            <ArrowUpDown className="size-4 text-violet-500 dark:text-violet-400 shrink-0" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom">
+                        {`Sort: ${SORT_OPTIONS.find((o) => o.key === sortKey)?.label || "Default"}`}
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+
+                  <DropdownMenuContent align="end" className="w-64 z-[50]">
+                    <DropdownMenuLabel className="text-xs text-muted-foreground font-semibold px-2 py-1.5">
+                      Sort By
+                    </DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuRadioGroup value={sortKey} onValueChange={(val) => handleSortChange(val as SortOptionKey)}>
+                      {SORT_OPTIONS.map((opt) => (
+                        <DropdownMenuRadioItem key={opt.key} value={opt.key} className="text-xs font-medium cursor-pointer py-1.5">
+                          {opt.label}
+                        </DropdownMenuRadioItem>
+                      ))}
+                    </DropdownMenuRadioGroup>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
 
               {userInfo && (
                 <Button
@@ -624,6 +688,107 @@ export default function Page() {
               )}
             </div>
           </header>
+
+          {/* Quick-Filter Chips Bar (Horizontal swipeable thumb pills) */}
+          {viewMode === "masonry" && (
+            <div
+              className="px-2 sm:px-3 pt-2 pb-1.5 overflow-x-auto no-scrollbar flex items-center gap-2 select-none -mx-1 sm:mx-0 touch-pan-x"
+              style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+            >
+              <button
+                type="button"
+                onClick={() => {
+                  if (sortKey !== "none" || groupByDate) {
+                    setGroupByDate(false)
+                    handleSortChange("none")
+                  }
+                }}
+                className={cn(
+                  "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all shrink-0 cursor-pointer active:scale-95",
+                  sortKey === "none" && !groupByDate
+                    ? "bg-primary text-primary-foreground shadow-2xs font-semibold"
+                    : "bg-muted/60 hover:bg-muted text-muted-foreground hover:text-foreground border border-border/50"
+                )}
+              >
+                <Sparkles className="size-3.5" />
+                <span>Semua</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  if (sortKey === "type_asc") {
+                    handleSortChange("none")
+                  } else {
+                    handleSortChange("type_asc")
+                  }
+                }}
+                className={cn(
+                  "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all shrink-0 cursor-pointer active:scale-95",
+                  sortKey === "type_asc"
+                    ? "bg-amber-500 text-white shadow-2xs font-semibold"
+                    : "bg-muted/60 hover:bg-muted text-muted-foreground hover:text-foreground border border-border/50"
+                )}
+              >
+                <Video className="size-3.5" />
+                <span>Video</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={toggleGroupByDate}
+                className={cn(
+                  "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all shrink-0 cursor-pointer active:scale-95",
+                  groupByDate
+                    ? "bg-sky-500 text-white shadow-2xs font-semibold"
+                    : "bg-muted/60 hover:bg-muted text-muted-foreground hover:text-foreground border border-border/50"
+                )}
+              >
+                <CalendarDays className="size-3.5" />
+                <span>Per Tanggal</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  if (sortKey === "nearby") {
+                    handleSortChange("none")
+                  } else {
+                    handleSortChange("nearby")
+                  }
+                }}
+                className={cn(
+                  "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all shrink-0 cursor-pointer active:scale-95",
+                  sortKey === "nearby"
+                    ? "bg-emerald-500 text-white shadow-2xs font-semibold"
+                    : "bg-muted/60 hover:bg-muted text-muted-foreground hover:text-foreground border border-border/50"
+                )}
+              >
+                <MapPin className="size-3.5" />
+                <span>Terdekat</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  if (sortKey === "takenTime_desc") {
+                    handleSortChange("none")
+                  } else {
+                    handleSortChange("takenTime_desc")
+                  }
+                }}
+                className={cn(
+                  "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all shrink-0 cursor-pointer active:scale-95",
+                  sortKey === "takenTime_desc"
+                    ? "bg-violet-500 text-white shadow-2xs font-semibold"
+                    : "bg-muted/60 hover:bg-muted text-muted-foreground hover:text-foreground border border-border/50"
+                )}
+              >
+                <Clock className="size-3.5" />
+                <span>Terbaru</span>
+              </button>
+            </div>
+          )}
           <div className="px-1 md:pl-1 md:pr-0 min-w-0 max-w-full">
             {isOffline && (
               <div className="my-2 mx-auto max-w-md flex items-center justify-center gap-2 py-1 px-3 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 text-xs font-medium animate-in fade-in slide-in-from-top-1 duration-200 select-none">

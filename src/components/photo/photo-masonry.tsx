@@ -679,8 +679,47 @@ const PhotoMasonry = memo(function PhotoMasonry({
     }
 
     let idleTimer: NodeJS.Timeout | null = null
+    let lastVelocityTime = Date.now()
+    let lastVelocityY = window.scrollY || window.pageYOffset
+    let lastHighVelocityPrefetchTime = 0
+
+    // Predictive High-Velocity Viewport Preloader:
+    // When rapid momentum scroll or flick is detected, calculate projected stopping point
+    // based on iOS/Android deceleration physics (~400-500ms momentum) and prefetch that slice immediately
+    // without waiting for scrolling to stop (bypassing the 180ms idle throttle).
+    const checkHighVelocityPrefetch = () => {
+      const now = Date.now()
+      const dt = Math.max(1, now - lastVelocityTime)
+      const currentScrollY = window.scrollY || window.pageYOffset
+      const dy = currentScrollY - lastVelocityY
+      const velocity = dy / dt // px/ms
+
+      lastVelocityTime = now
+      lastVelocityY = currentScrollY
+
+      if (Math.abs(velocity) > 0.65 && now - lastHighVelocityPrefetchTime > 120) {
+        lastHighVelocityPrefetchTime = now
+        const avgCardHeight = isMobile ? 180 : 260
+        const cols = columnCount
+        const projectedDeltaY = velocity * 450
+        const projectedY = Math.max(0, currentScrollY + projectedDeltaY)
+        const projectedLandingIndex = Math.max(0, Math.min(photos.length - 1, Math.floor((projectedY / avgCardHeight) * cols)))
+
+        const landStart = Math.max(0, projectedLandingIndex - 2)
+        const landEnd = Math.min(photos.length, projectedLandingIndex + (isMobile ? 8 : 12))
+
+        for (let i = landStart; i < landEnd; i++) {
+          const p = photos[i]
+          if (p) {
+            warmUrl(p.thumbnail || p.preview)
+          }
+        }
+      }
+    }
 
     const schedulePrefetch = () => {
+      checkHighVelocityPrefetch()
+
       if (idleTimer) clearTimeout(idleTimer)
       // Throttle prefetching during active scrolling (180ms delay) so 100% of CPU is dedicated to 120 FPS frame render
       idleTimer = setTimeout(() => {

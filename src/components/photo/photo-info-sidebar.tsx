@@ -1,6 +1,6 @@
 "use client"
 
-import { Archive, ChevronRightIcon, Download, Eye, FolderHeart, FolderPlusIcon, Globe, Image as ImageIcon, InfoIcon, MapPin, MessageSquareIcon, Pencil, TrendingUp, XIcon } from "lucide-react"
+import { Archive, ChevronDownIcon, ChevronRightIcon, Download, Eye, FolderHeart, FolderPlusIcon, Globe, Image as ImageIcon, InfoIcon, MapPin, MessageSquareIcon, Pencil, TrendingUp, XIcon } from "lucide-react"
 import { InstagramIcon } from "@/components/icons/instagram"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
@@ -16,6 +16,7 @@ import { type PhotoVo } from "@/server/entity/vo/photo"
 import { useLocale, useTranslations } from "next-intl"
 import { useRouter } from "next/navigation"
 import { useApp } from "@/app/provider"
+import { useIsMobile } from "@/hooks/use-mobile"
 import { UserTypeEnum } from "@/server/enums/user-enum"
 import { PhotoVisibilityEnum } from "@/server/enums/photo-enum"
 import { photoSetVisibility } from "@/request/photo"
@@ -205,6 +206,7 @@ export function PhotoInfoSidebar({
     }
   }, [isVideo, photo?.exif])
 
+  const isMobile = useIsMobile()
   const [internalTab, setInternalTab] = useState<"info" | "comments">(defaultTab)
   const [commentCount, setCommentCount] = useState<number>(0)
   const [isUpdatingVisibility, setIsUpdatingVisibility] = useState(false)
@@ -307,7 +309,7 @@ export function PhotoInfoSidebar({
     }
   }
 
-  // Full-panel mobile horizontal swipe gesture controller with strict binary snap (>= 50% closes, < 50% springs open)
+  // Adaptive Gesture Controller: Vertical pull-to-close on mobile bottom sheet, horizontal swipe-to-close on desktop sidebar
   useEffect(() => {
     const asideEl = asideRef.current
     if (!asideEl) return
@@ -316,24 +318,28 @@ export function PhotoInfoSidebar({
     let startY = 0
     let startTime = 0
     let isDetermined = false
-    let isDraggingHorizontal = false
-    let currentDragX = 0
+    let isDragging = false
+    let isVertical = false
+    let currentDragOffset = 0
 
     const onTouchStart = (e: TouchEvent) => {
       e.stopPropagation()
-      if (window.innerWidth >= 768 || e.touches.length > 1) return
+      if (e.touches.length > 1) return
+      const isMobileViewport = window.innerWidth < 768
       const touch = e.touches[0]
       startX = touch.clientX
       startY = touch.clientY
       startTime = Date.now()
       isDetermined = false
-      isDraggingHorizontal = false
-      currentDragX = 0
+      isDragging = false
+      isVertical = isMobileViewport
+      currentDragOffset = 0
     }
 
     const onTouchMove = (e: TouchEvent) => {
       e.stopPropagation()
-      if (window.innerWidth >= 768 || e.touches.length > 1) return
+      if (e.touches.length > 1) return
+      const isMobileViewport = window.innerWidth < 768
       const touch = e.touches[0]
       const dx = touch.clientX - startX
       const dy = touch.clientY - startY
@@ -341,57 +347,88 @@ export function PhotoInfoSidebar({
       if (!isDetermined) {
         if (Math.abs(dx) > 4 || Math.abs(dy) > 4) {
           isDetermined = true
-          // If swiping horizontally
-          if (Math.abs(dx) > Math.abs(dy) * 0.7) {
-            isDraggingHorizontal = true
+          if (isMobileViewport) {
+            // On mobile bottom sheet: allow pulling down when at top of content, or if dragging header
+            const scrollTop = infoScrollRef.current?.scrollTop ?? 0
+            if (dy > 4 && scrollTop <= 0 && dy > Math.abs(dx) * 0.7) {
+              isDragging = true
+              isVertical = true
+            }
+          } else {
+            // On desktop: horizontal swipe
+            if (Math.abs(dx) > Math.abs(dy) * 0.7) {
+              isDragging = true
+              isVertical = false
+            }
           }
         }
       }
 
-      if (isDraggingHorizontal) {
+      if (isDragging) {
         if (e.cancelable) {
           e.preventDefault()
         }
-        // Rubber-band resistance on left drag (dx < 0), linear 1:1 on right drag (dx > 0)
-        currentDragX = dx > 0 ? dx : dx * 0.18
-        asideEl.style.transition = "none"
-        asideEl.style.transform = `translate3d(${currentDragX}px, 0, 0)`
+        if (isVertical) {
+          // Drag down on mobile sheet
+          currentDragOffset = dy > 0 ? dy : dy * 0.15
+          asideEl.style.transition = "none"
+          asideEl.style.transform = `translate3d(0, ${currentDragOffset}px, 0)`
+        } else {
+          // Drag right on desktop sidebar
+          currentDragOffset = dx > 0 ? dx : dx * 0.18
+          asideEl.style.transition = "none"
+          asideEl.style.transform = `translate3d(${currentDragOffset}px, 0, 0)`
+        }
       }
     }
 
     const onTouchEnd = (e: TouchEvent) => {
       e.stopPropagation()
-      if (!isDraggingHorizontal) return
-      isDraggingHorizontal = false
+      if (!isDragging) return
+      isDragging = false
       isDetermined = false
 
       const dt = Math.max(1, Date.now() - startTime)
-      const velocity = currentDragX / dt
-      const panelWidth = asideEl.offsetWidth || window.innerWidth || 360
+      const velocity = currentDragOffset / dt
+      const isMobileViewport = window.innerWidth < 768
 
-      // Strict 50% screen width threshold rule: >= 50% closes, < 50% springs open
-      const shouldClose = currentDragX >= panelWidth * 0.5 || (velocity > 0.45 && currentDragX > 40)
+      if (isVertical) {
+        const sheetHeight = asideEl.offsetHeight || 400
+        const shouldClose = currentDragOffset >= Math.min(110, sheetHeight * 0.3) || (velocity > 0.4 && currentDragOffset > 30)
 
-      if (shouldClose) {
-        // Smooth slide-out to right (100% closed)
-        asideEl.style.transition = "transform 0.26s cubic-bezier(0.32, 0.72, 0, 1)"
-        asideEl.style.transform = "translate3d(100%, 0, 0)"
-        setTimeout(() => {
-          onClose?.()
-        }, 260)
+        if (shouldClose) {
+          asideEl.style.transition = "transform 0.24s cubic-bezier(0.32, 0.72, 0, 1)"
+          asideEl.style.transform = "translate3d(0, 100%, 0)"
+          setTimeout(() => {
+            onClose?.()
+          }, 240)
+        } else {
+          asideEl.style.transition = "transform 0.32s cubic-bezier(0.175, 0.885, 0.32, 1.12)"
+          asideEl.style.transform = "translate3d(0, 0, 0)"
+        }
       } else {
-        // Tactile, playful spring bounce back to open (0% fully open)
-        asideEl.style.transition = "transform 0.36s cubic-bezier(0.175, 0.885, 0.32, 1.12)"
-        asideEl.style.transform = "translate3d(0, 0, 0)"
+        const panelWidth = asideEl.offsetWidth || window.innerWidth || 360
+        const shouldClose = currentDragOffset >= panelWidth * 0.5 || (velocity > 0.45 && currentDragOffset > 40)
+
+        if (shouldClose) {
+          asideEl.style.transition = "transform 0.26s cubic-bezier(0.32, 0.72, 0, 1)"
+          asideEl.style.transform = "translate3d(100%, 0, 0)"
+          setTimeout(() => {
+            onClose?.()
+          }, 260)
+        } else {
+          asideEl.style.transition = "transform 0.36s cubic-bezier(0.175, 0.885, 0.32, 1.12)"
+          asideEl.style.transform = "translate3d(0, 0, 0)"
+        }
       }
     }
 
     const onTouchCancel = (e: TouchEvent) => {
       e.stopPropagation()
-      if (isDraggingHorizontal) {
-        isDraggingHorizontal = false
+      if (isDragging) {
+        isDragging = false
         isDetermined = false
-        asideEl.style.transition = "transform 0.36s cubic-bezier(0.175, 0.885, 0.32, 1.12)"
+        asideEl.style.transition = "transform 0.32s cubic-bezier(0.175, 0.885, 0.32, 1.12)"
         asideEl.style.transform = "translate3d(0, 0, 0)"
       }
     }
@@ -427,24 +464,28 @@ export function PhotoInfoSidebar({
   return (
     <motion.aside
       ref={asideRef}
-      initial={{ x: "100%", opacity: 0.8 }}
-      animate={{ x: 0, opacity: 1 }}
-      exit={{ x: "100%", opacity: 0 }}
+      initial={isMobile ? { y: "100%", opacity: 0.9 } : { x: "100%", opacity: 0.8 }}
+      animate={isMobile ? { y: 0, opacity: 1 } : { x: 0, opacity: 1 }}
+      exit={isMobile ? { y: "100%", opacity: 0 } : { x: "100%", opacity: 0 }}
       transition={{ duration: 0.28, ease: [0.32, 0.72, 0, 1] }}
-      className="fixed top-0 right-0 z-[60] flex h-full w-full flex-col overflow-hidden bg-neutral-950/90 backdrop-blur-2xl text-white shadow-photo-sidebar md:w-84 md:shrink-0 md:border-l md:border-white/10 pointer-events-auto touch-pan-y will-change-transform"
+      className={cn(
+        "fixed z-[60] flex flex-col overflow-hidden bg-neutral-950/95 backdrop-blur-2xl text-white shadow-2xl pointer-events-auto touch-pan-y will-change-transform",
+        "bottom-0 left-0 right-0 max-h-[82vh] w-full rounded-t-3xl border-t border-white/20",
+        "md:top-0 md:right-0 md:left-auto md:bottom-auto md:h-full md:w-84 md:rounded-none md:border-t-0 md:border-l md:border-white/10 md:max-h-full"
+      )}
       style={{ touchAction: "pan-y" }}
     >
       <PhotoViewerBlurBackground thumbHash={photo?.thumbHash} />
 
-      {/* Mobile Left-Edge Swipe-Right Indicator */}
+      {/* Mobile Top Drag Indicator / Handle */}
       <div
-        className="md:hidden absolute left-1 top-1/2 -translate-y-1/2 z-30 pointer-events-none opacity-40"
+        className="md:hidden flex items-center justify-center pt-2.5 pb-1 shrink-0 cursor-grab active:cursor-grabbing select-none"
         aria-hidden
       >
-        <div className="w-1.5 h-10 rounded-full bg-white/40 shadow-xs" />
+        <div className="w-12 h-1.5 rounded-full bg-white/30" />
       </div>
 
-      {/* Mobile Swipe-Right Hint Pill (Auto-dismisses in ~2s) */}
+      {/* Mobile Swipe-Down Hint Pill (Auto-dismisses in ~2s) */}
       {showDrawerHint && (
         <div
           className={cn(
@@ -455,9 +496,9 @@ export function PhotoInfoSidebar({
           )}
         >
           <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-black/85 dark:bg-neutral-900/90 backdrop-blur-xl border border-white/20 text-white shadow-2xl ring-1 ring-black/40">
-            <ChevronRightIcon className="size-3.5 text-emerald-400 animate-pulse" />
+            <ChevronDownIcon className="size-3.5 text-emerald-400 animate-pulse" />
             <span className="text-[11px] sm:text-xs font-medium tracking-wide">
-              Swipe right to close
+              Swipe down to close
             </span>
           </div>
         </div>
@@ -698,6 +739,16 @@ export function PhotoInfoSidebar({
                 </Button>
               )}
 
+              {/* Camera Settings & Analog Film Strip Card (Prominent EXIF Display) */}
+              {(shootingParams.length > 0 || deviceParams.length > 0) && (
+                <div className="space-y-2">
+                  <div className="pb-1 text-xs font-semibold text-white/50 tracking-wider uppercase">
+                    {t("cameraSettings")}
+                  </div>
+                  <AnalogFilmStripCard exif={photo.exif} />
+                </div>
+              )}
+
               <div>
                 <div className="flex items-center justify-between pb-2">
                   <span className="text-xs font-semibold text-white/50 tracking-wider uppercase">
@@ -793,15 +844,6 @@ export function PhotoInfoSidebar({
                   )}
                 </div>
               </div>
-
-              {(shootingParams.length > 0 || deviceParams.length > 0) && (
-                <div className="space-y-2">
-                  <div className="pb-1 text-xs font-semibold text-white/50 tracking-wider uppercase">
-                    {t("cameraSettings")}
-                  </div>
-                  <AnalogFilmStripCard exif={photo.exif} />
-                </div>
-              )}
 
               {/* Visual Google Map Location Card (Positioned at the very bottom of photo info) */}
               {photo.latitude != null && photo.longitude != null && !isNaN(Number(photo.latitude)) && !isNaN(Number(photo.longitude)) ? (
