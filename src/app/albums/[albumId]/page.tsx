@@ -17,6 +17,7 @@ import {
   SidebarInset,
 } from "@/components/ui/sidebar"
 import { usePhotoList } from "@/hooks/use-photo-list"
+import { PullToRefresh } from "@/components/ui/pull-to-refresh"
 
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { PhotoMasonry } from "@/components/photo/photo-masonry"
@@ -28,7 +29,7 @@ import { useAlbumStore } from "@/store/album-store"
 import { usePhotoStore } from "@/store/photo-store"
 import type { PhotoVo } from "@/server/entity/vo/photo"
 import { emitCatalogSync } from "@/lib/catalog-sync"
-import { Archive, ArrowLeftIcon, ArrowUpDown, CalendarDays, ImageIcon, LayoutGrid, PlusIcon, Sparkles } from "lucide-react"
+import { Archive, ArrowLeftIcon, ArrowUpDown, CalendarDays, ImageIcon, LayoutGrid, PlusIcon, Share2, Sparkles } from "lucide-react"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -413,6 +414,46 @@ export default function Page() {
     return photos.map((p) => ({ ...p, isPinned: false }))
   }, [photos, sortKey])
 
+  const handleShareAlbum = useCallback(async () => {
+    const shareTitle = albumDisplayName || "Album"
+    const shareText = `Check out "${shareTitle}" on NayPict`
+    const shareUrl = typeof window !== "undefined" ? window.location.href : ""
+
+    if (typeof navigator !== "undefined" && navigator.share) {
+      try {
+        await navigator.share({
+          title: shareTitle,
+          text: shareText,
+          url: shareUrl,
+        })
+      } catch (err: unknown) {
+        if ((err as Error)?.name !== "AbortError") {
+          console.error("Failed to share album:", err)
+          try {
+            await navigator.clipboard.writeText(shareUrl)
+            toast.success("Album link copied to clipboard!")
+          } catch {
+            toast.error("Failed to copy album link.")
+          }
+        }
+      }
+    } else if (typeof navigator !== "undefined" && navigator.clipboard) {
+      try {
+        await navigator.clipboard.writeText(shareUrl)
+        toast.success("Album link copied to clipboard!")
+      } catch {
+        toast.error("Failed to copy album link.")
+      }
+    }
+  }, [albumDisplayName])
+
+  const handlePullRefresh = useCallback(async () => {
+    await Promise.allSettled([
+      refreshPhotoList({ albumId }),
+      refreshAlbums(),
+    ])
+  }, [albumId, refreshPhotoList, refreshAlbums])
+
   return (
     <>
       <SidebarProvider open={sidebarOpen} onOpenChange={setSidebarOpen}>
@@ -561,6 +602,25 @@ export default function Page() {
                 </DropdownMenuContent>
               </DropdownMenu>
 
+              {/* Share Album Button (Native OS Web Share on iOS / Android with Clipboard Fallback) */}
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="ghost"
+                      className="size-8 rounded-lg transition-all duration-200 cursor-pointer hover:bg-primary/10 active:scale-95 text-foreground/80 hover:text-primary"
+                      onClick={handleShareAlbum}
+                      aria-label="Share Album"
+                    >
+                      <Share2 className="size-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">Share Album</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+
               {isAdmin && photos.length > 0 && (
                 <TooltipProvider>
                   <Tooltip>
@@ -637,7 +697,10 @@ export default function Page() {
                   />
                 </div>
               ) : (
-                <>
+                <PullToRefresh
+                  onRefresh={handlePullRefresh}
+                  disabled={showPhotoViewer || albumDialogOpen || albumDownloadOpen}
+                >
                   <PhotoMasonry
                     photos={displayAlbumPhotos}
                     resetKey={masonryKey}
@@ -662,7 +725,7 @@ export default function Page() {
                     onReachBottom={loadMorePhotos}
                     onRetry={retryLoadMore}
                   />
-                </>
+                </PullToRefresh>
               )
             ) : (
               <PhotoMasonrySkeleton photos={initialPhotos} />

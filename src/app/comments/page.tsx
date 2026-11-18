@@ -19,6 +19,7 @@ import {
 import { AppSidebar } from '@/components/layout/app-sidebar'
 import { Button } from '@/components/ui/button'
 import { useApp } from '@/app/provider'
+import { PullToRefresh } from '@/components/ui/pull-to-refresh'
 import { UserTypeEnum } from '@/server/enums/user-enum'
 import { commentAdminList, commentDelete, commentDeleteReply, commentReply } from '@/request/comment'
 import { photoList } from '@/request/photo'
@@ -137,6 +138,23 @@ export default function CommentsManagementPage() {
       .finally(() => {
         setLoading(false)
       })
+  }
+
+  // Pull-to-refresh handler for mobile touch gesture
+  const handlePullRefresh = async () => {
+    try {
+      const res = await commentAdminList({
+        page,
+        size: pageSize,
+        keyword: searchQuery.trim() || undefined,
+        status: statusFilter,
+      })
+      setComments(res?.list || [])
+      setTotal(res?.total || 0)
+    } catch (err) {
+      console.error('Failed to refresh comments:', err)
+      toast.error('Failed to refresh comments.')
+    }
   }
 
   // Handle Search submit
@@ -335,8 +353,12 @@ export default function CommentsManagementPage() {
             </div>
           </header>
 
-          {/* Main Dashboard Content */}
-          <div className="flex-1 space-y-4 p-4 md:p-6 max-w-7xl mx-auto w-full">
+          {/* Main Dashboard Content with Universal Pull-to-Refresh */}
+          <PullToRefresh
+            onRefresh={handlePullRefresh}
+            disabled={viewerOpen || replyingCommentId !== null}
+          >
+            <div className="flex-1 space-y-4 p-4 md:p-6 max-w-7xl mx-auto w-full">
             {/* Filter & Search Bar */}
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-muted/40 p-3 rounded-xl border">
               {/* Status Filter Tabs */}
@@ -694,6 +716,7 @@ export default function CommentsManagementPage() {
               </div>
             )}
           </div>
+        </PullToRefresh>
         </SidebarInset>
       </SidebarProvider>
 
