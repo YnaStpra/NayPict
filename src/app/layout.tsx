@@ -31,13 +31,43 @@ export const viewport: Viewport = {
 }
 
 export async function generateMetadata(): Promise<Metadata> {
+  const appUrl = process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || "https://naypict.my.id"
+  const title = process.env.TITLE || "NayPict"
+
   return {
-    title: process.env.TITLE || "NayPict",
+    metadataBase: new URL(appUrl),
+    title: {
+      default: title,
+      template: `%s | ${title}`,
+    },
+    description: "Personal Cloud Photo & Video Gallery",
+    alternates: {
+      canonical: "/",
+    },
+    robots: {
+      index: true,
+      follow: true,
+      googleBot: {
+        index: true,
+        follow: true,
+        "max-video-preview": -1,
+        "max-image-preview": "large",
+        "max-snippet": -1,
+      },
+    },
+    openGraph: {
+      type: "website",
+      locale: "en_US",
+      url: appUrl,
+      title,
+      description: "Personal Cloud Photo & Video Gallery",
+      siteName: title,
+    },
     manifest: "/manifest.webmanifest",
     appleWebApp: {
       capable: true,
       statusBarStyle: "black-translucent",
-      title: process.env.TITLE || "NayPict",
+      title,
     },
     icons: {
       icon: [
