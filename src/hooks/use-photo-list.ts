@@ -46,8 +46,10 @@ function usePhotoList(
 
   // Holds the full shuffled list of photo IDs fetched from the server for random pagination.
   const allShuffledIdsRef = useRef<string[] | null>(null)
-  // Tracks the current offset into allShuffledIdsRef for the next page fetch.
-  const pageOffsetRef = useRef(0)
+  // Queue of remaining unshown photo IDs that have not yet been rendered on screen.
+  const remainingShuffledIdsRef = useRef<string[] | null>(null)
+  // In-flight Promise for photoRandomIdList to avoid duplicate concurrent network fetches.
+  const fetchRandomIdsPromiseRef = useRef<Promise<string[]> | null>(null)
 
   const hasCustomVisibility =
     initialParams.visibility !== undefined && initialParams.visibility !== null
@@ -73,10 +75,8 @@ function usePhotoList(
   const photosRef = useRef<PhotoVo[]>(initialPhotoList) // Save latest photo list.
   const hasInitialPhotos = Array.isArray(initialPhotos) && initialPhotos.length > 0
   const initialMoreAvailable = hasInitialPhotos
-    ? initialPhotos.length === pageSize
-    : typeof initialTotal === "number"
-      ? false
-      : true
+    ? (typeof initialTotal === "number" ? initialPhotos.length < initialTotal : initialPhotos.length >= pageSize)
+    : (typeof initialTotal === "number" ? initialTotal > 0 : true)
   const hasMoreRef = useRef(initialMoreAvailable) // Tracks if more pages are available.
   const [hasMore, setHasMore] = useState<boolean>(initialMoreAvailable)
   const [photos, setPhotos] = useState<PhotoVo[]>(initialPhotoList) // Store the list of photos displayed on the current page.
@@ -109,14 +109,10 @@ function usePhotoList(
       setTotalCount(initialTotal ?? (seededCatalog?.totalCount ?? initialPhotoList.length))
       const hasInitialPhotos = Array.isArray(initialPhotos) && initialPhotos.length > 0
       const moreAvailable = hasInitialPhotos
-        ? initialPhotos.length === pageSize
-        : typeof initialTotal === "number"
-          ? false
-          : true
+        ? (typeof initialTotal === "number" ? initialPhotos.length < initialTotal : initialPhotos.length >= pageSize)
+        : (typeof initialTotal === "number" ? initialTotal > 0 : true)
       hasMoreRef.current = moreAvailable
       setHasMore(moreAvailable)
-      // Offset starts at how many SSR photos we already have
-      pageOffsetRef.current = initialPhotoList.length
 
       // Save initial page to offline IndexedDB catalog or restore cached snapshot ONLY for main public gallery
       if (initialPhotoList.length > 0 && isMainGalleryScope) {
@@ -142,10 +138,9 @@ function usePhotoList(
       photosRef.current = initialPhotos
       setPhotos(initialPhotos)
       setTotalCount(initialTotal ?? initialPhotos.length)
-      const moreAvailable = initialPhotos.length === pageSize
+      const moreAvailable = typeof initialTotal === "number" ? initialPhotos.length < initialTotal : initialPhotos.length >= pageSize
       hasMoreRef.current = moreAvailable
       setHasMore(moreAvailable)
-      pageOffsetRef.current = initialPhotos.length
       if (isMainGalleryScope) {
         saveOfflineCatalog(initialPhotos, initialTotal ?? initialPhotos.length)
       }
@@ -156,36 +151,45 @@ function usePhotoList(
   useEffect(() => {
     if (typeof window === "undefined") return
     if (paramsRef.current.sortBy || paramsRef.current.cursorPhotoId || paramsRef.current.shuffle === false) return
-    if (allShuffledIdsRef.current) return
+    if (allShuffledIdsRef.current || remainingShuffledIdsRef.current) return
 
     const prefetchRandomIds = () => {
       const q = paramsRef.current
       if (q.sortBy || q.cursorPhotoId || q.shuffle === false || allShuffledIdsRef.current) return
 
-      photoRandomIdList({
+      const promise = photoRandomIdList({
         status: q.status ?? null,
         albumId: q.albumId ?? null,
         visibility: q.visibility ?? null,
         startTakenTime: q.startTakenTime ?? null,
         endTakenTime: q.endTakenTime ?? null,
       })
+      fetchRandomIdsPromiseRef.current = promise
+
+      promise
         .then((allIds) => {
-          if (!allShuffledIdsRef.current && Array.isArray(allIds) && allIds.length > 0) {
+          if (fetchRandomIdsPromiseRef.current === promise) {
+            fetchRandomIdsPromiseRef.current = null
+          }
+          if (Array.isArray(allIds) && allIds.length > 0) {
             allShuffledIdsRef.current = allIds
             setTotalCount(allIds.length)
-            const lastShownPhoto = photosRef.current[photosRef.current.length - 1]
-            if (lastShownPhoto) {
-              const idx = allIds.indexOf(lastShownPhoto.photoId)
-              if (idx !== -1) {
-                pageOffsetRef.current = idx + 1
-              }
-            }
-            const more = pageOffsetRef.current < allIds.length
+
+            // Deduplicate against already rendered photos to compute unshown queue
+            const shownIds = new Set(photosRef.current.map((p) => p.photoId))
+            const unshownIds = allIds.filter((id) => !shownIds.has(id))
+            remainingShuffledIdsRef.current = unshownIds
+
+            const more = unshownIds.length > 0
             hasMoreRef.current = more
             setHasMore(more)
           }
         })
-        .catch(() => {})
+        .catch(() => {
+          if (fetchRandomIdsPromiseRef.current === promise) {
+            fetchRandomIdsPromiseRef.current = null
+          }
+        })
     }
 
     const idleWindow = window as Window & {
@@ -207,7 +211,7 @@ function usePhotoList(
   }, [])
 
   // Fetch next page of photos by ID slice from the shuffled ID list.
-  const loadPhotosByIds = useCallback((ids: string[], append: boolean, previousOffset?: number) => {
+  const loadPhotosByIds = useCallback((ids: string[], append: boolean) => {
     const queryParams = paramsRef.current
 
     photoList({
@@ -238,14 +242,19 @@ function usePhotoList(
 
         if (!append) {
           refreshMasonry()
-          window.scrollTo(0, 0)
+          if (typeof window !== "undefined") {
+            window.scrollTo(0, 0)
+          }
         }
       })
       .catch((err) => {
         console.error("Failed to load photos by IDs:", err)
-        // Rollback offset so subsequent retry re-fetches this exact slice instead of skipping or hitting EOF
-        if (append && typeof previousOffset === 'number') {
-          pageOffsetRef.current = previousOffset
+        // Rollback unshown slice so subsequent retry re-fetches this exact slice instead of skipping
+        if (append && ids.length > 0) {
+          remainingShuffledIdsRef.current = [
+            ...ids,
+            ...(remainingShuffledIdsRef.current || [])
+          ]
         }
         hasMoreRef.current = true
         setHasMore(true)
@@ -369,13 +378,12 @@ function usePhotoList(
     }
 
     // Normal mode: use shuffled ID list for true random ordering across all pages
-    if (append && allShuffledIdsRef.current) {
-      // Already have the full ID list — take the next page slice
-      const allIds = allShuffledIdsRef.current
-      const offset = pageOffsetRef.current
-      const nextIds = allIds.slice(offset, offset + pageSize)
+    if (append && remainingShuffledIdsRef.current) {
+      const remainingIds = remainingShuffledIdsRef.current
+      const nextBatch = remainingIds.slice(0, pageSize)
+      remainingShuffledIdsRef.current = remainingIds.slice(pageSize)
 
-      if (!nextIds.length) {
+      if (!nextBatch.length) {
         hasMoreRef.current = false
         setHasMore(false)
         loadingRef.current = false
@@ -383,58 +391,60 @@ function usePhotoList(
         return
       }
 
-      const prevOffset = offset
-      pageOffsetRef.current = offset + nextIds.length
-      const more = pageOffsetRef.current < allIds.length
+      const more = remainingShuffledIdsRef.current.length > 0
       hasMoreRef.current = more
       setHasMore(more)
-      loadPhotosByIds(nextIds, true, prevOffset)
+      loadPhotosByIds(nextBatch, true)
       return
     }
 
-    // Initial load: fetch all IDs in random order, then load first page
-    photoRandomIdList({
+    // Reuse in-flight random ID fetch or initiate fresh one
+    const randomPromise = fetchRandomIdsPromiseRef.current || photoRandomIdList({
       status: queryParams.status ?? null,
       albumId: queryParams.albumId ?? null,
       visibility: queryParams.visibility ?? null,
       startTakenTime: queryParams.startTakenTime ?? null,
       endTakenTime: queryParams.endTakenTime ?? null,
     })
+    fetchRandomIdsPromiseRef.current = randomPromise
+
+    randomPromise
       .then((allIds) => {
+        if (fetchRandomIdsPromiseRef.current === randomPromise) {
+          fetchRandomIdsPromiseRef.current = null
+        }
         allShuffledIdsRef.current = allIds
         setTotalCount(allIds.length)
 
-        // First page: use IDs that aren't already shown via SSR
-        const alreadyShownIds = new Set(photosRef.current.map((p) => p.photoId))
-        const remainingIds = allIds.filter((id) => !alreadyShownIds.has(id))
-
         if (append) {
-          // loadMorePhotos called before IDs were ready — load next page
-          const nextIds = remainingIds.slice(0, pageSize)
-          if (!nextIds.length) {
+          // User scrolled while IDs were still fetching: take first unshown batch
+          const alreadyShownIds = new Set(photosRef.current.map((p) => p.photoId))
+          const unshownIds = allIds.filter((id) => !alreadyShownIds.has(id))
+          const nextBatch = unshownIds.slice(0, pageSize)
+          remainingShuffledIdsRef.current = unshownIds.slice(pageSize)
+
+          if (!nextBatch.length) {
             hasMoreRef.current = false
             setHasMore(false)
             loadingRef.current = false
             setLoadingMore(false)
             return
           }
-          const lastId = nextIds[nextIds.length - 1]
-          const lastIdx = allIds.indexOf(lastId)
-          const prevOffset = pageOffsetRef.current
-          pageOffsetRef.current = lastIdx !== -1 ? lastIdx + 1 : allIds.length
-          const more = pageOffsetRef.current < allIds.length
+
+          const more = remainingShuffledIdsRef.current.length > 0
           hasMoreRef.current = more
           setHasMore(more)
-          loadPhotosByIds(nextIds, true, prevOffset)
+          loadPhotosByIds(nextBatch, true)
         } else {
           // Fresh load: replace everything with first page from shuffled IDs
-          const firstPageIds = allIds.slice(0, pageSize)
-          pageOffsetRef.current = firstPageIds.length
-          const more = allIds.length > pageSize
+          const firstBatch = allIds.slice(0, pageSize)
+          const remaining = allIds.slice(pageSize)
+          remainingShuffledIdsRef.current = remaining
+          const more = remaining.length > 0
           hasMoreRef.current = more
           setHasMore(more)
-          if (firstPageIds.length) {
-            loadPhotosByIds(firstPageIds, false)
+          if (firstBatch.length) {
+            loadPhotosByIds(firstBatch, false)
           } else {
             loadingRef.current = false
             setLoadingMore(false)
@@ -443,6 +453,9 @@ function usePhotoList(
       })
       .catch((err) => {
         console.error("Failed to fetch random ID list:", err)
+        if (fetchRandomIdsPromiseRef.current === randomPromise) {
+          fetchRandomIdsPromiseRef.current = null
+        }
         hasMoreRef.current = true
         setHasMore(true)
         loadingRef.current = false
@@ -459,9 +472,10 @@ function usePhotoList(
       paramsRef.current = nextParams
     }
 
-    // Reset shuffled ID list so next load fetches fresh random order
+    // Reset shuffled ID list and in-flight promise so next load fetches fresh random order
     allShuffledIdsRef.current = null
-    pageOffsetRef.current = 0
+    remainingShuffledIdsRef.current = null
+    fetchRandomIdsPromiseRef.current = null
     photosRef.current = []
     hasMoreRef.current = true
     setHasMore(true)
@@ -504,9 +518,13 @@ function usePhotoList(
       }
 
       photosRef.current = nextPhotos
+      const newIds = newPhotos.map((p) => p.photoId)
       if (allShuffledIdsRef.current) {
-        const newIds = newPhotos.map((p) => p.photoId)
         allShuffledIdsRef.current = [...newIds, ...allShuffledIdsRef.current]
+      }
+      if (remainingShuffledIdsRef.current) {
+        const addedSet = new Set(newIds)
+        remainingShuffledIdsRef.current = remainingShuffledIdsRef.current.filter((id) => !addedSet.has(id))
       }
       setTotalCount((c) => c + newPhotos.length)
       return nextPhotos
@@ -522,6 +540,12 @@ function usePhotoList(
     photosRef.current = nextPhotos
     if (allShuffledIdsRef.current) {
       allShuffledIdsRef.current = allShuffledIdsRef.current.filter((id) => !photoIdSet.has(id))
+    }
+    if (remainingShuffledIdsRef.current) {
+      remainingShuffledIdsRef.current = remainingShuffledIdsRef.current.filter((id) => !photoIdSet.has(id))
+      const more = remainingShuffledIdsRef.current.length > 0
+      hasMoreRef.current = more
+      setHasMore(more)
     }
     setPhotos(nextPhotos)
     setTotalCount((c) => Math.max(0, c - photoIds.length))
@@ -616,19 +640,13 @@ function usePhotoList(
             }
           }
 
-          // 3. Update shuffled IDs reference preserving existing order plus newly available IDs
-          if (allShuffledIdsRef.current) {
-            const existingActive = allShuffledIdsRef.current.filter((id) => activeSet.has(id))
-            const existingActiveSet = new Set(existingActive)
-            const newlyAdded = allIds.filter((id) => !existingActiveSet.has(id))
-            allShuffledIdsRef.current = [...existingActive, ...newlyAdded]
-          } else {
-            allShuffledIdsRef.current = allIds
-          }
+          // 3. Update shuffled IDs reference and unshown queue
+          allShuffledIdsRef.current = allIds
+          const shownIds = new Set(photosRef.current.map((p) => p.photoId))
+          const unshownIds = allIds.filter((id) => !shownIds.has(id))
+          remainingShuffledIdsRef.current = unshownIds
 
-          const currentCount = photosRef.current.length
-          pageOffsetRef.current = currentCount
-          const more = currentCount < allIds.length
+          const more = unshownIds.length > 0
           hasMoreRef.current = more
           setHasMore(more)
         })
