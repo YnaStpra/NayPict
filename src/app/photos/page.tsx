@@ -603,9 +603,9 @@ export default function Page() {
                     <SheetContent side="bottom" className="rounded-t-3xl border-t border-border/60 bg-background/95 backdrop-blur-xl px-4 pb-8 pt-3 max-h-[85vh] z-[100]">
                       <div className="w-10 h-1 bg-muted-foreground/30 rounded-full mx-auto mb-3 shrink-0" />
                       <SheetHeader className="p-0 text-left mb-2">
-                        <SheetTitle className="text-base font-semibold">Urutkan Media</SheetTitle>
+                        <SheetTitle className="text-base font-semibold">Sort Media</SheetTitle>
                         <SheetDescription className="text-xs text-muted-foreground">
-                          Pilih urutan tampilan foto dan video di galeri
+                          Choose arrangement order for gallery photos and videos
                         </SheetDescription>
                       </SheetHeader>
                       <div className="flex flex-col gap-1.5 overflow-y-auto max-h-[60vh] py-1 overscroll-contain">
@@ -711,7 +711,7 @@ export default function Page() {
                 )}
               >
                 <Sparkles className="size-3.5" />
-                <span>Semua</span>
+                <span>All</span>
               </button>
 
               <button
@@ -731,7 +731,7 @@ export default function Page() {
                 )}
               >
                 <Video className="size-3.5" />
-                <span>Video</span>
+                <span>Videos</span>
               </button>
 
               <button
@@ -745,7 +745,7 @@ export default function Page() {
                 )}
               >
                 <CalendarDays className="size-3.5" />
-                <span>Per Tanggal</span>
+                <span>By Date</span>
               </button>
 
               <button
@@ -765,7 +765,7 @@ export default function Page() {
                 )}
               >
                 <MapPin className="size-3.5" />
-                <span>Terdekat</span>
+                <span>Nearby</span>
               </button>
 
               <button
@@ -785,7 +785,7 @@ export default function Page() {
                 )}
               >
                 <Clock className="size-3.5" />
-                <span>Terbaru</span>
+                <span>Newest</span>
               </button>
             </div>
           )}

@@ -75,6 +75,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { getThumbHashUrl } from "@/lib/thumb-hash"
 import { removePhotoIdFromUrl, setPhotoIdInUrl, toProxyMediaUrl } from "@/lib/url"
 import { recordPhotoShare, recordPhotoView } from "@/request/insights"
+import { photoList } from "@/request/photo"
 import { trackVisitorMedia } from "@/hooks/use-visitor-tracker"
 import { PhotoHeartBurst } from "@/components/photo/photo-heart-burst"
 import { reactionSync } from "@/lib/reaction-sync"
@@ -1803,6 +1804,21 @@ export function PhotoViewer({
     })
   }, [open, viewIndex, slides])
 
+  // Proactively fetch full EXIF details if missing for currently viewed photo
+  useEffect(() => {
+    if (!open) return
+    const currentPhoto = photos[viewIndex]
+    if (!currentPhoto?.photoId || currentPhoto.exif) return
+
+    photoList({ photoIds: [currentPhoto.photoId], size: 1 })
+      .then((res) => {
+        if (res?.list && res.list[0]?.exif) {
+          onPhotoUpdate?.(res.list[0])
+        }
+      })
+      .catch(() => {})
+  }, [open, viewIndex, photos, onPhotoUpdate])
+
   // Responsive desktop sidebar layout: keep Lightbox full-screen so backdrop never exposes underlying page
   const isSidebarOpen = infoOpen && !fullscreenOpen && !isCinematicMode
 
@@ -2320,16 +2336,8 @@ export function PhotoViewer({
     const dy = e.touches[0].clientY - pullStartRef.current.y
     const dx = e.touches[0].clientX - pullStartRef.current.x
 
-    // Swipe up on mobile to open EXIF info bottom sheet drawer
-    if (isMobile && !infoOpen && dy < -55 && Math.abs(dy) > Math.abs(dx) * 1.5) {
-      pullStartRef.current = null
-      isPullingRef.current = false
-      handleToggleInfo()
-      return
-    }
-
     if (!isPullingRef.current) {
-      if (dy > 12 && Math.abs(dy) > Math.abs(dx) * 1.5) {
+      if (Math.abs(dy) > Math.abs(dx) * 1.5 && Math.abs(dy) > 12) {
         isPullingRef.current = true
         if (carouselViewportRef.current) {
           carouselViewportRef.current.style.transition = "none"
@@ -2713,18 +2721,6 @@ export function PhotoViewer({
           <PhotoViewerBlurBackground
             key="viewer-blur-backdrop"
             thumbHash={photos[viewIndex]?.thumbHash}
-          />
-        )}
-        {infoOpen && isMobile && !fullscreenOpen && !isCinematicMode && (
-          <motion.div
-            key="mobile-drawer-backdrop"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            className="fixed inset-0 z-[55] bg-black/50 backdrop-blur-xs md:hidden"
-            onClick={() => setInfoOpen(false)}
-            aria-label="Close Info Sheet"
           />
         )}
         {infoOpen && !fullscreenOpen && !isCinematicMode && (

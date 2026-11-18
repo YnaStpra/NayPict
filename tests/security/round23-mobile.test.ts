@@ -20,7 +20,7 @@ describe('Round 23 Mobile Ergonomics & Performance Optimization Suite (Android &
       // Verify Sheet component import and usage with side="bottom"
       assert.ok(content.includes('SheetContent side="bottom"'), 'Must render SheetContent with side="bottom" for mobile ergonomics');
       assert.ok(content.includes('rounded-t-3xl'), 'Sheet must have rounded top corners typical of mobile action sheets');
-      assert.ok(content.includes('Urutkan Media'), 'Sheet must have descriptive Indonesian title');
+      assert.ok(content.includes('Sort Media'), 'Sheet must have clean English title');
 
       // Verify desktop fallback keeps dropdown menu
       assert.ok(content.includes('<DropdownMenu modal={false}>'), 'Desktop viewports must retain compact DropdownMenu');
@@ -28,19 +28,19 @@ describe('Round 23 Mobile Ergonomics & Performance Optimization Suite (Android &
   });
 
   describe('Item 3: Mobile Horizontal Quick-Filter Chips Bar', () => {
-    it('verifies horizontal swipeable quick-filter chips bar exists under header', () => {
+    it('verifies horizontal swipeable quick-filter chips bar exists under header with English labels', () => {
       const photosPagePath = path.join(process.cwd(), 'src/app/photos/page.tsx');
       const content = fs.readFileSync(photosPagePath, 'utf-8');
 
       // Verify horizontal scroll container with no-scrollbar
       assert.ok(content.includes('overflow-x-auto no-scrollbar flex items-center gap-2'), 'Must have touch horizontal scroll container');
 
-      // Verify chips: All, Videos Only, Group by Date, Nearby, Newest
-      assert.ok(content.includes('>Semua</span>'), 'Must include "Semua" quick-filter chip');
-      assert.ok(content.includes('>Video</span>'), 'Must include "Video" quick-filter chip');
-      assert.ok(content.includes('>Per Tanggal</span>'), 'Must include "Per Tanggal" quick-filter chip');
-      assert.ok(content.includes('>Terdekat</span>'), 'Must include "Terdekat" quick-filter chip');
-      assert.ok(content.includes('>Terbaru</span>'), 'Must include "Terbaru" quick-filter chip');
+      // Verify chips: All, Videos, Group by Date, Nearby, Newest (All English)
+      assert.ok(content.includes('>All</span>'), 'Must include "All" quick-filter chip in English');
+      assert.ok(content.includes('>Videos</span>'), 'Must include "Videos" quick-filter chip in English');
+      assert.ok(content.includes('>By Date</span>'), 'Must include "By Date" quick-filter chip in English');
+      assert.ok(content.includes('>Nearby</span>'), 'Must include "Nearby" quick-filter chip in English');
+      assert.ok(content.includes('>Newest</span>'), 'Must include "Newest" quick-filter chip in English');
 
       // Verify active states and touch interactions
       assert.ok(content.includes('active:scale-95'), 'Chips must provide tactile tap feedback');
@@ -65,40 +65,37 @@ describe('Round 23 Mobile Ergonomics & Performance Optimization Suite (Android &
     });
   });
 
-  describe('Item 5: Mobile Quick-Tap EXIF Info Drawer on Lightbox Photo Viewer', () => {
-    it('verifies photo-info-sidebar renders as an ergonomic bottom sheet on mobile screens', () => {
+  describe('Item 5: EXIF Metadata Delivery & Sidebar Spec Rows', () => {
+    it('verifies photo-service delivers essential EXIF keys for all photo list and onThisDay queries', () => {
+      const photoServicePath = path.join(process.cwd(), 'src/server/service/photo-service.ts');
+      assert.ok(fs.existsSync(photoServicePath), 'src/server/service/photo-service.ts must exist');
+
+      const content = fs.readFileSync(photoServicePath, 'utf-8');
+
+      // Verify EXIF query includes raw EXIF in list queries
+      assert.ok(content.includes('exifService.listByPhotoIds(photoIds, true)'), 'Must fetch EXIF from database for photo lists');
+      assert.ok(content.includes("'Make', 'Model', 'LensMake', 'LensModel'"), 'Must retain camera device keys');
+      assert.ok(content.includes("'ExposureTime', 'FNumber', 'FocalLength', 'ISO'"), 'Must retain camera shooting param keys');
+    });
+
+    it('verifies photo-info-sidebar renders AnalogFilmStripCard and detailed spec rows for camera and lens', () => {
       const sidebarPath = path.join(process.cwd(), 'src/components/photo/photo-info-sidebar.tsx');
       assert.ok(fs.existsSync(sidebarPath), 'src/components/photo/photo-info-sidebar.tsx must exist');
 
       const content = fs.readFileSync(sidebarPath, 'utf-8');
 
-      // Verify bottom sheet styles and mobile drag handle
-      assert.ok(content.includes('bottom-0 left-0 right-0 max-h-[82vh] w-full rounded-t-3xl'), 'Sidebar must render as bottom drawer on mobile');
-      assert.ok(content.includes('md:top-0 md:right-0 md:left-auto md:bottom-auto md:h-full md:w-84'), 'Desktop must retain right sidebar layout');
-      assert.ok(content.includes('w-12 h-1.5 rounded-full bg-white/30'), 'Must render top pill drag handle on mobile');
+      // Verify full sidebar layout without mobile horizontal displacement
+      assert.ok(content.includes('fixed top-0 right-0 z-[60] flex h-full w-full flex-col overflow-hidden'), 'Sidebar must be full-width on mobile and right sidebar on desktop');
+      assert.ok(content.includes('md:w-84'), 'Desktop must have w-84 sidebar layout');
 
-      // Verify vertical drag-to-dismiss gesture on mobile
-      assert.ok(content.includes('isVertical'), 'Must support vertical gesture tracking');
-      assert.ok(content.includes('translate3d(0, 100%, 0)'), 'Must slide down to dismiss when pulled');
-      assert.ok(content.includes('Swipe down to close'), 'Must hint swipe down to close on mobile');
+      // Verify horizontal gesture tracking
+      assert.ok(content.includes('isDraggingHorizontal'), 'Must support horizontal swipe-to-close gesture');
+      assert.ok(content.includes('Swipe right to close'), 'Must hint swipe right to close on mobile');
 
-      // Verify camera settings / EXIF film strip card prominence
+      // Verify camera settings / EXIF film strip card prominence and detailed rows
       assert.ok(content.includes('AnalogFilmStripCard'), 'Must render AnalogFilmStripCard prominently for EXIF');
-    });
-
-    it('verifies photo-viewer supports swipe up gesture to open EXIF bottom drawer and backdrop tap-to-dismiss', () => {
-      const viewerPath = path.join(process.cwd(), 'src/components/photo/photo-viewer.tsx');
-      assert.ok(fs.existsSync(viewerPath), 'src/components/photo/photo-viewer.tsx must exist');
-
-      const content = fs.readFileSync(viewerPath, 'utf-8');
-
-      // Verify swipe up gesture on mobile
-      assert.ok(content.includes('if (isMobile && !infoOpen && dy < -55'), 'Must detect upward swipe to open EXIF drawer on mobile');
-      assert.ok(content.includes('handleToggleInfo()'), 'Must trigger handleToggleInfo on upward swipe');
-
-      // Verify mobile drawer backdrop
-      assert.ok(content.includes('key="mobile-drawer-backdrop"'), 'Must render mobile drawer backdrop overlay');
-      assert.ok(content.includes('onClick={() => setInfoOpen(false)}'), 'Must dismiss info sheet when backdrop is tapped');
+      assert.ok(content.includes('deviceParams.map'), 'Must render explicit device parameter rows (Camera, Lens)');
+      assert.ok(content.includes('shootingParams.map'), 'Must render explicit shooting parameter rows (Shutter, Aperture, ISO)');
     });
   });
 });

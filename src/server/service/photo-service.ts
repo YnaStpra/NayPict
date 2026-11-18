@@ -562,7 +562,7 @@ const photoService = {
     const photoIds = list.map((photo: any) => photo.photoId);
     const [fileStorageList, exifMap, fileMap, albumMap] = await Promise.all([
       storageService.getStorageList(),
-      exifService.listByPhotoIds(photoIds, false),
+      exifService.listByPhotoIds(photoIds, true),
       fileService.listByPhotoIds(photoIds),
       albumService.listAlbumMapByPhotoIds(photoIds),
     ]);
@@ -922,7 +922,7 @@ const photoService = {
       const photoIds = list.map((photo: Photo) => photo.photoId);
       const [fileStorageList, exifMap, fileMap, albumMap] = await Promise.all([
         storageService.getStorageList(),
-        exifService.listByPhotoIds(photoIds, false),
+        exifService.listByPhotoIds(photoIds, true),
         fileService.listByPhotoIds(photoIds),
         albumService.listAlbumMapByPhotoIds(photoIds),
       ]);
@@ -2825,15 +2825,14 @@ const photoService = {
           // Whitelist essential viewer/display keys to eliminate bloated vendor maker notes,
           // ICC profile binary dumps, and redundant metadata, cutting API JSON payload by 50-70%.
           const leanExif: Record<string, unknown> = {};
-          const ALLOWED_EXIF_KEYS = isGridList
-            ? (isVideo ? ['Duration'] : [])
-            : [
-                'Make', 'Model', 'LensMake', 'LensModel', 'Software',
-                'ExposureTime', 'FNumber', 'FocalLength', 'ISO',
-                'TimeZoneOffset', 'OffsetTimeOriginal', 'OffsetTime', 'OffsetTimeDigitized',
-                'Duration', 'DateTimeOriginal', 'CreateDate',
-                'ColorSpace', 'ProfileDescription',
-              ];
+          const ALLOWED_EXIF_KEYS = [
+            'Make', 'Model', 'LensMake', 'LensModel', 'Software',
+            'ExposureTime', 'FNumber', 'FocalLength', 'ISO',
+            'TimeZoneOffset', 'OffsetTimeOriginal', 'OffsetTime', 'OffsetTimeDigitized',
+            'Duration', 'DateTimeOriginal', 'CreateDate',
+            'ColorSpace', 'ProfileDescription',
+            'ExposureBiasValue', 'ExposureCompensation',
+          ];
 
           for (const k of ALLOWED_EXIF_KEYS) {
             if (parsed[k] !== undefined && parsed[k] !== null && parsed[k] !== '') {
@@ -2842,7 +2841,7 @@ const photoService = {
           }
 
           // If location is not ignored, preserve GPS coordinates in EXIF payload
-          if (!isLocationIgnored && !isGridList) {
+          if (!isLocationIgnored) {
             if (parsed.GPSLatitude !== undefined) leanExif.GPSLatitude = parsed.GPSLatitude;
             if (parsed.GPSLongitude !== undefined) leanExif.GPSLongitude = parsed.GPSLongitude;
             if (parsed.GPSAltitude !== undefined) leanExif.GPSAltitude = parsed.GPSAltitude;
