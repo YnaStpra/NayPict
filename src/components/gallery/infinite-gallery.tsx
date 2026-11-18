@@ -81,6 +81,61 @@ function lerp(a: number, b: number, t: number) {
   return a + (b - a) * t
 }
 
+/**
+ * Calculates optimal 2D spatial lattice strides (sx, sy) for a given photo count N
+ * to maximize the minimum distance between duplicate photo placements across the
+ * infinite 2D plane (Z^2).
+ *
+ * Guarantees that:
+ * 1. Adjacent tiles horizontally (dx=1, dy=0) NEVER collide for any N >= 2.
+ * 2. Adjacent tiles vertically (dx=0, dy=1) NEVER collide for any N >= 2.
+ * 3. Adjacent tiles diagonally (dx=1, dy=1 or dx=1, dy=-1) NEVER collide for any N >= 4.
+ * 4. Spatial clustering is eliminated by maximizing min Euclidean distance in the lattice.
+ */
+function getOptimalLatticeStrides(N: number): { sx: number; sy: number } {
+  if (N <= 1) return { sx: 1, sy: 1 }
+  if (N === 2) return { sx: 1, sy: 1 }
+  if (N === 3) return { sx: 1, sy: 2 }
+
+  let bestSy = 2
+  let bestDistSq = 0
+  const maxDy = Math.min(N, Math.ceil(Math.sqrt(N) * 2) + 1)
+
+  for (let sy = 1; sy < N; sy++) {
+    let minDistSq = Infinity
+    for (let dy = -maxDy; dy <= maxDy; dy++) {
+      if (dy === 0) continue
+      const rem = ((-dy * sy) % N + N) % N
+      for (const dx of [rem, rem - N]) {
+        const dSq = dx * dx + dy * dy
+        if (dSq > 0 && dSq < minDistSq) {
+          minDistSq = dSq
+        }
+      }
+    }
+    if (N * N < minDistSq) {
+      minDistSq = N * N
+    }
+    if (minDistSq > bestDistSq) {
+      bestDistSq = minDistSq
+      bestSy = sy
+    }
+  }
+
+  return { sx: 1, sy: bestSy }
+}
+
+function gcd(a: number, b: number): number {
+  a = Math.abs(a)
+  b = Math.abs(b)
+  while (b) {
+    const t = b
+    b = a % b
+    a = t
+  }
+  return a
+}
+
 type Tile = {
   wx: number
   wy: number
@@ -142,21 +197,39 @@ export function InfiniteGallery(props: InfiniteGalleryProps) {
   const isStatic = useIsStaticRenderer()
 
   const safeImages: GalleryImage[] = useMemo(() => {
+    const seen = new Set<string>()
+    const result: GalleryImage[] = []
+
     if (photos && photos.length > 0) {
-      return photos
-        .map((photo, idx) => ({ photo, idx }))
+      photos.forEach((photo, idx) => {
         // Strictly exclude videos from InfiniteGallery (videos only appear in album masonry)
-        .filter(({ photo }) => !photo.type?.startsWith("video/"))
-        .map(({ photo, idx }) => ({
-          src: photo.thumbnail || photo.preview || photo.key || "",
+        if (photo.type?.startsWith("video/")) return
+        const src = photo.thumbnail || photo.preview || photo.key || ""
+        if (!src) return
+        const id = photo.photoId || photo.key || src
+        if (seen.has(id)) return
+        seen.add(id)
+        result.push({
+          src,
           alt: photo.name || `Photo ${idx + 1}`,
           photoId: photo.photoId,
           photoIndex: idx,
-        }))
-        .filter((item) => Boolean(item.src))
+        })
+      })
+      return result
     }
     if (Array.isArray(images) && images.length > 0) {
-      return images.filter((item) => Boolean(item.src))
+      images.forEach((item, idx) => {
+        if (!item.src) return
+        const id = item.photoId || item.src
+        if (seen.has(id)) return
+        seen.add(id)
+        result.push({
+          ...item,
+          photoIndex: item.photoIndex ?? idx,
+        })
+      })
+      return result
     }
     return []
   }, [photos, images])
@@ -224,7 +297,44 @@ export function InfiniteGallery(props: InfiniteGalleryProps) {
   const SCALE_MIN = 0.45
   const SCALE_MAX = 1.6
 
+  // Pre-calculate optimal 2D spatial lattice strides to guarantee anti-clustering & zero adjacent duplicates
+  const optimalStrides = useMemo(() => {
+    return getOptimalLatticeStrides(imagesCount)
+  }, [imagesCount])
+
+  // Deterministic 1-to-1 bijection permutation of photo indices for organic, non-linear layout
+  const permutation = useMemo(() => {
+    if (imagesCount <= 1) return [0]
+    const arr = Array.from({ length: imagesCount }, (_, i) => i)
+    let seed = 0x85ebca6b ^ (imagesCount * 0x27d4eb2d)
+    const rand = () => {
+      seed = (seed + 0x6d2b79f5) >>> 0
+      let t = seed
+      t = Math.imul(t ^ (t >>> 15), t | 1)
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61)
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+    }
+    for (let i = imagesCount - 1; i > 0; i--) {
+      const j = Math.floor(rand() * (i + 1))
+      const tmp = arr[i]
+      arr[i] = arr[j]
+      arr[j] = tmp
+    }
+    return arr
+  }, [imagesCount])
+
+  // Offset prime coprime to imagesCount for distinct octave layers
+  const octavePrime = useMemo(() => {
+    let offset = 17
+    while (imagesCount > 1 && gcd(offset, imagesCount) !== 1) {
+      offset += 2
+    }
+    return offset
+  }, [imagesCount])
+
   const generateCell = useMemo(() => {
+    const { sx: strideX, sy: strideY } = optimalStrides
+
     return (gx: number, gy: number, octave: number): Tile[] => {
       if (imagesCount === 0) return []
 
@@ -253,6 +363,9 @@ export function InfiniteGallery(props: InfiniteGalleryProps) {
       const wWorld = safeImageWidth / PX_PER_UNIT
       const hWorld = safeImageHeight / PX_PER_UNIT
 
+      // Strict Intra-Cell Conflict Tracking: Guarantees 100% unique photos within this cell
+      const usedInCell = new Set<number>()
+
       for (let slot = 0; slot < count; slot++) {
         const subIdx = subs[slot]
         const sx = subIdx % subN
@@ -263,12 +376,33 @@ export function InfiniteGallery(props: InfiniteGalleryProps) {
 
         const bakedScale = SCALE_MIN + rand() * (SCALE_MAX - SCALE_MIN)
 
-        const imgIdx =
+        // Global integer subcell coordinate on infinite 2D plane
+        const col = gx * subN + sx
+        const row = gy * subN + sy
+
+        // Optimal 2D spatial dispersion lattice mapping
+        const rawIndex =
           imagesCount > 0
-            ? Math.floor(rand() * imagesCount) % imagesCount
+            ? (((col * strideX + row * strideY + octave * octavePrime) % imagesCount) + imagesCount) % imagesCount
             : 0
 
-        const imageItem = safeImages[imgIdx]
+        let mappedIdx = permutation[rawIndex] ?? rawIndex
+
+        // Intra-Cell Conflict Resolution: If imagesCount >= count,
+        // guarantee that no two tiles in this cell ever display the same photo
+        if (imagesCount >= count && usedInCell.has(mappedIdx)) {
+          let candidate = (mappedIdx + 1) % imagesCount
+          let attempts = 0
+          while (usedInCell.has(candidate) && attempts < imagesCount) {
+            candidate = (candidate + 1) % imagesCount
+            attempts++
+          }
+          mappedIdx = candidate
+        }
+
+        usedInCell.add(mappedIdx)
+
+        const imageItem = safeImages[mappedIdx]
 
         tiles.push({
           wx,
@@ -277,7 +411,7 @@ export function InfiniteGallery(props: InfiniteGalleryProps) {
           cy: gy,
           slot,
           octave,
-          imgIdx: imageItem?.photoIndex ?? imgIdx,
+          imgIdx: mappedIdx,
           photoId: imageItem?.photoId,
           src: imageItem?.src || "",
           alt: imageItem?.alt || "",
@@ -298,6 +432,9 @@ export function InfiniteGallery(props: InfiniteGalleryProps) {
     subN,
     subSize,
     effectivePerCell,
+    optimalStrides,
+    permutation,
+    octavePrime,
   ])
 
   useEffect(() => {
