@@ -27,6 +27,7 @@ const nextConfig: NextConfig = {
   // Always use standalone output for Docker/Render; Vercel ignores this setting.
   output: 'standalone',
   experimental: {
+    agentUpgrade: "security",
     optimizePackageImports: [
       'lucide-react',
       'recharts',

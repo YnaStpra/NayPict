@@ -19,6 +19,7 @@ import {
 import dynamic from "next/dynamic"
 import { useEffect, useState } from "react"
 import { ArrowUpDown, FolderOpen } from "lucide-react"
+import { PullToRefresh } from "@/components/ui/pull-to-refresh"
 import { useAlbumContext } from "@/app/albums/provider"
 import { useApp } from "@/app/provider"
 import { Button } from "@/components/ui/button"
@@ -306,24 +307,29 @@ export default function Page() {
               )}
             </div>
           </header>
-          <div className="px-2 md:pl-3 md:pr-2">
-            {isReordering ? (
-              <AlbumReorderGrid
-                albums={albums}
-                onSave={handleSaveReorder}
-                onCancel={() => setIsReordering(false)}
-              />
-            ) : (
-              <AlbumMasonry
-                albums={albums}
-                resetKey={albumListKey}
-                onAlbumRename={isAdmin ? renameAlbum : undefined}
-                onAlbumDelete={isAdmin ? openDeleteAlbum : undefined}
-                onAlbumChangeCover={isAdmin ? openChangeCover : undefined}
-                onAlbumArchive={isAdmin ? archiveAlbum : undefined}
-              />
-            )}
-          </div>
+          <PullToRefresh
+            onRefresh={refreshAlbumData}
+            disabled={isReordering || renameOpen || deleteOpen || coverDialogOpen}
+          >
+            <div className="px-2 md:pl-3 md:pr-2">
+              {isReordering ? (
+                <AlbumReorderGrid
+                  albums={albums}
+                  onSave={handleSaveReorder}
+                  onCancel={() => setIsReordering(false)}
+                />
+              ) : (
+                <AlbumMasonry
+                  albums={albums}
+                  resetKey={albumListKey}
+                  onAlbumRename={isAdmin ? renameAlbum : undefined}
+                  onAlbumDelete={isAdmin ? openDeleteAlbum : undefined}
+                  onAlbumChangeCover={isAdmin ? openChangeCover : undefined}
+                  onAlbumArchive={isAdmin ? archiveAlbum : undefined}
+                />
+              )}
+            </div>
+          </PullToRefresh>
         </SidebarInset>
       </SidebarProvider>
       {renamingAlbum && (

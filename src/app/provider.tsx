@@ -39,6 +39,11 @@ const KeyboardShortcutsDialog = dynamic(
   { ssr: false }
 )
 
+const MobilePwaBanner = dynamic(
+  () => import("@/components/pwa/mobile-pwa-banner").then((mod) => mod.MobilePwaBanner),
+  { ssr: false }
+)
+
 type Theme = "light" | "dark"
 
 const THEME_COOKIE_NAME = "theme"
@@ -349,6 +354,7 @@ function Provider({ children, defaultTheme, defaultSidebarOpen, initialUserInfo,
         <PhotoUploadDialog />
         <NetworkStatusNotifier />
         <KeyboardShortcutsDialog />
+        <MobilePwaBanner />
         <Toaster
           position="top-center"
           richColors
