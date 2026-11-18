@@ -1364,7 +1364,7 @@ function PhotoSlideImage({
 
       const isTouchOrMobile = e.pointerType === "touch" || isMobile
 
-      if (timeSinceLast < 260 && distFromLastTap < 48) {
+      if (timeSinceLast < 280 && distFromLastTap < 48) {
         // Double tap detected!
         if (singleTapTimerRef.current) {
           clearTimeout(singleTapTimerRef.current)
@@ -1373,27 +1373,24 @@ function PhotoSlideImage({
         lastTapTimeRef.current = 0
         lastTapPosRef.current = { x: 0, y: 0 }
 
-        if (isTouchOrMobile) {
-          // Mobile: double tap ONLY triggers reaction heart burst (like Instagram), NO zoom!
-          // Zooming is exclusively controlled via multi-touch pinch gesture.
-          onDoubleTapHeart({ x: e.clientX, y: e.clientY })
+        // Seamless one-handed double-tap to zoom for both mobile touch and desktop
+        if (scale > 1) {
+          // Zoom out back to 1x
+          setScale(1)
+          setPosition({ x: 0, y: 0 })
+          onZoomChange(false)
         } else {
-          // Desktop mouse: double click toggles zoom
-          if (scale > 1) {
-            // Zoom out back to 1x
-            setScale(1)
-            setPosition({ x: 0, y: 0 })
-            onZoomChange(false)
-          } else {
-            // Zoom in to 2.5x centered on click point
-            setScale(2.5)
-            const rect = containerRef.current?.getBoundingClientRect()
-            if (rect) {
-              const offsetX = (rect.width / 2 - (e.clientX - rect.left)) * 1.5
-              const offsetY = (rect.height / 2 - (e.clientY - rect.top)) * 1.5
-              setPosition({ x: offsetX, y: offsetY })
-            }
-            onZoomChange(true)
+          // Zoom in to 2.5x centered on tap point
+          setScale(2.5)
+          const rect = containerRef.current?.getBoundingClientRect()
+          if (rect) {
+            const offsetX = (rect.width / 2 - (e.clientX - rect.left)) * 1.5
+            const offsetY = (rect.height / 2 - (e.clientY - rect.top)) * 1.5
+            setPosition({ x: offsetX, y: offsetY })
+          }
+          onZoomChange(true)
+          if (isTouchOrMobile) {
+            onDoubleTapHeart({ x: e.clientX, y: e.clientY })
           }
         }
       } else {
@@ -2215,7 +2212,15 @@ export function PhotoViewer({
   useEffect(() => {
     if (!open) return
 
+    // Prevent iOS Safari and mobile browser rubberband bounce while viewer is active
+    const prevOverflow = document.body.style.overflow
+    const prevOverscroll = document.body.style.overscrollBehavior
+    document.body.style.overflow = "hidden"
+    document.body.style.overscrollBehavior = "none"
+
     return () => {
+      document.body.style.overflow = prevOverflow
+      document.body.style.overscrollBehavior = prevOverscroll
       if (originalProgressHideTimerRef.current) {
         clearTimeout(originalProgressHideTimerRef.current)
       }
@@ -2381,9 +2386,13 @@ export function PhotoViewer({
       ref={viewerContainerRef}
       data-yarl-viewer-open="true"
       className={cn(
-        "fixed inset-0 z-[1000] bg-black select-none overflow-hidden touch-none photo-viewer",
+        "fixed inset-0 z-[1000] bg-black select-none overflow-hidden touch-none overscroll-none photo-viewer",
         isAnySubModalOpen && "pointer-events-none select-none touch-none"
       )}
+      style={{
+        overscrollBehavior: "none",
+        backgroundColor: "#000000",
+      }}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}

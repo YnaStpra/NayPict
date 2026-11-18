@@ -68,6 +68,28 @@ export function PhotoComments({ photoId }: PhotoCommentsProps) {
   // Reference to the scrollable comment list container.
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
+  // Virtual keyboard auto-inset tracking for mobile browsers (iOS Safari / Android Chrome)
+  const [keyboardInset, setKeyboardInset] = useState<number>(0);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.visualViewport) return;
+
+    const vv = window.visualViewport;
+    const handleViewportChange = () => {
+      // Calculate how much the visual viewport shrank relative to window layout height
+      const offset = Math.max(0, window.innerHeight - (vv.offsetTop + vv.height));
+      setKeyboardInset(offset);
+    };
+
+    vv.addEventListener("resize", handleViewportChange);
+    vv.addEventListener("scroll", handleViewportChange);
+
+    return () => {
+      vv.removeEventListener("resize", handleViewportChange);
+      vv.removeEventListener("scroll", handleViewportChange);
+    };
+  }, []);
+
   // Fetch comments and establish real-time SSE listener whenever photoId changes.
   useEffect(() => {
     let isMounted = true;
@@ -710,7 +732,13 @@ export function PhotoComments({ photoId }: PhotoCommentsProps) {
       </div>
 
       {/* Comment submission form */}
-      <form onSubmit={handleSubmit} className="mt-auto shrink-0 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] space-y-2 border-t border-white/15">
+      <form
+        onSubmit={handleSubmit}
+        style={{
+          paddingBottom: keyboardInset > 0 ? `${keyboardInset + 12}px` : undefined,
+        }}
+        className="mt-auto shrink-0 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] space-y-2 border-t border-white/15 transition-[padding-bottom] duration-150"
+      >
         {/* Invisible Honeypot Field for Automated Bot Spam Protection */}
         <div className="absolute opacity-0 -z-50 pointer-events-none select-none h-0 w-0 overflow-hidden" aria-hidden="true" tabIndex={-1}>
           <label htmlFor="hp_comment_website">Website</label>
