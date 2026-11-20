@@ -940,6 +940,41 @@ a,
 }
 
 /* ==========================================================================
+   Eco Mode (Smart Battery & Low-Power / Data-Saver Profile)
+   Reduces GPU fillrate, bypasses heavy backdrop filters, and conserves battery
+   ========================================================================== */
+.eco-mode [class*="backdrop-blur"] {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+.eco-mode header[class*="backdrop-blur"],
+.eco-mode nav[class*="backdrop-blur"],
+.eco-mode div[class*="backdrop-blur"] {
+  background-color: var(--background) !important;
+}
+
+.dark.eco-mode header[class*="backdrop-blur"],
+.dark.eco-mode nav[class*="backdrop-blur"],
+.dark.eco-mode div[class*="backdrop-blur"],
+.eco-mode .dark header[class*="backdrop-blur"],
+.eco-mode .dark nav[class*="backdrop-blur"],
+.eco-mode .dark div[class*="backdrop-blur"] {
+  background-color: var(--background) !important;
+}
+
+.eco-mode .specular-glass-sheen::after,
+.eco-mode .ambient-glow,
+.eco-mode .radar-pin-halo {
+  display: none !important;
+}
+
+.eco-mode .shadow-2xl,
+.eco-mode .shadow-xl {
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.12) !important;
+}
+
+/* ==========================================================================
    Clean Print & PDF Export Stylesheet (@media print)
    ========================================================================== */
 @media print {

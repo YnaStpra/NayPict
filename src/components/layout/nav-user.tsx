@@ -26,6 +26,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar"
 import { ThemeSwitcher } from "@/components/layout/theme-switcher"
+import { EcoModeSwitcher } from "@/components/layout/eco-mode-switcher"
 import { ChevronsUpDownIcon, UserRound, Key, BookOpen, LogOutIcon, LogIn, Keyboard } from "lucide-react"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { logout } from "@/request/login"
@@ -152,6 +153,7 @@ export function NavUser({
         <TooltipProvider>
           <div className="flex flex-col items-center gap-1.5 py-1">
             <ThemeSwitcher iconOnly />
+            <EcoModeSwitcher iconOnly />
             <Tooltip>
               <TooltipTrigger asChild>
                 <button
@@ -186,6 +188,7 @@ export function NavUser({
     return (
       <div className="flex flex-col gap-2 p-1.5 rounded-xl bg-sidebar-accent/50 border border-sidebar-border/60 text-xs">
         <ThemeSwitcher />
+        <EcoModeSwitcher />
         <button
           type="button"
           onClick={openShortcuts}
@@ -254,6 +257,7 @@ export function NavUser({
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
               <ThemeSwitcher />
+              <EcoModeSwitcher />
               <DropdownMenuSeparator />
               <DropdownMenuGroup>
                 <DropdownMenuItem onClick={openAvatarUpload}>

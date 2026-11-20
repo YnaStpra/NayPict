@@ -787,6 +787,22 @@ export default function Page() {
                 <Clock className="size-3.5" />
                 <span>Newest</span>
               </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  window.dispatchEvent(new CustomEvent("naypict:grid-columns-cycle"))
+                }}
+                className={cn(
+                  "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all shrink-0 cursor-pointer active:scale-95",
+                  "bg-muted/60 hover:bg-muted text-muted-foreground hover:text-foreground border border-border/50"
+                )}
+                aria-label="Toggle Grid Density"
+                title="Switch Grid Density (1 Col Feed / 2 Cols Standard / 3 Cols Compact)"
+              >
+                <LayoutGrid className="size-3.5" />
+                <span>Grid Density</span>
+              </button>
             </div>
           )}
           <div className="px-1 md:pl-1 md:pr-0 min-w-0 max-w-full">
