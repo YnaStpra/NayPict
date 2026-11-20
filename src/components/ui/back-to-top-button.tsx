@@ -6,9 +6,10 @@ import { ArrowUp } from "lucide-react"
 /**
  * Floating Explorer & Back-to-Top Capsule with Apple-style Fluid Spring Motion
  * - Realtime 120 FPS Scroll Percentage
- * - Direction-aware on mobile (<768px): automatically glides down & fades out when scrolling down,
+ * - Direction-aware on mobile (<768px): slides completely off-screen (5rem) & fades out when scrolling down,
  *   smoothly reappears when scrolling up (synchronized with Mobile Navigation Dock)
- * - Cinema-grade smooth transitions (360ms cubic-bezier easing) to prevent abrupt visual flick
+ * - True visual departure: combines opacity: 0, visibility: hidden, and full off-screen translation
+ *   to eliminate any "ghost" element or backdrop-blur artifact
  * - Auto-conceals when fullscreen photo viewer is open
  */
 export function BackToTopButton() {
@@ -18,6 +19,7 @@ export function BackToTopButton() {
   const lastScrollYRef = useRef(0)
   const isScrollingUpRef = useRef(true)
   const isViewerOpenRef = useRef(false)
+  const hideTimerRef = useRef<NodeJS.Timeout | null>(null)
 
   useEffect(() => {
     // 1. Monitor photo viewer / lightbox state to hide button when viewer is active
@@ -29,7 +31,8 @@ export function BackToTopButton() {
         if (buttonRef.current) {
           buttonRef.current.style.opacity = "0"
           buttonRef.current.style.pointerEvents = "none"
-          buttonRef.current.style.transform = "translate3d(0, 1.25rem, 0) scale(0.92)"
+          buttonRef.current.style.transform = "translate3d(0, 5rem, 0) scale(0.85)"
+          buttonRef.current.style.visibility = "hidden"
         }
       }
     }
@@ -80,7 +83,10 @@ export function BackToTopButton() {
       if (shouldBeVisible !== isVisibleRef.current) {
         isVisibleRef.current = shouldBeVisible
         if (buttonRef.current) {
+          if (hideTimerRef.current) clearTimeout(hideTimerRef.current)
+
           if (shouldBeVisible) {
+            buttonRef.current.style.visibility = "visible"
             buttonRef.current.style.opacity = "1"
             buttonRef.current.style.pointerEvents = "auto"
             buttonRef.current.style.transform = "translate3d(0, 0, 0) scale(1)"
@@ -88,8 +94,15 @@ export function BackToTopButton() {
             buttonRef.current.style.opacity = "0"
             buttonRef.current.style.pointerEvents = "none"
             buttonRef.current.style.transform = isMobile
-              ? "translate3d(0, 1.25rem, 0) scale(0.92)"
-              : "translate3d(0, 0.5rem, 0) scale(0.92)"
+              ? "translate3d(0, 5rem, 0) scale(0.85)"
+              : "translate3d(0, 2rem, 0) scale(0.85)"
+
+            // Completely unmount from render tree after animation completes to eliminate ghost artifacts
+            hideTimerRef.current = setTimeout(() => {
+              if (!isVisibleRef.current && buttonRef.current) {
+                buttonRef.current.style.visibility = "hidden"
+              }
+            }, 360)
           }
         }
       }
@@ -102,6 +115,7 @@ export function BackToTopButton() {
     updateProgress()
 
     return () => {
+      if (hideTimerRef.current) clearTimeout(hideTimerRef.current)
       observer.disconnect()
       window.removeEventListener("scroll", updateProgress)
       window.removeEventListener("touchmove", updateProgress)
@@ -123,12 +137,13 @@ export function BackToTopButton() {
       onClick={scrollToTop}
       style={{
         opacity: 0,
+        visibility: "hidden",
         pointerEvents: "none",
-        transform: "translate3d(0, 1.25rem, 0) scale(0.92)",
+        transform: "translate3d(0, 5rem, 0) scale(0.85)",
         transition:
           "opacity 0.36s cubic-bezier(0.22, 1, 0.36, 1), transform 0.36s cubic-bezier(0.22, 1, 0.36, 1)",
       }}
-      className="fixed max-md:bottom-[max(4.75rem,calc(env(safe-area-inset-bottom,0px)+4rem))] md:bottom-[max(1.5rem,calc(env(safe-area-inset-bottom,0px)+0.75rem))] right-[max(1.5rem,calc(env(safe-area-inset-right,0px)+0.75rem))] z-40 flex items-center gap-2 pl-3 pr-2 py-1.5 rounded-full bg-background/85 dark:bg-neutral-900/85 backdrop-blur-xl border border-white/25 dark:border-white/15 shadow-2xl text-foreground elastic-pop-badge hover:scale-105 active:scale-95 cursor-pointer select-none group will-change-transform"
+      className="fixed max-md:bottom-[max(4.75rem,calc(env(safe-area-inset-bottom,0px)+4rem))] md:bottom-[max(1.5rem,calc(env(safe-area-inset-bottom,0px)+0.75rem))] right-[max(1.5rem,calc(env(safe-area-inset-right,0px)+0.75rem))] z-40 flex items-center gap-2 pl-3 pr-2 py-1.5 rounded-full bg-background/85 dark:bg-neutral-900/85 backdrop-blur-xl border border-white/25 dark:border-white/15 shadow-2xl text-foreground hover:scale-105 active:scale-95 cursor-pointer select-none group will-change-transform"
       aria-label="Back to top"
       title="Scroll back to top"
     >
