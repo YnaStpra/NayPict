@@ -122,7 +122,8 @@ describe('Round 24 Mobile Ergonomics & Adaptive Performance Suite', () => {
 
       // Verify fluid easing and duration (not abrupt 250ms snap)
       assert.ok(content.includes('0.36s cubic-bezier(0.22, 1, 0.36, 1)'), 'Must apply smooth 360ms fluid spring curve');
-      assert.ok(content.includes('translate3d(0, 1.25rem, 0)'), 'Must slide down smoothly into concealment on mobile');
+      assert.ok(content.includes('translate3d(0, 5rem, 0) scale(0.85)'), 'Must slide down completely off-screen into concealment on mobile');
+      assert.ok(content.includes('visibility: "hidden"'), 'Must set visibility hidden to prevent ghost element or backdrop-blur artifacts');
 
       // Verify lightbox integration
       assert.ok(content.includes('data-yarl-viewer-open'), 'Must observe viewer attribute to hide when lightbox is active');
