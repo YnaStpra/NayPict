@@ -89,6 +89,14 @@ const MasonicPhotoCard = memo(function MasonicPhotoCard({
 })
 
 
+// Format human-friendly column density labels for pinch and quick-toggle indicator pill.
+function getColumnDensityLabel(cols: number): string {
+  if (cols === 1) return "1 Column (Feed View)"
+  if (cols === 2) return "2 Columns (Standard)"
+  if (cols === 3) return "3 Columns (Compact)"
+  return `${cols} Columns`
+}
+
 // Convert rem unit to current root font size px safely.
 function remToPx(rem: number) {
   if (typeof window === "undefined") return rem * 16
@@ -336,6 +344,55 @@ const PhotoMasonry = memo(function PhotoMasonry({
     }, 1200)
   }, [])
 
+  // External grid density quick toggle chip & custom event synchronization
+  useEffect(() => {
+    const handleCycle = () => {
+      setUserColumns((current) => {
+        const currentCols = current ?? (isMobile ? 2 : defaultColumnCount)
+        let nextCols: number
+        if (isMobile) {
+          // Cycle mobile density: 1 Col (Feed) -> 2 Col (Standard) -> 3 Col (Compact) -> 1 Col
+          if (currentCols === 1) nextCols = 2
+          else if (currentCols === 2) nextCols = 3
+          else nextCols = 1
+        } else {
+          // Desktop cycle 2 -> 3 -> 4 -> 5 -> 2
+          if (currentCols >= 5) nextCols = 2
+          else nextCols = currentCols + 1
+        }
+        showColumnPill(nextCols)
+        if (typeof navigator !== "undefined" && navigator.vibrate) {
+          navigator.vibrate(15)
+        }
+        try {
+          const key = isMobile ? "naypict_gallery_cols_mobile" : "naypict_gallery_cols_desktop"
+          localStorage.setItem(key, String(nextCols))
+        } catch {}
+        return nextCols
+      })
+    }
+
+    const handleChange = (e: Event) => {
+      const detail = (e as CustomEvent<{ columns?: number }>).detail
+      if (detail && typeof detail.columns === "number") {
+        const nextCols = detail.columns
+        setUserColumns(nextCols)
+        showColumnPill(nextCols)
+        try {
+          const key = isMobile ? "naypict_gallery_cols_mobile" : "naypict_gallery_cols_desktop"
+          localStorage.setItem(key, String(nextCols))
+        } catch {}
+      }
+    }
+
+    window.addEventListener("naypict:grid-columns-cycle", handleCycle)
+    window.addEventListener("naypict:grid-columns-change", handleChange)
+    return () => {
+      window.removeEventListener("naypict:grid-columns-cycle", handleCycle)
+      window.removeEventListener("naypict:grid-columns-change", handleChange)
+    }
+  }, [isMobile, defaultColumnCount, showColumnPill])
+
   // Apple Photos-style Pinch-to-Zoom dynamic column grid gesture
   usePinch(
     ({ first, last, offset: [scale], memo = { lastScale: 1, cols: columnCount }, event }) => {
@@ -350,7 +407,7 @@ const PhotoMasonry = memo(function PhotoMasonry({
       }
 
       const minCols = isMobile ? 1 : 2
-      const maxCols = isMobile ? 4 : Math.min(8, Math.max(3, Math.floor(screenWidth / 220)))
+      const maxCols = isMobile ? 3 : Math.min(8, Math.max(3, Math.floor(screenWidth / 220)))
       const scaleDiff = scale - memo.lastScale
 
       // Zoom In (Spread fingers -> fewer columns, larger photos)
@@ -875,7 +932,7 @@ const PhotoMasonry = memo(function PhotoMasonry({
           <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-background/90 dark:bg-zinc-900/90 backdrop-blur-md border border-border/60 shadow-xl text-xs font-semibold text-foreground tracking-wide">
             <LayoutGrid className="w-3.5 h-3.5 text-primary" />
             <span>
-              {indicatorInfo.columns} {indicatorInfo.columns === 1 ? "Column" : "Columns"}
+              {getColumnDensityLabel(indicatorInfo.columns)}
             </span>
           </div>
         </div>

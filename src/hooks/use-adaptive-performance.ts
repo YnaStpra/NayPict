@@ -19,7 +19,9 @@ interface NetworkInformation extends EventTarget {
   onchange?: ((this: NetworkInformation, ev: Event) => void) | null
 }
 
-interface AdaptivePerformanceState {
+export type EcoModeOverride = "auto" | "force-on" | "force-off"
+
+export interface AdaptivePerformanceState {
   isDataSaver: boolean
   isSlowNetwork: boolean
   isLowBattery: boolean
@@ -27,6 +29,7 @@ interface AdaptivePerformanceState {
   isEcoMode: boolean
   canAutoplayVideo: boolean
   preferLightweightThumbnails: boolean
+  ecoModeOverride: EcoModeOverride
 }
 
 const DEFAULT_STATE: AdaptivePerformanceState = {
@@ -37,6 +40,7 @@ const DEFAULT_STATE: AdaptivePerformanceState = {
   isEcoMode: false,
   canAutoplayVideo: true,
   preferLightweightThumbnails: false,
+  ecoModeOverride: "auto",
 }
 
 let cachedState: AdaptivePerformanceState = DEFAULT_STATE
@@ -72,14 +76,32 @@ function getNetworkInfo(): { isDataSaver: boolean; isSlowNetwork: boolean } {
 }
 
 function updateState(partial: Partial<AdaptivePerformanceState>) {
-  cachedState = { ...cachedState, ...partial }
-  cachedState.isEcoMode =
-    cachedState.isDataSaver ||
-    cachedState.isSlowNetwork ||
-    cachedState.isLowBattery ||
-    Boolean(cachedState.isLowEndDevice)
-  cachedState.canAutoplayVideo = !cachedState.isEcoMode
-  cachedState.preferLightweightThumbnails = cachedState.isEcoMode
+  const nextDataSaver = partial.isDataSaver ?? cachedState.isDataSaver
+  const nextSlowNetwork = partial.isSlowNetwork ?? cachedState.isSlowNetwork
+  const nextLowBattery = partial.isLowBattery ?? cachedState.isLowBattery
+  const nextLowEndDevice = partial.isLowEndDevice ?? cachedState.isLowEndDevice
+  const nextOverride = partial.ecoModeOverride ?? cachedState.ecoModeOverride
+
+  const autoEco = nextDataSaver || nextSlowNetwork || nextLowBattery || Boolean(nextLowEndDevice)
+  const isEco = nextOverride === "force-on" ? true : nextOverride === "force-off" ? false : autoEco
+
+  cachedState = {
+    ...cachedState,
+    ...partial,
+    isDataSaver: nextDataSaver,
+    isSlowNetwork: nextSlowNetwork,
+    isLowBattery: nextLowBattery,
+    isLowEndDevice: nextLowEndDevice,
+    ecoModeOverride: nextOverride,
+    isEcoMode: isEco,
+    canAutoplayVideo: !isEco,
+    preferLightweightThumbnails: isEco,
+  }
+
+  if (typeof document !== "undefined") {
+    document.documentElement.classList.toggle("eco-mode", isEco)
+  }
+
   listeners.forEach((listener) => listener())
 }
 
@@ -96,16 +118,43 @@ function getServerSnapshot(): AdaptivePerformanceState {
   return DEFAULT_STATE
 }
 
+export function setEcoModeOverride(mode: EcoModeOverride) {
+  if (typeof window !== "undefined") {
+    try {
+      localStorage.setItem("naypict_eco_mode", mode)
+    } catch {}
+  }
+  updateState({ ecoModeOverride: mode })
+}
+
+export function getEcoModeOverride(): EcoModeOverride {
+  return cachedState.ecoModeOverride
+}
+
 // Global initialization of network and battery listeners
 let initialized = false
 function ensureInitialized() {
   if (initialized || typeof window === "undefined") return
   initialized = true
 
+  // Read saved override if available
+  let savedOverride: EcoModeOverride = "auto"
+  try {
+    const stored = localStorage.getItem("naypict_eco_mode")
+    if (stored === "force-on" || stored === "force-off" || stored === "auto") {
+      savedOverride = stored
+    }
+  } catch {}
+
   // 1. Initial network & hardware profile inspection
   const { isDataSaver, isSlowNetwork } = getNetworkInfo()
   const { isLowEndDevice } = getHardwareInfo()
-  updateState({ isDataSaver, isSlowNetwork, isLowEndDevice })
+  updateState({
+    isDataSaver,
+    isSlowNetwork,
+    isLowEndDevice,
+    ecoModeOverride: savedOverride,
+  })
 
   // 2. Listen to network changes
   const conn = (navigator as unknown as { connection?: NetworkInformation }).connection
@@ -134,7 +183,7 @@ function ensureInitialized() {
 /**
  * Reactive hook providing device & network adaptive performance metrics.
  * Automatically signals eco-mode when Data Saver is on, cellular network is weak (2G/3G),
- * or battery is under 20% and discharging.
+ * battery is under 20% and discharging, or when manually forced on.
  */
 export function useAdaptivePerformance(): AdaptivePerformanceState {
   useEffect(() => {

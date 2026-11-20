@@ -7,6 +7,7 @@ import { NavMain } from "@/components/layout/nav-main"
 import { NavUser } from "@/components/layout/nav-user"
 import { TeamSwitcher } from "@/components/layout/team-switcher"
 import { MobileBottomNav } from "@/components/layout/mobile-bottom-nav"
+import { AdminMobileSpeedDial } from "@/components/admin/admin-mobile-speed-dial"
 import { useApp } from "@/app/provider"
 import { UserTypeEnum } from "@/server/enums/user-enum"
 import { useTranslations } from "next-intl"
@@ -154,6 +155,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         <SidebarRail />
       </Sidebar>
       <MobileBottomNav />
+      <AdminMobileSpeedDial />
     </>
   )
 }
