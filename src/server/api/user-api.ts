@@ -4,8 +4,10 @@ import { type UserAddBo, type UserDeleteBo, type UserSetAvatarBo, type UserSetBo
 import { getUserId } from '@/server/security/context';
 import { getClientIp } from '@/server/lib/ip';
 import { logSecurityAudit } from '@/server/lib/audit';
-import { avatarUploadRateLimiter, passwordChangeRateLimiter } from '@/server/lib/rate-limiter';
+import { avatarUploadRateLimiter, passwordChangeRateLimiter, sudoRateLimiter } from '@/server/lib/rate-limiter';
 import { userService } from '@/server/service/user-service';
+import { sudoService } from '@/server/service/sudo-service';
+import BizError from '@/server/error/biz-error';
 import type { HonoEnv } from '../hono/type';
 
 // This module registers user-related interfaces.
@@ -150,5 +152,55 @@ export function registerUserApi(app: Hono<HonoEnv>) {
       targetId: params.userId,
     });
     return c.json(result.ok());
+  });
+
+  // Verify administrative credentials and elevate session to Sudo Mode (15-minute window).
+  app.post('/user/sudo', async (c: Context) => {
+    const currentUserId = getUserId();
+    if (!currentUserId) {
+      throw new BizError('auth.failed', 401);
+    }
+
+    const clientIp = getClientIp(c);
+    const rateLimit = await sudoRateLimiter.consume(`${currentUserId}:${clientIp}`);
+    if (!rateLimit.allowed) {
+      c.header('Retry-After', String(Math.ceil(rateLimit.resetMs / 1000)));
+      return c.json(result.fail('Sudo elevation rate limit exceeded. Please wait a moment.', 429), 429);
+    }
+
+    const body = await c.req.json<{ password?: string }>().catch(() => ({ password: '' }));
+    if (!body.password?.trim()) {
+      throw new BizError('totp.invalidPassword', 400);
+    }
+
+    const verified = await sudoService.verifySudo(currentUserId, body.password);
+    if (!verified) {
+      logSecurityAudit({
+        action: 'USER_SUDO_FAILED',
+        userId: currentUserId,
+        clientIp,
+      });
+      throw new BizError('totp.invalidPassword', 400);
+    }
+
+    logSecurityAudit({
+      action: 'USER_SUDO_ELEVATE',
+      userId: currentUserId,
+      clientIp,
+    });
+
+    const status = await sudoService.isSudoActive(currentUserId);
+    return c.json(result.ok(status));
+  });
+
+  // Check current Sudo Mode elevation status and remaining validity window.
+  app.get('/user/sudo/status', async (c: Context) => {
+    const currentUserId = getUserId();
+    if (!currentUserId) {
+      throw new BizError('auth.failed', 401);
+    }
+
+    const status = await sudoService.isSudoActive(currentUserId);
+    return c.json(result.ok(status));
   });
 }

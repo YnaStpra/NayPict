@@ -2,6 +2,7 @@
 
 const ERROR_MESSAGE_MAP: Record<string, string> = {
   'auth.failed': 'Authentication failed. Please check your credentials.',
+  'auth.sudoRequired': 'High-risk action requires administrative re-authentication (Sudo Mode).',
   'auth.unauthorized': 'You do not have permission to perform this action.',
   'auth.forbidden': 'Access denied. Administrator privileges required.',
   'auth.sessionExpired': 'Your session has expired. Please sign in again.',

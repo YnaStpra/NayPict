@@ -18,3 +18,14 @@ export function userSetUserPassword(params: UserPasswordBo) {
 export function userSetAvatar(params: UserSetAvatarBo) {
   return http.post<string>('/user/setAvatar', params);
 }
+
+// Elevate current administrative session to Sudo Mode (15-minute validity).
+export function userSudo(password: string) {
+  return http.post<{ active: boolean; remainingSeconds: number }>('/user/sudo', { password });
+}
+
+// Query current Sudo Mode elevation status and remaining validity window.
+export function userSudoStatus() {
+  return http.get<{ active: boolean; remainingSeconds: number }>('/user/sudo/status');
+}
+

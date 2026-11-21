@@ -417,5 +417,12 @@ export const photoDuplicatesRateLimiter = new DistributedRateLimiter({
   windowMs: 5 * 60 * 1000, // 5 minutes
 })
 
+// 24. Sudo Mode Elevation Rate Limiter: Max 5 elevation attempts per 15 minutes per user/IP
+export const sudoRateLimiter = new DistributedRateLimiter({
+  name: 'sudo-elevation',
+  limit: 5,
+  windowMs: 15 * 60 * 1000, // 15 minutes
+})
+
 
 

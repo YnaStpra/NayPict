@@ -161,6 +161,11 @@ export function photoClear() {
   return http.post<void>('/photo/clear', {});
 }
 
+// Request a short-lived HMAC signed download URL for a photo.
+export function photoDownloadUrl(photoId: string) {
+  return http.post<{ url: string; photoId: string; name: string }>('/photo/download-url', { photoId });
+}
+
 // Auto-detect duplicate photo groups (Admin only).
 export function photoGetDuplicates(params?: { albumId?: string }) {
   return http.post<PhotoDuplicateGroupVo[]>('/photo/duplicates', params ?? {});

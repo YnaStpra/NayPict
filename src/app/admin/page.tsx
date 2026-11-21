@@ -24,6 +24,7 @@ import { usePhotoStore } from "@/store/photo-store"
 import { userInfo as fetchUserInfo } from "@/request/user"
 import { landingPriorityGet } from "@/request/setting"
 import { LandingPriorityDialog } from "@/components/admin/landing-priority-dialog"
+import { AdminSecurityCard } from "@/components/admin/admin-security-card"
 
 export default function AdminPage() {
   const router = useRouter()
@@ -183,6 +184,9 @@ export default function AdminPage() {
               </Button>
             </div>
           </div>
+
+          {/* Security Center & Active Device Sessions Widget */}
+          <AdminSecurityCard />
 
           {/* Quick Action Cards Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">

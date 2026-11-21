@@ -3,6 +3,7 @@
   "system.readonly": "Currently a read-only environment",
   "system.internalError": "Server internal error",
   "auth.failed": "Authentication failed",
+  "auth.sudoRequired": "此高危操作需要管理员重新验证身份 (Sudo Mode)。",
   "auth.forbidden": "Insufficient permissions",
   "album.nameRequired": "Album name cannot be empty",
   "album.nameExists": "Album name already exists",

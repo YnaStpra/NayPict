@@ -8,6 +8,7 @@ const MUTATION_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
 // Sensitive administrative endpoints that require additional strict Anti-CSRF verification.
 const SENSITIVE_MUTATION_PATHS = [
+  '/user/sudo',
   '/user/set',
   '/user/setUserPassword',
   '/user/setAvatar',
