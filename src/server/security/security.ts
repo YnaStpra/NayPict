@@ -16,6 +16,7 @@ import { getClientIp } from '@/server/lib/ip';
 
 const SYSTEM_PATHS = [
   '/setting',
+  '/security/audit',
   '/user/sudo',
   '/user/list',
   '/user/add',

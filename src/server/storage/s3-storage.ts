@@ -249,7 +249,7 @@ class S3StorageStrategy implements StorageStrategy {
   }
 
   // Generate a presigned PutObject URL for direct-to-storage upload (S3 / Cloudflare R2, default 15 mins).
-  async getPresignedPutUrl(key: string, contentType: string, storage: Storage, expiresIn = 900): Promise<string> {
+  async getPresignedPutUrl(key: string, contentType: string, storage: Storage, expiresIn = 900, contentLength?: number): Promise<string> {
     const client = this.createClient(storage);
     const bucket = storage.bucket?.trim();
 
@@ -263,11 +263,17 @@ class S3StorageStrategy implements StorageStrategy {
     // Security: Enforce tight expiration bounds between 60s and 900s (max 15 minutes) to prevent persistent upload URLs
     const clampedExpiresIn = Math.min(Math.max(Number(expiresIn) || 900, 60), 900);
 
-    const command = new PutObjectCommand({
+    const putParams: PutObjectCommandInput = {
       Bucket: bucket,
       Key: key,
       ContentType: contentType,
-    });
+    };
+
+    if (typeof contentLength === 'number' && Number.isFinite(contentLength) && contentLength >= 0) {
+      putParams.ContentLength = contentLength;
+    }
+
+    const command = new PutObjectCommand(putParams);
 
     const { getSignedUrl } = await import('@aws-sdk/s3-request-presigner');
     return getSignedUrl(client, command, { expiresIn: clampedExpiresIn });

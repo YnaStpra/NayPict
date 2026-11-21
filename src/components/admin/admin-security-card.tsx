@@ -18,6 +18,7 @@ import {
 import { listSessions, revokeSession, revokeOtherSessions } from "@/request/session"
 import { userSudo, userSudoStatus } from "@/request/user"
 import { getTotpStatus } from "@/request/totp"
+import { getSecurityAuditLogs, type SecurityAuditRecord } from "@/request/audit"
 import { type ActiveSessionVo } from "@/server/entity/vo/session"
 import { humanizeError } from "@/lib/error-formatter"
 import { toast } from "sonner"
@@ -38,6 +39,8 @@ import {
   AlertTriangle,
   LoaderCircle,
   ExternalLink,
+  Activity,
+  ScrollText,
 } from "lucide-react"
 
 interface AdminSecurityCardProps {
@@ -60,13 +63,31 @@ export function AdminSecurityCard({ has2Fa: initial2Fa, className = "" }: AdminS
   const [sudoPassword, setSudoPassword] = useState("")
   const [sudoSubmitting, setSudoSubmitting] = useState(false)
 
+  // Security Audit Trail state
+  const [auditLogs, setAuditLogs] = useState<SecurityAuditRecord[]>([])
+  const [loadingLogs, setLoadingLogs] = useState(false)
+  const [logFilter, setLogFilter] = useState<'ALL' | 'CRITICAL' | 'WARNING' | 'INFO'>('ALL')
+
+  const fetchAuditLogs = useCallback(async () => {
+    setLoadingLogs(true)
+    try {
+      const logs = await getSecurityAuditLogs({ limit: 60 })
+      setAuditLogs(Array.isArray(logs) ? logs : [])
+    } catch (err) {
+      console.error("Failed to load security audit logs:", err)
+    } finally {
+      setLoadingLogs(false)
+    }
+  }, [])
+
   const fetchSecurityData = useCallback(async () => {
     setLoading(true)
     try {
-      const [sessionList, sudoInfo, totpInfo] = await Promise.all([
+      const [sessionList, sudoInfo, totpInfo, logs] = await Promise.all([
         listSessions().catch(() => []),
         userSudoStatus().catch(() => ({ active: false, remainingSeconds: 0 })),
         getTotpStatus().catch(() => null),
+        getSecurityAuditLogs({ limit: 60 }).catch(() => []),
       ])
 
       setSessions(sessionList || [])
@@ -74,6 +95,9 @@ export function AdminSecurityCard({ has2Fa: initial2Fa, className = "" }: AdminS
       setSudoRemaining(sudoInfo?.remainingSeconds || 0)
       if (totpInfo) {
         setHas2Fa(Boolean(totpInfo.enabled))
+      }
+      if (Array.isArray(logs)) {
+        setAuditLogs(logs)
       }
     } catch (err) {
       console.error("Failed to load security state:", err)
@@ -189,6 +213,11 @@ export function AdminSecurityCard({ has2Fa: initial2Fa, className = "" }: AdminS
   }
 
   const otherSessionsCount = sessions.filter((s) => !s.isCurrent).length
+
+  const filteredLogs = auditLogs.filter((log) => {
+    if (logFilter === 'ALL') return true
+    return log.severity === logFilter
+  })
 
   return (
     <Card className={`border-border/80 shadow-sm overflow-hidden ${className}`}>
@@ -357,6 +386,113 @@ export function AdminSecurityCard({ has2Fa: initial2Fa, className = "" }: AdminS
           </div>
         )}
       </CardContent>
+
+      {/* Live Forensic Security Audit Trail */}
+      <div className="border-t bg-muted/10 p-4 sm:p-5 space-y-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="space-y-0.5">
+            <div className="flex items-center gap-2">
+              <Activity className="size-4 text-primary" />
+              <h3 className="text-sm font-semibold text-foreground">Security Audit Trail</h3>
+              <Badge variant="outline" className="text-[10px] py-0 px-1.5 font-normal">
+                Forensic Feed
+              </Badge>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Immutable activity log of administrative operations, authentication events, and high-risk actions.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {(['ALL', 'CRITICAL', 'WARNING', 'INFO'] as const).map((filter) => (
+              <Button
+                key={filter}
+                variant={logFilter === filter ? 'default' : 'outline'}
+                size="sm"
+                className="h-7 text-[11px] px-2.5 rounded-full cursor-pointer"
+                onClick={() => setLogFilter(filter)}
+              >
+                {filter === 'ALL' ? 'All' : filter.charAt(0) + filter.slice(1).toLowerCase()}
+              </Button>
+            ))}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="size-7 ml-1 text-muted-foreground hover:text-foreground cursor-pointer"
+              onClick={fetchAuditLogs}
+              disabled={loadingLogs}
+              title="Refresh Audit Trail"
+            >
+              <RefreshCw className={`size-3.5 ${loadingLogs ? 'animate-spin' : ''}`} />
+            </Button>
+          </div>
+        </div>
+
+        {loadingLogs && auditLogs.length === 0 ? (
+          <div className="flex items-center justify-center p-6 text-xs text-muted-foreground gap-2">
+            <LoaderCircle className="size-4 animate-spin text-primary" />
+            <span>Loading security audit records...</span>
+          </div>
+        ) : filteredLogs.length === 0 ? (
+          <div className="p-6 text-center text-xs text-muted-foreground bg-muted/20 rounded-lg border border-border/40">
+            No audit records found matching selected filter.
+          </div>
+        ) : (
+          <div className="rounded-lg border border-border/60 bg-background/50 divide-y divide-border/40 max-h-72 overflow-y-auto">
+            {filteredLogs.map((log) => (
+              <div
+                key={log.id}
+                className="p-3 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2 hover:bg-muted/30 transition-colors"
+              >
+                <div className="space-y-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <Badge
+                      className={
+                        log.severity === 'CRITICAL'
+                          ? 'bg-rose-500/15 text-rose-600 dark:text-rose-400 border-rose-500/20 text-[10px] py-0 px-1.5 font-medium'
+                          : log.severity === 'WARNING'
+                          ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/20 text-[10px] py-0 px-1.5 font-medium'
+                          : 'bg-sky-500/15 text-sky-600 dark:text-sky-400 border-sky-500/20 text-[10px] py-0 px-1.5 font-medium'
+                      }
+                    >
+                      {log.severity}
+                    </Badge>
+                    <span className="font-mono font-medium text-foreground text-[11px]">
+                      {log.action}
+                    </span>
+                    {log.targetId && (
+                      <span className="text-[11px] text-muted-foreground font-mono bg-muted px-1.5 py-0.2 rounded">
+                        target: {log.targetId.slice(0, 12)}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                    <span>IP: {log.clientIp || 'Unknown'}</span>
+                    <span>•</span>
+                    <span>User: {log.userId || 'system'}</span>
+                    {log.details && Object.keys(log.details).length > 0 && (
+                      <>
+                        <span>•</span>
+                        <span className="truncate max-w-[240px] text-muted-foreground/80 font-mono">
+                          {JSON.stringify(log.details)}
+                        </span>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                <div className="shrink-0 text-[11px] text-muted-foreground sm:text-right">
+                  {new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                  <div className="text-[10px] text-muted-foreground/70">
+                    {new Date(log.timestamp).toLocaleDateString([], { month: 'short', day: 'numeric' })}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
 
       {/* Sudo Mode Password Elevation Dialog */}
       <Dialog open={sudoDialogOpen} onOpenChange={setSudoDialogOpen}>

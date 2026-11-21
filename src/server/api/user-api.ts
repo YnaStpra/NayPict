@@ -126,9 +126,10 @@ export function registerUserApi(app: Hono<HonoEnv>) {
     });
   });
 
-  // Switch the specified user's enabled status.
+  // Switch the specified user's enabled status (Guarded by Sudo Mode).
   app.post('/user/toggleStatus', async (c: Context) => {
     const currentUserId = getUserId();
+    await sudoService.requireSudo(currentUserId);
     const params = await c.req.json<UserToggleStatusBo>();
     await userService.toggleStatus(params, currentUserId);
     logSecurityAudit({
@@ -140,9 +141,10 @@ export function registerUserApi(app: Hono<HonoEnv>) {
     return c.json(result.ok());
   });
 
-  // Delete the specified user and its associated data.
+  // Delete the specified user and its associated data (Guarded by Sudo Mode).
   app.post('/user/delete', async (c: Context) => {
     const currentUserId = getUserId();
+    await sudoService.requireSudo(currentUserId);
     const params = await c.req.json<UserDeleteBo>();
     await userService.delete(params.userId, currentUserId);
     logSecurityAudit({

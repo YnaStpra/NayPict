@@ -147,6 +147,7 @@ interface PhotoPresignedPhotoUploadUrlsBo {
   checksum: string;
   thumbnailType?: string;
   storageId?: string;
+  size?: number;
 }
 
 interface PhotoAddDirectBo {

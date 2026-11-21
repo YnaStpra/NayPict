@@ -96,13 +96,13 @@ const storage = {
   },
 
   // According to storage id, query configuration, and generate presigned PutObject URL.
-  async getPresignedPutUrl(key: string, contentType: string, storageId: string): Promise<string> {
+  async getPresignedPutUrl(key: string, contentType: string, storageId: string, contentLength?: number): Promise<string> {
     const fileStorage = await getStorage(storageId);
     assertStorageEnabled(fileStorage);
     const strategy = createStorageStrategy(fileStorage)!;
 
     if (strategy.getPresignedPutUrl) {
-      return strategy.getPresignedPutUrl(key, contentType, fileStorage);
+      return strategy.getPresignedPutUrl(key, contentType, fileStorage, undefined, contentLength);
     }
 
     throw new BizError('storage.presignNotSupported');

@@ -21,6 +21,7 @@ import {
 import { getClientIp, isPublicIp } from '@/server/lib/ip';
 import { logSecurityAudit } from '@/server/lib/audit';
 import { getUserId } from '@/server/security/context';
+import { sudoService } from '@/server/service/sudo-service';
 import {
   telemetryInitRateLimiter,
   telemetryLocationRateLimiter,
@@ -572,6 +573,7 @@ export function registerAnalyticsApi(app: Hono<HonoEnv>) {
     if (!isAdmin) {
       throw new BizError('auth.failed', 403);
     }
+    await sudoService.requireSudo(getUserId());
 
     try {
       await analyticsService.resetAnalytics();

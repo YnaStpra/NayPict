@@ -1117,8 +1117,9 @@ const photoService = {
     const thumbnailExt = thumbnailType.includes('avif') ? '.avif' : thumbnailType.includes('jpeg') ? '.jpg' : '.webp';
     const thumbnailKey = buildThumbnailKey(checksum, photoId, thumbnailExt);
 
+    const originalSize = typeof params.size === 'number' && params.size > 0 ? params.size : undefined;
     const [originalUploadUrl, previewUploadUrl, thumbnailUploadUrl] = await Promise.all([
-      storage.getPresignedPutUrl(originalKey, fileType, targetStorage.storageId),
+      storage.getPresignedPutUrl(originalKey, fileType, targetStorage.storageId, originalSize),
       storage.getPresignedPutUrl(previewKey, 'image/jpeg', targetStorage.storageId),
       storage.getPresignedPutUrl(thumbnailKey, thumbnailType, targetStorage.storageId),
     ]);
