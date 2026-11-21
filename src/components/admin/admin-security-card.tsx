@@ -16,7 +16,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { listSessions, revokeSession, revokeOtherSessions } from "@/request/session"
-import { userSudo, userSudoStatus } from "@/request/user"
+import { userSudo, userSudoStatus, userSudoDrop } from "@/request/user"
 import { getTotpStatus } from "@/request/totp"
 import { getSecurityAuditLogs, type SecurityAuditRecord } from "@/request/audit"
 import { type ActiveSessionVo } from "@/server/entity/vo/session"
@@ -62,6 +62,7 @@ export function AdminSecurityCard({ has2Fa: initial2Fa, className = "" }: AdminS
   const [sudoDialogOpen, setSudoDialogOpen] = useState(false)
   const [sudoPassword, setSudoPassword] = useState("")
   const [sudoSubmitting, setSudoSubmitting] = useState(false)
+  const [lockingSudo, setLockingSudo] = useState(false)
 
   // Security Audit Trail state
   const [auditLogs, setAuditLogs] = useState<SecurityAuditRecord[]>([])
@@ -146,6 +147,21 @@ export function AdminSecurityCard({ has2Fa: initial2Fa, className = "" }: AdminS
       toast.error(humanizeError(err, "Failed to verify administrator password."))
     } finally {
       setSudoSubmitting(false)
+    }
+  }
+
+  const handleLockSudo = async () => {
+    setLockingSudo(true)
+    try {
+      await userSudoDrop()
+      setSudoActive(false)
+      setSudoRemaining(0)
+      toast.success("Sudo Mode locked. Administrative actions re-secured.")
+      void fetchAuditLogs()
+    } catch (err) {
+      toast.error(humanizeError(err, "Failed to lock Sudo Mode."))
+    } finally {
+      setLockingSudo(false)
     }
   }
 
@@ -281,7 +297,7 @@ export function AdminSecurityCard({ has2Fa: initial2Fa, className = "" }: AdminS
           )}
 
           {/* Elevate Button if not active */}
-          {!sudoActive && (
+          {!sudoActive ? (
             <Button
               variant="secondary"
               size="sm"
@@ -290,6 +306,21 @@ export function AdminSecurityCard({ has2Fa: initial2Fa, className = "" }: AdminS
             >
               <KeyRound className="size-3.5 text-primary" />
               <span>Elevate Sudo</span>
+            </Button>
+          ) : (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 text-xs gap-1.5 px-2.5 cursor-pointer text-amber-700 dark:text-amber-400 border-amber-500/30 hover:bg-amber-500/10"
+              onClick={handleLockSudo}
+              disabled={lockingSudo}
+            >
+              {lockingSudo ? (
+                <LoaderCircle className="size-3.5 animate-spin" />
+              ) : (
+                <Lock className="size-3.5" />
+              )}
+              <span>Lock Sudo Now</span>
             </Button>
           )}
         </div>

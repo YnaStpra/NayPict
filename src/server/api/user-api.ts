@@ -205,4 +205,21 @@ export function registerUserApi(app: Hono<HonoEnv>) {
     const status = await sudoService.isSudoActive(currentUserId);
     return c.json(result.ok(status));
   });
+
+  // Revoke administrative Sudo Mode elevation early upon user request.
+  app.post('/user/sudo/drop', async (c: Context) => {
+    const currentUserId = getUserId();
+    if (!currentUserId) {
+      throw new BizError('auth.failed', 401);
+    }
+
+    await sudoService.clearSudo(currentUserId);
+    logSecurityAudit({
+      action: 'USER_SUDO_DROP',
+      userId: currentUserId,
+      clientIp: getClientIp(c),
+    });
+
+    return c.json(result.ok({ active: false, remainingSeconds: 0 }));
+  });
 }

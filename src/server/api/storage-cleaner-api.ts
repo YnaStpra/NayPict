@@ -63,9 +63,10 @@ export function registerStorageCleanerApi(app: Hono<HonoEnv>) {
     return c.json(result.ok(res));
   });
 
-  // Fixes broken records in DB whose files are missing from storage.
+  // Fixes broken records in DB whose files are missing from storage (Guarded by Administrative Sudo Mode).
   app.post('/storage/cleaner/fix-broken', async (c: Context) => {
     const userId = getUserId();
+    await sudoService.requireSudo(userId);
     const body = await c.req.json<StorageCleanerFixBrokenBo>();
     const res = await storageCleanerService.fixBrokenRecords(body, userId);
 

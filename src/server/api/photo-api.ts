@@ -426,6 +426,18 @@ export function registerPhotoApi(app: Hono<HonoEnv>) {
         finalBuffer = stripGpsFromImageBuffer(photoData.buffer, photoData.contentType);
       }
 
+      logSecurityAudit({
+        action: 'PHOTO_DOWNLOAD',
+        userId: userId || null,
+        clientIp,
+        targetId: photoId,
+        details: {
+          fileName: photoData.fileName || photo.name,
+          sizeBytes: finalBuffer.length,
+          isAdmin,
+        },
+      });
+
       const safeContentType = (photoData.contentType || 'application/octet-stream').replace(/[^a-zA-Z0-9_\-\.\+/]/g, '');
       c.header('Content-Type', safeContentType || 'application/octet-stream');
       c.header('Content-Disposition', buildContentDisposition(photoData.fileName || photo.name, 'attachment'));
@@ -530,6 +542,14 @@ export function registerPhotoApi(app: Hono<HonoEnv>) {
       return c.json({ code: 404, error: "NOT_FOUND", message: "Photo not found" }, 404);
     }
 
+    logSecurityAudit({
+      action: 'PHOTO_DOWNLOAD_INITIATE',
+      userId,
+      clientIp,
+      targetId: photoId,
+      details: { photoName: photo.name },
+    });
+
     // Authenticated admin downloads via the download endpoint with complete metadata & filename
     return c.json(result.ok({ url: `/api/photo/download/${photoId}` }));
   });
@@ -624,10 +644,11 @@ export function registerPhotoApi(app: Hono<HonoEnv>) {
     return c.json(result.ok());
   });
 
-  // Completely delete photo files and records.
+  // Completely delete photo files and records (Guarded by Administrative Sudo Mode).
   app.post('/photo/delete', async (c: Context) => {
-    const body = await c.req.json<PhotoDeleteBo>();
     const userId = getUserId();
+    await sudoService.requireSudo(userId);
+    const body = await c.req.json<PhotoDeleteBo>();
     await photoService.delete(body, userId);
     logSecurityAudit({
       action: 'PHOTO_DELETE',

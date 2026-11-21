@@ -29,3 +29,8 @@ export function userSudoStatus() {
   return http.get<{ active: boolean; remainingSeconds: number }>('/user/sudo/status');
 }
 
+// Revoke current Sudo Mode elevation early upon user request.
+export function userSudoDrop() {
+  return http.post<{ active: boolean; remainingSeconds: number }>('/user/sudo/drop');
+}
+

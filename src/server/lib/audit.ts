@@ -103,8 +103,27 @@ export function logSecurityAudit(entry: SecurityAuditEntry): void {
       memoryAuditLogs.length = MAX_AUDIT_LOGS;
     }
 
-    // 2. Persist to cache layer asynchronously
-    cache.set(AUDIT_CACHE_KEY, memoryAuditLogs.slice(0, 100), { ttl: 30 * 86400 }).catch(() => {});
+    // 2. Persist to cache layer asynchronously with multi-container merge
+    (async () => {
+      try {
+        const cached = await cache.get<SecurityAuditRecord[]>(AUDIT_CACHE_KEY);
+        const existingList = Array.isArray(cached) ? cached : [];
+        const mergedMap = new Map<string, SecurityAuditRecord>();
+        // Current in-memory logs take precedence
+        for (const item of memoryAuditLogs) {
+          mergedMap.set(item.id, item);
+        }
+        for (const item of existingList) {
+          if (!mergedMap.has(item.id) && mergedMap.size < MAX_AUDIT_LOGS) {
+            mergedMap.set(item.id, item);
+          }
+        }
+        const mergedLogs = Array.from(mergedMap.values())
+          .sort((a, b) => Date.parse(b.timestamp) - Date.parse(a.timestamp))
+          .slice(0, 150);
+        await cache.set(AUDIT_CACHE_KEY, mergedLogs, { ttl: 30 * 86400 });
+      } catch {}
+    })();
 
     // 3. Emit structured stdout log
     console.info(`[SECURITY_AUDIT] ${JSON.stringify(record)}`);
@@ -119,19 +138,25 @@ export async function getRecentAuditLogs(options?: {
   action?: string;
   severity?: string;
 }): Promise<SecurityAuditRecord[]> {
-  let logs = memoryAuditLogs;
-
-  if (logs.length === 0) {
-    try {
-      const cached = await cache.get<SecurityAuditRecord[]>(AUDIT_CACHE_KEY);
-      if (cached && Array.isArray(cached)) {
-        logs = cached;
-        memoryAuditLogs = cached;
+  try {
+    const cached = await cache.get<SecurityAuditRecord[]>(AUDIT_CACHE_KEY);
+    if (cached && Array.isArray(cached) && cached.length > 0) {
+      const mergedMap = new Map<string, SecurityAuditRecord>();
+      for (const item of memoryAuditLogs) {
+        mergedMap.set(item.id, item);
       }
-    } catch {}
-  }
+      for (const item of cached) {
+        if (!mergedMap.has(item.id)) {
+          mergedMap.set(item.id, item);
+        }
+      }
+      memoryAuditLogs = Array.from(mergedMap.values())
+        .sort((a, b) => Date.parse(b.timestamp) - Date.parse(a.timestamp))
+        .slice(0, MAX_AUDIT_LOGS);
+    }
+  } catch {}
 
-  let filtered = logs;
+  let filtered = memoryAuditLogs;
   if (options?.action) {
     const act = options.action.trim().toUpperCase();
     filtered = filtered.filter((l) => l.action.toUpperCase().includes(act));
