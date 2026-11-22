@@ -424,5 +424,12 @@ export const sudoRateLimiter = new DistributedRateLimiter({
   windowMs: 15 * 60 * 1000, // 15 minutes
 })
 
+// 25. Maintenance Cron Rate Limiter: Max 5 maintenance executions per 10 minutes per IP/caller
+export const cronRateLimiter = new DistributedRateLimiter({
+  name: 'cron-cleanup',
+  limit: 5,
+  windowMs: 10 * 60 * 1000, // 10 minutes
+})
+
 
 

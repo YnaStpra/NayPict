@@ -5,9 +5,10 @@ import { isIP } from 'node:net';
 
 // Extract the trusted client IP address prioritizing Cloudflare's validated cf-connecting-ip.
 export function getClientIp(c: Context): string {
-  // 1. Cloudflare network-verified connecting IP (cannot be forged by clients)
+  // 1. Cloudflare network-verified connecting IP (requires cf-ray edge signature to prevent client header spoofing)
+  const cfRay = c.req.header('cf-ray')?.trim();
   const cfConnectingIp = c.req.header('cf-connecting-ip')?.trim();
-  if (cfConnectingIp && isValidIp(cfConnectingIp)) {
+  if (cfRay && cfConnectingIp && isValidIp(cfConnectingIp)) {
     return cfConnectingIp;
   }
 
