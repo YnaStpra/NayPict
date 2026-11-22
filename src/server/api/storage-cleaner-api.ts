@@ -4,6 +4,7 @@ import { getUserId } from '@/server/security/context';
 import { getClientIp } from '@/server/lib/ip';
 import { logSecurityAudit } from '@/server/lib/audit';
 import { storageCleanerService } from '@/server/service/storage-cleaner-service';
+import { sudoService } from '@/server/service/sudo-service';
 import {
   type StorageCleanerDeleteOrphansBo,
   type StorageCleanerAbortUploadsBo,
@@ -29,6 +30,7 @@ export function registerStorageCleanerApi(app: Hono<HonoEnv>) {
   // Permanently deletes orphan files from storage.
   app.post('/storage/cleaner/delete-orphans', async (c: Context) => {
     const userId = getUserId();
+    await sudoService.requireSudo(userId);
     const body = await c.req.json<StorageCleanerDeleteOrphansBo>();
     const res = await storageCleanerService.deleteOrphans(body);
 
@@ -46,6 +48,7 @@ export function registerStorageCleanerApi(app: Hono<HonoEnv>) {
   // Aborts abandoned / incomplete multipart uploads in storage.
   app.post('/storage/cleaner/abort-uploads', async (c: Context) => {
     const userId = getUserId();
+    await sudoService.requireSudo(userId);
     const body = await c.req.json<StorageCleanerAbortUploadsBo>();
     const res = await storageCleanerService.abortIncompleteUploads(body);
 
@@ -60,9 +63,10 @@ export function registerStorageCleanerApi(app: Hono<HonoEnv>) {
     return c.json(result.ok(res));
   });
 
-  // Fixes broken records in DB whose files are missing from storage.
+  // Fixes broken records in DB whose files are missing from storage (Guarded by Administrative Sudo Mode).
   app.post('/storage/cleaner/fix-broken', async (c: Context) => {
     const userId = getUserId();
+    await sudoService.requireSudo(userId);
     const body = await c.req.json<StorageCleanerFixBrokenBo>();
     const res = await storageCleanerService.fixBrokenRecords(body, userId);
 

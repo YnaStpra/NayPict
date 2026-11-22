@@ -10,6 +10,7 @@ import { insightsRateLimiter } from '@/server/lib/rate-limiter';
 import { logSecurityAudit } from '@/server/lib/audit';
 import { getUserId } from '@/server/security/context';
 import { checkIsAdmin } from '@/server/security/security';
+import { sudoService } from '@/server/service/sudo-service';
 import type { HonoEnv } from '../hono/type';
 
 // This module handles API endpoints for photo analytics, view tracking, and admin insights.
@@ -151,6 +152,7 @@ export function registerInsightsApi(app: Hono<HonoEnv>) {
 
   // Admin-only endpoint: Reset all insights analytics and interaction history
   app.post('/admin/insights/reset', async (c: Context) => {
+    await sudoService.requireSudo(getUserId());
     const res = await insightsService.resetInsights();
     logSecurityAudit({
       action: 'INSIGHTS_RESET',
@@ -170,6 +172,7 @@ export function registerInsightsApi(app: Hono<HonoEnv>) {
 
   // Admin-only endpoint: Reset all reactions for a specific photo
   app.post('/admin/insights/photo/:photoId/reactions/reset', async (c: Context) => {
+    await sudoService.requireSudo(getUserId());
     const photoId = c.req.param('photoId') ?? '';
     const res = await reactionService.resetPhotoReactions(photoId);
     logSecurityAudit({
@@ -183,6 +186,7 @@ export function registerInsightsApi(app: Hono<HonoEnv>) {
 
   // Admin-only endpoint: Reset all reactions across all photos in the gallery
   app.post('/admin/insights/reactions/reset', async (c: Context) => {
+    await sudoService.requireSudo(getUserId());
     const res = await reactionService.resetAllReactions();
     logSecurityAudit({
       action: 'ALL_REACTIONS_RESET',

@@ -22,6 +22,10 @@ import { botBlocker } from '@/server/security/bot-blocker';
 import { userService } from '@/server/service/user-service';
 import { UserTypeEnum } from '@/server/enums/user-enum';
 import { getCachedMediaFile, invalidateMediaFileCache, setCachedMediaFile } from '@/server/lib/media-cache';
+import { settingService } from '@/server/service/setting-service';
+import { SettingHideGpsEnum } from '@/server/enums/setting-enum';
+import { stripGpsFromImageBuffer } from '@/server/lib/exif-privacy';
+import { verifySignedDownloadToken } from '@/server/lib/download-token';
 import type { HonoEnv } from './type';
 
 export { invalidateMediaFileCache };
@@ -165,19 +169,19 @@ media.get('*', async (c: Context, next: Next) => {
 
   const isDownloadRequested = c.req.query('download') === '1' || c.req.query('download') === 'true';
 
+  let isAdmin = false;
+  if (userId) {
+    try {
+      const user = await userService.getById(userId);
+      isAdmin = user?.type === UserTypeEnum.ADMIN;
+    } catch {
+      isAdmin = false;
+    }
+  }
+
   // Server-side Download Protection for ORIGINAL photo requests and explicit original video download requests
   if (photoFile.type === FileTypeEnum.ORIGINAL && (!isVideo || isDownloadRequested)) {
     const isPublicDownloadAllowed = photoFile.allowDownload === 1;
-    let isAdmin = false;
-
-    if (userId) {
-      try {
-        const user = await userService.getById(userId);
-        isAdmin = user?.type === UserTypeEnum.ADMIN;
-      } catch {
-        isAdmin = false;
-      }
-    }
 
     if (!isPublicDownloadAllowed && !isAdmin) {
       return c.json({
@@ -187,6 +191,21 @@ media.get('*', async (c: Context, next: Next) => {
       }, 403, {
         'Cache-Control': 'no-store, private'
       });
+    }
+
+    // Require short-lived HMAC signed download token for non-admin visitors
+    if (isDownloadRequested && !isAdmin) {
+      const token = c.req.query('token');
+      const exp = c.req.query('exp');
+      if (!verifySignedDownloadToken(photoFile.key, token, exp)) {
+        return c.json({
+          code: 403,
+          error: "DOWNLOAD_TOKEN_REQUIRED",
+          message: "A valid signed download token is required to download this media."
+        }, 403, {
+          'Cache-Control': 'no-store, private'
+        });
+      }
     }
   }
 
@@ -272,6 +291,30 @@ media.get('*', async (c: Context, next: Next) => {
   // Only attach download disposition for non-video files or when not a partial stream
   if (disposition && !isPartial && !isVideo) {
     headers['Content-Disposition'] = disposition;
+  }
+
+  // Privacy Geolocation Sanitization: If public GPS hiding is active, sanitize binary GPS coordinates for non-admin downloads
+  if (photoFile.type === FileTypeEnum.ORIGINAL && !isVideo && !isAdmin) {
+    const setting = await settingService.get();
+    const isGpsHidden = setting.hidePublicGps === SettingHideGpsEnum.ENABLE || settingService.isPublicGpsHidden();
+    if (isGpsHidden && obj.body) {
+      let rawBytes: Buffer;
+      if (typeof (obj.body as any).transformToByteArray === 'function') {
+        const arr = await (obj.body as any).transformToByteArray();
+        rawBytes = Buffer.from(arr.buffer, arr.byteOffset, arr.byteLength);
+      } else if (Buffer.isBuffer(obj.body)) {
+        rawBytes = obj.body;
+      } else if (obj.body instanceof Uint8Array) {
+        rawBytes = Buffer.from(obj.body.buffer, obj.body.byteOffset, obj.body.byteLength);
+      } else {
+        const arr = await new Response(obj.body as any).arrayBuffer();
+        rawBytes = Buffer.from(arr);
+      }
+
+      const sanitized = stripGpsFromImageBuffer(rawBytes, photoFile.fileType || 'image/jpeg');
+      headers['Content-Length'] = String(sanitized.length);
+      return c.body(new Uint8Array(sanitized), 200, headers);
+    }
   }
 
   let responseBody: any = obj.body;

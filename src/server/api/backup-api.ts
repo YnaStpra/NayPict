@@ -6,6 +6,7 @@ import { logSecurityAudit } from '@/server/lib/audit';
 import { backupExportRateLimiter } from '@/server/lib/rate-limiter';
 import { buildContentDisposition } from '@/server/lib/file';
 import { backupService } from '@/server/service/backup-service';
+import { sudoService } from '@/server/service/sudo-service';
 import type { HonoEnv } from '../hono/type';
 
 // This module registers database backup and disaster recovery endpoints for administrators.
@@ -17,9 +18,10 @@ export function registerBackupApi(app: Hono<HonoEnv>) {
     return c.json(result.ok(stats));
   });
 
-  // Export encrypted AES-256-GCM database snapshot.
+  // Export encrypted AES-256-GCM database snapshot (Guarded by Sudo Mode).
   app.post('/backup/export', async (c: Context) => {
     const userId = getUserId();
+    await sudoService.requireSudo(userId);
     const clientIp = getClientIp(c);
     const rateLimit = await backupExportRateLimiter.consume(`${userId}:${clientIp}`);
     if (!rateLimit.allowed) {

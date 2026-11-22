@@ -3,6 +3,7 @@
   "system.readonly": "The application is running in read-only mode.",
   "system.internalError": "Internal server error.",
   "auth.failed": "Authentication failed.",
+  "auth.sudoRequired": "This action requires administrative re-authentication (Sudo Mode).",
   "auth.forbidden": "You don't have permission to perform this action.",
   "album.nameRequired": "Album name is required.",
   "album.nameExists": "An album with this name already exists.",

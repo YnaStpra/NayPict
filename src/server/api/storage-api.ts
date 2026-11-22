@@ -6,6 +6,7 @@ import { getUserId } from '@/server/security/context';
 import { getClientIp } from '@/server/lib/ip';
 import { logSecurityAudit } from '@/server/lib/audit';
 import { storageService } from '@/server/service/storage-service';
+import { sudoService } from '@/server/service/sudo-service';
 import type { HonoEnv } from '../hono/type';
 
 // This module registers storage configuration related interfaces.
@@ -42,8 +43,9 @@ export function registerStorageApi(app: Hono<HonoEnv>) {
     return c.json(result.ok());
   });
 
-  // Modify the storage configuration of the current user, Does not return business data.
+  // Modify the storage configuration of the current user (Guarded by Administrative Sudo Mode).
   app.post('/storage/set', async (c: Context) => {
+    await sudoService.requireSudo(getUserId());
     const body = await c.req.json<Storage>();
     await storageService.set(body);
     logSecurityAudit({
@@ -76,8 +78,9 @@ export function registerStorageApi(app: Hono<HonoEnv>) {
     return c.json(result.ok());
   });
 
-  // Delete the specified storage configuration of the current user, Does not return business data.
+  // Delete the specified storage configuration of the current user (Guarded by Administrative Sudo Mode).
   app.post('/storage/delete', async (c: Context) => {
+    await sudoService.requireSudo(getUserId());
     const body = await c.req.json<StorageDeleteBo>();
     await storageService.delete(body.storageId);
     logSecurityAudit({

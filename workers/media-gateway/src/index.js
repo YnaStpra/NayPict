@@ -119,6 +119,11 @@ function parseObjectKey(url) {
 
 // Check that a key is a concrete object below one of the public derivative prefixes or a public display video.
 function isPublicObjectKey(key) {
+  if (!key || typeof key !== "string") return false
+  // Strict prefix isolation: originals, backups, and path-traversal attempts must NEVER be served directly by media gateway
+  if (key.startsWith("originals/") || key.startsWith("backups/") || key.includes("../") || key.includes("..\\")) {
+    return false
+  }
   if (PUBLIC_PREFIXES.some((prefix) => key.startsWith(prefix) && key.length > prefix.length)) {
     return true
   }
@@ -433,4 +438,5 @@ const mediaGateway = {
   },
 }
 
+export { isPublicObjectKey }
 export default mediaGateway

@@ -4,6 +4,7 @@ import { getUserId } from '@/server/security/context';
 import { getClientIp } from '@/server/lib/ip';
 import { logSecurityAudit } from '@/server/lib/audit';
 import { albumService } from '@/server/service/album-service';
+import { sudoService } from '@/server/service/sudo-service';
 import {
   type AlbumAddBo,
   type AlbumAddPhotoBo,
@@ -143,10 +144,11 @@ export function registerAlbumApi(app: Hono<HonoEnv>) {
     return c.json(result.ok());
   });
 
-  // Delete album.
+  // Delete album (Guarded by Administrative Sudo Mode).
   app.post('/album/delete', async (c: Context) => {
-    const body = await c.req.json<AlbumDeleteBo>();
     const userId = getUserId();
+    await sudoService.requireSudo(userId);
+    const body = await c.req.json<AlbumDeleteBo>();
     await albumService.delete(body, userId);
     logSecurityAudit({
       action: 'ALBUM_DELETE',

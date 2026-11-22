@@ -18,6 +18,7 @@ import { registerCronApi } from '../api/cron-api';
 import { registerSyncApi } from '../api/sync-api';
 import { registerAnalyticsApi } from '../api/analytics-api';
 import { registerStorageCleanerApi } from '../api/storage-cleaner-api';
+import { registerAuditApi } from '../api/audit-api';
 
 // This module creates a fresh Hono application instance with all API routes attached per request handler.
 
@@ -42,6 +43,7 @@ export function getApp() {
   registerCspApi(instance);
   registerBackupApi(instance);
   registerSessionApi(instance);
+  registerAuditApi(instance);
   return instance;
 }
 

@@ -27,11 +27,20 @@ import { downloadRateLimiter, photoDuplicatesRateLimiter, photoListRateLimiter, 
 import { getClientIp } from '@/server/lib/ip';
 import { logSecurityAudit } from '@/server/lib/audit';
 import { settingService } from '@/server/service/setting-service';
-import { SettingWatermarkEnum } from '@/server/enums/setting-enum';
+import { SettingHideGpsEnum, SettingWatermarkEnum } from '@/server/enums/setting-enum';
 import { applyWatermark } from '@/server/lib/photo-watermark';
 import sharp from 'sharp';
 import { SHARP_SECURITY_OPTIONS } from '@/server/lib/photo-process';
 import { buildContentDisposition } from '@/server/lib/file';
+import { sudoService } from '@/server/service/sudo-service';
+import { buildSignedDownloadUrl, verifySignedDownloadToken } from '@/server/lib/download-token';
+import { stripGpsFromImageBuffer } from '@/server/lib/exif-privacy';
+import { userService } from '@/server/service/user-service';
+import { UserTypeEnum } from '@/server/enums/user-enum';
+import { readOrm } from '@/server/infra/db';
+import { fileTab } from '@/server/entity/file';
+import { FileTypeEnum } from '@/server/enums/file-enum';
+import { and, eq } from 'drizzle-orm';
 import type { HonoEnv } from '../hono/type';
 
 // This module registers photo-related interfaces.
@@ -353,7 +362,7 @@ export function registerPhotoApi(app: Hono<HonoEnv>) {
   app.get('/photo/takenDateList', handlePhotoTakenDateList);
   app.post('/photo/takenDateList', handlePhotoTakenDateList);
 
-  // Download original photo file with full EXIF metadata and original quality (Admin only).
+  // Download original photo file with full EXIF metadata (Admin) or sanitized GPS (Public with signed token).
   app.get('/photo/download/:id', async (c: Context) => {
     const photoId = c.req.param('id') ?? '';
     const userId = getUserId();
@@ -365,33 +374,77 @@ export function registerPhotoApi(app: Hono<HonoEnv>) {
       return c.json(result.fail('Media download rate limit exceeded. Please wait a moment.', 429), 429);
     }
 
-    // STRICT: Only authenticated Admin can download media!
-    if (!userId) {
-      return c.json({
-        code: 403,
-        error: "FORBIDDEN",
-        message: "Media download is restricted to administrators only."
-      }, 403, {
-        'Cache-Control': 'no-store, private'
-      });
+    let isAdmin = false;
+    if (userId) {
+      try {
+        const user = await userService.getById(userId);
+        isAdmin = user?.type === UserTypeEnum.ADMIN;
+      } catch {
+        isAdmin = false;
+      }
     }
 
     const photo = await photoService.getById(photoId, userId);
-
     if (!photo) {
       return c.json({ code: 404, error: "NOT_FOUND", message: "Photo not found" }, 404);
     }
 
-    // Serve original uncompressed buffer with complete EXIF metadata and RFC 6266 filename attachment
+    // If not admin, require allowDownload === 1 and a valid short-lived HMAC signed token
+    if (!isAdmin) {
+      if (photo.allowDownload !== 1) {
+        return c.json({
+          code: 403,
+          error: "FORBIDDEN",
+          message: "Media download is restricted to administrators only."
+        }, 403, {
+          'Cache-Control': 'no-store, private'
+        });
+      }
+
+      const token = c.req.query('token');
+      const exp = c.req.query('exp');
+      const tokenValid = verifySignedDownloadToken(photo.key || photoId, token, exp);
+      if (!tokenValid) {
+        return c.json({
+          code: 403,
+          error: "DOWNLOAD_TOKEN_REQUIRED",
+          message: "A valid signed download token is required to download this media."
+        }, 403, {
+          'Cache-Control': 'no-store, private'
+        });
+      }
+    }
+
+    // Serve original uncompressed buffer with EXIF metadata (GPS sanitized for public visitors if configured)
     const photoData = await photoService.getOriginalPhotoBuffer(photoId);
     if (photoData) {
+      let finalBuffer = photoData.buffer;
+      const setting = await settingService.get();
+      const isGpsHidden = setting.hidePublicGps === SettingHideGpsEnum.ENABLE || settingService.isPublicGpsHidden();
+
+      if (!isAdmin && isGpsHidden) {
+        finalBuffer = stripGpsFromImageBuffer(photoData.buffer, photoData.contentType);
+      }
+
+      logSecurityAudit({
+        action: 'PHOTO_DOWNLOAD',
+        userId: userId || null,
+        clientIp,
+        targetId: photoId,
+        details: {
+          fileName: photoData.fileName || photo.name,
+          sizeBytes: finalBuffer.length,
+          isAdmin,
+        },
+      });
+
       const safeContentType = (photoData.contentType || 'application/octet-stream').replace(/[^a-zA-Z0-9_\-\.\+/]/g, '');
       c.header('Content-Type', safeContentType || 'application/octet-stream');
       c.header('Content-Disposition', buildContentDisposition(photoData.fileName || photo.name, 'attachment'));
-      c.header('Content-Length', String(photoData.buffer.length));
+      c.header('Content-Length', String(finalBuffer.length));
       c.header('Cache-Control', 'private, no-cache');
       c.header('X-Content-Type-Options', 'nosniff');
-      return c.body(new Uint8Array(photoData.buffer));
+      return c.body(new Uint8Array(finalBuffer));
     }
 
     if (photo.key) {
@@ -405,6 +458,61 @@ export function registerPhotoApi(app: Hono<HonoEnv>) {
     }
 
     return c.json({ code: 404, error: "NOT_FOUND", message: "Media file not found" }, 404);
+  });
+
+  // Generate a short-lived HMAC signed download URL for authorized visitors or administrators.
+  app.post('/photo/download-url', async (c: Context) => {
+    const { photoId } = await c.req.json<{ photoId: string }>().catch(() => ({ photoId: '' }));
+    if (!photoId?.trim()) {
+      return c.json(result.fail('Photo ID is required', 400), 400);
+    }
+
+    const userId = getUserId();
+    const clientIp = getClientIp(c);
+    const rateLimit = await downloadRateLimiter.consume(`${userId || 'guest'}:${clientIp}`);
+    if (!rateLimit.allowed) {
+      c.header('Retry-After', String(Math.ceil(rateLimit.resetMs / 1000)));
+      return c.json(result.fail('Media download rate limit exceeded. Please wait a moment.', 429), 429);
+    }
+
+    const photo = await photoService.getById(photoId, userId);
+    if (!photo) {
+      return c.json({ code: 404, error: "NOT_FOUND", message: "Photo not found" }, 404);
+    }
+
+    let isAdmin = false;
+    if (userId) {
+      try {
+        const user = await userService.getById(userId);
+        isAdmin = user?.type === UserTypeEnum.ADMIN;
+      } catch {
+        isAdmin = false;
+      }
+    }
+
+    if (!isAdmin && photo.allowDownload !== 1) {
+      return c.json({
+        code: 403,
+        error: "DOWNLOAD_PROTECTED",
+        message: "Media download is restricted to administrators only."
+      }, 403, {
+        'Cache-Control': 'no-store, private'
+      });
+    }
+
+    const [originalFile] = await readOrm
+      .select({ key: fileTab.key })
+      .from(fileTab)
+      .where(and(eq(fileTab.photoId, photoId), eq(fileTab.type, FileTypeEnum.ORIGINAL)))
+      .limit(1);
+
+    const targetKey = originalFile?.key || photo.key;
+    if (!targetKey) {
+      return c.json({ code: 404, error: "NOT_FOUND", message: "Media original file not found" }, 404);
+    }
+
+    const signedUrl = buildSignedDownloadUrl(targetKey, 900);
+    return c.json(result.ok({ url: signedUrl, photoId, name: photo.name }));
   });
 
   app.post('/photo/download', async (c: Context) => {
@@ -433,6 +541,14 @@ export function registerPhotoApi(app: Hono<HonoEnv>) {
     if (!photo) {
       return c.json({ code: 404, error: "NOT_FOUND", message: "Photo not found" }, 404);
     }
+
+    logSecurityAudit({
+      action: 'PHOTO_DOWNLOAD_INITIATE',
+      userId,
+      clientIp,
+      targetId: photoId,
+      details: { photoName: photo.name },
+    });
 
     // Authenticated admin downloads via the download endpoint with complete metadata & filename
     return c.json(result.ok({ url: `/api/photo/download/${photoId}` }));
@@ -528,10 +644,11 @@ export function registerPhotoApi(app: Hono<HonoEnv>) {
     return c.json(result.ok());
   });
 
-  // Completely delete photo files and records.
+  // Completely delete photo files and records (Guarded by Administrative Sudo Mode).
   app.post('/photo/delete', async (c: Context) => {
-    const body = await c.req.json<PhotoDeleteBo>();
     const userId = getUserId();
+    await sudoService.requireSudo(userId);
+    const body = await c.req.json<PhotoDeleteBo>();
     await photoService.delete(body, userId);
     logSecurityAudit({
       action: 'PHOTO_DELETE',
@@ -542,9 +659,10 @@ export function registerPhotoApi(app: Hono<HonoEnv>) {
     return c.json(result.ok());
   });
 
-  // Clean up photo files in recycle bin.
+  // Clean up photo files in recycle bin (Guarded by Administrative Sudo Mode).
   app.post('/photo/clear', async (c: Context) => {
     const userId = getUserId();
+    await sudoService.requireSudo(userId);
     await photoService.clear(userId);
     logSecurityAudit({
       action: 'RECYCLE_BIN_CLEAR',
