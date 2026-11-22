@@ -18,7 +18,7 @@ import {
 import { listSessions, revokeSession, revokeOtherSessions } from "@/request/session"
 import { userSudo, userSudoStatus, userSudoDrop } from "@/request/user"
 import { getTotpStatus } from "@/request/totp"
-import { getSecurityAuditLogs, type SecurityAuditRecord } from "@/request/audit"
+import { getSecurityAuditLogs, exportSecurityAuditLogs, type SecurityAuditRecord } from "@/request/audit"
 import { type ActiveSessionVo } from "@/server/entity/vo/session"
 import { humanizeError } from "@/lib/error-formatter"
 import { toast } from "sonner"
@@ -41,6 +41,7 @@ import {
   ExternalLink,
   Activity,
   ScrollText,
+  Download,
 } from "lucide-react"
 
 interface AdminSecurityCardProps {
@@ -61,12 +62,14 @@ export function AdminSecurityCard({ has2Fa: initial2Fa, className = "" }: AdminS
   const [sudoRemaining, setSudoRemaining] = useState(0)
   const [sudoDialogOpen, setSudoDialogOpen] = useState(false)
   const [sudoPassword, setSudoPassword] = useState("")
+  const [sudoCode, setSudoCode] = useState("")
   const [sudoSubmitting, setSudoSubmitting] = useState(false)
   const [lockingSudo, setLockingSudo] = useState(false)
 
   // Security Audit Trail state
   const [auditLogs, setAuditLogs] = useState<SecurityAuditRecord[]>([])
   const [loadingLogs, setLoadingLogs] = useState(false)
+  const [exportingLogs, setExportingLogs] = useState(false)
   const [logFilter, setLogFilter] = useState<'ALL' | 'CRITICAL' | 'WARNING' | 'INFO'>('ALL')
 
   const fetchAuditLogs = useCallback(async () => {
@@ -132,21 +135,54 @@ export function AdminSecurityCard({ has2Fa: initial2Fa, className = "" }: AdminS
       toast.error("Please enter your account password")
       return
     }
+    if (has2Fa && !sudoCode.trim()) {
+      toast.error("Please enter your 2FA verification code")
+      return
+    }
 
     setSudoSubmitting(true)
     try {
-      const res = await userSudo(sudoPassword)
+      const res = await userSudo(sudoPassword, sudoCode.trim() || undefined)
       if (res?.active) {
         setSudoActive(true)
         setSudoRemaining(res.remainingSeconds || 900)
         setSudoDialogOpen(false)
         setSudoPassword("")
+        setSudoCode("")
         toast.success("Sudo Mode elevated! Privileged actions unlocked for 15 minutes.")
       }
     } catch (err) {
-      toast.error(humanizeError(err, "Failed to verify administrator password."))
+      toast.error(humanizeError(err, "Failed to verify administrator credentials."))
     } finally {
       setSudoSubmitting(false)
+    }
+  }
+
+  const handleExportAuditLogs = async () => {
+    if (!sudoActive) {
+      toast.error("Sudo Mode elevation is required to export forensic audit logs.")
+      setSudoDialogOpen(true)
+      return
+    }
+
+    setExportingLogs(true)
+    try {
+      const exportData = await exportSecurityAuditLogs()
+      const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: "application/json" })
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url
+      a.download = `naypict-audit-forensic-${new Date().toISOString().slice(0, 10)}.json`
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      window.URL.revokeObjectURL(url)
+      toast.success("Forensic audit logs exported successfully.")
+      void fetchAuditLogs()
+    } catch (err) {
+      toast.error(humanizeError(err, "Failed to export forensic audit logs."))
+    } finally {
+      setExportingLogs(false)
     }
   }
 
@@ -456,6 +492,21 @@ export function AdminSecurityCard({ has2Fa: initial2Fa, className = "" }: AdminS
             >
               <RefreshCw className={`size-3.5 ${loadingLogs ? 'animate-spin' : ''}`} />
             </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 text-[11px] gap-1 px-2.5 rounded-full cursor-pointer text-muted-foreground hover:text-foreground"
+              onClick={handleExportAuditLogs}
+              disabled={exportingLogs}
+              title="Export Forensic Audit Logs (JSON)"
+            >
+              {exportingLogs ? (
+                <LoaderCircle className="size-3 animate-spin" />
+              ) : (
+                <Download className="size-3" />
+              )}
+              <span>Export</span>
+            </Button>
           </div>
         </div>
 
@@ -555,12 +606,34 @@ export function AdminSecurityCard({ has2Fa: initial2Fa, className = "" }: AdminS
               />
             </div>
 
+            {has2Fa && (
+              <div className="space-y-2">
+                <Label htmlFor="sudo-code" className="text-xs font-medium">
+                  2FA Verification Code
+                </Label>
+                <Input
+                  id="sudo-code"
+                  type="text"
+                  placeholder="Enter 6-digit OTP or backup code..."
+                  value={sudoCode}
+                  onChange={(e) => setSudoCode(e.target.value)}
+                  disabled={sudoSubmitting}
+                  className="h-9 font-mono tracking-wider"
+                  autoComplete="one-time-code"
+                />
+              </div>
+            )}
+
             <DialogFooter className="gap-2 sm:gap-0 pt-2">
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
-                onClick={() => setSudoDialogOpen(false)}
+                onClick={() => {
+                  setSudoDialogOpen(false)
+                  setSudoPassword("")
+                  setSudoCode("")
+                }}
                 disabled={sudoSubmitting}
               >
                 Cancel
@@ -569,7 +642,7 @@ export function AdminSecurityCard({ has2Fa: initial2Fa, className = "" }: AdminS
                 type="submit"
                 size="sm"
                 className="gap-1.5 shadow-sm"
-                disabled={sudoSubmitting || !sudoPassword.trim()}
+                disabled={sudoSubmitting || !sudoPassword.trim() || (has2Fa && !sudoCode.trim())}
               >
                 {sudoSubmitting && <LoaderCircle className="size-3.5 animate-spin" />}
                 <span>Confirm & Elevate</span>

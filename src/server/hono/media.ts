@@ -244,6 +244,8 @@ media.get('*', async (c: Context, next: Next) => {
       'Cache-Control': isCacheable ? 'public, max-age=31536000, immutable' : 'private, no-store',
       'Vary': isCacheable ? 'Accept, Accept-Encoding' : 'Cookie, Accept, Accept-Encoding',
       'X-Content-Type-Options': 'nosniff',
+      'Content-Security-Policy': "default-src 'none'; sandbox;",
+      'X-Frame-Options': 'SAMEORIGIN',
     };
     if (isCacheable) {
       notModifiedHeaders['CDN-Cache-Control'] = 'public, max-age=31536000, immutable';
@@ -273,6 +275,8 @@ media.get('*', async (c: Context, next: Next) => {
     'Vary': isCacheable ? 'Accept, Accept-Encoding' : 'Cookie, Accept, Accept-Encoding',
     'Accept-Ranges': 'bytes',
     'X-Content-Type-Options': 'nosniff',
+    'Content-Security-Policy': "default-src 'none'; sandbox;",
+    'X-Frame-Options': 'SAMEORIGIN',
   };
 
   if (isPartial && obj.contentRange) {

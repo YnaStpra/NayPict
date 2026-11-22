@@ -170,19 +170,33 @@ export function registerUserApi(app: Hono<HonoEnv>) {
       return c.json(result.fail('Sudo elevation rate limit exceeded. Please wait a moment.', 429), 429);
     }
 
-    const body = await c.req.json<{ password?: string }>().catch(() => ({ password: '' }));
+    const body = await c.req.json<{ password?: string; code?: string }>().catch(() => ({ password: '', code: '' }));
     if (!body.password?.trim()) {
       throw new BizError('totp.invalidPassword', 400);
     }
 
-    const verified = await sudoService.verifySudo(currentUserId, body.password);
-    if (!verified) {
-      logSecurityAudit({
-        action: 'USER_SUDO_FAILED',
-        userId: currentUserId,
-        clientIp,
-      });
-      throw new BizError('totp.invalidPassword', 400);
+    try {
+      const verified = await sudoService.verifySudo(currentUserId, body.password, body.code);
+      if (!verified) {
+        logSecurityAudit({
+          action: 'USER_SUDO_FAILED',
+          userId: currentUserId,
+          clientIp,
+          details: { reason: 'invalid_password' },
+        });
+        throw new BizError('totp.invalidPassword', 400);
+      }
+    } catch (err) {
+      if (err instanceof BizError) {
+        logSecurityAudit({
+          action: 'USER_SUDO_FAILED',
+          userId: currentUserId,
+          clientIp,
+          details: { error: err.message },
+        });
+        throw err;
+      }
+      throw err;
     }
 
     logSecurityAudit({

@@ -18,6 +18,7 @@ import { type LoginVo } from '@/server/entity/vo/login';
 import { totpService } from '@/server/service/totp-service';
 import { userService } from '@/server/service/user-service';
 import { sessionService } from '@/server/service/session-service';
+import { sudoService } from '@/server/service/sudo-service';
 import { accountLockoutRateLimiter, loginRateLimiter } from '@/server/lib/rate-limiter';
 import { verifyTurnstileToken } from '@/server/lib/turnstile';
 import { logSecurityAudit } from '@/server/lib/audit';
@@ -348,6 +349,7 @@ const loginService = {
     }
 
     await sessionService.revokeSession(userId, uuid)
+    await sudoService.clearSudo(userId).catch(() => {})
   },
 
 }

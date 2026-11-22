@@ -81,6 +81,8 @@ function buildBaseHeaders(allowedOrigin, requestOrigin) {
     "Cross-Origin-Resource-Policy": "cross-origin",
     "Vary": "Accept",
     "X-Content-Type-Options": "nosniff",
+    "Content-Security-Policy": "default-src 'none'; sandbox;",
+    "X-Frame-Options": "SAMEORIGIN",
   })
 }
 
