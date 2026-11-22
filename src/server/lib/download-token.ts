@@ -5,8 +5,23 @@ import crypto from 'node:crypto';
  * Prevents hotlinking, scraping, and link leeching of full-resolution media downloads.
  */
 
+// Ephemeral cryptographically random fallback secret generated on process boot for non-production environments
+const ephemeralFallbackSecret = crypto.randomBytes(32).toString('hex');
+
 function getDownloadSigningSecret(): string {
-  return process.env.JWT_SECRET || process.env.MEDIA_GATEWAY_SECRET || 'naypict-download-signing-key-production';
+  const secret = process.env.DOWNLOAD_SIGNING_SECRET?.trim() ||
+    process.env.JWT_SECRET?.trim() ||
+    process.env.MEDIA_GATEWAY_SECRET?.trim();
+
+  if (secret) {
+    return secret;
+  }
+
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('FATAL: [SECURITY] DOWNLOAD_SIGNING_SECRET, JWT_SECRET, or MEDIA_GATEWAY_SECRET must be configured in production to prevent download token forgery.');
+  }
+
+  return ephemeralFallbackSecret;
 }
 
 /**

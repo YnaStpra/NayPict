@@ -16,25 +16,31 @@ import {
 
 // According to storage id Query available storage configurations with resilient multi-tier fallback.
 async function getStorage(storageId: string): Promise<Storage> {
+  const cleanId = storageId?.trim();
   let storageList = await storageService.getStorageList();
-  let fileStorage = storageList.find((item) => item.storageId === storageId);
+  let fileStorage = cleanId ? storageList.find((item) => item.storageId === cleanId) : undefined;
 
-  // 1. If not found in cached list, force-refresh from database
-  if (!fileStorage) {
+  // 1. If not found in cached list and cleanId is provided, force-refresh from database
+  if (!fileStorage && cleanId) {
     storageList = await storageService.getStorageList(true);
-    fileStorage = storageList.find((item) => item.storageId === storageId);
+    fileStorage = storageList.find((item) => item.storageId === cleanId);
   }
 
   // 2. If still not found, check database directly by storageId
-  if (!fileStorage && storageId) {
-    const directStorage = await storageService.getStorageById(storageId);
+  if (!fileStorage && cleanId) {
+    const directStorage = await storageService.getStorageById(cleanId);
     if (directStorage) {
       fileStorage = directStorage;
     }
   }
 
-  // 3. Graceful fallback: use first available storage if specified storageId was not found
-  if (!fileStorage && storageList.length > 0) {
+  // 3. Fail-Closed: If a specific storageId was explicitly supplied but not found, reject immediately
+  if (!fileStorage && cleanId) {
+    throw new BizError('storage.notFound');
+  }
+
+  // 4. Default fallback: only use primary storage if no storageId was specified at all
+  if (!fileStorage && !cleanId && storageList.length > 0) {
     fileStorage = storageList[0];
   }
 

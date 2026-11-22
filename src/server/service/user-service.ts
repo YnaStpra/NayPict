@@ -522,9 +522,10 @@ const userService = {
     // Clear login cache after switching status.
     await cache.delete(AUTH_CACHE_KEY + params.userId);
 
-    // If disabled, revoke all active sessions immediately across all devices
+    // If disabled, revoke all active sessions and elevated privileges immediately across all devices
     if (nextStatus === UserStatusEnum.DISABLE) {
       await sessionService.revokeAllSessions(params.userId).catch(() => {});
+      await sudoService.clearSudo(params.userId).catch(() => {});
     }
   },
 
@@ -588,8 +589,9 @@ const userService = {
     // Clear login cache after deleting user.
     await cache.delete(AUTH_CACHE_KEY + deleteUserId);
 
-    // Revoke all active sessions immediately across all devices
+    // Revoke all active sessions and elevated privileges immediately across all devices
     await sessionService.revokeAllSessions(deleteUserId).catch(() => {});
+    await sudoService.clearSudo(deleteUserId).catch(() => {});
   },
 }
 

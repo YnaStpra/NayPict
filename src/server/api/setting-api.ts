@@ -9,6 +9,7 @@ import { LANDING_PRIORITY_MAX_COUNT } from '@/server/const/global';
 import { settingService } from '@/server/service/setting-service';
 import { invalidatePhotoFastPathCache, photoService } from '@/server/service/photo-service';
 import { SettingRightClickGuardEnum } from '@/server/enums/setting-enum';
+import { sudoService } from '@/server/service/sudo-service';
 import type { HonoEnv } from '../hono/type';
 
 // This module registers system settings related interfaces.
@@ -24,13 +25,16 @@ export function registerSettingApi(app: Hono<HonoEnv>) {
     }));
   });
 
-  // Overwrite the entire system settings.
+  // Overwrite the entire system settings (Guarded by Administrative Sudo Mode).
   app.post('/setting/set', async (c: Context) => {
+    const userId = getUserId();
+    await sudoService.requireSudo(userId);
+
     const body = await c.req.json<Setting>();
     await settingService.set(body);
     logSecurityAudit({
       action: 'SETTING_SET',
-      userId: getUserId(),
+      userId,
       clientIp: getClientIp(c),
       details: {
         syncDelete: body?.syncDelete,
@@ -40,6 +44,7 @@ export function registerSettingApi(app: Hono<HonoEnv>) {
         watermarkText: body?.watermarkText,
         onThisDay: body?.onThisDay,
         rightClickGuard: body?.rightClickGuard,
+        hidePublicGps: body?.hidePublicGps,
       },
     });
     return c.json(result.ok());
