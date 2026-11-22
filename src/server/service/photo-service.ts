@@ -1031,11 +1031,14 @@ const photoService = {
       storageList = await storageService.getStorageList(true);
       targetStorage = storageList.find((s) => s.storageId === params.storageId);
       if (!targetStorage) {
-        targetStorage = (await storageService.getStorageById(params.storageId)) || storageList[0];
+        targetStorage = (await storageService.getStorageById(params.storageId)) || undefined;
+      }
+      if (!targetStorage) {
+        throw new BizError('storage.notFound');
       }
     }
 
-    if (!targetStorage) {
+    if (!targetStorage && !params.storageId) {
       targetStorage = storageList[0];
     }
 
@@ -1098,11 +1101,14 @@ const photoService = {
       storageList = await storageService.getStorageList(true);
       targetStorage = storageList.find((s) => s.storageId === params.storageId);
       if (!targetStorage) {
-        targetStorage = (await storageService.getStorageById(params.storageId)) || storageList[0];
+        targetStorage = (await storageService.getStorageById(params.storageId)) || undefined;
+      }
+      if (!targetStorage) {
+        throw new BizError('storage.notFound');
       }
     }
 
-    if (!targetStorage) {
+    if (!targetStorage && !params.storageId) {
       targetStorage = storageList[0];
     }
 
@@ -1160,11 +1166,14 @@ const photoService = {
       storageList = await storageService.getStorageList(true);
       targetStorage = storageList.find((s) => s.storageId === params.storageId);
       if (!targetStorage) {
-        targetStorage = (await storageService.getStorageById(params.storageId)) || storageList[0];
+        targetStorage = (await storageService.getStorageById(params.storageId)) || undefined;
+      }
+      if (!targetStorage) {
+        throw new BizError('storage.notFound');
       }
     }
 
-    if (!targetStorage) {
+    if (!targetStorage && !params.storageId) {
       targetStorage = storageList[0];
     }
 
@@ -1438,11 +1447,14 @@ const photoService = {
       fileStorageList = await storageService.getStorageList(true);
       fileStorage = fileStorageList.find((item: any) => item.storageId === targetStorageId);
       if (!fileStorage) {
-        fileStorage = (await storageService.getStorageById(targetStorageId)) || fileStorageList[0];
+        fileStorage = (await storageService.getStorageById(targetStorageId)) || undefined;
+      }
+      if (!fileStorage && storageId) {
+        throw new BizError('storage.notFound');
       }
     }
 
-    if (!fileStorage) {
+    if (!fileStorage && !storageId) {
       fileStorage = fileStorageList[0];
     }
 
@@ -1676,18 +1688,23 @@ const photoService = {
     }
 
     let fileStorageList = await storageService.getStorageList();
-    let videoStorage: Storage | undefined = fileStorageList.find((s) => s.storageId === storageId) || fileStorageList[0];
+    let videoStorage: Storage | undefined = storageId
+      ? fileStorageList.find((s) => s.storageId === storageId)
+      : fileStorageList[0];
 
     // If requested storageId not found in cache, force refresh from database
     if (!videoStorage && storageId) {
       fileStorageList = await storageService.getStorageList(true);
       videoStorage = fileStorageList.find((s) => s.storageId === storageId);
       if (!videoStorage) {
-        videoStorage = (await storageService.getStorageById(storageId)) || fileStorageList[0];
+        videoStorage = (await storageService.getStorageById(storageId)) || undefined;
+      }
+      if (!videoStorage) {
+        throw new BizError('storage.notFound');
       }
     }
 
-    if (!videoStorage) {
+    if (!videoStorage && !storageId) {
       videoStorage = fileStorageList[0];
     }
 
@@ -1965,17 +1982,22 @@ const photoService = {
     }
 
     let fileStorageList = await storageService.getStorageList();
-    let photoStorage: Storage | undefined = fileStorageList.find((s) => s.storageId === storageId) || fileStorageList[0];
+    let photoStorage: Storage | undefined = storageId
+      ? fileStorageList.find((s) => s.storageId === storageId)
+      : fileStorageList[0];
 
     if (!photoStorage && storageId) {
       fileStorageList = await storageService.getStorageList(true);
       photoStorage = fileStorageList.find((s) => s.storageId === storageId);
       if (!photoStorage) {
-        photoStorage = (await storageService.getStorageById(storageId)) || fileStorageList[0];
+        photoStorage = (await storageService.getStorageById(storageId)) || undefined;
+      }
+      if (!photoStorage) {
+        throw new BizError('storage.notFound');
       }
     }
 
-    if (!photoStorage) {
+    if (!photoStorage && !storageId) {
       photoStorage = fileStorageList[0];
     }
 

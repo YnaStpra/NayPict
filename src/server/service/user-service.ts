@@ -18,6 +18,7 @@ import { AUTH_CACHE_TTL } from '@/server/const/global';
 import { albumService } from '@/server/service/album-service';
 import { photoService } from '@/server/service/photo-service';
 import { sessionService } from '@/server/service/session-service';
+import { sudoService } from '@/server/service/sudo-service';
 import { storage } from '@/server/storage/storage';
 
 // This module handles user data query and writing related services.
@@ -460,6 +461,7 @@ const userService = {
     // Invalidate active login cache sessions across all devices for security
     await cache.delete(AUTH_CACHE_KEY + userId);
     await sessionService.revokeAllSessions(userId).catch(() => {});
+    await sudoService.clearSudo(userId).catch(() => {});
   },
 
   // Toggle the enabled status of a specified user with self-protection and last-admin safeguard.
@@ -520,9 +522,10 @@ const userService = {
     // Clear login cache after switching status.
     await cache.delete(AUTH_CACHE_KEY + params.userId);
 
-    // If disabled, revoke all active sessions immediately across all devices
+    // If disabled, revoke all active sessions and elevated privileges immediately across all devices
     if (nextStatus === UserStatusEnum.DISABLE) {
       await sessionService.revokeAllSessions(params.userId).catch(() => {});
+      await sudoService.clearSudo(params.userId).catch(() => {});
     }
   },
 
@@ -586,8 +589,9 @@ const userService = {
     // Clear login cache after deleting user.
     await cache.delete(AUTH_CACHE_KEY + deleteUserId);
 
-    // Revoke all active sessions immediately across all devices
+    // Revoke all active sessions and elevated privileges immediately across all devices
     await sessionService.revokeAllSessions(deleteUserId).catch(() => {});
+    await sudoService.clearSudo(deleteUserId).catch(() => {});
   },
 }
 

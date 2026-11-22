@@ -7,6 +7,7 @@ import result from '@/server/model/result';
 import { timingSafeEqual } from '@/server/lib/crypto';
 import { getClientIp } from '@/server/lib/ip';
 import { logSecurityAudit } from '@/server/lib/audit';
+import { cronRateLimiter } from '@/server/lib/rate-limiter';
 import type { HonoEnv } from '@/server/hono/type';
 
 // This module exposes scheduled maintenance endpoints for Vercel Cron and external automation triggers.
@@ -27,8 +28,18 @@ export function registerCronApi(app: Hono<HonoEnv>) {
       return c.json(result.fail('CRON_SECRET not configured on server.', 401), 401);
     }
 
+    const clientIp = getClientIp(c);
+    const rateLimit = await cronRateLimiter.consume(clientIp);
+    if (!rateLimit.allowed) {
+      logSecurityAudit({
+        action: 'CRON_CLEANUP_RATE_LIMITED',
+        clientIp,
+      });
+      c.header('Retry-After', String(Math.ceil(rateLimit.resetMs / 1000)));
+      return c.json(result.fail('Rate limit exceeded. Please wait a moment before retrying maintenance.', 429), 429);
+    }
+
     try {
-      const clientIp = getClientIp(c);
       logSecurityAudit({
         action: 'CRON_CLEANUP_EXECUTE',
         clientIp,

@@ -13,6 +13,19 @@ export interface SecurityAuditRecord {
   details?: Record<string, unknown>;
 }
 
+export interface SecurityAuditExportData {
+  exportVersion: string;
+  exportedAt: string;
+  exportedBy: string;
+  recordCount: number;
+  sha256Checksum: string;
+  records: SecurityAuditRecord[];
+}
+
 export function getSecurityAuditLogs(params?: { limit?: number; action?: string; severity?: string }) {
   return http.get<SecurityAuditRecord[]>('/security/audit', params as unknown as Record<string, unknown>);
+}
+
+export function exportSecurityAuditLogs() {
+  return http.get<SecurityAuditExportData>('/security/audit/export');
 }

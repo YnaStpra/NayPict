@@ -4,6 +4,7 @@ import { orm } from '@/server/infra/db';
 import { cache } from '@/server/infra/cache';
 import { verifyPasswordDetailed } from '@/server/lib/crypto';
 import BizError from '@/server/error/biz-error';
+import { totpService } from './totp-service';
 
 const SUDO_CACHE_PREFIX = 'sudo_session_';
 export const SUDO_TTL_SECONDS = 900; // 15 minutes validity window
@@ -16,9 +17,9 @@ export interface SudoSessionData {
 
 export const sudoService = {
   /**
-   * Verifies the administrator password and elevates the session to Sudo Mode for 15 minutes.
+   * Verifies the administrator password (and 2FA code if 2FA is active) and elevates the session to Sudo Mode for 15 minutes.
    */
-  async verifySudo(userId: string, password: string): Promise<boolean> {
+  async verifySudo(userId: string, password: string, code?: string): Promise<boolean> {
     if (!userId || !password) {
       return false;
     }
@@ -41,6 +42,33 @@ export const sudoService = {
     const { valid } = await verifyPasswordDetailed(password, user.salt, user.password);
     if (!valid) {
       return false;
+    }
+
+    // Two-factor authentication verification if 2FA is active on the account
+    const totpStatus = await totpService.getTotpStatus(userId).catch(() => ({ enabled: false, configured: false }));
+    if (totpStatus.enabled) {
+      const cleanCode = code?.trim();
+      if (!cleanCode) {
+        throw new BizError('totp.verificationRequired', 400);
+      }
+
+      let otpValid = false;
+      try {
+        otpValid = await totpService.verifyLoginTotp(userId, cleanCode);
+      } catch (err) {
+        if (err instanceof BizError && err.message === 'totp.codeAlreadyUsed') {
+          throw err;
+        }
+        otpValid = false;
+      }
+
+      // If TOTP code didn't match, attempt emergency backup code consumption
+      if (!otpValid) {
+        const backupValid = await totpService.verifyAndConsumeBackupCode(userId, cleanCode).catch(() => false);
+        if (!backupValid) {
+          throw new BizError('totp.invalidCode', 400);
+        }
+      }
     }
 
     const now = Date.now();

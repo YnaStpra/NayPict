@@ -52,8 +52,9 @@ const readArgs = [
 ]
 
 /**
- * Deep sanitization for EXIF string metadata to prevent Stored XSS attacks.
- * Strips HTML tags, removes javascript:/data: URIs, removes non-printable control chars, and caps max length.
+ * Deep sanitization for EXIF string metadata to prevent Stored XSS and XML/HTML injection attacks.
+ * Strips XML entity and DOCTYPE declarations, HTML/XML tags, javascript/vbscript/data URIs,
+ * neutralizes XML entities, removes non-printable control characters, and caps max length to 256 chars.
  */
 export function sanitizeExifString(input: unknown): string | unknown {
   if (typeof input !== "string") {
@@ -64,12 +65,17 @@ export function sanitizeExifString(input: unknown): string | unknown {
   }
 
   return input
-    .replace(/<[^>]*>?/gm, "") // Strip HTML tags
+    .replace(/<(script|style|iframe|object|embed)\b[^>]*>[\s\S]*?<\/\1>/gi, "") // Remove script/style/iframe tags and their contents
+    .replace(/<!DOCTYPE\b[^>\[]*(?:\[[\s\S]*?\])?\s*>/gi, "") // Remove DOCTYPE blocks (including internal DTD subsets)
+    .replace(/<!ENTITY\b[^>]*>/gi, "") // Remove standalone XML entity declarations
+    .replace(/<[^>]*>?/gm, "") // Strip HTML/XML tags
     .replace(/javascript:/gi, "") // Remove javascript pseudo-protocol
-    .replace(/data:\s*text\/html/gi, "") // Remove inline HTML data URIs
-    .replace(/[\u0000-\u0008\u000B-\u000C\u000E-\u001F\u007F]/g, "") // Remove ASCII control characters
+    .replace(/vbscript:/gi, "") // Remove vbscript pseudo-protocol
+    .replace(/data:\s*[^"'\s<>]+/gi, "") // Remove data URIs
+    .replace(/&[a-zA-Z0-9#xX]+;/g, "") // Remove XML/HTML entities
+    .replace(/[\u0000-\u0008\u000B-\u000C\u000E-\u001F\u007F-\u009F]/g, "") // Remove ASCII & Unicode control characters
     .trim()
-    .slice(0, 500); // Cap individual metadata tag length to 500 chars
+    .slice(0, 256); // Cap individual metadata tag length to 256 chars
 }
 
 function tagValueToJson(value: unknown) {

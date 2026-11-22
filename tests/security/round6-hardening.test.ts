@@ -92,6 +92,9 @@ describe('Round 6 Security & Hardening Test Suite', () => {
             if (name.toLowerCase() === 'cf-connecting-ip') {
               return '203.0.113.195';
             }
+            if (name.toLowerCase() === 'cf-ray') {
+              return '89abcdef01234567-SIN';
+            }
             return undefined;
           },
         },
