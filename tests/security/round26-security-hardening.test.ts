@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars */
+process.env.ENABLE_SUDO_MODE = 'true';
 import { describe, it, beforeEach, after } from 'node:test';
 import assert from 'node:assert/strict';
 import {

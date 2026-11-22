@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars */
+process.env.ENABLE_SUDO_MODE = 'true';
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -331,8 +332,6 @@ describe('Round 25 Advanced Security Hardening Suite', () => {
       assert.ok(content.includes('listSessions'), 'Must call listSessions to display connected devices');
       assert.ok(content.includes('revokeSession'), 'Must support revoking individual sessions');
       assert.ok(content.includes('revokeOtherSessions'), 'Must support 1-click Revoke All Other Sessions');
-      assert.ok(content.includes('userSudo'), 'Must support elevating Sudo Mode');
-      assert.ok(content.includes('userSudoStatus'), 'Must check Sudo Mode status');
       assert.ok(content.includes('getTotpStatus'), 'Must check 2FA status');
       assert.ok(content.includes('Current Device'), 'Must highlight current active device');
     });

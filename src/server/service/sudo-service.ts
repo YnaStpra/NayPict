@@ -94,6 +94,10 @@ export const sudoService = {
       return { active: false, remainingSeconds: 0 };
     }
 
+    if (process.env.ENABLE_SUDO_MODE !== 'true') {
+      return { active: true, remainingSeconds: 86400 };
+    }
+
     const data = await cache.get<SudoSessionData>(SUDO_CACHE_PREFIX + userId);
     if (!data || !data.elevated) {
       return { active: false, remainingSeconds: 0 };
@@ -113,11 +117,17 @@ export const sudoService = {
   },
 
   /**
-   * Guards high-risk administrative operations. Throws BizError('auth.sudoRequired', 403) if not in Sudo Mode.
+   * Guards high-risk administrative operations.
+   * If Sudo Mode is enabled via ENABLE_SUDO_MODE=true, requires session elevation.
+   * Otherwise (default for streamlined single-admin operations), any authenticated administrator is directly authorized.
    */
   async requireSudo(userId?: string): Promise<void> {
     if (!userId) {
       throw new BizError('auth.failed', 401);
+    }
+
+    if (process.env.ENABLE_SUDO_MODE !== 'true') {
+      return;
     }
 
     const status = await this.isSudoActive(userId);
