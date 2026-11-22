@@ -5,18 +5,7 @@ import { useRouter } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
 import { listSessions, revokeSession, revokeOtherSessions } from "@/request/session"
-import { userSudo, userSudoStatus, userSudoDrop } from "@/request/user"
 import { getTotpStatus } from "@/request/totp"
 import { getSecurityAuditLogs, exportSecurityAuditLogs, type SecurityAuditRecord } from "@/request/audit"
 import { type ActiveSessionVo } from "@/server/entity/vo/session"
@@ -33,13 +22,9 @@ import {
   RefreshCw,
   LogOut,
   Clock,
-  Lock,
-  Unlock,
   CheckCircle2,
   AlertTriangle,
   LoaderCircle,
-  Eye,
-  EyeOff,
   ExternalLink,
   Activity,
   ScrollText,
@@ -58,16 +43,6 @@ export function AdminSecurityCard({ has2Fa: initial2Fa, className = "" }: AdminS
   const [has2Fa, setHas2Fa] = useState(Boolean(initial2Fa))
   const [revokingUuid, setRevokingUuid] = useState<string | null>(null)
   const [revokingAll, setRevokingAll] = useState(false)
-
-  // Sudo Mode state
-  const [sudoActive, setSudoActive] = useState(false)
-  const [sudoRemaining, setSudoRemaining] = useState(0)
-  const [sudoDialogOpen, setSudoDialogOpen] = useState(false)
-  const [sudoPassword, setSudoPassword] = useState("")
-  const [showPassword, setShowPassword] = useState(false)
-  const [sudoCode, setSudoCode] = useState("")
-  const [sudoSubmitting, setSudoSubmitting] = useState(false)
-  const [lockingSudo, setLockingSudo] = useState(false)
 
   // Security Audit Trail state
   const [auditLogs, setAuditLogs] = useState<SecurityAuditRecord[]>([])
@@ -90,16 +65,13 @@ export function AdminSecurityCard({ has2Fa: initial2Fa, className = "" }: AdminS
   const fetchSecurityData = useCallback(async () => {
     setLoading(true)
     try {
-      const [sessionList, sudoInfo, totpInfo, logs] = await Promise.all([
+      const [sessionList, totpInfo, logs] = await Promise.all([
         listSessions().catch(() => []),
-        userSudoStatus().catch(() => ({ active: false, remainingSeconds: 0 })),
         getTotpStatus().catch(() => null),
         getSecurityAuditLogs({ limit: 60 }).catch(() => []),
       ])
 
       setSessions(sessionList || [])
-      setSudoActive(Boolean(sudoInfo?.active))
-      setSudoRemaining(sudoInfo?.remainingSeconds || 0)
       if (totpInfo) {
         setHas2Fa(Boolean(totpInfo.enabled))
       }
@@ -117,57 +89,7 @@ export function AdminSecurityCard({ has2Fa: initial2Fa, className = "" }: AdminS
     fetchSecurityData()
   }, [fetchSecurityData])
 
-  // Count down Sudo Mode timer
-  useEffect(() => {
-    if (!sudoActive || sudoRemaining <= 0) return
-    const timer = setInterval(() => {
-      setSudoRemaining((prev) => {
-        if (prev <= 1) {
-          setSudoActive(false)
-          return 0
-        }
-        return prev - 1
-      })
-    }, 1000)
-    return () => clearInterval(timer)
-  }, [sudoActive, sudoRemaining])
-
-  const handleElevateSudo = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!sudoPassword.trim()) {
-      toast.error("Please enter your account password")
-      return
-    }
-    if (has2Fa && !sudoCode.trim()) {
-      toast.error("Please enter your 2FA verification code")
-      return
-    }
-
-    setSudoSubmitting(true)
-    try {
-      const res = await userSudo(sudoPassword, sudoCode.trim() || undefined)
-      if (res?.active) {
-        setSudoActive(true)
-        setSudoRemaining(res.remainingSeconds || 900)
-        setSudoDialogOpen(false)
-        setSudoPassword("")
-        setSudoCode("")
-        toast.success("Sudo Mode elevated! Privileged actions unlocked for 15 minutes.")
-      }
-    } catch (err) {
-      toast.error(humanizeError(err, "Failed to verify administrator credentials."))
-    } finally {
-      setSudoSubmitting(false)
-    }
-  }
-
   const handleExportAuditLogs = async () => {
-    if (!sudoActive) {
-      toast.error("Sudo Mode elevation is required to export forensic audit logs.")
-      setSudoDialogOpen(true)
-      return
-    }
-
     setExportingLogs(true)
     try {
       const exportData = await exportSecurityAuditLogs()
@@ -186,21 +108,6 @@ export function AdminSecurityCard({ has2Fa: initial2Fa, className = "" }: AdminS
       toast.error(humanizeError(err, "Failed to export forensic audit logs."))
     } finally {
       setExportingLogs(false)
-    }
-  }
-
-  const handleLockSudo = async () => {
-    setLockingSudo(true)
-    try {
-      await userSudoDrop()
-      setSudoActive(false)
-      setSudoRemaining(0)
-      toast.success("Sudo Mode locked. Administrative actions re-secured.")
-      void fetchAuditLogs()
-    } catch (err) {
-      toast.error(humanizeError(err, "Failed to lock Sudo Mode."))
-    } finally {
-      setLockingSudo(false)
     }
   }
 
@@ -261,12 +168,6 @@ export function AdminSecurityCard({ has2Fa: initial2Fa, className = "" }: AdminS
     return `${Math.floor(diff / 86400)}d ago`
   }
 
-  const formatRemainingMinutes = (seconds: number) => {
-    const mins = Math.floor(seconds / 60)
-    const secs = seconds % 60
-    return `${mins}:${secs.toString().padStart(2, "0")}`
-  }
-
   const otherSessionsCount = sessions.filter((s) => !s.isCurrent).length
 
   const filteredLogs = auditLogs.filter((log) => {
@@ -304,18 +205,11 @@ export function AdminSecurityCard({ has2Fa: initial2Fa, className = "" }: AdminS
 
         {/* Security Posture Status Badges */}
         <div className="flex flex-wrap items-center gap-2 pt-3">
-          {/* Sudo Mode Privilege Badge */}
-          {sudoActive ? (
-            <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/30 gap-1.5 py-1 px-2.5">
-              <Unlock className="size-3.5" />
-              <span>Sudo Mode Elevated ({formatRemainingMinutes(sudoRemaining)})</span>
-            </Badge>
-          ) : (
-            <Badge variant="outline" className="border-amber-500/30 text-amber-700 dark:text-amber-400 bg-amber-500/10 gap-1.5 py-1 px-2.5">
-              <Lock className="size-3.5" />
-              <span>Sudo Mode Inactive</span>
-            </Badge>
-          )}
+          {/* Administrator Role Badge */}
+          <Badge className="bg-primary/15 text-primary border-primary/30 gap-1.5 py-1 px-2.5">
+            <ShieldCheck className="size-3.5" />
+            <span>Administrator Access Active</span>
+          </Badge>
 
           {/* 2FA Status Badge */}
           {has2Fa ? (
@@ -333,34 +227,6 @@ export function AdminSecurityCard({ has2Fa: initial2Fa, className = "" }: AdminS
               <span>Configure 2FA</span>
               <ExternalLink className="size-3 ml-0.5 opacity-60" />
             </Badge>
-          )}
-
-          {/* Elevate Button if not active */}
-          {!sudoActive ? (
-            <Button
-              variant="secondary"
-              size="sm"
-              className="h-7 text-xs gap-1.5 px-2.5 cursor-pointer"
-              onClick={() => setSudoDialogOpen(true)}
-            >
-              <KeyRound className="size-3.5 text-primary" />
-              <span>Elevate Sudo</span>
-            </Button>
-          ) : (
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-7 text-xs gap-1.5 px-2.5 cursor-pointer text-amber-700 dark:text-amber-400 border-amber-500/30 hover:bg-amber-500/10"
-              onClick={handleLockSudo}
-              disabled={lockingSudo}
-            >
-              {lockingSudo ? (
-                <LoaderCircle className="size-3.5 animate-spin" />
-              ) : (
-                <Lock className="size-3.5" />
-              )}
-              <span>Lock Sudo Now</span>
-            </Button>
           )}
         </div>
       </CardHeader>
@@ -578,93 +444,6 @@ export function AdminSecurityCard({ has2Fa: initial2Fa, className = "" }: AdminS
           </div>
         )}
       </div>
-
-      {/* Sudo Mode Password Elevation Dialog */}
-      <Dialog open={sudoDialogOpen} onOpenChange={setSudoDialogOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <KeyRound className="size-5 text-primary" />
-              <span>Elevate to Sudo Mode</span>
-            </DialogTitle>
-            <DialogDescription className="text-xs text-muted-foreground">
-              Re-enter your administrative account password to unlock high-risk destructive actions (purging trash, clearing orphan storage files) for 15 minutes.
-            </DialogDescription>
-          </DialogHeader>
-
-          <form onSubmit={handleElevateSudo} className="space-y-4 pt-2">
-            <div className="space-y-2">
-              <Label htmlFor="sudo-password" className="text-xs font-medium">
-                Admin Account Password
-              </Label>
-              <div className="relative">
-                <Input
-                  id="sudo-password"
-                  type={showPassword ? "text" : "password"}
-                  placeholder="Enter password..."
-                  value={sudoPassword}
-                  onChange={(e) => setSudoPassword(e.target.value)}
-                  autoFocus
-                  disabled={sudoSubmitting}
-                  className="h-9 pr-9"
-                />
-                <button
-                  type="button"
-                  tabIndex={-1}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-                  onClick={() => setShowPassword(!showPassword)}
-                  aria-label={showPassword ? "Hide password" : "Show password"}
-                >
-                  {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-                </button>
-              </div>
-            </div>
-
-            {has2Fa && (
-              <div className="space-y-2">
-                <Label htmlFor="sudo-code" className="text-xs font-medium">
-                  2FA Verification Code
-                </Label>
-                <Input
-                  id="sudo-code"
-                  type="text"
-                  placeholder="Enter 6-digit OTP or backup code..."
-                  value={sudoCode}
-                  onChange={(e) => setSudoCode(e.target.value)}
-                  disabled={sudoSubmitting}
-                  className="h-9 font-mono tracking-wider"
-                  autoComplete="one-time-code"
-                />
-              </div>
-            )}
-
-            <DialogFooter className="gap-2 sm:gap-0 pt-2">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  setSudoDialogOpen(false)
-                  setSudoPassword("")
-                  setSudoCode("")
-                }}
-                disabled={sudoSubmitting}
-              >
-                Cancel
-              </Button>
-              <Button
-                type="submit"
-                size="sm"
-                className="gap-1.5 shadow-sm"
-                disabled={sudoSubmitting || !sudoPassword.trim() || (has2Fa && !sudoCode.trim())}
-              >
-                {sudoSubmitting && <LoaderCircle className="size-3.5 animate-spin" />}
-                <span>Confirm & Elevate</span>
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
     </Card>
   )
 }

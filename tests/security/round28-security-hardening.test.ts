@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars */
+process.env.ENABLE_SUDO_MODE = 'true';
 process.env.JWT_SECRET = process.env.JWT_SECRET || 'supersecretfornaypicttests1234567890';
 import { describe, it, beforeEach, after } from 'node:test';
 import assert from 'node:assert/strict';

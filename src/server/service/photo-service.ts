@@ -480,15 +480,15 @@ const photoService = {
     const isSubsequentPage = Boolean(params.cursorPhotoId || (params.offset && params.offset > 0) || (params.photoIds?.length && shuffledTotalCount === undefined));
     const countQueryPromise = (!isSubsequentPage && shuffledTotalCount === undefined)
       ? (params.albumId
-          ? readOrm
-            .select({ total: count() })
-            .from(photoTab)
-            .innerJoin(albumPhotoTab, eq(photoTab.photoId, albumPhotoTab.photoId))
-            .where(and(...baseWhereList, eq(albumPhotoTab.albumId, params.albumId)))
-          : readOrm
-            .select({ total: count() })
-            .from(photoTab)
-            .where(and(...baseWhereList)))
+        ? readOrm
+          .select({ total: count() })
+          .from(photoTab)
+          .innerJoin(albumPhotoTab, eq(photoTab.photoId, albumPhotoTab.photoId))
+          .where(and(...baseWhereList, eq(albumPhotoTab.albumId, params.albumId)))
+        : readOrm
+          .select({ total: count() })
+          .from(photoTab)
+          .where(and(...baseWhereList)))
       : null;
 
     const listQueryPromise = params.albumId
@@ -508,21 +508,21 @@ const photoService = {
           ...(params.sortBy
             ? []
             : [
-                desc(albumPhotoTab.isPinned),
-                desc(albumPhotoTab.pinnedAt),
-              ]),
+              desc(albumPhotoTab.isPinned),
+              desc(albumPhotoTab.pinnedAt),
+            ]),
           ...(params.sortBy === 'type'
             ? [
-                asc(typeRankSql),
-                desc(sql`COALESCE(${photoTab.takenTime}, '')`),
-                desc(photoTab.photoId),
-              ]
+              asc(typeRankSql),
+              desc(sql`COALESCE(${photoTab.takenTime}, '')`),
+              desc(photoTab.photoId),
+            ]
             : [
-                params.photoIds?.length
-                  ? asc(photoTab.photoId)
-                  : (params.shuffle && !params.sortBy && !params.cursorPhotoId ? sql`RANDOM()` : sortFn(orderColumn)),
-                sortFn(photoTab.photoId),
-              ])
+              params.photoIds?.length
+                ? asc(photoTab.photoId)
+                : (params.shuffle && !params.sortBy && !params.cursorPhotoId ? sql`RANDOM()` : sortFn(orderColumn)),
+              sortFn(photoTab.photoId),
+            ])
         )
         .offset(offset)
         .limit(size)
@@ -533,16 +533,16 @@ const photoService = {
         .orderBy(
           ...(params.sortBy === 'type'
             ? [
-                asc(typeRankSql),
-                desc(sql`COALESCE(${photoTab.takenTime}, '')`),
-                desc(photoTab.photoId),
-              ]
+              asc(typeRankSql),
+              desc(sql`COALESCE(${photoTab.takenTime}, '')`),
+              desc(photoTab.photoId),
+            ]
             : [
-                params.photoIds?.length
-                  ? asc(photoTab.photoId)
-                  : (params.shuffle && !params.sortBy && !params.cursorPhotoId ? sql`RANDOM()` : sortFn(orderColumn)),
-                sortFn(photoTab.photoId),
-              ])
+              params.photoIds?.length
+                ? asc(photoTab.photoId)
+                : (params.shuffle && !params.sortBy && !params.cursorPhotoId ? sql`RANDOM()` : sortFn(orderColumn)),
+              sortFn(photoTab.photoId),
+            ])
         )
         .offset(offset)
         .limit(size);
@@ -3340,11 +3340,11 @@ const photoService = {
       ...(userId
         ? []
         : [
-            or(
-              inArray(photoTab.visibility, [PhotoVisibilityEnum.BOTH, PhotoVisibilityEnum.GALLERY_ONLY]),
-              isNull(photoTab.visibility)
-            )!,
-          ]),
+          or(
+            inArray(photoTab.visibility, [PhotoVisibilityEnum.BOTH, PhotoVisibilityEnum.GALLERY_ONLY]),
+            isNull(photoTab.visibility)
+          )!,
+        ]),
     ];
 
     const archivedIds = await getArchivedAlbumIds();
@@ -3417,9 +3417,9 @@ const photoService = {
       userId
         ? undefined
         : or(
-            inArray(photoTab.visibility, [PhotoVisibilityEnum.BOTH, PhotoVisibilityEnum.GALLERY_ONLY]),
-            isNull(photoTab.visibility)
-          )
+          inArray(photoTab.visibility, [PhotoVisibilityEnum.BOTH, PhotoVisibilityEnum.GALLERY_ONLY]),
+          isNull(photoTab.visibility)
+        )
     );
 
     const rows = await readOrm

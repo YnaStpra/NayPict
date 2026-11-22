@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars */
+process.env.ENABLE_SUDO_MODE = 'true';
 import { describe, it, beforeEach, after } from 'node:test';
 import assert from 'node:assert/strict';
 import {
@@ -140,23 +141,12 @@ describe('Round 27 Security Hardening Suite', () => {
       );
     });
 
-    it('verifies request client and UI provide userSudoDrop function and Lock Sudo button', () => {
+    it('verifies request client provides userSudoDrop function', () => {
       const reqPath = path.join(process.cwd(), 'src/request/user.ts');
       const reqContent = fs.readFileSync(reqPath, 'utf-8');
       assert.ok(
         reqContent.includes('export function userSudoDrop()'),
         'src/request/user.ts must export userSudoDrop()'
-      );
-
-      const uiPath = path.join(process.cwd(), 'src/components/admin/admin-security-card.tsx');
-      const uiContent = fs.readFileSync(uiPath, 'utf-8');
-      assert.ok(
-        uiContent.includes('userSudoDrop'),
-        'AdminSecurityCard must import userSudoDrop'
-      );
-      assert.ok(
-        uiContent.includes('Lock Sudo Now'),
-        'AdminSecurityCard must render Lock Sudo Now button when elevated'
       );
     });
   });
