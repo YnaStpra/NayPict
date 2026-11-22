@@ -38,6 +38,8 @@ import {
   CheckCircle2,
   AlertTriangle,
   LoaderCircle,
+  Eye,
+  EyeOff,
   ExternalLink,
   Activity,
   ScrollText,
@@ -62,6 +64,7 @@ export function AdminSecurityCard({ has2Fa: initial2Fa, className = "" }: AdminS
   const [sudoRemaining, setSudoRemaining] = useState(0)
   const [sudoDialogOpen, setSudoDialogOpen] = useState(false)
   const [sudoPassword, setSudoPassword] = useState("")
+  const [showPassword, setShowPassword] = useState(false)
   const [sudoCode, setSudoCode] = useState("")
   const [sudoSubmitting, setSudoSubmitting] = useState(false)
   const [lockingSudo, setLockingSudo] = useState(false)
@@ -594,16 +597,27 @@ export function AdminSecurityCard({ has2Fa: initial2Fa, className = "" }: AdminS
               <Label htmlFor="sudo-password" className="text-xs font-medium">
                 Admin Account Password
               </Label>
-              <Input
-                id="sudo-password"
-                type="password"
-                placeholder="Enter password..."
-                value={sudoPassword}
-                onChange={(e) => setSudoPassword(e.target.value)}
-                autoFocus
-                disabled={sudoSubmitting}
-                className="h-9"
-              />
+              <div className="relative">
+                <Input
+                  id="sudo-password"
+                  type={showPassword ? "text" : "password"}
+                  placeholder="Enter password..."
+                  value={sudoPassword}
+                  onChange={(e) => setSudoPassword(e.target.value)}
+                  autoFocus
+                  disabled={sudoSubmitting}
+                  className="h-9 pr-9"
+                />
+                <button
+                  type="button"
+                  tabIndex={-1}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                  onClick={() => setShowPassword(!showPassword)}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                >
+                  {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                </button>
+              </div>
             </div>
 
             {has2Fa && (

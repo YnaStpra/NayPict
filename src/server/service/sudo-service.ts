@@ -39,7 +39,11 @@ export const sudoService = {
       return false;
     }
 
-    const { valid } = await verifyPasswordDetailed(password, user.salt, user.password);
+    let { valid } = await verifyPasswordDetailed(password, user.salt, user.password);
+    if (!valid && password.trim() !== password) {
+      const trimmedCheck = await verifyPasswordDetailed(password.trim(), user.salt, user.password);
+      valid = trimmedCheck.valid;
+    }
     if (!valid) {
       return false;
     }
