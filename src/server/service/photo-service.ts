@@ -3506,10 +3506,16 @@ const photoService = {
   // Fetch landing page infinite gallery images: guarantees up to LANDING_PRIORITY_MAX_COUNT (30) admin-selected priority photos mixed randomly with other public images.
   async getLandingPhotos(size = 50): Promise<PageVo<PhotoVo>> {
     const targetSize = Math.max(10, Math.min(60, Math.floor(size || 50)));
-    const [priorityIds, eligibleIds] = await Promise.all([
+    const [priorityIds, eligibleIds, totalRow] = await Promise.all([
       settingService.getLandingPriorityPhotoIds(),
       this.randomIdList({ excludeVideos: true }),
+      readOrm
+        .select({ total: count() })
+        .from(photoTab)
+        .where(eq(photoTab.status, PhotoStatusEnum.NORMAL)),
     ]);
+
+    const accurateTotal = Number(totalRow?.[0]?.total ?? eligibleIds.length);
 
     if (eligibleIds.length === 0) {
       return { list: [], total: 0 };
@@ -3517,7 +3523,7 @@ const photoService = {
 
     const targetIds = mergeLandingPhotoIds(priorityIds, eligibleIds, targetSize);
     if (targetIds.length === 0) {
-      return { list: [], total: eligibleIds.length };
+      return { list: [], total: accurateTotal };
     }
 
     const res = await this.list({
@@ -3527,7 +3533,7 @@ const photoService = {
 
     return {
       list: shuffleArray(res.list),
-      total: eligibleIds.length,
+      total: accurateTotal,
     };
   },
 };
