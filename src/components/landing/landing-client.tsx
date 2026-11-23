@@ -185,6 +185,15 @@ export function LandingClient({ initialPhotos, initialTotal }: LandingClientProp
         />
         {/* Multi-Layer Depth Vignette Mask */}
         <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/35 to-black/65 backdrop-blur-[1px] pointer-events-none" />
+
+        {/* Ambient Top-Left Dark Scrim: Prevents bright floating photos from washing out editorial typography */}
+        <div
+          className="pointer-events-none absolute top-0 left-0 w-full max-w-[700px] h-[520px] z-10"
+          style={{
+            background:
+              'radial-gradient(ellipse 90% 85% at 0% 0%, rgba(0, 0, 0, 0.88) 0%, rgba(0, 0, 0, 0.6) 45%, rgba(0, 0, 0, 0.25) 75%, transparent 100%)',
+          }}
+        />
       </div>
 
       {/* =========================================================================
@@ -221,11 +230,13 @@ export function LandingClient({ initialPhotos, initialTotal }: LandingClientProp
 
           {/* Editorial Typography (Placed directly underneath "NayPict Visual Archive") */}
           <div className="space-y-1 sm:space-y-1.5">
-            <h1 className="text-xl sm:text-3xl md:text-4xl lg:text-5xl font-black tracking-tight text-white drop-shadow-2xl leading-[1.08]">
+            <h1 className="text-xl sm:text-3xl md:text-4xl lg:text-5xl font-black tracking-tight text-white leading-[1.08] [text-shadow:_0_2px_12px_rgba(0,0,0,0.95),_0_4px_28px_rgba(0,0,0,0.9)]">
               Visual Stories,<br />
-              <span className="text-neutral-400 font-light">Captured in Stillness.</span>
+              <span className="text-neutral-200 font-medium [text-shadow:_0_2px_12px_rgba(0,0,0,0.95),_0_4px_28px_rgba(0,0,0,0.9)]">
+                Captured in Stillness.
+              </span>
             </h1>
-            <p className="text-[11px] sm:text-xs md:text-sm text-neutral-300/90 font-normal leading-relaxed drop-shadow max-w-[290px] sm:max-w-sm md:max-w-md pt-0.5 line-clamp-2 md:line-clamp-none">
+            <p className="text-[11px] sm:text-xs md:text-sm text-neutral-200 font-medium leading-relaxed max-w-[290px] sm:max-w-sm md:max-w-md pt-0.5 line-clamp-2 md:line-clamp-none [text-shadow:_0_1px_8px_rgba(0,0,0,0.95)]">
               Glide freely through the infinite canvas. Tap any frame to inspect high-resolution photographs.
             </p>
           </div>
