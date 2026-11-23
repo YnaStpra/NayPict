@@ -4,7 +4,16 @@ import { useEffect, useState, useRef, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
-import { FolderHeart, Image as ImageIcon, ArrowRight, MapPin, Loader2 } from 'lucide-react'
+import {
+  FolderHeart,
+  Image as ImageIcon,
+  ArrowRight,
+  MapPin,
+  Loader2,
+  Eye,
+  EyeOff,
+  Sparkles,
+} from 'lucide-react'
 import { NaypictLogo } from '@/components/icons/naypict-logo'
 import { type PhotoVo } from '@/server/entity/vo/photo'
 import { photoLandingList } from '@/request/photo'
@@ -26,6 +35,7 @@ export function LandingClient({ initialPhotos, initialTotal }: LandingClientProp
   const router = useRouter()
   const [photos, setPhotos] = useState<PhotoVo[]>(initialPhotos || [])
   const [navigatingTarget, setNavigatingTarget] = useState<string | null>(null)
+  const [isZenMode, setIsZenMode] = useState(false)
 
   // Reset loading state if browser navigates back to landing page via bfcache
   useEffect(() => {
@@ -62,11 +72,9 @@ export function LandingClient({ initialPhotos, initialTotal }: LandingClientProp
     router.prefetch('/map')
   }, [router])
 
-  // Direct DOM Refs for Zero-Overhead 120 FPS Spotlight & 3D Tilt without React re-renders
-  const cardRef = useRef<HTMLDivElement>(null)
-  const glareRef = useRef<HTMLDivElement>(null)
+  // Hardware-Accelerated Spotlight Glow Follower Ref
   const spotlightRef = useRef<HTMLDivElement>(null)
-  const rafTiltRef = useRef<number | null>(null)
+  const rafSpotlightRef = useRef<number | null>(null)
 
   // Handle direct photo share URL redirect (e.g. /?photoId=123 -> /photos?photoId=123)
   useEffect(() => {
@@ -94,213 +102,266 @@ export function LandingClient({ initialPhotos, initialTotal }: LandingClientProp
       })
   }, [initialPhotos])
 
-  // Zero-React-Rerender Hardware-Accelerated Spotlight & 3D Tilt Tracking
+  // Keyboard shortcut listener: 'Z' toggles Zen mode, 'Escape' exits Zen mode
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) {
+        return
+      }
+
+      if (e.key === 'Escape' && isZenMode) {
+        setIsZenMode(false)
+      } else if ((e.key === 'z' || e.key === 'Z') && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        setIsZenMode((prev) => !prev)
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [isZenMode])
+
+  // Zero-React-Rerender Hardware-Accelerated Spotlight Tracking for Desktop/Pointer
   const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     const clientX = e.clientX
     const clientY = e.clientY
 
-    if (rafTiltRef.current !== null) {
-      cancelAnimationFrame(rafTiltRef.current)
+    if (rafSpotlightRef.current !== null) {
+      cancelAnimationFrame(rafSpotlightRef.current)
     }
 
-    rafTiltRef.current = requestAnimationFrame(() => {
-      // 1. Move Spotlight Halo on Compositor Thread (0ms React overhead)
+    rafSpotlightRef.current = requestAnimationFrame(() => {
       if (spotlightRef.current) {
         spotlightRef.current.style.transform = `translate3d(${clientX - 325}px, ${clientY - 325}px, 0)`
         spotlightRef.current.style.opacity = '1'
-      }
-
-      // 2. Compute 3D Perspective Tilt on Card (Desktop / Pointer)
-      if (!cardRef.current) return
-
-      const rect = cardRef.current.getBoundingClientRect()
-      const cardCenterX = rect.left + rect.width / 2
-      const cardCenterY = rect.top + rect.height / 2
-
-      const dx = (clientX - cardCenterX) / (rect.width / 2)
-      const dy = (clientY - cardCenterY) / (rect.height / 2)
-
-      const maxTilt = 8
-      const rotateX = Math.max(-maxTilt, Math.min(maxTilt, -dy * maxTilt))
-      const rotateY = Math.max(-maxTilt, Math.min(maxTilt, dx * maxTilt))
-
-      cardRef.current.style.transform = `rotateX(${rotateX.toFixed(2)}deg) rotateY(${rotateY.toFixed(2)}deg) translateZ(8px)`
-      cardRef.current.style.boxShadow = `0 24px 48px -12px rgba(0, 0, 0, 0.85), ${(-rotateY * 2).toFixed(1)}px ${(rotateX * 2).toFixed(1)}px 32px 0px rgba(255, 255, 255, 0.05)`
-
-      if (glareRef.current) {
-        const glareX = (((clientX - rect.left) / rect.width) * 100).toFixed(1)
-        const glareY = (((clientY - rect.top) / rect.height) * 100).toFixed(1)
-        glareRef.current.style.background = `radial-gradient(350px circle at ${glareX}% ${glareY}%, rgba(255, 255, 255, 0.2), transparent 70%)`
       }
     })
   }, [])
 
   const handleMouseLeave = useCallback(() => {
-    if (rafTiltRef.current !== null) {
-      cancelAnimationFrame(rafTiltRef.current)
+    if (rafSpotlightRef.current !== null) {
+      cancelAnimationFrame(rafSpotlightRef.current)
     }
 
     if (spotlightRef.current) {
       spotlightRef.current.style.opacity = '0'
     }
-
-    if (cardRef.current) {
-      cardRef.current.style.transform = 'rotateX(0deg) rotateY(0deg) translateZ(0px)'
-      cardRef.current.style.boxShadow = '0 24px 48px -12px rgba(0, 0, 0, 0.85)'
-    }
   }, [])
 
   const displayPhotos = useMemo(() => {
     const list = photos.length > 0 ? photos : initialPhotos
-    return list.filter((p) => !p.type?.startsWith("video/"))
+    return list.filter((p) => !p.type?.startsWith('video/'))
   }, [photos, initialPhotos])
+
+  const totalCuratedCount = initialTotal || photos.length || 0
 
   return (
     <main
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
-      className="relative w-screen h-screen h-[100dvh] overflow-hidden bg-black select-none perspective-1000"
+      className="relative w-screen h-screen h-[100dvh] overflow-hidden bg-black select-none"
     >
-      {/* Zero-Overhead Hardware-Composited Spotlight Glow Follower */}
+      {/* Zero-Overhead Hardware-Composited Spotlight Glow Follower (Pointer / Desktop only) */}
       <div
         ref={spotlightRef}
-        className="pointer-events-none absolute top-0 left-0 size-[650px] rounded-full opacity-0 transition-opacity duration-300 z-10 will-change-transform hidden sm:block"
+        className="pointer-events-none absolute top-0 left-0 size-[650px] rounded-full opacity-0 transition-opacity duration-300 z-10 will-change-transform hidden lg:block"
         style={{
-          background: 'radial-gradient(circle, rgba(255, 255, 255, 0.075) 0%, rgba(255, 255, 255, 0.02) 45%, transparent 70%)',
+          background: 'radial-gradient(circle, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.02) 45%, transparent 70%)',
         }}
       />
 
-      {/* Dynamic Infinite Canvas Background */}
+      {/* Dynamic 100% Full-Screen Infinite Canvas Background with Touch Momentum */}
       <div className="absolute inset-0 z-0">
         <InfiniteGallery
           photos={displayPhotos}
           onPhotoClick={handlePhotoClick}
           density={10}
-          imageWidth={170}
-          imageHeight={170}
-          rounded={8}
+          imageWidth={175}
+          imageHeight={175}
+          rounded={10}
           driftAmount={14}
           dragSpeed={18}
           friction={10}
-          className="w-full h-full"
+          className="w-full h-full cursor-grab active:cursor-grabbing touch-none"
         />
-        {/* Subtle Multi-Layer Dark Vignette */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/45 to-black/75 backdrop-blur-[1.5px] pointer-events-none" />
+        {/* Multi-Layer Depth Vignette Mask */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/35 to-black/65 backdrop-blur-[1px] pointer-events-none" />
       </div>
 
       {/* =========================================================================
-          ALWAYS-VISIBLE HERO CARD (Universal on Mobile & Desktop)
+          TOP BAR: Brand Identity & Live Photo Counter (Safe Area Aware)
          ========================================================================= */}
-      <div className="fixed inset-0 z-20 flex items-center justify-center p-4 sm:p-6 pointer-events-none">
-        <div
-          ref={cardRef}
-          id="landing-hero-card"
-          className="pointer-events-auto border-beam-container max-w-[340px] sm:max-w-md w-full rounded-[28px] sm:rounded-[32px] p-[1.5px] shadow-2xl perspective-card-inner will-change-transform"
-          style={{
-            transform: 'rotateX(0deg) rotateY(0deg) translateZ(0px)',
-            boxShadow: '0 24px 48px -12px rgba(0, 0, 0, 0.85)',
-          }}
-        >
-          {/* Conic Gradient Animated Border Beam Ray */}
-          <div className="border-beam-ray" />
-
-          {/* Glassmorphism Inner Content Card */}
-          <div className="relative z-10 w-full rounded-[27px] sm:rounded-[31px] bg-black/65 backdrop-blur-3xl border border-white/20 p-6 sm:p-8 text-center text-white flex flex-col items-center gap-5 sm:gap-6 overflow-hidden">
-            {/* Dynamic Surface Glare Reflection */}
-            <div
-              ref={glareRef}
-              className="pointer-events-none absolute inset-0 opacity-40 transition-opacity duration-300 hidden sm:block"
-            />
-
-            {/* Glowing Logo & Brand Icon */}
-            <div className="relative">
-              <div className="absolute -inset-2 rounded-2xl bg-gradient-to-r from-blue-500/20 via-purple-500/20 to-pink-500/20 opacity-80 blur-lg animate-pulse" />
-              <div className="relative size-16 sm:size-20 rounded-2xl bg-gradient-to-br from-neutral-900 via-black to-neutral-950 border border-white/25 flex items-center justify-center shadow-2xl p-3.5 sm:p-4">
-                <NaypictLogo
-                  className="size-full text-white drop-shadow-md select-none pointer-events-none"
-                  strokeWidth={18}
-                />
-              </div>
-            </div>
-
-            {/* Title & Tagline */}
-            <div className="space-y-1.5 sm:space-y-2">
-              <h1 className="text-3xl sm:text-5xl font-black tracking-tight text-white drop-shadow-lg">
-                NayPict
-              </h1>
-              <p className="text-xs sm:text-sm text-slate-300 font-medium max-w-xs mx-auto leading-relaxed">
-                Aesthetic Photo & Video Gallery • Curated Album Collection
-              </p>
-            </div>
-
-            {/* Prominent Navigation Action Buttons */}
-            <div className="flex flex-col gap-2.5 sm:gap-3 w-full pt-1">
-              <Link
-                href="/photos"
-                prefetch={true}
-                onClick={() => setNavigatingTarget('/photos')}
-                className={`btn-shimmer-interactive group relative flex items-center justify-between w-full h-11 sm:h-12 px-4 sm:px-5 rounded-2xl bg-white/10 hover:bg-white/20 active:bg-white/25 border border-white/25 text-white font-bold text-sm sm:text-base backdrop-blur-md hover:scale-[1.02] active:scale-[0.98] cursor-pointer shadow-lg transition-all ${
-                  navigatingTarget && navigatingTarget !== '/photos' ? 'opacity-60 pointer-events-none' : ''
-                } ${navigatingTarget === '/photos' ? 'ring-2 ring-white/40 bg-white/20 pointer-events-none' : ''}`}
-              >
-                <div className="flex items-center gap-3">
-                  <ImageIcon className="size-4.5 sm:size-5 text-white/90" />
-                  <span>Explore Gallery</span>
-                </div>
-                <div className="flex items-center">
-                  {navigatingTarget === '/photos' ? (
-                    <Loader2 className="size-4 animate-spin text-white" />
-                  ) : (
-                    <ArrowRight className="size-4 opacity-75 group-hover:translate-x-1 transition-transform" />
-                  )}
-                </div>
-              </Link>
-
-              <Link
-                href="/albums"
-                prefetch={true}
-                onClick={() => setNavigatingTarget('/albums')}
-                className={`btn-shimmer-interactive group relative flex items-center justify-between w-full h-11 sm:h-12 px-4 sm:px-5 rounded-2xl bg-white/10 hover:bg-white/20 active:bg-white/25 border border-white/25 text-white font-bold text-sm sm:text-base backdrop-blur-md hover:scale-[1.02] active:scale-[0.98] cursor-pointer shadow-lg transition-all ${
-                  navigatingTarget && navigatingTarget !== '/albums' ? 'opacity-60 pointer-events-none' : ''
-                } ${navigatingTarget === '/albums' ? 'ring-2 ring-white/40 bg-white/20 pointer-events-none' : ''}`}
-              >
-                <div className="flex items-center gap-3">
-                  <FolderHeart className="size-4.5 sm:size-5 text-white/90" />
-                  <span>Browse Albums</span>
-                </div>
-                <div className="flex items-center">
-                  {navigatingTarget === '/albums' ? (
-                    <Loader2 className="size-4 animate-spin text-white" />
-                  ) : (
-                    <ArrowRight className="size-4 opacity-75 group-hover:translate-x-1 transition-transform" />
-                  )}
-                </div>
-              </Link>
-
-              <Link
-                href="/map"
-                prefetch={true}
-                onClick={() => setNavigatingTarget('/map')}
-                className={`btn-shimmer-interactive group relative flex items-center justify-between w-full h-11 sm:h-12 px-4 sm:px-5 rounded-2xl bg-white/10 hover:bg-white/20 active:bg-white/25 border border-white/25 text-white font-bold text-sm sm:text-base backdrop-blur-md hover:scale-[1.02] active:scale-[0.98] cursor-pointer shadow-lg transition-all ${
-                  navigatingTarget && navigatingTarget !== '/map' ? 'opacity-60 pointer-events-none' : ''
-                } ${navigatingTarget === '/map' ? 'ring-2 ring-white/40 bg-white/20 pointer-events-none' : ''}`}
-              >
-                <div className="flex items-center gap-3">
-                  <MapPin className="size-4.5 sm:size-5 text-white/90" />
-                  <span>Interactive Map Explorer</span>
-                </div>
-                <div className="flex items-center">
-                  {navigatingTarget === '/map' ? (
-                    <Loader2 className="size-4 animate-spin text-white" />
-                  ) : (
-                    <ArrowRight className="size-4 opacity-75 group-hover:translate-x-1 transition-transform" />
-                  )}
-                </div>
-              </Link>
-            </div>
+      <header
+        className={`fixed top-0 inset-x-0 z-20 px-3.5 sm:px-6 flex items-center justify-between pointer-events-none transition-all duration-500 ease-out ${
+          isZenMode ? 'opacity-0 -translate-y-4 pointer-events-none' : 'opacity-100 translate-y-0'
+        }`}
+        style={{
+          paddingTop: 'max(0.75rem, env(safe-area-inset-top, 0.75rem))',
+          paddingLeft: 'max(0.875rem, env(safe-area-inset-left, 0.875rem))',
+          paddingRight: 'max(0.875rem, env(safe-area-inset-right, 0.875rem))',
+        }}
+      >
+        {/* Top-Left Brand Pill */}
+        <div className="pointer-events-auto flex items-center gap-2 sm:gap-2.5 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-xl sm:rounded-2xl bg-black/60 border border-white/15 backdrop-blur-xl shadow-2xl hover:border-white/30 transition-all">
+          <div className="size-5 sm:size-7 rounded-md sm:rounded-lg bg-white/10 flex items-center justify-center p-0.5 sm:p-1 border border-white/20 flex-shrink-0">
+            <NaypictLogo className="size-full text-white" strokeWidth={18} />
+          </div>
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            <span className="text-xs sm:text-sm font-black tracking-tight text-white drop-shadow">
+              NayPict
+            </span>
+            <div className="hidden sm:block w-px h-3 bg-white/20" />
+            <span className="hidden sm:inline-block text-[10px] font-mono tracking-widest text-neutral-400 uppercase">
+              Visual Archive
+            </span>
           </div>
         </div>
+
+        {/* Top-Right Curated Counter Pill (Responsive: hidden on very narrow screens) */}
+        {totalCuratedCount > 0 && (
+          <div className="pointer-events-auto hidden min-[480px]:flex items-center gap-2 px-3 py-1 sm:py-1.5 rounded-full bg-black/60 border border-white/15 backdrop-blur-xl text-neutral-300 text-[11px] sm:text-xs font-medium shadow-2xl">
+            <span className="relative flex size-2 flex-shrink-0">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+              <span className="relative inline-flex rounded-full size-2 bg-emerald-500" />
+            </span>
+            <span>
+              {totalCuratedCount.toLocaleString()} Captures
+            </span>
+          </div>
+        )}
+      </header>
+
+      {/* =========================================================================
+          BOTTOM REGION: Editorial Typography & Floating Glass Dock
+          Responsive across Mobile (<640px), Tablet (640-1024px), Desktop (>1024px)
+         ========================================================================= */}
+      <div
+        className={`fixed bottom-0 inset-x-0 z-20 px-3.5 sm:px-6 md:px-8 flex flex-col pointer-events-none transition-all duration-500 ease-out ${
+          isZenMode ? 'opacity-0 translate-y-6 pointer-events-none' : 'opacity-100 translate-y-0'
+        }`}
+        style={{
+          paddingBottom: 'max(1rem, env(safe-area-inset-bottom, 1rem))',
+          paddingLeft: 'max(0.875rem, env(safe-area-inset-left, 0.875rem))',
+          paddingRight: 'max(0.875rem, env(safe-area-inset-right, 0.875rem))',
+        }}
+      >
+        <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 sm:gap-6">
+          {/* Editorial Typography (Bottom-Left on Tablet & Desktop; Stacked on Mobile) */}
+          <div className="pointer-events-auto space-y-1 sm:space-y-1.5 max-w-sm md:max-w-md lg:max-w-lg">
+            <div className="inline-flex items-center gap-1.5 px-2 sm:px-2.5 py-0.5 rounded-full bg-white/10 border border-white/20 backdrop-blur-md text-[9px] sm:text-[10px] font-mono tracking-wider uppercase text-neutral-300">
+              <Sparkles className="size-2.5 sm:size-3 text-emerald-400" />
+              <span>Curated Exhibition</span>
+            </div>
+            <h1 className="text-xl sm:text-3xl md:text-4xl lg:text-5xl font-black tracking-tight text-white drop-shadow-2xl leading-[1.08]">
+              Visual Stories,<br />
+              <span className="text-neutral-400 font-light">Captured in Stillness.</span>
+            </h1>
+            <p className="text-[11px] sm:text-xs md:text-sm text-neutral-300/90 font-normal leading-relaxed drop-shadow max-w-[290px] sm:max-w-sm md:max-w-md pt-0.5 line-clamp-2 md:line-clamp-none">
+              Glide freely through the infinite canvas. Tap any frame to inspect high-resolution photographs.
+            </p>
+          </div>
+
+          {/* Floating Glass Pill Dock (iOS / Dynamic Island Glassmorphism) */}
+          <nav
+            aria-label="Main gallery navigation"
+            className="pointer-events-auto self-center md:self-end flex items-center gap-1 sm:gap-1.5 p-1 sm:p-1.5 md:p-2 rounded-2xl md:rounded-full bg-black/75 backdrop-blur-2xl border border-white/20 shadow-[0_20px_50px_rgba(0,0,0,0.85)] hover:border-white/30 transition-all duration-300 max-w-full"
+          >
+            {/* Primary Action: Explore Gallery */}
+            <Link
+              href="/photos"
+              prefetch={true}
+              onClick={() => setNavigatingTarget('/photos')}
+              className={`group relative flex items-center justify-center gap-1.5 sm:gap-2 min-h-[44px] px-3.5 sm:px-5 py-2 sm:py-2.5 rounded-xl md:rounded-full bg-white text-black font-bold text-xs sm:text-sm shadow-xl hover:bg-neutral-100 active:scale-[0.98] transition-all cursor-pointer ${
+                navigatingTarget && navigatingTarget !== '/photos' ? 'opacity-60 pointer-events-none' : ''
+              } ${navigatingTarget === '/photos' ? 'ring-2 ring-white/50 bg-white/90 pointer-events-none' : ''}`}
+            >
+              <ImageIcon className="size-4 text-black flex-shrink-0" />
+              <span className="tracking-tight whitespace-nowrap">
+                <span className="inline sm:hidden">Explore</span>
+                <span className="hidden sm:inline">Explore Gallery</span>
+              </span>
+              <div className="flex items-center">
+                {navigatingTarget === '/photos' ? (
+                  <Loader2 className="size-3.5 animate-spin text-black" />
+                ) : (
+                  <ArrowRight className="size-3.5 opacity-75 group-hover:translate-x-0.5 transition-transform" />
+                )}
+              </div>
+            </Link>
+
+            {/* Secondary Action: Albums */}
+            <Link
+              href="/albums"
+              prefetch={true}
+              onClick={() => setNavigatingTarget('/albums')}
+              className={`group flex items-center justify-center gap-1.5 sm:gap-2 min-h-[44px] px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl md:rounded-full text-neutral-300 hover:text-white hover:bg-white/10 active:bg-white/15 text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
+                navigatingTarget && navigatingTarget !== '/albums' ? 'opacity-60 pointer-events-none' : ''
+              } ${navigatingTarget === '/albums' ? 'bg-white/15 text-white pointer-events-none' : ''}`}
+            >
+              <FolderHeart className="size-4 text-neutral-300 group-hover:text-white transition-colors flex-shrink-0" />
+              <span className="whitespace-nowrap">Albums</span>
+              {navigatingTarget === '/albums' && (
+                <Loader2 className="size-3.5 animate-spin text-white" />
+              )}
+            </Link>
+
+            {/* Secondary Action: Map Explorer */}
+            <Link
+              href="/map"
+              prefetch={true}
+              onClick={() => setNavigatingTarget('/map')}
+              className={`group flex items-center justify-center gap-1.5 sm:gap-2 min-h-[44px] px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl md:rounded-full text-neutral-300 hover:text-white hover:bg-white/10 active:bg-white/15 text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
+                navigatingTarget && navigatingTarget !== '/map' ? 'opacity-60 pointer-events-none' : ''
+              } ${navigatingTarget === '/map' ? 'bg-white/15 text-white pointer-events-none' : ''}`}
+            >
+              <MapPin className="size-4 text-neutral-300 group-hover:text-white transition-colors flex-shrink-0" />
+              <span className="whitespace-nowrap">Map</span>
+              {navigatingTarget === '/map' && (
+                <Loader2 className="size-3.5 animate-spin text-white" />
+              )}
+            </Link>
+
+            {/* Divider */}
+            <div className="w-px h-5 bg-white/20 mx-0.5" />
+
+            {/* Zen Mode Button (44x44px minimum touch target for mobile/tablet) */}
+            <button
+              type="button"
+              onClick={() => setIsZenMode(true)}
+              title="Zen Mode (Hide all controls, press Z or Esc)"
+              aria-label="Toggle Zen Mode"
+              className="size-11 min-w-[44px] min-h-[44px] rounded-xl md:rounded-full text-neutral-400 hover:text-white hover:bg-white/10 active:bg-white/15 transition-all flex items-center justify-center cursor-pointer flex-shrink-0"
+            >
+              <Eye className="size-4" />
+            </button>
+          </nav>
+        </div>
       </div>
+
+      {/* =========================================================================
+          ZEN MODE EXIT CONTROLLER (Safe Area Aware on All Devices)
+         ========================================================================= */}
+      {isZenMode && (
+        <div
+          className="fixed top-0 inset-x-0 z-30 flex justify-center pointer-events-none animate-in fade-in duration-300"
+          style={{
+            paddingTop: 'max(1.25rem, env(safe-area-inset-top, 1.25rem))',
+          }}
+        >
+          <button
+            type="button"
+            onClick={() => setIsZenMode(false)}
+            aria-label="Exit Zen Mode and restore navigation"
+            className="pointer-events-auto flex items-center gap-2 min-h-[44px] px-4 py-2 rounded-full bg-black/80 hover:bg-black/95 border border-white/25 text-white text-xs font-semibold backdrop-blur-2xl shadow-2xl transition-all hover:scale-105 active:scale-95 cursor-pointer"
+          >
+            <EyeOff className="size-3.5 text-neutral-400" />
+            <span>Exit Zen Mode</span>
+            <span className="hidden sm:inline-block text-[10px] text-neutral-400 font-mono border border-white/20 px-1.5 py-0.5 rounded">
+              Esc
+            </span>
+          </button>
+        </div>
+      )}
     </main>
   )
 }
