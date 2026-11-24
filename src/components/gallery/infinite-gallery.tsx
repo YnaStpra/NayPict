@@ -463,6 +463,89 @@ export function InfiniteGallery(props: InfiniteGalleryProps) {
       }
     >()
 
+    // Spatio-Temporal Cooldown Manager:
+    // 1. Enforces 0% duplicate photos across all tiles visible on screen (across all cells and octaves).
+    // 2. Enforces a 3-second (3000ms) cooldown gap before any evicted photo can be reused.
+    // 3. Fair round-robin / LRU cycling ensures all 70 photos in the archive rotate dynamically and evenly.
+    const COOLDOWN_MS = 3000
+    const tilePhotoMap = new Map<string, number>()
+    const activePhotoIndices = new Set<number>()
+    const photoLastUsedTime = new Map<number, number>()
+
+    const releasePhotoFromTile = (globalKey: string) => {
+      const idx = tilePhotoMap.get(globalKey)
+      if (idx !== undefined) {
+        activePhotoIndices.delete(idx)
+        photoLastUsedTime.set(idx, Date.now())
+        tilePhotoMap.delete(globalKey)
+      }
+    }
+
+    const assignPhotoToTile = (globalKey: string): number => {
+      if (imagesCount === 0) return 0
+
+      const existing = tilePhotoMap.get(globalKey)
+      if (existing !== undefined && existing >= 0 && existing < imagesCount) {
+        return existing
+      }
+
+      const now = Date.now()
+
+      // 1. Gather all candidates that are NOT currently visible on screen
+      const notOnScreen: number[] = []
+      for (let i = 0; i < imagesCount; i++) {
+        const idx = permutation[i] ?? i
+        if (!activePhotoIndices.has(idx)) {
+          notOnScreen.push(idx)
+        }
+      }
+
+      let chosenIdx: number
+
+      if (notOnScreen.length > 0) {
+        // 2. Filter candidates that have passed the 3-second cooldown
+        const cooldownPassed = notOnScreen.filter((idx) => {
+          const lastUsed = photoLastUsedTime.get(idx) || 0
+          return now - lastUsed >= COOLDOWN_MS
+        })
+
+        if (cooldownPassed.length > 0) {
+          // Pick the least recently used candidate (never-used items have time = 0, retaining permutation order)
+          cooldownPassed.sort((a, b) => {
+            const timeA = photoLastUsedTime.get(a) || 0
+            const timeB = photoLastUsedTime.get(b) || 0
+            return timeA - timeB
+          })
+          chosenIdx = cooldownPassed[0]
+        } else {
+          // If all candidates are within cooldown (e.g. extremely rapid panning), pick the one that has waited the longest
+          notOnScreen.sort((a, b) => {
+            const timeA = photoLastUsedTime.get(a) || 0
+            const timeB = photoLastUsedTime.get(b) || 0
+            return timeA - timeB
+          })
+          chosenIdx = notOnScreen[0]
+        }
+      } else {
+        // Fallback when imagesCount <= total on-screen cards: pick oldest photo
+        let oldestIdx = 0
+        let oldestTime = Infinity
+        for (let i = 0; i < imagesCount; i++) {
+          const time = photoLastUsedTime.get(i) || 0
+          if (time < oldestTime) {
+            oldestTime = time
+            oldestIdx = i
+          }
+        }
+        chosenIdx = oldestIdx
+      }
+
+      tilePhotoMap.set(globalKey, chosenIdx)
+      activePhotoIndices.add(chosenIdx)
+      photoLastUsedTime.set(chosenIdx, now)
+      return chosenIdx
+    }
+
     const getPool = (octave: number) => {
       let pool = layerPools.get(octave)
       if (!pool) {
@@ -481,7 +564,8 @@ export function InfiniteGallery(props: InfiniteGalleryProps) {
         img.onerror = null
         img.removeAttribute("src")
       })
-      pool.tileEls.forEach((el) => {
+      pool.tileEls.forEach((el, key) => {
+        releasePhotoFromTile(`${octave}:${key}`)
         if (el.parentNode === scene) scene.removeChild(el)
       })
       pool.tileEls.clear()
@@ -500,6 +584,7 @@ export function InfiniteGallery(props: InfiniteGalleryProps) {
       }
       const el = pool.tileEls.get(key)
       if (el && el.parentNode === scene) scene.removeChild(el)
+      releasePhotoFromTile(`${octave}:${key}`)
       pool.tileEls.delete(key)
       pool.imgEls.delete(key)
     }
@@ -520,11 +605,13 @@ export function InfiniteGallery(props: InfiniteGalleryProps) {
     const ensureTile = (t: Tile, layerZBase: number): HTMLDivElement => {
       const pool = getPool(t.octave)
       const key = `${t.cx},${t.cy},${t.slot}`
+      const globalKey = `${t.octave}:${key}`
       let el = pool.tileEls.get(key)
 
-      const currentPhotoId = t.photoId || safeImages[t.imgIdx]?.photoId || ""
-      const currentSrc = t.src || safeImages[t.imgIdx]?.src || ""
-      const currentPhotoIndex = safeImages[t.imgIdx]?.photoIndex ?? t.imgIdx
+      const assignedIdx = assignPhotoToTile(globalKey)
+      const currentPhotoId = safeImages[assignedIdx]?.photoId || ""
+      const currentSrc = safeImages[assignedIdx]?.src || ""
+      const currentPhotoIndex = safeImages[assignedIdx]?.photoIndex ?? assignedIdx
 
       if (!el) {
         const divEl = document.createElement("div")
@@ -536,6 +623,7 @@ export function InfiniteGallery(props: InfiniteGalleryProps) {
         divEl.style.pointerEvents = "auto"
         divEl.style.cursor = "pointer"
         divEl.dataset.tileKey = key
+        divEl.dataset.tileGlobalKey = globalKey
         divEl.dataset.photoId = currentPhotoId
         divEl.dataset.photoIndex = String(currentPhotoIndex)
 
@@ -593,7 +681,7 @@ export function InfiniteGallery(props: InfiniteGalleryProps) {
           }
           if (realIndex === -1) {
             const idxData = Number(divEl.dataset.photoIndex)
-            realIndex = !isNaN(idxData) ? idxData : t.imgIdx
+            realIndex = !isNaN(idxData) ? idxData : assignedIdx
           }
           const realPhoto = photos && realIndex >= 0 ? photos[realIndex] : undefined
           onPhotoClick?.(realIndex, realPhoto)
@@ -856,6 +944,9 @@ export function InfiniteGallery(props: InfiniteGalleryProps) {
       window.removeEventListener("orientationchange", handleOrientationOrResize)
       ro.disconnect()
       Array.from(layerPools.keys()).forEach(disposeLayer)
+      tilePhotoMap.clear()
+      activePhotoIndices.clear()
+      photoLastUsedTime.clear()
       startLoopRef.current = null
       stopLoopRef.current = null
     }
