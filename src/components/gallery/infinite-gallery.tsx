@@ -234,7 +234,7 @@ export function InfiniteGallery(props: InfiniteGalleryProps) {
     return []
   }, [photos, images])
 
-  const safeDensity = Math.max(1, Math.min(15, Math.floor(density || 5)))
+  const safeDensity = Math.max(1, Math.min(25, Math.floor(density || 5)))
   const safeImageWidth = Math.max(8, Math.min(4000, imageWidth || 160))
   const safeImageHeight = Math.max(8, Math.min(4000, imageHeight || 160))
   const safeRounded = Math.max(0, Math.min(20, rounded ?? 4))

@@ -3503,9 +3503,9 @@ const photoService = {
     };
   },
 
-  // Fetch landing page infinite gallery images: guarantees up to LANDING_PRIORITY_MAX_COUNT (30) admin-selected priority photos mixed randomly with other public images.
-  async getLandingPhotos(size = 50): Promise<PageVo<PhotoVo>> {
-    const targetSize = Math.max(10, Math.min(60, Math.floor(size || 50)));
+  // Fetch landing page infinite gallery images: guarantees up to LANDING_PRIORITY_MAX_COUNT (50) admin-selected priority photos mixed randomly with other public images.
+  async getLandingPhotos(size = 70): Promise<PageVo<PhotoVo>> {
+    const targetSize = Math.max(10, Math.min(100, Math.floor(size || 70)));
     const [priorityIds, eligibleIds, totalRow] = await Promise.all([
       settingService.getLandingPriorityPhotoIds(),
       this.randomIdList({ excludeVideos: true }),

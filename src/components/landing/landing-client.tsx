@@ -90,7 +90,7 @@ export function LandingClient({ initialPhotos, initialTotal }: LandingClientProp
   useEffect(() => {
     if (initialPhotos && initialPhotos.length > 0) return
 
-    photoLandingList(50)
+    photoLandingList(70)
       .then((res) => {
         if (res?.list && res.list.length > 0) {
           setPhotos(res.list)
@@ -174,7 +174,7 @@ export function LandingClient({ initialPhotos, initialTotal }: LandingClientProp
         <InfiniteGallery
           photos={displayPhotos}
           onPhotoClick={handlePhotoClick}
-          density={10}
+          density={15}
           imageWidth={175}
           imageHeight={175}
           rounded={10}
