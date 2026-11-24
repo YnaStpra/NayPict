@@ -465,9 +465,9 @@ export function InfiniteGallery(props: InfiniteGalleryProps) {
 
     // Spatio-Temporal Cooldown Manager:
     // 1. Enforces 0% duplicate photos across all tiles visible on screen (across all cells and octaves).
-    // 2. Enforces a 3-second (3000ms) cooldown gap before any evicted photo can be reused.
+    // 2. Enforces a 10-second (10000ms) cooldown gap before any evicted photo can be reused.
     // 3. Fair round-robin / LRU cycling ensures all 70 photos in the archive rotate dynamically and evenly.
-    const COOLDOWN_MS = 3000
+    const COOLDOWN_MS = 10000
     const tilePhotoMap = new Map<string, number>()
     const activePhotoIndices = new Set<number>()
     const photoLastUsedTime = new Map<number, number>()
