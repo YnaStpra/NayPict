@@ -92,12 +92,12 @@ export function AdminMobileSpeedDial() {
             <button
               type="button"
               onClick={() => handleAction(() => openUpload(null))}
-              className="flex items-center gap-2.5 px-3.5 py-2 rounded-full bg-primary text-primary-foreground shadow-lg active:scale-95 transition-all text-xs font-semibold cursor-pointer select-none"
+              className="flex items-center gap-2.5 px-3.5 py-2 rounded-full bg-primary text-primary-foreground shadow-sm active:scale-97 transition-[transform,opacity] duration-150 text-xs font-medium cursor-pointer select-none"
               aria-label="Upload Media"
             >
               <span>Upload Media</span>
-              <div className="flex size-7 items-center justify-center rounded-full bg-white/20">
-                <Upload className="size-3.5" />
+              <div className="flex size-7 items-center justify-center rounded-full bg-primary-foreground/15">
+                <Upload className="size-3.5 stroke-[1.5]" />
               </div>
             </button>
 
@@ -105,12 +105,12 @@ export function AdminMobileSpeedDial() {
             <button
               type="button"
               onClick={() => handleAction(() => router.push("/albums"))}
-              className="flex items-center gap-2.5 px-3.5 py-2 rounded-full bg-card text-foreground border border-border/80 shadow-lg active:scale-95 transition-all text-xs font-medium cursor-pointer select-none"
+              className="flex items-center gap-2.5 px-3.5 py-2 rounded-full bg-card text-foreground border border-border/80 shadow-sm active:scale-97 transition-[transform,background-color] duration-150 text-xs font-medium cursor-pointer select-none"
               aria-label="Manage Albums"
             >
               <span>Albums</span>
-              <div className="flex size-7 items-center justify-center rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400">
-                <FolderOpen className="size-3.5" />
+              <div className="flex size-7 items-center justify-center rounded-full bg-muted text-muted-foreground">
+                <FolderOpen className="size-3.5 stroke-[1.5]" />
               </div>
             </button>
 
@@ -118,12 +118,12 @@ export function AdminMobileSpeedDial() {
             <button
               type="button"
               onClick={() => handleAction(() => router.push("/admin"))}
-              className="flex items-center gap-2.5 px-3.5 py-2 rounded-full bg-card text-foreground border border-border/80 shadow-lg active:scale-95 transition-all text-xs font-medium cursor-pointer select-none"
+              className="flex items-center gap-2.5 px-3.5 py-2 rounded-full bg-card text-foreground border border-border/80 shadow-sm active:scale-97 transition-[transform,background-color] duration-150 text-xs font-medium cursor-pointer select-none"
               aria-label="Admin Console"
             >
               <span>Admin Console</span>
-              <div className="flex size-7 items-center justify-center rounded-full bg-violet-500/15 text-violet-600 dark:text-violet-400">
-                <Shield className="size-3.5" />
+              <div className="flex size-7 items-center justify-center rounded-full bg-muted text-muted-foreground">
+                <Shield className="size-3.5 stroke-[1.5]" />
               </div>
             </button>
           </div>
@@ -136,10 +136,10 @@ export function AdminMobileSpeedDial() {
           aria-expanded={isOpen}
           aria-label={isOpen ? "Close Quick Actions" : "Open Admin Quick Actions"}
           className={cn(
-            "pointer-events-auto flex size-12 items-center justify-center rounded-full shadow-2xl transition-all duration-300 active:scale-90 cursor-pointer select-none ring-2 ring-black/5 dark:ring-white/10",
+            "pointer-events-auto flex size-12 items-center justify-center rounded-full shadow-lg transition-[transform,background-color] duration-200 active:scale-95 cursor-pointer select-none border border-border/60",
             isOpen
               ? "bg-muted text-foreground rotate-90 scale-95"
-              : "bg-primary text-primary-foreground hover:bg-primary/95 shadow-primary/30"
+              : "bg-primary text-primary-foreground hover:bg-primary/90"
           )}
         >
           {isOpen ? (

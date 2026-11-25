@@ -749,7 +749,7 @@ function StoryCardButton({
       type="button"
       size="icon"
       variant="secondary"
-      className="rounded-full bg-gradient-to-tr from-pink-600 via-rose-500 to-amber-500 text-white transition-all duration-200 hover:scale-110 hover:opacity-100 shadow-md shadow-pink-500/30 border border-white/20 cursor-pointer pointer-events-auto"
+      className="rounded-full bg-white/15 hover:bg-white/25 text-white transition-colors duration-150 border border-white/15 cursor-pointer pointer-events-auto"
       title={t("createStory")}
       {...tap}
     >
@@ -1475,8 +1475,8 @@ function PhotoSlideImage({
     >
       {/* Top Streaming Indeterminate Progress Line (Active visible slide only) */}
       {!loaded && isActive && (
-        <div className="pointer-events-none absolute top-0 left-0 right-0 h-1 z-30 overflow-hidden bg-white/10">
-          <div className="h-full w-1/3 bg-gradient-to-r from-emerald-500 via-teal-300 to-emerald-500 rounded-full hd-progress-indeterminate shadow-[0_0_8px_rgba(16,185,129,0.8)]" />
+        <div className="pointer-events-none absolute top-0 left-0 right-0 h-0.5 z-30 overflow-hidden bg-white/10">
+          <div className="h-full w-1/3 bg-white/75 rounded-full hd-progress-indeterminate" />
         </div>
       )}
 

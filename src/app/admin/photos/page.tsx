@@ -37,7 +37,6 @@ import {
   Shield,
   ShieldAlert,
   SlidersHorizontal,
-  Sparkles,
   Table as TableIcon,
   Tag,
   Trash2,
@@ -1198,10 +1197,10 @@ export default function AdminPhotosPage() {
                 return (
                   <div
                     key={photo.photoId}
-                    className={`group relative rounded-2xl overflow-hidden border bg-card transition-all duration-200 shadow-2xs hover:shadow-md ${
+                    className={`group relative rounded-xl overflow-hidden border bg-card transition-colors duration-150 ${
                       isSelected
                         ? 'border-primary ring-2 ring-primary/30'
-                        : 'border-border/80 hover:border-primary/50'
+                        : 'border-border/80 hover:border-foreground/30'
                     }`}
                   >
                     {/* Photo Visual Box */}
@@ -1212,7 +1211,7 @@ export default function AdminPhotosPage() {
                       <AdminPhotoThumbnail
                         photo={photo}
                         className="size-full"
-                        imgClassName="group-hover:scale-105 transition-transform duration-300"
+                        imgClassName="group-hover:opacity-95 transition-opacity duration-150"
                       />
 
                       {/* Top Badges Overlay */}

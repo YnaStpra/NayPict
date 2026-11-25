@@ -105,15 +105,6 @@ export default function LoginPage() {
 
   return (
     <div className="relative isolate flex min-h-screen w-full flex-col items-center justify-center gap-6 overflow-hidden bg-background p-4 sm:p-6 md:p-10">
-      {/* Ambient gradient glow */}
-      <div
-        className="absolute inset-0 z-0 opacity-40 dark:opacity-20 pointer-events-none"
-        style={{
-          backgroundImage: `
-            radial-gradient(circle at 30% 70%, rgba(99, 102, 241, 0.25), transparent 60%),
-            radial-gradient(circle at 70% 30%, rgba(236, 72, 153, 0.2), transparent 60%)`,
-        }}
-      />
 
       {/* Top action bar: Back to Gallery & Theme Switcher */}
       <div className="relative z-10 w-full max-w-sm flex items-center justify-between">
@@ -136,12 +127,12 @@ export default function LoginPage() {
           </div>
         ) : currentUser && !showLoginForm ? (
           /* Active session detected: Offer direct entrance to Admin or Sign Out / Switch */
-          <Card className="shadow-xl shadow-black/10 border-border/80 backdrop-blur-md bg-card/95">
+          <Card className="border-border/80 bg-card shadow-sm">
             <CardHeader className="text-center pb-4">
-              <div className="mx-auto mb-3 flex size-14 items-center justify-center rounded-2xl bg-primary/10 border border-primary/20 text-primary shadow-inner">
-                <ShieldCheck className="size-7" />
+              <div className="mx-auto mb-3 flex size-12 items-center justify-center rounded-xl bg-muted border border-border/60 text-foreground">
+                <ShieldCheck className="size-6 stroke-[1.5]" />
               </div>
-              <CardTitle className="text-xl font-bold">
+              <CardTitle className="text-xl font-medium">
                 Already Signed In
               </CardTitle>
               <CardDescription className="text-xs leading-relaxed text-muted-foreground">
@@ -165,7 +156,7 @@ export default function LoginPage() {
                     <span className="text-sm font-semibold truncate text-foreground">
                       {currentUser.username}
                     </span>
-                    <span className="text-[10px] px-1.5 py-0.2 rounded bg-primary/15 text-primary font-medium uppercase tracking-wider">
+                    <span className="text-[11px] font-mono px-1.5 py-0.5 rounded bg-muted border border-border/60 text-muted-foreground">
                       {currentUser.type === UserTypeEnum.ADMIN ? "Admin" : "Member"}
                     </span>
                   </div>

@@ -432,8 +432,8 @@ function DuplicatePhotoCardItem({
 
   return (
     <div
-      className={`group relative flex flex-col rounded-lg border overflow-hidden bg-background transition-all ${
-        isPrimary ? 'ring-2 ring-primary/40 border-primary/30' : 'hover:border-primary/40'
+      className={`group relative flex flex-col rounded-lg border overflow-hidden bg-background transition-colors duration-150 ${
+        isPrimary ? 'ring-2 ring-primary/40 border-primary/30' : 'hover:border-foreground/30'
       }`}
     >
       {/* Primary / Dupe Badge */}
@@ -479,7 +479,7 @@ function DuplicatePhotoCardItem({
                 setHasError(true)
               }
             }}
-            className={`absolute inset-0 size-full object-cover transition-all duration-300 group-hover:scale-105 ${
+            className={`absolute inset-0 size-full object-cover transition-opacity duration-200 group-hover:opacity-95 ${
               isLoaded ? 'opacity-100' : 'opacity-0'
             }`}
           />

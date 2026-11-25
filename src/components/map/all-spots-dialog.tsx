@@ -11,7 +11,6 @@ import {
   Play,
   Search,
   SlidersHorizontal,
-  Sparkles,
   X,
 } from "lucide-react"
 
@@ -205,7 +204,7 @@ export function AllSpotsDialog({
               return (
                 <div
                   key={spot.id || spotIndex}
-                  className="p-3.5 rounded-2xl border border-border/70 bg-card/60 hover:bg-card/90 hover:border-border transition-all duration-200 shadow-xs space-y-3"
+                  className="p-3.5 rounded-xl border border-border/80 bg-card hover:border-foreground/20 transition-colors duration-150 space-y-3"
                 >
                   {/* Top Row: Details & Actions */}
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3.5">
@@ -250,7 +249,7 @@ export function AllSpotsDialog({
                                               el.src = toProxyMediaUrl(el.src)
                                             }
                                           }}
-                                          className="absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-110"
+                                          className="absolute inset-0 h-full w-full object-cover transition-opacity duration-200 group-hover:opacity-90"
                                         />
                                       )}
                                     </>
@@ -375,9 +374,9 @@ export function AllSpotsDialog({
                   {spot.photos.length > 1 && (
                     <div className="pt-2 border-t border-border/40">
                       <div className="flex items-center justify-between pb-1.5">
-                        <span className="text-[11px] font-semibold text-muted-foreground flex items-center gap-1">
-                          <Sparkles className="size-3 text-amber-500" />
-                          <span>Select Pin Cover Media:</span>
+                        <span className="text-[11px] font-medium text-muted-foreground flex items-center gap-1">
+                          <Images className="size-3 stroke-[1.5] text-muted-foreground" />
+                          <span>Select pin cover media</span>
                         </span>
                         <span className="text-[10px] text-muted-foreground">
                           Click an item to set as cover
@@ -399,10 +398,10 @@ export function AllSpotsDialog({
                               key={photo.photoId}
                               type="button"
                               onClick={() => onSetSpotCover?.(spot, photo)}
-                              className={`group relative shrink-0 w-12 h-12 rounded-xl overflow-hidden border-2 transition-all cursor-pointer bg-neutral-900 ${
+                              className={`group relative shrink-0 w-12 h-12 rounded-lg overflow-hidden border-2 transition-[border-color,opacity] duration-150 cursor-pointer bg-neutral-900 ${
                                 isCover
-                                  ? "border-amber-400 ring-2 ring-amber-400/50 scale-105 shadow-md"
-                                  : "border-border/60 hover:border-amber-400/60 opacity-70 hover:opacity-100"
+                                  ? "border-foreground ring-1 ring-foreground/40"
+                                  : "border-border/60 hover:border-foreground/50 opacity-70 hover:opacity-100"
                               }`}
                               title={
                                 isCover

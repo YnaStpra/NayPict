@@ -175,33 +175,33 @@ const CAMERA_PARAM_CONFIG: Record<
 > = {
   camera: {
     icon: Camera,
-    iconColor: "text-sky-400",
-    iconBg: "bg-sky-500/15 border-sky-500/25",
+    iconColor: "text-white/75",
+    iconBg: "bg-white/[0.06] border-white/10",
   },
   lens: {
     icon: Disc3,
-    iconColor: "text-emerald-400",
-    iconBg: "bg-emerald-500/15 border-emerald-500/25",
+    iconColor: "text-white/75",
+    iconBg: "bg-white/[0.06] border-white/10",
   },
   shutter: {
     icon: Timer,
-    iconColor: "text-amber-400",
-    iconBg: "bg-amber-500/15 border-amber-500/25",
+    iconColor: "text-white/75",
+    iconBg: "bg-white/[0.06] border-white/10",
   },
   aperture: {
     icon: Aperture,
-    iconColor: "text-rose-400",
-    iconBg: "bg-rose-500/15 border-rose-500/25",
+    iconColor: "text-white/75",
+    iconBg: "bg-white/[0.06] border-white/10",
   },
   focalLength: {
     icon: Maximize2,
-    iconColor: "text-indigo-400",
-    iconBg: "bg-indigo-500/15 border-indigo-500/25",
+    iconColor: "text-white/75",
+    iconBg: "bg-white/[0.06] border-white/10",
   },
   iso: {
     icon: Gauge,
-    iconColor: "text-purple-400",
-    iconBg: "bg-purple-500/15 border-purple-500/25",
+    iconColor: "text-white/75",
+    iconBg: "bg-white/[0.06] border-white/10",
   },
 }
 
@@ -797,7 +797,7 @@ export function PhotoInfoSidebar({
                 <Button
                   type="button"
                   size="sm"
-                  className="w-full justify-center gap-2 bg-gradient-to-r from-pink-600 via-rose-500 to-amber-500 hover:opacity-95 text-white font-semibold shadow-md rounded-xl cursor-pointer text-xs h-9 transition-all hover:scale-[1.01]"
+                  className="w-full justify-center gap-2 bg-white text-black hover:bg-neutral-200 font-medium rounded-lg cursor-pointer text-xs h-9 transition-colors duration-150"
                   onClick={(e) => {
                     e.stopPropagation()
                     e.preventDefault()
@@ -812,7 +812,7 @@ export function PhotoInfoSidebar({
               {/* Camera Settings (Single, Clean, Colored Icon EXIF Display) */}
               {(shootingParams.length > 0 || deviceParams.length > 0) && (
                 <div className="space-y-2">
-                  <div className="pb-1 text-xs font-semibold text-white/50 tracking-wider uppercase">
+                  <div className="pb-1 text-xs font-medium text-white/50">
                     {t("cameraSettings")}
                   </div>
                   <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-1.5 space-y-0.5 divide-y divide-white/[0.05]">

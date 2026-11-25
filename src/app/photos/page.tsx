@@ -27,7 +27,7 @@ import { removePhotoIdFromUrl } from "@/lib/url"
 import { albumAddPhoto, albumRemovePhoto } from "@/request/album"
 import { usePhotoStore } from "@/store/photo-store"
 import { useAlbumStore } from "@/store/album-store"
-import { ArrowUpDown, CalendarDays, Check, Clock, ImageIcon, LayoutGrid, MapPin, Plus, Sparkles, Video, WifiOff } from "lucide-react"
+import { ArrowUpDown, CalendarDays, Check, Clock, ImageIcon, Layers, LayoutGrid, MapPin, Plus, Video, WifiOff } from "lucide-react"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -529,10 +529,10 @@ export default function Page() {
             <div className="flex items-center gap-1.5 px-4 z-30">
               {/* Photo Count Badge beside Infinite Gallery */}
               <div
-                className="flex items-center gap-1.5 bg-muted/70 text-foreground text-xs font-semibold px-2.5 py-1 rounded-lg border border-border/50 select-none shadow-2xs tabular-nums"
+                className="flex items-center gap-1.5 bg-muted/70 text-foreground text-xs font-medium px-2.5 py-1 rounded-lg border border-border/60 select-none font-mono tabular-nums"
                 title={`${totalCount} Items in Gallery`}
               >
-                <ImageIcon className="size-3.5 text-emerald-500 dark:text-emerald-400 shrink-0" />
+                <ImageIcon className="size-3.5 stroke-[1.5] text-muted-foreground shrink-0" />
                 <OdometerCounter target={totalCount} duration={900} />
               </div>
 
@@ -543,13 +543,13 @@ export default function Page() {
                       type="button"
                       size="icon"
                       variant="ghost"
-                      className="size-8 p-0 rounded-full hover:bg-muted/60 transition-all duration-200 hover:scale-110 active:scale-95"
+                      className="size-8 p-0 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors duration-150 cursor-pointer"
                       onClick={() => setViewMode((prev) => (prev === "masonry" ? "infinite" : "masonry"))}
                     >
                       {viewMode === "infinite" ? (
-                        <LayoutGrid className="size-4.5 text-cyan-600 dark:text-cyan-400 drop-shadow-[0_0_4px_rgba(34,211,238,0.4)] animate-pulse" />
+                        <LayoutGrid className="size-4 stroke-[1.5]" />
                       ) : (
-                        <Sparkles className="size-4.5 text-amber-500 dark:text-amber-400 drop-shadow-[0_0_4px_rgba(251,191,36,0.5)] animate-pulse" />
+                        <Layers className="size-4 stroke-[1.5]" />
                       )}
                     </Button>
                   </TooltipTrigger>
@@ -568,14 +568,14 @@ export default function Page() {
                         type="button"
                         variant={groupByDate ? "secondary" : "ghost"}
                         size="icon"
-                        className={`size-8 rounded-lg transition-all duration-200 cursor-pointer ${
+                        className={`size-8 rounded-lg transition-colors duration-150 cursor-pointer ${
                           groupByDate
-                            ? "bg-sky-500/15 text-sky-500 dark:text-sky-400 border border-sky-500/30 shadow-2xs"
-                            : "text-sky-500 dark:text-sky-400 hover:bg-sky-500/10 hover:text-sky-600 dark:hover:text-sky-300"
+                            ? "bg-foreground/10 text-foreground border border-border/60"
+                            : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
                         }`}
                         onClick={toggleGroupByDate}
                       >
-                        <CalendarDays className="size-4 text-sky-500 dark:text-sky-400" />
+                        <CalendarDays className="size-4 stroke-[1.5]" />
                       </Button>
                     </TooltipTrigger>
                     <TooltipContent side="bottom">
@@ -592,11 +592,11 @@ export default function Page() {
                     type="button"
                     variant="ghost"
                     size="icon"
-                    className="size-8 rounded-lg transition-all duration-200 cursor-pointer hover:bg-violet-500/10 active:scale-95 text-violet-500 dark:text-violet-400 border border-border/50 hover:border-violet-500/30 shadow-2xs"
+                    className="size-8 rounded-lg transition-colors duration-150 cursor-pointer text-muted-foreground hover:text-foreground hover:bg-muted/60 border border-border/60"
                     aria-label="Sort Gallery Media"
                     onClick={() => setSortSheetOpen(true)}
                   >
-                    <ArrowUpDown className="size-4 text-violet-500 dark:text-violet-400 shrink-0" />
+                    <ArrowUpDown className="size-4 stroke-[1.5] shrink-0" />
                   </Button>
 
                   <Sheet open={sortSheetOpen} onOpenChange={setSortSheetOpen}>
@@ -620,16 +620,16 @@ export default function Page() {
                                 setSortSheetOpen(false)
                               }}
                               className={cn(
-                                "flex items-center justify-between w-full px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all text-left cursor-pointer",
+                                "flex items-center justify-between w-full px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-colors duration-150 text-left cursor-pointer",
                                 isSelected
-                                  ? "bg-violet-500/15 text-violet-600 dark:text-violet-400 font-semibold border border-violet-500/30 shadow-2xs"
+                                  ? "bg-foreground/10 text-foreground font-semibold border border-border/60"
                                   : "hover:bg-muted active:bg-muted/80 text-foreground border border-transparent"
                               )}
                             >
                               <div className="flex items-center gap-2.5 min-w-0">
                                 <span className="truncate">{opt.label}</span>
                               </div>
-                              {isSelected && <Check className="size-4 text-violet-500 shrink-0 ml-2" />}
+                              {isSelected && <Check className="size-4 shrink-0 ml-2" />}
                             </button>
                           )
                         })}
@@ -647,10 +647,10 @@ export default function Page() {
                             type="button"
                             variant="ghost"
                             size="icon"
-                            className="size-8 rounded-lg transition-all duration-200 cursor-pointer hover:bg-violet-500/10 active:scale-95 text-violet-500 dark:text-violet-400 border border-border/50 hover:border-violet-500/30 shadow-2xs"
+                            className="size-8 rounded-lg transition-colors duration-150 cursor-pointer text-muted-foreground hover:text-foreground hover:bg-muted/60 border border-border/60"
                             aria-label="Sort Gallery Media"
                           >
-                            <ArrowUpDown className="size-4 text-violet-500 dark:text-violet-400 shrink-0" />
+                            <ArrowUpDown className="size-4 stroke-[1.5] shrink-0" />
                           </Button>
                         </DropdownMenuTrigger>
                       </TooltipTrigger>
@@ -710,7 +710,7 @@ export default function Page() {
                     : "bg-muted/60 hover:bg-muted text-muted-foreground hover:text-foreground border border-border/50"
                 )}
               >
-                <Sparkles className="size-3.5" />
+                <Layers className="size-3.5 stroke-[1.5]" />
                 <span>All</span>
               </button>
 

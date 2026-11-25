@@ -189,10 +189,9 @@ export function TotpSettingsCard() {
                 size="sm"
                 onClick={handleOpenSetup}
                 disabled={submitting}
-                className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white"
               >
                 {submitting && <LoaderCircle className="size-3.5 animate-spin mr-1.5" />}
-                <QrCode className="size-3.5 mr-1.5" />
+                <QrCode className="size-3.5 stroke-[1.5] mr-1.5" />
                 Enable Google Authenticator
               </Button>
             </div>
@@ -204,8 +203,8 @@ export function TotpSettingsCard() {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-lg font-semibold">
-              <ShieldCheck className="size-5 text-purple-600" />
+            <DialogTitle className="flex items-center gap-2 text-lg font-medium">
+              <ShieldCheck className="size-5 stroke-[1.5] text-foreground" />
               Set Up Google Authenticator (2FA)
             </DialogTitle>
             <DialogDescription>
@@ -278,7 +277,6 @@ export function TotpSettingsCard() {
               type="button"
               onClick={handleEnable2Fa}
               disabled={submitting || verificationCode.length !== 6}
-              className="bg-purple-600 hover:bg-purple-700 text-white"
             >
               {submitting && <LoaderCircle className="size-4 animate-spin mr-2" />}
               Verify & Enable

@@ -488,14 +488,11 @@ export default function VisitorAnalyticsPage() {
           </div>
 
           <div className="flex items-center gap-2">
-            <div className="hidden sm:flex items-center gap-1.5 rounded-full border bg-muted/40 px-2.5 py-1 text-xs text-muted-foreground">
-              <span className="relative flex size-2">
-                <span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
-                <span className="relative inline-flex size-2 rounded-full bg-emerald-500"></span>
-              </span>
+            <div className="hidden sm:flex items-center gap-1.5 rounded-full border border-border/70 bg-muted/40 px-2.5 py-1 text-xs text-muted-foreground tabular-nums">
+              <span className="inline-flex rounded-full size-2 bg-emerald-500" />
               <span>{overview?.liveVisitors ?? 0} public active</span>
               {(overview?.liveAdmins ?? 0) > 0 && (
-                <span className="inline-flex items-center gap-1 text-purple-600 dark:text-purple-400 font-semibold ml-0.5">
+                <span className="inline-flex items-center gap-1 text-foreground font-medium ml-0.5">
                   • {overview?.liveAdmins} admin
                 </span>
               )}
@@ -509,16 +506,11 @@ export default function VisitorAnalyticsPage() {
               className="gap-1.5 text-xs h-8"
               title={liveRefresh ? "Auto-refresh active (pauses when tab is hidden)" : "Auto-refresh paused"}
             >
-              <span className="relative flex size-2">
-                {liveRefresh ? (
-                  <>
-                    <span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
-                    <span className="relative inline-flex size-2 rounded-full bg-emerald-500"></span>
-                  </>
-                ) : (
-                  <span className="relative inline-flex size-2 rounded-full bg-muted-foreground"></span>
-                )}
-              </span>
+              <span
+                className={`inline-flex rounded-full size-2 ${
+                  liveRefresh ? "bg-emerald-500" : "bg-muted-foreground"
+                }`}
+              />
               <span>{liveRefresh ? "Live (20s)" : "Paused"}</span>
             </Button>
 
@@ -554,49 +546,42 @@ export default function VisitorAnalyticsPage() {
         <main className="flex-1 space-y-6 p-4 sm:p-6 max-w-7xl mx-auto w-full">
           {/* Top Metric Cards */}
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <Card className="shadow-sm border-border/70 bg-gradient-to-br from-card to-card/60">
+            <Card className="border-border/80 bg-card">
               <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  Total Visitors
+                <CardTitle className="text-xs font-medium text-muted-foreground">
+                  Total visitors
                 </CardTitle>
-                <div className="rounded-lg bg-blue-500/10 p-2 text-blue-500">
-                  <Globe className="size-4" />
+                <div className="rounded-lg bg-muted/70 p-2 text-muted-foreground">
+                  <Globe className="size-4 stroke-[1.5]" />
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold tracking-tight">
+                <div className="text-2xl font-medium tracking-tight tabular-nums">
                   {overview?.totalVisitors?.toLocaleString() ?? 0}
                 </div>
-                <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-1 font-medium">
-                  <span className="text-sky-600 dark:text-sky-400">
-                    {overview?.publicVisitors?.toLocaleString() ?? 0} Public
-                  </span>
+                <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-1 tabular-nums">
+                  <span>{overview?.publicVisitors?.toLocaleString() ?? 0} public</span>
                   <span>•</span>
-                  <span className="text-purple-600 dark:text-purple-400">
-                    {overview?.adminSessions?.toLocaleString() ?? 0} Admin
-                  </span>
+                  <span>{overview?.adminSessions?.toLocaleString() ?? 0} admin</span>
                 </div>
               </CardContent>
             </Card>
 
-            <Card className="shadow-sm border-border/70 bg-gradient-to-br from-card to-card/60">
+            <Card className="border-border/80 bg-card">
               <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  Live Visitors
+                <CardTitle className="text-xs font-medium text-muted-foreground">
+                  Live visitors
                 </CardTitle>
-                <div className="rounded-lg bg-emerald-500/10 p-2 text-emerald-500">
-                  <Activity className="size-4" />
+                <div className="rounded-lg bg-muted/70 p-2 text-muted-foreground">
+                  <Activity className="size-4 stroke-[1.5]" />
                 </div>
               </CardHeader>
               <CardContent>
                 <div className="flex items-center gap-2">
-                  <div className="text-2xl font-bold tracking-tight text-emerald-600 dark:text-emerald-400">
+                  <div className="text-2xl font-medium tracking-tight text-foreground tabular-nums">
                     {overview?.liveVisitors?.toLocaleString() ?? 0}
                   </div>
-                  <span className="relative flex size-2.5">
-                    <span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
-                    <span className="relative inline-flex size-2.5 rounded-full bg-emerald-500"></span>
-                  </span>
+                  <span className="inline-flex rounded-full size-2 bg-emerald-500" />
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">
                   Active within last 5 minutes
@@ -605,17 +590,17 @@ export default function VisitorAnalyticsPage() {
               </CardContent>
             </Card>
 
-            <Card className="shadow-sm border-border/70 bg-gradient-to-br from-card to-card/60">
+            <Card className="border-border/80 bg-card">
               <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  Avg. Duration
+                <CardTitle className="text-xs font-medium text-muted-foreground">
+                  Avg. duration
                 </CardTitle>
-                <div className="rounded-lg bg-amber-500/10 p-2 text-amber-500">
-                  <Clock className="size-4" />
+                <div className="rounded-lg bg-muted/70 p-2 text-muted-foreground">
+                  <Clock className="size-4 stroke-[1.5]" />
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold tracking-tight">
+                <div className="text-2xl font-medium tracking-tight tabular-nums">
                   {formatDuration(overview?.avgDurationSeconds ?? 0)}
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">
@@ -624,17 +609,17 @@ export default function VisitorAnalyticsPage() {
               </CardContent>
             </Card>
 
-            <Card className="shadow-sm border-border/70 bg-gradient-to-br from-card to-card/60">
+            <Card className="border-border/80 bg-card">
               <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  Media Actions
+                <CardTitle className="text-xs font-medium text-muted-foreground">
+                  Media actions
                 </CardTitle>
-                <div className="rounded-lg bg-purple-500/10 p-2 text-purple-500">
-                  <Eye className="size-4" />
+                <div className="rounded-lg bg-muted/70 p-2 text-muted-foreground">
+                  <Eye className="size-4 stroke-[1.5]" />
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold tracking-tight">
+                <div className="text-2xl font-medium tracking-tight tabular-nums">
                   {overview?.totalMediaInteractions?.toLocaleString() ?? 0}
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">
@@ -675,10 +660,10 @@ export default function VisitorAnalyticsPage() {
             </Card>
 
             {/* Top Browsers */}
-            <Card className="shadow-sm border-border/70">
+            <Card className="border-border/80">
               <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-semibold flex items-center gap-1.5">
-                  <Compass className="size-4 text-purple-500" />
+                <CardTitle className="text-sm font-medium flex items-center gap-1.5">
+                  <Compass className="size-4 stroke-[1.5] text-muted-foreground" />
                   Top Browsers
                 </CardTitle>
               </CardHeader>
@@ -831,17 +816,17 @@ export default function VisitorAnalyticsPage() {
                               {s.isAdmin ? (
                                 <Badge
                                   variant="secondary"
-                                  className="px-1.5 py-0 text-[10px] bg-purple-500/15 text-purple-600 dark:text-purple-400 border border-purple-500/30 gap-1 font-semibold"
+                                  className="px-1.5 py-0 text-[10px] bg-foreground/10 text-foreground border border-border/60 gap-1 font-medium"
                                 >
-                                  <Shield className="size-3 text-purple-500" />
+                                  <Shield className="size-3 stroke-[1.5]" />
                                   Admin
                                 </Badge>
                               ) : (
                                 <Badge
                                   variant="outline"
-                                  className="px-1.5 py-0 text-[10px] bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/25 gap-1 font-medium"
+                                  className="px-1.5 py-0 text-[10px] text-muted-foreground border-border/60 gap-1 font-normal"
                                 >
-                                  <Globe className="size-3 text-sky-500" />
+                                  <Globe className="size-3 stroke-[1.5]" />
                                   Public
                                 </Badge>
                               )}
@@ -956,9 +941,9 @@ export default function VisitorAnalyticsPage() {
                           <TableCell className="py-2.5">
                             <Badge
                               variant="secondary"
-                              className={`text-[10px] px-2 py-0.5 ${
+                              className={`text-[10px] px-2 py-0.5 tabular-nums ${
                                 s.mediaCount > 0
-                                  ? "bg-purple-500/15 text-purple-600 dark:text-purple-400 font-semibold"
+                                  ? "bg-foreground/10 text-foreground font-medium"
                                   : "text-muted-foreground"
                               }`}
                             >
@@ -1077,24 +1062,24 @@ export default function VisitorAnalyticsPage() {
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2.5 border-b border-border/50">
                     <div className="space-y-1 min-w-0 flex-1">
                       <div className="flex items-center gap-2">
-                        <span className="text-muted-foreground text-[10px] uppercase font-semibold tracking-wider">
-                          IP Address
+                        <span className="text-muted-foreground text-xs font-medium">
+                          IP address
                         </span>
                         {sessionDetail.session.isAdmin ? (
                           <Badge
                             variant="secondary"
-                            className="px-1.5 py-0 text-[10px] bg-purple-500/15 text-purple-600 dark:text-purple-400 border border-purple-500/30 gap-1 font-semibold"
+                            className="px-1.5 py-0 text-[10px] bg-foreground/10 text-foreground border border-border/60 gap-1 font-medium"
                           >
-                            <Shield className="size-3 text-purple-500" />
-                            Administrator Session
+                            <Shield className="size-3 stroke-[1.5]" />
+                            Administrator session
                           </Badge>
                         ) : (
                           <Badge
                             variant="outline"
-                            className="px-1.5 py-0 text-[10px] bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/25 gap-1 font-medium"
+                            className="px-1.5 py-0 text-[10px] text-muted-foreground border-border/60 gap-1 font-normal"
                           >
-                            <Globe className="size-3 text-sky-500" />
-                            Public Visitor Session
+                            <Globe className="size-3 stroke-[1.5]" />
+                            Public visitor session
                           </Badge>
                         )}
                       </div>
@@ -1131,9 +1116,9 @@ export default function VisitorAnalyticsPage() {
                     {/* 1. IP Geolocation (Network Edge) */}
                     <div className="space-y-1">
                       <div className="flex items-center justify-between">
-                        <span className="text-muted-foreground text-[10px] uppercase font-semibold tracking-wider flex items-center gap-1">
-                          <Globe className="size-3 text-muted-foreground" />
-                          IP Geolocation (Edge)
+                        <span className="text-muted-foreground text-xs font-medium flex items-center gap-1">
+                          <Globe className="size-3 stroke-[1.5] text-muted-foreground" />
+                          IP geolocation (edge)
                         </span>
                         <Badge variant="outline" className="text-[9px] px-1.5 py-0">
                           ISP / Transit
@@ -1166,9 +1151,9 @@ export default function VisitorAnalyticsPage() {
                     {/* 2. Device Geolocation (User Consented GPS) */}
                     <div className="space-y-1 sm:border-l sm:border-border/60 sm:pl-3">
                       <div className="flex items-center justify-between">
-                        <span className="text-muted-foreground text-[10px] uppercase font-semibold tracking-wider flex items-center gap-1">
-                          <Compass className="size-3 text-emerald-500" />
-                          Device Location (User Consented)
+                        <span className="text-muted-foreground text-xs font-medium flex items-center gap-1">
+                          <Compass className="size-3 stroke-[1.5] text-muted-foreground" />
+                          Device location
                         </span>
                         {sessionDetail.session.userLat && sessionDetail.session.userLng ? (
                           <Badge variant="secondary" className="text-[9px] px-1.5 py-0 bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 font-bold border-none">
@@ -1464,10 +1449,10 @@ export default function VisitorAnalyticsPage() {
 
                               {/* Optional Admin/Photographer Reply */}
                               {comment.replyContent && (
-                                <div className="rounded-md bg-purple-500/10 border border-purple-500/20 p-2 text-xs text-purple-700 dark:text-purple-300 ml-4 space-y-0.5">
-                                  <div className="flex items-center gap-1 font-semibold text-[10px] text-purple-600 dark:text-purple-400">
-                                    <Shield className="size-3" />
-                                    <span>Photographer Reply</span>
+                                <div className="rounded-md bg-muted/50 border border-border/70 p-2 text-xs text-foreground ml-4 space-y-0.5">
+                                  <div className="flex items-center gap-1 font-medium text-[11px] text-muted-foreground">
+                                    <Shield className="size-3 stroke-[1.5]" />
+                                    <span>Photographer reply</span>
                                     {comment.replyTime && (
                                       <span className="text-[9px] font-normal text-muted-foreground ml-auto">
                                         {parseUtcDate(comment.replyTime)?.toLocaleDateString()}

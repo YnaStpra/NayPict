@@ -525,17 +525,17 @@ export function PhotoComments({ photoId }: PhotoCommentsProps) {
           comments.map((item) => (
             <div
               key={item.commentId}
-              className={`group relative rounded-xl border p-3 backdrop-blur-sm transition-all space-y-1.5 ${
+              className={`group relative rounded-xl border p-3 backdrop-blur-sm transition-colors duration-150 space-y-1.5 ${
                 item.isPinned
-                  ? "border-amber-500/40 bg-amber-500/[0.07] hover:bg-amber-500/[0.10] shadow-[0_0_15px_rgba(245,158,11,0.08)]"
-                  : "border-white/15 bg-white/5 hover:bg-white/[0.08]"
+                  ? "border-amber-500/35 bg-amber-500/[0.06] hover:bg-amber-500/[0.09]"
+                  : "border-white/12 bg-white/[0.04] hover:bg-white/[0.07]"
               }`}
             >
               {/* Pinned comment banner */}
               {item.isPinned && (
-                <div className="flex items-center gap-1.5 text-[10px] font-bold text-amber-400 bg-amber-500/15 border border-amber-500/30 px-2 py-0.5 rounded-full w-fit mb-1 tracking-wide uppercase shadow-xs">
+                <div className="flex items-center gap-1.5 text-[11px] font-medium text-amber-300 bg-amber-500/15 border border-amber-500/25 px-2 py-0.5 rounded-md w-fit mb-1">
                   <Pin className="size-2.5 fill-amber-400 text-amber-400" />
-                  <span>Pinned by Photographer</span>
+                  <span>Pinned by photographer</span>
                 </div>
               )}
 
@@ -629,11 +629,11 @@ export function PhotoComments({ photoId }: PhotoCommentsProps) {
 
               {/* Display Public "Reply by Photographer" Badge and Content */}
               {item.replyContent && replyingCommentId !== item.commentId && (
-                <div className="mt-2 pl-2.5 border-l-2 border-amber-500/70 bg-gradient-to-r from-amber-500/10 to-transparent p-2.5 rounded-r-xl space-y-1.5 shadow-[inset_0_0_12px_rgba(245,158,11,0.05)]">
+                <div className="mt-2 pl-2.5 border-l-2 border-white/25 bg-white/[0.04] p-2.5 rounded-r-lg space-y-1.5">
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-1.5">
-                      <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-gradient-to-r from-amber-500/25 to-orange-500/25 border border-amber-500/40 text-amber-300 text-[10px] font-bold tracking-wider uppercase shadow-xs">
-                        <CheckCircle2 className="size-3 text-amber-400 fill-amber-400/20" />
+                      <div className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-white/10 border border-white/15 text-white/90 text-[11px] font-medium">
+                        <CheckCircle2 className="size-3 stroke-[1.5] text-white/75" />
                         <span>Photographer</span>
                       </div>
                       {item.replyTime && (

@@ -40,7 +40,7 @@ export function EcoModeSwitcher({ iconOnly = false }: EcoModeSwitcherProps) {
             <button
               type="button"
               onClick={cycleMode}
-              className={`flex size-8 items-center justify-center rounded-lg transition-all cursor-pointer select-none ${
+              className={`flex size-8 items-center justify-center rounded-lg transition-colors duration-150 cursor-pointer select-none ${
                 isEcoMode
                   ? "text-emerald-500 bg-emerald-500/10 hover:bg-emerald-500/20"
                   : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
@@ -62,7 +62,7 @@ export function EcoModeSwitcher({ iconOnly = false }: EcoModeSwitcherProps) {
     <button
       type="button"
       onClick={cycleMode}
-      className="flex items-center justify-between gap-2 w-full px-2.5 py-1.5 rounded-lg text-xs font-medium text-sidebar-foreground hover:bg-sidebar-accent/80 transition-all cursor-pointer select-none"
+      className="flex items-center justify-between gap-2 w-full px-2.5 py-1.5 rounded-lg text-xs font-medium text-sidebar-foreground hover:bg-sidebar-accent/80 transition-colors duration-150 cursor-pointer select-none"
       title={tooltipText}
     >
       <div className="flex items-center gap-2">

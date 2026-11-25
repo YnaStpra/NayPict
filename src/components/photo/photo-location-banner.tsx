@@ -80,26 +80,26 @@ export function PhotoLocationBanner({ onLocationGranted }: PhotoLocationBannerPr
   return (
     <>
       <div className="w-full px-3 sm:px-4 md:px-5 pt-1 pb-3 box-border min-w-0 animate-in fade-in slide-in-from-top-2 duration-300">
-        <div className="relative overflow-hidden rounded-3xl border border-sky-500/30 bg-gradient-to-r from-sky-500/10 via-background/95 to-indigo-500/10 dark:from-sky-950/40 dark:via-neutral-900/90 dark:to-indigo-950/40 backdrop-blur-2xl p-4 sm:p-5 shadow-lg shadow-sky-500/5">
+        <div className="relative overflow-hidden rounded-2xl border border-border/80 bg-card p-4 sm:p-5">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex items-start gap-3.5 min-w-0 flex-1">
-              <div className="size-10 rounded-2xl bg-sky-500/15 text-sky-500 flex items-center justify-center shrink-0 mt-0.5 shadow-sm border border-sky-500/20">
-                <Navigation className="size-5 fill-sky-500" />
+              <div className="size-10 rounded-xl bg-muted border border-border/60 text-foreground flex items-center justify-center shrink-0 mt-0.5">
+                <Navigation className="size-4.5 stroke-[1.5]" />
               </div>
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2 mb-1 flex-wrap">
-                  <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-sky-500/15 text-sky-600 dark:text-sky-400 border border-sky-500/20">
-                    Interactive Feature
+                  <span className="text-[11px] font-mono px-2 py-0.5 rounded-md bg-muted text-muted-foreground border border-border/60">
+                    Location explorer
                   </span>
                   <span className="text-[11px] text-muted-foreground font-medium flex items-center gap-1">
-                    <ShieldCheck className="size-3.5 text-emerald-500" /> Strictly Private
+                    <ShieldCheck className="size-3.5 stroke-[1.5] text-emerald-500" /> Device-only privacy
                   </span>
                 </div>
-                <h3 className="text-sm sm:text-base font-bold text-foreground tracking-tight">
-                  Enabling location unlocks an exciting experience while exploring this website
+                <h3 className="text-sm sm:text-base font-medium text-foreground tracking-tight">
+                  Discover photos taken near your current location
                 </h3>
                 <p className="text-xs text-muted-foreground leading-relaxed mt-1 max-w-2xl">
-                  Your location is used solely to enhance interactive features, such as discovering photos taken near you and calculating distances. Your location data is strictly confidential, kept on your device, and will never be shared with or disclosed to anyone.
+                  Location coordinates stay on your device to calculate distance to nearby shoots and are never shared externally.
                 </p>
               </div>
             </div>
@@ -108,7 +108,7 @@ export function PhotoLocationBanner({ onLocationGranted }: PhotoLocationBannerPr
                 type="button"
                 onClick={handleEnableLocation}
                 disabled={loading}
-                className="h-9 px-4 text-xs font-semibold rounded-2xl bg-sky-500 hover:bg-sky-600 text-white shadow-md shadow-sky-500/20 transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
+                className="h-9 px-4 text-xs font-medium rounded-lg cursor-pointer"
               >
                 {loading ? (
                   <>

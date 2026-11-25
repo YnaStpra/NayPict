@@ -65,7 +65,7 @@ export function DatabaseBackupCard() {
         {/* Database Metric Badges */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
           <div className="flex items-center gap-2.5 p-2.5 rounded-lg border bg-muted/30">
-            <HardDrive className="h-4 w-4 text-emerald-500 shrink-0" />
+            <HardDrive className="size-4 stroke-[1.5] text-muted-foreground shrink-0" />
             <div className="flex flex-col min-w-0">
               <span className="text-[11px] text-muted-foreground">Database Location</span>
               <span className="text-xs font-semibold truncate font-mono">data/naypict.sqlite</span>
@@ -73,10 +73,10 @@ export function DatabaseBackupCard() {
           </div>
 
           <div className="flex items-center gap-2.5 p-2.5 rounded-lg border bg-muted/30">
-            <Database className="h-4 w-4 text-sky-500 shrink-0" />
+            <Database className="size-4 stroke-[1.5] text-muted-foreground shrink-0" />
             <div className="flex flex-col min-w-0">
               <span className="text-[11px] text-muted-foreground">Size on Disk</span>
-              <span className="text-xs font-semibold truncate">
+              <span className="text-xs font-semibold truncate tabular-nums">
                 {loadingStats ? "Checking..." : stats?.sizeFormatted || "0 B"}
                 {stats?.lastModified ? (
                   <span className="text-[10px] text-muted-foreground font-normal ml-1.5">
@@ -108,13 +108,17 @@ export function DatabaseBackupCard() {
             disabled={downloading}
             className="h-9 px-4 text-xs font-medium shrink-0"
           >
-            <Download className={`h-3.5 w-3.5 mr-1.5 ${downloading ? "animate-bounce" : ""}`} />
+            {downloading ? (
+              <RefreshCw className="size-3.5 animate-spin mr-1.5" />
+            ) : (
+              <Download className="size-3.5 stroke-[1.5] mr-1.5" />
+            )}
             {downloading ? "Encrypting & Exporting..." : "Export Encrypted Backup"}
           </Button>
         </div>
 
         <p className="text-[11px] text-muted-foreground">
-          🔒 Backups are compressed with gzip and encrypted with military-grade AES-256-GCM. If no custom password is provided, your server&apos;s master key is used.
+          Backups are compressed with gzip and encrypted with AES-256-GCM. Without a custom password, the server master key is used.
         </p>
       </div>
     </SettingItem>
