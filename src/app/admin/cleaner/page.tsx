@@ -53,7 +53,7 @@ import {
   type StorageBrokenRecordVo,
 } from "@/server/entity/vo/storage-cleaner";
 import {
-  Sparkles,
+  BrushCleaning,
   RefreshCw,
   Trash2,
   HardDrive,
@@ -321,8 +321,8 @@ export default function StorageCleanerPage() {
                 </BreadcrumbItem>
                 <BreadcrumbSeparator />
                 <BreadcrumbItem>
-                  <BreadcrumbPage className="font-semibold flex items-center gap-1.5">
-                    <Sparkles className="size-4 text-pink-500" />
+                  <BreadcrumbPage className="font-medium flex items-center gap-1.5">
+                    <BrushCleaning className="size-4 stroke-[1.5] text-muted-foreground" />
                     <span>Storage Cleaner</span>
                   </BreadcrumbPage>
                 </BreadcrumbItem>
@@ -346,19 +346,18 @@ export default function StorageCleanerPage() {
 
         {/* Content Body */}
         <div className="p-4 md:p-8 space-y-6 max-w-7xl mx-auto w-full">
-          {/* Hero Banner */}
-          <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-pink-500/10 via-purple-500/5 to-transparent p-6 border border-pink-500/20 shadow-sm">
+          {/* Header Card */}
+          <div className="rounded-xl bg-card p-6 border border-border/80">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div className="space-y-1">
-                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-pink-500/15 text-pink-600 dark:text-pink-400 text-xs font-semibold">
-                  <Sparkles className="size-3.5" />
-                  Cloudflare R2 Health & Integrity Tool
+                <div className="text-xs font-mono text-muted-foreground">
+                  Cloudflare R2 health & integrity
                 </div>
-                <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-foreground">
+                <h1 className="text-2xl md:text-3xl font-medium tracking-tight text-foreground">
                   Storage Cleaner & Media Diagnostic
                 </h1>
                 <p className="text-muted-foreground text-sm max-w-2xl">
-                  Deeply scan your Cloudflare R2 storage buckets to detect orphan files, incomplete video uploads, and broken ghost records. Safely reclaim storage capacity with zero impact on live gallery items.
+                  Scan your Cloudflare R2 storage buckets to detect orphan files, incomplete video uploads, and broken records. Reclaim storage capacity without impacting live gallery items.
                 </p>
               </div>
 
@@ -389,7 +388,7 @@ export default function StorageCleanerPage() {
           {/* Health Status Banner */}
           {!loading && report && (
             <div
-              className={`rounded-xl p-4 border flex items-center justify-between gap-4 transition-all ${
+              className={`rounded-xl p-4 border flex items-center justify-between gap-4 transition-colors duration-150 ${
                 isHealthy
                   ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-800 dark:text-emerald-300"
                   : "bg-amber-500/10 border-amber-500/20 text-amber-800 dark:text-amber-300"
@@ -661,15 +660,7 @@ export default function StorageCleanerPage() {
                             <td className="py-3 px-4">
                               <Badge
                                 variant="outline"
-                                className={`text-[10px] uppercase font-semibold ${
-                                  item.probableType === "original"
-                                    ? "bg-blue-500/10 text-blue-600 border-blue-500/30"
-                                    : item.probableType === "preview"
-                                    ? "bg-purple-500/10 text-purple-600 border-purple-500/30"
-                                    : item.probableType === "thumbnail"
-                                    ? "bg-amber-500/10 text-amber-600 border-amber-500/30"
-                                    : "bg-muted text-muted-foreground"
-                                }`}
+                                className="text-[11px] font-mono font-normal bg-muted/60 text-foreground border-border/60"
                               >
                                 {item.probableType}
                               </Badge>

@@ -55,7 +55,6 @@ import {
   RefreshCw,
   RotateCcw,
   TrendingUp,
-  Sparkles,
   Trash2,
 } from "lucide-react"
 import {
@@ -434,17 +433,16 @@ export default function AdminInsightsPage() {
 
         {/* Main Dashboard Container */}
         <div className="p-4 md:p-8 space-y-6 max-w-7xl mx-auto w-full">
-          {/* Header Banner */}
+          {/* Header Section */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div>
-              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-primary/10 text-primary text-xs font-semibold mb-1.5">
-                <Sparkles className="size-3" />
-                <span>Admin Analytics</span>
+            <div className="space-y-1">
+              <div className="text-xs font-mono text-muted-foreground">
+                Admin analytics
               </div>
-              <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-foreground">
+              <h1 className="text-2xl md:text-3xl font-medium tracking-tight text-foreground">
                 Gallery Insights
               </h1>
-              <p className="text-xs md:text-sm text-muted-foreground mt-0.5">
+              <p className="text-xs md:text-sm text-muted-foreground">
                 Public visitor activity, view velocity, and media popularity statistics.
               </p>
             </div>
@@ -482,105 +480,105 @@ export default function AdminInsightsPage() {
               {/* Top Overview Cards Grid */}
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5 md:gap-4">
                 {/* 1. Total Views Card */}
-                <Card className="border-border/80 bg-card hover:shadow-sm transition-all">
+                <Card className="border-border/80 bg-card hover:border-foreground/20 transition-colors duration-150">
                   <CardHeader className="p-4 pb-2 flex flex-row items-center justify-between space-y-0">
-                    <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                      Total Views
+                    <CardTitle className="text-xs font-medium text-muted-foreground">
+                      Total views
                     </CardTitle>
-                    <div className="p-2 rounded-lg bg-primary/10 text-primary">
-                      <Eye className="size-4" />
+                    <div className="p-2 rounded-lg bg-muted/70 text-muted-foreground">
+                      <Eye className="size-4 stroke-[1.5]" />
                     </div>
                   </CardHeader>
                   <CardContent className="p-4 pt-1">
-                    <div className="text-2xl md:text-3xl font-bold tracking-tight text-foreground">
+                    <div className="text-2xl md:text-3xl font-medium tracking-tight text-foreground tabular-nums">
                       <OdometerCounter target={overview.totalViews} />
                     </div>
-                    <p className="text-[11px] text-muted-foreground mt-1">
+                    <p className="text-xs text-muted-foreground mt-1">
                       Public visitor views
                     </p>
                   </CardContent>
                 </Card>
 
                 {/* 2. Total Media Card */}
-                <Card className="border-border/80 bg-card hover:shadow-sm transition-all">
+                <Card className="border-border/80 bg-card hover:border-foreground/20 transition-colors duration-150">
                   <CardHeader className="p-4 pb-2 flex flex-row items-center justify-between space-y-0">
-                    <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                      Total Media
+                    <CardTitle className="text-xs font-medium text-muted-foreground">
+                      Total media
                     </CardTitle>
-                    <div className="p-2 rounded-lg bg-blue-500/10 text-blue-500">
-                      <ImageIcon className="size-4" />
+                    <div className="p-2 rounded-lg bg-muted/70 text-muted-foreground">
+                      <ImageIcon className="size-4 stroke-[1.5]" />
                     </div>
                   </CardHeader>
                   <CardContent className="p-4 pt-1">
-                    <div className="text-2xl md:text-3xl font-bold tracking-tight text-foreground">
+                    <div className="text-2xl md:text-3xl font-medium tracking-tight text-foreground tabular-nums">
                       <OdometerCounter target={overview.totalPhotos} />
                     </div>
-                    <p className="text-[11px] text-muted-foreground mt-1">
+                    <p className="text-xs text-muted-foreground mt-1">
                       Published in gallery
                     </p>
                   </CardContent>
                 </Card>
 
                 {/* 3. Total Downloads Card */}
-                <Card className="border-border/80 bg-card hover:shadow-sm transition-all">
+                <Card className="border-border/80 bg-card hover:border-foreground/20 transition-colors duration-150">
                   <CardHeader className="p-4 pb-2 flex flex-row items-center justify-between space-y-0">
-                    <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                    <CardTitle className="text-xs font-medium text-muted-foreground">
                       Downloads
                     </CardTitle>
-                    <div className="p-2 rounded-lg bg-amber-500/10 text-amber-500">
-                      <Download className="size-4" />
+                    <div className="p-2 rounded-lg bg-muted/70 text-muted-foreground">
+                      <Download className="size-4 stroke-[1.5]" />
                     </div>
                   </CardHeader>
                   <CardContent className="p-4 pt-1">
-                    <div className="text-2xl md:text-3xl font-bold tracking-tight text-foreground">
+                    <div className="text-2xl md:text-3xl font-medium tracking-tight text-foreground tabular-nums">
                       <OdometerCounter target={overview.totalDownloads} />
                     </div>
-                    <p className="text-[11px] text-muted-foreground mt-1">
+                    <p className="text-xs text-muted-foreground mt-1">
                       Original media downloads
                     </p>
                   </CardContent>
                 </Card>
 
                 {/* 4. Total Comments Card */}
-                <Card className="border-border/80 bg-card hover:shadow-sm transition-all">
+                <Card className="border-border/80 bg-card hover:border-foreground/20 transition-colors duration-150">
                   <CardHeader className="p-4 pb-2 flex flex-row items-center justify-between space-y-0">
-                    <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                    <CardTitle className="text-xs font-medium text-muted-foreground">
                       Comments
                     </CardTitle>
-                    <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-500">
-                      <MessageSquare className="size-4" />
+                    <div className="p-2 rounded-lg bg-muted/70 text-muted-foreground">
+                      <MessageSquare className="size-4 stroke-[1.5]" />
                     </div>
                   </CardHeader>
                   <CardContent className="p-4 pt-1">
-                    <div className="text-2xl md:text-3xl font-bold tracking-tight text-foreground">
+                    <div className="text-2xl md:text-3xl font-medium tracking-tight text-foreground tabular-nums">
                       <OdometerCounter target={overview.totalComments} />
                     </div>
-                    <p className="text-[11px] text-muted-foreground mt-1">
+                    <p className="text-xs text-muted-foreground mt-1">
                       Visitor responses
                     </p>
                   </CardContent>
                 </Card>
 
                 {/* 5. Total Reactions Card */}
-                <Card className="border-border/80 bg-card hover:shadow-sm transition-all col-span-2 sm:col-span-1">
+                <Card className="border-border/80 bg-card hover:border-foreground/20 transition-colors duration-150 col-span-2 sm:col-span-1">
                   <CardHeader className="p-4 pb-2 flex flex-row items-center justify-between space-y-0">
-                    <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                    <CardTitle className="text-xs font-medium text-muted-foreground">
                       Reactions
                     </CardTitle>
-                    <div className="p-2 rounded-lg bg-pink-500/10 text-pink-500">
-                      <Heart className="size-4 fill-pink-500/20" />
+                    <div className="p-2 rounded-lg bg-muted/70 text-muted-foreground">
+                      <Heart className="size-4 stroke-[1.5]" />
                     </div>
                   </CardHeader>
                   <CardContent className="p-4 pt-1">
-                    <div className="text-2xl md:text-3xl font-bold tracking-tight text-foreground">
+                    <div className="text-2xl md:text-3xl font-medium tracking-tight text-foreground tabular-nums">
                       <OdometerCounter target={overview.totalReactions || 0} />
                     </div>
-                    <div className="flex items-center gap-1.5 mt-1 text-[11px] text-muted-foreground flex-wrap">
-                      <span title="Love">❤️ {overview.reactionsBreakdown?.love || 0}</span>
+                    <div className="flex items-center gap-1.5 mt-1 text-xs text-muted-foreground flex-wrap tabular-nums">
+                      <span>Love {overview.reactionsBreakdown?.love || 0}</span>
                       <span>•</span>
-                      <span title="Fire">🔥 {overview.reactionsBreakdown?.fire || 0}</span>
+                      <span>Fire {overview.reactionsBreakdown?.fire || 0}</span>
                       <span>•</span>
-                      <span title="Likes">👍 {overview.reactionsBreakdown?.clap || 0}</span>
+                      <span>Likes {overview.reactionsBreakdown?.clap || 0}</span>
                     </div>
                   </CardContent>
                 </Card>
@@ -725,12 +723,12 @@ export default function AdminInsightsPage() {
               <Card className="border-border/80 bg-card shadow-xs">
                 <CardHeader className="p-5 pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div>
-                    <CardTitle className="text-base font-bold flex items-center gap-2">
-                      <Heart className="size-4 text-pink-500 fill-pink-500/20" />
+                    <CardTitle className="text-base font-medium flex items-center gap-2">
+                      <Heart className="size-4 stroke-[1.5] text-muted-foreground" />
                       <span>Media Reactions & Community Leaderboard</span>
                     </CardTitle>
                     <CardDescription className="text-xs">
-                      Media that received public micro-reactions (❤️ Love, 🔥 Fire, 📸 Great Shot, 📍 Want to Visit, 👏 Likes)
+                      Media that received public reactions (Love, Fire, Great Shot, Want to Visit, Likes)
                     </CardDescription>
                   </div>
                   {topPhotos.mostReacted.length > 0 && (
@@ -775,34 +773,34 @@ export default function AdminInsightsPage() {
                                 {photo.name}
                               </h4>
 
-                              {/* Emoji badges row */}
-                              <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
-                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-pink-500/15 text-pink-600 dark:text-pink-400 border border-pink-500/20">
+                              {/* Reactions count row */}
+                              <div className="flex items-center gap-1.5 mt-1.5 flex-wrap font-mono tabular-nums">
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium bg-foreground/10 text-foreground border border-border/60">
                                   {photo.totalReactions} {photo.totalReactions === 1 ? 'reaction' : 'reactions'}
                                 </span>
                                 {photo.reactions.love > 0 && (
-                                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[10px] bg-muted border border-border/70 text-foreground font-medium">
-                                    ❤️ {photo.reactions.love}
+                                  <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] bg-muted border border-border/60 text-muted-foreground">
+                                    Love {photo.reactions.love}
                                   </span>
                                 )}
                                 {photo.reactions.fire > 0 && (
-                                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[10px] bg-muted border border-border/70 text-foreground font-medium">
-                                    🔥 {photo.reactions.fire}
+                                  <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] bg-muted border border-border/60 text-muted-foreground">
+                                    Fire {photo.reactions.fire}
                                   </span>
                                 )}
                                 {photo.reactions.camera > 0 && (
-                                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[10px] bg-muted border border-border/70 text-foreground font-medium">
-                                    📸 {photo.reactions.camera}
+                                  <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] bg-muted border border-border/60 text-muted-foreground">
+                                    Shot {photo.reactions.camera}
                                   </span>
                                 )}
                                 {photo.reactions.place > 0 && (
-                                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[10px] bg-muted border border-border/70 text-foreground font-medium">
-                                    📍 {photo.reactions.place}
+                                  <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] bg-muted border border-border/60 text-muted-foreground">
+                                    Visit {photo.reactions.place}
                                   </span>
                                 )}
                                 {photo.reactions.clap > 0 && (
-                                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[10px] bg-muted border border-border/70 text-foreground font-medium">
-                                    👍 {photo.reactions.clap}
+                                  <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] bg-muted border border-border/60 text-muted-foreground">
+                                    Like {photo.reactions.clap}
                                   </span>
                                 )}
                               </div>
@@ -872,7 +870,7 @@ export default function AdminInsightsPage() {
                         <button
                           type="button"
                           onClick={() => setViewedSort("views")}
-                          className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all cursor-pointer ${
+                          className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-[background-color,color] duration-150 cursor-pointer ${
                             viewedSort === "views"
                               ? "bg-background text-foreground shadow-xs"
                               : "text-muted-foreground hover:text-foreground"
@@ -883,7 +881,7 @@ export default function AdminInsightsPage() {
                         <button
                           type="button"
                           onClick={() => setViewedSort("recent")}
-                          className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all cursor-pointer ${
+                          className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-[background-color,color] duration-150 cursor-pointer ${
                             viewedSort === "recent"
                               ? "bg-background text-foreground shadow-xs"
                               : "text-muted-foreground hover:text-foreground"

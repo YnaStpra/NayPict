@@ -78,12 +78,12 @@ export function ActiveSessionsCard() {
   function renderDeviceIcon(deviceType: string) {
     switch (deviceType) {
       case "mobile":
-        return <Smartphone className="h-5 w-5 text-sky-500 shrink-0" />
+        return <Smartphone className="size-5 stroke-[1.5] text-muted-foreground shrink-0" />
       case "tablet":
-        return <Tablet className="h-5 w-5 text-indigo-500 shrink-0" />
+        return <Tablet className="size-5 stroke-[1.5] text-muted-foreground shrink-0" />
       case "desktop":
       default:
-        return <Laptop className="h-5 w-5 text-emerald-500 shrink-0" />
+        return <Laptop className="size-5 stroke-[1.5] text-muted-foreground shrink-0" />
     }
   }
 

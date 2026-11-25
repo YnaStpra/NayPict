@@ -256,11 +256,11 @@ export function PhotoStoryDialog({ photo, open, onOpenChange }: PhotoStoryDialog
       <DialogContent className="w-full max-w-[95vw] sm:max-w-3xl md:max-w-4xl lg:max-w-5xl max-h-[92vh] overflow-y-auto p-4 sm:p-6 md:p-8 bg-zinc-950/95 text-white backdrop-blur-2xl border border-white/10 shadow-2xl rounded-2xl">
         <DialogHeader className="mb-2">
           <div className="flex items-center gap-3">
-            <div className="flex size-10 items-center justify-center rounded-xl bg-gradient-to-tr from-pink-500 via-rose-500 to-amber-500 text-white shadow-lg shadow-pink-500/25">
-              <InstagramIcon className="size-5" />
+            <div className="flex size-10 items-center justify-center rounded-xl bg-white/10 border border-white/15 text-white">
+              <InstagramIcon className="size-5 stroke-[1.5]" />
             </div>
             <div>
-              <DialogTitle className="text-lg sm:text-xl font-bold tracking-tight text-white">
+              <DialogTitle className="text-lg sm:text-xl font-medium tracking-tight text-white">
                 Instagram Story & Card Generator
               </DialogTitle>
               <DialogDescription className="text-xs sm:text-sm text-zinc-400">
@@ -289,7 +289,7 @@ export function PhotoStoryDialog({ photo, open, onOpenChange }: PhotoStoryDialog
                 )}
                 {!isGenerating && !currentBlob && (
                   <div className="absolute inset-0 z-20 bg-zinc-950/95 flex flex-col items-center justify-center p-4 text-center gap-2.5 text-zinc-300">
-                    <Sparkles className="size-8 text-pink-500/80 animate-pulse" />
+                    <InstagramIcon className="size-7 text-zinc-400 stroke-[1.5]" />
                     <span className="text-xs text-zinc-400">Story preview ready</span>
                     <Button
                       type="button"
@@ -310,9 +310,8 @@ export function PhotoStoryDialog({ photo, open, onOpenChange }: PhotoStoryDialog
             </div>
 
             {/* Resolution Badge */}
-            <div className="mt-3.5 flex items-center gap-1.5 text-xs text-zinc-400 bg-white/5 px-3.5 py-1.5 rounded-full border border-white/10">
-              <Sparkles className="size-3.5 text-amber-400" />
-              <span>Output: 1080 × 1920 px (9:16 HD)</span>
+            <div className="mt-3.5 flex items-center gap-1.5 text-xs font-mono text-zinc-400 bg-white/5 px-3 py-1 rounded-lg border border-white/10 tabular-nums">
+              <span>1080 × 1920 px (9:16 HD)</span>
             </div>
           </div>
 
@@ -320,8 +319,8 @@ export function PhotoStoryDialog({ photo, open, onOpenChange }: PhotoStoryDialog
           <div className="md:col-span-7 flex flex-col gap-5">
             {/* Template Selector */}
             <div className="space-y-2">
-              <Label className="text-xs font-semibold uppercase tracking-wider text-zinc-400">
-                Card Style & Template
+              <Label className="text-xs font-medium text-zinc-400">
+                Card style & template
               </Label>
               <Tabs
                 value={template}

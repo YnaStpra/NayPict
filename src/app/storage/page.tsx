@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { Plus, Sparkles } from "lucide-react"
+import { BrushCleaning, Plus } from "lucide-react"
 import { toast } from "sonner"
 import { AppSidebar } from "@/components/layout/app-sidebar"
 import { AlertDialogDestructive } from "@/components/common/alert-destructive"
@@ -202,9 +202,9 @@ export default function Page() {
                     variant="outline"
                     type="button"
                     onClick={() => router.push("/admin/cleaner")}
-                    className="gap-1.5 text-xs text-pink-600 dark:text-pink-400 border-pink-500/30 hover:bg-pink-500/10"
+                    className="gap-1.5 text-xs"
                   >
-                    <Sparkles className="size-3.5" />
+                    <BrushCleaning className="size-3.5 stroke-[1.5] text-muted-foreground" />
                     Storage Cleaner
                   </Button>
                   <Button type="button" onClick={openAddStorage}>

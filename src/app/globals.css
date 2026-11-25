@@ -113,8 +113,8 @@
   --chart-5: oklch(0.269 0 0);
   --sidebar: oklch(0.205 0 0);
   --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.922 0 0);
+  --sidebar-primary-foreground: oklch(0.205 0 0);
   --sidebar-accent: oklch(0.269 0 0);
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
@@ -196,47 +196,6 @@
   .group:hover .group-hover\:scale-\[1\.035\] {
     transform: none !important;
   }
-}
-
-@keyframes neon-glow-pulse {
-  0%, 100% {
-    box-shadow: 0 0 10px rgba(236, 72, 153, 0.6);
-    color: #f472b6;
-    opacity: 0.95;
-  }
-  33% {
-    box-shadow: 0 0 12px rgba(6, 182, 212, 0.6);
-    color: #22d3ee;
-    opacity: 1;
-  }
-  66% {
-    box-shadow: 0 0 10px rgba(245, 158, 11, 0.6);
-    color: #fbbf24;
-    opacity: 0.95;
-  }
-}
-
-@keyframes neon-flicker {
-  0%, 100% { opacity: 1; }
-  3% { opacity: 0.45; }
-  6% { opacity: 1; }
-  7.5% { opacity: 0.6; }
-  9% { opacity: 1; }
-  10.5% { opacity: 0.35; }
-  12% { opacity: 1; }
-  87% { opacity: 1; }
-  88.5% { opacity: 0.65; }
-  90% { opacity: 1; }
-}
-
-.animate-neon-glow {
-  animation: neon-glow-pulse 3s infinite ease-in-out;
-  will-change: opacity, box-shadow;
-  transform: translateZ(0);
-}
-
-.animate-neon-flicker {
-  animation: neon-flicker 4s infinite linear;
 }
 
 @keyframes ambient-breathe {
@@ -797,11 +756,7 @@ a,
 
 .magnetic-nav-item {
   position: relative;
-  transition: color 0.2s ease, transform 0.2s ease;
-}
-
-.magnetic-nav-item:hover {
-  transform: translateX(2px);
+  transition: color 0.15s cubic-bezier(0.22, 1, 0.36, 1), background-color 0.15s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 /* ==========================================================================

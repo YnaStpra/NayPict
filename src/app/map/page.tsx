@@ -25,9 +25,9 @@ import dynamic from "next/dynamic"
 const PhotoMapView = dynamic(() => import("@/components/map/photo-map-view"), {
   ssr: false,
   loading: () => (
-    <div className="w-full h-full flex flex-col items-center justify-center bg-muted/40 animate-pulse gap-3 text-muted-foreground">
-      <div className="size-10 rounded-full border-2 border-primary/40 border-t-primary animate-spin" />
-      <p className="text-xs font-medium tracking-wide">Loading interactive map explorer...</p>
+    <div className="w-full h-full flex flex-col items-center justify-center bg-muted/40 gap-3 text-muted-foreground">
+      <div className="size-10 rounded-full border-2 border-border border-t-foreground animate-spin" />
+      <p className="text-xs font-mono">Loading interactive map explorer</p>
     </div>
   ),
 })

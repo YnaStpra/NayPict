@@ -19,7 +19,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { useApp } from "@/app/provider"
 import { UserTypeEnum } from "@/server/enums/user-enum"
-import { Image, FolderOpen, Database, Trash2, Settings, Upload, ShieldCheck, ArrowRight, LoaderCircle, BarChart3, Sparkles, Star } from "lucide-react"
+import { Image, FolderOpen, Database, Trash2, Settings, Upload, ShieldCheck, ArrowRight, LoaderCircle, BarChart3, BrushCleaning, Star } from "lucide-react"
 import { usePhotoStore } from "@/store/photo-store"
 import { userInfo as fetchUserInfo } from "@/request/user"
 import { landingPriorityGet } from "@/request/setting"
@@ -79,7 +79,7 @@ export default function AdminPage() {
     {
       title: "Manage Photos & Upload",
       description: "Upload new photos, batch manage, set download protection, and organize your gallery.",
-      icon: <Image className="size-6 text-blue-500" />,
+      icon: <Image className="size-5 stroke-[1.5] text-muted-foreground" />,
       actionLabel: "Go to Photos",
       onClick: () => router.push("/photos"),
       primaryAction: () => openUpload(null),
@@ -88,49 +88,49 @@ export default function AdminPage() {
     {
       title: "Manage Albums",
       description: "Create new albums, edit details, and use Automatic Cover Selection.",
-      icon: <FolderOpen className="size-6 text-amber-500" />,
+      icon: <FolderOpen className="size-5 stroke-[1.5] text-muted-foreground" />,
       actionLabel: "Go to Albums",
       onClick: () => router.push("/albums"),
     },
     {
       title: "Storage Settings",
       description: "Configure your Cloudflare R2 storage providers for photo & video uploads and media delivery.",
-      icon: <Database className="size-6 text-emerald-500" />,
+      icon: <Database className="size-5 stroke-[1.5] text-muted-foreground" />,
       actionLabel: "Configure Storage",
       onClick: () => router.push("/storage"),
     },
     {
       title: "Storage Cleaner & Health",
       description: "Scan Cloudflare R2 buckets for orphan files, incomplete uploads, and broken records to free up bucket space.",
-      icon: <Sparkles className="size-6 text-pink-500" />,
+      icon: <BrushCleaning className="size-5 stroke-[1.5] text-muted-foreground" />,
       actionLabel: "Open Cleaner",
       onClick: () => router.push("/admin/cleaner"),
     },
     {
       title: "Media Insights & Analytics",
       description: "Analyze public visitor traffic, view trends, top viewed media, and engagement metrics.",
-      icon: <BarChart3 className="size-6 text-indigo-500" />,
+      icon: <BarChart3 className="size-5 stroke-[1.5] text-muted-foreground" />,
       actionLabel: "View Insights",
       onClick: () => router.push("/admin/insights"),
     },
     {
       title: "Trash & Recovery",
       description: "View recycled items, restore deleted photos and videos, or permanently purge storage.",
-      icon: <Trash2 className="size-6 text-rose-500" />,
+      icon: <Trash2 className="size-5 stroke-[1.5] text-muted-foreground" />,
       actionLabel: "Open Trash",
       onClick: () => router.push("/trash"),
     },
     {
       title: "Landing Priority Photos",
-      description: "Choose up to 30 photos guaranteed to appear mixed randomly in every visitor's landing page infinite gallery.",
-      icon: <Star className="size-6 text-violet-500" />,
-      actionLabel: priorityCount !== null ? `Edit Priority Photos (${priorityCount}/30)` : "Edit Priority Photos",
+      description: "Choose up to 50 photos guaranteed to appear mixed randomly in every visitor's landing page infinite gallery.",
+      icon: <Star className="size-5 stroke-[1.5] text-muted-foreground" />,
+      actionLabel: priorityCount !== null ? `Edit Priority Photos (${priorityCount}/50)` : "Edit Priority Photos",
       onClick: () => setPriorityDialogOpen(true),
     },
     {
       title: "System Settings",
       description: "Manage site title, language, theme preferences, and security settings.",
-      icon: <Settings className="size-6 text-purple-500" />,
+      icon: <Settings className="size-5 stroke-[1.5] text-muted-foreground" />,
       actionLabel: "Open Settings",
       onClick: () => router.push("/settings"),
     },
@@ -158,28 +158,28 @@ export default function AdminPage() {
         </header>
 
         <div className="p-6 md:p-8 space-y-6 max-w-6xl mx-auto">
-          {/* Welcome Banner */}
-          <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-primary/10 via-primary/5 to-transparent p-6 md:p-8 border border-primary/20 shadow-sm">
+          {/* Header Section */}
+          <div className="rounded-xl bg-card p-6 border border-border/80">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-              <div>
-                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/15 text-primary text-xs font-medium mb-3">
-                  <ShieldCheck className="size-3.5" />
-                  Authenticated Admin Session
+              <div className="space-y-1">
+                <div className="flex items-center gap-2 text-xs font-mono text-muted-foreground">
+                  <span className="inline-block size-1.5 rounded-full bg-emerald-500" />
+                  <span>Admin session active</span>
                 </div>
-                <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-foreground">
-                  Welcome to {title} Admin Portal
+                <h1 className="text-2xl md:text-3xl font-medium tracking-tight text-foreground">
+                  {title} Admin Portal
                 </h1>
-                <p className="text-muted-foreground mt-1 text-sm md:text-base">
-                  Manage your public photo gallery, upload high-resolution media, organize albums, and manage storage settings.
+                <p className="text-muted-foreground text-sm max-w-2xl">
+                  Manage your public photo gallery, upload high-resolution media, organize albums, and configure storage.
                 </p>
               </div>
 
               <Button
-                size="lg"
-                className="gap-2 shadow-md shrink-0 cursor-pointer"
+                size="default"
+                className="gap-2 shrink-0 cursor-pointer"
                 onClick={() => openUpload(null)}
               >
-                <Upload className="size-4" />
+                <Upload className="size-4 stroke-[1.5]" />
                 <span>Upload New Photos</span>
               </Button>
             </div>
@@ -189,16 +189,16 @@ export default function AdminPage() {
           <AdminSecurityCard />
 
           {/* Quick Action Cards Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {adminActions.map((action, index) => (
-              <Card key={index} className="flex flex-col justify-between hover:shadow-md transition-all border-border/80">
+              <Card key={index} className="flex flex-col justify-between border-border/80 hover:border-foreground/20 transition-colors duration-150">
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between">
-                    <div className="p-2.5 rounded-xl bg-muted/60 border border-border/40">
+                    <div className="p-2 rounded-lg bg-muted/60 border border-border/60">
                       {action.icon}
                     </div>
                   </div>
-                  <CardTitle className="text-lg font-semibold mt-3">{action.title}</CardTitle>
+                  <CardTitle className="text-base font-medium mt-3">{action.title}</CardTitle>
                   <CardDescription className="text-xs leading-relaxed">
                     {action.description}
                   </CardDescription>

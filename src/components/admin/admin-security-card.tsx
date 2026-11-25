@@ -233,8 +233,8 @@ export function AdminSecurityCard({ has2Fa: initial2Fa, className = "" }: AdminS
 
       <CardContent className="p-4 sm:p-6 space-y-4">
         <div className="flex items-center justify-between">
-          <div className="text-xs font-semibold text-foreground uppercase tracking-wider">
-            Connected Devices ({sessions.length})
+          <div className="text-xs font-medium text-muted-foreground">
+            Connected devices ({sessions.length})
           </div>
 
           {otherSessionsCount > 0 && (

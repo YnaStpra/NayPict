@@ -29,7 +29,7 @@ import { useAlbumStore } from "@/store/album-store"
 import { usePhotoStore } from "@/store/photo-store"
 import type { PhotoVo } from "@/server/entity/vo/photo"
 import { emitCatalogSync } from "@/lib/catalog-sync"
-import { Archive, ArrowLeftIcon, ArrowUpDown, CalendarDays, ImageIcon, LayoutGrid, PlusIcon, Share2, Sparkles } from "lucide-react"
+import { Archive, ArrowLeftIcon, ArrowUpDown, CalendarDays, ImageIcon, Layers, LayoutGrid, PlusIcon, Share2 } from "lucide-react"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -522,13 +522,13 @@ export default function Page() {
                       type="button"
                       size="icon"
                       variant="ghost"
-                      className="size-8 p-0 rounded-full hover:bg-muted/60 transition-all duration-200 hover:scale-110 active:scale-95"
+                      className="size-8 p-0 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors duration-150 cursor-pointer"
                       onClick={() => setViewMode((prev) => (prev === "masonry" ? "infinite" : "masonry"))}
                     >
                       {viewMode === "infinite" ? (
-                        <LayoutGrid className="size-4.5 text-cyan-600 dark:text-cyan-400 drop-shadow-[0_0_4px_rgba(34,211,238,0.4)] animate-pulse" />
+                        <LayoutGrid className="size-4 stroke-[1.5]" />
                       ) : (
-                        <Sparkles className="size-4.5 text-amber-500 dark:text-amber-400 drop-shadow-[0_0_4px_rgba(251,191,36,0.5)] animate-pulse" />
+                        <Layers className="size-4 stroke-[1.5]" />
                       )}
                     </Button>
                   </TooltipTrigger>
@@ -547,14 +547,14 @@ export default function Page() {
                         type="button"
                         variant={groupByDate ? "secondary" : "ghost"}
                         size="icon"
-                        className={`size-8 rounded-lg transition-all duration-200 cursor-pointer ${
+                        className={`size-8 rounded-lg transition-colors duration-150 cursor-pointer ${
                           groupByDate
-                            ? "bg-sky-500/15 text-sky-500 dark:text-sky-400 border border-sky-500/30 shadow-2xs"
-                            : "text-sky-500 dark:text-sky-400 hover:bg-sky-500/10 hover:text-sky-600 dark:hover:text-sky-300"
+                            ? "bg-foreground/10 text-foreground border border-border/60"
+                            : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
                         }`}
                         onClick={toggleGroupByDate}
                       >
-                        <CalendarDays className="size-4 text-sky-500 dark:text-sky-400" />
+                        <CalendarDays className="size-4 stroke-[1.5]" />
                       </Button>
                     </TooltipTrigger>
                     <TooltipContent side="bottom">
@@ -574,10 +574,10 @@ export default function Page() {
                           type="button"
                           variant="ghost"
                           size="icon"
-                          className="size-8 rounded-lg transition-all duration-200 cursor-pointer hover:bg-violet-500/10 active:scale-95 text-violet-500 dark:text-violet-400 border border-border/50 hover:border-violet-500/30 shadow-2xs"
+                          className="size-8 rounded-lg transition-colors duration-150 cursor-pointer text-muted-foreground hover:text-foreground hover:bg-muted/60 border border-border/60"
                           aria-label="Sort Album Photos"
                         >
-                          <ArrowUpDown className="size-4 text-violet-500 dark:text-violet-400 shrink-0" />
+                          <ArrowUpDown className="size-4 stroke-[1.5] shrink-0" />
                         </Button>
                       </DropdownMenuTrigger>
                     </TooltipTrigger>

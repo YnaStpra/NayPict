@@ -213,30 +213,30 @@ export function LandingClient({ initialPhotos, initialTotal }: LandingClientProp
         {/* Top-Left: Brand Identity + Editorial Typography Directly Below */}
         <div className="pointer-events-auto flex flex-col items-start gap-2.5 sm:gap-3.5 max-w-sm sm:max-w-md lg:max-w-lg">
           {/* Brand Pill */}
-          <div className="flex items-center gap-2 sm:gap-2.5 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-xl sm:rounded-2xl bg-black/60 border border-white/15 backdrop-blur-xl shadow-2xl hover:border-white/30 transition-all">
-            <div className="size-5 sm:size-7 rounded-md sm:rounded-lg bg-white/10 flex items-center justify-center p-0.5 sm:p-1 border border-white/20 flex-shrink-0">
+          <div className="flex items-center gap-2 sm:gap-2.5 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-xl bg-black/65 border border-white/15 backdrop-blur-xl transition-colors duration-150 hover:border-white/25">
+            <div className="size-5 sm:size-6 rounded-md bg-white/10 flex items-center justify-center p-0.5 sm:p-1 border border-white/15 flex-shrink-0">
               <NaypictLogo className="size-full text-white" strokeWidth={18} />
             </div>
             <div className="flex items-center gap-1.5 sm:gap-2">
-              <span className="text-xs sm:text-sm font-black tracking-tight text-white drop-shadow">
+              <span className="text-xs sm:text-sm font-medium tracking-tight text-white">
                 NayPict
               </span>
               <div className="w-px h-3 bg-white/20" />
-              <span className="text-[10px] font-mono tracking-widest text-neutral-400 uppercase">
-                Visual Archive
+              <span className="text-[11px] font-mono text-neutral-400">
+                Visual archive
               </span>
             </div>
           </div>
 
           {/* Editorial Typography (Placed directly underneath "NayPict Visual Archive") */}
           <div className="space-y-1 sm:space-y-1.5">
-            <h1 className="text-xl sm:text-3xl md:text-4xl lg:text-5xl font-black tracking-tight text-white leading-[1.08] [text-shadow:_0_2px_12px_rgba(0,0,0,0.95),_0_4px_28px_rgba(0,0,0,0.9)]">
+            <h1 className="text-xl sm:text-3xl md:text-4xl lg:text-5xl font-semibold tracking-tight text-white leading-[1.08] [text-shadow:_0_2px_12px_rgba(0,0,0,0.95),_0_4px_28px_rgba(0,0,0,0.9)]">
               Visual Stories,<br />
-              <span className="text-neutral-200 font-medium [text-shadow:_0_2px_12px_rgba(0,0,0,0.95),_0_4px_28px_rgba(0,0,0,0.9)]">
+              <span className="text-neutral-200 font-normal [text-shadow:_0_2px_12px_rgba(0,0,0,0.95),_0_4px_28px_rgba(0,0,0,0.9)]">
                 Captured in Stillness.
               </span>
             </h1>
-            <p className="text-[11px] sm:text-xs md:text-sm text-neutral-200 font-medium leading-relaxed max-w-[290px] sm:max-w-sm md:max-w-md pt-0.5 line-clamp-2 md:line-clamp-none [text-shadow:_0_1px_8px_rgba(0,0,0,0.95)]">
+            <p className="text-[11px] sm:text-xs md:text-sm text-neutral-200 font-normal leading-relaxed max-w-[290px] sm:max-w-sm md:max-w-md pt-0.5 line-clamp-2 md:line-clamp-none [text-shadow:_0_1px_8px_rgba(0,0,0,0.95)]">
               Glide freely through the infinite canvas. Tap any frame to inspect high-resolution photographs.
             </p>
           </div>
@@ -244,13 +244,10 @@ export function LandingClient({ initialPhotos, initialTotal }: LandingClientProp
 
         {/* Top-Right Curated Counter Pill (Shows accurate total media count) */}
         {totalCuratedCount > 0 && (
-          <div className="pointer-events-auto flex items-center gap-2 px-3 py-1 sm:py-1.5 rounded-full bg-black/60 border border-white/15 backdrop-blur-xl text-neutral-300 text-[11px] sm:text-xs font-medium shadow-2xl flex-shrink-0">
-            <span className="relative flex size-2 flex-shrink-0">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-              <span className="relative inline-flex rounded-full size-2 bg-emerald-500" />
-            </span>
+          <div className="pointer-events-auto flex items-center gap-2 px-3 py-1 sm:py-1.5 rounded-full bg-black/65 border border-white/15 backdrop-blur-xl text-neutral-300 text-[11px] sm:text-xs font-mono tabular-nums flex-shrink-0">
+            <span className="inline-flex rounded-full size-1.5 bg-emerald-500 flex-shrink-0" />
             <span>
-              {totalCuratedCount.toLocaleString()} Captures
+              {totalCuratedCount.toLocaleString()} captures
             </span>
           </div>
         )}
@@ -273,18 +270,18 @@ export function LandingClient({ initialPhotos, initialTotal }: LandingClientProp
         {/* Floating Glass Pill Dock (iOS / Dynamic Island Glassmorphism) */}
         <nav
           aria-label="Main gallery navigation"
-          className="pointer-events-auto flex items-center gap-1 sm:gap-1.5 p-1 sm:p-1.5 md:p-2 rounded-2xl md:rounded-full bg-black/75 backdrop-blur-2xl border border-white/20 shadow-[0_20px_50px_rgba(0,0,0,0.85)] hover:border-white/30 transition-all duration-300 max-w-full"
+          className="pointer-events-auto flex items-center gap-1 sm:gap-1.5 p-1 sm:p-1.5 md:p-2 rounded-2xl md:rounded-full bg-black/75 backdrop-blur-2xl border border-white/15 shadow-[0_20px_50px_rgba(0,0,0,0.85)] hover:border-white/25 transition-colors duration-200 max-w-full"
         >
           {/* Primary Action: Explore Gallery */}
           <Link
             href="/photos"
             prefetch={true}
             onClick={() => setNavigatingTarget('/photos')}
-            className={`group relative flex items-center justify-center gap-1.5 sm:gap-2 min-h-[44px] px-3.5 sm:px-5 py-2 sm:py-2.5 rounded-xl md:rounded-full bg-white text-black font-bold text-xs sm:text-sm shadow-xl hover:bg-neutral-100 active:scale-[0.98] transition-all cursor-pointer ${
+            className={`group relative flex items-center justify-center gap-1.5 sm:gap-2 min-h-[44px] px-3.5 sm:px-5 py-2 sm:py-2.5 rounded-xl md:rounded-full bg-white text-black font-medium text-xs sm:text-sm hover:bg-neutral-200 active:scale-[0.98] transition-[background-color,opacity,transform] duration-150 cursor-pointer ${
               navigatingTarget && navigatingTarget !== '/photos' ? 'opacity-60 pointer-events-none' : ''
             } ${navigatingTarget === '/photos' ? 'ring-2 ring-white/50 bg-white/90 pointer-events-none' : ''}`}
           >
-            <ImageIcon className="size-4 text-black flex-shrink-0" />
+            <ImageIcon className="size-4 stroke-[1.5] text-black flex-shrink-0" />
             <span className="tracking-tight whitespace-nowrap">
               <span className="inline sm:hidden">Explore</span>
               <span className="hidden sm:inline">Explore Gallery</span>
@@ -303,11 +300,11 @@ export function LandingClient({ initialPhotos, initialTotal }: LandingClientProp
             href="/albums"
             prefetch={true}
             onClick={() => setNavigatingTarget('/albums')}
-            className={`group flex items-center justify-center gap-1.5 sm:gap-2 min-h-[44px] px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl md:rounded-full text-neutral-300 hover:text-white hover:bg-white/10 active:bg-white/15 text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
+            className={`group flex items-center justify-center gap-1.5 sm:gap-2 min-h-[44px] px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl md:rounded-full text-neutral-300 hover:text-white hover:bg-white/10 active:bg-white/15 text-xs sm:text-sm font-medium transition-colors duration-150 cursor-pointer ${
               navigatingTarget && navigatingTarget !== '/albums' ? 'opacity-60 pointer-events-none' : ''
             } ${navigatingTarget === '/albums' ? 'bg-white/15 text-white pointer-events-none' : ''}`}
           >
-            <FolderHeart className="size-4 text-neutral-300 group-hover:text-white transition-colors flex-shrink-0" />
+            <FolderHeart className="size-4 stroke-[1.5] text-neutral-300 group-hover:text-white transition-colors flex-shrink-0" />
             <span className="whitespace-nowrap">Albums</span>
             {navigatingTarget === '/albums' && (
               <Loader2 className="size-3.5 animate-spin text-white" />
@@ -319,11 +316,11 @@ export function LandingClient({ initialPhotos, initialTotal }: LandingClientProp
             href="/map"
             prefetch={true}
             onClick={() => setNavigatingTarget('/map')}
-            className={`group flex items-center justify-center gap-1.5 sm:gap-2 min-h-[44px] px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl md:rounded-full text-neutral-300 hover:text-white hover:bg-white/10 active:bg-white/15 text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
+            className={`group flex items-center justify-center gap-1.5 sm:gap-2 min-h-[44px] px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl md:rounded-full text-neutral-300 hover:text-white hover:bg-white/10 active:bg-white/15 text-xs sm:text-sm font-medium transition-colors duration-150 cursor-pointer ${
               navigatingTarget && navigatingTarget !== '/map' ? 'opacity-60 pointer-events-none' : ''
             } ${navigatingTarget === '/map' ? 'bg-white/15 text-white pointer-events-none' : ''}`}
           >
-            <MapPin className="size-4 text-neutral-300 group-hover:text-white transition-colors flex-shrink-0" />
+            <MapPin className="size-4 stroke-[1.5] text-neutral-300 group-hover:text-white transition-colors flex-shrink-0" />
             <span className="whitespace-nowrap">Map</span>
             {navigatingTarget === '/map' && (
               <Loader2 className="size-3.5 animate-spin text-white" />
@@ -339,9 +336,9 @@ export function LandingClient({ initialPhotos, initialTotal }: LandingClientProp
             onClick={() => setIsZenMode(true)}
             title="Zen Mode (Hide all controls, press Z or Esc)"
             aria-label="Toggle Zen Mode"
-            className="size-11 min-w-[44px] min-h-[44px] rounded-xl md:rounded-full text-neutral-400 hover:text-white hover:bg-white/10 active:bg-white/15 transition-all flex items-center justify-center cursor-pointer flex-shrink-0"
+            className="size-11 min-w-[44px] min-h-[44px] rounded-xl md:rounded-full text-neutral-400 hover:text-white hover:bg-white/10 active:bg-white/15 transition-colors duration-150 flex items-center justify-center cursor-pointer flex-shrink-0"
           >
-            <Eye className="size-4" />
+            <Eye className="size-4 stroke-[1.5]" />
           </button>
         </nav>
       </div>
@@ -360,7 +357,7 @@ export function LandingClient({ initialPhotos, initialTotal }: LandingClientProp
             type="button"
             onClick={() => setIsZenMode(false)}
             aria-label="Exit Zen Mode and restore navigation"
-            className="pointer-events-auto flex items-center gap-2 min-h-[44px] px-4 py-2 rounded-full bg-black/80 hover:bg-black/95 border border-white/25 text-white text-xs font-semibold backdrop-blur-2xl shadow-2xl transition-all hover:scale-105 active:scale-95 cursor-pointer"
+            className="pointer-events-auto flex items-center gap-2 min-h-[44px] px-4 py-2 rounded-full bg-black/80 hover:bg-black/95 border border-white/20 text-white text-xs font-medium backdrop-blur-2xl shadow-lg transition-[background-color,transform] duration-150 active:scale-97 cursor-pointer"
           >
             <EyeOff className="size-3.5 text-neutral-400" />
             <span>Exit Zen Mode</span>

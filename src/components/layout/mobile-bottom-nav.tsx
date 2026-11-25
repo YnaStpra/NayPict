@@ -93,7 +93,7 @@ export function MobileBottomNav() {
       data-mobile-dock="true"
       className={cn(
         "fixed left-1/2 -translate-x-1/2 z-40 md:hidden",
-        "transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] will-change-transform",
+        "transition-[transform,opacity] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform",
         isHidden
           ? "translate-y-24 opacity-0 pointer-events-none"
           : "translate-y-0 opacity-100 pointer-events-auto"
@@ -102,19 +102,19 @@ export function MobileBottomNav() {
         bottom: "max(0.75rem, env(safe-area-inset-bottom, 12px))",
       }}
     >
-      <div className="flex items-center gap-1 px-2.5 py-1.5 rounded-full bg-background/85 dark:bg-neutral-900/85 backdrop-blur-xl border border-border/60 dark:border-white/10 shadow-2xl shadow-black/25 ring-1 ring-black/5 dark:ring-white/5">
+      <div className="flex items-center gap-1 px-2 py-1.5 rounded-full bg-background/90 dark:bg-neutral-900/90 backdrop-blur-xl border border-border/60 dark:border-white/10 shadow-lg">
         {/* Photos Tab */}
         <Link
           href="/photos"
           aria-label="Photos"
           className={cn(
-            "flex flex-col items-center justify-center min-w-[62px] py-1 px-2 rounded-full text-[10px] font-medium transition-all duration-200 select-none active:scale-90",
+            "flex flex-col items-center justify-center min-w-[62px] py-1 px-2 rounded-full text-[10px] font-medium transition-[background-color,color,transform] duration-150 select-none active:scale-95",
             isPhotosActive
-              ? "bg-sky-500/15 text-sky-600 dark:text-sky-400 font-semibold shadow-2xs"
+              ? "bg-foreground/10 text-foreground font-semibold"
               : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
           )}
         >
-          <Images className="size-5 mb-0.5" />
+          <Images className="size-4.5 stroke-[1.5] mb-0.5" />
           <span>Photos</span>
         </Link>
 
@@ -123,13 +123,13 @@ export function MobileBottomNav() {
           href="/albums"
           aria-label="Albums"
           className={cn(
-            "flex flex-col items-center justify-center min-w-[62px] py-1 px-2 rounded-full text-[10px] font-medium transition-all duration-200 select-none active:scale-90",
+            "flex flex-col items-center justify-center min-w-[62px] py-1 px-2 rounded-full text-[10px] font-medium transition-[background-color,color,transform] duration-150 select-none active:scale-95",
             isAlbumsActive
-              ? "bg-amber-500/15 text-amber-600 dark:text-amber-400 font-semibold shadow-2xs"
+              ? "bg-foreground/10 text-foreground font-semibold"
               : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
           )}
         >
-          <FolderOpen className="size-5 mb-0.5" />
+          <FolderOpen className="size-4.5 stroke-[1.5] mb-0.5" />
           <span>Albums</span>
         </Link>
 
@@ -138,13 +138,13 @@ export function MobileBottomNav() {
           href="/map"
           aria-label="Map"
           className={cn(
-            "flex flex-col items-center justify-center min-w-[62px] py-1 px-2 rounded-full text-[10px] font-medium transition-all duration-200 select-none active:scale-90",
+            "flex flex-col items-center justify-center min-w-[62px] py-1 px-2 rounded-full text-[10px] font-medium transition-[background-color,color,transform] duration-150 select-none active:scale-95",
             isMapActive
-              ? "bg-rose-500/15 text-rose-600 dark:text-rose-400 font-semibold shadow-2xs"
+              ? "bg-foreground/10 text-foreground font-semibold"
               : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
           )}
         >
-          <MapPin className="size-5 mb-0.5" />
+          <MapPin className="size-4.5 stroke-[1.5] mb-0.5" />
           <span>Map</span>
         </Link>
 
@@ -154,13 +154,13 @@ export function MobileBottomNav() {
           onClick={handleToggleMenu}
           aria-label="Open Navigation Menu"
           className={cn(
-            "flex flex-col items-center justify-center min-w-[62px] py-1 px-2 rounded-full text-[10px] font-medium transition-all duration-200 select-none cursor-pointer active:scale-90",
+            "flex flex-col items-center justify-center min-w-[62px] py-1 px-2 rounded-full text-[10px] font-medium transition-[background-color,color,transform] duration-150 select-none cursor-pointer active:scale-95",
             sidebar?.openMobile
-              ? "bg-purple-500/15 text-purple-600 dark:text-purple-400 font-semibold shadow-2xs"
+              ? "bg-foreground/10 text-foreground font-semibold"
               : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
           )}
         >
-          <Menu className="size-5 mb-0.5" />
+          <Menu className="size-4.5 stroke-[1.5] mb-0.5" />
           <span>Menu</span>
         </button>
       </div>

@@ -910,36 +910,36 @@ export function PhotoBatchEditDialog({
           {/* 4. File Name */}
           <div className="rounded-xl border border-border/80 bg-card p-3.5 space-y-2 shadow-2xs">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-sm font-semibold">
-                <FileText className="size-4 text-purple-500" />
+              <div className="flex items-center gap-2 text-sm font-medium">
+                <FileText className="size-4 stroke-[1.5] text-muted-foreground" />
                 <span>4. File Name</span>
               </div>
               {isNameModified && (
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-500/15 text-purple-500 border border-purple-500/30">
-                  Will Change
+                <span className="text-[11px] font-mono px-2 py-0.5 rounded-md bg-foreground/10 text-foreground border border-border/60">
+                  Modified
                 </span>
               )}
             </div>
 
             <Select value={nameMode} onValueChange={setNameMode}>
               <SelectTrigger className="w-full text-xs h-9 bg-muted/30">
-                <SelectValue placeholder="Select Rename Action..." />
+                <SelectValue placeholder="Select rename action" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="unchanged" className="text-xs text-muted-foreground">
-                  ⚪ — Keep Current (Unchanged) —
+                  Keep current (unchanged)
                 </SelectItem>
-                <SelectItem value="set" className="text-xs text-purple-600 dark:text-purple-400 font-medium">
-                  ✏️ {photoIds.length === 1 ? "Set New File Name" : "Set New Name (with Auto-Numbering)"}
+                <SelectItem value="set" className="text-xs text-foreground font-medium">
+                  {photoIds.length === 1 ? "Set new file name" : "Set new name (auto-numbered)"}
                 </SelectItem>
                 <SelectItem value="prefix" className="text-xs">
-                  ➕ Add Prefix (e.g. Vacation_)
+                  Add prefix (e.g. Vacation_)
                 </SelectItem>
                 <SelectItem value="suffix" className="text-xs">
-                  ➕ Add Suffix (e.g. _edited)
+                  Add suffix (e.g. _edited)
                 </SelectItem>
                 <SelectItem value="replace" className="text-xs">
-                  🔄 Find & Replace Text
+                  Find & replace text
                 </SelectItem>
               </SelectContent>
             </Select>

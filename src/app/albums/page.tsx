@@ -296,9 +296,9 @@ export default function Page() {
                       variant="outline"
                       size="sm"
                       onClick={() => setIsReordering(true)}
-                      className="gap-1.5 cursor-pointer text-xs h-8 rounded-lg border-border/60 hover:bg-violet-500/10 hover:border-violet-500/30 transition-all shadow-2xs"
+                      className="gap-1.5 cursor-pointer text-xs h-8 rounded-lg border-border/60 hover:bg-muted transition-colors duration-150"
                     >
-                      <ArrowUpDown className="size-3.5 text-violet-500 dark:text-violet-400" />
+                      <ArrowUpDown className="size-3.5 stroke-[1.5] text-muted-foreground" />
                       <span>{t("reorder") || "Reorder"}</span>
                     </Button>
                   )}

@@ -1,7 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { Check, Loader2, Search, Sparkles, Trash2, X } from "lucide-react"
+import { Check, Loader2, Search, Star, Trash2, X } from "lucide-react"
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
@@ -281,8 +281,8 @@ export function LandingPriorityDialog({
       <DialogContent className="max-w-4xl max-h-[90dvh] flex flex-col p-0 gap-0 overflow-hidden">
         <DialogHeader className="px-6 pt-6 pb-4 border-b shrink-0">
           <div className="flex items-center justify-between gap-3 pr-6">
-            <DialogTitle className="flex items-center gap-2 text-lg">
-              <Sparkles className="size-5 text-violet-500" />
+            <DialogTitle className="flex items-center gap-2 text-lg font-medium">
+              <Star className="size-5 stroke-[1.5] text-muted-foreground" />
               <span>Landing Page Priority Photos</span>
             </DialogTitle>
             <Badge
