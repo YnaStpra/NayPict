@@ -181,16 +181,19 @@ export async function migrate(): Promise<void> {
       console.warn('[MIGRATE] Error updating album_photo columns:', albumPhotoErr);
     }
 
-    // Ensure photo table has visibility column for display scope control.
+    // Ensure photo table has visibility and rotation columns for display control.
     try {
       await sql`
         ALTER TABLE "photo" ADD COLUMN IF NOT EXISTS "visibility" integer DEFAULT 1 NOT NULL;
       `;
       await sql`
+        ALTER TABLE "photo" ADD COLUMN IF NOT EXISTS "rotation" integer DEFAULT 0 NOT NULL;
+      `;
+      await sql`
         ALTER TABLE "photo" ALTER COLUMN "create_time" TYPE timestamptz;
       `;
     } catch (photoVisErr) {
-      console.warn('[MIGRATE] Error updating photo visibility column:', photoVisErr);
+      console.warn('[MIGRATE] Error updating photo visibility/rotation columns:', photoVisErr);
     }
 
     // Ensure user table has token_version column for session invalidation.

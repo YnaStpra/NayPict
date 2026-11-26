@@ -19,6 +19,7 @@ import {
   type PhotoRandomIdListBo,
   type PhotoRecycleBo,
   type PhotoRestoreBo,
+  type PhotoRotateBo,
   type PhotoSetAllowDownloadBo,
   type PhotoSetVisibilityBo,
   type PhotoTakenDateListBo,
@@ -197,6 +198,40 @@ export function registerPhotoApi(app: Hono<HonoEnv>) {
       throw new BizError('auth.failed', 401);
     }
     const data = await photoService.getUntaggedPhotos(userId);
+    return c.json(result.ok(data));
+  });
+
+  // Rotate a photo physically (or update video rotation orientation) and save as default display.
+  app.post('/photo/rotate', async (c: Context) => {
+    const userId = getUserId();
+    if (!userId) {
+      throw new BizError('auth.failed', 401);
+    }
+
+    const clientIp = getClientIp(c);
+    const rateLimit = await uploadRateLimiter.consume(clientIp);
+    if (!rateLimit.allowed) {
+      c.header('Retry-After', String(Math.ceil(rateLimit.resetMs / 1000)));
+      return c.json(result.fail('Rate limit exceeded. Please try again later.', 429), 429);
+    }
+
+    const body = await c.req.json<PhotoRotateBo>();
+    const data = await photoService.rotatePhoto(body, userId);
+
+    logSecurityAudit({
+      action: 'PHOTO_ROTATE',
+      userId,
+      clientIp,
+      targetId: body.photoId,
+      details: {
+        angle: body.angle,
+        mode: body.mode ?? 'delta',
+        rotation: data.rotation,
+        width: data.width,
+        height: data.height,
+      },
+    });
+
     return c.json(result.ok(data));
   });
 

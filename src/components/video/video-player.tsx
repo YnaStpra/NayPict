@@ -18,6 +18,7 @@ import {
   PictureInPicture2,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { getRotatedMediaWrapperProps, isQuarterTurnRotation } from "@/lib/media-orientation"
 import { formatVideoDuration } from "@/lib/video-compress"
 import { toProxyMediaUrl } from "@/lib/url"
 import { PhotoReactions } from "@/components/photo/photo-reactions"
@@ -39,6 +40,7 @@ export interface VideoPlayerProps {
   className?: string
   photoId?: string
   exif?: string | null
+  defaultRotation?: number
   isCinematicMode?: boolean
   ambientMode?: boolean
   onScrubbingChange?: (isScrubbing: boolean) => void
@@ -60,6 +62,7 @@ export const VideoPlayer = memo(function VideoPlayer({
   className,
   photoId,
   exif,
+  defaultRotation = 0,
   isCinematicMode = false,
   ambientMode: ambientModeProp,
   onScrubbingChange,
@@ -182,7 +185,14 @@ export const VideoPlayer = memo(function VideoPlayer({
   const [isBuffering, setIsBuffering] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [hasFirstFrame, setHasFirstFrame] = useState(false)
-  const [isVideoLandscape, setIsVideoLandscape] = useState(false)
+  const [rawIsVideoLandscape, setRawIsVideoLandscape] = useState<boolean | null>(null)
+  const isVideoLandscape = rawIsVideoLandscape === null
+    ? false
+    : (isQuarterTurnRotation(defaultRotation) ? !rawIsVideoLandscape : rawIsVideoLandscape)
+  const videoMediaRotationWrapper = React.useMemo(
+    () => getRotatedMediaWrapperProps(defaultRotation),
+    [defaultRotation]
+  )
   const [isScreenPortrait, setIsScreenPortrait] = useState(false)
   const [isOnline, setIsOnline] = useState(() => (typeof navigator !== "undefined" ? navigator.onLine : true))
   const [isSlowBuffering, setIsSlowBuffering] = useState(false)
@@ -439,7 +449,7 @@ export const VideoPlayer = memo(function VideoPlayer({
     if (!video) return
     setDuration(video.duration || 0)
     if (video.videoWidth && video.videoHeight) {
-      setIsVideoLandscape(video.videoWidth > video.videoHeight)
+      setRawIsVideoLandscape(video.videoWidth > video.videoHeight)
     }
     setIsLoading(false)
 
@@ -1118,101 +1128,115 @@ export const VideoPlayer = memo(function VideoPlayer({
         )}
       />
 
-      {/* Visual Poster Overlay: Stays visible until video decodes and renders first frame */}
-      {poster && (
-        <img
-          src={poster}
-          alt={alt}
-          className={cn(
-            "absolute inset-0 size-full object-contain pointer-events-none transition-all duration-300 z-[5]",
-            hasThumbnails && !isFullscreen && !isCinematicMode ? "pb-12 md:pb-16" : "",
-            hasFirstFrame ? "opacity-0 pointer-events-none" : "opacity-100"
-          )}
-          aria-hidden="true"
-        />
-      )}
-
-      {/* Native HTML5 Video Element with Full Mobile Compatibility */}
-      <video
-        ref={videoRef}
-        src={src}
-        poster={poster}
-        playsInline
-        webkit-playsinline="true"
-        preload={videoPreload}
-        crossOrigin="anonymous"
+      {/* Poster + Video Surface Rotatable for Admin Default Orientation (keeps controls upright) */}
+      <div
         className={cn(
-          "relative z-[10] max-h-full max-w-full object-contain cursor-pointer transition-[padding] duration-300",
+          "relative flex items-center justify-center w-full h-full transition-[padding] duration-300",
           hasThumbnails && !isFullscreen && !isCinematicMode ? "pb-12 md:pb-16" : ""
         )}
-        onTimeUpdate={handleTimeUpdate}
-        onLoadedMetadata={handleLoadedMetadata}
-        onLoadStart={() => setIsLoading(true)}
-        onLoadedData={() => {
-          setIsLoading(false)
-          setHasFirstFrame(true)
-          if (!isOnline) setIsOnline(true)
-          if (getIsOffline()) {
-            notifyConnectionRestored()
-          }
-        }}
-        onWaiting={() => setIsBuffering(true)}
-        onPlaying={() => {
-          setIsPlaying(true)
-          setIsBuffering(false)
-          setIsLoading(false)
-          setHasFirstFrame(true)
-          if (!isOnline) setIsOnline(true)
-          if (getIsOffline()) {
-            notifyConnectionRestored()
-          }
-        }}
-        onCanPlay={() => {
-          setIsBuffering(false)
-          setIsLoading(false)
-          setHasFirstFrame(true)
-        }}
-        onSeeking={() => {
-          isSeekingRef.current = true
-          setIsBuffering(true)
-        }}
-        onSeeked={() => {
-          if (seekSafetyTimerRef.current) {
-            clearTimeout(seekSafetyTimerRef.current)
-            seekSafetyTimerRef.current = null
-          }
-          isSeekingRef.current = false
-          setIsBuffering(false)
-          setHasFirstFrame(true)
-          const video = videoRef.current
-          if (video && !isScrubbingRef.current) {
-            setCurrentTime(video.currentTime)
-            const mediaKey = photoId || src
-            if (mediaKey && video.currentTime > 0) {
-              globalVideoPositions.set(mediaKey, video.currentTime)
-            }
-          }
-        }}
-        onPlay={() => setIsPlaying(true)}
-        onPause={() => setIsPlaying(false)}
-        onEnded={() => {
-          const mediaKey = photoId || src
-          if (mediaKey) {
-            globalVideoPositions.delete(mediaKey)
-          }
-          setIsPlaying(false)
-          updateControlsVisibility(true)
-          onEnded?.()
-        }}
-        onError={() => {
-          setIsLoading(false)
-          setIsBuffering(false)
-          if (typeof navigator !== "undefined" && !navigator.onLine) {
-            setIsOnline(false)
-          }
-        }}
-        aria-label={alt}
-      />
+      >
+        <div
+          className="relative flex items-center justify-center size-full overflow-hidden"
+          style={videoMediaRotationWrapper.parentStyle}
+        >
+          <div
+            className="relative flex items-center justify-center size-full transition-transform duration-300"
+            style={videoMediaRotationWrapper.innerStyle}
+          >
+            {/* Visual Poster Overlay: Stays visible until video decodes and renders first frame */}
+            {poster && (
+              <img
+                src={poster}
+                alt={alt}
+                className={cn(
+                  "absolute inset-0 size-full object-contain pointer-events-none transition-opacity duration-300 z-[5]",
+                  hasFirstFrame ? "opacity-0 pointer-events-none" : "opacity-100"
+                )}
+                aria-hidden="true"
+              />
+            )}
+
+            {/* Native HTML5 Video Element with Full Mobile Compatibility */}
+            <video
+              ref={videoRef}
+              src={src}
+              poster={poster}
+              playsInline
+              webkit-playsinline="true"
+              preload={videoPreload}
+              crossOrigin="anonymous"
+              className="relative z-[10] max-h-full max-w-full object-contain cursor-pointer"
+              onTimeUpdate={handleTimeUpdate}
+              onLoadedMetadata={handleLoadedMetadata}
+              onLoadStart={() => setIsLoading(true)}
+              onLoadedData={() => {
+                setIsLoading(false)
+                setHasFirstFrame(true)
+                if (!isOnline) setIsOnline(true)
+                if (getIsOffline()) {
+                  notifyConnectionRestored()
+                }
+              }}
+              onWaiting={() => setIsBuffering(true)}
+              onPlaying={() => {
+                setIsPlaying(true)
+                setIsBuffering(false)
+                setIsLoading(false)
+                setHasFirstFrame(true)
+                if (!isOnline) setIsOnline(true)
+                if (getIsOffline()) {
+                  notifyConnectionRestored()
+                }
+              }}
+              onCanPlay={() => {
+                setIsBuffering(false)
+                setIsLoading(false)
+                setHasFirstFrame(true)
+              }}
+              onSeeking={() => {
+                isSeekingRef.current = true
+                setIsBuffering(true)
+              }}
+              onSeeked={() => {
+                if (seekSafetyTimerRef.current) {
+                  clearTimeout(seekSafetyTimerRef.current)
+                  seekSafetyTimerRef.current = null
+                }
+                isSeekingRef.current = false
+                setIsBuffering(false)
+                setHasFirstFrame(true)
+                const video = videoRef.current
+                if (video && !isScrubbingRef.current) {
+                  setCurrentTime(video.currentTime)
+                  const mediaKey = photoId || src
+                  if (mediaKey && video.currentTime > 0) {
+                    globalVideoPositions.set(mediaKey, video.currentTime)
+                  }
+                }
+              }}
+              onPlay={() => setIsPlaying(true)}
+              onPause={() => setIsPlaying(false)}
+              onEnded={() => {
+                const mediaKey = photoId || src
+                if (mediaKey) {
+                  globalVideoPositions.delete(mediaKey)
+                }
+                setIsPlaying(false)
+                updateControlsVisibility(true)
+                onEnded?.()
+              }}
+              onError={() => {
+                setIsLoading(false)
+                setIsBuffering(false)
+                if (typeof navigator !== "undefined" && !navigator.onLine) {
+                  setIsOnline(false)
+                }
+              }}
+              aria-label={alt}
+            />
+          </div>
+        </div>
+      </div>
 
       {/* Transparent Clickable Screen Backdrop for Toggling Overlay Controls */}
       <div

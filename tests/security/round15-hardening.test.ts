@@ -242,6 +242,7 @@ describe('Round 15 Security Hardening Suite', () => {
         storageId: 'storage-1',
         allowDownload: 0,
         visibility: PhotoVisibilityEnum.BOTH,
+        rotation: 0,
       };
 
       const mockFiles: PhotoFile[] = [

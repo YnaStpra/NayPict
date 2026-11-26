@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { formatPhotoTakenDate, formatRecycleTime } from "@/lib/date"
 import { getThumbHashUrl, getPhotoThumbHashUrl } from "@/lib/thumb-hash"
+import { getEffectiveMediaDimensions, getRotatedMediaWrapperProps } from "@/lib/media-orientation"
 import { toProxyMediaUrl } from "@/lib/url"
 import { PhotoStatusEnum } from "@/server/enums/photo-enum"
 import { type PhotoVo } from "@/server/entity/vo/photo"
@@ -210,8 +211,12 @@ export const PhotoCard = memo(function PhotoCard({
   }, [userCoords, data.latitude, data.longitude])
   const locale = useLocale()
   const src = data.thumbnail || data.preview || data.key
-  const ratio = data.width && data.height ? data.height / data.width : 1
+  const { ratio } = getEffectiveMediaDimensions(data)
   const isVideo = Boolean(data.type?.startsWith("video/"))
+  const videoRotationWrapper = useMemo(
+    () => (isVideo ? getRotatedMediaWrapperProps(data.rotation) : { deg: 0 as const }),
+    [isVideo, data.rotation]
+  )
   // Multi-tier fallback src state: thumbnail -> preview -> (photos only: original key)
   const [imageSrc, setImageSrc] = useState<string | null>(() => data.thumbnail || data.preview || (isVideo ? null : data.key) || null)
   // isImageLoaded: Once the high-res image paints, clear the base64 placeholder from DOM styles to free memory
@@ -330,9 +335,10 @@ export const PhotoCard = memo(function PhotoCard({
   const failedUrlsRef = useRef<Set<string>>(new Set())
 
   // Synchronously reset image source and state during render when photo changes to avoid 1-frame visual glitch
-  const prevPhotoIdRef = useRef(data.photoId)
-  if (prevPhotoIdRef.current !== data.photoId) {
-    prevPhotoIdRef.current = data.photoId
+  const prevMediaVersionRef = useRef(`${data.photoId}:${data.thumbnail || ""}:${data.preview || ""}`)
+  const currentMediaVersion = `${data.photoId}:${data.thumbnail || ""}:${data.preview || ""}`
+  if (prevMediaVersionRef.current !== currentMediaVersion) {
+    prevMediaVersionRef.current = currentMediaVersion
     failedUrlsRef.current.clear()
     const nextSrc = data.thumbnail || data.preview || (isVideo ? null : data.key) || null
     setImageSrc(nextSrc)
@@ -808,54 +814,57 @@ export const PhotoCard = memo(function PhotoCard({
           style={{
             backgroundColor: placeholder && !imageError ? undefined : "rgba(128,128,128,0.08)",
             backgroundImage: isImageLoaded || imageError ? undefined : (placeholder ? `url("${placeholder}")` : undefined),
+            ...videoRotationWrapper.parentStyle,
           }}
         >
-          <video
-            ref={videoRef}
-            src={(isEcoMode || isMobile) && !isVideoPlaying ? undefined : videoStreamUrl}
-            muted
-            playsInline
-            loop
-            crossOrigin="anonymous"
-            preload={isVideoPlaying ? "auto" : "none"}
-            onPlaying={() => setIsVideoFrameReady(true)}
-            onWaiting={() => setIsVideoFrameReady(false)}
-            onTimeUpdate={(e) => {
-              const video = e.currentTarget
-              const cur = video.currentTime
-              // Max preview limit: 10s. Rewind and loop back to 0s to conserve user bandwidth
-              if (cur >= 10) {
-                video.currentTime = 0
-                setCurrentSeconds(0)
-                video.play().catch(() => {})
-                return
-              }
-              const sec = Math.floor(cur)
-              setCurrentSeconds((prev) => (prev !== sec ? sec : prev))
-            }}
-            className="absolute inset-0 h-full w-full object-cover pointer-events-none"
-          />
-          {/* Static thumbnail overlay - persists until video frames are actually rendering to prevent black screens */}
-          {imageSrc && !imageError && (
-            <img
-              ref={setImgRef}
-              src={imageSrc}
-              loading={isPriority ? "eager" : "lazy"}
-              fetchPriority={isPriority ? "high" : "low"}
-              decoding={isImageLoaded ? "sync" : "async"}
-              sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33.3vw, 25vw"
-              alt=""
-              draggable={false}
-              className={[
-                "absolute inset-0 h-full w-full object-cover transition-opacity duration-300 pointer-events-none select-none",
-                isImageLoaded && (!isVideoPlaying || !isVideoFrameReady) ? "opacity-100" : "opacity-0",
-                selectionActive ? "" : "group-hover:scale-[1.035]",
-                showHover && !selectionActive ? "scale-[1.035]" : "",
-              ].join(" ")}
-              onError={handleImageError}
-              onLoad={handleImageLoad}
+          <div className="relative size-full" style={videoRotationWrapper.innerStyle}>
+            <video
+              ref={videoRef}
+              src={(isEcoMode || isMobile) && !isVideoPlaying ? undefined : videoStreamUrl}
+              muted
+              playsInline
+              loop
+              crossOrigin="anonymous"
+              preload={isVideoPlaying ? "auto" : "none"}
+              onPlaying={() => setIsVideoFrameReady(true)}
+              onWaiting={() => setIsVideoFrameReady(false)}
+              onTimeUpdate={(e) => {
+                const video = e.currentTarget
+                const cur = video.currentTime
+                // Max preview limit: 10s. Rewind and loop back to 0s to conserve user bandwidth
+                if (cur >= 10) {
+                  video.currentTime = 0
+                  setCurrentSeconds(0)
+                  video.play().catch(() => {})
+                  return
+                }
+                const sec = Math.floor(cur)
+                setCurrentSeconds((prev) => (prev !== sec ? sec : prev))
+              }}
+              className="absolute inset-0 h-full w-full object-cover pointer-events-none"
             />
-          )}
+            {/* Static thumbnail overlay - persists until video frames are actually rendering to prevent black screens */}
+            {imageSrc && !imageError && (
+              <img
+                ref={setImgRef}
+                src={imageSrc}
+                loading={isPriority ? "eager" : "lazy"}
+                fetchPriority={isPriority ? "high" : "low"}
+                decoding={isImageLoaded ? "sync" : "async"}
+                sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33.3vw, 25vw"
+                alt=""
+                draggable={false}
+                className={[
+                  "absolute inset-0 h-full w-full object-cover transition-opacity duration-300 pointer-events-none select-none",
+                  isImageLoaded && (!isVideoPlaying || !isVideoFrameReady) ? "opacity-100" : "opacity-0",
+                  selectionActive ? "" : "group-hover:scale-[1.035]",
+                  showHover && !selectionActive ? "scale-[1.035]" : "",
+                ].join(" ")}
+                onError={handleImageError}
+                onLoad={handleImageLoad}
+              />
+            )}
+          </div>
           <div className="absolute inset-0 bg-black/15 pointer-events-none" />
         </div>
       ) : imageError ? (

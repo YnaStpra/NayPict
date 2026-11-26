@@ -570,12 +570,26 @@ function usePhotoList(
       return
     }
 
+    let shouldRelayout = false
     setPhotos((prev) => {
-      const next = prev.map((p) => (p.photoId === updatedPhoto.photoId ? { ...p, ...updatedPhoto } : p))
+      const next = prev.map((p) => {
+        if (p.photoId !== updatedPhoto.photoId) return p
+        if (
+          (updatedPhoto.width !== undefined && updatedPhoto.width !== p.width) ||
+          (updatedPhoto.height !== undefined && updatedPhoto.height !== p.height) ||
+          (updatedPhoto.rotation !== undefined && updatedPhoto.rotation !== p.rotation)
+        ) {
+          shouldRelayout = true
+        }
+        return { ...p, ...updatedPhoto }
+      })
       photosRef.current = next
       return next
     })
-  }, [removePhotos])
+    if (shouldRelayout) {
+      refreshMasonry()
+    }
+  }, [refreshMasonry, removePhotos])
 
   // Batch update in-memory photo fields across multiple photo IDs.
   const updatePhotos = useCallback((photoIds: string[], updatedFields: Partial<PhotoVo>) => {

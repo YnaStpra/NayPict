@@ -86,6 +86,7 @@
   "landing.priorityLimitExceeded": "You can select at most 50 priority photos for the landing gallery.",
   "landing.invalidPhotoSelection": "One or more selected photos are not eligible for the public landing gallery.",
   "photo.checksumRequired": "File checksum is required.",
-  "photo.checksumInvalid": "Invalid file checksum format."
+  "photo.checksumInvalid": "Invalid file checksum format.",
+  "photo.invalidRotation": "Rotation angle must be a multiple of 90 degrees."
 }
 

@@ -176,6 +176,12 @@ interface PhotoAddDirectBo {
   thumbnailType?: string;
 }
 
+interface PhotoRotateBo {
+  photoId: string;
+  angle: number;
+  mode?: 'delta' | 'absolute';
+}
+
 export type {
   PhotoAddDirectBo,
   PhotoAddVideoBo,
@@ -192,6 +198,7 @@ export type {
   PhotoRandomIdListBo,
   PhotoRecycleBo,
   PhotoRestoreBo,
+  PhotoRotateBo,
   PhotoSetAllowDownloadBo,
   PhotoSetVisibilityBo,
   PhotoTakenDateListBo,

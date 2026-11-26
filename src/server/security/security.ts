@@ -24,6 +24,7 @@ const SYSTEM_PATHS = [
   '/user/toggleStatus',
   '/user/delete',
   '/storage',
+  '/photo/rotate',
   '/photo/setVisibility',
   '/photo/setAllowDownload',
   '/photo/batchEdit',

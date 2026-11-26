@@ -19,6 +19,7 @@ import { useAdaptivePerformance } from "@/hooks/use-adaptive-performance"
 import { PhotoCard, loadedThumbnails, markThumbnailLoaded } from "@/components/photo/photo-card"
 import { PhotoSelectionDrawer } from "@/components/photo/photo-selection-drawer"
 import { type PhotoVo } from "@/server/entity/vo/photo"
+import { getEffectiveMediaDimensions } from "@/lib/media-orientation"
 import { parseTime } from "@/lib/date"
 import { type HeroTransitionOrigin } from "@/components/photo/hero-photo-transition"
 import { prebufferVideo } from "@/lib/video-prebuffer"
@@ -132,7 +133,7 @@ function getResponsiveColumnCount(screenWidth: number, isMobile: boolean): numbe
 
 // Calculate the true height of the photo at the current column width.
 function getPhotoHeight(photo: PhotoVo, columnWidth: number) {
-  const ratio = photo.width && photo.height ? photo.height / photo.width : 1
+  const { ratio } = getEffectiveMediaDimensions(photo)
 
   return Math.max(1, Math.round(columnWidth * ratio))
 }
@@ -954,7 +955,7 @@ const PhotoMasonry = memo(function PhotoMasonry({
               const colRatios = new Array(numCols).fill(0)
 
               group.items.forEach(({ photo, globalIndex }) => {
-                const ratio = photo.width && photo.height ? photo.height / photo.width : 1
+                const { ratio } = getEffectiveMediaDimensions(photo)
                 const h = Math.max(1, Math.round(currentColumnWidth * ratio))
                 let minCol = 0
                 for (let c = 1; c < numCols; c++) {
@@ -1022,7 +1023,7 @@ const PhotoMasonry = memo(function PhotoMasonry({
               const colRatios = new Array(numCols).fill(0)
 
               group.items.forEach(({ photo, globalIndex }) => {
-                const ratio = photo.width && photo.height ? photo.height / photo.width : 1
+                const { ratio } = getEffectiveMediaDimensions(photo)
                 const h = Math.max(1, Math.round(currentColumnWidth * ratio))
                 let minCol = 0
                 for (let c = 1; c < numCols; c++) {
