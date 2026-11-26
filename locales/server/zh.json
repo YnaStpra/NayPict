@@ -83,6 +83,7 @@
   "user.passwordTooCommon": "该密码过于常见容易被破解，请设置更复杂的密码。",
   "user.passwordMatchesUsername": "密码不能与用户名相同。",
   "photo.checksumRequired": "文件校验和不能为空。",
-  "photo.checksumInvalid": "文件校验和格式无效。"
+  "photo.checksumInvalid": "文件校验和格式无效。",
+  "photo.invalidRotation": "旋转角度必须是 90 度的整数倍。"
 }
 

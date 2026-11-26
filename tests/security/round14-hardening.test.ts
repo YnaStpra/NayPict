@@ -415,6 +415,7 @@ describe('Round 14 Security Hardening Suite', () => {
         storageId: 'internal-storage-uuid',
         allowDownload: 0,
         visibility: PhotoVisibilityEnum.BOTH,
+        rotation: 0,
       };
       const files: PhotoFile[] = [
         {

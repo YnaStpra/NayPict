@@ -14,6 +14,7 @@ import { motion, AnimatePresence } from "framer-motion"
 import useEmblaCarousel from "embla-carousel-react"
 import {
   ArrowLeftIcon,
+  CheckIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
   ChevronsUpDownIcon,
@@ -75,7 +76,9 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { getThumbHashUrl } from "@/lib/thumb-hash"
 import { removePhotoIdFromUrl, setPhotoIdInUrl, toProxyMediaUrl } from "@/lib/url"
 import { recordPhotoShare, recordPhotoView } from "@/request/insights"
-import { photoList } from "@/request/photo"
+import { photoList, photoRotate } from "@/request/photo"
+import { emitCatalogSync } from "@/lib/catalog-sync"
+import { getRotatedMediaWrapperProps } from "@/lib/media-orientation"
 import { trackVisitorMedia } from "@/hooks/use-visitor-tracker"
 import { PhotoHeartBurst } from "@/components/photo/photo-heart-burst"
 import { reactionSync } from "@/lib/reaction-sync"
@@ -127,6 +130,7 @@ type PhotoSlideType = {
   exif?: string | null
   width?: number
   height?: number
+  rotation?: number
   alt?: string
   src: string
 }
@@ -1643,8 +1647,9 @@ export function PhotoViewer({
   const controlsVisible = !isCinematicMode || !isIdleHidden
   const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  // Rotations map per photo
+  // Rotations map per photo (unsaved delta in degrees relative to current saved orientation)
   const [photoRotates, setPhotoRotates] = useState<Record<string, number>>({})
+  const [savingRotateId, setSavingRotateId] = useState<string | null>(null)
 
   // Global cache
   const getPhotoCache = usePhotoStore((state) => state.getPhotoCache)
@@ -1706,6 +1711,7 @@ export function PhotoViewer({
         albums: photo.albums,
         width: photo.width ?? undefined,
         height: photo.height ?? undefined,
+        rotation: photo.rotation ?? 0,
         alt: photo.name,
         mediaType: photo.type,
         exif: photo.exif,
@@ -2292,6 +2298,36 @@ export function PhotoViewer({
     }))
   }
 
+  async function saveDefaultRotation(photo?: PhotoVo | null) {
+    if (!photo || !isAdmin || savingRotateId) return
+    const rawDelta = photoRotates[photo.photoId] ?? 0
+    const delta = ((rawDelta % 360) + 360) % 360
+    if (delta === 0) return
+
+    setSavingRotateId(photo.photoId)
+    try {
+      const updated = await photoRotate({
+        photoId: photo.photoId,
+        angle: delta,
+        mode: "delta",
+      })
+      setPhotoRotates((prev) => {
+        const next = { ...prev }
+        delete next[photo.photoId]
+        return next
+      })
+      setPhotoCache(photo.photoId, updated.preview || updated.thumbnail || updated.key || "")
+      onPhotoUpdate?.(updated)
+      emitCatalogSync("photo")
+      toast.success("Default orientation saved")
+    } catch (err) {
+      console.error("Failed to save default orientation:", err)
+      toast.error("Failed to save default orientation")
+    } finally {
+      setSavingRotateId(null)
+    }
+  }
+
   function restoreListScroll() {
     window.scrollTo(0, openScrollYRef.current)
   }
@@ -2471,6 +2507,7 @@ export function PhotoViewer({
                           autoPlay={isCurrentSlide}
                           photoId={slide.photoId}
                           exif={slide.exif}
+                          defaultRotation={(slide.rotation ?? 0) + (photoRotates[slide.photoId] ?? 0)}
                           isCinematicMode={isCinematicMode}
                           controlsVisible={isCurrentSlide ? actionsVisible : false}
                           onControlsVisibleChange={isCurrentSlide ? setShowActions : undefined}
@@ -2489,26 +2526,43 @@ export function PhotoViewer({
                         />
                       ) : (
                         /* Inactive neighboring video slide: Render lightweight poster image to avoid decoder contention */
-                        <div
-                          className={cn(
-                            "relative flex h-full w-full items-center justify-center select-none transition-[padding] duration-300",
-                            actionsVisible && !isCinematicMode && !isVideoFullscreen ? "pb-12 md:pb-16" : ""
-                          )}
-                        >
-                          {slide.preview || slide.thumbnail ? (
-                            <img
-                              src={slide.preview || slide.thumbnail}
-                              alt={slide.alt || "Video"}
-                              className="max-h-full max-w-full object-contain select-none pointer-events-none"
-                              loading="lazy"
-                            />
-                          ) : null}
-                          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                            <div className="size-14 rounded-full bg-black/45 backdrop-blur-sm border border-white/20 flex items-center justify-center text-white/80 shadow-lg">
-                              <Play className="size-6 fill-white/80 translate-x-0.5" />
+                        (() => {
+                          const inactiveVideoWrapper = getRotatedMediaWrapperProps(
+                            (slide.rotation ?? 0) + (photoRotates[slide.photoId] ?? 0)
+                          )
+                          return (
+                            <div
+                              className={cn(
+                                "relative flex h-full w-full items-center justify-center select-none transition-[padding] duration-300",
+                                actionsVisible && !isCinematicMode && !isVideoFullscreen ? "pb-12 md:pb-16" : ""
+                              )}
+                            >
+                              <div
+                                className="relative flex size-full items-center justify-center overflow-hidden"
+                                style={inactiveVideoWrapper.parentStyle}
+                              >
+                                <div
+                                  className="relative flex size-full items-center justify-center"
+                                  style={inactiveVideoWrapper.innerStyle}
+                                >
+                                  {slide.preview || slide.thumbnail ? (
+                                    <img
+                                      src={slide.preview || slide.thumbnail}
+                                      alt={slide.alt || "Video"}
+                                      className="max-h-full max-w-full object-contain select-none pointer-events-none"
+                                      loading="lazy"
+                                    />
+                                  ) : null}
+                                </div>
+                              </div>
+                              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                <div className="size-14 rounded-full bg-black/45 backdrop-blur-sm border border-white/20 flex items-center justify-center text-white/80 shadow-lg">
+                                  <Play className="size-6 fill-white/80 translate-x-0.5" />
+                                </div>
+                              </div>
                             </div>
-                          </div>
-                        </div>
+                          )
+                        })()
                       )}
                     </div>
                   ) : (
@@ -2610,20 +2664,45 @@ export function PhotoViewer({
                 photo={photos[viewIndex]}
               />
             )}
+            {(!isCurrentVideo || isAdmin) && (
+              <RotateButton
+                showActions={actionsVisible}
+                onRotate={() => {
+                  const curr = photos[viewIndex]
+                  if (curr) rotatePhoto(curr.photoId)
+                }}
+              />
+            )}
+            {(() => {
+              const curr = photos[viewIndex]
+              const rawDelta = curr ? (photoRotates[curr.photoId] ?? 0) : 0
+              const pendingDelta = ((rawDelta % 360) + 360) % 360
+              if (!isAdmin || !curr || pendingDelta === 0) return null
+              const isSaving = savingRotateId === curr.photoId
+              return (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  disabled={Boolean(savingRotateId)}
+                  onClick={() => saveDefaultRotation(curr)}
+                  className="h-9 rounded-full bg-neutral-900/90 border border-white/20 px-2.5 sm:px-3 text-[11px] sm:text-xs font-medium text-white hover:bg-neutral-800 cursor-pointer pointer-events-auto gap-1.5 tabular-nums active:scale-97"
+                  title="Save rotation as default display for everyone"
+                >
+                  {isSaving ? (
+                    <LoaderCircleIcon className="size-3.5 animate-spin stroke-[1.5]" />
+                  ) : (
+                    <CheckIcon className="size-3.5 stroke-[1.5]" />
+                  )}
+                  <span>{isSaving ? "Saving..." : `Save ${pendingDelta}°`}</span>
+                </Button>
+              )
+            })()}
             {!isCurrentVideo && (
-              <>
-                <RotateButton
-                  showActions={actionsVisible}
-                  onRotate={() => {
-                    const curr = photos[viewIndex]
-                    if (curr) rotatePhoto(curr.photoId)
-                  }}
-                />
-                <StoryCardButton
-                  showActions={actionsVisible}
-                  onOpenStory={() => setStoryDialogOpen(true)}
-                />
-              </>
+              <StoryCardButton
+                showActions={actionsVisible}
+                onOpenStory={() => setStoryDialogOpen(true)}
+              />
             )}
             <ShareButton
               showActions={actionsVisible}

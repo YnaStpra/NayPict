@@ -170,3 +170,67 @@ export async function processPhotoImages(buffer: Buffer, mimeType?: string): Pro
     thumbHash,
   }
 }
+
+/**
+ * Normalize a rotation angle to a canonical clockwise multiple of 90 degrees (0 | 90 | 180 | 270).
+ */
+export function normalizeRotationAngle(angle: number): 0 | 90 | 180 | 270 {
+  if (typeof angle !== 'number' || !Number.isFinite(angle) || !Number.isInteger(angle)) {
+    throw new BizError('photo.invalidRotation');
+  }
+  const normalized = ((angle % 360) + 360) % 360;
+  if (normalized !== 0 && normalized !== 90 && normalized !== 180 && normalized !== 270) {
+    throw new BizError('photo.invalidRotation');
+  }
+  return normalized as 0 | 90 | 180 | 270;
+}
+
+/**
+ * Physically rotate an image buffer by a clockwise multiple of 90 degrees and regenerate all derivatives.
+ */
+export async function rotatePhotoImages(
+  buffer: Buffer,
+  angle: number,
+  mimeType?: string
+): Promise<ProcessedPhotoImages> {
+  const normalizedAngle = normalizeRotationAngle(angle);
+  if (normalizedAngle === 0) {
+    return processPhotoImages(buffer, mimeType);
+  }
+
+  const meta = await sharp(buffer, SHARP_SECURITY_OPTIONS).metadata();
+  const format = (meta.format || '').toLowerCase();
+
+  let rotatedPipeline = sharp(buffer, SHARP_SECURITY_OPTIONS)
+    .autoOrient()
+    .rotate(normalizedAngle);
+
+  let workingMime = mimeType || 'image/jpeg';
+
+  if (format === 'jpeg' || format === 'jpg' || workingMime === 'image/jpeg' || workingMime === 'image/jpg') {
+    workingMime = 'image/jpeg';
+    rotatedPipeline = rotatedPipeline.jpeg({ quality: 92, mozjpeg: true, progressive: true });
+  } else if (format === 'png' || workingMime === 'image/png') {
+    workingMime = 'image/png';
+    rotatedPipeline = rotatedPipeline.png({ compressionLevel: 9, adaptiveFiltering: true });
+  } else if (format === 'webp' || workingMime === 'image/webp') {
+    workingMime = 'image/webp';
+    rotatedPipeline = rotatedPipeline.webp({ quality: 92, smartSubsample: true });
+  } else if (format === 'avif' || workingMime === 'image/avif') {
+    workingMime = 'image/avif';
+    rotatedPipeline = rotatedPipeline.avif({ quality: 90, effort: 4 });
+  } else if (format === 'gif' || workingMime === 'image/gif') {
+    workingMime = 'image/gif';
+    rotatedPipeline = sharp(buffer, { ...SHARP_SECURITY_OPTIONS, animated: true })
+      .autoOrient()
+      .rotate(normalizedAngle)
+      .gif();
+  } else {
+    // Convert HEIC/HEIF/TIFF/BMP consistently with optimizeOriginalBuffer
+    workingMime = 'image/jpeg';
+    rotatedPipeline = rotatedPipeline.jpeg({ quality: 92, mozjpeg: true, progressive: true });
+  }
+
+  const rotatedBuffer = await rotatedPipeline.toBuffer();
+  return processPhotoImages(rotatedBuffer, workingMime);
+}

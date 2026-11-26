@@ -25,6 +25,7 @@ import {
   type PhotoRandomIdListBo,
   type PhotoRecycleBo,
   type PhotoRestoreBo,
+  type PhotoRotateBo,
   type PhotoSetAllowDownloadBo,
   type PhotoSetVisibilityBo,
   type PhotoTakenDateListBo,
@@ -49,7 +50,7 @@ import {
 import { type Storage } from '@/server/entity/storage';
 import { storageService } from '@/server/service/storage-service';
 import { buildContentDisposition, formatFileTimestamp, splitFileName } from '@/server/lib/file';
-import { albumService, getArchivedAlbumIds } from '@/server/service/album-service';
+import { albumService, getArchivedAlbumIds, invalidateAlbumFastPathCache } from '@/server/service/album-service';
 import { settingService } from '@/server/service/setting-service';
 import { SettingOnThisDayEnum, SettingPhotoDedupEnum, SettingSyncDeleteEnum } from '@/server/enums/setting-enum';
 import { formatHttpUrl, toMediaUrl, toProxyMediaUrl } from '@/lib/url';
@@ -61,13 +62,13 @@ import {
   calculateVisualSimilarity,
   type VisualSignature,
 } from '@/server/lib/perceptual-similarity';
-import { processPhotoImages } from '@/server/lib/photo-process';
+import { normalizeRotationAngle, processPhotoImages, rotatePhotoImages } from '@/server/lib/photo-process';
 import { scanPhotoBufferForPolyglot, sanitizeFileName } from '@/server/lib/photo-sanitizer';
 import { readPhotoExifFromBuffer } from '@/server/lib/photo-exif';
 import { type Exif, exifTab } from '@/server/entity/exif';
 import { exifService } from '@/server/service/exif-service';
 import { buildPhotoKey, buildPreviewKey, buildThumbnailKey } from '@/server/lib/photo-path';
-import { type File as PhotoFile, fileTab } from '@/server/entity/file';
+import { type File as PhotoFile, type FileInto, fileTab } from '@/server/entity/file';
 import { fileService } from '@/server/service/file-service';
 import { invalidateMediaFileCache } from '@/server/lib/media-cache';
 import { commentService } from '@/server/service/comment-service';
@@ -245,6 +246,24 @@ function getCanonicalMimeType(filename: string, fileType?: string): string {
   }
 
   return resolved;
+}
+
+/**
+ * Convert a storage object stream or typed body into a single Node.js Buffer.
+ */
+async function readStorageBodyToBuffer(body: unknown): Promise<Buffer> {
+  if (Buffer.isBuffer(body)) {
+    return body;
+  }
+  if (typeof (body as { transformToByteArray?: () => Promise<Uint8Array> }).transformToByteArray === 'function') {
+    const bytes = await (body as { transformToByteArray: () => Promise<Uint8Array> }).transformToByteArray();
+    return Buffer.from(bytes);
+  }
+  const chunks: Uint8Array[] = [];
+  for await (const chunk of body as AsyncIterable<Uint8Array>) {
+    chunks.push(chunk);
+  }
+  return Buffer.concat(chunks);
 }
 
 const photoService = {
@@ -2580,25 +2599,215 @@ const photoService = {
     const obj = await storage.get(originalFile.key, photo.storageId);
     if (!obj?.body) return null;
 
-    let buffer: Buffer;
-    if (Buffer.isBuffer(obj.body)) {
-      buffer = obj.body;
-    } else if (typeof (obj.body as any).transformToByteArray === 'function') {
-      const bytes = await (obj.body as any).transformToByteArray();
-      buffer = Buffer.from(bytes);
-    } else {
-      const chunks: Uint8Array[] = [];
-      for await (const chunk of obj.body as any) {
-        chunks.push(chunk);
-      }
-      buffer = Buffer.concat(chunks);
-    }
+    const buffer = await readStorageBodyToBuffer(obj.body);
 
     return {
       buffer,
       fileName: photo.name,
       contentType: originalFile.fileType || 'image/jpeg',
     };
+  },
+
+  // Rotate photo physically (regenerating derivatives with cache-busting keys) or persist video rotation orientation.
+  async rotatePhoto(params: PhotoRotateBo, userId?: string): Promise<PhotoVo> {
+    const cleanPhotoId = params.photoId?.trim();
+    if (!cleanPhotoId) {
+      throw new BizError('photo.selectRequired');
+    }
+
+    const parsedAngle = normalizeRotationAngle(params.angle);
+    const mode = params.mode === 'absolute' ? 'absolute' : 'delta';
+
+    const whereList = [eq(photoTab.photoId, cleanPhotoId)];
+    if (userId) {
+      whereList.push(eq(photoTab.userId, userId));
+    }
+
+    const [photo] = await readOrm
+      .select()
+      .from(photoTab)
+      .where(and(...whereList))
+      .limit(1);
+
+    if (!photo) {
+      throw new BizError('photo.notFound', 404);
+    }
+
+    const isVideo = Boolean(photo.type?.startsWith('video/'));
+
+    if (isVideo) {
+      const currentRotation = ((photo.rotation ?? 0) % 360 + 360) % 360;
+      const targetRotation = mode === 'absolute'
+        ? parsedAngle
+        : normalizeRotationAngle(currentRotation + parsedAngle);
+
+      if (targetRotation !== (photo.rotation ?? 0)) {
+        await orm
+          .update(photoTab)
+          .set({ rotation: targetRotation })
+          .where(eq(photoTab.photoId, cleanPhotoId));
+
+        invalidatePhotoFastPathCache();
+        invalidateAlbumFastPathCache();
+        void syncService.bump('photo');
+      }
+
+      const updated = await this.getById(cleanPhotoId, userId);
+      if (!updated) {
+        throw new BizError('photo.notFound', 404);
+      }
+      return updated;
+    }
+
+    const currentRotation = ((photo.rotation ?? 0) % 360 + 360) % 360;
+    const effectiveAngle = mode === 'absolute'
+      ? normalizeRotationAngle((((parsedAngle - currentRotation) % 360) + 360) % 360)
+      : parsedAngle;
+
+    if (effectiveAngle === 0) {
+      if ((photo.rotation ?? 0) !== 0) {
+        await orm
+          .update(photoTab)
+          .set({ rotation: 0 })
+          .where(eq(photoTab.photoId, cleanPhotoId));
+        invalidatePhotoFastPathCache();
+        invalidateAlbumFastPathCache();
+        void syncService.bump('photo');
+      }
+      const existing = await this.getById(cleanPhotoId, userId);
+      if (!existing) {
+        throw new BizError('photo.notFound', 404);
+      }
+      return existing;
+    }
+
+    if (!photo.storageId) {
+      throw new BizError('storage.notFound');
+    }
+
+    const files = await fileService.listByPhotoId(cleanPhotoId);
+    const originalFile = files.find((f) => f.type === FileTypeEnum.ORIGINAL);
+    const previewFile = files.find((f) => f.type === FileTypeEnum.PREVIEW);
+    const thumbnailFile = files.find((f) => f.type === FileTypeEnum.THUMBNAIL);
+    const sourceFile = originalFile || previewFile || files[0];
+
+    if (!sourceFile?.key) {
+      throw new BizError('s3.readFailed');
+    }
+
+    const obj = await storage.get(sourceFile.key, photo.storageId);
+    if (!obj?.body) {
+      throw new BizError('s3.readFailed');
+    }
+
+    const sourceBuffer = await readStorageBodyToBuffer(obj.body);
+    const images = await rotatePhotoImages(sourceBuffer, effectiveAngle, sourceFile.fileType || photo.type);
+    const nextChecksum = createHash('sha256').update(images.optimizedOriginalBuffer).digest('hex');
+
+    // Generate brand-new derivative keys so immutable Edge CDN caches bust immediately.
+    const cacheBustTag = `${cleanPhotoId}_r${Date.now().toString(36)}`;
+    const thumbExt = images.thumbnailType === 'image/avif' ? 'avif' : 'webp';
+    const nextPreviewKey = buildPreviewKey(nextChecksum, cacheBustTag);
+    const nextThumbnailKey = buildThumbnailKey(nextChecksum, cacheBustTag, thumbExt);
+    const nextOriginalKey = originalFile?.key ?? buildPhotoKey(nextChecksum, photo.name);
+
+    await storage.put(
+      [
+        { key: nextOriginalKey, body: images.optimizedOriginalBuffer, type: images.optimizedOriginalType },
+        { key: nextPreviewKey, body: images.previewBuffer, type: 'image/jpeg' },
+        { key: nextThumbnailKey, body: images.thumbnailBuffer, type: images.thumbnailType || 'image/avif' },
+      ],
+      photo.storageId
+    );
+
+    const nextTypeDesc = images.optimizedOriginalType === 'image/jpeg' && photo.type !== images.optimizedOriginalType
+      ? 'jpg'
+      : photo.typeDesc;
+
+    await orm
+      .update(photoTab)
+      .set({
+        width: images.width,
+        height: images.height,
+        size: images.optimizedOriginalSize,
+        type: images.optimizedOriginalType,
+        typeDesc: nextTypeDesc,
+        thumbHash: images.thumbHash,
+        checksum: nextChecksum,
+        rotation: 0,
+      })
+      .where(eq(photoTab.photoId, cleanPhotoId));
+
+    const newFileRecords: FileInto[] = [];
+    const upsertFileRecord = async (
+      existing: PhotoFile | undefined,
+      fileTypeEnum: number,
+      key: string,
+      mimeType: string,
+      size: number
+    ) => {
+      if (existing?.fileId) {
+        await orm
+          .update(fileTab)
+          .set({ key, fileType: mimeType, size })
+          .where(eq(fileTab.fileId, existing.fileId));
+      } else {
+        newFileRecords.push({
+          fileId: createId(),
+          photoId: cleanPhotoId,
+          key,
+          type: fileTypeEnum,
+          fileType: mimeType,
+          size,
+        });
+      }
+    };
+
+    await upsertFileRecord(
+      originalFile,
+      FileTypeEnum.ORIGINAL,
+      nextOriginalKey,
+      images.optimizedOriginalType,
+      images.optimizedOriginalSize
+    );
+    await upsertFileRecord(
+      previewFile,
+      FileTypeEnum.PREVIEW,
+      nextPreviewKey,
+      'image/jpeg',
+      images.previewBuffer.length
+    );
+    await upsertFileRecord(
+      thumbnailFile,
+      FileTypeEnum.THUMBNAIL,
+      nextThumbnailKey,
+      images.thumbnailType || 'image/avif',
+      images.thumbnailBuffer.length
+    );
+
+    if (newFileRecords.length > 0) {
+      await fileService.save(newFileRecords);
+    }
+
+    // Best-effort cleanup of replaced derivative objects after DB update
+    const obsoleteKeys = [previewFile?.key, thumbnailFile?.key].filter(
+      (k): k is string => Boolean(k && k !== nextPreviewKey && k !== nextThumbnailKey && k !== nextOriginalKey)
+    );
+    if (obsoleteKeys.length > 0) {
+      await storage.delete(obsoleteKeys, photo.storageId).catch((err) => {
+        console.warn('[PHOTO-ROTATE] Failed to delete stale derivative keys:', err);
+      });
+    }
+
+    invalidatePhotoFastPathCache();
+    invalidateAlbumFastPathCache();
+    void syncService.bump('photo');
+
+    const updated = await this.getById(cleanPhotoId, userId);
+    if (!updated) {
+      throw new BizError('photo.notFound', 404);
+    }
+    return updated;
   },
 
   // Batch update photo download protection status.

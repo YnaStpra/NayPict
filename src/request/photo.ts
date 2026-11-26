@@ -15,6 +15,7 @@ import {
   type PhotoRandomIdListBo,
   type PhotoRecycleBo,
   type PhotoRestoreBo,
+  type PhotoRotateBo,
   type PhotoSetVisibilityBo,
   type PhotoTakenDateListBo,
 } from "@/server/entity/bo/photo";
@@ -42,6 +43,11 @@ export function photoBatchEdit(params: PhotoBatchEditBo) {
 // Update photo display scope / visibility (Both, Gallery Only, Album Only, Archived).
 export function photoSetVisibility(params: PhotoSetVisibilityBo) {
   return http.post<void>('/photo/setVisibility', params);
+}
+
+// Rotate media physically (images) or persist default orientation (videos) as Admin.
+export function photoRotate(params: PhotoRotateBo) {
+  return http.post<PhotoVo>('/photo/rotate', params);
 }
 
 // Query all geotagged photos for the interactive map explorer.

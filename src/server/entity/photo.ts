@@ -24,6 +24,7 @@ export const photoTab = pgTable(
     storageId: text('storage_id'),
     allowDownload: integer('allow_download').notNull().default(0),
     visibility: integer('visibility').notNull().default(PhotoVisibilityEnum.BOTH),
+    rotation: integer('rotation').notNull().default(0),
   },
   (table) => [
     index('idx_photo_pub_timeline').on(table.status, table.visibility, table.takenTime, table.createTime),

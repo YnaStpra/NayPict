@@ -9,6 +9,7 @@ import { useLocale } from "next-intl"
 import { type PhotoVo } from "@/server/entity/vo/photo"
 import { formatPhotoTakenDate } from "@/lib/date"
 import { getThumbHashUrl } from "@/lib/thumb-hash"
+import { getEffectiveMediaDimensions, getRotatedMediaWrapperProps } from "@/lib/media-orientation"
 import { toProxyMediaUrl } from "@/lib/url"
 
 interface PhotoQuickPeekProps {
@@ -107,12 +108,20 @@ export function PhotoQuickPeek({
   // 2. High-res preview upgrade
   const highResSrc = photo?.preview || instantThumbnailSrc
 
+  // Compute effective rotation & aspect ratio for both photos and rotated videos
+  const effectiveRotation = isVideo ? (photo?.rotation ?? 0) : 0
+  const videoWrapperStyle = useMemo(
+    () => getRotatedMediaWrapperProps(effectiveRotation),
+    [effectiveRotation]
+  )
+
   // Dynamic aspect ratio clamped between 0.68 (tall portrait) and 1.45 (landscape)
   const clampedAspectRatio = useMemo(() => {
     if (!photo?.width || !photo?.height) return 4 / 5
-    const ratio = photo.width / photo.height
+    const eff = getEffectiveMediaDimensions(photo)
+    const ratio = eff.width / eff.height
     return Math.max(0.68, Math.min(1.45, ratio))
-  }, [photo?.width, photo?.height])
+  }, [photo])
 
   if (!mounted) return null
 
@@ -167,30 +176,32 @@ export function PhotoQuickPeek({
               }}
             >
               {isVideo ? (
-                <div className="relative size-full">
-                  <video
-                    src={videoSrc}
-                    autoPlay
-                    loop
-                    muted
-                    playsInline
-                    preload="auto"
-                    onPlaying={() => setIsVideoReady(true)}
-                    onWaiting={() => setIsVideoReady(false)}
-                    className="size-full object-cover pointer-events-none"
-                  />
-                  {/* Instant thumbnail overlay - persists until video frames are actively rendering */}
-                  {(instantThumbnailSrc || photo?.preview) && (
-                    <img
-                      src={instantThumbnailSrc || photo?.preview || undefined}
-                      alt=""
-                      draggable={false}
-                      className={[
-                        "absolute inset-0 size-full object-cover pointer-events-none select-none transition-opacity duration-300",
-                        isVideoReady ? "opacity-0" : "opacity-100",
-                      ].join(" ")}
+                <div className="relative size-full" style={videoWrapperStyle.parentStyle}>
+                  <div className="relative size-full" style={videoWrapperStyle.innerStyle}>
+                    <video
+                      src={videoSrc}
+                      autoPlay
+                      loop
+                      muted
+                      playsInline
+                      preload="auto"
+                      onPlaying={() => setIsVideoReady(true)}
+                      onWaiting={() => setIsVideoReady(false)}
+                      className="size-full object-cover pointer-events-none"
                     />
-                  )}
+                    {/* Instant thumbnail overlay - persists until video frames are actively rendering */}
+                    {(instantThumbnailSrc || photo?.preview) && (
+                      <img
+                        src={instantThumbnailSrc || photo?.preview || undefined}
+                        alt=""
+                        draggable={false}
+                        className={[
+                          "absolute inset-0 size-full object-cover pointer-events-none select-none transition-opacity duration-300",
+                          isVideoReady ? "opacity-0" : "opacity-100",
+                        ].join(" ")}
+                      />
+                    )}
+                  </div>
                   {/* Video State Badge */}
                   <div className="absolute top-3 right-3 flex items-center gap-1.5 rounded-full bg-black/60 backdrop-blur-md px-2.5 py-0.5 text-[10px] font-bold border border-white/10 shadow-lg">
                     {isVideoReady ? (

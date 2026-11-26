@@ -271,6 +271,7 @@ export default function CommentsManagementPage() {
       storageId: null,
       allowDownload: 1,
       visibility: 1,
+      rotation: 0,
       key: previewUrl,
       preview: previewUrl,
       thumbnail: thumbUrl,

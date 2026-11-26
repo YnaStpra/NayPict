@@ -33,6 +33,7 @@ import {
   Pencil,
   Plus,
   RefreshCw,
+  RotateCw,
   Search,
   Shield,
   ShieldAlert,
@@ -81,12 +82,13 @@ import { useApp } from '@/app/provider'
 import { UserTypeEnum } from '@/server/enums/user-enum'
 import { PhotoStatusEnum, PhotoVisibilityEnum } from '@/server/enums/photo-enum'
 import { type PhotoVo } from '@/server/entity/vo/photo'
-import { photoBatchEdit, photoList, photoRecycle, photoInventoryStats } from '@/request/photo'
+import { photoBatchEdit, photoList, photoRecycle, photoInventoryStats, photoRotate } from '@/request/photo'
 import { albumAddPhoto, albumRemovePhoto } from '@/request/album'
 import { type AlbumAddPhotoResultVo } from '@/server/entity/vo/album'
 import { useAlbumStore } from '@/store/album-store'
 import { emitCatalogSync } from '@/lib/catalog-sync'
 import { getThumbHashUrl, getPhotoThumbHashUrl } from '@/lib/thumb-hash'
+import { getEffectiveMediaDimensions, getRotatedMediaWrapperProps } from '@/lib/media-orientation'
 import { toProxyMediaUrl } from '@/lib/url'
 import { formatPhotoTakenDate, formatRelativeTime, parseTime } from '@/lib/date'
 import { decimalToDms } from '@/lib/geo'
@@ -145,6 +147,10 @@ function AdminPhotoThumbnail({
   imgClassName?: string
 }) {
   const isVideo = Boolean(photo.type?.startsWith('video/') || /\.(mp4|webm|mov|m4v|mkv)$/i.test(photo.name))
+  const videoRotationWrapper = useMemo(
+    () => (isVideo ? getRotatedMediaWrapperProps(photo.rotation) : { deg: 0 as const }),
+    [isVideo, photo.rotation]
+  )
   const [imgSrc, setImgSrc] = useState<string | null>(photo.thumbnail || photo.preview || '')
   const [hasError, setHasError] = useState(false)
   const isDummyThumbHash = useMemo(
@@ -187,44 +193,47 @@ function AdminPhotoThumbnail({
         backgroundImage: thumbHashUrl ? `url("${thumbHashUrl}")` : undefined,
         backgroundSize: 'cover',
         backgroundPosition: 'center',
+        ...videoRotationWrapper.parentStyle,
       }}
     >
-      {thumbHashUrl && (
-        <img
-          src={thumbHashUrl}
-          alt=""
-          className="absolute inset-0 size-full object-cover blur-xs scale-110 pointer-events-none"
-          aria-hidden
-        />
-      )}
-      {!hasError && imgSrc ? (
-        <img
-          src={imgSrc}
-          alt=""
-          loading="lazy"
-          decoding="async"
-          className={`absolute inset-0 size-full object-cover ${imgClassName}`}
-          onError={handleImgError}
-        />
-      ) : isVideo && videoPosterSrc ? (
-        <video
-          src={videoPosterSrc}
-          preload="metadata"
-          muted
-          playsInline
-          onLoadedMetadata={(e) => {
-            const v = e.currentTarget
-            if (v.currentTime === 0 && (v.duration > 0.5 || isNaN(v.duration))) {
-              try { v.currentTime = 0.5 } catch {}
-            }
-          }}
-          className={`absolute inset-0 size-full object-cover pointer-events-none bg-neutral-950 ${imgClassName}`}
-        />
-      ) : (
-        <div className="size-full flex items-center justify-center text-muted-foreground">
-          {isVideo ? <Film className="size-5 opacity-40 text-rose-400" /> : <ImageIcon className="size-5 opacity-40" />}
-        </div>
-      )}
+      <div className="relative size-full" style={videoRotationWrapper.innerStyle}>
+        {thumbHashUrl && (
+          <img
+            src={thumbHashUrl}
+            alt=""
+            className="absolute inset-0 size-full object-cover blur-xs scale-110 pointer-events-none"
+            aria-hidden
+          />
+        )}
+        {!hasError && imgSrc ? (
+          <img
+            src={imgSrc}
+            alt=""
+            loading="lazy"
+            decoding="async"
+            className={`absolute inset-0 size-full object-cover ${imgClassName}`}
+            onError={handleImgError}
+          />
+        ) : isVideo && videoPosterSrc ? (
+          <video
+            src={videoPosterSrc}
+            preload="metadata"
+            muted
+            playsInline
+            onLoadedMetadata={(e) => {
+              const v = e.currentTarget
+              if (v.currentTime === 0 && (v.duration > 0.5 || isNaN(v.duration))) {
+                try { v.currentTime = 0.5 } catch {}
+              }
+            }}
+            className={`absolute inset-0 size-full object-cover pointer-events-none bg-neutral-950 ${imgClassName}`}
+          />
+        ) : (
+          <div className="size-full flex items-center justify-center text-muted-foreground">
+            {isVideo ? <Film className="size-5 opacity-40 text-rose-400" /> : <ImageIcon className="size-5 opacity-40" />}
+          </div>
+        )}
+      </div>
 
       {isVideo && (
         <div className="absolute bottom-1 right-1 px-1 py-0.5 rounded bg-black/75 backdrop-blur-xs text-[9px] font-mono text-white flex items-center gap-0.5 pointer-events-none z-10 shadow-xs">
@@ -419,9 +428,27 @@ export default function AdminPhotosPage() {
     }
   }
 
+  const [rotatingPhotoId, setRotatingPhotoId] = useState<string | null>(null)
+
   const handleEditSingle = (photo: PhotoVo) => {
     setBatchEditIds([photo.photoId])
     setBatchEditDialogOpen(true)
+  }
+
+  const handleRotateSingle = async (photo: PhotoVo, angle = 90) => {
+    if (rotatingPhotoId) return
+    setRotatingPhotoId(photo.photoId)
+    try {
+      const updated = await photoRotate({ photoId: photo.photoId, angle, mode: 'delta' })
+      setPhotos((prev) => prev.map((p) => (p.photoId === updated.photoId ? updated : p)))
+      emitCatalogSync('photo')
+      toast.success(`Rotated "${photo.name}" 90° and saved as default.`)
+    } catch (err) {
+      console.error('Failed to rotate media:', err)
+      toast.error('Failed to rotate media.')
+    } finally {
+      setRotatingPhotoId(null)
+    }
   }
 
   const handleEditSelected = () => {
@@ -1033,9 +1060,15 @@ export default function AdminPhotosPage() {
                                     {photo.typeDesc || 'IMG'}
                                   </span>
                                   <span>{formatFileSize(photo.size)}</span>
-                                  {photo.width && photo.height && (
-                                    <span>• {photo.width}×{photo.height}</span>
-                                  )}
+                                  {photo.width && photo.height && (() => {
+                                    const eff = getEffectiveMediaDimensions(photo)
+                                    return (
+                                      <span className="tabular-nums">
+                                        • {eff.width}×{eff.height}
+                                        {photo.type?.startsWith('video/') && photo.rotation ? ` (${photo.rotation}°)` : ''}
+                                      </span>
+                                    )
+                                  })()}
                                 </div>
                               </div>
                             </div>
@@ -1136,6 +1169,21 @@ export default function AdminPhotosPage() {
                           {/* Row Action Buttons */}
                           <td className="py-2.5 px-3 text-right">
                             <div className="flex items-center justify-end gap-1">
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                disabled={Boolean(rotatingPhotoId)}
+                                onClick={() => handleRotateSingle(photo, 90)}
+                                className="size-7 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted"
+                                title="Rotate 90° & Save Default"
+                              >
+                                {rotatingPhotoId === photo.photoId ? (
+                                  <Loader2 className="size-3.5 animate-spin stroke-[1.5]" />
+                                ) : (
+                                  <RotateCw className="size-3.5 stroke-[1.5]" />
+                                )}
+                              </Button>
                               <Button
                                 type="button"
                                 variant="ghost"
@@ -1275,6 +1323,21 @@ export default function AdminPhotosPage() {
 
                       {/* Action quick buttons */}
                       <div className="pt-1.5 flex items-center justify-end gap-1 border-t border-border/50">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          disabled={Boolean(rotatingPhotoId)}
+                          onClick={() => handleRotateSingle(photo, 90)}
+                          className="size-6 rounded-md text-muted-foreground hover:text-foreground"
+                          title="Rotate 90° & Save Default"
+                        >
+                          {rotatingPhotoId === photo.photoId ? (
+                            <Loader2 className="size-3 animate-spin stroke-[1.5]" />
+                          ) : (
+                            <RotateCw className="size-3 stroke-[1.5]" />
+                          )}
+                        </Button>
                         <Button
                           type="button"
                           variant="ghost"
